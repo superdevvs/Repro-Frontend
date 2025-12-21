@@ -1,8 +1,9 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { AutoExpandingTabsList, type AutoExpandingTab } from '@/components/ui/auto-expanding-tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
@@ -20,11 +21,14 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { ShootCard } from '@/components/dashboard/ShootCard';
 
 const statusColors = {
-  'scheduled': 'bg-blue-500',
-  'completed': 'bg-green-500',
-  'pending': 'bg-yellow-500',
-  'hold': 'bg-purple-500',
-  'booked': 'bg-orange-500',
+  scheduled: 'bg-blue-500',
+  uploaded: 'bg-emerald-500',
+  editing: 'bg-violet-500',
+  review: 'bg-amber-500',
+  delivered: 'bg-slate-500',
+  pending: 'bg-yellow-500',
+  hold: 'bg-purple-500',
+  booked: 'bg-orange-500',
 };
 
 const PhotographerShootHistory = () => {
@@ -52,13 +56,16 @@ const PhotographerShootHistory = () => {
   ) : [];
 
   // Get photographer shoots by status
-  const scheduledShoots = photographerShoots.filter(shoot => shoot.status === 'scheduled' || shoot.status === 'booked');
-  const completedShoots = photographerShoots.filter(shoot => shoot.status === 'completed');
-  const upcomingShoots = photographerShoots.filter(shoot => 
-    shoot.status === 'scheduled' && 
-    new Date(shoot.scheduledDate) > new Date()
-  ).sort((a, b) => 
-    new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime()
+  const scheduledShoots = photographerShoots.filter(shoot =>
+    ['scheduled', 'booked'].includes(shoot.status)
+  );
+  // Completed tab: photographer completed + editing/review
+  const completedShoots = photographerShoots.filter(shoot =>
+    ['uploaded', 'editing', 'review'].includes(shoot.status)
+  );
+  // Delivered tab: final delivered/ready-for-client equivalents
+  const deliveredShoots = photographerShoots.filter(shoot =>
+    ['delivered'].includes(shoot.status)
   );
 
   // Apply filters to scheduled shoots
@@ -66,6 +73,28 @@ const PhotographerShootHistory = () => {
     return !filterAddress || 
       shoot.location.fullAddress.toLowerCase().includes(filterAddress.toLowerCase());
   });
+
+  // Auto-expanding tabs configuration with badges
+  const tabsConfig: AutoExpandingTab[] = useMemo(() => [
+    {
+      value: 'scheduled',
+      icon: Calendar,
+      label: 'Scheduled',
+      badge: scheduledShoots.length > 0 ? scheduledShoots.length : undefined,
+    },
+    {
+      value: 'completed',
+      icon: Eye,
+      label: 'Completed',
+      badge: completedShoots.length > 0 ? completedShoots.length : undefined,
+    },
+    {
+      value: 'delivered',
+      icon: Eye,
+      label: 'Delivered',
+      badge: deliveredShoots.length > 0 ? deliveredShoots.length : undefined,
+    },
+  ], [scheduledShoots.length, completedShoots.length, deliveredShoots.length]);
 
   // Format date for display
   const formatShootDate = (dateString: string) => {
@@ -235,35 +264,16 @@ const PhotographerShootHistory = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="mb-6">
-            <TabsTrigger value="upcoming" className="flex gap-2 items-center">
-              <Calendar className="h-4 w-4" />
-              <span>Upcoming ({upcomingShoots.length})</span>
-            </TabsTrigger>
-            <TabsTrigger value="scheduled" className="flex gap-2 items-center">
-              <Calendar className="h-4 w-4" />
-              <span>Scheduled ({scheduledShoots.length})</span>
-            </TabsTrigger>
-            <TabsTrigger value="completed" className="flex gap-2 items-center">
-              <Eye className="h-4 w-4" />
-              <span>Completed ({completedShoots.length})</span>
-            </TabsTrigger>
-          </TabsList>
+          <AutoExpandingTabsList 
+            tabs={tabsConfig} 
+            value={activeTab}
+            className="mb-6"
+          />
 
           {isLoading ? (
             renderLoadingState()
           ) : (
             <>
-              <TabsContent value="upcoming" className="mt-0">
-                {upcomingShoots.length > 0 ? (
-                  <div className="grid gap-4">
-                    {upcomingShoots.map(renderShootCard)}
-                  </div>
-                ) : (
-                  renderEmptyState("You don't have any upcoming shoots scheduled.")
-                )}
-              </TabsContent>
-              
               <TabsContent value="scheduled" className="mt-0">
                 {scheduledShoots.length > 0 ? (
                   <>

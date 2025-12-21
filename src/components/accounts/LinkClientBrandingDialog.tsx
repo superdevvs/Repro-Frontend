@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { User } from "@/components/auth/AuthProvider";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,13 +21,8 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BrandingImageUpload } from "@/components/profile/BrandingImageUpload";
-
-const mockClients = [
-  { id: "1", name: "Acme Real Estate" },
-  { id: "2", name: "Pacific Properties" },
-  { id: "3", name: "Sunset Realty" },
-  { id: "4", name: "Metropolitan Homes" },
-];
+import { useToast } from "@/hooks/use-toast";
+import { API_BASE_URL } from "@/config/env";
 
 interface LinkClientBrandingDialogProps {
   open: boolean;
@@ -54,6 +49,9 @@ export function LinkClientBrandingDialog({
   user,
   onSubmit = () => {},
 }: LinkClientBrandingDialogProps) {
+  const { toast } = useToast();
+  const [clients, setClients] = useState<Array<{ id: string; name: string; email?: string }>>([]);
+  const [loading, setLoading] = useState(false);
   const [linkedClients, setLinkedClients] = useState<string[]>([]);
   const [selectedClient, setSelectedClient] = useState<string>("");
   const [brandingSettings, setBrandingSettings] = useState({
@@ -63,6 +61,77 @@ export function LinkClientBrandingDialog({
     fontFamily: "Inter",
     customDomain: "",
   });
+
+  // Fetch clients from API
+  useEffect(() => {
+    if (open) {
+      fetchClients();
+      if (user) {
+        fetchUserBranding();
+      }
+    }
+  }, [open, user]);
+
+  const fetchClients = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/api/admin/clients`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const clientsList = data.data || data.clients || data || [];
+        setClients(clientsList.map((u: any) => ({
+          id: String(u.id),
+          name: u.name,
+          email: u.email,
+        })));
+      }
+    } catch (error) {
+      console.error('Error fetching clients:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load clients',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchUserBranding = async () => {
+    if (!user) return;
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/api/users/${user.id}/branding`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.data) {
+          setLinkedClients(data.data.linked_clients || []);
+          setBrandingSettings({
+            logo: data.data.branding?.logo || "",
+            primaryColor: data.data.branding?.primary_color || "#1a56db",
+            secondaryColor: data.data.branding?.secondary_color || "#7e3af2",
+            fontFamily: data.data.branding?.font_family || "Inter",
+            customDomain: data.data.branding?.custom_domain || "",
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching user branding:', error);
+    }
+  };
   
   const handleAddClient = () => {
     if (selectedClient && !linkedClients.includes(selectedClient)) {
@@ -82,14 +151,48 @@ export function LinkClientBrandingDialog({
     }));
   };
 
-  const handleSubmit = () => {
-    if (user) {
+  const handleSubmit = async () => {
+    if (!user) return;
+    
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/api/users/${user.id}/branding`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          linked_clients: linkedClients,
+          branding: {
+            logo: brandingSettings.logo,
+            primary_color: brandingSettings.primaryColor,
+            secondary_color: brandingSettings.secondaryColor,
+            font_family: brandingSettings.fontFamily,
+            custom_domain: brandingSettings.customDomain,
+          },
+        }),
+      });
+
+      if (!response.ok) throw new Error('Failed to save branding');
+
+      toast({
+        title: 'Success',
+        description: 'Branding settings saved successfully',
+      });
+
       onSubmit(user.id, {
         linkedClients,
         brandingSettings
       });
+      onOpenChange(false);
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to save branding settings',
+        variant: 'destructive',
+      });
     }
-    onOpenChange(false);
   };
 
   if (!user) return null;
@@ -117,11 +220,17 @@ export function LinkClientBrandingDialog({
                   <SelectValue placeholder="Select client" />
                 </SelectTrigger>
                 <SelectContent>
-                  {mockClients.map(client => (
-                    <SelectItem key={client.id} value={client.id}>
-                      {client.name}
-                    </SelectItem>
-                  ))}
+                  {loading ? (
+                    <SelectItem value="loading" disabled>Loading clients...</SelectItem>
+                  ) : clients.length === 0 ? (
+                    <SelectItem value="no-clients" disabled>No clients available</SelectItem>
+                  ) : (
+                    clients.map(client => (
+                      <SelectItem key={client.id} value={client.id}>
+                        {client.name} {client.email ? `(${client.email})` : ''}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
               <Button onClick={handleAddClient} disabled={!selectedClient}>Add</Button>
@@ -134,10 +243,10 @@ export function LinkClientBrandingDialog({
               ) : (
                 <ul className="space-y-2">
                   {linkedClients.map(clientId => {
-                    const client = mockClients.find(c => c.id === clientId);
+                    const client = clients.find(c => c.id === clientId);
                     return (
                       <li key={clientId} className="flex justify-between items-center border-b pb-2">
-                        <span>{client?.name}</span>
+                        <span>{client?.name || `Client ${clientId}`}</span>
                         <Button
                           variant="ghost"
                           size="sm"

@@ -27,7 +27,8 @@ export function BookingStepIndicator({ currentStep, totalSteps }: BookingStepInd
   ];
   
   return (
-    <div className={`flex items-center gap-2 md:gap-4 mb-6 ${isMobile ? "justify-center" : ""}`}>
+    <div className="w-full overflow-x-auto">
+      <div className="flex items-center gap-4 min-w-max py-2">
       {Array.from({ length: totalSteps }).map((_, index) => {
         const stepIndex = index + 1;
         const isCompleted = currentStep > stepIndex;
@@ -49,12 +50,12 @@ export function BookingStepIndicator({ currentStep, totalSteps }: BookingStepInd
           : 'bg-gray-200 dark:bg-slate-700';
 
         return (
-          <React.Fragment key={index}>
+          <div key={`step-${stepIndex}`} className="flex items-center gap-3">
             <motion.div 
               initial={{ scale: 0.95 }}
               animate={{ scale: isActive || isCompleted ? 1 : 0.98 }}
               transition={{ duration: 0.18 }}
-              className={`relative h-10 w-10 md:h-12 md:w-12 rounded-full flex items-center justify-center text-xs md:text-sm transition-colors duration-300 ${circleClasses}`}
+              className={`relative h-9 w-9 md:h-10 md:w-10 rounded-full flex items-center justify-center text-[11px] md:text-xs transition-colors duration-300 ${circleClasses}`}
               aria-current={isActive ? 'step' : undefined}
               aria-label={`${stepLabels[index]} ${isCompleted ? 'completed' : isActive ? 'active' : 'upcoming'}`}
             >
@@ -66,23 +67,19 @@ export function BookingStepIndicator({ currentStep, totalSteps }: BookingStepInd
                 </div>
               )}
 
-              {/* Label (desktop only) */}
-              <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-xs font-medium whitespace-nowrap hidden md:block">
-                <span className={isCompleted ? 'text-slate-700 dark:text-slate-200' : isActive ? 'text-slate-900 dark:text-slate-100' : 'text-slate-500 dark:text-slate-400'}>
-                  {stepLabels[index]}
-                </span>
-              </div>
             </motion.div>
 
+            <span className={`text-xs font-medium whitespace-nowrap ${isCompleted ? 'text-slate-700 dark:text-slate-200' : isActive ? 'text-slate-900 dark:text-slate-100' : 'text-slate-500 dark:text-slate-400'}`}>
+              {stepLabels[index]}
+            </span>
+
             {index < totalSteps - 1 && (
-              <div className={`flex-1 ${isMobile ? 'w-4 md:w-8' : ''}`}>
-                {/* Using your Separator component but applying theme-aware classes */}
-                <Separator className={`h-0.5 my-0 ${separatorClasses}`} />
-              </div>
+              <Separator className={`w-12 h-0.5 ${separatorClasses}`} />
             )}
-          </React.Fragment>
+          </div>
         );
       })}
+      </div>
     </div>
   );
 }

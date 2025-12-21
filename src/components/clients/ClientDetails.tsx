@@ -42,8 +42,11 @@ export const ClientDetails: React.FC<ClientDetailsProps> = ({
 
   const openAccountForm = () => {
     // convert Client -> AccountFormValues shape (map whatever fields you need)
+    const [firstName = '', ...rest] = (client.name || '').trim().split(' ');
+    const lastName = rest.join(' ').trim();
     setAccountFormInitial({
-      name: client.name || '',
+      firstName,
+      lastName,
       email: client.email || '',
       role: 'client', // default; you can derive if you store role on Client
       phone: client.phone || '',
@@ -62,9 +65,10 @@ export const ClientDetails: React.FC<ClientDetailsProps> = ({
 
   const handleAccountFormSubmit = (values: AccountFormValues) => {
     // Map AccountFormValues back to Client shape (keep/merge fields you want)
+    const combinedName = `${values.firstName || ''} ${values.lastName || ''}`.trim();
     const updatedClient: Client = {
       ...client,
-      name: values.name,
+      name: combinedName || client.name,
       email: values.email,
       phone: values.phone || client.phone,
       address: values.address || client.address,

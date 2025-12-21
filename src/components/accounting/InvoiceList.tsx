@@ -31,6 +31,8 @@ interface InvoiceListProps {
   onPay: (invoice: InvoiceData) => void;
   onSendReminder: (invoice: InvoiceData) => void;
   isAdmin?: boolean; // Prop to determine if user is admin
+  isSuperAdmin?: boolean; // Prop to determine if user is super admin (for payment visibility)
+  role?: string; // User role
 }
 
 export function InvoiceList({ 
@@ -40,7 +42,9 @@ export function InvoiceList({
   onDownload, 
   onPay, 
   onSendReminder,
-  isAdmin = false // Default to false for safety
+  isAdmin = false, // Default to false for safety
+  isSuperAdmin = false, // Default to false for safety
+  role = '' // Default to empty string
 }: InvoiceListProps) {
   const { toast } = useToast();
   const [viewInvoiceDialogOpen, setViewInvoiceDialogOpen] = useState(false);
@@ -180,8 +184,8 @@ export function InvoiceList({
                           >
                             Download
                           </Button>
-                          {/* Only show mark as paid button for admins */}
-                          {isAdmin && (invoice.status === "pending" || invoice.status === "overdue") && (
+                          {/* Only show mark as paid button for Super Admin */}
+                          {isSuperAdmin && (invoice.status === "pending" || invoice.status === "overdue") && (
                             <Button
                               variant="accent"
                               size="sm"
@@ -236,6 +240,7 @@ export function InvoiceList({
                         getStatusColor={getStatusColor}
                         onPay={onPay}
                         isAdmin={isAdmin}
+                        isSuperAdmin={isSuperAdmin}
                       />
                     ))}
                     {filteredInvoices.length === 0 && (
@@ -273,6 +278,7 @@ interface InvoiceItemProps {
   getStatusColor: (status: string) => string;
   onPay: (invoice: InvoiceData) => void;
   isAdmin?: boolean; // Admin role prop
+  isSuperAdmin?: boolean; // Super Admin role prop for payment visibility
 }
 
 function InvoiceItem({ 
@@ -286,8 +292,9 @@ function InvoiceItem({
   getStatusColor, 
   onPay,
   isAdmin = false, // Default to false for safety
+  isSuperAdmin = false, // Default to false for safety
 }: InvoiceItemProps) {
-  const showMarkAsPaid = isAdmin && (invoice.status === 'pending' || invoice.status === 'overdue');
+  const showMarkAsPaid = isSuperAdmin && (invoice.status === 'pending' || invoice.status === 'overdue');
   
   return (
     <div className="flex flex-col bg-card rounded-lg shadow-sm">

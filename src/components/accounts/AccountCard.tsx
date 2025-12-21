@@ -1,6 +1,7 @@
 
 import { useState } from "react";
 import { User, Role } from "@/components/auth/AuthProvider";
+import { useAuth } from "@/components/auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
 import { 
@@ -14,16 +15,17 @@ import {
   MoreVertical,
   Pencil,
   UserCog,
-  Power,
   KeyRound,
-  LogIn,
   Bell,
   Link,
-  Check,
-  X
+  Camera,
+  ExternalLink,
+  Trash2,
+  LogIn
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { formatDistance } from "date-fns";
+import { Client } from "@/types/clients";
+import type { RepDetails } from "@/types/auth";
 
 interface AccountCardProps {
   user: User;
@@ -35,6 +37,11 @@ interface AccountCardProps {
   onLinkClientBranding: (user: User) => void;
   onViewProfile: (user: User) => void;
   isActive?: boolean;
+  clientMenuActions?: {
+    onBookShoot: (e: React.MouseEvent) => void;
+    onClientPortal: (e: React.MouseEvent) => void;
+    onDelete: (e: React.MouseEvent) => void;
+  };
 }
 
 export function AccountCard({
@@ -46,8 +53,18 @@ export function AccountCard({
   onManageNotifications,
   onLinkClientBranding,
   onViewProfile,
+  clientMenuActions,
 }: AccountCardProps) {
   const [hovering, setHovering] = useState(false);
+  const { role: viewerRole } = useAuth();
+  const isSuperAdmin = viewerRole === 'superadmin';
+  const isAdmin = viewerRole === 'admin';
+  const canViewSensitiveRepData = isSuperAdmin;
+  const canManageAccounts = isAdmin || isSuperAdmin;
+  const canEditClients = canManageAccounts || viewerRole === 'salesRep';
+  const canEditThisUser = canManageAccounts || (viewerRole === 'salesRep' && user.role === 'client');
+  const canChangeRole = isSuperAdmin; // Only Super Admin can change access rules for other account types
+  const repDetails = (user.metadata?.repDetails as RepDetails | undefined) || undefined;
 
   const getRoleBadgeColor = (role: Role) => {
     switch (role) {
@@ -55,6 +72,7 @@ export function AccountCard({
       case 'photographer': return "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200 border-blue-200 dark:border-blue-800";
       case 'client': return "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-200 border-green-200 dark:border-green-800";
       case 'editor': return "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200 border-amber-200 dark:border-amber-800";
+      case 'salesRep': return "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200 border-indigo-200 dark:border-indigo-800";
       default: return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200 border-gray-200 dark:border-gray-800";
     }
   };
@@ -97,43 +115,76 @@ export function AccountCard({
               <MoreVertical className="h-4 w-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuItem onClick={(e) => { 
-                e.stopPropagation();
-                onEdit(user);
-              }}>
-                <Pencil className="mr-2 h-4 w-4" /> Edit User
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={(e) => { 
-                e.stopPropagation();
-                onChangeRole(user);
-              }}>
-                <UserCog className="mr-2 h-4 w-4" /> Change Role
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={(e) => { 
-                e.stopPropagation();
-                onResetPassword(user);
-              }}>
-                <KeyRound className="mr-2 h-4 w-4" /> Reset Password
-              </DropdownMenuItem>
-              {/* <DropdownMenuItem onClick={(e) => { 
-                e.stopPropagation();
-                onImpersonate(user);
-              }}>
-                <LogIn className="mr-2 h-4 w-4" /> Impersonate User
-              </DropdownMenuItem> */}
-              <DropdownMenuItem onClick={(e) => { 
-                e.stopPropagation();
-                onManageNotifications(user);
-              }}>
-                <Bell className="mr-2 h-4 w-4" /> Notification Settings
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={(e) => { 
-                e.stopPropagation();
-                onLinkClientBranding(user);
-              }}>
-                <Link className="mr-2 h-4 w-4" /> Link Client/Branding
-              </DropdownMenuItem>
+              {canEditThisUser && (
+                <DropdownMenuItem onClick={(e) => { 
+                  e.stopPropagation();
+                  onEdit(user);
+                }}>
+                  <Pencil className="mr-2 h-4 w-4" /> Edit User
+                </DropdownMenuItem>
+              )}
+              {/* Only Super Admin can change roles (access rules) */}
+              {canChangeRole && user.role !== 'client' && (
+                <DropdownMenuItem onClick={(e) => { 
+                  e.stopPropagation();
+                  onChangeRole(user);
+                }}>
+                  <UserCog className="mr-2 h-4 w-4" /> Change Role
+                </DropdownMenuItem>
+              )}
+              {canManageAccounts && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={(e) => {
+                    e.stopPropagation();
+                    onImpersonate(user);
+                  }}>
+                    <LogIn className="mr-2 h-4 w-4" /> Login as User
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={(e) => { 
+                    e.stopPropagation();
+                    onResetPassword(user);
+                  }}>
+                    <KeyRound className="mr-2 h-4 w-4" /> Reset Password
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={(e) => { 
+                    e.stopPropagation();
+                    onManageNotifications(user);
+                  }}>
+                    <Bell className="mr-2 h-4 w-4" /> Notification Settings
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={(e) => { 
+                    e.stopPropagation();
+                    onLinkClientBranding(user);
+                  }}>
+                    <Link className="mr-2 h-4 w-4" /> Link Client/Branding
+                  </DropdownMenuItem>
+                </>
+              )}
+              {user.role === 'client' && clientMenuActions && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={(e) => {
+                      e.stopPropagation();
+                      clientMenuActions.onBookShoot(e);
+                    }}>
+                      <Camera className="mr-2 h-4 w-4" /> Book Shoot
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={(e) => {
+                      e.stopPropagation();
+                      clientMenuActions.onClientPortal(e);
+                    }}>
+                      <ExternalLink className="mr-2 h-4 w-4" /> Client Portal
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="text-red-600 focus:text-red-600" onClick={(e) => {
+                      e.stopPropagation();
+                      clientMenuActions.onDelete(e);
+                    }}>
+                      <Trash2 className="mr-2 h-4 w-4" /> Delete Client
+                    </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -149,6 +200,36 @@ export function AccountCard({
             <div className="flex items-center gap-2 text-sm">
               <span className="font-medium">Phone:</span>
               <span className="text-muted-foreground">{user.phone}</span>
+            </div>
+          )}
+          {user.role === 'salesRep' && repDetails && (
+            <div className="space-y-1 rounded-md border border-dashed border-border/60 p-3 text-sm">
+              <p className="font-medium">Rep Overview</p>
+              {repDetails.payoutEmail && (
+                <div className="text-muted-foreground">
+                  <span className="font-medium text-foreground">Payout:</span> {repDetails.payoutEmail}
+                </div>
+              )}
+              {repDetails.salesCategories?.length ? (
+                <div className="text-muted-foreground">
+                  <span className="font-medium text-foreground">Categories:</span>{" "}
+                  {repDetails.salesCategories.join(", ")}
+                </div>
+              ) : null}
+              {canViewSensitiveRepData && repDetails.commissionPercentage !== undefined && (
+                <div className="text-muted-foreground">
+                  <span className="font-medium text-foreground">Commission:</span>{" "}
+                  {repDetails.commissionPercentage}%
+                </div>
+              )}
+              {canViewSensitiveRepData && repDetails.homeAddress && (
+                <div className="text-muted-foreground">
+                  <span className="font-medium text-foreground">Home:</span>{" "}
+                  {[repDetails.homeAddress.line1, repDetails.homeAddress.line2, repDetails.homeAddress.city, repDetails.homeAddress.state, repDetails.homeAddress.postalCode]
+                    .filter(Boolean)
+                    .join(", ")}
+                </div>
+              )}
             </div>
           )}
           {/* {user.lastLogin && (

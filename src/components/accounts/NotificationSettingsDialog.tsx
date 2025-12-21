@@ -104,7 +104,7 @@ export function NotificationSettingsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] max-h-[80vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[800px] max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Notification Settings</DialogTitle>
           <DialogDescription>
@@ -112,7 +112,7 @@ export function NotificationSettingsDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
+        <div className="space-y-6 py-2">
           <div className="flex items-center justify-between">
             <h3 className="font-medium text-lg">Email Notifications</h3>
             <Button 
@@ -136,11 +136,11 @@ export function NotificationSettingsDialog({
           
           <Separator />
           
-          <div className="space-y-3">
+          <div className="grid gap-4 md:grid-cols-2">
             {availableNotifications.map((notification) => (
-              <div 
+              <div
                 key={notification.id}
-                className="flex justify-between items-center py-2"
+                className="flex items-start justify-between gap-4 rounded-lg border border-border/60 bg-background/40 p-4"
               >
                 <div className="space-y-1">
                   <Label htmlFor={`notification-${notification.id}`} className="font-medium">
@@ -150,7 +150,7 @@ export function NotificationSettingsDialog({
                     {notification.description}
                   </p>
                 </div>
-                <Switch 
+                <Switch
                   id={`notification-${notification.id}`}
                   checked={settings[notification.id]}
                   onCheckedChange={(checked) => handleToggle(notification.id, checked)}

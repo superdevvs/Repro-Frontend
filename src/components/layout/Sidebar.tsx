@@ -16,13 +16,25 @@ interface SidebarProps {
 
 export function Sidebar({ className }: SidebarProps) {
   const isMobile = useIsMobile();
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true); // Start collapsed by default
+  const [isHovered, setIsHovered] = useState(false);
   const { user, role, logout } = useAuth();
   
   // For mobile devices, use the MobileMenu component
   if (isMobile) {
     return <MobileMenu />;
   }
+  
+  // Auto-expand on hover, collapse when not hovering
+  const handleMouseEnter = () => {
+    setIsHovered(true);
+    setIsCollapsed(false);
+  };
+  
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+    setIsCollapsed(true);
+  };
   
   // Desktop sidebar
   return (
@@ -32,6 +44,8 @@ export function Sidebar({ className }: SidebarProps) {
         width: isCollapsed ? 80 : 240,
       }}
       transition={{ duration: 0.2, ease: 'easeInOut' }}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       className={cn(
         'group border-r bg-background p-3 py-4 relative hidden md:block',
         isCollapsed && 'items-center',

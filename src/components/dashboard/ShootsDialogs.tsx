@@ -69,6 +69,8 @@ export function ShootsDialogs({
             shootId={selectedShoot?.id}
             onUploadComplete={onUploadComplete}
             initialNotes={initialNotes}
+            expectedPhotoCount={selectedShoot?.expectedFinalCount || selectedShoot?.package?.expectedDeliveredCount || 0}
+            bracketMode={selectedShoot?.bracketMode || selectedShoot?.package?.bracketMode || null}
           />
         </DialogContent>
       </Dialog>

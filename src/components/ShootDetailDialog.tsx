@@ -8,6 +8,8 @@ import { useToast } from "@/components/ui/use-toast";
 import type { ShootData } from '@/types/shoots';
 import { format } from 'date-fns';
 import { User, Camera, Building, DollarSign, List, Info, Clock, Calendar as CalendarIcon, Loader2 } from 'lucide-react';
+import { API_BASE_URL } from '@/config/env';
+import { SquarePaymentDialog } from '@/components/payments/SquarePaymentDialog';
 
 interface ShootDetailDialogProps {
   shoot: ShootData | null;
@@ -26,43 +28,23 @@ const DetailRow = ({ icon: Icon, label, value }: { icon: React.ElementType, labe
 );
 
 export const ShootDetailDialog = ({ shoot, isOpen, onOpenChange }: ShootDetailDialogProps) => {
-  const [isPaying, setIsPaying] = useState(false);
+  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const { toast } = useToast();
 
   if (!shoot) return null;
 
-  const handlePayment = async () => {
-    setIsPaying(true);
-    try {
-      const token = localStorage.getItem('authToken');
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/shoots/${shoot.id}/create-payment-link`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-        },
-      });
-
-      if (!response.ok) throw new Error('Failed to create payment link.');
-
-      const data = await response.json();
-      if (data.checkoutUrl) {
-        window.location.href = data.checkoutUrl;
-      }
-    } catch (error) {
-      toast({
-        title: "Payment Error",
-        description: "Could not initiate payment. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsPaying(false);
-    }
-  };
-
   const formattedDate = shoot.scheduledDate ? format(new Date(shoot.scheduledDate), 'EEEE, MMMM dd, yy') : 'Not Scheduled';
   const amountDue = shoot.payment.totalQuote - shoot.payment.totalPaid;
   const isPaid = amountDue <= 0.01; // Use a small epsilon for float comparison
+
+  const handlePaymentSuccess = (payment: any) => {
+    toast({
+      title: "Payment Successful",
+      description: `Payment of $${amountDue.toFixed(2)} has been processed successfully.`,
+    });
+    // Refresh the shoot data or close dialog
+    onOpenChange(false);
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -101,17 +83,21 @@ export const ShootDetailDialog = ({ shoot, isOpen, onOpenChange }: ShootDetailDi
             {isPaid ? (
                 <Button disabled variant="outline">Fully Paid</Button>
             ) : (
-                <Button onClick={handlePayment} disabled={isPaying} size="lg">
-                {isPaying ? (
-                    <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Redirecting...
-                    </>
-                ) : `Pay Now`}
+                <Button onClick={() => setIsPaymentDialogOpen(true)} size="lg">
+                  Pay ${amountDue.toFixed(2)}
                 </Button>
             )}
         </DialogFooter>
       </DialogContent>
+
+      <SquarePaymentDialog
+        isOpen={isPaymentDialogOpen}
+        onClose={() => setIsPaymentDialogOpen(false)}
+        amount={amountDue}
+        shootId={shoot.id}
+        shootAddress={shoot.location.fullAddress}
+        onPaymentSuccess={handlePaymentSuccess}
+      />
     </Dialog>
   );
 };

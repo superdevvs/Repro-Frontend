@@ -37,7 +37,7 @@ function SegmentedDays({
               "text-sm px-3 py-1 rounded-md transition focus:outline-none focus:ring-2 focus:ring-offset-1",
               active
                 ? "bg-blue-500 text-white shadow-md ring-blue-400"
-                : "bg-white/5 text-white/90 hover:bg-white/10 dark:bg-slate-800/40 dark:hover:bg-slate-700/60"
+                : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800/40 dark:text-slate-300 dark:hover:bg-slate-700/60"
             )}
             style={{ minWidth: 44 }}
           >
@@ -117,7 +117,7 @@ export function OverviewCards({ invoices, timeFilter }: OverviewCardsProps) {
       <div className="flex items-center justify-end gap-4">
         {/* <div className="text-sm text-muted-foreground">Outstanding window:</div> */}
         <SegmentedDays value={daysWindow} onChange={setDaysWindow} />
-        <div className="ml-3 text-sm text-slate-400">Showing last {daysWindow} days</div>
+        <div className="ml-3 text-sm text-slate-600 dark:text-slate-400">Showing last {daysWindow} days</div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -214,10 +214,10 @@ function OverviewCard({
       <CardContent className="p-6">
         <div className="flex justify-between items-start">
           <div>
-            <p className="text-sm font-medium text-muted-foreground mb-1">{title}</p>
+            <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">{title}</p>
             <h3 className="text-2xl font-semibold tracking-tight">{value}</h3>
             <div className="flex items-center gap-2 mt-2">
-              <p className="text-xs text-muted-foreground">{description}</p>
+              <p className="text-xs text-slate-600 dark:text-slate-400">{description}</p>
               {trend && (
                 <div
                   className={cn(

@@ -13,11 +13,13 @@ import API_ROUTES from '@/lib/api';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { TimeSelect } from '@/components/ui/time-select';
+import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 
 const PhotographerAvailability = () => {
   const { user, role } = useAuth();
   const isMobile = useIsMobile();
   const navigate = useNavigate();
+  const { formatTime, preferences } = useUserPreferences();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [loading, setLoading] = useState(true);
   const [slots, setSlots] = useState<Array<{ id: number; photographer_id: number; date?: string | null; day_of_week?: string | null; start_time: string; end_time: string; status?: 'available'|'unavailable' }>>([]);
@@ -228,7 +230,7 @@ const PhotographerAvailability = () => {
                         ${isAvailable ? 'bg-green-50 border-green-200 hover:bg-green-100' : 'bg-white border-gray-200 hover:bg-gray-50'}
                       `}
                     >
-                      <span className="text-xs sm:text-sm font-medium">{t}</span>
+                      <span className="text-xs sm:text-sm font-medium">{formatTime(t)}</span>
                       {isAvailable ? (
                         <span className="text-[10px] sm:text-xs text-green-600 flex items-center mt-1">
                           <CheckCircle className="h-2 w-2 sm:h-3 sm:w-3 mr-1" />

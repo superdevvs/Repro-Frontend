@@ -4,6 +4,7 @@ import { Image as ImageIcon, File as FileIcon, Check, ArrowRight } from "lucide-
 import { ShootData } from '@/types/shoots';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
+import { API_BASE_URL } from '@/config/env';
 
 interface ShootMediaTabProps {
   shoot: ShootData;
@@ -29,7 +30,7 @@ export function ShootMediaTab({ shoot, isPhotographer: _isPhotographer }: ShootM
   ));
 
   const token = (typeof window !== 'undefined') ? (localStorage.getItem('authToken') || localStorage.getItem('token')) : null;
-  const baseUrl = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+  const baseUrl = API_BASE_URL;
 
   const isImageFile = (f:any) => {
     if (f?.isImage) return true;
@@ -56,10 +57,9 @@ export function ShootMediaTab({ shoot, isPhotographer: _isPhotographer }: ShootM
 
   const postAction = async (fileId: string, action: 'verify' | 'move') => {
     try {
-      const base = import.meta.env.VITE_API_URL;
       const url = action === 'verify'
-        ? `${base}/api/shoots/${shoot.id}/files/${fileId}/verify`
-        : `${base}/api/shoots/${shoot.id}/files/${fileId}/move-to-completed`;
+        ? `${API_BASE_URL}/api/shoots/${shoot.id}/files/${fileId}/verify`
+        : `${API_BASE_URL}/api/shoots/${shoot.id}/files/${fileId}/move-to-completed`;
       const res = await fetch(url, {
         method: 'POST',
         headers: {

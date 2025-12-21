@@ -16,71 +16,65 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '@/hooks/useTheme';
-
-interface WeatherData {
-  tempF: number;
-  condition: string;
-}
+import { getWeatherByCoordinates, WeatherInfo } from '@/services/weatherService';
+import { subscribeToWeatherProvider } from '@/state/weatherProviderStore';
+import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 
 export function Navbar() {
   const { user, logout, role } = useAuth();
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
-  const [weather, setWeather] = useState<WeatherData | null>(null);
+  const [weather, setWeather] = useState<WeatherInfo | null>(null);
+  const [providerVersion, setProviderVersion] = useState(0);
+  const { formatTemperature } = useUserPreferences();
 
   // Allow client users to create new shoots
   const canBookShoot = ['admin', 'superadmin', 'client'].includes(role);
 
-  // Fetch current weather using device location via Open-Meteo (no API key)
+  useEffect(() => {
+    const unsubscribe = subscribeToWeatherProvider(() => {
+      setProviderVersion((version) => version + 1);
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
-
-    const codeToText = (code: number) => {
-      const map: Record<number, string> = {
-        0: 'Clear', 1: 'Mainly Clear', 2: 'Partly Cloudy', 3: 'Overcast',
-        45: 'Fog', 48: 'Rime Fog', 51: 'Drizzle', 53: 'Drizzle', 55: 'Drizzle',
-        56: 'Freezing Drizzle', 57: 'Freezing Drizzle', 61: 'Rain', 63: 'Rain', 65: 'Heavy Rain',
-        66: 'Freezing Rain', 67: 'Freezing Rain', 71: 'Snow', 73: 'Snow', 75: 'Heavy Snow',
-        77: 'Snow Grains', 80: 'Rain Showers', 81: 'Rain Showers', 82: 'Violent Showers',
-        85: 'Snow Showers', 86: 'Snow Showers', 95: 'Thunderstorm', 96: 'Thunderstorm', 99: 'Hailstorm'
-      };
-      return map[code] || 'Weather';
-    };
+    const controller = new AbortController();
+    setWeather(null);
 
     const loadWeather = async (lat: number, lon: number) => {
       try {
-        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&temperature_unit=fahrenheit`;
-        const res = await fetch(url);
-        if (!res.ok) return;
-        const data = await res.json();
-        if (cancelled) return;
-        const cw = data.current_weather;
-        if (cw && typeof cw.temperature === 'number') {
-          setWeather({ tempF: cw.temperature, condition: codeToText(cw.weathercode) });
+        const info = await getWeatherByCoordinates(lat, lon, null, controller.signal);
+        if (!cancelled) {
+          setWeather(info);
         }
       } catch {
-        // Keep weather hidden on errors
+        // silently ignore
       }
     };
 
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          const { latitude, longitude } = pos.coords;
-          loadWeather(latitude, longitude);
+          loadWeather(pos.coords.latitude, pos.coords.longitude);
         },
         () => {
-          // Fallback: NYC
-          loadWeather(40.7128, -74.0060);
+          loadWeather(40.7128, -74.006);
         },
-        { enableHighAccuracy: false, timeout: 5000, maximumAge: 600000 }
+        { enableHighAccuracy: false, timeout: 5000, maximumAge: 600000 },
       );
     } else {
-      loadWeather(40.7128, -74.0060);
+      loadWeather(40.7128, -74.006);
     }
 
-    return () => { cancelled = true; };
-  }, []);
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [providerVersion]);
 
   const toggleTheme = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark');
@@ -93,7 +87,7 @@ export function Navbar() {
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.3, delay: 0.1 }}
     >
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 pl-4">
         {canBookShoot && (
           <Button 
             variant="default" 
@@ -120,8 +114,16 @@ export function Navbar() {
         {/* Weather Info */}
         {weather && (
           <div className="hidden md:flex items-center gap-1 text-sm text-muted-foreground">
+            <span>
+              {weather.location ? `${weather.location} · ` : ''}
+            </span>
             <CloudIcon className="h-4 w-4" />
-            <span>{weather.tempF}°F · {weather.condition}</span>
+            <span>
+              {typeof weather.temperatureF === 'number'
+                ? formatTemperature(weather.temperatureF)
+                : weather.temperature || '--°'}
+              {weather.description ? ` · ${weather.description}` : ''}
+            </span>
           </div>
         )}
         

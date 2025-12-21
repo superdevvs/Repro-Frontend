@@ -17,11 +17,16 @@ import {
   CloudSun,
   CloudRain,
   CloudSnow,
-  Thermometer
+  Thermometer,
+  AlertTriangle,
+  CheckCircle,
+  Folder
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ShootData } from '@/types/shoots';
 import { useWeatherData } from '@/hooks/useWeatherData';
+import { formatWorkflowStatus } from '@/utils/status';
+import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 
 interface WeatherInfo {
   temp: number;
@@ -56,6 +61,7 @@ type ShootCardProps = (LegacyShootCardProps | NewShootCardProps) & {
 };
 
 export function ShootCard(props: ShootCardProps) {
+  const { formatTemperature } = useUserPreferences();
   // Check if using the new props structure
   const isNewProps = 'shoot' in props;
   
@@ -65,11 +71,18 @@ export function ShootCard(props: ShootCardProps) {
   const onClick = props.onClick;
   
   const statusColorMap = {
-    'completed': 'bg-green-500',
     'scheduled': 'bg-blue-500',
+    'booked': 'bg-indigo-500',
+    'uploaded': 'bg-emerald-500',
+    'editing': 'bg-violet-500',
+    'review': 'bg-amber-500',
+    'delivered': 'bg-slate-500',
+    'on_hold': 'bg-purple-500',
+    'cancelled': 'bg-rose-500',
+    // Legacy aliases
+    'completed': 'bg-emerald-500',
     'pending': 'bg-amber-500',
-    'hold': 'bg-purple-500',
-    'booked': 'bg-indigo-500'
+    'hold': 'bg-purple-500'
   };
   
   const formatDate = (dateString: string) => {
@@ -140,21 +153,26 @@ export function ShootCard(props: ShootCardProps) {
   if (isNewProps) {
     const { shoot } = props;
     const mediaImages = getMediaImages(shoot.media);
+    const hasDropboxFiles = shoot.dropboxPaths?.rawFolder || shoot.dropboxPaths?.editedFolder;
+    const heroImage = shoot.heroImage || (mediaImages.length > 0 ? mediaImages[0] : null);
     
     return (
       <div 
         className="cursor-pointer hover:bg-muted/50 transition-colors"
         onClick={onClick}
       >
-        {showMedia && mediaImages.length > 0 && (
+        {showMedia && heroImage && (
           <div className="relative h-40 w-full overflow-hidden">
             <img 
-              src={mediaImages[0]}
+              src={heroImage}
               alt={shoot.location.address}
               className="h-full w-full object-cover"
             />
-            <div className="absolute bottom-2 right-2 bg-background/80 px-2 py-1 rounded text-xs font-medium">
-              {mediaImages.length} photos
+            <div className="absolute bottom-2 right-2 bg-background/80 px-2 py-1 rounded text-xs font-medium flex items-center gap-1">
+              {mediaImages.length > 0 ? mediaImages.length : shoot.editedPhotoCount || 0} photos
+              {hasDropboxFiles && (
+                <Folder className="h-3 w-3 text-blue-600" />
+              )}
             </div>
           </div>
         )}
@@ -163,15 +181,15 @@ export function ShootCard(props: ShootCardProps) {
           <div className="flex justify-between items-start">
             <Badge 
               variant="secondary" 
-              className={`${statusColorMap[shoot.status]} text-white mb-2`}
+              className={`${statusColorMap[shoot.status as keyof typeof statusColorMap] || 'bg-slate-500'} text-white mb-2`}
             >
-              {shoot.status.charAt(0).toUpperCase() + shoot.status.slice(1)}
+              {formatWorkflowStatus(shoot.status)}
             </Badge>
             
             {weather && (
               <div className="flex items-center gap-1.5 bg-muted/60 p-1.5 px-2 rounded-full">
                 {weather.icon}
-                <span className="font-medium text-sm">{weather.temp}°C</span>
+                <span className="font-medium text-sm">{formatTemperature(weather.temp)}</span>
               </div>
             )}
           </div>
@@ -179,7 +197,7 @@ export function ShootCard(props: ShootCardProps) {
           <CardTitle className="text-base line-clamp-1">
             <div className="flex items-start">
               <MapPinIcon className="h-4 w-4 mr-1 mt-0.5 flex-shrink-0 text-muted-foreground" />
-              <span>{shoot.location.fullAddress}</span>
+              <span>{shoot.location.address}</span>
             </div>
           </CardTitle>
         </CardHeader>
@@ -212,12 +230,69 @@ export function ShootCard(props: ShootCardProps) {
             </div>
           )}
           
-          {showMedia && mediaImages.length === 0 && (
-  <div className="mt-3 flex items-center text-sm text-muted-foreground">
-    <ImageIcon className="h-4 w-4 mr-2" />
-    <span>No media uploaded yet</span>
-  </div>
-)}
+          {/* Dropbox Photo Counts */}
+          {(shoot.rawPhotoCount !== undefined || shoot.editedPhotoCount !== undefined) && (
+            <div className="mt-3 pt-3 border-t space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-1.5">
+                  {shoot.dropboxPaths?.rawFolder && (
+                    <Folder className="h-3 w-3 text-muted-foreground" />
+                  )}
+                  <span className="text-muted-foreground">RAW:</span>
+                  <span className="font-medium">
+                    {shoot.rawPhotoCount || 0}
+                    {shoot.expectedRawCount ? ` / ${shoot.expectedRawCount}` : ''}
+                  </span>
+                </div>
+                {shoot.missingRaw && shoot.rawMissingCount! > 0 && (
+                  <Badge variant="destructive" className="h-5 text-xs">
+                    <AlertTriangle className="h-3 w-3 mr-1" />
+                    {shoot.rawMissingCount} missing
+                  </Badge>
+                )}
+                {!shoot.missingRaw && shoot.expectedRawCount && shoot.rawPhotoCount === shoot.expectedRawCount && (
+                  <Badge variant="default" className="h-5 text-xs bg-green-600">
+                    <CheckCircle className="h-3 w-3 mr-1" />
+                    Complete
+                  </Badge>
+                )}
+              </div>
+              
+              {shoot.editedPhotoCount !== undefined && (
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-1.5">
+                    {shoot.dropboxPaths?.editedFolder && (
+                      <Folder className="h-3 w-3 text-muted-foreground" />
+                    )}
+                    <span className="text-muted-foreground">Edited:</span>
+                    <span className="font-medium">
+                      {shoot.editedPhotoCount || 0}
+                      {shoot.expectedFinalCount ? ` / ${shoot.expectedFinalCount}` : ''}
+                    </span>
+                  </div>
+                  {shoot.missingFinal && shoot.editedMissingCount! > 0 && (
+                    <Badge variant="destructive" className="h-5 text-xs">
+                      <AlertTriangle className="h-3 w-3 mr-1" />
+                      {shoot.editedMissingCount} missing
+                    </Badge>
+                  )}
+                  {!shoot.missingFinal && shoot.expectedFinalCount && shoot.editedPhotoCount === shoot.expectedFinalCount && (
+                    <Badge variant="default" className="h-5 text-xs bg-green-600">
+                      <CheckCircle className="h-3 w-3 mr-1" />
+                      Complete
+                    </Badge>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+          
+          {showMedia && mediaImages.length === 0 && !shoot.rawPhotoCount && !shoot.editedPhotoCount && (
+            <div className="mt-3 flex items-center text-sm text-muted-foreground">
+              <ImageIcon className="h-4 w-4 mr-2" />
+              <span>No media uploaded yet</span>
+            </div>
+          )}
 
         </CardContent>
         
@@ -254,13 +329,13 @@ export function ShootCard(props: ShootCardProps) {
             variant="secondary" 
             className={`${statusColorMap[status]} text-white mb-2`}
           >
-            {status.charAt(0).toUpperCase() + status.slice(1)}
+            {formatWorkflowStatus(status)}
           </Badge>
           
           {weather && (
             <div className="flex items-center gap-1.5 bg-muted/60 p-1.5 px-2 rounded-full">
               {weather.icon}
-              <span className="font-medium text-sm">{weather.temp}°C</span>
+              <span className="font-medium text-sm">{formatTemperature(weather.temp)}</span>
             </div>
           )}
         </div>

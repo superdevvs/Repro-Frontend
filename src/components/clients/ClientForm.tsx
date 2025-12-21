@@ -144,8 +144,12 @@ export const ClientForm: React.FC<ClientFormProps> = ({
 
   // Map ClientFormData -> AccountFormValues
   function mapClientToAccount(client: ClientFormData, isEditingFlag: boolean): AccountFormValues {
+    const trimmedName = client.name?.trim() || "";
+    const [firstName = "", ...rest] = trimmedName.split(" ");
+    const lastName = rest.join(" ").trim();
     return {
-      name: client.name || '',
+      firstName,
+      lastName,
       email: client.email || '',
       role: 'client',
       phone: client.phone || '',
@@ -163,9 +167,10 @@ export const ClientForm: React.FC<ClientFormProps> = ({
 
   // Map AccountFormValues -> ClientFormData (merge into current formData)
   function applyAccountValuesToClient(account: AccountFormValues) {
+    const combinedName = `${account.firstName || ""} ${account.lastName || ""}`.trim();
     setFormData(prev => ({
       ...prev,
-      name: account.name,
+      name: combinedName || prev.name,
       email: account.email,
       phone: account.phone || prev.phone,
       address: account.address || prev.address,
@@ -203,26 +208,26 @@ export const ClientForm: React.FC<ClientFormProps> = ({
 
 
   const mappedInitialUser = accountInitial
-  ? {
-      id: accountInitial.email ? `temp-${accountInitial.email}` : 'temp-id',
-      name: accountInitial.name || '',
-      email: accountInitial.email || '',
-      role: accountInitial.role || 'client',
-      phone: accountInitial.phone || '',
-      address: accountInitial.address || '',
-      city: accountInitial.city || '',
-      state: accountInitial.state || '',
-      zipcode: accountInitial.zipcode || '',
-      company: accountInitial.company || '',
-      avatar: accountInitial.avatar || '',
-      companyNotes: accountInitial.companyNotes || '',
-      // if your User type has other fields, add safe defaults here
-    }
-  : undefined;
+    ? {
+        id: accountInitial.email ? `temp-${accountInitial.email}` : 'temp-id',
+        name: `${accountInitial.firstName || ''} ${accountInitial.lastName || ''}`.trim(),
+        email: accountInitial.email || '',
+        role: accountInitial.role || 'client',
+        phone: accountInitial.phone || '',
+        address: accountInitial.address || '',
+        city: accountInitial.city || '',
+        state: accountInitial.state || '',
+        zipcode: accountInitial.zipcode || '',
+        company: accountInitial.company || '',
+        avatar: accountInitial.avatar || '',
+        companyNotes: accountInitial.companyNotes || '',
+        // if your User type has other fields, add safe defaults here
+      }
+    : undefined;
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{isEditing ? 'Edit Client' : 'Add Client'}</DialogTitle>
             <DialogDescription>
@@ -230,7 +235,7 @@ export const ClientForm: React.FC<ClientFormProps> = ({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
+          <div className="space-y-6 py-4">
             <div className="flex justify-center mb-4">
               <div className="relative">
                 <Avatar
@@ -318,7 +323,7 @@ export const ClientForm: React.FC<ClientFormProps> = ({
             )}
 
             <div className="space-y-4 mt-4">
-              <div className="grid grid-cols-1 gap-4">
+              <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <label htmlFor="name" className="text-sm font-medium">Full Name</label>
                   <Input id="name" name="name" value={formData.name} onChange={handleFormChange} placeholder="Enter client name" />
@@ -344,7 +349,7 @@ export const ClientForm: React.FC<ClientFormProps> = ({
                   <Input id="address" name="address" value={formData.address} onChange={handleFormChange} placeholder="Enter address" />
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-2 md:col-span-2">
                   <label className="text-sm font-medium">Status</label>
                   <div className="flex gap-2">
                     <Button type="button" variant={formData.status === 'active' ? 'default' : 'outline'} onClick={() => handleStatusChange('active')}>Active</Button>

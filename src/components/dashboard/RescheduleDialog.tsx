@@ -9,9 +9,10 @@ import { Label } from "@/components/ui/label";
 import { ShootData } from '@/types/shoots';
 import { format } from 'date-fns';
 import { useAuth } from '@/components/auth/AuthProvider';
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useShoots } from '@/context/ShootsContext';
+import axios from 'axios';
+import { API_BASE_URL } from '@/config/env';
 
 interface RescheduleDialogProps {
   shoot: ShootData;
@@ -31,7 +32,7 @@ export function RescheduleDialog({ shoot, isOpen, onClose }: RescheduleDialogPro
   
   const { user, role } = useAuth();
   const { toast } = useToast();
-  const { updateShoot } = useShoots();
+  const { fetchShoots } = useShoots();
   
   const handleReschedule = async () => {
     if (!date) {
@@ -48,28 +49,35 @@ export function RescheduleDialog({ shoot, isOpen, onClose }: RescheduleDialogPro
     try {
       const originalDate = new Date(shoot.scheduledDate);
       
-      // Store the reschedule request in the database
-      const { error } = await supabase.from('shoot_reschedule_requests').insert({
-        shoot_id: shoot.id,
-        requested_by: user?.id || role + '-' + Date.now(),
-        original_date: originalDate.toISOString(),
-        requested_date: date.toISOString(),
-        reason: reason,
-      });
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        throw new Error('Authentication token missing');
+      }
+
+      await axios.post(
+        `${API_BASE_URL}/api/shoots/${shoot.id}/reschedule`,
+        {
+          requested_date: format(date, 'yyyy-MM-dd'),
+          requested_time: time,
+          reason: reason || undefined,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/json',
+          },
+        },
+      );
       
-      if (error) throw error;
-      
-      // Update the shoot in the local state
-      updateShoot(shoot.id, {
-        scheduledDate: format(date, 'yyyy-MM-dd'),
-        time: time,
-        status: 'pending' as const,
-      });
+      await fetchShoots();
       
       // Show success message
       toast({
-        title: "Rescheduling requested",
-        description: "The shoot has been rescheduled successfully.",
+        title: 'Rescheduling requested',
+        description:
+          role === 'admin'
+            ? 'The shoot has been rescheduled successfully.'
+            : 'Your reschedule request has been submitted for review.',
       });
       
       // Close the dialog

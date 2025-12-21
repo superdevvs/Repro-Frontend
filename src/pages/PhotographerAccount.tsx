@@ -7,7 +7,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useShoots } from '@/context/ShootsContext';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { AutoExpandingTabsList, type AutoExpandingTab } from '@/components/ui/auto-expanding-tabs';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { z } from 'zod';
@@ -291,24 +292,16 @@ const PhotographerAccount = () => {
               </CardHeader>
               <CardContent>
                 <Tabs value={activeTab} onValueChange={setActiveTab}>
-                  <TabsList className="mb-6">
-                    <TabsTrigger value="personal" className="flex items-center gap-2">
-                      <User className="h-4 w-4" />
-                      <span>Personal Info</span>
-                    </TabsTrigger>
-                    <TabsTrigger value="specialties" className="flex items-center gap-2">
-                      <Camera className="h-4 w-4" />
-                      <span>Specialties</span>
-                    </TabsTrigger>
-                    <TabsTrigger value="notifications" className="flex items-center gap-2">
-                      <Settings className="h-4 w-4" />
-                      <span>Preferences</span>
-                    </TabsTrigger>
-                    <TabsTrigger value="completed-shoots" className="flex items-center gap-2">
-                      <Upload className="h-4 w-4" />
-                      <span>Media</span>
-                    </TabsTrigger>
-                  </TabsList>
+                  <AutoExpandingTabsList
+                    tabs={[
+                      { value: 'personal', icon: User, label: 'Personal Info' },
+                      { value: 'specialties', icon: Camera, label: 'Specialties' },
+                      { value: 'notifications', icon: Settings, label: 'Preferences' },
+                      { value: 'completed-shoots', icon: Upload, label: 'Media' },
+                    ]}
+                    value={activeTab}
+                    className="mb-6"
+                  />
                   
                   {/* Personal Info Tab */}
                   <TabsContent value="personal">

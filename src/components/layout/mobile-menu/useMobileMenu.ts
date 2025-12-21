@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/components/auth/AuthProvider';
+import { getAccountingMode, accountingConfigs } from '@/config/accountingConfig';
 
 export const useMobileMenu = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -21,6 +22,12 @@ export const useMobileMenu = () => {
     logout();
   };
 
+  // Get accounting label based on role
+  const getAccountingLabel = () => {
+    const accountingMode = getAccountingMode(role);
+    return accountingConfigs[accountingMode].sidebarLabel;
+  };
+
   // Define menu items based on user role
   const menuItems = [
     {
@@ -38,25 +45,18 @@ export const useMobileMenu = () => {
       roles: ['client', 'admin', 'superadmin']
     },
     {
-      to: role === 'client' ? "/shoot-history" : "/shoots",
+      to: "/shoot-history",
       icon: "Calendar",
       label: "Shoots",
-      isActive: pathname === '/shoot-history' || pathname === '/shoots',
+      isActive: pathname === '/shoot-history' || pathname.startsWith('/shoots'),
       roles: ['client', 'admin', 'superadmin', 'photographer', 'editor']
     },
     {
-      to: "/messages",
-      icon: "MessageSquare",
-      label: "Messages",
-      isActive: pathname === '/messages',
-      roles: ['client', 'admin', 'superadmin', 'photographer', 'editor']
-    },
-    {
-      to: "/clients",
-      icon: "User",
-      label: "Clients",
-      isActive: pathname === '/clients',
-      roles: ['admin', 'superadmin', 'photographer', 'editor']
+      to: "/chat-with-reproai",
+      icon: "Robbie",
+      label: "Robbie",
+      isActive: pathname === '/chat-with-reproai',
+      roles: ['client', 'admin', 'superadmin']
     },
     {
       to: "/accounts",
@@ -66,11 +66,50 @@ export const useMobileMenu = () => {
       roles: ['admin', 'superadmin']
     },
     {
+      to: "/coupons",
+      icon: "Ticket",
+      label: "Coupons",
+      isActive: pathname === '/coupons',
+      roles: ['admin', 'superadmin']
+    },
+    {
+      to: "/scheduling-settings",
+      icon: "Calendar",
+      label: "Scheduling",
+      isActive: pathname === '/scheduling-settings',
+      roles: ['admin', 'superadmin']
+    },
+    {
+      to: "/portal",
+      icon: "Search",
+      label: "Listing Portal",
+      isActive: pathname === '/portal',
+      roles: ['admin', 'superadmin']
+    },
+    {
       to: "/accounting",
       icon: "FileText",
-      label: "Accounting",
+      label: getAccountingLabel(),
       isActive: pathname === '/accounting',
-      roles: ['client', 'admin', 'superadmin', 'photographer', 'editor']
+      roles: ['client', 'admin', 'superadmin', 'photographer', 'editor', 'salesRep']
+    },
+    {
+      to: "/messaging/email/inbox",
+      icon: "MessageSquare",
+      label: "Messaging",
+      isActive: pathname.startsWith('/messaging/email'),
+      roles: ['client']
+    },
+    {
+      to: "/messaging/overview",
+      icon: "MessageSquare",
+      label: "Messaging",
+      isActive: pathname.startsWith('/messaging'),
+      roles: ['admin', 'superadmin', 'salesRep', 'sales_rep'],
+      subItems: [
+        { to: '/messaging/email/inbox', label: 'Emails' },
+        { to: '/messaging/sms', label: 'SMS' },
+      ]
     },
     {
       to: "/availability",
@@ -85,6 +124,20 @@ export const useMobileMenu = () => {
       label: "Settings",
       isActive: pathname === '/settings',
       roles: ['client', 'admin', 'superadmin', 'photographer', 'editor']
+    },
+    {
+      to: "/cubicasa-scanning",
+      icon: "Home",
+      label: "CubiCasa Scan",
+      isActive: pathname === '/cubicasa-scanning',
+      roles: ['photographer', 'admin', 'superadmin']
+    },
+    {
+      to: "/ai-editing",
+      icon: "Sparkles",
+      label: "AI Editing",
+      isActive: pathname === '/ai-editing' || pathname.startsWith('/ai-editing'),
+      roles: ['admin', 'superadmin']
     }
   ];
 

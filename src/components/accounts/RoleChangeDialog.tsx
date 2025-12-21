@@ -91,6 +91,7 @@ export function RoleChangeDialog({
                 <SelectItem value="photographer">Photographer</SelectItem>
                 <SelectItem value="client">Client</SelectItem>
                 <SelectItem value="editor">Editor</SelectItem>
+                <SelectItem value="salesRep">Sales Rep</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -144,6 +145,15 @@ export function RoleChangeDialog({
                   />
                   <Label htmlFor="role-editor">Editor</Label>
                 </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="role-salesRep"
+                  checked={secondaryRoles.includes('salesRep')}
+                  onCheckedChange={() => handleSecondaryRoleToggle('salesRep')}
+                  disabled={primaryRole === 'salesRep'}
+                />
+                <Label htmlFor="role-salesRep">Sales Rep</Label>
               </div>
             </div>
           )}

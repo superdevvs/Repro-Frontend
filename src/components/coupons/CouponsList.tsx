@@ -1,13 +1,24 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card } from '@/components/ui/card';
-import { getAuthenticatedClient } from '@/integrations/supabase/client';
-import { Database } from '@/integrations/supabase/types';
 import { CouponCard } from './CouponCard';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { toast } from 'sonner';
+import axios from 'axios';
+import { API_BASE_URL } from '@/config/env';
 
-type Coupon = Database['public']['Tables']['coupons']['Row'];
+type Coupon = {
+  id: number;
+  code: string;
+  type: 'percentage' | 'fixed';
+  amount: number;
+  max_uses?: number | null;
+  current_uses?: number | null;
+  is_active?: boolean | null;
+  valid_until?: string | null;
+  created_at?: string;
+  updated_at?: string;
+};
 
 export function CouponsList() {
   const { session } = useAuth();
@@ -15,23 +26,21 @@ export function CouponsList() {
   const { data: coupons, isLoading, error } = useQuery({
     queryKey: ['coupons'],
     queryFn: async () => {
-      if (!session?.access_token) {
+      const token = session?.accessToken || localStorage.getItem('authToken');
+      if (!token) {
         throw new Error('Authentication required to view coupons');
       }
 
-      const client = getAuthenticatedClient(session);
-      const { data, error } = await client
-        .from('coupons')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const response = await axios.get(`${API_BASE_URL}/api/coupons`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/json',
+        },
+      });
 
-      if (error) {
-        console.error('Error fetching coupons:', error);
-        throw error;
-      }
-      return data as Coupon[];
+      return response.data?.data as Coupon[];
     },
-    enabled: !!session?.access_token,
+    enabled: true,
   });
 
   React.useEffect(() => {

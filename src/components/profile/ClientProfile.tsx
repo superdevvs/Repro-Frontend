@@ -14,10 +14,12 @@ import { useNavigate } from "react-router-dom";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle, AlertCircle } from "lucide-react";
+import { useUserPreferences } from "@/contexts/UserPreferencesContext";
 
 export function ClientProfile() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { preferences, setTemperatureUnit, setTimeFormat } = useUserPreferences();
   
   const [formData, setFormData] = useState({
     name: user?.name || "",
@@ -197,6 +199,37 @@ export function ClientProfile() {
                     id="notificationSMS"
                     checked={formData.notificationSMS}
                     onCheckedChange={(checked) => handleSwitchChange("notificationSMS", checked)}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="space-y-4">
+              <h4 className="text-sm font-medium">Display Preferences</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex items-center justify-between border p-4 rounded-lg">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="temperatureUnit">Temperature Unit</Label>
+                    <p className="text-sm text-muted-foreground">
+                      {preferences.temperatureUnit === 'celsius' ? 'Celsius (°C)' : 'Fahrenheit (°F)'}
+                    </p>
+                  </div>
+                  <Switch
+                    id="temperatureUnit"
+                    checked={preferences.temperatureUnit === 'celsius'}
+                    onCheckedChange={(checked) => setTemperatureUnit(checked ? 'celsius' : 'fahrenheit')}
+                  />
+                </div>
+                <div className="flex items-center justify-between border p-4 rounded-lg">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="timeFormat">24-Hour Time Format</Label>
+                    <p className="text-sm text-muted-foreground">
+                      {preferences.timeFormat === '24h' ? '24-hour format (14:30)' : '12-hour format (2:30 PM)'}
+                    </p>
+                  </div>
+                  <Switch
+                    id="timeFormat"
+                    checked={preferences.timeFormat === '24h'}
+                    onCheckedChange={(checked) => setTimeFormat(checked ? '24h' : '12h')}
                   />
                 </div>
               </div>

@@ -13,10 +13,12 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { MapPin, Calendar, ExternalLink, FileText, Camera } from "lucide-react";
 import { useNavigate } from 'react-router-dom';
+import { useUserPreferences } from "@/contexts/UserPreferencesContext";
 
 export function PhotographerProfile() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { preferences, setTemperatureUnit, setTimeFormat } = useUserPreferences();
   
   const [formData, setFormData] = useState({
     name: user?.name || "",
@@ -234,6 +236,32 @@ export function PhotographerProfile() {
                         {formData.taxInfoSubmitted ? 'Update' : 'Submit'}
                       </Button>
                     </div>
+                  </div>
+                  <div className="flex items-center justify-between border p-4 rounded-lg">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="temperatureUnit">Temperature Unit</Label>
+                      <p className="text-sm text-muted-foreground">
+                        {preferences.temperatureUnit === 'celsius' ? 'Celsius (°C)' : 'Fahrenheit (°F)'}
+                      </p>
+                    </div>
+                    <Switch
+                      id="temperatureUnit"
+                      checked={preferences.temperatureUnit === 'celsius'}
+                      onCheckedChange={(checked) => setTemperatureUnit(checked ? 'celsius' : 'fahrenheit')}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between border p-4 rounded-lg">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="timeFormat">24-Hour Time Format</Label>
+                      <p className="text-sm text-muted-foreground">
+                        {preferences.timeFormat === '24h' ? '24-hour format (14:30)' : '12-hour format (2:30 PM)'}
+                      </p>
+                    </div>
+                    <Switch
+                      id="timeFormat"
+                      checked={preferences.timeFormat === '24h'}
+                      onCheckedChange={(checked) => setTimeFormat(checked ? '24h' : '12h')}
+                    />
                   </div>
                 </div>
               </CardContent>

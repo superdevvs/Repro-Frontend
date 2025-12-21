@@ -1,10 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
+import { API_BASE_URL } from '@/config/env';
 
 export const useServiceCategories = () => {
   return useQuery({
     queryKey: ['serviceCategories'],
     queryFn: async () => {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/categories`, {
+      const response = await fetch(`${API_BASE_URL}/api/categories`, {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',

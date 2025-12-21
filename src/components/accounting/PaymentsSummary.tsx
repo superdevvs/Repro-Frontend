@@ -38,12 +38,12 @@ export function PaymentsSummary({ invoices }: PaymentsSummaryProps) {
 
   const latestTransactions = invoices
     .filter(i => i.status === 'paid')
-    .slice(0, 3);
+    .slice(0, 15);
 
   return (
-    <div className="grid grid-cols-1 gap-6">
+    <div className="flex flex-col gap-6 h-full">
   {/* 🧾 Payments Summary */}
-  <Card className="overflow-hidden border h-full">
+  <Card className="overflow-hidden border flex-shrink-0 min-h-fit">
     <CardHeader className="pb-2">
       <CardTitle className="flex items-center gap-2">
         <CreditCard className="h-5 w-5 text-primary" />
@@ -58,7 +58,7 @@ export function PaymentsSummary({ invoices }: PaymentsSummaryProps) {
           <div className="flex justify-between items-center mb-2">
             <div>
               <p className="text-sm font-medium">Payment Rate</p>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-slate-600 dark:text-slate-400">
                 {paymentPercentage}% of invoices paid
               </p>
             </div>
@@ -78,7 +78,7 @@ export function PaymentsSummary({ invoices }: PaymentsSummaryProps) {
         {/* Paid & Overdue */}
         <div className="grid grid-cols-2 gap-4">
           <div className="p-3 rounded-md bg-amber-500/10 border border-amber-500/20">
-            <h4 className="text-xs font-medium text-muted-foreground mb-1">
+            <h4 className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
               Paid
             </h4>
             <p className="text-xl font-semibold">
@@ -87,7 +87,7 @@ export function PaymentsSummary({ invoices }: PaymentsSummaryProps) {
           </div>
 
           <div className="p-3 rounded-md bg-rose-500/10 border border-rose-500/20">
-            <h4 className="text-xs font-medium text-muted-foreground mb-1">
+            <h4 className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
               Overdue
             </h4>
             <p className="text-xl font-semibold">
@@ -113,7 +113,7 @@ export function PaymentsSummary({ invoices }: PaymentsSummaryProps) {
                 </div>
               ))
             ) : (
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-slate-600 dark:text-slate-400">
                 No payment data available
               </p>
             )}
@@ -124,13 +124,13 @@ export function PaymentsSummary({ invoices }: PaymentsSummaryProps) {
   </Card>
 
   {/* 💳 Latest Transactions */}
-  <Card className="border overflow-hidden">
-    <CardHeader>
+  <Card className="border overflow-hidden flex-1 flex flex-col">
+    <CardHeader className="flex-shrink-0">
       <CardTitle>Latest Transactions</CardTitle>
     </CardHeader>
-    <CardContent>
+    <CardContent className="flex-1 flex flex-col min-h-0">
       {latestTransactions.length > 0 ? (
-        <div className="space-y-2">
+        <div className="flex-1 overflow-y-auto space-y-2 pr-2">
           {latestTransactions.map((invoice) => (
             <div
               key={invoice.id}
@@ -138,7 +138,7 @@ export function PaymentsSummary({ invoices }: PaymentsSummaryProps) {
             >
               <div>
                 <p className="text-sm font-medium">{invoice.client}</p>
-                <p className="text-xs text-muted-foreground">{invoice.date}</p>
+                <p className="text-xs text-slate-600 dark:text-slate-400">{invoice.date}</p>
               </div>
               <p className="text-sm font-medium">
                 ${invoice.amount.toLocaleString()}
@@ -147,7 +147,7 @@ export function PaymentsSummary({ invoices }: PaymentsSummaryProps) {
           ))}
         </div>
       ) : (
-        <p className="text-sm text-muted-foreground">No recent payments</p>
+              <p className="text-sm text-slate-600 dark:text-slate-400">No recent payments</p>
       )}
     </CardContent>
   </Card>

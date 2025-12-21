@@ -5,11 +5,12 @@ import { Card } from '@/components/ui/card';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { Separator } from '@/components/ui/separator';
-import { CheckCircleIcon, AlertTriangle, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { getStateFullName } from '@/utils/stateUtils';
 
 interface ReviewFormProps {
-  client: string;
+  client: string; // Client ID
+  clientName?: string; // Client name to display
   address: string;
   city: string;
   state: string;
@@ -22,7 +23,7 @@ interface ReviewFormProps {
   time: string;
   photographer: string;
   setPhotographer: (id: string) => void;
-  selectedPackage: string;
+  selectedServices: Array<{ id: string; name: string; description?: string; price: number }>;
   additionalNotes: string; // Renamed from notes to additionalNotes
   setAdditionalNotes: (value: string) => void; // Renamed from setNotes
   bypassPayment: boolean;
@@ -31,10 +32,9 @@ interface ReviewFormProps {
   setSendNotification: (value: boolean) => void;
   packagePrice: number; // Changed from getPackagePrice function to packagePrice value
   photographerRate: number;
-  tax: number;
-  total: number;
+  // tax: number;
+  // total: number;
   photographers: Array<{ id: string; name: string; avatar: string; rate: number; availability: boolean }>;
-  packages: Array<{ id: string; name: string; description: string; price: number }>;
   onConfirm: () => void; // Renamed from handleSubmit
   onBack: () => void;
   onSubmit?: () => void;
@@ -43,6 +43,7 @@ interface ReviewFormProps {
 
 export function ReviewForm({
   client,
+  clientName,
   address,
   city,
   state,
@@ -55,7 +56,7 @@ export function ReviewForm({
   time,
   photographer,
   setPhotographer,
-  selectedPackage,
+  selectedServices,
   additionalNotes,
   setAdditionalNotes,
   bypassPayment,
@@ -64,17 +65,22 @@ export function ReviewForm({
   setSendNotification,
   packagePrice,
   photographerRate,
-  tax,
-  total,
   photographers,
-  packages,
   onSubmit,
   onConfirm,
   onBack,
   isLastStep = false
 }: ReviewFormProps) {
-  // Find the selected client, photographer, and package
-  const selectedPackageDetails = packages.find(p => p.id === selectedPackage);
+
+  /* ---------------- TAX LOGIC ---------------- */
+  const TAXABLE_STATES = ['MD', 'DC', 'VA'];
+
+  const subtotal = packagePrice; // Only package price, photographer fee is internal
+  const isTaxableState = TAXABLE_STATES.includes(state);
+  const taxRate = isTaxableState ? 0.06 : 0;
+
+  const tax = Number((subtotal * taxRate).toFixed(2));
+  const total = Number((subtotal + tax).toFixed(2));
 
   return (
     <motion.div
@@ -147,12 +153,12 @@ export function ReviewForm({
         <div className="space-y-2">
           <div className="flex justify-between">
             <span className="text-sm text-slate-500 dark:text-slate-400">Client:</span>
-            <span className="text-sm font-medium text-slate-900 dark:text-slate-100">{client ? `${client}` : "No client selected"}</span>
+            <span className="text-sm font-medium text-slate-900 dark:text-slate-100">{clientName || client || "No client selected"}</span>
           </div>
 
           <div className="flex justify-between">
             <span className="text-sm text-slate-500 dark:text-slate-400">Property:</span>
-            <span className="text-sm font-medium text-slate-900 dark:text-slate-100">{address ? `${address}, ${city}, ${state} ${zip}` : "No address provided"}</span>
+            <span className="text-sm font-medium text-slate-900 dark:text-slate-100">{address ? `${address}, ${city}, ${getStateFullName(state)} ${zip}` : "No address provided"}</span>
           </div>
 
           <div className="flex justify-between">
@@ -162,9 +168,20 @@ export function ReviewForm({
             </span>
           </div>
 
-          <div className="flex justify-between">
-            <span className="text-sm text-slate-500 dark:text-slate-400">Package:</span>
-            <span className="text-sm font-medium text-slate-900 dark:text-slate-100">{selectedPackageDetails?.name || "No package selected"}</span>
+          <div>
+            <span className="text-sm text-slate-500 dark:text-slate-400">Services:</span>
+            {selectedServices.length ? (
+              <ul className="mt-2 space-y-1 text-sm text-slate-900 dark:text-slate-100">
+                {selectedServices.map(service => (
+                  <li key={service.id} className="flex items-center justify-between">
+                    <span>{service.name}</span>
+                    <span className="font-medium">${Number(service.price ?? 0).toFixed(2)}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm font-medium text-slate-900 dark:text-slate-100">No services selected</p>
+            )}
           </div>
 
           <div className="flex justify-between">
@@ -187,24 +204,23 @@ export function ReviewForm({
         <div className="space-y-1">
           <div className="flex justify-between">
             <span className="text-sm text-slate-700 dark:text-slate-200">Package:</span>
-            <span className="text-sm text-slate-900 dark:text-slate-100">${packagePrice}</span>
+            <span className="text-sm text-slate-900 dark:text-slate-100">${packagePrice.toFixed(2)}</span>
           </div>
 
           <div className="flex justify-between">
-            <span className="text-sm text-slate-700 dark:text-slate-200">Photographer Fee:</span>
-            <span className="text-sm text-slate-900 dark:text-slate-100">${photographerRate}</span>
-          </div>
-
-          <div className="flex justify-between">
-            <span className="text-sm text-slate-700 dark:text-slate-200">Tax (6%):</span>
-            <span className="text-sm text-slate-900 dark:text-slate-100">${tax}</span>
+            <span className="text-sm text-slate-700 dark:text-slate-200">
+              Tax {isTaxableState ? "(6%)" : "(0%)"}:
+            </span>
+            <span className="text-sm text-slate-900 dark:text-slate-100">
+              ${tax.toFixed(2)}
+            </span>
           </div>
 
           <Separator className="my-2" />
 
           <div className="flex justify-between font-bold text-slate-900 dark:text-slate-100">
             <span>Total:</span>
-            <span>${total}</span>
+            <span>${total.toFixed(2)}</span>
           </div>
         </div>
       </div>
@@ -240,14 +256,16 @@ export function ReviewForm({
         </div>
       </div>
 
-      <Button
-        type="button"
-        variant="ghost"
-        onClick={onBack}
-        className="w-full text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-      >
-        Back
-      </Button>
+      <div className="pt-2 pb-4">
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={onBack}
+          className="w-full text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+        >
+          Back
+        </Button>
+      </div>
 
       {/* Actions (optional; keep for context) */}
       {/* 

@@ -53,16 +53,16 @@ export function IntegrationCard({
   const isSuperAdmin = role === 'superadmin';
 
   return (
-    <Card className="overflow-hidden transition-all hover:shadow-md">
+    <Card className="overflow-hidden transition-all hover:shadow-md h-full flex flex-col">
       <CardHeader className="flex flex-row items-center justify-between p-4 pb-2">
-        <div className="flex items-center gap-2">
-          <div className="h-8 w-8 flex items-center justify-center rounded-md bg-primary/10 text-primary">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <div className="h-8 w-8 flex items-center justify-center rounded-md bg-primary/10 text-primary flex-shrink-0">
             {icon}
           </div>
-          <div>
-            <CardTitle className="text-base">{title}</CardTitle>
+          <div className="min-w-0 flex-1">
+            <CardTitle className="text-base truncate">{title}</CardTitle>
             {description && (
-              <CardDescription className="text-xs">{description}</CardDescription>
+              <CardDescription className="text-xs line-clamp-2">{description}</CardDescription>
             )}
           </div>
         </div>
@@ -107,8 +107,8 @@ export function IntegrationCard({
         )}
       </CardHeader>
       
-      <CardContent className="p-4 pt-0">
-        <div className="flex items-center justify-between">
+      <CardContent className="p-4 pt-0 mt-auto">
+        <div className="flex items-center justify-between gap-2">
           <StatusBadge status={status} />
           
           {toggleOption && status === 'connected' && isSuperAdmin && (

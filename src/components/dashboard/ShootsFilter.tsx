@@ -1,11 +1,11 @@
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ViewIcon, GridIcon, List, Search, Filter } from 'lucide-react';
+import { Tabs } from '@/components/ui/tabs';
+import { AutoExpandingTabsList, type AutoExpandingTab } from '@/components/ui/auto-expanding-tabs';
+import { GridIcon, List, Search, Layers, Calendar, CheckCircle2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { useMediaQuery } from '@/hooks/use-media-query';
 
 interface ShootsFilterProps {
@@ -26,7 +26,25 @@ export function ShootsFilter({
   setViewMode,
 }: ShootsFilterProps) {
   const navigate = useNavigate();
-  const isMobile = useMediaQuery('(max-width: 640px)');
+  
+  // Auto-expanding tabs configuration
+  const tabsConfig: AutoExpandingTab[] = useMemo(() => [
+    {
+      value: 'all',
+      icon: Layers,
+      label: 'All',
+    },
+    {
+      value: 'scheduled',
+      icon: Calendar,
+      label: 'Scheduled',
+    },
+    {
+      value: 'completed',
+      icon: CheckCircle2,
+      label: 'Completed',
+    },
+  ], []);
   
   return (
     <div className="space-y-4">
@@ -68,35 +86,13 @@ export function ShootsFilter({
         </div>
       </div>
 
-      {isMobile ? (
-        <div className="relative">
-          <div className="absolute top-0 left-0 w-6 h-full bg-gradient-to-r from-background to-transparent pointer-events-none z-10"></div>
-          <ScrollArea className="w-full">
-            <div className="pb-4">
-              <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-max min-w-full">
-                <TabsList className="h-auto bg-muted/30 p-1 flex">
-                  <TabsTrigger className="px-4 flex-shrink-0" value="all">All</TabsTrigger>
-                  <TabsTrigger className="px-4 flex-shrink-0" value="scheduled">Scheduled</TabsTrigger>
-                  <TabsTrigger className="px-4 flex-shrink-0" value="completed">Completed</TabsTrigger>
-                  {/* <TabsTrigger className="px-4 flex-shrink-0" value="pending">Pending</TabsTrigger>
-                  <TabsTrigger className="px-4 flex-shrink-0" value="hold">On Hold</TabsTrigger> */}
-                </TabsList>
-              </Tabs>
-            </div>
-          </ScrollArea>
-          <div className="absolute top-0 right-0 w-6 h-full bg-gradient-to-l from-background to-transparent pointer-events-none z-10"></div>
-        </div>
-      ) : (
-        <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
-          <TabsList className="w-full h-auto flex flex-wrap bg-muted/30">
-            <TabsTrigger className="flex-1" value="all">All</TabsTrigger>
-            <TabsTrigger className="flex-1" value="scheduled">Scheduled</TabsTrigger>
-            <TabsTrigger className="flex-1" value="completed">Completed</TabsTrigger>
-            {/* <TabsTrigger className="flex-1" value="pending">Pending</TabsTrigger>
-            <TabsTrigger className="flex-1" value="hold">On Hold</TabsTrigger> */}
-          </TabsList>
-        </Tabs>
-      )}
+      <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
+        <AutoExpandingTabsList 
+          tabs={tabsConfig} 
+          value={selectedTab}
+          variant="compact"
+        />
+      </Tabs>
     </div>
   );
 }

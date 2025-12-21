@@ -13,8 +13,10 @@ import {
   CalendarIcon, 
   SettingsIcon,
   LogOutIcon,
-  BarChart3Icon
+  BarChart3Icon,
+  TicketIcon
 } from 'lucide-react';
+import { ReproAiIcon } from '@/components/icons/ReproAiIcon';
 
 interface MenuItemProps {
   to: string;
@@ -36,6 +38,8 @@ export const MenuItem = ({ to, icon, label, isActive, onClick }: MenuItemProps) 
         return <HistoryIcon className="h-6 w-6" />;
       case 'MessageSquare':
         return <MessageSquareIcon className="h-6 w-6" />;
+      case 'Robbie':
+        return <ReproAiIcon className="h-6 w-6" />;
       case 'User':
         return <UserIcon className="h-6 w-6" />;
       case 'Building':
@@ -50,6 +54,8 @@ export const MenuItem = ({ to, icon, label, isActive, onClick }: MenuItemProps) 
         return <LogOutIcon className="h-6 w-6" />;
       case 'BarChart3':
         return <BarChart3Icon className="h-6 w-6" />;
+      case 'Ticket':
+        return <TicketIcon className="h-6 w-6" />;
       default:
         return <HomeIcon className="h-6 w-6" />;
     }

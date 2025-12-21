@@ -2,10 +2,11 @@
 import { useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { PageTransition } from "@/components/layout/PageTransition";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line, PieChart, Pie, Cell } from "recharts";
-import { 
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -15,6 +16,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { usePermission } from "@/hooks/usePermission";
+import { Navigate } from "react-router-dom";
+import { toast } from "@/components/ui/use-toast";
 
 // Monthly data
 const revenueData = [
@@ -90,7 +94,19 @@ export default function Reports() {
   const [timeframe, setTimeframe] = useState("monthly");
   const [reportType, setReportType] = useState("summary");
   const { role } = useAuth();
-  const isAdmin = ['admin', 'superadmin'].includes(role);
+  const { can } = usePermission();
+  const canViewReports = can('reports', 'view');
+  const isSuperAdmin = role === 'superadmin';
+  
+  // Only Super Admin can access Reports
+  if (!canViewReports || !isSuperAdmin) {
+    toast({
+      title: "Access Denied",
+      description: "Only Super Admin can access Reports.",
+      variant: "destructive",
+    });
+    return <Navigate to="/dashboard" replace />;
+  }
 
   const getDataForTimeframe = (dataType: "revenue" | "shoots") => {
     switch (timeframe) {
@@ -121,42 +137,41 @@ export default function Reports() {
   return (
     <DashboardLayout>
       <PageTransition>
-        <div className="flex flex-col gap-6">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div>
-              <h1 className="text-3xl font-bold">Reports</h1>
-              <p className="text-muted-foreground mt-1">
-                Analytics and reporting for your photography business
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <Select value={reportType} onValueChange={setReportType}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Report Type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="summary">Summary</SelectItem>
-                  <SelectItem value="photographer">By Photographer</SelectItem>
-                  <SelectItem value="service">By Service</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={timeframe} onValueChange={setTimeframe}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Select timeframe" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="monthly">Monthly</SelectItem>
-                  <SelectItem value="quarterly">Quarterly</SelectItem>
-                  <SelectItem value="yearly">Yearly</SelectItem>
-                </SelectContent>
-              </Select>
-              {isAdmin && (
-                <Button>
-                  Export Report
-                </Button>
-              )}
-            </div>
-          </div>
+        <div className="space-y-6 p-6">
+          <PageHeader
+            badge="Reports"
+            title="Reports"
+            description="Analytics and reporting for your photography business"
+            action={
+              <div className="flex flex-wrap gap-3">
+                <Select value={reportType} onValueChange={setReportType}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Report Type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="summary">Summary</SelectItem>
+                    <SelectItem value="photographer">By Photographer</SelectItem>
+                    <SelectItem value="service">By Service</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={timeframe} onValueChange={setTimeframe}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Select timeframe" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                    <SelectItem value="quarterly">Quarterly</SelectItem>
+                    <SelectItem value="yearly">Yearly</SelectItem>
+                  </SelectContent>
+                </Select>
+                {isAdmin && (
+                  <Button>
+                    Export Report
+                  </Button>
+                )}
+              </div>
+            }
+          />
 
           {reportType === "summary" && (
             <Tabs defaultValue="revenue" className="w-full">
@@ -164,7 +179,7 @@ export default function Reports() {
                 <TabsTrigger value="revenue">Revenue</TabsTrigger>
                 <TabsTrigger value="shoots">Shoots</TabsTrigger>
               </TabsList>
-              
+
               <TabsContent value="revenue">
                 <Card>
                   <CardHeader>
@@ -192,7 +207,7 @@ export default function Reports() {
                   </CardContent>
                 </Card>
               </TabsContent>
-              
+
               <TabsContent value="shoots">
                 <Card>
                   <CardHeader>

@@ -3,20 +3,19 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { InvoiceData } from '@/utils/invoiceUtils';
 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast as sonnerToast } from "sonner";
-import { ExternalLink, Trash, Plus, Edit, Check, DollarSignIcon as DSIcon } from "lucide-react";
+import { DollarSignIcon as DSIcon } from "lucide-react";
 import { ShootData } from "@/types/shoots";
 import { format } from "date-fns";
 import { Switch } from "@/components/ui/switch";
-import { DollarSignIcon } from "lucide-react";
+import { DollarSignIcon, Sparkles } from "lucide-react";
+import { API_BASE_URL } from '@/config/env';
 
 import { PaymentDialog } from "@/components/invoices/PaymentDialog";
-import { BrandedPage } from "@/components/tourLinks/BrandedPage";
-import { MlsCompliant } from "@/components/tourLinks/MlsCompliant";
-import { GenericMLS } from "@/components/tourLinks/GenericMLS";
 
 interface ShootSettingsTabProps {
   shoot: ShootData;
@@ -28,12 +27,6 @@ interface ShootSettingsTabProps {
   currentInvoice?: InvoiceData | null;
 }
 
-type TourLinkKey = "branded" | "mls" | "genericMls";
-type Tour3DKey = "matterport" | "iGuide" | "cubicasa";
-
-const TOUR_KEYS: TourLinkKey[] = ["branded", "mls", "genericMls"];
-const TOUR_3D_KEYS: Tour3DKey[] = ["matterport", "iGuide", "cubicasa"];
-
 export function ShootSettingsTab({
   shoot,
   isAdmin = false,
@@ -44,20 +37,16 @@ export function ShootSettingsTab({
   currentInvoice = null,
 }: ShootSettingsTabProps) {
   // ---------- local state ----------
-  const [tourLinks, setTourLinks] = useState<Record<string, string | undefined>>({});
-  const [isDeletingTour, setIsDeletingTour] = useState<TourLinkKey | Tour3DKey | null>(null);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
-
-  // 3D edit state
-  const [editing3DKey, setEditing3DKey] = useState<Tour3DKey | null>(null);
-  const [editing3DValue, setEditing3DValue] = useState("");
-  const [isSaving3D, setIsSaving3D] = useState(false);
 
   // toggles (use shoot meta if available; safe cast to avoid TS errors)
   const [isFinalized, setIsFinalized] = useState<boolean>(() => !!(shoot as any)?.meta?.finalized);
   const [isDownloadable, setIsDownloadable] = useState<boolean>(() => !!(shoot as any)?.meta?.downloadable);
   const [isMarkedPaid, setIsMarkedPaid] = useState<boolean>(() => !!(shoot as any)?.payment?.totalPaid);
   const [isSortLocked, setIsSortLocked] = useState<boolean>(() => !!(shoot as any)?.meta?.sortLocked);
+  const [autoEditEnabled, setAutoEditEnabled] = useState<boolean>(() => !!(shoot as any)?.auto_edit_enabled);
+  const [autoEditStyle, setAutoEditStyle] = useState<string>(() => (shoot as any)?.auto_edit_preferences?.style || 'signature');
+  const [autoEditType, setAutoEditType] = useState<string>(() => (shoot as any)?.auto_edit_preferences?.editing_type || 'enhance');
 
   const [savingToggleKey, setSavingToggleKey] = useState<string | null>(null); // to show loading state per toggle
 
@@ -68,26 +57,16 @@ export function ShootSettingsTab({
   // Local invoice state (sync with prop if provided)
   const [localInvoice, setLocalInvoice] = useState<InvoiceData | null>(currentInvoice ?? null);
 
-  const [activePage, setActivePage] = useState<TourLinkKey | null>(null);
-
   // initialize from prop
   useEffect(() => {
-    const initial: Record<string, string | undefined> = {};
-    TOUR_KEYS.forEach((k) => {
-      // @ts-ignore
-      initial[k] = (shoot as any).tourLinks?.[k] ?? undefined;
-    });
-    TOUR_3D_KEYS.forEach((k) => {
-      // @ts-ignore
-      initial[k] = (shoot as any).tourLinks?.[k] ?? undefined;
-    });
-    setTourLinks(initial);
-
     // refresh toggles from fresh shoot prop
     setIsFinalized(!!(shoot as any)?.meta?.finalized);
     setIsDownloadable(!!(shoot as any)?.meta?.downloadable);
     setIsMarkedPaid(!!(shoot as any)?.payment?.totalPaid);
     setIsSortLocked(!!(shoot as any)?.meta?.sortLocked);
+    setAutoEditEnabled(!!(shoot as any)?.auto_edit_enabled);
+    setAutoEditStyle((shoot as any)?.auto_edit_preferences?.style || 'signature');
+    setAutoEditType((shoot as any)?.auto_edit_preferences?.editing_type || 'enhance');
   }, [shoot]);
 
   // keep localInvoice in sync with prop changes
@@ -101,10 +80,10 @@ export function ShootSettingsTab({
   const computedTotalQuote = () => (shoot as any)?.payment?.baseQuote ?? 0 + computedTaxAmount();
 
   // ---------- generic toggle persistence ----------
-  const toggleSetting = async (key: string, value: boolean) => {
+  const toggleSetting = async (key: string, value: boolean | string | number) => {
     setSavingToggleKey(key);
     try {
-      const base = import.meta.env.VITE_API_URL;
+      const base = API_BASE_URL;
       const token = (typeof window !== 'undefined') ? (localStorage.getItem('authToken') || localStorage.getItem('token')) : null;
 
       if (key === 'finalized') {
@@ -129,97 +108,25 @@ export function ShootSettingsTab({
           onUpdate?.({ meta: { ...((shoot as any).meta || {}), finalized: false } } as any);
         }
       } else {
-        // Placeholder for other settings (if/when backend route exists)
-        const res = await fetch(`${base}/api/shoots/${shoot.id}/settings/toggle`, {
-          method: 'POST',
+        // Update shoot settings via PATCH endpoint
+        const res = await fetch(`${base}/api/shoots/${shoot.id}`, {
+          method: 'PATCH',
           headers: {
             'Accept': 'application/json',
             'Content-Type': 'application/json',
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
-          body: JSON.stringify({ key, value })
+          body: JSON.stringify({ [key]: value })
         });
         if (!res.ok) throw new Error(`Server ${res.status}`);
         onUpdate?.({ meta: { ...((shoot as any).meta || {}), [key]: value } } as any);
-        sonnerToast.success('Updated');
+        sonnerToast.success('Setting updated');
       }
     } catch (err) {
       console.error('Toggle update failed', err);
       sonnerToast.error('Failed to update');
     } finally {
       setSavingToggleKey(null);
-    }
-  };
-
-  // ---------- tour link deletion (2D + 3D) ----------
-  const confirmDeleteTour = async (key: TourLinkKey | Tour3DKey) => {
-    if (!isAdmin) {
-      sonnerToast.error("You don't have permission to remove links");
-      return;
-    }
-
-    const ok = window.confirm("Delete this tour link? This action cannot be undone.");
-    if (!ok) return;
-
-    setIsDeletingTour(key);
-    try {
-      // Replace with your real API endpoint
-      const res = await fetch(`/api/shoots/${shoot.id}/tour-link/${key}`, {
-        method: "DELETE",
-      });
-      if (!res.ok) throw new Error(`Server ${res.status}`);
-
-      const updatedLinks = { ...tourLinks, [key]: undefined };
-      setTourLinks(updatedLinks);
-      sonnerToast.success("Tour link removed");
-      onUpdate?.({ tourLinks: updatedLinks });
-    } catch (err) {
-      console.error("Failed to delete tour link", err);
-      sonnerToast.error("Failed to remove link");
-    } finally {
-      setIsDeletingTour(null);
-    }
-  };
-
-  // ---------- 3D save ----------
-  const startEdit3D = (key: Tour3DKey) => {
-    setEditing3DKey(key);
-    setEditing3DValue(tourLinks[key] ?? "");
-  };
-
-  const cancelEdit3D = () => {
-    setEditing3DKey(null);
-    setEditing3DValue("");
-  };
-
-  const save3DTour = async () => {
-    if (!editing3DKey) return;
-    const value = editing3DValue.trim();
-    if (value && !/^https?:\/\//i.test(value)) {
-      sonnerToast.error("Please enter a valid URL (must start with http:// or https://)");
-      return;
-    }
-    setIsSaving3D(true);
-    try {
-      // Use same endpoint as other tour links; backend should accept 3D keys
-      const res = await fetch(`/api/shoots/${shoot.id}/tour-link`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: editing3DKey, url: value || null }),
-      });
-      if (!res.ok) throw new Error(`Server returned ${res.status}`);
-
-      const updated = { ...tourLinks, [editing3DKey]: value || undefined };
-      setTourLinks(updated);
-      setEditing3DKey(null);
-      setEditing3DValue("");
-      sonnerToast.success("3D tour saved");
-      onUpdate?.({ tourLinks: updated });
-    } catch (err) {
-      console.error("Save 3D tour failed", err);
-      sonnerToast.error("Failed to save 3D tour");
-    } finally {
-      setIsSaving3D(false);
     }
   };
 
@@ -232,7 +139,7 @@ export function ShootSettingsTab({
   const fetchInvoiceForShoot = async (): Promise<InvoiceData | null> => {
     try {
       // Try a shoot-scoped endpoint first
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/shoots/${shoot.id}/invoice`, {
+      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/invoice`, {
         headers: getAuthHeaders(),
       });
       if (res.ok) {
@@ -243,7 +150,7 @@ export function ShootSettingsTab({
       }
 
       // fallback to search invoices by shootId
-      const res2 = await fetch(`${import.meta.env.VITE_API_URL}/api/invoices?shootId=${shoot.id}`, {
+      const res2 = await fetch(`${API_BASE_URL}/api/invoices?shootId=${shoot.id}`, {
         headers: getAuthHeaders(),
       });
       if (res2.ok) {
@@ -271,7 +178,7 @@ export function ShootSettingsTab({
         description: `Invoice for shoot ${shoot.id}`,
       };
 
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/invoices`, {
+      const res = await fetch(`${API_BASE_URL}/api/invoices`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(getAuthHeaders() as any) },
         body: JSON.stringify(payload),
@@ -306,7 +213,7 @@ export function ShootSettingsTab({
       return;
     }
 
-    sonnerToast("Searching for invoice...", { type: "info" });
+    sonnerToast.info("Searching for invoice...");
     // try fetch
     const fetched = await fetchInvoiceForShoot();
     if (fetched) {
@@ -361,216 +268,320 @@ export function ShootSettingsTab({
 
   // ---------- render ----------
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      {/* Left column: Tour Links (2D) + 3D section */}
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <h3 className="text-sm font-medium text-muted-foreground">Tour Links</h3>
-        </div>
-
-        {/* Buttons OR Active Page */}
-        {/* Buttons OR Active Page */}
-        <div className="flex gap-3">
-          {activePage ? (
-            <div className="w-full">
-              <div className="mb-3">
-                <Button variant="ghost" onClick={() => setActivePage(null)}>← Back</Button>
-              </div>
-
-              {activePage === "branded" && <BrandedPage />}
-              {activePage === "mls" && <MlsCompliant />}
-              {activePage === "genericMls" && <GenericMLS />}
-            </div>
-          ) : (
-            TOUR_KEYS.map((key) => {
-              const label = key === "branded" ? "Branded" : key === "mls" ? "MLS" : "Generic MLS";
-              const url = tourLinks[key] as string | undefined;
-
-              if (url) {
-                // ensure absolute URL — if missing protocol, prefix https://
-                const safeUrl = /^(https?:)?\/\//i.test(url) ? url : `https://${url}`;
-
-                // Use Button asChild so the Button renders the <a> element instead of nesting a <button> inside <a>
-                return (
-                  <div key={key} className="flex-1">
-                    <Button asChild variant="outline" className="w-full justify-center">
-                      <a
-                        key={key}
-                        href={safeUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex-1 block"
-                      >
-                        <div className="w-full px-4 py-2 border rounded-lg text-center flex items-center justify-center">
-                          <ExternalLink className="h-4 w-4 mr-2" />
-                          {label}
-                        </div>
-                      </a>
-
-                    </Button>
-                  </div>
-                );
-              }
-
-              // otherwise show inline component button
-              return (
-                <Button
-                  key={key}
-                  variant="secondary"
-                  className="flex-1 justify-center"
-                  onClick={() => {
-    const path =
-      key === "branded"
-        ? `/tours/branded`
-        : key === "mls"
-        ? `/tours/mls`
-        : `/tours/generic-mls`;
-
-    window.open(path, "_blank", "noopener,noreferrer");
-  }}
-                >
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  {label}
-                </Button>
-              );
-            })
-          )}
-        </div>
-
-
-
-        {/* -------------- 3D Tours Section -------------- */}
-        <div className="mt-6">
+    <div className="space-y-0">
+      {/* Settings */}
+      {isAdmin && (
+        <div className="min-w-0 space-y-4">
           <div className="space-y-2">
-            <h3 className="text-sm font-medium text-muted-foreground">3D Tours</h3>
-            <p className="text-sm text-muted-foreground">Manage Matterport, iGuide and Cubicasa links.</p>
-          </div>
-
-          <div className="space-y-3 mt-3">
-            {TOUR_3D_KEYS.map((key) => {
-              const label = key === "matterport" ? "Matterport" : key === "iGuide" ? "iGuide" : "Cubicasa";
-              const url = tourLinks[key] as string | undefined;
-              const isEditing = editing3DKey === key;
-
-              return (
-                <div key={key} className="border rounded-lg p-3 flex flex-col">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="text-muted-foreground">
-                        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 12h18" /></svg>
-                      </div>
-                      <div>
-                        <div className="font-medium">{label} Link</div>
-                        <div className="text-xs text-muted-foreground">{url ?? "Not set"}</div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      {url && (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button variant="ghost" size="sm" onClick={() => window.open(url, "_blank")}>
-                                <ExternalLink className="h-3.5 w-3.5" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p className="text-xs">Open 3D tour</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      )}
-
-                      {isEditing ? (
-                        <></>
-                      ) : (
-                        <>
-                          {isAdmin && (
-                            <Button variant="ghost" size="sm" onClick={() => startEdit3D(key)}>
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                          )}
-                          {isAdmin && url && (
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => confirmDeleteTour(key)}
-                              disabled={isDeletingTour === key}
-                            >
-                              <Trash className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </>
-                      )}
-                    </div>
+            <h3 className="text-sm font-semibold">Settings</h3>
+            
+            {/* Downloadable Toggle */}
+            <div className="border rounded-lg p-3.5">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium">Downloadable</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    Allow clients to download media files
                   </div>
-
-                  {isEditing && (
-                    <div className="mt-3 grid grid-cols-1 gap-2">
-                      <Input value={editing3DValue} onChange={(e) => setEditing3DValue(e.target.value)} placeholder={`https://`} />
-                      <div className="flex justify-end gap-2">
-                        <Button variant="outline" size="sm" onClick={cancelEdit3D}>Cancel</Button>
-                        <Button variant="default" size="sm" onClick={save3DTour} disabled={isSaving3D}>
-                          {isSaving3D ? "Saving..." : "Save"}
-                        </Button>
-                      </div>
-                    </div>
-                  )}
                 </div>
-              );
-            })}
+                <Switch
+                  checked={isDownloadable}
+                  onCheckedChange={(checked: boolean) => {
+                    setIsDownloadable(checked);
+                    toggleSetting("downloadable", checked);
+                  }}
+                  disabled={savingToggleKey === "downloadable"}
+                  className="flex-shrink-0"
+                />
+              </div>
+            </div>
+
+            {/* Property Details */}
+            <div className="border rounded-lg p-3.5 space-y-3">
+              <div className="text-sm font-medium">Property Details</div>
+              <div className="space-y-2">
+                <Label htmlFor="mls_image_width" className="text-xs">MLS Image Width (px)</Label>
+                <Input
+                  id="mls_image_width"
+                  type="number"
+                  placeholder="1920"
+                  defaultValue={(shoot as any)?.mls_image_width || ''}
+                  className="h-8 text-xs"
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value) {
+                      toggleSetting("mls_image_width", parseInt(value));
+                    }
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Google Calendar */}
+            <div className="border rounded-lg p-3.5 space-y-3">
+              <div className="text-sm font-medium">Google Calendar</div>
+              <div className="space-y-2">
+                <Label htmlFor="google_calendar_id" className="text-xs">Calendar ID</Label>
+                <Input
+                  id="google_calendar_id"
+                  type="text"
+                  placeholder="Enter Google Calendar ID"
+                  defaultValue={(shoot as any)?.google_calendar_id || ''}
+                  className="h-8 text-xs"
+                  onChange={(e) => {
+                    toggleSetting("google_calendar_id", e.target.value);
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Timezone */}
+            <div className="border rounded-lg p-3.5 space-y-3">
+              <div className="text-sm font-medium">Timezone</div>
+              <div className="space-y-2">
+                <Label htmlFor="timezone" className="text-xs">Timezone</Label>
+                <Select
+                  defaultValue={(shoot as any)?.timezone || 'America/New_York'}
+                  onValueChange={(value) => toggleSetting("timezone", value)}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="America/New_York">Eastern Time (ET)</SelectItem>
+                    <SelectItem value="America/Chicago">Central Time (CT)</SelectItem>
+                    <SelectItem value="America/Denver">Mountain Time (MT)</SelectItem>
+                    <SelectItem value="America/Los_Angeles">Pacific Time (PT)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* VS Naming */}
+            <div className="border rounded-lg p-3.5 space-y-3">
+              <div className="text-sm font-medium">VS Naming</div>
+              <div className="space-y-2">
+                <Label htmlFor="vs_naming" className="text-xs">Naming Convention</Label>
+                <Input
+                  id="vs_naming"
+                  type="text"
+                  placeholder="e.g., {address}_{date}_{sequence}"
+                  defaultValue={(shoot as any)?.vs_naming || ''}
+                  className="h-8 text-xs"
+                  onChange={(e) => {
+                    toggleSetting("vs_naming", e.target.value);
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Custom Filename */}
+            <div className="border rounded-lg p-3.5 space-y-3">
+              <div className="text-sm font-medium">Custom Filename</div>
+              <div className="space-y-2">
+                <Label htmlFor="custom_filename" className="text-xs">Filename Pattern</Label>
+                <Input
+                  id="custom_filename"
+                  type="text"
+                  placeholder="e.g., {property}_{type}_{number}"
+                  defaultValue={(shoot as any)?.custom_filename || ''}
+                  className="h-8 text-xs"
+                  onChange={(e) => {
+                    toggleSetting("custom_filename", e.target.value);
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Ghost User */}
+            <div className="border rounded-lg p-3.5">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium">Ghost User</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    Hide user from public listings
+                  </div>
+                </div>
+                <Switch
+                  checked={(shoot as any)?.ghost_user || false}
+                  onCheckedChange={(checked: boolean) => {
+                    toggleSetting("ghost_user", checked);
+                  }}
+                  className="flex-shrink-0"
+                />
+              </div>
+            </div>
+
+            {/* Hide Proof */}
+            <div className="border rounded-lg p-3.5">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium">Hide Proof</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    Hide proof images from client view
+                  </div>
+                </div>
+                <Switch
+                  checked={(shoot as any)?.hide_proof || false}
+                  onCheckedChange={(checked: boolean) => {
+                    toggleSetting("hide_proof", checked);
+                  }}
+                  className="flex-shrink-0"
+                />
+              </div>
+            </div>
+
+            {/* Auto-Edit Option */}
+            <div className="border rounded-lg p-3.5 space-y-3">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium flex items-center gap-2">
+                    <Sparkles className="h-4 w-4" />
+                    Auto-Edit
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    Automatically edit photos when uploaded using preset preferences
+                  </div>
+                </div>
+                <Switch
+                  checked={autoEditEnabled}
+                  onCheckedChange={async (checked: boolean) => {
+                    setAutoEditEnabled(checked);
+                    try {
+                      const base = API_BASE_URL;
+                      const token = (typeof window !== 'undefined') ? (localStorage.getItem('authToken') || localStorage.getItem('token')) : null;
+                      
+                      const res = await fetch(`${base}/api/shoots/${shoot.id}`, {
+                        method: 'PATCH',
+                        headers: {
+                          'Accept': 'application/json',
+                          'Content-Type': 'application/json',
+                          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                        },
+                        body: JSON.stringify({ 
+                          auto_edit_enabled: checked,
+                          auto_edit_preferences: checked ? {
+                            editing_type: autoEditType,
+                            style: autoEditStyle,
+                            auto_perspective: true,
+                            sky_replacement: true,
+                          } : null,
+                        }),
+                      });
+                      
+                      if (!res.ok) throw new Error(`Server ${res.status}`);
+                      onUpdate?.({ auto_edit_enabled: checked } as any);
+                      sonnerToast.success(checked ? 'Auto-edit enabled' : 'Auto-edit disabled');
+                    } catch (err) {
+                      console.error('Auto-edit toggle failed', err);
+                      sonnerToast.error('Failed to update auto-edit setting');
+                      setAutoEditEnabled(!checked); // Revert on error
+                    }
+                  }}
+                  className="flex-shrink-0"
+                />
+              </div>
+              
+              {autoEditEnabled && (
+                <div className="space-y-3 pt-3 border-t">
+                  <div className="space-y-2">
+                    <Label className="text-xs">Editing Type</Label>
+                    <Select
+                      value={autoEditType}
+                      onValueChange={async (value) => {
+                        setAutoEditType(value);
+                        try {
+                          const base = API_BASE_URL;
+                          const token = (typeof window !== 'undefined') ? (localStorage.getItem('authToken') || localStorage.getItem('token')) : null;
+                          
+                          const res = await fetch(`${base}/api/shoots/${shoot.id}`, {
+                            method: 'PATCH',
+                            headers: {
+                              'Accept': 'application/json',
+                              'Content-Type': 'application/json',
+                              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                            },
+                            body: JSON.stringify({ 
+                              auto_edit_preferences: {
+                                editing_type: value,
+                                style: autoEditStyle,
+                                auto_perspective: true,
+                                sky_replacement: true,
+                              },
+                            }),
+                          });
+                          
+                          if (!res.ok) throw new Error(`Server ${res.status}`);
+                          onUpdate?.({ auto_edit_preferences: { editing_type: value, style: autoEditStyle } } as any);
+                        } catch (err) {
+                          console.error('Failed to update auto-edit type', err);
+                          sonnerToast.error('Failed to update editing type');
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="enhance">Enhance</SelectItem>
+                        <SelectItem value="sky_replace">Sky Replace</SelectItem>
+                        <SelectItem value="remove_object">Remove Object</SelectItem>
+                        <SelectItem value="color_correct">Color Correct</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label className="text-xs">Enhancement Style</Label>
+                    <Select
+                      value={autoEditStyle}
+                      onValueChange={async (value) => {
+                        setAutoEditStyle(value);
+                        try {
+                          const base = API_BASE_URL;
+                          const token = (typeof window !== 'undefined') ? (localStorage.getItem('authToken') || localStorage.getItem('token')) : null;
+                          
+                          const res = await fetch(`${base}/api/shoots/${shoot.id}`, {
+                            method: 'PATCH',
+                            headers: {
+                              'Accept': 'application/json',
+                              'Content-Type': 'application/json',
+                              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                            },
+                            body: JSON.stringify({ 
+                              auto_edit_preferences: {
+                                editing_type: autoEditType,
+                                style: value,
+                                auto_perspective: true,
+                                sky_replacement: true,
+                              },
+                            }),
+                          });
+                          
+                          if (!res.ok) throw new Error(`Server ${res.status}`);
+                          onUpdate?.({ auto_edit_preferences: { editing_type: autoEditType, style: value } } as any);
+                        } catch (err) {
+                          console.error('Failed to update auto-edit style', err);
+                          sonnerToast.error('Failed to update enhancement style');
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="signature">Signature</SelectItem>
+                        <SelectItem value="natural">Natural</SelectItem>
+                        <SelectItem value="twilight">Twilight</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
-
-      {/* Right column: small list-style toggles + process payment */}
-      <div>
-        <div className="space-y-1 border rounded-lg divide-y">
-          {/* Finalize */}
-          {isAdmin && (
-            <div className="flex items-center justify-between px-4 py-2 text-sm">
-              <span>Finalize</span>
-              <Switch
-                checked={isFinalized}
-                onCheckedChange={(checked: boolean) => {
-                  setIsFinalized(checked);
-                  toggleSetting("finalized", checked);
-                }}
-                disabled={savingToggleKey === "finalized"}
-              />
-            </div>
-          )}
-
-          {/* Downloadable */}
-          {isAdmin && (
-            <div className="flex items-center justify-between px-4 py-2 text-sm">
-              <span>Downloadable</span>
-              <Switch
-                checked={isDownloadable}
-                onCheckedChange={(checked: boolean) => {
-                  setIsDownloadable(checked);
-                  toggleSetting("downloadable", checked);
-                }}
-                disabled={savingToggleKey === "downloadable"}
-              />
-            </div>
-          )}
-        </div>
-
-        {/* Process Payment button for admins OR clients */}
-        {(isAdmin || isClient) && (
-          <div className="mt-3">
-            <Button
-              variant="default"
-              className="w-full flex items-center justify-center gap-2"
-              onClick={openPaymentDialog}
-            >
-              <DollarSignIcon className="h-4 w-4 mr-2" />
-              Process Payment
-            </Button>
-          </div>
-        )}
-      </div>
+      )}
 
       {/* PaymentDialog (reused shared component). */}
       <PaymentDialog

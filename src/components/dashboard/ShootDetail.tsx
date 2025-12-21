@@ -1,5 +1,6 @@
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Dialog,
   DialogContent,
@@ -23,7 +24,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   CalendarIcon,
-  MessageSquare,
   PenLine,
   DollarSignIcon,
   CheckCircle,
@@ -32,10 +32,11 @@ import {
 import { ShootData } from '@/types/shoots';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { ShootDetailTabs } from './ShootDetailTabs';
-import { MessageDialog } from './MessageDialog';
 import { ShootActionsDialog } from './ShootActionsDialog';
+import { ShootApprovalWorkflow } from './ShootApprovalWorkflow';
 import { useShoots } from '@/context/ShootsContext';
 import { useToast } from '@/hooks/use-toast';
+import { API_BASE_URL } from '@/config/env';
 import { InvoiceData } from '@/utils/invoiceUtils';
 import { PaymentDialog } from "@/components/invoices/PaymentDialog";
 
@@ -48,19 +49,34 @@ interface ShootDetailProps {
 }
 
 export function ShootDetail({ shoot, isOpen, onClose, onPay, invoice }: ShootDetailProps) {
+  const navigate = useNavigate();
   const { role } = useAuth();
   const { updateShoot, deleteShoot } = useShoots();
   const [activeTab, setActiveTab] = useState("details");
-  // const [isMessageDialogOpen, setIsMessageDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const { toast } = useToast();
 
   const isAdmin = ['admin', 'superadmin'].includes(role);
+  const isSuperAdmin = role === 'superadmin'; // Only Super Admin can see payment status
   const isPhotographer = role === 'photographer';
   const isClient = role === 'client'; 
 
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const { canNavigateToFullPage, fullPagePath } = useMemo(() => {
+    if (!shoot?.id) {
+      return {
+        canNavigateToFullPage: false,
+        fullPagePath: undefined,
+      };
+    }
+    const parsedId = Number(shoot.id);
+    const hasRealId = Number.isFinite(parsedId);
+    return {
+      canNavigateToFullPage: hasRealId,
+      fullPagePath: hasRealId ? `/shoots/${parsedId}` : undefined,
+    };
+  }, [shoot?.id]);
 
   if (!shoot) return null;
 
@@ -87,14 +103,6 @@ export function ShootDetail({ shoot, isOpen, onClose, onPay, invoice }: ShootDet
     return <Badge className="bg-green-500/10 text-green-500 border-green-500/20">Paid</Badge>;
   };
 
-  // const handleOpenMessageDialog = () => {
-  //   setIsMessageDialogOpen(true);
-  // };
-
-  // const handleCloseMessageDialog = () => {
-  //   setIsMessageDialogOpen(false);
-  // };
-
   const handleOpenEditDialog = () => {
     setIsEditDialogOpen(true);
   };
@@ -108,7 +116,7 @@ export function ShootDetail({ shoot, isOpen, onClose, onPay, invoice }: ShootDet
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       if (!token) throw new Error('Not authenticated');
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/shoots/${shoot.id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -133,7 +141,7 @@ export function ShootDetail({ shoot, isOpen, onClose, onPay, invoice }: ShootDet
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       if (!token) throw new Error('Not authenticated');
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/shoots/${shoot.id}/create-checkout-link`, {
+      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/create-checkout-link`, {
         method: 'POST',
         headers: {
           'Accept': 'application/json',
@@ -171,8 +179,20 @@ export function ShootDetail({ shoot, isOpen, onClose, onPay, invoice }: ShootDet
             <div className="flex items-center justify-between">
               <DialogTitle className="text-xl">Shoot Details</DialogTitle>
               <div className="flex items-center gap-2">
+                {canNavigateToFullPage && fullPagePath && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      onClose();
+                      navigate(fullPagePath);
+                    }}
+                  >
+                    View full page
+                  </Button>
+                )}
                 {getStatusBadge(shoot.status)}
-                {isAdmin && getPaymentStatus()}
+                {isSuperAdmin && getPaymentStatus()}
               </div>
             </div>
             <DialogDescription>
@@ -189,14 +209,44 @@ export function ShootDetail({ shoot, isOpen, onClose, onPay, invoice }: ShootDet
             role={role}
           />
 
+          {/* Approval Workflow Section */}
+          {(isAdmin || isPhotographer) && (
+            <div className="mt-4 pt-4 border-t">
+              <ShootApprovalWorkflow
+                shoot={shoot}
+                isAdmin={isAdmin}
+                isPhotographer={isPhotographer}
+                onUpdate={() => {
+                  // Refresh shoot data
+                  const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+                  if (token) {
+                    fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
+                      headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json',
+                      },
+                    })
+                      .then(res => res.json())
+                      .then(data => {
+                        if (data.data) {
+                          updateShoot(shoot.id, {
+                            workflowStatus: data.data.workflow_status,
+                            isFlagged: data.data.is_flagged,
+                            adminIssueNotes: data.data.admin_issue_notes,
+                            issuesResolvedAt: data.data.issues_resolved_at,
+                            issuesResolvedBy: data.data.issues_resolved_by,
+                            submittedForReviewAt: data.data.submitted_for_review_at,
+                          });
+                        }
+                      })
+                      .catch(err => console.error('Failed to refresh shoot:', err));
+                  }
+                }}
+              />
+            </div>
+          )}
+
           <DialogFooter className="flex flex-wrap gap-2">
-            {/* <Button variant="outline" onClick={onClose}>Close</Button>
-
-            <Button variant="outline" onClick={handleOpenMessageDialog}>
-              <MessageSquare className="h-4 w-4 mr-2" />
-              Send Message
-            </Button> */}
-
             {(isAdmin || isPhotographer || isClient) && shoot.status == 'scheduled' && (
               <Button onClick={handleOpenEditDialog}>
                 <PenLine className="h-4 w-4 mr-2" />
@@ -263,11 +313,6 @@ export function ShootDetail({ shoot, isOpen, onClose, onPay, invoice }: ShootDet
 
       {shoot && (
         <>
-          {/* <MessageDialog
-            shoot={shoot}
-            isOpen={isMessageDialogOpen}
-            onClose={handleCloseMessageDialog}
-          /> */}
 
           <ShootActionsDialog
             shoot={shoot}

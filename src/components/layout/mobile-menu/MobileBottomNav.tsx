@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/hooks/useTheme';
@@ -9,17 +9,15 @@ import {
   HomeIcon, 
   ClipboardIcon, 
   CalendarIcon, 
-  MessageSquareIcon, 
   UserIcon, 
   BuildingIcon, 
   BarChart3Icon, 
   SettingsIcon,
-  MoreHorizontal,
-  PlusCircle,
-  FilterIcon,
-  FolderIcon,
-  TagIcon
+  TicketIcon,
+  MessageSquare,
+  MoreHorizontal
 } from 'lucide-react';
+import { ReproAiIcon } from '@/components/icons/ReproAiIcon';
 
 interface MobileBottomNavProps {
   toggleMenu: () => void;
@@ -28,9 +26,7 @@ interface MobileBottomNavProps {
 export const MobileBottomNav = ({ toggleMenu }: MobileBottomNavProps) => {
   const { filteredItems } = useMobileMenu();
   const { theme } = useTheme();
-  const location = useLocation();
   const isLightMode = theme === 'light';
-  const isMessagesPage = location.pathname === '/messages';
 
   // Only show the first 5 items in the bottom nav
   const navItems = filteredItems.slice(0, 5);
@@ -49,8 +45,6 @@ export const MobileBottomNav = ({ toggleMenu }: MobileBottomNavProps) => {
         return <ClipboardIcon className={iconClass} />;
       case 'Calendar':
         return <CalendarIcon className={iconClass} />;
-      case 'MessageSquare':
-        return <MessageSquareIcon className={iconClass} />;
       case 'User':
         return <UserIcon className={iconClass} />;
       case 'Building':
@@ -59,6 +53,12 @@ export const MobileBottomNav = ({ toggleMenu }: MobileBottomNavProps) => {
         return <BarChart3Icon className={iconClass} />;
       case 'Settings':
         return <SettingsIcon className={iconClass} />;
+      case 'Ticket':
+        return <TicketIcon className={iconClass} />;
+      case 'MessageSquare':
+        return <MessageSquare className={iconClass} />;
+      case 'Robbie':
+        return <ReproAiIcon className={iconClass} />;
       default:
         return <HomeIcon className={iconClass} />;
     }

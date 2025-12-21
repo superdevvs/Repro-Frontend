@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { API_BASE_URL } from "@/config/env";
 
 /*
   GenericMls component
@@ -13,6 +14,9 @@ export function MlsCompliant() {
   const [slides, setSlides] = useState<string[]>([]);
   const [address, setAddress] = useState<string>("");
   const [clientName, setClientName] = useState<string>("");
+  const [propertyDetails, setPropertyDetails] = useState<any>(null);
+  const [iguideTourUrl, setIguideTourUrl] = useState<string | null>(null);
+  const [iguideFloorplans, setIguideFloorplans] = useState<any[]>([]);
 
   // Fetch public assets for this shoot
   useEffect(() => {
@@ -20,8 +24,7 @@ export function MlsCompliant() {
       const params = new URLSearchParams(window.location.search);
       const shootId = params.get('shootId');
       if (shootId) {
-        const base = import.meta.env.VITE_API_URL;
-        fetch(`${base}/api/public/shoots/${shootId}/mls`)
+        fetch(`${API_BASE_URL}/api/public/shoots/${shootId}/mls`)
           .then(res => res.json())
           .then(data => {
             const imgs: string[] = Array.isArray(data?.photos) ? data.photos : [];
@@ -32,6 +35,16 @@ export function MlsCompliant() {
             setAddress([s.address, s.city, s.state, s.zip].filter(Boolean).join(', '));
             setClientName(data?.shoot?.client_name || "");
           }
+            // Set integration data
+            if (data?.property_details) {
+              setPropertyDetails(data.property_details);
+            }
+            if (data?.iguide_tour_url) {
+              setIguideTourUrl(data.iguide_tour_url);
+            }
+            if (data?.iguide_floorplans) {
+              setIguideFloorplans(Array.isArray(data.iguide_floorplans) ? data.iguide_floorplans : []);
+            }
           })
           .catch(() => {});
       }
@@ -475,26 +488,36 @@ export function MlsCompliant() {
       </nav>
 
       <div className="w-full px-6 py-4 bg-gray-50 border-b border-gray-200 flex items-center justify-around text-gray-700 text-sm md:text-base mt-20">
-        <div className="flex items-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M4 6h16a1 1 0 011 1v8H3V7a1 1 0 011-1zM21 16H3v4h18v-4z" />
-          </svg>
-          <span className="font-medium">3 Bedrooms</span>
-        </div>
+        {(propertyDetails?.beds || propertyDetails?.baths || propertyDetails?.sqft) ? (
+          <>
+            {propertyDetails.beds && (
+              <div className="flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M4 6h16a1 1 0 011 1v8H3V7a1 1 0 011-1zM21 16H3v4h18v-4z" />
+                </svg>
+                <span className="font-medium">{propertyDetails.beds} Bedroom{propertyDetails.beds !== 1 ? 's' : ''}</span>
+              </div>
+            )}
 
-        <div className="flex items-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 13h16v8H4v-8zM4 9h16V7a1 1 0 00-1-1h-5V3h-4v3H5a1 1 0 00-1 1v2z" />
-          </svg>
-          <span className="font-medium">2 Bathrooms</span>
-        </div>
+            {propertyDetails.baths && (
+              <div className="flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 13h16v8H4v-8zM4 9h16V7a1 1 0 00-1-1h-5V3h-4v3H5a1 1 0 00-1 1v2z" />
+                </svg>
+                <span className="font-medium">{propertyDetails.baths} Bathroom{propertyDetails.baths !== 1 ? 's' : ''}</span>
+              </div>
+            )}
 
-        <div className="flex items-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12h18M12 3v18" />
-          </svg>
-          <span className="font-medium">1450 sq.ft</span>
-        </div>
+            {propertyDetails.sqft && (
+              <div className="flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12h18M12 3v18" />
+                </svg>
+                <span className="font-medium">{propertyDetails.sqft.toLocaleString()} sq.ft</span>
+              </div>
+            )}
+          </>
+        ) : null}
       </div>
 
       {/* Photos */}
@@ -568,9 +591,21 @@ export function MlsCompliant() {
       <section id="3dtour" className="py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-3xl font-bold text-center text-black mb-8">3D TOUR</h2>
-          <div className="flex justify-center">
-            <img src="/images/1702 25th Street Southeast, Washington, DC 200202579.jpg-FULL.JPG" className="w-full max-w-4xl rounded-lg shadow-md hover:opacity-90 cursor-pointer" alt="3D Tour" />
-          </div>
+          {iguideTourUrl ? (
+            <div className="flex justify-center">
+              <iframe
+                src={iguideTourUrl}
+                className="w-full aspect-video rounded-lg shadow-md"
+                allow="fullscreen"
+                style={{ minHeight: '500px' }}
+                title="iGUIDE 3D Tour"
+              />
+            </div>
+          ) : (
+            <div className="flex justify-center text-gray-500">
+              <p>3D tour not available</p>
+            </div>
+          )}
         </div>
       </section>
 
@@ -578,13 +613,25 @@ export function MlsCompliant() {
         <div className="flex justify-center items-center min-h-screen">
           <div className="w-full max-w-6xl p-6">
             <h2 className="text-3xl sm:text-4xl font-bold text-center mb-10 text-black">FLOOR PLANS</h2>
-            <div id="gallery" className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              <img src="/images/floor1.JPG" alt="Floor 1" className="gallery-img w-full h-auto rounded-lg shadow-md hover:opacity-90 cursor-pointer object-cover" />
-              <img src="/images/floor1 (2).JPG" alt="Floor 2" className="gallery-img w-full h-auto rounded-lg shadow-md hover:opacity-90 cursor-pointer object-cover" />
-              <img src="/images/floor1 (3).JPG" alt="Floor 3" className="gallery-img w-full h-auto rounded-lg shadow-md hover:opacity-90 cursor-pointer object-cover" />
-              <img src="/images/floor1 (4).JPG" alt="Floor 4" className="gallery-img w-full h-auto rounded-lg shadow-md hover:opacity-90 cursor-pointer object-cover" />
-              <img src="/images/floor1 (5).JPG" alt="Floor 5" className="gallery-img w-full h-auto rounded-lg shadow-md hover:opacity-90 cursor-pointer object-cover" />
-            </div>
+            {iguideFloorplans && iguideFloorplans.length > 0 ? (
+              <div id="gallery" className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {iguideFloorplans.map((floorplan: any, idx: number) => {
+                  const url = typeof floorplan === 'string' ? floorplan : (floorplan.url || floorplan.path);
+                  return (
+                    <img
+                      key={idx}
+                      src={url}
+                      alt={floorplan.filename || `Floorplan ${idx + 1}`}
+                      className="gallery-img w-full h-auto rounded-lg shadow-md hover:opacity-90 cursor-pointer object-cover"
+                    />
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center text-gray-500">
+                <p>Floorplans not available</p>
+              </div>
+            )}
           </div>
         </div>
 

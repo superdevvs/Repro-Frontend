@@ -4,6 +4,14 @@ import { ClientPropertyForm } from './ClientPropertyForm';
 import { SchedulingForm } from './SchedulingForm';
 import { ReviewForm } from './ReviewForm';
 
+type SelectedService = {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  category?: { id: string; name: string };
+};
+
 interface BookingContentAreaProps {
   step: number;
   formErrors: Record<string, string>;
@@ -13,10 +21,12 @@ interface BookingContentAreaProps {
   setDate: React.Dispatch<React.SetStateAction<Date | undefined>>;
   time: string;
   setTime: React.Dispatch<React.SetStateAction<string>>;
-  selectedPackage: string;
+  selectedServices: SelectedService[];
+  onSelectedServicesChange: (services: SelectedService[]) => void;
   notes: string;
   setNotes: React.Dispatch<React.SetStateAction<string>>;
   packages: any[];
+  packagesLoading: boolean;
   client: string;
   address: string;
   city: string;
@@ -51,10 +61,12 @@ export function BookingContentArea({
   setDate,
   time,
   setTime,
-  selectedPackage,
+  selectedServices,
+  onSelectedServicesChange,
   notes,
   setNotes,
   packages,
+  packagesLoading,
   client,
   address,
   city,
@@ -89,6 +101,9 @@ export function BookingContentArea({
           packages={packages}
           isClientAccount={clientPropertyFormData.isClientAccount}
           clients={clients}
+          selectedServices={selectedServices}
+          onSelectedServicesChange={onSelectedServicesChange}
+          packagesLoading={packagesLoading}
         />
       )}
       
@@ -100,7 +115,6 @@ export function BookingContentArea({
           setTime={setTime}
           formErrors={formErrors}
           setFormErrors={setFormErrors}
-          selectedPackage={selectedPackage}
           address={address}
           city={city}
           state={state}
@@ -120,6 +134,7 @@ export function BookingContentArea({
       {step === 3 && (
         <ReviewForm
           client={client}
+          clientName={clients.find(c => c.id === client)?.name || undefined}
           address={address}
           city={city}
           state={state}
@@ -133,7 +148,7 @@ export function BookingContentArea({
           sendNotification={sendNotification}
           setSendNotification={setSendNotification}
           photographers={photographers}
-          selectedPackage={selectedPackage}
+          selectedServices={selectedServices}
           packagePrice={getPackagePrice()}
           photographerRate={getPhotographerRate()}
           tax={getTax()}
@@ -142,7 +157,6 @@ export function BookingContentArea({
           setAdditionalNotes={setNotes}
           onConfirm={handleSubmit}
           onBack={goBack}
-          packages={packages}
           bedrooms={clientPropertyFormData.initialData?.bedRooms || 0}
           bathrooms={clientPropertyFormData.initialData?.bathRooms || 0}
           sqft={clientPropertyFormData.initialData?.sqft || 0}

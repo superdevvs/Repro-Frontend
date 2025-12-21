@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { ImageIcon, Upload, X, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/auth/AuthProvider';
-import { supabase } from '@/integrations/supabase/client';
+import axios from 'axios';
+import { API_BASE_URL } from '@/config/env';
 import { AspectRatio } from '@/components/ui/aspect-ratio';
 
 interface BrandingImageUploadProps {
@@ -62,28 +63,28 @@ export function BrandingImageUpload({
     try {
       setUploading(true);
       
-      // Create a unique file name
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user?.id || 'brand'}-${Date.now()}.${fileExt}`;
-      const filePath = `branding/${fileName}`;
-      
-      // Upload file to Supabase Storage
-      const { error: uploadError, data } = await supabase.storage
-        .from('user-files')
-        .upload(filePath, file);
-      
-      if (uploadError) {
-        throw uploadError;
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        throw new Error('Authentication required to upload images');
       }
-      
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('user-files')
-        .getPublicUrl(filePath);
-      
-      // Update preview and callback
-      setPreview(publicUrl);
-      onChange(publicUrl);
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('folder', 'branding');
+
+      const { data } = await axios.post(
+        `${API_BASE_URL}/api/uploads/image`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data',
+          },
+        },
+      );
+
+      setPreview(data.url);
+      onChange(data.url);
       
       toast({
         title: "Image uploaded",
@@ -92,7 +93,7 @@ export function BrandingImageUpload({
     } catch (error) {
       console.error('Error uploading image:', error);
       
-      // Fallback to object URL if Supabase upload fails
+      // Fallback to object URL if upload fails
       const objectUrl = URL.createObjectURL(file);
       setPreview(objectUrl);
       onChange(objectUrl);
@@ -113,22 +114,6 @@ export function BrandingImageUpload({
 
   const handleClearImage = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    
-    // If the preview URL is from Supabase, try to delete the file
-    if (preview && preview.includes('supabase')) {
-      try {
-        // Extract path from URL
-        const url = new URL(preview);
-        const path = url.pathname.split('/').slice(-2).join('/');
-        
-        // Delete from storage
-        await supabase.storage
-          .from('user-files')
-          .remove([path]);
-      } catch (error) {
-        console.error('Error removing image from storage:', error);
-      }
-    }
     
     setPreview(null);
     onChange('');

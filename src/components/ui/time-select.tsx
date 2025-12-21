@@ -253,6 +253,12 @@ export function TimeSelect({
   const [hour, setHour] = React.useState<string>(initial.hour || "");
   const [minute, setMinute] = React.useState<string>(initial.minute || "");
   const [ampm, setAmpm] = React.useState<string>(initial.ampm || (hour24 ? "" : "AM"));
+  // Track if user has explicitly interacted with each field
+  const [userInteractions, setUserInteractions] = React.useState({
+    hour: false,
+    minute: false,
+    ampm: false,
+  });
 
   React.useEffect(() => {
     const p = parseIncoming(value);
@@ -260,6 +266,12 @@ export function TimeSelect({
     setMinute(p.minute || "");
     setAmpm(p.ampm || (hour24 ? "" : "AM"));
     setConfirmed(value ?? "");
+    // Reset interactions when value changes externally
+    if (value) {
+      setUserInteractions({ hour: true, minute: true, ampm: true });
+    } else {
+      setUserInteractions({ hour: false, minute: false, ampm: false });
+    }
   }, [value, parseIncoming, hour24]);
 
   const prevValueRef = React.useRef<string | undefined>(value);
@@ -293,6 +305,25 @@ export function TimeSelect({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  // Auto-confirm when all fields are selected AND user has interacted with all fields
+  React.useEffect(() => {
+    // For 24-hour mode, only need hour and minute
+    // For 12-hour mode, need hour, minute, AND ampm interaction
+    const allFieldsSet = hour && minute && (hour24 || ampm);
+    const allInteractionsDone = hour24 
+      ? (userInteractions.hour && userInteractions.minute)
+      : (userInteractions.hour && userInteractions.minute && userInteractions.ampm);
+    
+    if (allFieldsSet && allInteractionsDone) {
+      const timeStr = hour24 ? `${pad(Number(hour))}:${minute}` : `${pad(Number(hour))}:${minute} ${ampm}`;
+      if (timeStr !== confirmed && timeStr !== value) {
+        setConfirmed(timeStr);
+        onChange?.(timeStr);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hour, minute, ampm, hour24, confirmed, userInteractions]);
 
   const isComboAvailable = React.useCallback(
     (h: string, m: string, ap?: string) => {
@@ -376,7 +407,10 @@ export function TimeSelect({
         <div className="w-full">
           <Dropdown
             value={hour || ""}
-            onChange={(v) => setHour(String(v))}
+            onChange={(v) => {
+              setHour(String(v));
+              setUserInteractions(prev => ({ ...prev, hour: true }));
+            }}
             options={hourOptions.map((o) => ({ value: o.value, label: o.label, disabled: o.disabled }))}
             placeholder="Hour"
             ariaLabel="Select hour"
@@ -387,7 +421,10 @@ export function TimeSelect({
         <div className="w-full">
           <Dropdown
             value={minute || ""}
-            onChange={(v) => setMinute(String(v))}
+            onChange={(v) => {
+              setMinute(String(v));
+              setUserInteractions(prev => ({ ...prev, minute: true }));
+            }}
             options={minuteOptions.map((o) => ({ value: o.value, label: o.label, disabled: o.disabled }))}
             placeholder="MM"
             ariaLabel="Select minute"
@@ -398,7 +435,10 @@ export function TimeSelect({
         <div className="w-full">
           <Dropdown
             value={ampm || "AM"}
-            onChange={(v) => setAmpm(String(v))}
+            onChange={(v) => {
+              setAmpm(String(v));
+              setUserInteractions(prev => ({ ...prev, ampm: true }));
+            }}
             options={ampmOptions.map((o) => ({ value: o.value, label: o.label, disabled: o.disabled }))}
             placeholder="AM/PM"
             ariaLabel="Select AM/PM"
@@ -407,39 +447,21 @@ export function TimeSelect({
         </div>
       </div>
 
-      {/* actions: stack on small screens; row on sm+ */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+      {/* Clear button */}
+      <div className="flex items-center">
         <button
           type="button"
-          className="px-3 py-2 rounded-md text-sm text-slate-600 hover:bg-gray-100 dark:text-slate-300 dark:hover:bg-slate-800 transition flex-1"
+          className="px-3 py-2 rounded-md text-sm text-slate-600 hover:bg-gray-100 dark:text-slate-300 dark:hover:bg-slate-800 transition"
           onClick={() => {
             setHour("");
             setMinute("");
             setAmpm("AM");
             setConfirmed("");
+            setUserInteractions({ hour: false, minute: false, ampm: false });
             onChange?.("");
           }}
         >
           Clear
-        </button>
-
-        <button
-          type="button"
-          className={cn(
-            "px-4 py-2 rounded-md text-sm shadow-sm transition w-full sm:w-auto",
-            preview
-              ? "bg-blue-600 text-white hover:bg-blue-700"
-              : "bg-gray-200 text-slate-500 opacity-60 cursor-not-allowed dark:bg-slate-700 dark:text-slate-300"
-          )}
-          onClick={() => {
-            if (!preview) return;
-            setConfirmed(preview);
-            onChange?.(preview);
-            setOpen(false);
-          }}
-          aria-disabled={!preview}
-        >
-          Done
         </button>
       </div>
     </div>

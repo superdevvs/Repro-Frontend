@@ -58,8 +58,8 @@ export function NotificationCenter() {
         type: 'messages',
         isRead: true,
         date: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-        actionUrl: '/messages',
-        actionLabel: 'Read Message',
+        actionUrl: 'mailto:support@reprohq.com?subject=Client%20message',
+        actionLabel: 'Email Support',
       },
       {
         id: '3',

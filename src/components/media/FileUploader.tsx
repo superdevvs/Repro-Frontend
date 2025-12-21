@@ -1,5 +1,15 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
@@ -21,13 +31,15 @@ import {
   BoxIcon,
   MonitorIcon,
   SaveIcon,
-  SendIcon
+  SendIcon,
+  AlertTriangleIcon
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useShoots } from '@/context/ShootsContext';
 import axios from 'axios';
 import { Dropbox } from 'dropbox';
+import { API_BASE_URL } from '@/config/env';
 
 
 // Add these interfaces at the top of your component file
@@ -52,6 +64,8 @@ interface FileUploaderProps {
   allowedFileTypes?: string[];
   className?: string;
   initialNotes?: string;
+  expectedPhotoCount?: number;
+  bracketMode?: 3 | 5 | null;
 }
 
 export function FileUploader({
@@ -63,7 +77,9 @@ export function FileUploader({
     'application/zip', 'application/x-zip-compressed'
   ],
   className,
-  initialNotes = ''
+  initialNotes = '',
+  expectedPhotoCount = 0,
+  bracketMode = null
 }: FileUploaderProps) {
   const { toast } = useToast();
   const { updateShoot } = useShoots();
@@ -97,8 +113,29 @@ const connectDropbox = async () => {
   setDropboxAuth(prev => ({ ...prev, isConnecting: true }));
   
   try {
-    // Your Dropbox App Key (get this from Dropbox App Console)
-    const APP_KEY = import.meta.env.VITE_APP_DROPBOX_APP_KEY || 'your_dropbox_app_key';
+    // Fetch Dropbox config from backend
+    let APP_KEY = import.meta.env.VITE_APP_DROPBOX_APP_KEY;
+    
+    if (!APP_KEY) {
+      try {
+        const configResponse = await axios.get(`${API_BASE_URL}/api/dropbox/config`);
+        if (configResponse.data?.success && configResponse.data?.config?.client_id) {
+          APP_KEY = configResponse.data.config.client_id;
+        } else {
+          // Fallback to backend default if API doesn't return it
+          APP_KEY = 'wzdzujsjj1iaaiv';
+        }
+      } catch (error) {
+        console.warn('Failed to fetch Dropbox config from backend, using fallback:', error);
+        // Fallback to backend default client_id from config
+        APP_KEY = 'wzdzujsjj1iaaiv';
+      }
+    }
+    
+    if (!APP_KEY || APP_KEY === 'your_dropbox_app_key') {
+      throw new Error('Dropbox Client ID is not configured. Please set VITE_APP_DROPBOX_APP_KEY in your environment or configure DROPBOX_CLIENT_ID in the backend.');
+    }
+    
     const REDIRECT_URI = `${window.location.origin}/dropbox-callback`;
     
     console.log('Using redirect URI:', REDIRECT_URI); // Debug log
@@ -347,6 +384,18 @@ const connectDropboxUpdated = () => {
   const [notes, setNotes] = useState(initialNotes);
   const [notesChanged, setNotesChanged] = useState(false);
   const [uploadMethod, setUploadMethod] = useState<'local' | 'dropbox' | 'google'>('local');
+  const [showMissingPhotosWarning, setShowMissingPhotosWarning] = useState(false);
+  const [missingPhotosCount, setMissingPhotosCount] = useState(0);
+  
+  // Calculate expected file count based on photo count and bracket mode
+  const expectedFileCount = useMemo(() => {
+    if (!expectedPhotoCount || expectedPhotoCount <= 0) return 0;
+    // For RAW uploads, multiply by bracket mode; for edited, just use photo count
+    if (uploadType === 'raw' && bracketMode) {
+      return expectedPhotoCount * bracketMode;
+    }
+    return expectedPhotoCount;
+  }, [expectedPhotoCount, bracketMode, uploadType]);
 
   
 // Load files when Dropbox is authenticated and selected
@@ -396,7 +445,7 @@ useEffect(() => {
 
       const payload: Record<string, string> = { [field]: notes || '' };
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/shoots/${shootId}/notes`, {
+      const res = await fetch(`${API_BASE_URL}/api/shoots/${shootId}/notes`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -509,9 +558,8 @@ useEffect(() => {
     setFiles([]);
   };
   
-  const handleUpload = async () => {
-    
-    console.log("Starting upload for shoot ID:", shootId);
+  // Check if photos are missing and show warning if needed
+  const checkAndUpload = () => {
     if (files.length === 0) {
       toast({
         title: 'No files selected',
@@ -520,6 +568,25 @@ useEffect(() => {
       });
       return;
     }
+    
+    // Check if we have an expected count and files are less than expected
+    if (expectedFileCount > 0 && files.length < expectedFileCount) {
+      const missing = expectedFileCount - files.length;
+      setMissingPhotosCount(missing);
+      setShowMissingPhotosWarning(true);
+      return;
+    }
+    
+    // No missing photos, proceed with upload
+    performUpload();
+  };
+
+  const handleUpload = async () => {
+    checkAndUpload();
+  };
+
+  const performUpload = async () => {
+    console.log("Starting upload for shoot ID:", shootId);
     
     setUploading(true);
     const formData = new FormData();
@@ -533,7 +600,7 @@ useEffect(() => {
       let uploadEndpoint;
       if (shootId) {
         // For shoot-specific uploads, use the workflow system
-        uploadEndpoint = `${import.meta.env.VITE_API_URL}/api/shoots/${shootId}/upload-from-pc`;
+        uploadEndpoint = `${API_BASE_URL}/api/shoots/${shootId}/upload-from-pc`;
         // Add service category and upload type
         formData.append('service_category', 'P'); // Default to Photos
         formData.append('upload_type', uploadType); // raw or edited
@@ -999,6 +1066,43 @@ useEffect(() => {
           )}
         </div>
       </CardContent>
+      
+      {/* Missing Photos Warning Dialog */}
+      <AlertDialog open={showMissingPhotosWarning} onOpenChange={setShowMissingPhotosWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangleIcon className="h-5 w-5 text-amber-500" />
+              Missing Photos Detected
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>
+                You are uploading <strong>{files.length}</strong> {files.length === 1 ? 'file' : 'files'}, 
+                but <strong>{expectedFileCount}</strong> {expectedFileCount === 1 ? 'file is' : 'files are'} expected
+                {uploadType === 'raw' && bracketMode && (
+                  <span> ({expectedPhotoCount} photos × {bracketMode} brackets)</span>
+                )}.
+              </p>
+              <p className="text-amber-600 font-medium">
+                {missingPhotosCount} {missingPhotosCount === 1 ? 'photo is' : 'photos are'} missing.
+              </p>
+              <p>Do you want to continue with the upload anyway?</p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowMissingPhotosWarning(false);
+                performUpload();
+              }}
+              className="bg-amber-500 hover:bg-amber-600"
+            >
+              Continue Anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }

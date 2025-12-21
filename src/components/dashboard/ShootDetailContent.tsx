@@ -7,6 +7,7 @@ import { Link2, ExternalLink, PaperclipIcon, Share2Icon } from "lucide-react";
 import { format } from 'date-fns';
 import { ShootData } from '@/types/shoots';
 import { toast } from "sonner";
+import { getStateFullName } from '@/utils/stateUtils';
 import {
   HomeIcon,
   CalendarIcon,
@@ -50,7 +51,7 @@ export function ShootDetailContent({ shoot, isAdmin }: ShootDetailContentProps) 
   };
 
   const copyAddress = () => {
-    const fullAddress = `${shoot.location.address}, ${shoot.location.city}, ${shoot.location.state} ${shoot.location.zip}`;
+    const fullAddress = `${shoot.location.address}, ${shoot.location.city}, ${getStateFullName(shoot.location.state)} ${shoot.location.zip}`;
     copyToClipboard(fullAddress, "Address copied to clipboard");
   };
 
@@ -121,7 +122,7 @@ export function ShootDetailContent({ shoot, isAdmin }: ShootDetailContentProps) 
                 <p className="text-sm">{shoot.location.address2}</p>
               )}
               <p className="text-sm text-muted-foreground">
-                {shoot.location.city}, {shoot.location.state} {shoot.location.zip}
+                {shoot.location.city}, {getStateFullName(shoot.location.state)} {shoot.location.zip}
               </p>
             </div>
           </div>

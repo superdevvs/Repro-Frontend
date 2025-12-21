@@ -13,6 +13,7 @@ export interface Client {
   shootsCount: number;
   lastActivity: string;
   avatar?: string;
+  rep?: string;
 }
 
 /**

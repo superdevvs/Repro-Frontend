@@ -2,7 +2,7 @@
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MoreVertical, Check, X } from "lucide-react";
+import { MoreVertical } from "lucide-react";
 import { 
   DropdownMenu,
   DropdownMenuContent,
@@ -11,12 +11,13 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { formatDistance } from "date-fns";
 import { User, Role } from "@/components/auth/AuthProvider";
-import { AccountForm } from "./AccountForm";
+import { useAuth } from "@/components/auth";
+import { Camera, ExternalLink, Trash2, LogIn } from "lucide-react";
+import { format } from "date-fns";
 
 interface AccountListProps {
-  users: Array<User & { active?: boolean }>;
+  users: Array<User & { active?: boolean; accountRep?: string; lastShootDate?: string }>;
   onEdit: (user: User) => void;
   onChangeRole: (user: User) => void;
   onResetPassword: (user: User) => void;
@@ -24,6 +25,12 @@ interface AccountListProps {
   onManageNotifications: (user: User) => void;
   onLinkClientBranding: (user: User) => void;
   onViewProfile: (user: User) => void;
+  onDeleteUser: (user: User) => void;
+  getClientMenuActions?: (user: User) => {
+    onBookShoot: (e: React.MouseEvent) => void;
+    onClientPortal: (e: React.MouseEvent) => void;
+    onDelete: (e: React.MouseEvent) => void;
+  } | undefined;
 }
 
 export function AccountList({
@@ -35,6 +42,8 @@ export function AccountList({
   onManageNotifications,
   onLinkClientBranding,
   onViewProfile,
+  onDeleteUser,
+  getClientMenuActions,
 }: AccountListProps) {
   const getRoleBadgeColor = (role: Role) => {
     switch (role) {
@@ -42,9 +51,17 @@ export function AccountList({
       case 'photographer': return "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200 border-blue-200 dark:border-blue-800";
       case 'client': return "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-200 border-green-200 dark:border-green-800";
       case 'editor': return "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200 border-amber-200 dark:border-amber-800";
+      case 'salesRep': return "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200 border-indigo-200 dark:border-indigo-800";
       default: return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200 border-gray-200 dark:border-gray-800";
     }
   };
+
+  const { role: viewerRole } = useAuth();
+  const isSuperAdmin = viewerRole === 'superadmin';
+  const isAdmin = viewerRole === 'admin';
+  const canManageAccounts = isAdmin || isSuperAdmin;
+  const canEditClients = canManageAccounts || viewerRole === 'salesRep';
+  const canChangeRole = isSuperAdmin; // Only Super Admin can change access rules for other account types
 
   const getInitials = (name: string) => {
     return name
@@ -55,6 +72,13 @@ export function AccountList({
       .substring(0, 2);
   };
 
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "—";
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "—";
+    return format(date, "MMM d, yyyy");
+  };
+
   return (
     <div className="border rounded-lg">
       <Table>
@@ -62,15 +86,18 @@ export function AccountList({
           <TableRow>
             <TableHead>User</TableHead>
             <TableHead>Role</TableHead>
+            <TableHead>Rep</TableHead>
+            <TableHead>Phone</TableHead>
+            <TableHead>Last Shoot</TableHead>
             <TableHead>Company</TableHead>
-            {/* <TableHead>Last Active</TableHead>
-            <TableHead>Status</TableHead> */}
             <TableHead className="w-[80px]"></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {users.map((user) => (
-            <TableRow key={user.id} className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50">
+          {users.map((user) => {
+            const canEditRow = canManageAccounts || (viewerRole === 'salesRep' && user.role === 'client');
+            return (
+              <TableRow key={user.id} className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50">
               <TableCell onClick={() => onViewProfile(user)}>
                 <div className="flex items-center gap-3">
                   <Avatar className="h-9 w-9">
@@ -88,25 +115,10 @@ export function AccountList({
                   {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
                 </Badge>
               </TableCell>
+              <TableCell>{user.accountRep || "Unassigned"}</TableCell>
+              <TableCell>{user.phone || "—"}</TableCell>
+              <TableCell>{formatDate(user.lastShootDate)}</TableCell>
               <TableCell>{user.company || "-"}</TableCell>
-              {/* <TableCell>
-                {user.lastLogin ? (
-                  formatDistance(new Date(user.lastLogin), new Date(), { addSuffix: true })
-                ) : (
-                  "Never"
-                )}
-              </TableCell> */}
-              {/* <TableCell>
-                {user.active ? (
-                  <Badge variant="outline" className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200 border-green-200 dark:border-green-800">
-                    <Check className="mr-1 h-3 w-3" /> Active
-                  </Badge>
-                ) : (
-                  <Badge variant="outline" className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200 border-red-200 dark:border-red-800">
-                    <X className="mr-1 h-3 w-3" /> Inactive
-                  </Badge>
-                )}
-              </TableCell> */}
               <TableCell>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -115,30 +127,67 @@ export function AccountList({
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56">
-                    <DropdownMenuItem onClick={() => onEdit(user)}>
-                      Edit User
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => onChangeRole(user)}>
-                      Change Role
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => onResetPassword(user)}>
-                      Reset Password
-                    </DropdownMenuItem>
-                    {/* <DropdownMenuItem onClick={() => onImpersonate(user)}>
-                      Impersonate User
-                    </DropdownMenuItem> */}
-                    <DropdownMenuItem onClick={() => onManageNotifications(user)}>
-                      Notification Settings
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => onLinkClientBranding(user)}>
-                      Link Client/Branding
-                    </DropdownMenuItem>
+                    {canEditRow && (
+                      <DropdownMenuItem onClick={() => onEdit(user)}>
+                        Edit User
+                      </DropdownMenuItem>
+                    )}
+                    {/* Only Super Admin can change roles (access rules) */}
+                    {canChangeRole && user.role !== 'client' && (
+                      <DropdownMenuItem onClick={() => onChangeRole(user)}>
+                        Change Role
+                      </DropdownMenuItem>
+                    )}
+                    {canManageAccounts && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => onImpersonate(user)}>
+                          <LogIn className="mr-2 h-4 w-4" /> Login as User
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => onResetPassword(user)}>
+                          Reset Password
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onManageNotifications(user)}>
+                          Notification Settings
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onLinkClientBranding(user)}>
+                          Link Client/Branding
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="text-red-600 focus:text-red-600"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteUser(user);
+                          }}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" /> Delete Account
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                    {user.role === 'client' && getClientMenuActions?.(user) && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={(e) => getClientMenuActions(user)?.onBookShoot(e)}>
+                          <Camera className="mr-2 h-4 w-4" /> Book Shoot
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={(e) => getClientMenuActions(user)?.onClientPortal(e)}>
+                          <ExternalLink className="mr-2 h-4 w-4" /> Client Portal
+                        </DropdownMenuItem>
+                        {!canManageAccounts && (
+                          <DropdownMenuItem className="text-red-600 focus:text-red-600" onClick={(e) => getClientMenuActions(user)?.onDelete(e)}>
+                            <Trash2 className="mr-2 h-4 w-4" /> Delete Client
+                          </DropdownMenuItem>
+                        )}
+                      </>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </TableCell>
-            </TableRow>
-          ))}
+              </TableRow>
+            );
+          })}
         </TableBody>
       </Table>
     </div>

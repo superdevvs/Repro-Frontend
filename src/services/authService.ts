@@ -1,6 +1,5 @@
 
-import { UserData } from '@/types/auth';
-import { Session } from '@supabase/supabase-js';
+import { UserData, AuthSession } from '@/types/auth';
 
 // Helper function to convert string to base64url format (JWT compatible)
 const toBase64Url = (str: string): string => {
@@ -34,12 +33,18 @@ const generateMockJWT = (userId: string, role: string): string => {
   // Create a valid signature format
   // In a real JWT, this would be cryptographically signed
   // For our mock JWT, we'll create something that looks valid to parsers
-  const mockSecret = 'supabase-mock-secret-key-for-testing-purposes-only';
+  const mockSecret = 'development-mock-secret-key-for-testing-only';
   const mockSignatureData = `${header}.${payload}.${mockSecret}`;
   const signature = toBase64Url(mockSignatureData);
   
   // Combine all parts with dots to form a valid JWT structure
   return `${header}.${payload}.${signature}`;
+};
+
+const normalizeRole = (role?: string | null) => {
+  if (!role) return 'client';
+  if (role === 'sales_rep' || role === 'salesrep' || role === 'sales-rep') return 'salesRep';
+  return role as UserData['role'];
 };
 
 // Login function that stores user data in localStorage
@@ -48,35 +53,35 @@ export const loginUser = (
   setUser: (user: UserData) => void,
   setIsAuthenticated: (value: boolean) => void,
   setRole: (role: string) => void,
-  setSession: (session: Session | null) => void
+  setSession: (session: AuthSession | null) => void
 ) => {
   // Store user data in localStorage
-  localStorage.setItem('user', JSON.stringify(userData));
+  const normalizedUser = { ...userData, role: normalizeRole(userData.role), metadata: userData.metadata || {} };
+  localStorage.setItem('user', JSON.stringify(normalizedUser));
   // Update state
-  setUser(userData);
+  setUser(normalizedUser);
   setIsAuthenticated(true);
-  setRole(userData.role || 'client');
+  setRole(normalizedUser.role || 'client');
   
   // Create a proper JWT token structure
-  const mockToken = generateMockJWT(userData.id, userData.role || 'client');
+  const mockToken = generateMockJWT(normalizedUser.id, normalizedUser.role || 'client');
   
   // Set a mock session for development purposes
-  const mockSession = {
-    access_token: mockToken,
-    refresh_token: 'mock-refresh-token',
-    expires_in: 3600,
-    expires_at: Math.floor(Date.now() / 1000) + 3600,
-    token_type: 'bearer',
+  const mockSession: AuthSession = {
+    accessToken: mockToken,
+    refreshToken: 'mock-refresh-token',
+    tokenType: 'bearer',
+    expiresIn: 3600,
+    expiresAt: Math.floor(Date.now() / 1000) + 3600,
+    issuedAt: Math.floor(Date.now() / 1000),
     user: {
-      id: userData.id,
-      app_metadata: {},
-      user_metadata: { role: userData.role },
-      aud: 'authenticated',
-      email: userData.email,
-      role: userData.role,
-      created_at: userData.createdAt || new Date().toISOString(),
-    }
-  } as Session;
+      id: normalizedUser.id,
+      email: normalizedUser.email,
+      role: normalizedUser.role,
+      metadata: normalizedUser.metadata || {},
+      createdAt: normalizedUser.createdAt || new Date().toISOString(),
+    },
+  };
   
   setSession(mockSession);
   console.log('Login successful via authService');
@@ -105,12 +110,13 @@ export const updateUserRole = (
   setRole: (role: string) => void,
   user: UserData | null,
   setUser: (user: UserData | null) => void,
-  session: Session | null,
-  setSession: (session: Session | null) => void
+  session: AuthSession | null,
+  setSession: (session: AuthSession | null) => void
 ) => {
+  // Make sure we're using a valid Role type by casting it
+  const typedRole = normalizeRole(role);
+  
   if (user) {
-    // Make sure we're using a valid Role type by casting it
-    const typedRole = role as UserData['role'];
     const updatedUser = { ...user, role: typedRole };
     localStorage.setItem('user', JSON.stringify(updatedUser));
     setUser(updatedUser);
@@ -122,19 +128,19 @@ export const updateUserRole = (
       
       setSession({
         ...session,
-        access_token: mockToken,
+        accessToken: mockToken,
         user: {
           ...session.user,
           role: typedRole,
-          user_metadata: {
-            ...session.user.user_metadata,
-            role: typedRole
-          }
-        }
+          metadata: {
+            ...(session.user.metadata || {}),
+            role: typedRole,
+          },
+        },
       });
     }
     
     console.log('User role updated via authService to:', role);
   }
-  setRole(role);
+  setRole(typedRole);
 };

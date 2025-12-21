@@ -1,9 +1,11 @@
 
-import React from 'react';
+import React, { useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { PageTransition } from '@/components/layout/PageTransition';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { AutoExpandingTabsList, type AutoExpandingTab } from '@/components/ui/auto-expanding-tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -14,27 +16,88 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
 import { ImageUpload } from '@/components/profile/ImageUpload';
 import { BrandingImageUpload } from '@/components/profile/BrandingImageUpload';
+import { usePermission } from '@/hooks/usePermission';
+import { IntegrationsSettingsContent } from '@/pages/IntegrationsSettings';
+import { IntegrationsGrid } from '@/components/integrations/IntegrationsGrid';
+import { IntegrationsHeader } from '@/components/integrations/IntegrationsHeader';
+import { User, Settings as SettingsIcon, Palette, CreditCard, Bell, Plug } from 'lucide-react';
+
+const BASE_TABS = ['profile', 'account', 'branding', 'billing', 'notifications'] as const;
+type TabValue = (typeof BASE_TABS)[number] | 'integrations';
 
 const Settings = () => {
   const { user, role } = useAuth();
   const { toast } = useToast();
+  const permission = usePermission();
+  const integrationsPermission = permission.forResource('integrations');
+  const brandingPermission = permission.forResource('branding');
+  const canViewIntegrations = integrationsPermission.canView();
+  const canViewBranding = brandingPermission.canView(); // Only Super Admin and Admin can view branding
+  const isAdminOrSuperAdmin = role === 'admin' || role === 'superadmin';
+  const [searchParams, setSearchParams] = useSearchParams();
   const [avatar, setAvatar] = React.useState(user?.avatar || '');
   const [brandLogo, setBrandLogo] = React.useState('');
   const [brandBanner, setBrandBanner] = React.useState('');
   const [bio, setBio] = React.useState(''); // Add a separate state for bio
-  
+
+  const availableTabs = React.useMemo<TabValue[]>(() => {
+    const tabs: TabValue[] = [...BASE_TABS];
+    // Only show branding tab for Super Admin and Admin
+    if (!canViewBranding || !isAdminOrSuperAdmin) {
+      const brandingIndex = tabs.indexOf('branding');
+      if (brandingIndex > -1) {
+        tabs.splice(brandingIndex, 1);
+      }
+    }
+    if (canViewIntegrations) {
+      tabs.push('integrations');
+    }
+    return tabs;
+  }, [canViewIntegrations, canViewBranding, isAdminOrSuperAdmin]);
+
+  const getValidTab = React.useCallback(
+    (tabParam: string | null): TabValue => {
+      if (tabParam && availableTabs.includes(tabParam as TabValue)) {
+        return tabParam as TabValue;
+      }
+      return 'profile';
+    },
+    [availableTabs]
+  );
+
+  const [activeTab, setActiveTab] = React.useState<TabValue>(() => getValidTab(searchParams.get('tab')));
+
+  React.useEffect(() => {
+    const nextTab = getValidTab(searchParams.get('tab'));
+    setActiveTab((current) => (current === nextTab ? current : nextTab));
+  }, [searchParams, getValidTab]);
+
+  const handleTabChange = (value: string) => {
+    const nextTab = getValidTab(value);
+    setActiveTab(nextTab);
+
+    const nextParams = new URLSearchParams(searchParams);
+    if (nextTab === 'profile') {
+      nextParams.delete('tab');
+    } else {
+      nextParams.set('tab', nextTab);
+    }
+
+    setSearchParams(nextParams, { replace: true });
+  };
+
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     toast({
       title: "Profile Updated",
       description: "Your profile information has been saved.",
     });
   };
-  
+
   const handleSaveAccount = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     toast({
       title: "Account Updated",
       description: "Your account settings have been saved.",
@@ -43,7 +106,7 @@ const Settings = () => {
 
   const handleSaveBranding = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     toast({
       title: "Branding Updated",
       description: "Your branding settings have been saved.",
@@ -61,30 +124,65 @@ const Settings = () => {
   const handleBannerChange = (url: string) => {
     setBrandBanner(url);
   };
-  
+
+  // Auto-expanding tabs configuration
+  const tabsConfig: AutoExpandingTab[] = useMemo(() => {
+    const baseTabs: AutoExpandingTab[] = [
+      {
+        value: 'profile',
+        icon: User,
+        label: 'Profile',
+      },
+      {
+        value: 'account',
+        icon: SettingsIcon,
+        label: 'Account',
+      },
+      {
+        value: 'branding',
+        icon: Palette,
+        label: 'Branding',
+      },
+      {
+        value: 'billing',
+        icon: CreditCard,
+        label: 'Billing',
+      },
+      {
+        value: 'notifications',
+        icon: Bell,
+        label: 'Notifications',
+      },
+    ];
+
+    if (canViewIntegrations) {
+      baseTabs.push({
+        value: 'integrations',
+        icon: Plug,
+        label: 'Integrations',
+      });
+    }
+
+    return baseTabs;
+  }, [canViewIntegrations]);
+
   return (
     <DashboardLayout>
       <PageTransition>
-        <div className="space-y-6">
-          <div className="space-y-2">
-            <Badge className="bg-primary/10 text-primary hover:bg-primary/20 border-primary/20">
-              Settings
-            </Badge>
-            <h1 className="text-3xl font-bold tracking-tight mb-1">Settings</h1>
-            <p className="text-muted-foreground">
-              Manage your account settings and preferences
-            </p>
-          </div>
-          
-          <Tabs defaultValue="profile" className="space-y-4">
-            <TabsList>
-              <TabsTrigger value="profile">Profile</TabsTrigger>
-              <TabsTrigger value="account">Account</TabsTrigger>
-              <TabsTrigger value="branding">Branding</TabsTrigger>
-              <TabsTrigger value="billing">Billing</TabsTrigger>
-              <TabsTrigger value="notifications">Notifications</TabsTrigger>
-            </TabsList>
-            
+        <div className="space-y-6 p-6">
+          <PageHeader
+            badge="Settings"
+            title="Settings"
+            description="Manage your account settings and preferences"
+          />
+
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
+            <AutoExpandingTabsList 
+              tabs={tabsConfig} 
+              value={activeTab}
+              className="mb-6"
+            />
+
             <TabsContent value="profile" className="space-y-4">
               <Card>
                 <CardHeader>
@@ -125,7 +223,7 @@ const Settings = () => {
                             </SheetContent>
                           </Sheet>
                         </div>
-                        
+
                         <div className="flex-1 space-y-4">
                           <div className="grid gap-4 sm:grid-cols-2">
                             <div className="space-y-2">
@@ -141,7 +239,7 @@ const Settings = () => {
                               <Input id="email" type="email" defaultValue={user?.email} />
                             </div>
                           </div>
-                          
+
                           <div className="space-y-2">
                             <label htmlFor="bio" className="text-sm font-medium">
                               Bio
@@ -157,7 +255,7 @@ const Settings = () => {
                         </div>
                       </div>
                     </div>
-                    
+
                     <div className="flex justify-end">
                       <Button type="submit">
                         Save Changes
@@ -167,7 +265,7 @@ const Settings = () => {
                 </CardContent>
               </Card>
             </TabsContent>
-            
+
             <TabsContent value="account" className="space-y-4">
               <Card>
                 <CardHeader>
@@ -179,43 +277,55 @@ const Settings = () => {
                 <CardContent>
                   <form onSubmit={handleSaveAccount} className="space-y-6">
                     <div className="space-y-4">
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <div className="space-y-2">
-                          <label htmlFor="username" className="text-sm font-medium">
-                            Username
-                          </label>
-                          <Input 
-                            id="username" 
-                            defaultValue={''} 
-                            placeholder="your-username"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label htmlFor="timezone" className="text-sm font-medium">
-                            Timezone
-                          </label>
-                          <select
-                            id="timezone"
-                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                            defaultValue="America/New_York"
-                          >
-                            <option value="America/New_York">Eastern Time (ET)</option>
-                            <option value="America/Chicago">Central Time (CT)</option>
-                            <option value="America/Denver">Mountain Time (MT)</option>
-                            <option value="America/Los_Angeles">Pacific Time (PT)</option>
-                            <option value="America/Anchorage">Alaska Time (AKT)</option>
-                            <option value="Pacific/Honolulu">Hawaii Time (HT)</option>
-                          </select>
-                        </div>
+                      <div className="space-y-2">
+                        <label htmlFor="phone" className="text-sm font-medium">
+                          Phone Number
+                        </label>
+                        <Input 
+                          id="phone" 
+                          type="tel" 
+                          placeholder="+1 (555) 123-4567"
+                          defaultValue={user?.phone || ''}
+                        />
                       </div>
-                      
+
+                      <div className="space-y-2">
+                        <label htmlFor="company" className="text-sm font-medium">
+                          Company
+                        </label>
+                        <Input 
+                          id="company" 
+                          type="text" 
+                          placeholder="Your company name"
+                          defaultValue={user?.company || ''}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label htmlFor="timezone" className="text-sm font-medium">
+                          Timezone
+                        </label>
+                        <select
+                          id="timezone"
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          defaultValue="America/New_York"
+                        >
+                          <option value="America/New_York">Eastern Time (ET)</option>
+                          <option value="America/Chicago">Central Time (CT)</option>
+                          <option value="America/Denver">Mountain Time (MT)</option>
+                          <option value="America/Los_Angeles">Pacific Time (PT)</option>
+                          <option value="America/Anchorage">Alaska Time (AKT)</option>
+                          <option value="Pacific/Honolulu">Hawaii Time (HT)</option>
+                        </select>
+                      </div>
+
                       <div className="space-y-2">
                         <label htmlFor="current-password" className="text-sm font-medium">
                           Current Password
                         </label>
                         <Input id="current-password" type="password" />
                       </div>
-                      
+
                       <div className="grid gap-4 sm:grid-cols-2">
                         <div className="space-y-2">
                           <label htmlFor="new-password" className="text-sm font-medium">
@@ -231,7 +341,7 @@ const Settings = () => {
                         </div>
                       </div>
                     </div>
-                    
+
                     <div className="flex justify-end">
                       <Button type="submit">
                         Update Account
@@ -258,9 +368,9 @@ const Settings = () => {
                         <p className="text-sm text-muted-foreground">
                           This logo will appear on your invoices and client communications.
                         </p>
-                        <BrandingImageUpload 
-                          onChange={handleLogoChange} 
-                          initialImage={brandLogo} 
+                        <BrandingImageUpload
+                          onChange={handleLogoChange}
+                          initialImage={brandLogo}
                           aspectRatio="1/1"
                           maxWidth={200}
                           helperText="Recommended size: 200x200px (square)"
@@ -272,8 +382,8 @@ const Settings = () => {
                         <p className="text-sm text-muted-foreground">
                           This banner will be used in client-facing materials.
                         </p>
-                        <BrandingImageUpload 
-                          onChange={handleBannerChange} 
+                        <BrandingImageUpload
+                          onChange={handleBannerChange}
                           initialImage={brandBanner}
                           aspectRatio="16/9"
                           maxWidth={600}
@@ -306,18 +416,18 @@ const Settings = () => {
                           </div>
                         </div>
                       </div>
-                      
+
                       <div className="space-y-2">
                         <label htmlFor="tagline" className="text-sm font-medium">
                           Company Tagline
                         </label>
-                        <Input 
-                          id="tagline" 
-                          placeholder="Your business tagline" 
+                        <Input
+                          id="tagline"
+                          placeholder="Your business tagline"
                         />
                       </div>
                     </div>
-                    
+
                     <div className="flex justify-end">
                       <Button type="submit">
                         Save Branding
@@ -327,46 +437,110 @@ const Settings = () => {
                 </CardContent>
               </Card>
             </TabsContent>
-            
+
             <TabsContent value="billing" className="space-y-4">
               <Card>
                 <CardHeader>
                   <CardTitle>Billing</CardTitle>
                   <CardDescription>
-                    Manage your billing information
+                    Manage your billing information and payment settings
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between border-b pb-4">
+                  <div className="space-y-6">
+                    {/* Square Payment Configuration */}
+                    <div className="space-y-4">
                       <div>
-                        <h4 className="font-medium">Payment Method</h4>
-                        <p className="text-sm text-muted-foreground">Select your preferred payment method</p>
+                        <h4 className="font-medium mb-2">Square Payment Configuration</h4>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          Configure Square payment processing for client payments
+                        </p>
                       </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" className="sr-only peer" defaultChecked />
-                        <div className="w-11 h-6 bg-muted-foreground rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                      </label>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label htmlFor="square-app-id" className="text-sm font-medium">
+                            Square Application ID
+                          </label>
+                          <Input
+                            id="square-app-id"
+                            type="text"
+                            placeholder="sandbox-sq0idb-..."
+                            defaultValue="sandbox-sq0idb-KBncaaZuhXcaX42j5O7zdg"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <label htmlFor="square-location-id" className="text-sm font-medium">
+                            Square Location ID
+                          </label>
+                          <Input
+                            id="square-location-id"
+                            type="text"
+                            placeholder="L7DAFQ5SCKT74"
+                            defaultValue="L7DAFQ5SCKT74"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label htmlFor="square-environment" className="text-sm font-medium">
+                          Environment
+                        </label>
+                        <select
+                          id="square-environment"
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          defaultValue="sandbox"
+                        >
+                          <option value="sandbox">Sandbox (Testing)</option>
+                          <option value="production">Production (Live)</option>
+                        </select>
+                      </div>
+
+                      <div className="flex items-center justify-between border-b pb-4">
+                        <div>
+                          <h4 className="font-medium">Enable Square Payments</h4>
+                          <p className="text-sm text-muted-foreground">Allow clients to pay via Square</p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input type="checkbox" className="sr-only peer" defaultChecked />
+                          <div className="w-11 h-6 bg-muted-foreground rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                        </label>
+                      </div>
                     </div>
-                    
-                    <div className="flex items-center justify-between border-b pb-4">
-                      <div>
-                        <h4 className="font-medium">Subscription Plan</h4>
-                        <p className="text-sm text-muted-foreground">Choose your subscription plan</p>
+
+                    {/* Other Billing Settings */}
+                    <div className="space-y-4 pt-6 border-t">
+                      <div className="flex items-center justify-between border-b pb-4">
+                        <div>
+                          <h4 className="font-medium">Auto-invoicing</h4>
+                          <p className="text-sm text-muted-foreground">Automatically generate invoices for completed shoots</p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input type="checkbox" className="sr-only peer" defaultChecked />
+                          <div className="w-11 h-6 bg-muted-foreground rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                        </label>
                       </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" className="sr-only peer" />
-                        <div className="w-11 h-6 bg-muted-foreground rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                      </label>
+
+                      <div className="flex items-center justify-between border-b pb-4">
+                        <div>
+                          <h4 className="font-medium">Payment Reminders</h4>
+                          <p className="text-sm text-muted-foreground">Send automatic payment reminders to clients</p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input type="checkbox" className="sr-only peer" defaultChecked />
+                          <div className="w-11 h-6 bg-muted-foreground rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                        </label>
+                      </div>
                     </div>
                   </div>
                 </CardContent>
                 <CardFooter className="flex justify-end">
-                  <Button>Save Changes</Button>
+                  <Button>Save Billing Settings</Button>
                 </CardFooter>
               </Card>
             </TabsContent>
-            
+
             <TabsContent value="notifications" className="space-y-4">
               <Card>
                 <CardHeader>
@@ -387,7 +561,7 @@ const Settings = () => {
                         <div className="w-11 h-6 bg-muted-foreground rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                       </label>
                     </div>
-                    
+
                     <div className="flex items-center justify-between border-b pb-4">
                       <div>
                         <h4 className="font-medium">SMS Notifications</h4>
@@ -398,7 +572,7 @@ const Settings = () => {
                         <div className="w-11 h-6 bg-muted-foreground rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                       </label>
                     </div>
-                    
+
                     <div className="flex items-center justify-between border-b pb-4">
                       <div>
                         <h4 className="font-medium">Marketing Emails</h4>
@@ -416,6 +590,29 @@ const Settings = () => {
                 </CardFooter>
               </Card>
             </TabsContent>
+
+            {canViewIntegrations && (
+              <TabsContent value="integrations" className="space-y-6">
+                <div className="space-y-8">
+                  {/* Main Integrations Grid */}
+                  <div className="space-y-6">
+                    <IntegrationsHeader />
+                    <IntegrationsGrid />
+                  </div>
+
+                  {/* API Integrations Section */}
+                  <div className="space-y-6 pt-8 border-t">
+                    <div>
+                      <h3 className="text-lg font-semibold mb-2">API Integrations</h3>
+                      <p className="text-sm text-muted-foreground mb-6">
+                        Configure API credentials for Zillow, Bright MLS, and iGUIDE integrations.
+                      </p>
+                    </div>
+                    <IntegrationsSettingsContent />
+                  </div>
+                </div>
+              </TabsContent>
+            )}
           </Tabs>
         </div>
       </PageTransition>

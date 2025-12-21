@@ -10,12 +10,14 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { CheckCircle2, AlertTriangle, Clock, Activity, Settings } from "lucide-react";
+import { CheckCircle2, AlertTriangle, Clock, Activity, Settings, Thermometer } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
+import { useUserPreferences } from "@/contexts/UserPreferencesContext";
 
 export function AdminProfile() {
   const { user } = useAuth();
   const { theme, setTheme } = useTheme();
+  const { preferences, setTemperatureUnit, setTimeFormat } = useUserPreferences();
   
   const [formData, setFormData] = useState({
     name: user?.name || "",
@@ -223,6 +225,32 @@ export function AdminProfile() {
                       id="uiDensity"
                       checked={formData.uiDensity === 'compact'}
                       onCheckedChange={(checked) => setFormData(prev => ({ ...prev, uiDensity: checked ? 'compact' : 'default' }))}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between border p-4 rounded-lg">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="temperatureUnit">Temperature Unit</Label>
+                      <p className="text-sm text-muted-foreground">
+                        {preferences.temperatureUnit === 'celsius' ? 'Celsius (°C)' : 'Fahrenheit (°F)'}
+                      </p>
+                    </div>
+                    <Switch
+                      id="temperatureUnit"
+                      checked={preferences.temperatureUnit === 'celsius'}
+                      onCheckedChange={(checked) => setTemperatureUnit(checked ? 'celsius' : 'fahrenheit')}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between border p-4 rounded-lg">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="timeFormat">24-Hour Time Format</Label>
+                      <p className="text-sm text-muted-foreground">
+                        {preferences.timeFormat === '24h' ? '24-hour format (14:30)' : '12-hour format (2:30 PM)'}
+                      </p>
+                    </div>
+                    <Switch
+                      id="timeFormat"
+                      checked={preferences.timeFormat === '24h'}
+                      onCheckedChange={(checked) => setTimeFormat(checked ? '24h' : '12h')}
                     />
                   </div>
                 </div>

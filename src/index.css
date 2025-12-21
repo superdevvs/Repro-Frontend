@@ -4,6 +4,17 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Test styles to ensure CSS is loading */
+#root {
+  min-height: 100vh;
+}
+
+/* Debug: Add visible border to verify CSS is working */
+body {
+  margin: 0;
+  padding: 0;
+}
+
 @layer base {
   :root {
     --background: 210 20% 98%;
@@ -91,16 +102,66 @@
     @apply border-border;
   }
 
-  html, body, #root {
+  html,
+  body,
+  #root {
     @apply h-full w-full;
     -webkit-tap-highlight-color: transparent;
   }
 
-  body {
-    @apply bg-background text-foreground font-sans antialiased;
+  html {
+    @apply overflow-hidden;
   }
 
-  h1, h2, h3, h4, h5, h6 {
+  body {
+    @apply bg-background text-foreground font-sans antialiased overflow-hidden;
+  }
+
+  /* Custom Scrollbar Styling - Theme-aware and 50% width */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.3) hsl(var(--muted) / 0.1);
+  }
+
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: hsl(var(--muted) / 0.1);
+    border-radius: 4px;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground) / 0.3);
+    border-radius: 4px;
+    border: 1px solid transparent;
+    background-clip: padding-box;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.5);
+  }
+
+  .dark *::-webkit-scrollbar-track {
+    background: hsl(var(--muted) / 0.2);
+  }
+
+  .dark *::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground) / 0.4);
+  }
+
+  .dark *::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.6);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     @apply font-medium tracking-tight;
   }
 
@@ -127,7 +188,7 @@
   .glass-card {
     @apply bg-white/80 dark:bg-card/80 backdrop-blur-md border border-white/20 dark:border-white/10 shadow-glass transition-all duration-300;
   }
-  
+
   .glass-card:hover {
     @apply shadow-glass-hover;
   }
@@ -153,15 +214,15 @@
   .page-enter {
     @apply opacity-0;
   }
-  
+
   .page-enter-active {
     @apply opacity-100 transition-opacity duration-300;
   }
-  
+
   .page-exit {
     @apply opacity-100;
   }
-  
+
   .page-exit-active {
     @apply opacity-0 transition-opacity duration-300;
   }
@@ -203,65 +264,48 @@
   @apply dark:bg-gray-700/70 dark:text-gray-100;
 }
 
-.dark .bg-green-100 {
-  background-color: rgba(74, 222, 128, 0.25) !important;
-}
-
-.dark .bg-yellow-100 {
-  background-color: rgba(250, 204, 21, 0.25) !important;
-}
-
-.dark .bg-red-100 {
-  background-color: rgba(248, 113, 113, 0.25) !important;
-}
-
-.bg-green-100 {
-  background-color: rgba(240, 253, 244, 1) !important;
-}
-
-.bg-yellow-100 {
-  background-color: rgba(254, 252, 232, 1) !important;
-}
-
-.bg-red-100 {
-  background-color: rgba(254, 242, 242, 1) !important;
-}
+/* Removed harmful !important overrides */
 
 @media (max-width: 767px) {
-  body, html {
+
+  body,
+  html {
     @apply text-base;
   }
-  
-  input, button, select, textarea {
+
+  input,
+  button,
+  select,
+  textarea {
     @apply text-base;
     font-size: 16px !important;
   }
-  
+
   .mobile-hidden {
     display: none;
   }
-  
+
   .mobile-full-width {
     width: 100%;
   }
-  
+
   .mobile-padding {
     padding: 0.75rem;
   }
-  
+
   .mobile-text-sm {
     font-size: 0.875rem;
   }
-  
+
   .mobile-stack {
     flex-direction: column;
   }
-  
+
   .mobile-center {
     text-align: center;
     justify-content: center;
   }
-  
+
   .mobile-scrollable {
     -webkit-overflow-scrolling: touch;
     overflow-y: auto;
@@ -269,101 +313,104 @@
     padding-bottom: 60px;
     scroll-behavior: smooth;
   }
-  
+
   .mobile-compact-form .glass-card {
     padding: 1rem !important;
   }
-  
+
   .mobile-compact-form .space-y-6 {
     margin-top: 0.5rem !important;
     margin-bottom: 0.5rem !important;
   }
-  
+
   .mobile-compact-form h2 {
     font-size: 1.25rem !important;
     margin-bottom: 0.25rem !important;
   }
-  
+
   .mobile-compact-form p {
     font-size: 0.75rem !important;
     margin-bottom: 0.5rem !important;
   }
-  
+
   .mobile-compact-form .space-y-2,
   .mobile-compact-form .space-y-4 {
     margin-top: 0.5rem !important;
     margin-bottom: 0.5rem !important;
   }
-  
+
   .form-control-touch {
     min-height: 48px;
   }
-  
+
   .button-touch {
     @apply h-12 min-w-[100px];
     touch-action: manipulation;
   }
-  
+
   .mobile-bottom-nav {
     @apply fixed bottom-0 left-0 right-0 bg-background/80 backdrop-blur-lg border-t border-border z-50;
     height: 60px;
     padding-bottom: env(safe-area-inset-bottom, 0);
   }
-  
+
   .mobile-bottom-nav-item {
     @apply flex-1 flex flex-col items-center justify-center;
     touch-action: manipulation;
   }
-  
-  input[type="text"], 
-  input[type="email"], 
-  input[type="password"], 
-  textarea, 
+
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  textarea,
   select {
     @apply appearance-none;
     font-size: 16px !important;
   }
-  
+
   button {
     touch-action: manipulation;
   }
-  
+
   .mobile-heading-lg {
     @apply text-2xl font-bold;
   }
-  
+
   .mobile-heading-md {
     @apply text-xl font-bold;
   }
-  
+
   .mobile-heading-sm {
     @apply text-lg font-semibold;
   }
-  
+
   .login-page-mobile {
     @apply pt-4 pb-8 px-4;
   }
-  
+
   .login-card-mobile {
     @apply shadow-lg border border-border/30;
   }
-  
+
   .mobile-card {
     @apply rounded-lg overflow-hidden shadow-md;
   }
-  
+
   .mobile-panel {
     @apply p-3;
   }
 }
 
 @keyframes pulse-slow {
-  0%, 100% { 
+
+  0%,
+  100% {
     opacity: 0.2;
     transform: scale(0.98);
   }
-  50% { 
-    opacity: 0.5; 
+
+  50% {
+    opacity: 0.5;
     transform: scale(1.03);
   }
 }
@@ -372,12 +419,14 @@
   animation: pulse-slow 3s infinite ease-in-out;
 }
 
-.light .glass-button-light, .glass-button-light {
+.light .glass-button-light,
+.glass-button-light {
   @apply bg-white/80 border border-gray-200 text-gray-800;
   @apply hover:bg-white/90 hover:border-gray-300 transition-all duration-300;
 }
 
-.light .glass-stroke-light, .glass-stroke-light {
+.light .glass-stroke-light,
+.glass-stroke-light {
   @apply relative before:absolute before:inset-0 before:rounded-[inherit] before:border-2 before:border-primary/30;
   @apply before:animate-pulse-slow;
 }
@@ -386,16 +435,25 @@
   .safe-bottom {
     padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
   }
-  
+
   .safe-top {
     padding-top: max(env(safe-area-inset-top), 0.5rem);
   }
-  
+
   .safe-left {
     padding-left: max(env(safe-area-inset-left), 0.5rem);
   }
-  
+
   .safe-right {
     padding-right: max(env(safe-area-inset-right), 0.5rem);
   }
+}
+
+/* Ensure TabsContent displays correctly when active */
+[data-radix-tabs-content][data-state="active"] {
+  display: flex !important;
+}
+
+[data-radix-tabs-content][data-state="inactive"] {
+  display: none;
 }

@@ -296,7 +296,7 @@ export function RevenueCharts({
                 <BarChart3 className="h-4 w-4 text-primary" />
                 Revenue Overview
               </CardTitle>
-              <CardDescription>Financial performance metrics</CardDescription>
+              <CardDescription className="text-slate-600 dark:text-slate-400">Financial performance metrics</CardDescription>
             </div>
 
             <div className="flex flex-wrap gap-3 items-center">
@@ -318,7 +318,7 @@ export function RevenueCharts({
         </CardHeader>
 
         <CardContent className="pt-3 pb-6">
-          <div className="h-[300px]">
+          <div className="h-[300px] min-h-[300px]">
             {chartType === 'area' && (
               <AreaChart
                 data={monthlyData}
@@ -388,7 +388,7 @@ export function RevenueCharts({
 
                     <div className="w-full flex items-center justify-between px-2">
                       <div>
-                        <p className="text-sm text-muted-foreground">Total this month</p>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">Total this month</p>
                         <p className="text-2xl sm:text-3xl font-bold text-black dark:text-white">
                           ${totalExpenses.toLocaleString()}
                         </p>
@@ -396,12 +396,12 @@ export function RevenueCharts({
 
                       <div className="flex flex-col items-end gap-1">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm text-muted-foreground">Receipts</span>
+                          <span className="text-sm text-slate-600 dark:text-slate-400">Receipts</span>
                           <span className="text-lg font-medium text-black dark:text-white">{expensesState.length}</span>
                         </div>
 
                         <div className="flex items-center gap-2">
-                          <span className="text-sm text-muted-foreground">Unreviewed</span>
+                          <span className="text-sm text-slate-600 dark:text-slate-400">Unreviewed</span>
                           <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-red-600 text-white text-xs font-semibold">
                             {expensesState.filter(e => e.status === "unreviewed").length}
                           </span>
@@ -427,12 +427,12 @@ export function RevenueCharts({
                             <div className="flex items-center justify-between gap-3">
                               <div>
                                 <p className="font-medium text-sm text-black dark:text-white">{tx.vendor}</p>
-                                <p className="text-xs text-muted-foreground">{tx.desc}</p>
+                                <p className="text-xs text-slate-600 dark:text-slate-400">{tx.desc}</p>
                               </div>
 
                               <div className="text-right">
                                 <p className="font-semibold text-sm text-black dark:text-white">${tx.amount.toLocaleString()}</p>
-                                <p className="text-xs text-muted-foreground">{tx.date}</p>
+                                <p className="text-xs text-slate-600 dark:text-slate-400">{tx.date}</p>
                               </div>
                             </div>
 
@@ -480,7 +480,7 @@ export function RevenueCharts({
                     {/* Close */}
                     <button
                       onClick={() => setShowPopup(false)}
-                      className="absolute top-4 right-4 text-white/70 hover:text-white transition text-xl"
+                      className="absolute top-4 right-4 z-[10000] text-white/70 hover:text-white transition text-xl"
                       aria-label="Close"
                     >
                       ✕

@@ -5,9 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CreditCardIcon, CheckIcon, QrCodeIcon } from "lucide-react";
 import { InvoiceData } from '@/utils/invoiceUtils';
 import { useToast } from '@/hooks/use-toast';
+import { SquarePaymentForm } from '@/components/payments/SquarePaymentForm';
 
 interface PaymentDialogProps {
   invoice: InvoiceData | null;
@@ -18,10 +20,22 @@ interface PaymentDialogProps {
 
 export function PaymentDialog({ invoice, isOpen, onClose, onPaymentComplete }: PaymentDialogProps) {
   const { toast } = useToast();
-  const [paymentMethod, setPaymentMethod] = useState<string>("credit-card");
+  const [paymentMethod, setPaymentMethod] = useState<string>("square");
   const [loading, setLoading] = useState(false);
 
   if (!invoice) return null;
+
+  const handleSquarePaymentSuccess = (payment: any) => {
+    if (onPaymentComplete) {
+      onPaymentComplete(invoice.id, 'Square Payment');
+    }
+    toast({
+      title: "Payment Successful",
+      description: `Payment for invoice ${invoice.id} has been processed.`,
+      variant: "default",
+    });
+    onClose();
+  };
 
   const handlePayment = (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,63 +75,43 @@ export function PaymentDialog({ invoice, isOpen, onClose, onPaymentComplete }: P
           </DialogDescription>
         </DialogHeader>
         
-        <form onSubmit={handlePayment} className="space-y-4 py-4">
+        <Tabs value={paymentMethod} onValueChange={setPaymentMethod} className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="square">Square Payment</TabsTrigger>
+            <TabsTrigger value="manual">Manual Payment</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="square" className="space-y-4 py-4">
+            <SquarePaymentForm
+              amount={invoice.amount}
+              currency="USD"
+              onPaymentSuccess={handleSquarePaymentSuccess}
+            />
+          </TabsContent>
+          
+          <TabsContent value="manual" className="space-y-4 py-4">
+            <form onSubmit={handlePayment} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="payment-method">Payment Method</Label>
+                <Label htmlFor="manual-payment-method">Payment Method</Label>
             <Select 
-              value={paymentMethod} 
-              onValueChange={setPaymentMethod}
+                  value={paymentMethod === "manual" ? "cash" : paymentMethod} 
+                  onValueChange={(value) => setPaymentMethod(value)}
             >
-              <SelectTrigger id="payment-method">
+                  <SelectTrigger id="manual-payment-method">
                 <SelectValue placeholder="Select payment method" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="credit-card">Credit Card</SelectItem>
                 <SelectItem value="bank-transfer">Bank Transfer</SelectItem>
-                <SelectItem value="square-upi">Square UPI</SelectItem>
                 <SelectItem value="cash">Cash</SelectItem>
+                    <SelectItem value="check">Check</SelectItem>
               </SelectContent>
             </Select>
           </div>
-          
-          {paymentMethod === "credit-card" && (
-            <>
-              <div className="space-y-2">
-                <Label htmlFor="card-number">Card Number</Label>
-                <Input id="card-number" placeholder="1234 5678 9012 3456" required />
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="expiry">Expiry Date</Label>
-                  <Input id="expiry" placeholder="MM/YY" required />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="cvc">CVC</Label>
-                  <Input id="cvc" placeholder="123" required />
-                </div>
-              </div>
-            </>
-          )}
           
           {paymentMethod === "bank-transfer" && (
             <div className="space-y-2">
               <Label htmlFor="reference">Reference Number</Label>
               <Input id="reference" placeholder="Enter reference number" required />
-            </div>
-          )}
-          
-          {paymentMethod === "square-upi" && (
-            <div className="space-y-2">
-              <Label htmlFor="upi-id">UPI ID</Label>
-              <Input id="upi-id" placeholder="example@upi" required />
-              <div className="mt-2 p-4 bg-muted/40 rounded-lg flex flex-col items-center">
-                <QrCodeIcon className="h-24 w-24 text-primary/70 mb-2" />
-                <p className="text-sm text-center text-muted-foreground">
-                  Scan this QR code with your Square UPI app to make payment
-                </p>
-              </div>
             </div>
           )}
           
@@ -139,19 +133,15 @@ export function PaymentDialog({ invoice, isOpen, onClose, onPaymentComplete }: P
                 <>Processing...</>
               ) : (
                 <>
-                  {paymentMethod === "credit-card" ? (
-                    <CreditCardIcon className="h-4 w-4 mr-2" />
-                  ) : paymentMethod === "square-upi" ? (
-                    <QrCodeIcon className="h-4 w-4 mr-2" />
-                  ) : (
                     <CheckIcon className="h-4 w-4 mr-2" />
-                  )}
                   Process Payment
                 </>
               )}
             </Button>
           </DialogFooter>
         </form>
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );

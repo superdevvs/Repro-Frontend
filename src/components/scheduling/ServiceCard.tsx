@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -7,10 +7,23 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Edit, Trash2, CheckCircle2, XCircle } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { Edit, Trash2, CheckCircle2, XCircle, Plus, HelpCircle } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import axios from 'axios';
+import { API_BASE_URL } from '@/config/env';
+import { IconPicker, getIconComponent } from './IconPicker';
+
+type SqftRange = {
+  id?: number;
+  sqft_from: number;
+  sqft_to: number;
+  duration: number | null;
+  price: number;
+  photographer_pay: number | null;
+  photo_count?: number | null;
+};
 
 type ServiceProps = {
   service: {
@@ -18,10 +31,17 @@ type ServiceProps = {
     name: string;
     description?: string;
     price: string;
+    pricing_type?: 'fixed' | 'variable';
+    allow_multiple?: boolean;
     delivery_time?: string;
     photographer_required?: boolean;
+    photographer_pay?: string | number;
+    photo_count?: number;
+    quantity?: number;
     active: boolean;
-    category?: string; // Added category property
+    category?: string;
+    icon?: string;
+    sqft_ranges?: SqftRange[];
   };
   onUpdate: () => void;
 };
@@ -31,8 +51,37 @@ export function ServiceCard({ service, onUpdate }: ServiceProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   type Service = ServiceProps['service'];
   const [editedService, setEditedService] = useState<Service>({ ...service });
+  const [sqftRanges, setSqftRanges] = useState<SqftRange[]>(service.sqft_ranges || []);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+  const isPhotoCategory = (service.category || '').toLowerCase() === 'photo';
+
+  // Sync sqftRanges when service changes or dialog opens
+  useEffect(() => {
+    if (isEditDialogOpen) {
+      setEditedService({ ...service });
+      setSqftRanges(service.sqft_ranges || []);
+    }
+  }, [isEditDialogOpen, service]);
+
+  const addSqftRange = () => {
+    const lastRange = sqftRanges[sqftRanges.length - 1];
+    const newFrom = lastRange ? lastRange.sqft_to + 1 : 1;
+    setSqftRanges([
+      ...sqftRanges,
+      { sqft_from: newFrom, sqft_to: newFrom + 1499, duration: 60, price: 0, photographer_pay: null }
+    ]);
+  };
+
+  const updateSqftRange = (index: number, field: keyof SqftRange, value: number | null) => {
+    const updated = [...sqftRanges];
+    updated[index] = { ...updated[index], [field]: value };
+    setSqftRanges(updated);
+  };
+
+  const removeSqftRange = (index: number) => {
+    setSqftRanges(sqftRanges.filter((_, i) => i !== index));
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
@@ -69,7 +118,26 @@ export function ServiceCard({ service, onUpdate }: ServiceProps) {
       name: editedService.name?.trim(),
       description: editedService.description?.trim(),
       price: parseFloat(editedService.price),
+      pricing_type: editedService.pricing_type || 'fixed',
+      allow_multiple: editedService.allow_multiple || false,
       delivery_time: parseInt(editedService.delivery_time),
+      icon: editedService.icon,
+      photographer_required: editedService.photographer_required || false,
+      photographer_pay: editedService.photographer_pay ? parseFloat(String(editedService.photographer_pay)) : null,
+      photo_count: (isPhotoCategory && editedService.photo_count != null)
+        ? editedService.photo_count
+        : null,
+      quantity: (!isPhotoCategory && editedService.quantity != null)
+        ? editedService.quantity
+        : null,
+      sqft_ranges: editedService.pricing_type === 'variable' ? sqftRanges.map(range => ({
+        id: range.id,
+        sqft_from: range.sqft_from,
+        sqft_to: range.sqft_to,
+        duration: range.duration,
+        price: range.price,
+        photographer_pay: range.photographer_pay,
+      })) : [],
     };
   
     console.log('Payload being sent:', payload);
@@ -83,7 +151,7 @@ export function ServiceCard({ service, onUpdate }: ServiceProps) {
   
     try {
       const res = await axios.put(
-        `${import.meta.env.VITE_API_URL}/api/admin/services/${service.id}`,
+        `${API_BASE_URL}/api/admin/services/${service.id}`,
         payload,
         {
           headers: {
@@ -135,7 +203,7 @@ export function ServiceCard({ service, onUpdate }: ServiceProps) {
       }
   
       const response = await axios.delete(
-        `${import.meta.env.VITE_API_URL}/api/admin/services/${service.id}`,
+        `${API_BASE_URL}/api/admin/services/${service.id}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -169,12 +237,25 @@ export function ServiceCard({ service, onUpdate }: ServiceProps) {
     currency: 'USD',
   }).format(Number(service.price));
 
+  const IconComponent = getIconComponent(service.icon || 'Camera');
+
   return (
     <>
       <Card className="h-full flex flex-col">
         <CardHeader className="pb-3">
           <div className="flex justify-between items-start">
-            <CardTitle className="text-lg">{service.name}</CardTitle>
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-primary/10 rounded-lg text-primary flex-shrink-0">
+                <IconComponent className="h-4 w-4" />
+              </div>
+              {/* Show quantity: photo_count for photos, quantity for others */}
+              {(isPhotoCategory ? service.photo_count : service.quantity) != null && (
+                <span className="text-sm font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded">
+                  {isPhotoCategory ? service.photo_count : service.quantity}
+                </span>
+              )}
+              <CardTitle className="text-lg">{service.name}</CardTitle>
+            </div>
             {/* <Badge variant={service.active ? "default" : "secondary"}>
               {service.active ? "Active" : "Inactive"}
             </Badge> */}
@@ -208,6 +289,13 @@ export function ServiceCard({ service, onUpdate }: ServiceProps) {
                 )}
               </span>
             </div>
+            
+            {isPhotoCategory && service.photo_count != null && (
+              <div className="flex justify-between">
+                <span className="text-sm font-medium">Photo Count:</span>
+                <span>{service.photo_count} photos</span>
+              </div>
+            )}
           </div>
         </CardContent>
         <CardFooter className="border-t pt-3">
@@ -236,7 +324,7 @@ export function ServiceCard({ service, onUpdate }: ServiceProps) {
 
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Service</DialogTitle>
           </DialogHeader>
@@ -260,30 +348,212 @@ export function ServiceCard({ service, onUpdate }: ServiceProps) {
                 onChange={handleInputChange}
               />
             </div>
-            
+
+            {/* Icon and Quantity side by side */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="price">Price ($)</Label>
-                <Input
-                  id="price"
-                  name="price"
-                  type="number"
-                  value={editedService.price}
-                  onChange={handleInputChange}
+                <Label>Icon</Label>
+                <IconPicker
+                  value={editedService.icon || ''}
+                  onChange={(value) => setEditedService({ ...editedService, icon: value })}
                 />
               </div>
-              
               <div className="space-y-2">
-                <Label htmlFor="delivery_time">Delivery Time (hours)</Label>
+                <Label htmlFor="quantity_field">
+                  {isPhotoCategory ? 'Photo Count' : 'Quantity'}
+                </Label>
                 <Input
-                  id="delivery_time"
-                  name="delivery_time"
+                  id="quantity_field"
                   type="number"
-                  value={editedService.delivery_time}
-                  onChange={handleInputChange}
+                  min="0"
+                  value={isPhotoCategory 
+                    ? (editedService.photo_count ?? '') 
+                    : (editedService.quantity ?? '')}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const numVal = val === '' ? undefined : parseInt(val, 10);
+                    if (isPhotoCategory) {
+                      setEditedService({ ...editedService, photo_count: numVal });
+                    } else {
+                      setEditedService({ ...editedService, quantity: numVal });
+                    }
+                  }}
+                  placeholder={isPhotoCategory ? "Number of photos" : "Quantity"}
                 />
               </div>
             </div>
+
+            {/* Pricing Type */}
+            <div className="space-y-2">
+              <Label>Pricing</Label>
+              <Select
+                value={editedService.pricing_type || 'fixed'}
+                onValueChange={(value: 'fixed' | 'variable') => 
+                  setEditedService({ ...editedService, pricing_type: value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select pricing type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="fixed">Fixed Price</SelectItem>
+                  <SelectItem value="variable">Variable (SQFT)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+
+            {/* Fixed pricing fields */}
+            {editedService.pricing_type !== 'variable' && (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="price">Price ($)</Label>
+                  <Input
+                    id="price"
+                    name="price"
+                    type="number"
+                    value={editedService.price}
+                    onChange={handleInputChange}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="delivery_time">Delivery Time (hours)</Label>
+                  <Input
+                    id="delivery_time"
+                    name="delivery_time"
+                    type="number"
+                    value={editedService.delivery_time}
+                    onChange={handleInputChange}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Variable pricing - SQFT Ranges */}
+            {editedService.pricing_type === 'variable' && (
+              <div className="space-y-3 border rounded-lg p-4 bg-muted/30">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm text-muted-foreground">
+                    Define each square footage range and provide the duration and price for each range.
+                  </p>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        <p>Price will be automatically calculated based on the property's square footage when booking a shoot.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+
+                {/* Header row */}
+                <div className="grid grid-cols-[0.8fr_0.8fr_0.6fr_0.6fr_0.8fr_auto] gap-2 text-xs font-medium text-muted-foreground">
+                  <div>From</div>
+                  <div>To</div>
+                  <div>Count</div>
+                  <div>Dur (min)</div>
+                  <div>Price ($)</div>
+                  <div className="w-8"></div>
+                </div>
+
+                {/* Range rows */}
+                {sqftRanges.map((range, index) => (
+                  <div key={index} className="grid grid-cols-[0.8fr_0.8fr_0.6fr_0.6fr_0.8fr_auto] gap-2 items-center">
+                    <Input
+                      type="number"
+                      min="0"
+                      value={range.sqft_from}
+                      onChange={(e) => updateSqftRange(index, 'sqft_from', parseInt(e.target.value) || 0)}
+                      className="h-8 text-sm"
+                    />
+                    <Input
+                      type="number"
+                      min="0"
+                      value={range.sqft_to}
+                      onChange={(e) => updateSqftRange(index, 'sqft_to', parseInt(e.target.value) || 0)}
+                      className="h-8 text-sm"
+                    />
+                    <Input
+                      type="number"
+                      min="0"
+                      value={range.photo_count ?? ''}
+                      onChange={(e) => updateSqftRange(index, 'photo_count', e.target.value ? parseInt(e.target.value) : null)}
+                      className="h-8 text-sm"
+                      placeholder={isPhotoCategory ? "25" : "1"}
+                    />
+                    <Input
+                      type="number"
+                      min="0"
+                      value={range.duration || ''}
+                      onChange={(e) => updateSqftRange(index, 'duration', e.target.value ? parseInt(e.target.value) : null)}
+                      className="h-8 text-sm"
+                      placeholder="60"
+                    />
+                    <div className="relative">
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={range.price}
+                        onChange={(e) => updateSqftRange(index, 'price', parseFloat(e.target.value) || 0)}
+                        className="h-8 text-sm pl-5"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-destructive hover:text-destructive"
+                      onClick={() => removeSqftRange(index)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+
+                {/* Add new range button */}
+                <Button
+                  type="button"
+                  variant="link"
+                  size="sm"
+                  className="text-primary p-0 h-auto"
+                  onClick={addSqftRange}
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add New Range
+                </Button>
+
+                {/* Default/fallback price */}
+                <div className="grid grid-cols-2 gap-4 pt-2 border-t">
+                  <div className="space-y-2">
+                    <Label htmlFor="price" className="text-xs">Default Price (fallback)</Label>
+                    <Input
+                      id="price"
+                      name="price"
+                      type="number"
+                      value={editedService.price}
+                      onChange={handleInputChange}
+                      className="h-8"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="delivery_time" className="text-xs">Default Duration (hours)</Label>
+                    <Input
+                      id="delivery_time"
+                      name="delivery_time"
+                      type="number"
+                      value={editedService.delivery_time}
+                      onChange={handleInputChange}
+                      className="h-8"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
             
             <div className="flex items-center justify-between">
               <Label htmlFor="photographer_required" className="cursor-pointer">
@@ -298,17 +568,21 @@ export function ServiceCard({ service, onUpdate }: ServiceProps) {
                 }
               />
             </div>
+            {editedService.photographer_required && (
+              <div className="space-y-2">
+                <Label htmlFor="photographer_pay">Photographer's Pay ($)</Label>
+                <Input
+                  id="photographer_pay"
+                  name="photographer_pay"
+                  type="number"
+                  step="0.01"
+                  value={editedService.photographer_pay || ''}
+                  onChange={handleInputChange}
+                  placeholder="0.00"
+                />
+              </div>
+            )}
             
-            {/* <div className="flex items-center justify-between">
-              <Label htmlFor="active" className="cursor-pointer">
-                Active
-              </Label>
-              <Switch
-                id="active"
-                checked={editedService.active}
-                onCheckedChange={handleSwitchChange}
-              />
-            </div> */}
           </div>
           <DialogFooter>
             <Button 

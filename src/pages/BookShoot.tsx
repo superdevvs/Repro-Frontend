@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { AnimatePresence } from 'framer-motion';
@@ -10,27 +10,55 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
 import { Client } from '@/types/clients';
 import { initialClientsData } from '@/data/clientsData';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, X, Trash2 } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { format } from 'date-fns';
 import { BookingSummary } from '@/components/booking/BookingSummary';
+import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import { BookingContentArea } from '@/components/booking/BookingContentArea';
 import { ShootData } from '@/types/shoots';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { BookingHeader } from '@/components/booking/BookingHeader';
+import { useWeatherData } from '@/hooks/useWeatherData';
 import axios from 'axios';
 import API_ROUTES from '@/lib/api';
+import { API_BASE_URL } from '@/config/env';
+import { normalizeState, isValidState } from '@/utils/stateUtils';
 
+type SqftRange = {
+  id?: number;
+  sqft_from: number;
+  sqft_to: number;
+  duration: number | null;
+  price: number;
+  photographer_pay: number | null;
+};
+
+type ServicePackage = {
+  id: string;
+  name: string;
+  price: number;
+  pricing_type?: 'fixed' | 'variable';
+  allow_multiple?: boolean;
+  description: string;
+  sqft_ranges?: SqftRange[];
+  category?: {
+    id: string;
+    name: string;
+  };
+};
 
 const BookShoot = () => {
   const isMobile = useIsMobile();
   const location = useLocation();
+  const { formatDate } = useUserPreferences();
   const queryParams = new URLSearchParams(location.search);
   const clientIdFromUrl = queryParams.get('clientId');
   const clientNameFromUrl = queryParams.get('clientName');
   const clientCompanyFromUrl = queryParams.get('clientCompany');
   const { user } = useAuth();
-  const [packages, setPackages] = useState<{ id: string, name: string, price: number, description: string }[]>([]);
+  const [packages, setPackages] = useState<ServicePackage[]>([]);
+  const [packagesLoading, setPackagesLoading] = useState(true);
 
   const [clients, setClients] = useState<Client[]>([]);
 
@@ -49,7 +77,13 @@ const BookShoot = () => {
   const [date, setDate] = useState<Date | undefined>(undefined);
   const [time, setTime] = useState('');
   const [photographer, setPhotographer] = useState('');
-  const [selectedPackage, setSelectedPackage] = useState('');
+  const [selectedServices, setSelectedServices] = useState<ServicePackage[]>([]);
+  const [propertyDetails, setPropertyDetails] = useState<any>(null);
+  const [propertySqft, setPropertySqft] = useState<number | null>(null);
+
+  const handleSelectedServicesChange = (services: ServicePackage[]) => {
+    setSelectedServices(services);
+  };
   const [notes, setNotes] = useState('');
   const [companyNotes, setCompanyNotes] = useState('');
   const [photographerNotes, setPhotographerNotes] = useState('');
@@ -74,8 +108,161 @@ const BookShoot = () => {
   };
   const { fetchShoots } = useShoots();
 
+  // Hide body scroll on this page; rely on layout/main scroll only
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, []);
 
   const isClientAccount = user && user.role === 'client';
+  
+  // Check if user should have form data cached (admin, rep, or photographer)
+  const shouldCacheForm = user && ['admin', 'superadmin', 'rep', 'photographer'].includes(user.role);
+  const CACHE_KEY = 'bookShoot_form_cache';
+  const hasRestoredRef = useRef(false);
+  const isInitialMountRef = useRef(true);
+  const [hasCachedData, setHasCachedData] = useState(false);
+
+  // Check if cached data exists
+  useEffect(() => {
+    if (!shouldCacheForm) {
+      setHasCachedData(false);
+      return;
+    }
+    
+    try {
+      const cachedData = localStorage.getItem(CACHE_KEY);
+      setHasCachedData(!!cachedData);
+    } catch (error) {
+      setHasCachedData(false);
+    }
+  }, [shouldCacheForm, client, address, city, state, zip, date, time, photographer, selectedServices, notes, companyNotes, photographerNotes, editorNotes, bypassPayment, sendNotification, step, propertyDetails]);
+
+  // Restore form data from localStorage on mount (only once, when user is loaded)
+  useEffect(() => {
+    // Wait for user to be loaded
+    if (!user) return;
+    
+    // Only restore if user should cache and we haven't restored yet
+    if (!shouldCacheForm || hasRestoredRef.current) {
+      isInitialMountRef.current = false;
+      return;
+    }
+    
+    hasRestoredRef.current = true;
+
+    try {
+      const cachedData = localStorage.getItem(CACHE_KEY);
+      if (cachedData) {
+        const parsed = JSON.parse(cachedData);
+        
+        // Restore form fields
+        if (parsed.client && !isClientAccount) {
+          setClient(parsed.client);
+        }
+        if (parsed.address) setAddress(parsed.address);
+        if (parsed.city) setCity(parsed.city);
+        if (parsed.state) setState(parsed.state);
+        if (parsed.zip) setZip(parsed.zip);
+        if (parsed.date) {
+          const restoredDate = new Date(parsed.date);
+          if (!isNaN(restoredDate.getTime())) {
+            setDate(restoredDate);
+          }
+        }
+        if (parsed.time) setTime(parsed.time);
+        if (parsed.photographer) setPhotographer(parsed.photographer);
+        if (parsed.selectedServices && Array.isArray(parsed.selectedServices)) {
+          setSelectedServices(parsed.selectedServices);
+        }
+        if (parsed.notes) setNotes(parsed.notes);
+        if (parsed.companyNotes) setCompanyNotes(parsed.companyNotes);
+        if (parsed.photographerNotes) setPhotographerNotes(parsed.photographerNotes);
+        if (parsed.editorNotes) setEditorNotes(parsed.editorNotes);
+        if (parsed.bypassPayment !== undefined) setBypassPayment(parsed.bypassPayment);
+        if (parsed.sendNotification !== undefined) setSendNotification(parsed.sendNotification);
+        if (parsed.editorNotes) setEditorNotes(parsed.editorNotes);
+        if (parsed.propertyDetails) setPropertyDetails(parsed.propertyDetails);
+        if (parsed.propertySqft !== undefined && parsed.propertySqft !== null) {
+          setPropertySqft(Number(parsed.propertySqft));
+        } else if (parsed.propertyDetails) {
+          const derivedSqft =
+            parsed.propertyDetails?.sqft ??
+            parsed.propertyDetails?.livingArea ??
+            null;
+          setPropertySqft(derivedSqft ? Number(derivedSqft) : null);
+        }
+        
+        // Form data restored from cache
+      }
+    } catch (error) {
+      console.error('Error restoring form data from cache:', error);
+    }
+    
+    // Mark initial mount as complete after a delay to allow state updates to settle
+    setTimeout(() => {
+      isInitialMountRef.current = false;
+    }, 1000);
+  }, [user, shouldCacheForm, isClientAccount]);
+
+  // Save form data to localStorage whenever it changes (but not during initial restore)
+  useEffect(() => {
+    if (!shouldCacheForm || !user) return;
+    
+    // Skip saving during initial mount/restore
+    if (isInitialMountRef.current) return;
+
+    try {
+      const formData = {
+        client,
+        address,
+        city,
+        state,
+        zip,
+        date: date ? date.toISOString() : null,
+        time,
+        photographer,
+        selectedServices,
+        notes,
+        companyNotes,
+        photographerNotes,
+        editorNotes,
+        bypassPayment,
+        sendNotification,
+        step,
+        propertyDetails,
+        propertySqft,
+      };
+      localStorage.setItem(CACHE_KEY, JSON.stringify(formData));
+      // Form data saved to cache
+    } catch (error) {
+      console.error('Error saving form data to cache:', error);
+    }
+  }, [
+    shouldCacheForm,
+    user,
+    client,
+    address,
+    city,
+    state,
+    zip,
+    date,
+    time,
+    photographer,
+    selectedServices,
+    notes,
+    companyNotes,
+    photographerNotes,
+    editorNotes,
+    bypassPayment,
+    sendNotification,
+    step,
+    propertyDetails,
+    propertySqft,
+  ]);
 
   useEffect(() => {
     const fetchClients = async () => {
@@ -86,15 +273,33 @@ const BookShoot = () => {
           throw new Error("No auth token found in localStorage");
         }
 
-        const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/admin/clients`, {
+        const response = await axios.get(`${API_BASE_URL}/api/admin/clients`, {
           headers: {
             Authorization: `Bearer ${token}`
           }
         });
-        const clientsData = response.data.data.map((client: any) => ({
-          ...client,
-          id: client.id.toString()
-        }));
+        const clientsData = response.data.data.map((client: any) => {
+          // Extract rep name - backend returns rep as object { id, name, email } or null
+          let repName: string | undefined = undefined;
+          if (client.rep) {
+            if (typeof client.rep === 'object' && client.rep.name) {
+              repName = client.rep.name;
+            } else if (typeof client.rep === 'string') {
+              repName = client.rep;
+            }
+          }
+          
+          // Client data processed from API
+          
+          return {
+            ...client,
+            id: client.id.toString(),
+            // Store rep name for easy access
+            rep: repName,
+            // Also keep original rep object if needed
+            repObject: client.rep,
+          };
+        });
         setClients(clientsData);
       } catch (error) {
         console.error("Error fetching clients:", error);
@@ -144,10 +349,22 @@ const BookShoot = () => {
   useEffect(() => {
     const fetchPackages = async () => {
       try {
-        const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/services`);
-        const packageData = response.data.data.map((pkg: any) => ({
-          ...pkg,
-          id: pkg.id.toString()
+        setPackagesLoading(true);
+        const response = await axios.get(`${API_BASE_URL}/api/services`);
+        const packageData: ServicePackage[] = response.data.data.map((pkg: any) => ({
+          id: pkg.id?.toString?.() ?? String(pkg.id),
+          name: pkg.name,
+          description: pkg.description ?? '',
+          price: Number(pkg.price ?? 0),
+          pricing_type: pkg.pricing_type || 'fixed',
+          allow_multiple: pkg.allow_multiple ?? false,
+          sqft_ranges: pkg.sqft_ranges || [],
+          category: pkg.category
+            ? {
+                id: pkg.category.id?.toString?.() ?? String(pkg.category.id),
+                name: pkg.category.name ?? 'Other',
+              }
+            : undefined,
         }));
         setPackages(packageData);
       } catch (error) {
@@ -157,6 +374,8 @@ const BookShoot = () => {
           description: "There was an error loading available services.",
           variant: "destructive"
         });
+      } finally {
+        setPackagesLoading(false);
       }
     };
 
@@ -213,7 +432,7 @@ const BookShoot = () => {
               rows.forEach(r => {
                 if ((r?.status ?? 'available') !== 'unavailable') {
                   const raw = (r?.start_time ?? '').toString();
-                  const norm = raw.includes(':') ? raw.slice(0,5) : raw;
+                  const norm = raw.includes(':') ? raw.slice(0,5) : raw; // normalize HH:mm[:ss] -> HH:mm
                   if (norm) allTimesSet.add(norm);
                 }
               });
@@ -285,8 +504,29 @@ const BookShoot = () => {
 
 
   const getPackagePrice = () => {
-    const pkg = packages.find(p => p.id === selectedPackage);
-    return pkg ? Math.round(Number(pkg.price) * 100) / 100 : 0;
+    if (!selectedServices.length) {
+      return 0;
+    }
+    
+    // Get sqft from property details for variable pricing
+    const sqft = propertySqft ?? propertyDetails?.sqft ?? propertyDetails?.livingArea ?? null;
+    
+    const total = selectedServices.reduce((sum, service) => {
+      let price = Number(service.price ?? 0);
+      
+      // If variable pricing and sqft available, find matching range
+      if (service.pricing_type === 'variable' && sqft && service.sqft_ranges?.length) {
+        const matchingRange = service.sqft_ranges.find(
+          range => sqft >= range.sqft_from && sqft <= range.sqft_to
+        );
+        if (matchingRange) {
+          price = Number(matchingRange.price);
+        }
+      }
+      
+      return sum + price;
+    }, 0);
+    return Math.round(total * 100) / 100;
   };
 
   const getPhotographerRate = () => {
@@ -295,20 +535,18 @@ const BookShoot = () => {
   };
 
   const getTax = () => {
-    const subtotal = getPackagePrice() + getPhotographerRate();
+    const subtotal = getPackagePrice(); // Only package price, photographer fee is internal
     return Math.round(subtotal * 0.06);
   };
 
   const getTotal = () => {
     const packagePrice = getPackagePrice();
-    const photographerRate = getPhotographerRate();
     const tax = getTax();
 
     const packageCents = Math.round(packagePrice * 100);
-    const photographerCents = Math.round(photographerRate * 100);
     const taxCents = Math.round(tax * 100);
 
-    const totalCents = packageCents + photographerCents + taxCents;
+    const totalCents = packageCents + taxCents;
     return totalCents / 100;
   };
 
@@ -331,7 +569,7 @@ const BookShoot = () => {
         return false;
       }
 
-      if (!address || !city || !state || !zip || !selectedPackage) {
+      if (!address || !city || !state || !zip || selectedServices.length === 0) {
         toast({
           title: "Missing information",
           description: "Please fill in all property details and select a package before proceeding.",
@@ -499,13 +737,49 @@ const BookShoot = () => {
     setFormErrors({});
 
     if (step === 3) {
-      if (!client || !address || !city || !state || !zip || !date || !time || !selectedPackage) {
+      if (!client || !address || !city || !state || !zip || !date || !time || selectedServices.length === 0) {
         toast({
           title: "Missing information",
           description: "Please fill in all required fields before confirming the booking.",
           variant: "destructive",
         });
         return;
+      }
+
+      // Normalize state to 2-letter abbreviation
+      const normalizedState = normalizeState(state);
+      if (!normalizedState || !isValidState(normalizedState)) {
+        toast({
+          title: "Invalid State",
+          description: "State must be a valid 2-letter abbreviation (e.g., CA, NY, DC). Please enter a valid state code.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Convert time from 12-hour format (e.g., "02:05 PM") to 24-hour format (e.g., "14:05:00")
+      let time24Hour = '00:00:00';
+      if (time) {
+        const match = time.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+        if (match) {
+          let hours = parseInt(match[1], 10);
+          const minutes = parseInt(match[2], 10);
+          const period = match[3].toUpperCase();
+          
+          if (period === 'PM' && hours !== 12) hours += 12;
+          if (period === 'AM' && hours === 12) hours = 0;
+          
+          time24Hour = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`;
+        } else {
+          // If time is already in 24-hour format, use it as-is
+          const time24Match = time.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+          if (time24Match) {
+            const h = parseInt(time24Match[1], 10);
+            const m = parseInt(time24Match[2], 10);
+            const s = time24Match[3] || '00';
+            time24Hour = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+          }
+        }
       }
 
       const shootDate = date ? new Date(
@@ -521,22 +795,59 @@ const BookShoot = () => {
       const taxAmount = getTax();
       const totalQuote = getTotal();
 
+      // Get sqft for variable pricing
+      const sqft = propertySqft ?? propertyDetails?.sqft ?? propertyDetails?.livingArea ?? null;
+      
+      const servicesPayload = selectedServices.map(service => {
+        let price = Number(service.price ?? 0);
+        
+        // If variable pricing and sqft available, find matching range
+        if (service.pricing_type === 'variable' && sqft && service.sqft_ranges?.length) {
+          const matchingRange = service.sqft_ranges.find(
+            range => sqft >= range.sqft_from && sqft <= range.sqft_to
+          );
+          if (matchingRange) {
+            price = Number(matchingRange.price);
+          }
+        }
+        
+        return {
+          id: service.id,
+          price,
+          quantity: 1,
+        };
+      });
+
+      const primaryServiceId = servicesPayload[0]?.id ?? null;
+      
+      // Construct scheduled_at as full datetime string (YYYY-MM-DD HH:MM:SS)
+      const scheduledAt = date && time24Hour 
+        ? `${shootDate.toISOString().split('T')[0]} ${time24Hour}`
+        : null;
+      
+      // Preparing shoot submission
+      
       const payload = {
         client_id: client,
         address,
         city,
-        state,
+        state: normalizedState, // Use normalized state
         zip,
-        scheduled_date: shootDate.toISOString().split('T')[0], // YYYY-MM-DD format
-        time,
+        scheduled_at: scheduledAt, // Full datetime in format: "YYYY-MM-DD HH:MM:SS"
+        scheduled_date: shootDate.toISOString().split('T')[0], // YYYY-MM-DD format (legacy support)
+        time: time24Hour, // 24-hour format for backend
         photographer_id: photographer || null,
-        service_id: selectedPackage,
-    shoot_notes: notes || undefined,
-    company_notes: companyNotes || undefined,
-    photographer_notes: photographerNotes || undefined,
-    editor_notes: editorNotes || undefined,
-        bypass_payment: bypassPayment,
+        service_id: primaryServiceId,
+        services: servicesPayload,
+        service_category: selectedServices[0]?.category?.name || undefined,
+        shoot_notes: notes || undefined,
+        company_notes: companyNotes || undefined,
+        photographer_notes: photographerNotes || undefined,
+        editor_notes: editorNotes || undefined,
+        bypass_paywall: bypassPayment,
         send_notification: sendNotification,
+        // Integration fields
+        property_details: propertyDetails || undefined,
         // Add the missing required fields based on API error
         base_quote: baseQuote,
         tax_amount: taxAmount,
@@ -548,7 +859,7 @@ const BookShoot = () => {
 
       try {
         const token = localStorage.getItem('authToken');
-        const response = await axios.post(`${import.meta.env.VITE_API_URL}/api/shoots`, payload, {
+        const response = await axios.post(`${API_BASE_URL}/api/shoots`, payload, {
           headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -563,9 +874,21 @@ const BookShoot = () => {
 
         setIsComplete(true);
         await fetchShoots();
+        
+        // Clear form cache on successful submission
+        if (shouldCacheForm) {
+          localStorage.removeItem(CACHE_KEY);
+        }
+        
         console.log("Shoot created response:", response.data);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error creating shoot:", error);
+        console.error("Error details:", {
+          message: error.message,
+          response: error.response?.data,
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+        });
 
         // Better error handling to show specific validation errors
         if (error.response?.data?.errors) {
@@ -575,10 +898,16 @@ const BookShoot = () => {
             description: errorMessages.join('. '),
             variant: "destructive"
           });
+        } else if (error.response?.data?.message) {
+          toast({
+            title: "Error",
+            description: error.response.data.message,
+            variant: "destructive"
+          });
         } else {
           toast({
             title: "Error",
-            description: error.response?.data?.message || "Failed to create shoot. Please try again.",
+            description: `Failed to create shoot (${error.response?.status || 'Unknown error'}). Please check the console for details.`,
             variant: "destructive"
           });
         }
@@ -610,13 +939,55 @@ const BookShoot = () => {
     setDate(undefined);
     setTime('');
     setPhotographer('');
-    setSelectedPackage('');
+    setSelectedServices([]);
     setNotes('');
     setBypassPayment(false);
     setSendNotification(true);
     setStep(1);
     setIsComplete(false);
+    
+    // Clear form cache when resetting
+    if (shouldCacheForm) {
+      localStorage.removeItem(CACHE_KEY);
+      setHasCachedData(false);
+    }
+    
     navigate('/shoots');
+  };
+
+  // Clear cached form data
+  const handleClearCache = () => {
+    if (shouldCacheForm) {
+      localStorage.removeItem(CACHE_KEY);
+      setHasCachedData(false);
+      
+      // Reset form fields
+      if (!isClientAccount) {
+        setClient('');
+      }
+      setAddress('');
+      setCity('');
+      setState('');
+      setZip('');
+      setDate(undefined);
+      setTime('');
+      setPhotographer('');
+      setSelectedServices([]);
+      setNotes('');
+      setCompanyNotes('');
+      setPhotographerNotes('');
+      setEditorNotes('');
+      setBypassPayment(false);
+      setSendNotification(true);
+      setStep(1);
+      setPropertyDetails(null);
+      setPropertySqft(null);
+      
+      toast({
+        title: 'Form cleared',
+        description: 'All saved form data has been cleared.',
+      });
+    }
   };
 
   const clientPropertyFormData = React.useMemo(() => ({
@@ -632,7 +1003,18 @@ const BookShoot = () => {
       propertyState: state,
       propertyZip: zip,
       propertyInfo: notes,
-      selectedPackage: selectedPackage
+      shootNotes: notes,
+      companyNotes: companyNotes,
+      photographerNotes: photographerNotes,
+      editorNotes: editorNotes,
+      bedRooms: propertyDetails?.bedrooms ?? propertyDetails?.bedRooms ?? undefined,
+      bathRooms: propertyDetails?.bathrooms ?? propertyDetails?.bathRooms ?? undefined,
+      sqft: propertySqft ?? undefined,
+      lockboxCode: propertyDetails?.lockboxCode ?? undefined,
+      lockboxLocation: propertyDetails?.lockboxLocation ?? undefined,
+      accessContactName: propertyDetails?.accessContactName ?? undefined,
+      accessContactPhone: propertyDetails?.accessContactPhone ?? undefined,
+      selectedPackage: selectedServices[0]?.id || ''
     },
     onComplete: (data: any) => {
       if (!isClientAccount && data.clientId) {
@@ -640,35 +1022,81 @@ const BookShoot = () => {
       }
       setAddress(data.propertyAddress);
       setCity(data.propertyCity);
-      setState(data.propertyState);
+      // Normalize state when setting from address lookup
+      const normalizedState = normalizeState(data.propertyState);
+      setState(normalizedState || data.propertyState);
       setZip(data.propertyZip);
       setNotes(data.shootNotes || data.propertyInfo || '');
       setCompanyNotes(data.companyNotes || '');
       setPhotographerNotes(data.photographerNotes || '');
       setEditorNotes(data.editorNotes || '');
-      setSelectedPackage(data.selectedPackage || '');
+      setPropertyDetails(data.property_details || null);
+      const derivedSqft =
+        (data.sqft && Number(data.sqft)) ||
+        data.property_details?.sqft ||
+        data.property_details?.livingArea ||
+        null;
+      setPropertySqft(derivedSqft);
       setStep(2);
     },
-    isClientAccount: isClientAccount
-  }), [client, clients, address, city, state, zip, notes, selectedPackage, isClientAccount, user]);
+    isClientAccount: isClientAccount,
+    selectedServices,
+    onSelectedServicesChange: handleSelectedServicesChange,
+    packagesLoading,
+  }), [client, clients, address, city, state, zip, notes, companyNotes, photographerNotes, editorNotes, propertyDetails, selectedServices, isClientAccount, user, packagesLoading, propertySqft]);
 
 
   const getSummaryInfo = () => {
     const selectedClientData = clients.find(c => c.id === client);
-    const selectedPackageData = packages.find(p => p.id === selectedPackage);
+    const serviceNames = selectedServices.map(service => service.name).join(', ');
+
+    // Extract rep name from various possible fields
+    // Backend returns rep as object: { id, name, email } or as string
+    let repName: string | undefined = undefined;
+    if (selectedClientData) {
+      // Check if rep was already extracted as string (from our mapping)
+      if (typeof (selectedClientData as any).rep === 'string') {
+        repName = (selectedClientData as any).rep;
+      }
+      // Check repObject if it exists (original rep object from backend)
+      else if ((selectedClientData as any).repObject) {
+        const repObj = (selectedClientData as any).repObject;
+        if (typeof repObj === 'object' && repObj.name) {
+          repName = repObj.name;
+        } else if (typeof repObj === 'string') {
+          repName = repObj;
+        }
+      }
+      // Fallback to other possible field names
+      if (!repName) {
+        repName = (selectedClientData as any).rep_name 
+          || (selectedClientData as any).sales_rep
+          || (selectedClientData as any).salesRep;
+      }
+    }
+
+    // Summary info calculated
 
     return {
       client: selectedClientData?.name || (isClientAccount ? user?.name || '' : ''),
-      package: selectedPackageData?.name || '',
+      clientRep: repName,
+      services: selectedServices,
+      packageLabel: serviceNames,
       packagePrice: getPackagePrice(),
       address: address ? `${address}, ${city}, ${state} ${zip}` : '',
       bedrooms: 0,
       bathrooms: 0,
       sqft: 0,
-      date: date ? format(date, 'PPP') : '',
+      date: date ? formatDate(date) : '',
       time: time || '',
     };
   };
+
+  const { temperature, condition } = useWeatherData({ date, time, city, state, zip, address });
+  const parsedTemperature =
+    temperature !== undefined && temperature !== null && !Number.isNaN(Number(temperature))
+      ? Number(temperature)
+      : undefined;
 
   const summaryInfo = getSummaryInfo();
 
@@ -694,85 +1122,94 @@ const BookShoot = () => {
   const currentStepContent = getCurrentStepContent();
 
   return (
+    // Match Shoot History padding; scroll only within the page content (navbar/sidebar/summary stay fixed)
     <DashboardLayout>
-      <div className="container px-4 sm:px-6 max-w-5xl py-6">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="mb-4 -ml-2 text-muted-foreground hover:text-foreground"
-          onClick={() => navigate('/shoots')}
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Shoots
-        </Button>
-
-        <AnimatePresence mode="wait">
-          {isComplete ? (
-            <BookingComplete date={date} time={time} resetForm={resetForm} />
-          ) : (
-            <div>
-              <BookingHeader
-                title={currentStepContent.title}
-                description={currentStepContent.description}
-              />
+      <div className="space-y-6 p-6">
+          <AnimatePresence mode="wait">
+            {isComplete ? (
+              <BookingComplete date={date} time={time} resetForm={resetForm} />
+            ) : (
+              <div className="space-y-4">
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <BookingHeader
+                  title={currentStepContent.title}
+                  description={currentStepContent.description}
+                />
+                {shouldCacheForm && hasCachedData && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs px-3 text-muted-foreground hover:text-destructive border-muted-foreground/20 hover:border-destructive/50"
+                    onClick={handleClearCache}
+                  >
+                    <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                    <span>Clear saved data</span>
+                  </Button>
+                )}
+              </div>
 
               <BookingStepIndicator currentStep={step} totalSteps={3} />
+              </div>
+            )}
+          </AnimatePresence>
 
-              <div className="grid grid-cols-1 md:grid-cols-[1.4fr_1.6fr] gap-6 mt-12">
-                {/* Summary always appears on top on mobile, side on desktop */}
-                <div className={`${isMobile ? "order-1 mb-4" : "order-1 md:order-1"} md:col-span-1`}>
+          <AnimatePresence mode="wait">
+            {!isComplete && (
+              <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.85fr)_minmax(320px,0.95fr)] gap-8 mt-2 items-start">
+                <div className="order-2 lg:order-1 w-full">
+                <BookingContentArea
+                  step={step}
+                  formErrors={formErrors}
+                  setFormErrors={setFormErrors}
+                  clientPropertyFormData={clientPropertyFormData}
+                  date={date}
+                  setDate={setDate}
+                  time={time}
+                  setTime={setTime}
+                  selectedServices={selectedServices}
+                  onSelectedServicesChange={handleSelectedServicesChange}
+                  notes={notes}
+                  setNotes={setNotes}
+                  packages={packages}
+                  packagesLoading={packagesLoading}
+                  client={client}
+                  address={address}
+                  city={city}
+                  state={state}
+                  zip={zip}
+                  setAddress={setAddress}
+                  setCity={setCity}
+                  setState={setState}
+                  setZip={setZip}
+                  photographer={photographer}
+                  setPhotographer={setPhotographer}
+                  bypassPayment={bypassPayment}
+                  setBypassPayment={setBypassPayment}
+                  sendNotification={sendNotification}
+                  setSendNotification={setSendNotification}
+                  getPackagePrice={getPackagePrice}
+                  getPhotographerRate={getPhotographerRate}
+                  getTax={getTax}
+                  getTotal={getTotal}
+                  clients={clients}
+                  photographers={getAvailablePhotographers()}
+                  handleSubmit={handleSubmit}
+                  goBack={goBack}
+                />
+                </div>
+                <div className="order-1 lg:order-2 lg:sticky lg:top-4 lg:max-w-sm w-full">
                   <BookingSummary
                     summaryInfo={summaryInfo}
-                    selectedPackage={selectedPackage}
-                    packages={packages}
+                    selectedServices={selectedServices}
                     onSubmit={step === 3 ? handleSubmit : undefined}
                     isLastStep={step === 3}
-                  />
-                </div>
-
-                <div className="order-2 md:col-span-1">
-                  <BookingContentArea
-                    step={step}
-                    formErrors={formErrors}
-                    setFormErrors={setFormErrors}
-                    clientPropertyFormData={clientPropertyFormData}
-                    date={date}
-                    setDate={setDate}
-                    time={time}
-                    setTime={setTime}
-                    selectedPackage={selectedPackage}
-                    notes={notes}
-                    setNotes={setNotes}
-                    packages={packages}
-                    client={client}
-                    address={address}
-                    city={city}
-                    state={state}
-                    zip={zip}
-                    setAddress={setAddress}
-                    setCity={setCity}
-                    setState={setState}
-                    setZip={setZip}
-                    photographer={photographer}
-                    setPhotographer={setPhotographer}
-                    bypassPayment={bypassPayment}
-                    setBypassPayment={setBypassPayment}
-                    sendNotification={sendNotification}
-                    setSendNotification={setSendNotification}
-                    getPackagePrice={getPackagePrice}
-                    getPhotographerRate={getPhotographerRate}
-                    getTax={getTax}
-                    getTotal={getTotal}
-                    clients={clients}
-                    photographers={getAvailablePhotographers()}
-                    handleSubmit={handleSubmit}
-                    goBack={goBack}
+                    showRepName={user?.role === 'admin' || user?.role === 'superadmin' || user?.role === 'photographer'}
+                    weather={{ temperature: parsedTemperature, condition }}
                   />
                 </div>
               </div>
-            </div>
-          )}
-        </AnimatePresence>
+            )}
+          </AnimatePresence>
       </div>
     </DashboardLayout>
   );

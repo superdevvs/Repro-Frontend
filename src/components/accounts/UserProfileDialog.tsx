@@ -1,5 +1,6 @@
 
 import { User } from "@/components/auth/AuthProvider";
+import { useAuth } from "@/components/auth";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -17,6 +18,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
+import { ShootData } from "@/types/shoots";
+import type { RepDetails } from "@/types/auth";
 
 interface UserActivity {
   id: string;
@@ -52,6 +55,16 @@ interface UserProfileDialogProps {
   onOpenChange: (open: boolean) => void;
   user: User | null;
   onEdit?: () => void;
+  accountRep?: string;
+  lastShootDate?: string;
+  shootStats?: {
+    totalShoots: number;
+    completedShoots: number;
+    upcomingShoots: number;
+    lastShootDate?: string;
+  };
+  recentScheduledShoots?: ShootData[];
+  recentCompletedShoots?: ShootData[];
 }
 
 export function UserProfileDialog({
@@ -59,8 +72,17 @@ export function UserProfileDialog({
   onOpenChange,
   user,
   onEdit = () => {},
+  accountRep = 'Unassigned',
+  lastShootDate,
+  shootStats,
+  recentScheduledShoots = [],
+  recentCompletedShoots = [],
 }: UserProfileDialogProps) {
   if (!user) return null;
+
+  const { role: viewerRole } = useAuth();
+  const canSeeSensitiveRepData = viewerRole === 'superadmin';
+  const repDetails = (user.metadata?.repDetails as RepDetails | undefined) || undefined;
 
   const getInitials = (name: string) => {
     return name
@@ -69,6 +91,27 @@ export function UserProfileDialog({
       .join('')
       .toUpperCase()
       .substring(0, 2);
+  };
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return '—';
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return '—';
+    return format(date, "MMM d, yyyy");
+  };
+
+  const formatDateTime = (dateString?: string) => {
+    if (!dateString) return '—';
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return '—';
+    return format(date, "MMM d, yyyy 'at' h:mm a");
+  };
+
+  const stats = shootStats || {
+    totalShoots: 0,
+    completedShoots: 0,
+    upcomingShoots: 0,
+    lastShootDate,
   };
 
   return (
@@ -101,12 +144,6 @@ export function UserProfileDialog({
               
               <TabsContent value="info" className="space-y-4 pt-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {user.username && (
-                    <div>
-                      <p className="text-sm text-muted-foreground">Username</p>
-                      <p className="font-medium">{user.username}</p>
-                    </div>
-                  )}
                   
                   {user.phone && (
                     <div>
@@ -121,6 +158,23 @@ export function UserProfileDialog({
                       <p className="font-medium">{user.company}</p>
                     </div>
                   )}
+
+                  <div>
+                    <p className="text-sm text-muted-foreground">Account Rep</p>
+                    <p className="font-medium">{accountRep || 'Unassigned'}</p>
+                  </div>
+
+                  {user.role === 'client' && (user as any).created_by_name && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">Created By</p>
+                      <p className="font-medium">{(user as any).created_by_name || (user as any).createdBy || 'N/A'}</p>
+                    </div>
+                  )}
+
+                  <div>
+                    <p className="text-sm text-muted-foreground">Last Shoot</p>
+                    <p className="font-medium">{formatDate(lastShootDate)}</p>
+                  </div>
                   
                   {user.createdAt && (
                     <div>
@@ -139,12 +193,108 @@ export function UserProfileDialog({
                       </p>
                     </div>
                   )}
+                  {user.role === 'salesRep' && repDetails && (
+                    <div className="md:col-span-2 rounded-lg border border-dashed border-border/70 p-3 space-y-2">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Payout Email</p>
+                        <p className="font-medium">{repDetails.payoutEmail || "—"}</p>
+                      </div>
+                      {repDetails.payoutFrequency && (
+                        <div>
+                          <p className="text-sm text-muted-foreground">Payout Frequency</p>
+                          <p className="font-medium capitalize">{repDetails.payoutFrequency}</p>
+                        </div>
+                      )}
+                      {repDetails.salesCategories?.length ? (
+                        <div>
+                          <p className="text-sm text-muted-foreground">Sales Categories</p>
+                          <p className="font-medium">{repDetails.salesCategories.join(", ")}</p>
+                        </div>
+                      ) : null}
+                      {typeof repDetails.autoApprovePayouts === 'boolean' && (
+                        <div>
+                          <p className="text-sm text-muted-foreground">Auto Approvals</p>
+                          <p className="font-medium">
+                            {repDetails.autoApprovePayouts ? "Enabled" : "Requires manual approval"}
+                          </p>
+                        </div>
+                      )}
+                      {typeof repDetails.smsEnabled === 'boolean' && (
+                        <div>
+                          <p className="text-sm text-muted-foreground">SMS Outreach</p>
+                          <p className="font-medium">{repDetails.smsEnabled ? "Allowed" : "Disabled"}</p>
+                        </div>
+                      )}
+                      {repDetails.notes && (
+                        <div>
+                          <p className="text-sm text-muted-foreground">Internal Notes</p>
+                          <p className="font-medium">{repDetails.notes}</p>
+                        </div>
+                      )}
+                      {canSeeSensitiveRepData && repDetails.commissionPercentage !== undefined && (
+                        <div>
+                          <p className="text-sm text-muted-foreground">Commission %</p>
+                          <p className="font-medium">{repDetails.commissionPercentage}%</p>
+                        </div>
+                      )}
+                      {canSeeSensitiveRepData && repDetails.homeAddress && (
+                        <div>
+                          <p className="text-sm text-muted-foreground">Home Address</p>
+                          <p className="font-medium">
+                            {[repDetails.homeAddress.line1, repDetails.homeAddress.line2, repDetails.homeAddress.city, repDetails.homeAddress.state, repDetails.homeAddress.postalCode]
+                              .filter(Boolean)
+                              .join(", ")}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 
                 {user.companyNotes && (
                   <div className="mt-4">
                     <p className="text-sm text-muted-foreground">Company Notes</p>
                     <p className="mt-1">{user.companyNotes}</p>
+                  </div>
+                )}
+
+                {user.role === 'client' && (
+                  <div className="mt-6 space-y-2">
+                    <p className="text-sm font-medium">Recent Scheduled Shoots</p>
+                    {recentScheduledShoots.length ? (
+                      <div className="space-y-3">
+                        {recentScheduledShoots.map((shoot) => (
+                          <div key={shoot.id} className="rounded-lg border border-border/70 p-3">
+                            <p className="font-medium">{shoot.location.address}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {formatDateTime(shoot.scheduledDate)} · {shoot.status}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No scheduled shoots yet.</p>
+                    )}
+                  </div>
+                )}
+
+                {user.role === 'photographer' && (
+                  <div className="mt-6 space-y-2">
+                    <p className="text-sm font-medium">Recent Completed Shoots</p>
+                    {recentCompletedShoots.length ? (
+                      <div className="space-y-3">
+                        {recentCompletedShoots.map((shoot) => (
+                          <div key={shoot.id} className="rounded-lg border border-border/70 p-3">
+                            <p className="font-medium">{shoot.client.name}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {formatDateTime(shoot.completedDate || shoot.scheduledDate)} · {shoot.status}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No completed shoots yet.</p>
+                    )}
                   </div>
                 )}
               </TabsContent>
@@ -174,23 +324,23 @@ export function UserProfileDialog({
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="border rounded-lg p-4">
                       <p className="text-sm text-muted-foreground">Total Shoots</p>
-                      <p className="text-2xl font-bold">24</p>
+                      <p className="text-2xl font-bold">{stats.totalShoots}</p>
                     </div>
                     
                     <div className="border rounded-lg p-4">
                       <p className="text-sm text-muted-foreground">Completed Shoots</p>
-                      <p className="text-2xl font-bold">18</p>
+                      <p className="text-2xl font-bold">{stats.completedShoots}</p>
                     </div>
-                    
-                    {/* <div className="border rounded-lg p-4">
-                      <p className="text-sm text-muted-foreground">Average Rating</p>
-                      <p className="text-2xl font-bold">4.8</p>
-                    </div> */}
-                    
-                    {/* <div className="border rounded-lg p-4">
-                      <p className="text-sm text-muted-foreground">Response Time</p>
-                      <p className="text-2xl font-bold">1.2h</p>
-                    </div> */}
+
+                    <div className="border rounded-lg p-4">
+                      <p className="text-sm text-muted-foreground">Upcoming Shoots</p>
+                      <p className="text-2xl font-bold">{stats.upcomingShoots}</p>
+                    </div>
+
+                    <div className="border rounded-lg p-4">
+                      <p className="text-sm text-muted-foreground">Last Shoot Date</p>
+                      <p className="text-2xl font-bold">{formatDate(stats.lastShootDate)}</p>
+                    </div>
                   </div>
                 </div>
               </TabsContent>

@@ -29,7 +29,7 @@ export const BookShootInvoice = ({
   const [couponError, setCouponError] = React.useState<string | null>(null);
   const [couponSuccess, setCouponSuccess] = React.useState<boolean>(false);
   
-  const subtotal = packagePrice + photographerRate;
+  const subtotal = packagePrice; // Only package price, photographer fee is internal
   const taxRate = state === 'MD' ? 6 : state === 'VA' ? 5.3 : state === 'DC' ? 6 : 0;
   const taxAmount = ((subtotal - discount) * taxRate) / 100;
   const total = subtotal - discount + taxAmount;
@@ -60,11 +60,6 @@ export const BookShootInvoice = ({
           <div className="flex justify-between">
             <span className="text-muted-foreground">Package</span>
             <span>${packagePrice.toFixed(2)}</span>
-          </div>
-          
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Photographer Fee</span>
-            <span>${photographerRate.toFixed(2)}</span>
           </div>
           
           {discount > 0 && (

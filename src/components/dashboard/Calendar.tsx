@@ -119,8 +119,17 @@ export function Calendar({ className, height = 400 }: CalendarProps) {
                 gridTemplateColumns: '32px repeat(7, minmax(0, 1fr))',
               }}
             >
-              <div className="text-[8px] xs:text-[10px] sm:text-xs text-muted-foreground text-right pr-1 sm:pr-2 font-medium">
-                {`${hour}:00`}
+              <div className="text-[8px] xs:text-[10px] sm:text-xs text-muted-foreground text-right pr-1 sm:pr-2 font-medium flex flex-col items-end justify-center">
+                {(() => {
+                  const period = hour >= 12 ? 'PM' : 'AM';
+                  const hour12 = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
+                  return (
+                    <>
+                      <span>{hour12}:00</span>
+                      <span className="text-[7px] xs:text-[8px] leading-tight">{period}</span>
+                    </>
+                  );
+                })()}
               </div>
               {days.map((day, dayIndex) => {
                 const eventsAtThisTime = events[hour - 8][dayIndex];

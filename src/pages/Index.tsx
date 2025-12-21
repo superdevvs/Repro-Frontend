@@ -2,9 +2,20 @@ import React, { useEffect, useState } from 'react';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useAuth } from '@/components/auth';
+import { useNavigate } from 'react-router-dom';
 
 const Index = () => {
   const isMobile = useIsMobile();
+  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard');
+    }
+  }, [isAuthenticated, navigate]);
+
 
   const images = [
     '/slide1.jpg',

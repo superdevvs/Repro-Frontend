@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import React from 'react' // Explicitly import React
 import App from './App.tsx'
 import './index.css'
+import 'leaflet/dist/leaflet.css'
 import { ThemeProvider } from './hooks/useTheme'
 
 // Make sure we have a DOM node to render to

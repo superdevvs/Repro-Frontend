@@ -4,6 +4,7 @@ import { Client } from '@/types/clients';
 import { initialClientsData } from '@/data/clientsData';
 import { useShoots } from '@/context/ShootsContext';
 import API_ROUTES from '@/lib/api';
+import { API_BASE_URL } from '@/config/env';
 
 export const useClientsData = () => {
   const { shoots } = useShoots();
@@ -34,7 +35,7 @@ export const useClientsData = () => {
         let counts: Record<string, number> = {};
         let last: Record<string, string> = {};
         try {
-          const shootsRes = await fetch(`${import.meta.env.VITE_API_URL}/api/shoots`, {
+          const shootsRes = await fetch(`${API_BASE_URL}/api/shoots`, {
             headers: {
               Accept: 'application/json',
               Authorization: `Bearer ${token}`,

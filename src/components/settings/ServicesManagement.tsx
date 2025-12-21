@@ -11,7 +11,8 @@ import { CategorySelect } from './CategorySelect';
 import { useServiceCategories } from '@/hooks/useServiceCategories';
 import { useServices } from '@/hooks/useServices';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import axios from 'axios';
+import { API_BASE_URL } from '@/config/env';
 import { 
   PlusIcon, 
   EditIcon, 
@@ -33,7 +34,8 @@ export function ServicesManagement() {
     name: '',
     category_id: '',
     price: '',
-    description: ''
+    description: '',
+    delivery_time: '',
   });
 
   // Filter services based on active tab and search term
@@ -70,24 +72,57 @@ export function ServicesManagement() {
         category_id: formData.category_id,
         category: selectedCategory.name, // Add the category name
         price: parseFloat(formData.price),
-        description: formData.description || `Professional ${formData.name} service for real estate marketing.`
+        description: formData.description || `Professional ${formData.name} service for real estate marketing.`,
+        delivery_time: formData.delivery_time ? parseInt(formData.delivery_time) : undefined,
       };
 
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        throw new Error('No auth token found');
+      }
+
       if (isEditing && currentService) {
-        const { error } = await supabase
-          .from('services')
-          .update(serviceData)
-          .eq('id', currentService.id);
-
-        if (error) throw error;
-        toast({ title: "Service Updated", description: `${serviceData.name} has been updated successfully.` });
+        await axios.put(
+          `${API_BASE_URL}/api/admin/services/${currentService.id}`,
+          {
+            name: serviceData.name,
+            description: serviceData.description,
+            price: serviceData.price,
+            delivery_time: formData.delivery_time ? Number(formData.delivery_time) : undefined,
+            category_id: serviceData.category_id,
+          },
+          {
+            headers: {
+              Accept: 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        );
+        toast({
+          title: 'Service Updated',
+          description: `${serviceData.name} has been updated successfully.`,
+        });
       } else {
-        const { error } = await supabase
-          .from('services')
-          .insert(serviceData);
-
-        if (error) throw error;
-        toast({ title: "Service Added", description: `${serviceData.name} has been added successfully.` });
+        await axios.post(
+          `${API_BASE_URL}/api/admin/services`,
+          {
+            name: serviceData.name,
+            description: serviceData.description,
+            price: serviceData.price,
+            delivery_time: formData.delivery_time ? Number(formData.delivery_time) : undefined,
+            category_id: serviceData.category_id,
+          },
+          {
+            headers: {
+              Accept: 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        );
+        toast({
+          title: 'Service Added',
+          description: `${serviceData.name} has been added successfully.`,
+        });
       }
 
       setDialogOpen(false);
@@ -104,12 +139,17 @@ export function ServicesManagement() {
 
   const handleDeleteService = async (serviceId: string) => {
     try {
-      const { error } = await supabase
-        .from('services')
-        .delete()
-        .eq('id', serviceId);
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        throw new Error('No auth token found');
+      }
 
-      if (error) throw error;
+      await axios.delete(`${API_BASE_URL}/api/admin/services/${serviceId}`, {
+        headers: {
+          Accept: 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
       toast({
         title: "Service Deleted",

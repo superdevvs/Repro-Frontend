@@ -1,41 +1,26 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { UserData } from '@/types/auth';
-import { Session } from '@supabase/supabase-js';
+import type { UserData, UserRole, AuthSession } from '@/types/auth';
 
-// Define the Role type as a string literal union
-export type Role = 'admin' | 'photographer' | 'client' | 'editor' | 'superadmin';
+// Define the Role type via shared types
+export type Role = UserRole;
 
-// Define the User interface
-export interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: Role;
-  avatar?: string;
-  phone?: string;
-  address?: string;
-  city?: string;
-  state?: string;
-  zipcode?: string;
-  company?: string;
-  companyNotes?: string;
-  username?: string;
-  lastLogin?: string;
-  createdAt?: string;
-  isActive?: boolean;
-  metadata?: Record<string, any>;
-}
+// Align local User shape with global UserData definition
+export type User = UserData;
 
 interface AuthContextType {
   user: UserData | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   role: Role;
-  session: Session | null;
-  login: (userData: UserData) => void;
+  session: AuthSession | null;
+  login: (userData: UserData, token?: string) => void;
   logout: () => void;
   setUserRole: (role: Role) => void;
   setUser: (userData: UserData) => void;
+  impersonate: (user: UserData) => void;
+  stopImpersonating: () => void;
+  isImpersonating: boolean;
+  originalUser: UserData | null;
 }
 
 // Create a context object
@@ -49,6 +34,10 @@ const AuthContext = createContext<AuthContextType>({
   logout: () => {},
   setUserRole: () => {},
   setUser: () => {},
+  impersonate: () => {},
+  stopImpersonating: () => {},
+  isImpersonating: false,
+  originalUser: null,
 });
 
 // Custom hook to use the auth context
@@ -69,15 +58,26 @@ const toBase64Url = (str: string): string => {
   return base64;
 };
 
+const buildSession = (token: string, user: UserData, role: Role): AuthSession => ({
+  accessToken: token,
+  refreshToken: null,
+  tokenType: 'bearer',
+  expiresIn: 3600,
+  issuedAt: Math.floor(Date.now() / 1000),
+  expiresAt: Math.floor(Date.now() / 1000) + 3600,
+  user: {
+    id: user.id,
+    email: user.email,
+    role,
+    metadata: user.metadata || {},
+    createdAt: user.createdAt || new Date().toISOString(),
+  },
+});
+
 // Generate a properly formatted mock JWT token that will pass validation
 const generateMockJWT = (userId: string, role: string): string => {
-  // Create a base64url encoded header
   const header = toBase64Url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
-  
-  // Current timestamp in seconds
   const now = Math.floor(Date.now() / 1000);
-  
-  // Create a base64url encoded payload with standard JWT claims
   const payload = toBase64Url(JSON.stringify({
     sub: userId,
     role: role,
@@ -86,16 +86,19 @@ const generateMockJWT = (userId: string, role: string): string => {
     iss: 'necyyfxufhmacccbhkdm',
     aud: 'authenticated'
   }));
-  
-  // Create a valid signature format
-  // In a real JWT, this would be cryptographically signed
-  // For our mock JWT, we'll create something that looks valid to parsers
-  const mockSecret = 'supabase-mock-secret-key-for-testing-purposes-only';
+  const mockSecret = 'development-mock-secret-key-for-testing-only';
   const mockSignatureData = `${header}.${payload}.${mockSecret}`;
   const signature = toBase64Url(mockSignatureData);
-  
-  // Combine all parts with dots to form a valid JWT structure
   return `${header}.${payload}.${signature}`;
+};
+
+const getStoredToken = () =>
+  (typeof window !== 'undefined' && (localStorage.getItem('authToken') || localStorage.getItem('token'))) || null;
+
+const normalizeRole = (role?: string | null): Role => {
+  if (!role) return 'admin';
+  if (role === 'sales_rep' || role === 'salesrep' || role === 'sales-rep') return 'salesRep';
+  return role as Role;
 };
 
 
@@ -105,103 +108,156 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [role, setRole] = useState<Role>('client');
-  const [session, setSession] = useState<Session | null>(null);
+  const [session, setSession] = useState<AuthSession | null>(null);
+  const [originalUser, setOriginalUser] = useState<UserData | null>(null);
+  const [isImpersonating, setIsImpersonating] = useState<boolean>(false);
+
+  const clearStoredAuth = () => {
+    if (typeof window === 'undefined') return;
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('originalUser');
+  };
 
   // Initialize auth state from localStorage on component mount
   useEffect(() => {
+    const storedOriginalUser = localStorage.getItem('originalUser');
+    if (storedOriginalUser) {
+      try {
+        setOriginalUser(JSON.parse(storedOriginalUser));
+        setIsImpersonating(true);
+      } catch (e) {
+        localStorage.removeItem('originalUser');
+      }
+    }
+
     const storedUser = localStorage.getItem('user');
-    if (storedUser) {
+    const storedToken = getStoredToken();
+
+    if (storedUser && storedToken) {
       try {
         const parsedUser = JSON.parse(storedUser);
-        setUser(parsedUser);
+        const normalizedRole = normalizeRole(parsedUser.role);
+        const normalizedUser = {
+          ...parsedUser,
+          role: normalizedRole,
+          metadata: parsedUser.metadata || {},
+        };
+        setUser(normalizedUser);
         setIsAuthenticated(true);
-        
-        // For development purposes, set admin role if none is defined
-        // This will help with testing RLS policies
-        setRole(parsedUser.role || 'admin');
-        
-        // Set a mock session for development purposes with proper role claim
-        const mockToken = generateMockJWT(parsedUser.id, parsedUser.role || 'admin');
-        
-        const mockSession = {
-          access_token: mockToken,
-          refresh_token: `mock-refresh-token-${Date.now()}`,
-          expires_in: 3600,
-          expires_at: Math.floor(Date.now() / 1000) + 3600,
-          token_type: 'bearer',
-          user: {
-            id: parsedUser.id,
-            app_metadata: {},
-            user_metadata: { role: parsedUser.role || 'admin' },
-            aud: 'authenticated',
-            email: parsedUser.email,
-            role: parsedUser.role || 'admin',
-            created_at: parsedUser.createdAt || new Date().toISOString(),
-          }
-        } as Session;
-        
-        setSession(mockSession);
-        
+        setRole(normalizedRole);
+        setSession(buildSession(storedToken, normalizedUser, normalizedRole));
       } catch (error) {
         console.error('Error parsing stored user:', error);
-        localStorage.removeItem('user');
+        clearStoredAuth();
+        setUser(null);
+        setIsAuthenticated(false);
+        setRole('client');
+        setSession(null);
       }
+    } else {
+      clearStoredAuth();
+      setUser(null);
+      setIsAuthenticated(false);
+      setRole('client');
+      setSession(null);
     }
     setIsLoading(false);
   }, []);
 
   // Login function
-  const login = (userData: UserData) => {
-    // Default to admin role if not specified (for development purposes)
-    const roleToUse = userData.role || 'admin';
-    
+  const login = (userData: UserData, authToken?: string) => {
+    // Normalize role across API variations
+    const roleToUse = normalizeRole(userData.role);
+    const tokenToUse = authToken || getStoredToken();
+
+    if (authToken) {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('authToken', authToken);
+        localStorage.setItem('token', authToken);
+      }
+    }
+
     // Update userData with the role
     const updatedUserData = {
       ...userData,
-      role: roleToUse
+      role: roleToUse,
+      metadata: userData.metadata || {},
     };
-    
     // Store the user data in localStorage
     localStorage.setItem('user', JSON.stringify(updatedUserData));
     setUser(updatedUserData);
     setIsAuthenticated(true);
     setRole(roleToUse);
-    
-    // Generate a proper JWT token structure for development
-    const mockToken = generateMockJWT(updatedUserData.id, roleToUse);
-    
-    // Set a mock session for development purposes with proper role claim
-    const mockSession = {
-      access_token: mockToken,
-      refresh_token: `mock-refresh-token-${Date.now()}`,
-      expires_in: 3600,
-      expires_at: Math.floor(Date.now() / 1000) + 3600,
-      token_type: 'bearer',
-      user: {
-        id: updatedUserData.id,
-        app_metadata: {},
-        user_metadata: { role: roleToUse },
-        aud: 'authenticated',
-        email: updatedUserData.email,
-        role: roleToUse,
-        created_at: updatedUserData.createdAt || new Date().toISOString(),
-      }
-    } as Session;
-    
-    setSession(mockSession);
-    
+
+    if (tokenToUse) {
+      setSession(buildSession(tokenToUse, updatedUserData, roleToUse));
+    } else {
+      setSession(null);
+    }
+
     console.log('Login successful, user role:', roleToUse);
   };
 
   // Logout function
   const logout = () => {
-    // Remove user data from localStorage
-    localStorage.removeItem('user');
+    clearStoredAuth();
     setUser(null);
+    setOriginalUser(null);
+    setIsImpersonating(false);
     setIsAuthenticated(false);
     setRole('client');
     setSession(null);
     console.log('User logged out');
+  };
+
+  const impersonate = (targetUser: UserData) => {
+    if (!user) return;
+
+    // Store current user as original if not already impersonating
+    if (!isImpersonating) {
+      setOriginalUser(user);
+      localStorage.setItem('originalUser', JSON.stringify(user));
+      setIsImpersonating(true);
+    }
+
+    // Switch to target user
+    const roleToUse = normalizeRole(targetUser.role);
+    const updatedUserData = {
+      ...targetUser,
+      role: roleToUse,
+      metadata: targetUser.metadata || {},
+    };
+
+    localStorage.setItem('user', JSON.stringify(updatedUserData));
+    setUser(updatedUserData);
+    setRole(roleToUse);
+
+    // Create a mock session for the impersonated user
+    const mockToken = generateMockJWT(updatedUserData.id, roleToUse);
+    setSession(buildSession(mockToken, updatedUserData, roleToUse));
+    
+    console.log(`Impersonating user: ${targetUser.email}`);
+  };
+
+  const stopImpersonating = () => {
+    if (!originalUser) return;
+
+    // Restore original user
+    localStorage.setItem('user', JSON.stringify(originalUser));
+    localStorage.removeItem('originalUser');
+    
+    setUser(originalUser);
+    setRole(originalUser.role || 'client');
+    setIsImpersonating(false);
+    setOriginalUser(null);
+
+    // Restore session
+    const mockToken = generateMockJWT(originalUser.id, originalUser.role || 'client');
+    setSession(buildSession(mockToken, originalUser, originalUser.role || 'client'));
+    
+    console.log('Stopped impersonating, restored original user');
   };
 
   const setUserRole = (newRole: Role) => {
@@ -216,20 +272,19 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       
       // Update session if it exists
       if (session) {
-        // Generate new JWT with updated role
         const mockToken = generateMockJWT(user.id, newRole);
         
         setSession({
           ...session,
-          access_token: mockToken,
+          accessToken: mockToken,
           user: {
             ...session.user,
             role: newRole,
-            user_metadata: {
-              ...session.user.user_metadata,
-              role: newRole
-            }
-          }
+            metadata: {
+              ...(session.user.metadata || {}),
+              role: newRole,
+            },
+          },
         });
       }
     }
@@ -259,15 +314,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         
         setSession({
           ...session,
-          access_token: mockToken,
+          accessToken: mockToken,
           user: {
             ...session.user,
             role: updatedUser.role,
-            user_metadata: {
-              ...session.user.user_metadata,
-              role: updatedUser.role
-            }
-          }
+            metadata: {
+              ...(session.user.metadata || {}),
+              role: updatedUser.role,
+            },
+          },
         });
       }
       
@@ -286,6 +341,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     logout,
     setUserRole,
     setUser: updateUser,
+    impersonate,
+    stopImpersonating,
+    isImpersonating,
+    originalUser,
   };
 
   return (

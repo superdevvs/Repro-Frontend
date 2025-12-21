@@ -6,7 +6,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { DialogClose } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { supabase, getAuthenticatedClient } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { 
   DialogContent,
@@ -30,6 +29,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { format } from 'date-fns';
 import { CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import axios from 'axios';
+import { API_BASE_URL } from '@/config/env';
 
 const formSchema = z.object({
   code: z.string().min(3, 'Code must be at least 3 characters'),
@@ -56,8 +57,9 @@ export function CreateCouponDialog() {
   const createCouponMutation = useMutation({
     mutationFn: async (values: FormData) => {
       // Ensure user is authenticated
-      if (!session?.access_token) {
-        throw new Error("You must be logged in to create coupons");
+      const token = session?.accessToken || localStorage.getItem('authToken');
+      if (!token) {
+        throw new Error('You must be logged in to create coupons');
       }
       
       // Format the date for Postgres if it exists
@@ -78,16 +80,18 @@ export function CreateCouponDialog() {
 
       console.log("Creating coupon with data:", couponData);
       
-      // Use authenticated client
-      const client = getAuthenticatedClient(session);
-      const { data, error } = await client
-        .from('coupons')
-        .insert(couponData)
-        .select()
-        .single();
+      const response = await axios.post(
+        `${API_BASE_URL}/api/coupons`,
+        couponData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/json',
+          },
+        },
+      );
 
-      if (error) throw error;
-      return data;
+      return response.data?.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['coupons'] });

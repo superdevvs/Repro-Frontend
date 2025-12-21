@@ -62,7 +62,7 @@ export function RolePermissionsManager() {
   
   // Save changes
   const saveChanges = () => {
-    // In a real app, this would persist to Supabase or another backend
+    // In a real app, this would persist to the backend API
     toast({
       title: "Permissions Updated",
       description: `Permissions for role '${activeRole}' have been updated.`,

@@ -1,9 +1,13 @@
 import React, { useEffect, useState } from "react";
+import { API_BASE_URL } from "@/config/env";
 
 export function BrandedPage() {
   const [slides, setSlides] = useState<string[]>([]);
   const [address, setAddress] = useState<string>("");
   const [clientName, setClientName] = useState<string>("");
+  const [propertyDetails, setPropertyDetails] = useState<any>(null);
+  const [iguideTourUrl, setIguideTourUrl] = useState<string | null>(null);
+  const [iguideFloorplans, setIguideFloorplans] = useState<any[]>([]);
 
   useEffect(() => {
     // Fetch assets for this shoot
@@ -11,8 +15,7 @@ export function BrandedPage() {
       const params = new URLSearchParams(window.location.search);
       const shootId = params.get('shootId');
       if (shootId) {
-        const base = import.meta.env.VITE_API_URL;
-        fetch(`${base}/api/public/shoots/${shootId}/branded`)
+        fetch(`${API_BASE_URL}/api/public/shoots/${shootId}/branded`)
           .then(res => res.json())
           .then(data => {
             const imgs: string[] = Array.isArray(data?.photos) ? data.photos : [];
@@ -22,6 +25,16 @@ export function BrandedPage() {
               const s = data.shoot;
               setAddress([s.address, s.city, s.state, s.zip].filter(Boolean).join(', '));
               setClientName(data?.shoot?.client_name || "");
+            }
+            // Set integration data
+            if (data?.property_details) {
+              setPropertyDetails(data.property_details);
+            }
+            if (data?.iguide_tour_url) {
+              setIguideTourUrl(data.iguide_tour_url);
+            }
+            if (data?.iguide_floorplans) {
+              setIguideFloorplans(Array.isArray(data.iguide_floorplans) ? data.iguide_floorplans : []);
             }
           })
           .catch(() => {});
@@ -413,26 +426,36 @@ export function BrandedPage() {
       </div>
 
       <div className="w-full px-6 py-4 bg-gray-50 border-b border-gray-200 flex items-center justify-around text-gray-700 text-sm md:text-base mt-20">
-        <div className="flex items-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M4 6h16a1 1 0 011 1v8H3V7a1 1 0 011-1zM21 16H3v4h18v-4z" />
-          </svg>
-          <span className="font-medium">3 Bedrooms</span>
-        </div>
+        {(propertyDetails?.beds || propertyDetails?.baths || propertyDetails?.sqft) && (
+          <>
+            {propertyDetails.beds && (
+              <div className="flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M4 6h16a1 1 0 011 1v8H3V7a1 1 0 011-1zM21 16H3v4h18v-4z" />
+                </svg>
+                <span className="font-medium">{propertyDetails.beds} Bedroom{propertyDetails.beds !== 1 ? 's' : ''}</span>
+              </div>
+            )}
 
-        <div className="flex items-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 13h16v8H4v-8zM4 9h16V7a1 1 0 00-1-1h-5V3h-4v3H5a1 1 0 00-1 1v2z" />
-          </svg>
-          <span className="font-medium">2 Bathrooms</span>
-        </div>
+            {propertyDetails.baths && (
+              <div className="flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 13h16v8H4v-8zM4 9h16V7a1 1 0 00-1-1h-5V3h-4v3H5a1 1 0 00-1 1v2z" />
+                </svg>
+                <span className="font-medium">{propertyDetails.baths} Bathroom{propertyDetails.baths !== 1 ? 's' : ''}</span>
+              </div>
+            )}
 
-        <div className="flex items-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12h18M12 3v18" />
-          </svg>
-          <span className="font-medium">1450 sq.ft</span>
-        </div>
+            {propertyDetails.sqft && (
+              <div className="flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12h18M12 3v18" />
+                </svg>
+                <span className="font-medium">{propertyDetails.sqft.toLocaleString()} sq.ft</span>
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {/* Photos */}
@@ -514,46 +537,66 @@ export function BrandedPage() {
       <section id="3dtour" className="py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-3xl font-bold text-center text-black mb-8">3D TOUR</h2>
-          <div className="flex justify-center">
-            <img data-index={0} src="https://images.unsplash.com/photo-1605146769289-440113cc3d00?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&q=80&w=2070" className="thumb w-full rounded-lg shadow-md hover:opacity-90 cursor-pointer object-cover h-48" alt="3D Tour" />
-          </div>
+          {iguideTourUrl ? (
+            <div className="flex justify-center">
+              <iframe
+                src={iguideTourUrl}
+                className="w-full aspect-video rounded-lg shadow-md"
+                allow="fullscreen"
+                style={{ minHeight: '500px' }}
+                title="iGUIDE 3D Tour"
+              />
+            </div>
+          ) : (
+            <div className="flex justify-center text-gray-500">
+              <p>3D tour not available</p>
+            </div>
+          )}
         </div>
       </section>
 
-      <section id="floorplan" className="py-16 bg-gray-50">
-        <div className="flex justify-center items-center min-h-screen">
-          <div className="w-full max-w-6xl p-6">
-            <h2 className="text-3xl sm:text-4xl font-bold text-center mb-10 text-black">FLOOR PLANS</h2>
-            <div id="gallery" className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              <img src="/images/floor1.JPG" alt="Floor 1" className="gallery-img w-full h-auto rounded-lg shadow-md hover:opacity-90 cursor-pointer object-cover" />
-              <img src="/images/floor1 (2).JPG" alt="Floor 2" className="gallery-img w-full h-auto rounded-lg shadow-md hover:opacity-90 cursor-pointer object-cover" />
-              <img src="/images/floor1 (3).JPG" alt="Floor 3" className="gallery-img w-full h-auto rounded-lg shadow-md hover:opacity-90 cursor-pointer object-cover" />
-              <img src="/images/floor1 (4).JPG" alt="Floor 4" className="gallery-img w-full h-auto rounded-lg shadow-md hover:opacity-90 cursor-pointer object-cover" />
-              <img src="/images/floor1 (5).JPG" alt="Floor 5" className="gallery-img w-full h-auto rounded-lg shadow-md hover:opacity-90 cursor-pointer object-cover" />
+      {(iguideFloorplans && iguideFloorplans.length > 0) && (
+        <section id="floorplan" className="py-16 bg-gray-50">
+          <div className="flex justify-center items-center min-h-screen">
+            <div className="w-full max-w-6xl p-6">
+              <h2 className="text-3xl sm:text-4xl font-bold text-center mb-10 text-black">FLOOR PLANS</h2>
+              <div id="gallery" className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {iguideFloorplans.map((floorplan: any, idx: number) => {
+                  const url = typeof floorplan === 'string' ? floorplan : (floorplan.url || floorplan.path);
+                  return (
+                    <img
+                      key={idx}
+                      src={url}
+                      alt={floorplan.filename || `Floorplan ${idx + 1}`}
+                      className="gallery-img w-full h-auto rounded-lg shadow-md hover:opacity-90 cursor-pointer object-cover"
+                    />
+                  );
+                })}
+              </div>
             </div>
           </div>
-        </div>
 
-        <div id="floorpopup" className="fixed inset-0 z-[9999] hidden grid place-items-center bg-black/80 p-4">
-          <button id="floorclosePopup" className="absolute top-4 right-4 text-white text-3xl leading-none">×</button>
-          <div className="w-full max-w-6xl pointer-events-auto relative">
-            <div className="absolute left-1/2 transform -translate-x-1/2 bottom-6 z-20 flex items-center gap-2 bg-gray-800/70 backdrop-blur-sm px-3 py-1 rounded-full shadow-lg">
-              <button id="Prev" className="w-10 h-10 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 focus:outline-none">‹</button>
-              <button id="PlayPause" className="flex items-center gap-1 px-3 py-1 rounded-full bg-white/10 text-white hover:bg-white/20 focus:outline-none"><span id="PpIcon"></span><span id="photoPpLabel" className="text-sm">Play</span></button>
-              <button id="ZoomIn" className="w-9 h-9 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 focus:outline-none">＋</button>
-              <button id="ZoomOut" className="w-9 h-9 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 focus:outline-none">－</button>
-              <button id="Fullscreen" className="w-9 h-9 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 focus:outline-none">⛶</button>
-              <button id="Next" className="w-10 h-10 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 focus:outline-none">›</button>
-            </div>
+          <div id="floorpopup" className="fixed inset-0 z-[9999] hidden grid place-items-center bg-black/80 p-4">
+            <button id="floorclosePopup" className="absolute top-4 right-4 text-white text-3xl leading-none">×</button>
+            <div className="w-full max-w-6xl pointer-events-auto relative">
+              <div className="absolute left-1/2 transform -translate-x-1/2 bottom-6 z-20 flex items-center gap-2 bg-gray-800/70 backdrop-blur-sm px-3 py-1 rounded-full shadow-lg">
+                <button id="Prev" className="w-10 h-10 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 focus:outline-none">‹</button>
+                <button id="PlayPause" className="flex items-center gap-1 px-3 py-1 rounded-full bg-white/10 text-white hover:bg-white/20 focus:outline-none"><span id="PpIcon"></span><span id="photoPpLabel" className="text-sm">Play</span></button>
+                <button id="ZoomIn" className="w-9 h-9 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 focus:outline-none">＋</button>
+                <button id="ZoomOut" className="w-9 h-9 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 focus:outline-none">－</button>
+                <button id="Fullscreen" className="w-9 h-9 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 focus:outline-none">⛶</button>
+                <button id="Next" className="w-10 h-10 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 focus:outline-none">›</button>
+              </div>
 
-            <div id="floor-slides" className="bg-transparent rounded-lg overflow-hidden"></div>
-            <div className="mt-4 flex items-center justify-between text-sm text-white/90">
-              <div id="floor-caption" className="truncate max-w-[70%]"></div>
-              <div id="floor-counter" className="opacity-90"></div>
+              <div id="floor-slides" className="bg-transparent rounded-lg overflow-hidden"></div>
+              <div className="mt-4 flex items-center justify-between text-sm text-white/90">
+                <div id="floor-caption" className="truncate max-w-[70%]"></div>
+                <div id="floor-counter" className="opacity-90"></div>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       <div className="flex justify-center items-center py-16 px-4" id="contact">
         <form className="bg-white p-8 rounded-lg shadow-md w-full max-w-md flex flex-col gap-6">

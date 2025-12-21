@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { CheckCircleIcon } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
 
 interface BookingCompleteProps {
   date: Date | undefined;
@@ -12,6 +13,8 @@ interface BookingCompleteProps {
 }
 
 export function BookingComplete({ date, time, resetForm }: BookingCompleteProps) {
+  const navigate = useNavigate();
+  
   // Format the date properly to ensure correct display
   const formattedDate = date ? format(new Date(
     date.getFullYear(),
@@ -38,7 +41,7 @@ export function BookingComplete({ date, time, resetForm }: BookingCompleteProps)
       </p>
       <div className="flex flex-col sm:flex-row gap-3">
         <Button onClick={resetForm} variant="outline">Book Another Shoot</Button>
-        <Button onClick={() => window.location.href = '/shoots'}>View All Shoots</Button>
+        <Button onClick={() => navigate('/shoot-history')}>View All Shoots</Button>
       </div>
     </motion.div>
   );

@@ -7,6 +7,7 @@ import { ShootData } from '@/types/shoots';
 import { useShoots } from '@/context/ShootsContext';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/auth/AuthProvider';
+import { API_BASE_URL } from '@/config/env';
 
 interface ShootNotesTabProps {
   shoot: ShootData;
@@ -66,7 +67,7 @@ export function ShootNotesTab({
       try {
         const token = localStorage.getItem('token') || localStorage.getItem('authToken');
         if (!token || !shoot?.id) return;
-        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/shoots/${shoot.id}`, {
+        const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (!res.ok) return;
@@ -189,7 +190,7 @@ export function ShootNotesTab({
       const payload: Record<string, string> = {};
       payload[apiKey] = String(editableNotes[noteType as keyof typeof editableNotes] || '');
 
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/shoots/${shoot.id}/notes`, {
+      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/notes`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -246,13 +247,37 @@ export function ShootNotesTab({
     }
   }
 
-  // Visibility rules for each audience
+  // Visibility rules based on the permissions matrix:
+  // - Super Admin & Admin: Can see all notes
+  // - Editor: Can see shoot notes, editing notes, photographer notes (NOT company notes)
+  // - Photographer: Can see shoot notes, photographer notes (NOT company notes, NOT editing notes)
+  // - Client: Can see shoot notes only (NOT company notes, NOT editing notes, NOT photographer notes)
   function canView(noteType: string): boolean {
-    if (isAdmin || role === 'superadmin') return true;
-    if (noteType === 'shootNotes') return role === 'client';
-    if (noteType === 'photographerNotes') return role === 'photographer';
-    if (noteType === 'editingNotes') return role === 'editor';
-    if (noteType === 'companyNotes') return false;
+    // Super Admin and Admin can see everything
+    if (isAdmin || role === 'superadmin') {
+      return true;
+    }
+    
+    // Shoot notes: visible to all roles
+    if (noteType === 'shootNotes') {
+      return true;
+    }
+    
+    // Company notes: ONLY Super Admin and Admin
+    if (noteType === 'companyNotes') {
+      return false; // Already handled above for admin/superadmin
+    }
+    
+    // Editing notes: Super Admin, Admin, Editor (NOT Photographer, NOT Client)
+    if (noteType === 'editingNotes') {
+      return role === 'editor' || role === 'admin' || role === 'superadmin';
+    }
+    
+    // Photographer notes: Super Admin, Admin, Editor, Photographer (NOT Client)
+    if (noteType === 'photographerNotes') {
+      return role === 'photographer' || role === 'editor' || role === 'admin' || role === 'superadmin';
+    }
+    
     return false;
   }
 

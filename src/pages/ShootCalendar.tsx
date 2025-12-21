@@ -1,10 +1,10 @@
 
 import React, { useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { TimeRangeFilter } from '@/components/dashboard/TimeRangeFilter';
 import { TimeRange, filterShootsByDateRange } from '@/utils/dateUtils';
 import { useShoots } from '@/context/ShootsContext';
-import { Badge } from '@/components/ui/badge';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -152,16 +152,11 @@ const ShootCalendar = () => {
   return (
     <DashboardLayout>
       <div className="space-y-6 pb-10">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
-          <div>
-            <Badge className="mb-2 bg-primary/10 text-primary hover:bg-primary/20 border-primary/20">
-              Calendar
-            </Badge>
-            <h1 className="text-3xl font-bold">Shoot Calendar</h1>
-            <p className="text-muted-foreground">
-              Track and manage your photography schedule.
-            </p>
-          </div>
+        <PageHeader
+          badge="Calendar"
+          title="Shoot Calendar"
+          description="Track and manage your photography schedule."
+        />
           <div className="flex flex-col sm:flex-row gap-2 mt-4 sm:mt-0">
             <Button variant="outline" onClick={() => navigate('/book-shoot')}>
               <PlusCircle className="h-4 w-4 mr-2" />

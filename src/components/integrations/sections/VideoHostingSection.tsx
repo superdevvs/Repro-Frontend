@@ -1,28 +1,28 @@
 
 import React from 'react';
 import { IntegrationCard } from '../IntegrationCard';
-import { VideoIcon, MonitorIcon } from 'lucide-react';
+import { MonitorIcon } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 export function VideoHostingSection() {
   return (
-    <div className="space-y-4">
-      <h2 className="text-xl font-semibold">Video Hosting</h2>
-      
-      <div className="space-y-3">
-        <IntegrationCard
-          title="YouTube"
-          description="Host and embed property videos"
-          status="coming_soon"
-          icon={<VideoIcon className="h-4 w-4" />}
-        />
-        
-        <IntegrationCard
-          title="Vimeo"
-          description="Professional video hosting"
-          status="coming_soon"
-          icon={<MonitorIcon className="h-4 w-4" />}
-        />
-      </div>
-    </div>
+    <Card className="flex flex-col">
+      <CardHeader>
+        <CardTitle>Video Hosting</CardTitle>
+        <CardDescription>
+          Integrate video hosting platforms for property videos and tours
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-3">
+          <IntegrationCard
+            title="Vimeo"
+            description="Professional video hosting"
+            status="coming_soon"
+            icon={<MonitorIcon className="h-4 w-4" />}
+          />
+        </div>
+      </CardContent>
+    </Card>
   );
 }

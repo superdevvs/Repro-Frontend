@@ -1,22 +1,28 @@
 import React from 'react';
 import { useLocation } from 'react-router-dom';
 import { NavLink } from './NavLink';
+import { ExpandableNavLink } from './ExpandableNavLink';
 import { usePermission } from '@/hooks/usePermission';
+import { cn } from '@/lib/utils';
+import { ReproAiIcon } from '@/components/icons/ReproAiIcon';
+import { Link } from 'react-router-dom';
+import { getAccountingMode, accountingConfigs } from '@/config/accountingConfig';
 import {
   HomeIcon,
   ClipboardIcon,
   HistoryIcon,
-  MessageSquareIcon,
-  UserIcon,
   BuildingIcon,
   CalendarIcon,
   BarChart3Icon,
-  PlugIcon,
   TicketIcon,
   Settings2Icon,
   MapPinIcon,
   TestTubeIcon,
-  DollarSignIcon,
+  Mail,
+  MessageSquare,
+  Upload,
+  Search,
+  Sparkles,
 } from 'lucide-react';
 
 interface SidebarLinksProps {
@@ -31,13 +37,11 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
   // Define permissions for each section
   const dashboardPermission = permission.forResource('dashboard');
   const shootsPermission = permission.forResource('shoots');
-  const clientsPermission = permission.forResource('clients');
   const accountsPermission = permission.forResource('accounts');
   const invoicesPermission = permission.forResource('invoices');
   const availabilityPermission = permission.forResource('availability');
-  const integrationsPermission = permission.forResource('integrations');
-  const settingsPermission = permission.forResource('settings');
-  const revenuePermission = permission.forResource('revenue'); 
+
+  const isChatActive = pathname === '/chat-with-reproai';
 
   return (
     <div className="flex flex-1 flex-col gap-2 p-2">
@@ -63,37 +67,16 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
         />
       )}
       
-      {/* Shoots History */}
+      {/* Shoot History - main shoots management page */}
       {shootsPermission.canView() && (
         <NavLink
-          to={role === 'client' ? "/shoot-history" : "/shoots"}
-          icon={role === 'client' ? <HistoryIcon className="h-5 w-5" /> : <CalendarIcon className="h-5 w-5" />}
-          label="Shoots History"
+          to="/shoot-history"
+          icon={<HistoryIcon className="h-5 w-5" />}
+          label="Shoot History"
           isCollapsed={isCollapsed}
-          isActive={pathname === (role === 'client' ? '/shoot-history' : '/shoots')}
+          isActive={pathname === '/shoot-history' || pathname.startsWith('/shoots')}
         />
       )}
-      
-      {/* Messages - all users can access */}
-      {/* <NavLink
-        to="/messages"
-        icon={<MessageSquareIcon className="h-5 w-5" />}
-        label="Messages"
-        isCollapsed={isCollapsed}
-        isActive={pathname === '/messages'}
-      /> */}
-      
-      {/* Clients link */}
-      {clientsPermission.canView() && role !== 'photographer' && role !== 'editor' && (
-  <NavLink
-    to="/clients"
-    icon={<UserIcon className="h-5 w-5" />}
-    label="Clients"
-    isCollapsed={isCollapsed}
-    isActive={pathname === '/clients'}
-  />
-)}
-
       
       {/* Accounts link */}
       {accountsPermission.canView() && (
@@ -121,15 +104,54 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
           />
         </>
       )}
-      
-      {/* Accounting */}
-      {invoicesPermission.canView() && (
+
+      {/* Private Listing Portal - admin only */}
+      {(role === 'admin' || role === 'superadmin') && (
         <NavLink
-          to="/accounting"
-          icon={<BarChart3Icon className="h-5 w-5" />}
-          label="Accounting"
+          to="/portal"
+          icon={<Search className="h-5 w-5" />}
+          label="Listing Portal"
           isCollapsed={isCollapsed}
-          isActive={pathname === '/accounting'}
+          isActive={pathname === '/portal'}
+        />
+      )}
+      
+      {/* Accounting - Available to all roles with role-specific labels */}
+      {(() => {
+        const accountingMode = getAccountingMode(role);
+        const config = accountingConfigs[accountingMode];
+        return (
+          <NavLink
+            to="/accounting"
+            icon={<BarChart3Icon className="h-5 w-5" />}
+            label={config.sidebarLabel}
+            isCollapsed={isCollapsed}
+            isActive={pathname === '/accounting'}
+          />
+        );
+      })()}
+      
+      {/* Messaging - Simple link for clients, expandable for admins */}
+      {role === 'client' && (
+        <NavLink
+          to="/messaging/email/inbox"
+          icon={<Mail className="h-5 w-5" />}
+          label="Messaging"
+          isCollapsed={isCollapsed}
+          isActive={pathname.startsWith('/messaging/email')}
+        />
+      )}
+      {/* Messaging - Expandable with Emails and SMS for admins */}
+      {(role === 'admin' || role === 'superadmin' || role === 'sales_rep') && (
+        <ExpandableNavLink
+          icon={<MessageSquare className="h-5 w-5" />}
+          label="Messaging"
+          isCollapsed={isCollapsed}
+          defaultTo="/messaging/overview"
+          subItems={[
+            { to: '/messaging/email/inbox', label: 'Emails' },
+            { to: '/messaging/sms', label: 'SMS' },
+          ]}
         />
       )}
       
@@ -141,28 +163,6 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
           label="Availability"
           isCollapsed={isCollapsed}
           isActive={pathname === '/availability'}
-        />
-      )}
-      
-      {/* Integrations */}
-      {integrationsPermission.canView() && (
-        <NavLink
-          to="/integrations"
-          icon={<PlugIcon className="h-5 w-5" />}
-          label="Integrations"
-          isCollapsed={isCollapsed}
-          isActive={pathname === '/integrations'}
-        />
-      )}
-
-       {/* ✅ Revenue (separate, not nested inside Integrations) */}
-      {revenuePermission.canView() && (
-        <NavLink
-          to="/revenue"
-          icon={<DollarSignIcon className="h-5 w-5" />}
-          label="Revenue"
-          isCollapsed={isCollapsed}
-          isActive={pathname === '/revenue'}
         />
       )}
       
@@ -195,6 +195,35 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
             isActive={pathname === '/test-client-form'}
           />
         </>
+      )}
+
+      {/* AI Editing link - admins only */}
+      {(role === 'admin' || role === 'superadmin') && (
+        <NavLink
+          to="/ai-editing"
+          icon={<Sparkles className="h-5 w-5" />}
+          label="AI Editing"
+          isCollapsed={isCollapsed}
+          isActive={pathname === '/ai-editing' || pathname.startsWith('/ai-editing')}
+        />
+      )}
+
+      {/* Chat with Robbie - Special styled link - Above separator */}
+      {/* Only visible to client, admin, superadmin */}
+      {(role === 'client' || role === 'admin' || role === 'superadmin') && (
+        <Link
+          to="/chat-with-reproai"
+          className={cn(
+            'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors relative',
+            isChatActive 
+              ? 'bg-secondary/80 font-medium border border-primary/20 shadow-sm' 
+              : 'text-muted-foreground hover:bg-secondary/50',
+            isCollapsed && 'justify-center p-2'
+          )}
+        >
+          <ReproAiIcon className="h-5 w-5 flex-shrink-0" />
+          {!isCollapsed && <span>Chat with Robbie</span>}
+        </Link>
       )}
     </div>
   );

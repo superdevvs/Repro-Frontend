@@ -1,14 +1,14 @@
 
 import { createContext, useContext } from 'react';
 import { UserData } from '@/types/auth';
-import { Session } from '@supabase/supabase-js';
+import { AuthSession } from '@/types/auth';
 
 interface AuthContextType {
   user: UserData | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   role: string;
-  session: Session | null;
+  session: AuthSession | null;
   login: (userData: UserData) => void;
   logout: () => void;
   setUserRole: (role: string) => void;

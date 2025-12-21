@@ -1,18 +1,12 @@
 
 import React, { useState } from 'react';
 import { IntegrationCard } from '../IntegrationCard';
-import { FolderIcon, HardDriveIcon } from 'lucide-react';
+import { FolderIcon } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 export function StorageSection() {
   const [autoSync, setAutoSync] = useState(true);
-  
-  const handleConnect = (service: string) => {
-    toast({
-      title: "Connecting to " + service,
-      description: "Redirecting to authentication page...",
-    });
-  };
   
   const handleDisconnect = (service: string) => {
     toast({
@@ -37,32 +31,30 @@ export function StorageSection() {
   };
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-xl font-semibold">Storage</h2>
-      
-      <div className="space-y-3">
-        <IntegrationCard
-          title="Dropbox"
-          description="Cloud storage for photos and videos"
-          status="connected"
-          icon={<FolderIcon className="h-4 w-4" />}
-          toggleOption={{
-            label: "Auto Sync",
-            enabled: autoSync,
-            onChange: handleAutoSync
-          }}
-          onDisconnect={() => handleDisconnect('Dropbox')}
-          onConfigure={() => handleConfigure('Dropbox')}
-        />
-        
-        <IntegrationCard
-          title="Google Drive"
-          description="Google cloud storage integration"
-          status="not_connected"
-          icon={<HardDriveIcon className="h-4 w-4" />}
-          onConnect={() => handleConnect('Google Drive')}
-        />
-      </div>
-    </div>
+    <Card className="flex flex-col">
+      <CardHeader>
+        <CardTitle>Storage</CardTitle>
+        <CardDescription>
+          Connect cloud storage services for automatic file synchronization
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-3">
+          <IntegrationCard
+            title="Dropbox"
+            description="Cloud storage for photos and videos"
+            status="connected"
+            icon={<FolderIcon className="h-4 w-4" />}
+            toggleOption={{
+              label: "Auto Sync",
+              enabled: autoSync,
+              onChange: handleAutoSync
+            }}
+            onDisconnect={() => handleDisconnect('Dropbox')}
+            onConfigure={() => handleConfigure('Dropbox')}
+          />
+        </div>
+      </CardContent>
+    </Card>
   );
 }

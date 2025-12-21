@@ -2,7 +2,6 @@
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Database } from '@/integrations/supabase/types';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { CircularProgress } from './CircularProgress';
 import { MoreVertical, Edit, Power, Trash } from 'lucide-react';
@@ -15,7 +14,16 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-type Coupon = Database['public']['Tables']['coupons']['Row'];
+type Coupon = {
+  id: number;
+  code: string;
+  type: 'percentage' | 'fixed';
+  amount: number;
+  max_uses?: number | null;
+  current_uses?: number | null;
+  is_active?: boolean | null;
+  valid_until?: string | null;
+};
 
 interface CouponCardProps {
   coupon: Coupon;

@@ -3,6 +3,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { LogOutIcon, HomeIcon } from 'lucide-react';
 import { MenuItem } from './MenuItem';
+import { ExpandableMenuItem } from './ExpandableMenuItem';
 
 interface MenuContentProps {
   isMenuOpen: boolean;
@@ -46,23 +47,47 @@ export const MenuContent = ({ isMenuOpen, filteredItems, closeMenu, handleLogout
           initial="hidden"
           animate="show"
         >
-          {filteredItems.map((item, index) => (
-            <motion.div
-              key={item.to}
-              variants={{
-                hidden: { opacity: 0, y: 20 },
-                show: { opacity: 1, y: 0 }
-              }}
-            >
-              <MenuItem
-                to={item.to}
-                icon={item.icon}
-                label={item.label}
-                isActive={item.isActive}
-                onClick={closeMenu}
-              />
-            </motion.div>
-          ))}
+          {filteredItems.map((item, index) => {
+            // Use ExpandableMenuItem for items with subItems (like messaging)
+            if (item.subItems && item.subItems.length > 0) {
+              return (
+                <motion.div
+                  key={item.to}
+                  variants={{
+                    hidden: { opacity: 0, y: 20 },
+                    show: { opacity: 1, y: 0 }
+                  }}
+                >
+                  <ExpandableMenuItem
+                    to={item.to}
+                    icon={item.icon}
+                    label={item.label}
+                    isActive={item.isActive}
+                    onClick={closeMenu}
+                    subItems={item.subItems}
+                  />
+                </motion.div>
+              );
+            }
+            // Use regular MenuItem for items without subItems
+            return (
+              <motion.div
+                key={item.to}
+                variants={{
+                  hidden: { opacity: 0, y: 20 },
+                  show: { opacity: 1, y: 0 }
+                }}
+              >
+                <MenuItem
+                  to={item.to}
+                  icon={item.icon}
+                  label={item.label}
+                  isActive={item.isActive}
+                  onClick={closeMenu}
+                />
+              </motion.div>
+            );
+          })}
           
           {/* Logout Button */}
           <motion.div

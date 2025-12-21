@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { Badge } from '@/components/ui/badge';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { AutoExpandingTabsList, type AutoExpandingTab } from '@/components/ui/auto-expanding-tabs';
 import { Input } from '@/components/ui/input';
 import { PageTransition } from '@/components/layout/PageTransition';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -19,7 +20,11 @@ import {
   FilterIcon,
   CheckIcon,
   XIcon,
-  MoreHorizontalIcon
+  MoreHorizontalIcon,
+  Layers,
+  Image,
+  Video,
+  FileText
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -123,7 +128,16 @@ const MediaPage = () => {
   const [newFolderDialogOpen, setNewFolderDialogOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [currentFolder, setCurrentFolder] = useState('root');
+  const [currentTab, setCurrentTab] = useState('all');
   const [folders, setFolders] = useState<{ id: string; name: string; parent: string }[]>([]);
+  
+  // Auto-expanding tabs configuration
+  const tabsConfig: AutoExpandingTab[] = useMemo(() => [
+    { value: 'all', icon: Layers, label: 'All Media' },
+    { value: 'images', icon: Image, label: 'Images' },
+    { value: 'videos', icon: Video, label: 'Videos' },
+    { value: 'documents', icon: FileText, label: 'Documents' },
+  ], []);
 
   const handleUploadComplete = (files: File[]) => {
     setUploadDialogOpen(false);
@@ -175,18 +189,12 @@ const MediaPage = () => {
     <DashboardLayout>
       <PageTransition>
         <div className="space-y-6">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
-              <Badge className="mb-2 bg-primary/10 text-primary hover:bg-primary/20 border-primary/20">
-                Media
-              </Badge>
-              <h1 className="text-3xl font-bold">Media Library</h1>
-              <p className="text-muted-foreground">
-                Manage all your property photos, videos, and documents
-              </p>
-            </div>
-            
-            <div className="flex gap-2">
+          <PageHeader
+            badge="Media"
+            title="Media Library"
+            description="Manage all your property photos, videos, and documents"
+            action={
+              <div className="flex gap-2">
               <Button 
                 variant="outline" 
                 className="gap-2"
@@ -210,8 +218,9 @@ const MediaPage = () => {
                 <PlusIcon className="h-4 w-4" />
                 New Slideshow
               </Button>
-            </div>
-          </div>
+              </div>
+            }
+          />
           
           {currentFolder !== 'root' && (
             <Button 
@@ -224,14 +233,12 @@ const MediaPage = () => {
           )}
           
           <div className="flex flex-col space-y-4">
-            <Tabs defaultValue="all" className="w-full">
+            <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
               <div className="flex flex-col sm:flex-row justify-between gap-4 mb-4">
-                <TabsList className="bg-muted/50">
-                  <TabsTrigger value="all" className="data-[state=active]:bg-background">All Media</TabsTrigger>
-                  <TabsTrigger value="images" className="data-[state=active]:bg-background">Images</TabsTrigger>
-                  <TabsTrigger value="videos" className="data-[state=active]:bg-background">Videos</TabsTrigger>
-                  <TabsTrigger value="documents" className="data-[state=active]:bg-background">Documents</TabsTrigger>
-                </TabsList>
+                <AutoExpandingTabsList
+                  tabs={tabsConfig}
+                  value={currentTab}
+                />
                 
                 <div className="flex items-center gap-2">
                   <div className="relative">
