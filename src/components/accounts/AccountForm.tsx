@@ -33,15 +33,21 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { ImageUpload } from "@/components/profile/ImageUpload";
+import { AvatarPicker } from "@/components/profile/AvatarPicker";
 import { FileUploadModal } from "@/components/accounts/FileUploadModal";
 import { useToast } from "@/hooks/use-toast";
 import { API_BASE_URL } from "@/config/env";
 import type { RepDetails } from "@/types/auth";
 import { STATE_OPTIONS } from "@/utils/stateUtils";
-import { Upload, FileText, X } from "lucide-react";
+import { Upload, FileText, X, Camera } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 // Define allowed roles for the form
-type FormRole = 'admin' | 'photographer' | 'client' | 'editor' | 'salesRep';
+type FormRole = 'superadmin' | 'admin' | 'editing_manager' | 'photographer' | 'client' | 'editor' | 'salesRep';
 const payoutFrequencyOptions = ['weekly', 'biweekly', 'monthly'] as const;
 const repCategoryOptions = [
   "Residential Sales",
@@ -53,11 +59,12 @@ const repCategoryOptions = [
   "Editing Upsell",
 ] as const;
 
-const accountFormSchema = z.object({
+// Create schema with viewer role parameter - superadmin can skip mandatory fields
+const createAccountFormSchema = (viewerRole?: string) => z.object({
   firstName: z.string().min(2, "First name must be at least 2 characters"),
   lastName: z.string().min(1, "Last name is required"),
   email: z.string().email("Please enter a valid email address"),
-  role: z.enum(['admin', 'photographer', 'client', 'editor', 'salesRep'] as const),
+  role: z.enum(['superadmin', 'admin', 'editing_manager', 'photographer', 'client', 'editor', 'salesRep'] as const),
   phone: z.string().optional(),
   address: z.string().optional(),
   city: z.string().optional(),
@@ -91,8 +98,8 @@ const accountFormSchema = z.object({
   created_by_id: z.string().optional(),
 })
 .superRefine((data, ctx) => {
-  // License number required for clients
-  if (data.role === "client" && !data.licenseNumber?.trim()) {
+  // License number required for clients (superadmin can skip)
+  if (data.role === "client" && !data.licenseNumber?.trim() && viewerRole !== 'superadmin') {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       message: "License number is required for clients",
@@ -100,8 +107,8 @@ const accountFormSchema = z.object({
     });
   }
 
-  // City, State, Zip required for non-salesRep roles
-  if (data.role !== "salesRep") {
+  // City, State, Zip required for non-salesRep roles (superadmin can skip)
+  if (data.role !== "salesRep" && viewerRole !== 'superadmin') {
     if (!data.city?.trim()) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -125,6 +132,9 @@ const accountFormSchema = z.object({
     }
   }
 });
+
+// Default schema for type inference
+const accountFormSchema = createAccountFormSchema();
 
 export type AccountFormValues = z.infer<typeof accountFormSchema> & {
   name?: string;
@@ -160,7 +170,7 @@ export function AccountForm({
   const canEditSensitiveRepFields = viewerRole === 'superadmin';
   
   const form = useForm<AccountFormValues>({
-    resolver: zodResolver(accountFormSchema),
+    resolver: zodResolver(createAccountFormSchema(viewerRole)),
     defaultValues: {
       firstName: "",
       lastName: "",
@@ -470,6 +480,7 @@ export function AccountForm({
         }
 
         const formData = new FormData();
+        formData.append('_method', 'PUT');
         formData.append('name', fullName || '');
         formData.append('email', values.email || '');
         if (values.phone) formData.append('phone_number', values.phone);
@@ -478,6 +489,8 @@ export function AccountForm({
         if (values.city) formData.append('city', values.city);
         if (values.state) formData.append('state', values.state);
         if (values.zipcode) formData.append('zip', values.zipcode);
+        if (values.licenseNumber) formData.append('license_number', values.licenseNumber);
+        if (values.companyNotes) formData.append('company_notes', values.companyNotes);
         formData.append('role', values.role || 'client');
         if (values.bio) formData.append('bio', values.bio);
         // Only include avatar if it's a valid URL (not a blob URL)
@@ -507,7 +520,7 @@ export function AccountForm({
         }
 
         const res = await fetch(`${API_BASE_URL}/api/admin/users/${initialData.id}`, {
-          method: 'PUT',
+          method: 'POST',
           headers: {
             Authorization: `Bearer ${token}`,
             Accept: 'application/json',
@@ -573,6 +586,8 @@ export function AccountForm({
       if (values.city) formData.append('city', values.city);
       if (values.state) formData.append('state', values.state);
       if (values.zipcode) formData.append('zip', values.zipcode);
+      if (values.licenseNumber) formData.append('license_number', values.licenseNumber);
+      if (values.companyNotes) formData.append('company_notes', values.companyNotes);
       formData.append('role', values.role || 'client');
       if (values.bio) formData.append('bio', values.bio);
       if (values.specialties && Array.isArray(values.specialties) && values.specialties.length > 0) {
@@ -766,8 +781,16 @@ export function AccountForm({
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
+                          {viewerRole === 'superadmin' && (
+                            <SelectItem value="superadmin" disabled={!canManageRoles}>
+                              Super Admin
+                            </SelectItem>
+                          )}
                           <SelectItem value="admin" disabled={!canManageRoles}>
                             Admin
+                          </SelectItem>
+                          <SelectItem value="editing_manager" disabled={!canManageRoles}>
+                            Editing Manager
                           </SelectItem>
                           <SelectItem value="photographer" disabled={!canManageRoles}>
                             Photographer
@@ -805,9 +828,32 @@ export function AccountForm({
                   }}
                   className="h-24 w-24"
                 />
-                <p className="text-sm text-muted-foreground text-center">
-                  Upload a profile image
-                </p>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-2">
+                      {avatarUrl ? (
+                        <img src={avatarUrl} alt="Selected avatar" className="h-5 w-5 rounded-full object-cover" />
+                      ) : (
+                        <Camera className="h-4 w-4" />
+                      )}
+                      Choose Avatar
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80" align="center">
+                    <div className="space-y-3">
+                      <p className="text-sm text-muted-foreground">
+                        Upload a profile image or choose a default avatar
+                      </p>
+                      <AvatarPicker
+                        selectedAvatar={avatarUrl}
+                        onSelect={(url) => {
+                          setAvatarUrl(url);
+                          form.setValue("avatar", url);
+                        }}
+                      />
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
               <div className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-2">

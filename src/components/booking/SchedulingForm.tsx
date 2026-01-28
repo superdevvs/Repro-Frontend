@@ -407,7 +407,7 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
   // calls the for-booking endpoint which returns correct is_available_at_time 
   // that accounts for existing bookings.
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-slate-900 dark:text-slate-100">
       <div className="grid grid-cols-1 gap-6">
         {/* Date Selection Section */}
         <div className="bg-white dark:bg-slate-900 rounded-lg p-6 space-y-2 border border-gray-100 dark:border-slate-800">
@@ -495,8 +495,8 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
                 <TimeSelect
                   value={time}
                   onChange={onTimeChange}
-                  startHour={1}
-                  endHour={12}
+                  startHour={6}
+                  endHour={21}
                   interval={5}
                   placeholder="Select a time"
                   className="w-full"

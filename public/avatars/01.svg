@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <circle cx="50" cy="50" r="50" fill="#dc2626"/>
+  <circle cx="50" cy="38" r="18" fill="#fef2f2"/>
+  <ellipse cx="50" cy="85" rx="30" ry="25" fill="#fef2f2"/>
+  <text x="50" y="55" text-anchor="middle" fill="#dc2626" font-size="14" font-weight="bold" font-family="system-ui">SA</text>
+</svg>

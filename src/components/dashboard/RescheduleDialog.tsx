@@ -190,7 +190,7 @@ export function RescheduleDialog({ shoot, isOpen, onClose, onSuccess }: Reschedu
                 value={time}
                 onChange={setTime}
                 startHour={6}
-                endHour={20}
+                endHour={21}
                 interval={15}
               />
             </div>

@@ -139,6 +139,7 @@ const resolvePreviewUrl = (value: string | null | undefined): string | null => {
 const HISTORY_ALLOWED_ROLES = new Set([
   'admin',
   'superadmin',
+  'editing_manager',
   'finance',
   'accounting',
   'editor',
@@ -2357,11 +2358,12 @@ const ShootHistory: React.FC = () => {
   }
   
   const isSuperAdmin = role === 'superadmin'
-  const isAdmin = role === 'admin'
+  const isEditingManager = role === 'editing_manager'
+  const isAdmin = role === 'admin' || isEditingManager
   const isPhotographer = role === 'photographer'
   const isEditor = role === 'editor'
   const shouldHideClientDetails = isEditor
-  const canViewAllShoots = isSuperAdmin || isAdmin // Super Admin and Admin can see all shoots
+  const canViewAllShoots = isSuperAdmin || isAdmin // Super Admin, Admin, and Editing Manager can see all shoots
   const canViewHistory = HISTORY_ALLOWED_ROLES.has((role as string) ?? '')
   const canViewInvoice = !isPhotographer && !isEditor // Hide invoice for photographers and editors
   

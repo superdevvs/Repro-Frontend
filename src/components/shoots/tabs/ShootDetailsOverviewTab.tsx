@@ -737,16 +737,20 @@ export function ShootDetailsOverviewTab({
     }
   }, [isEditMode, shoot]);
   
-  // Update edited shoot field
+  // Update edited shoot field - with proper deep cloning
   const updateField = (field: string, value: unknown) => {
     setEditedShoot(prev => {
       const keys = field.split('.');
-      const newState = { ...prev };
+      // Deep clone the entire previous state to avoid mutation
+      const newState = JSON.parse(JSON.stringify(prev));
       let current: any = newState;
       
       for (let i = 0; i < keys.length - 1; i++) {
         if (!current[keys[i]]) {
           current[keys[i]] = {};
+        } else {
+          // Deep clone nested objects to avoid mutation
+          current[keys[i]] = { ...current[keys[i]] };
         }
         current = current[keys[i]];
       }
@@ -913,15 +917,14 @@ export function ShootDetailsOverviewTab({
         map.set(id, { id, name, count: 1 });
       }
     });
-    const allOption: ServiceCategoryOption = { id: 'all', name: 'All services', count: servicesList.length };
-    return [allOption, ...Array.from(map.values())];
+    return Array.from(map.values());
   }, [servicesList]);
 
   // Filter services by selected category
   const panelServices = useMemo(() => {
     if (!servicesList.length) return [];
     let filtered = servicesList;
-    if (servicePanelCategory !== 'all') {
+    if (servicePanelCategory) {
       filtered = servicesList.filter((s) => deriveServiceCategoryId(s) === servicePanelCategory);
     }
     if (serviceModalSearch) {
@@ -930,6 +933,14 @@ export function ShootDetailsOverviewTab({
     }
     return filtered;
   }, [servicesList, servicePanelCategory, serviceModalSearch]);
+  
+  useEffect(() => {
+    if (!serviceCategoryOptions.length) return;
+    const exists = serviceCategoryOptions.some((category) => category.id === servicePanelCategory);
+    if (!exists) {
+      setServicePanelCategory(serviceCategoryOptions[0].id);
+    }
+  }, [serviceCategoryOptions, servicePanelCategory]);
 
   // Get sqft for variable pricing
   const effectiveSqft = useMemo(() => {
@@ -1347,6 +1358,25 @@ export function ShootDetailsOverviewTab({
       return [...prev, serviceId];
     });
   };
+  
+  useEffect(() => {
+    if (!selectedServiceIds.length) return;
+    const sqft = effectiveSqft;
+    const total = selectedServiceIds.reduce((sum, id) => {
+      const service = servicesList.find((s) => s.id === id);
+      if (!service) return sum;
+      const serviceWithPrice = { ...service, price: service.price ?? 0 };
+      const pricingInfo = sqft && service.pricing_type === 'variable' && service.sqft_ranges?.length
+        ? getServicePricingForSqft(serviceWithPrice, sqft)
+        : null;
+      const calculatedPrice = servicePrices[id]
+        ? parseFloat(servicePrices[id])
+        : pricingInfo?.price ?? Number(service.price ?? 0);
+      return sum + (Number.isNaN(calculatedPrice) ? 0 : calculatedPrice);
+    }, 0);
+    updateField('payment.baseQuote', total);
+    updateField('payment.totalQuote', total);
+  }, [selectedServiceIds, servicePrices, servicesList, effectiveSqft]);
 
   const renderWeatherIcon = (icon?: string) => {
     switch (icon) {
@@ -1563,7 +1593,7 @@ export function ShootDetailsOverviewTab({
                   </DialogHeader>
                   <div className="flex flex-col sm:flex-row h-full sm:h-[60vh]">
                     {/* Category sidebar */}
-                    <aside className="border-b sm:border-b-0 sm:border-r p-3 sm:w-48 flex-shrink-0">
+                    <aside className="border-b sm:border-b-0 sm:border-r p-3 sm:w-48 flex-shrink-0 sm:overflow-y-auto sm:max-h-[60vh]">
                       <div className="flex gap-2 overflow-x-auto pb-2 sm:flex-col sm:overflow-visible sm:pb-0 sm:space-y-1">
                         {serviceCategoryOptions.map((category) => {
                           const isActive = category.id === servicePanelCategory;

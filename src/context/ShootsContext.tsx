@@ -280,6 +280,13 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
   const client = (shoot.client ?? {}) as NonNullable<ApiShoot['client']>;
   const photographer = (shoot.photographer ?? {}) as NonNullable<ApiShoot['photographer']>;
   const service = (shoot.service ?? {}) as NonNullable<ApiShoot['service']>;
+  const editorId = (() => {
+    const editorObjId = (shoot.editor as any)?.id;
+    if (editorObjId) return String(editorObjId);
+    if ((shoot as any).editor_id) return String((shoot as any).editor_id);
+    if ((shoot as any).editorId) return String((shoot as any).editorId);
+    return undefined;
+  })();
   const address = shoot?.address || '';
   const city = shoot?.city || '';
   const state = shoot?.state || '';
@@ -353,13 +360,14 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
       name: photographer.name || 'Unassigned',
       avatar: photographer.avatar || undefined,
     },
-    editor: shoot.editor
+    editor: shoot.editor || editorId
       ? {
-          id: shoot.editor.id ? String(shoot.editor.id) : undefined,
-          name: shoot.editor.name ?? '',
-          avatar: shoot.editor.avatar ?? undefined,
+          id: editorId,
+          name: (shoot.editor as any)?.name ?? '',
+          avatar: (shoot.editor as any)?.avatar ?? undefined,
         }
       : undefined,
+    editorId,
     services: normalizedServices,
     payment: {
       baseQuote: toNumber(shoot.base_quote),

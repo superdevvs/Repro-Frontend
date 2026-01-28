@@ -374,7 +374,7 @@ export function BulkActionsDialog({
                       key={shootId}
                       className={`cursor-pointer transition-all ${
                         isSelected
-                          ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
+                          ? 'border-primary bg-primary/5 ring-2 ring-inset ring-primary/20'
                           : 'hover:bg-muted/40'
                       }`}
                       onClick={() => toggleShoot(shootId)}
@@ -483,7 +483,7 @@ export function BulkActionsDialog({
                   <Card
                     className={`cursor-pointer transition-all ${
                       paymentMethod === 'square'
-                        ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
+                        ? 'border-primary bg-primary/5 ring-2 ring-inset ring-primary/20'
                         : 'hover:bg-muted/40'
                     }`}
                     onClick={() => setPaymentMethod('square')}
@@ -499,7 +499,7 @@ export function BulkActionsDialog({
                   <Card
                     className={`cursor-pointer transition-all ${
                       paymentMethod === 'mark-paid'
-                        ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
+                        ? 'border-primary bg-primary/5 ring-2 ring-inset ring-primary/20'
                         : 'hover:bg-muted/40'
                     }`}
                     onClick={() => setPaymentMethod('mark-paid')}

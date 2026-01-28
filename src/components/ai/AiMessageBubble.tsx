@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Check, Copy, ExternalLink } from 'lucide-react';
 import type { AiMessage } from '@/types/ai';
+import { apiClient } from '@/services/api';
+import { toast } from '@/components/ui/use-toast';
 
 interface AiMessageBubbleProps {
   message: AiMessage;
@@ -15,6 +17,8 @@ export function AiMessageBubble({ message, className }: AiMessageBubbleProps) {
   const metadata = message.metadata || {};
   const toolCalls = metadata.tool_calls || [];
   const toolResults = metadata.tool_results || [];
+  const actions = Array.isArray(metadata.actions) ? metadata.actions : [];
+  const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
 
   const handleCopy = () => {
     navigator.clipboard.writeText(message.content);
@@ -26,6 +30,85 @@ export function AiMessageBubble({ message, className }: AiMessageBubbleProps) {
     if (metadata.action === 'apply_listing_changes') {
       // Trigger listing update
       console.log('Applying listing changes', metadata);
+    }
+  };
+
+  const setLoadingFor = (key: string, value: boolean) => {
+    setActionLoading((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleAction = async (action: Record<string, any>) => {
+    const actionKey = `${action.type}-${action.shootId ?? action.id ?? ''}`;
+    setLoadingFor(actionKey, true);
+
+    try {
+      switch (action.type) {
+        case 'open_shoot':
+          if (action.shootId) {
+            window.location.href = `/shoots/${action.shootId}`;
+          }
+          break;
+        case 'approve_cancellation':
+          if (action.shootId) {
+            await apiClient.post(`/shoots/${action.shootId}/approve-cancellation`);
+            toast({ title: 'Cancellation approved', description: `Shoot #${action.shootId} cancelled.` });
+          }
+          break;
+        case 'reject_cancellation':
+          if (action.shootId) {
+            await apiClient.post(`/shoots/${action.shootId}/reject-cancellation`);
+            toast({ title: 'Cancellation rejected', description: `Shoot #${action.shootId} kept active.` });
+          }
+          break;
+        case 'create_checkout_link':
+          if (action.shootId) {
+            const response = await apiClient.post(`/shoots/${action.shootId}/create-checkout-link`);
+            const checkoutUrl = response.data?.checkoutUrl;
+            if (checkoutUrl) {
+              window.open(checkoutUrl, '_blank');
+            } else {
+              throw new Error('No checkout URL returned');
+            }
+          }
+          break;
+        case 'pay_multiple_shoots':
+          if (Array.isArray(action.shootIds) && action.shootIds.length > 0) {
+            const response = await apiClient.post('/payments/multiple-shoots', {
+              shoot_ids: action.shootIds,
+            });
+            const checkoutUrl = response.data?.checkoutUrl;
+            if (checkoutUrl) {
+              window.open(checkoutUrl, '_blank');
+            } else {
+              throw new Error('No checkout URL returned');
+            }
+          }
+          break;
+        case 'ready_for_review':
+          if (action.shootId) {
+            await apiClient.post(`/shoots/${action.shootId}/ready-for-review`);
+            toast({ title: 'Marked ready', description: `Shoot #${action.shootId} is ready for review.` });
+          }
+          break;
+        case 'assign_editor':
+          if (action.shootId) {
+            await apiClient.post(`/shoots/${action.shootId}/assign-editor`, {
+              editor_id: action.editorId ?? null,
+            });
+            toast({ title: 'Editor assigned', description: `Shoot #${action.shootId} assigned to an editor.` });
+          }
+          break;
+        default:
+          console.warn('Unknown action type:', action.type);
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Action failed',
+        description: error?.response?.data?.message || error?.message || 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoadingFor(actionKey, false);
     }
   };
 
@@ -81,8 +164,23 @@ export function AiMessageBubble({ message, className }: AiMessageBubbleProps) {
         )}
 
         {/* Action buttons for assistant messages with specific actions */}
-        {isAssistant && metadata.action && (
+        {isAssistant && (metadata.action || actions.length > 0) && (
           <div className="flex items-center gap-2 mt-2">
+            {actions.map((action: Record<string, any>, index: number) => {
+              const actionKey = `${action.type}-${action.shootId ?? action.id ?? index}`;
+              return (
+                <Button
+                  key={actionKey}
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleAction(action)}
+                  disabled={actionLoading[actionKey]}
+                  className="h-8 text-xs"
+                >
+                  {actionLoading[actionKey] ? 'Working...' : (action.label ?? action.type)}
+                </Button>
+              );
+            })}
             {metadata.action === 'apply_listing_changes' && (
               <Button
                 size="sm"

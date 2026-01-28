@@ -237,12 +237,14 @@ type ClientPropertyFormProps = {
     photographerNotes?: string;
     editorNotes?: string;
     selectedPackage?: string;
+    completeAddress?: string;
   };
   isClientAccount?: boolean;
   packages: PackageOption[];
   clients: Client[];
   /** ✅ Add this line **/
   onAddressFieldsChange?: (fields: { address: string; city: string; state: string; zip: string }) => void;
+  onClientChange?: (clientId: string) => void;
   selectedServices: PackageOption[];
   onSelectedServicesChange: (services: PackageOption[]) => void;
   packagesLoading?: boolean;
@@ -256,6 +258,7 @@ export const ClientPropertyForm = ({
   packages,
   clients,
   onAddressFieldsChange,
+  onClientChange,
   selectedServices,
   onSelectedServicesChange,
   packagesLoading = false,
@@ -295,6 +298,7 @@ export const ClientPropertyForm = ({
         lockboxCode: initialData.lockboxCode || '',
         lockboxLocation: initialData.lockboxLocation || '',
         selectedPackage: initialData.selectedPackage || '',
+        completeAddress: initialData.completeAddress || '',
         shootNotes: initialData.shootNotes || '',
         companyNotes: initialData.companyNotes || '',
         photographerNotes: initialData.photographerNotes || '',
@@ -315,6 +319,7 @@ export const ClientPropertyForm = ({
         lockboxCode: initialData.lockboxCode || '',
         lockboxLocation: initialData.lockboxLocation || '',
         selectedPackage: initialData.selectedPackage || '',
+        completeAddress: initialData.completeAddress || '',
         shootNotes: initialData.shootNotes || '',
         companyNotes: initialData.companyNotes || '',
         photographerNotes: initialData.photographerNotes || '',
@@ -322,6 +327,39 @@ export const ClientPropertyForm = ({
       }
     ), [isClientAccount]), // ✅ only recompute when role type changes
   });
+
+  // Keep parent state (for summary) in sync with address fields as they change
+  React.useEffect(() => {
+    if (!onAddressFieldsChange) return;
+    const subscription = form.watch((values, info) => {
+      // Only react to address-related fields to avoid noisy updates
+      if (
+        !info?.name ||
+        info.name === 'propertyAddress' ||
+        info.name === 'propertyCity' ||
+        info.name === 'propertyState' ||
+        info.name === 'propertyZip'
+      ) {
+        const address = (values as any).propertyAddress || '';
+        const city = (values as any).propertyCity || '';
+        const state = normalizeState((values as any).propertyState) || (values as any).propertyState || '';
+        const zip = (values as any).propertyZip || '';
+        onAddressFieldsChange({ address, city, state, zip });
+      }
+    });
+    return () => subscription.unsubscribe?.();
+  }, [form, onAddressFieldsChange]);
+
+  React.useEffect(() => {
+    if (!onClientChange || isClientAccount) return;
+    const subscription = form.watch((values, info) => {
+      if (!info?.name || info.name === 'clientId') {
+        const clientId = (values as any).clientId || '';
+        onClientChange(clientId);
+      }
+    });
+    return () => subscription.unsubscribe?.();
+  }, [form, onClientChange, isClientAccount]);
 
   React.useEffect(() => {
     const firstServiceId = selectedServices[0]?.id || '';
@@ -383,15 +421,6 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
 
   const categoryOptions = React.useMemo<CategoryDisplay[]>(() => {
     if (!packages?.length) return [];
-    const allOption: CategoryDisplay = {
-      id: 'all',
-      name: 'All services',
-      count: packages.length,
-      icon: Grid3x3,
-      gradientClass: ALL_CATEGORY_STYLE.gradientClass,
-      shadowClass: ALL_CATEGORY_STYLE.shadowClass,
-      isPrimary: true,
-    };
 
     const sortedCategories = [...derivedCategories].sort((a, b) => {
       const aKey = Object.keys(PRIMARY_CATEGORY_ORDER).find(key => a.name.toLowerCase().includes(key));
@@ -402,7 +431,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
       return aScore - bScore;
     });
 
-    return [allOption, ...sortedCategories];
+    return sortedCategories;
   }, [derivedCategories, packages]);
 
   React.useEffect(() => {
@@ -415,7 +444,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
 
     const panelServices = React.useMemo(() => {
     if (!packages?.length) return [];
-    if (panelCategory === 'all') return packages;
+    if (!panelCategory) return packages;
     return packages.filter(pkg => getPackageCategoryId(pkg) === panelCategory);
   }, [panelCategory, packages]);
 
@@ -765,6 +794,13 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                           
                           // Set only street address (not full address with city/state/zip)
                           setCompleteAddress(streetAddress);
+
+                          onAddressFieldsChange?.({
+                            address: streetAddress,
+                            city,
+                            state: normalizedState,
+                            zip,
+                          });
                           
                           // Auto-fill property details (bedrooms, bathrooms, sqft) from address lookup
                           console.log('🏠 Property metrics from address:', {
@@ -1012,7 +1048,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                     </DialogDescription>
                   </DialogHeader>
                   <div className="flex flex-col sm:flex-row h-full sm:h-[70vh]">
-                    <aside className="border-b sm:border-b-0 sm:border-r border-border/60 p-3 sm:p-4 space-y-2 sm:w-64">
+                    <aside className="border-b sm:border-b-0 sm:border-r border-border/60 p-3 sm:p-4 space-y-2 sm:w-64 sm:overflow-y-auto sm:max-h-[70vh]">
                       <div className="flex gap-2 overflow-x-auto pb-2 sm:flex-col sm:overflow-visible sm:pb-0">
                         {categoryOptions.map(category => {
                           const isActive = category.id === panelCategory;

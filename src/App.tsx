@@ -145,7 +145,7 @@ const AdminRoute = ({ children }: { children: JSX.Element }) => {
 
   useEffect(() => {
     if (isLoading || !isAuthenticated) return;
-    const isDenied = !['admin', 'superadmin'].includes(role);
+    const isDenied = !['admin', 'superadmin', 'editing_manager'].includes(role);
     if (!isDenied) {
       denyNotifiedRef.current = false;
       return;
@@ -168,7 +168,7 @@ const AdminRoute = ({ children }: { children: JSX.Element }) => {
     return <Navigate to="/" replace />;
   }
 
-  if (!['admin', 'superadmin'].includes(role)) {
+  if (!['admin', 'superadmin', 'editing_manager'].includes(role)) {
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -402,7 +402,7 @@ const AppRoutes = () => {
         </ProtectedRoute>
       } />
       <Route path="/availability" element={
-        <RoleRestrictedRoute allowedRoles={['admin', 'superadmin', 'photographer', 'salesRep', 'sales_rep']}>
+        <RoleRestrictedRoute allowedRoles={['admin', 'superadmin', 'editing_manager', 'photographer', 'salesRep', 'sales_rep']}>
           <ShootRoutesWrapper>
             <Availability />
           </ShootRoutesWrapper>
@@ -419,12 +419,12 @@ const AppRoutes = () => {
         </ProtectedRoute>
       } />
       <Route path="/chat-with-reproai" element={
-        <RoleRestrictedRoute allowedRoles={['client', 'admin', 'superadmin']}>
+        <RoleRestrictedRoute allowedRoles={['client', 'admin', 'superadmin', 'editing_manager']}>
           <ChatWithReproAi />
         </RoleRestrictedRoute>
       } />
       <Route path="/ai-editing" element={
-        <RoleRestrictedRoute allowedRoles={['admin', 'superadmin']}>
+        <RoleRestrictedRoute allowedRoles={['admin', 'superadmin', 'editing_manager']}>
           <AiEditing />
         </RoleRestrictedRoute>
       } />
@@ -459,12 +459,12 @@ const AppRoutes = () => {
         </ProtectedRoute>
       } />
       <Route path="/portal" element={
-        <RoleRestrictedRoute allowedRoles={['admin', 'superadmin', 'salesRep', 'sales_rep', 'client']}>
+        <RoleRestrictedRoute allowedRoles={['admin', 'superadmin', 'editing_manager', 'salesRep', 'sales_rep', 'client']}>
           <PrivateListingPortal />
         </RoleRestrictedRoute>
       } />
       <Route path="/exclusive-listings/:id" element={
-        <RoleRestrictedRoute allowedRoles={['admin', 'superadmin', 'salesRep', 'sales_rep', 'client']}>
+        <RoleRestrictedRoute allowedRoles={['admin', 'superadmin', 'editing_manager', 'salesRep', 'sales_rep', 'client']}>
           <ExclusiveListingDetails />
         </RoleRestrictedRoute>
       } />
@@ -494,7 +494,7 @@ const AppRoutes = () => {
       } />
       {/* CubiCasa mobile scanning - photographers and admins only */}
       <Route path="/cubicasa-scanning" element={
-        <RoleRestrictedRoute allowedRoles={['photographer', 'admin', 'superadmin']}>
+        <RoleRestrictedRoute allowedRoles={['photographer', 'admin', 'superadmin', 'editing_manager']}>
           <CubiCasaScanning />
         </RoleRestrictedRoute>
       } />
@@ -517,32 +517,32 @@ const AppRoutes = () => {
       } />
       {/* Messaging routes - Overview, Templates, Automations, SMS, Settings only for admins */}
       <Route path="/messaging" element={
-        <RoleRestrictedRoute allowedRoles={['admin', 'superadmin', 'sales_rep']}>
+        <RoleRestrictedRoute allowedRoles={['admin', 'superadmin', 'editing_manager', 'sales_rep']}>
           <MessagingOverview />
         </RoleRestrictedRoute>
       } />
       <Route path="/messaging/overview" element={
-        <RoleRestrictedRoute allowedRoles={['admin', 'superadmin', 'sales_rep']}>
+        <RoleRestrictedRoute allowedRoles={['admin', 'superadmin', 'editing_manager', 'sales_rep']}>
           <MessagingOverview />
         </RoleRestrictedRoute>
       } />
       <Route path="/messaging/email/templates" element={
-        <RoleRestrictedRoute allowedRoles={['admin', 'superadmin', 'sales_rep']}>
+        <RoleRestrictedRoute allowedRoles={['admin', 'superadmin', 'editing_manager', 'sales_rep']}>
           <Templates />
         </RoleRestrictedRoute>
       } />
       <Route path="/messaging/email/automations" element={
-        <RoleRestrictedRoute allowedRoles={['admin', 'superadmin', 'sales_rep']}>
+        <RoleRestrictedRoute allowedRoles={['admin', 'superadmin', 'editing_manager', 'sales_rep']}>
           <Automations />
         </RoleRestrictedRoute>
       } />
       <Route path="/messaging/sms" element={
-        <RoleRestrictedRoute allowedRoles={['admin', 'superadmin', 'sales_rep']}>
+        <RoleRestrictedRoute allowedRoles={['admin', 'superadmin', 'editing_manager', 'sales_rep']}>
           <SmsCenter />
         </RoleRestrictedRoute>
       } />
       <Route path="/messaging/settings" element={
-        <RoleRestrictedRoute allowedRoles={['admin', 'superadmin', 'sales_rep']}>
+        <RoleRestrictedRoute allowedRoles={['admin', 'superadmin', 'editing_manager', 'sales_rep']}>
           <MessagingSettings />
         </RoleRestrictedRoute>
       } />

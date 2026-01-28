@@ -256,10 +256,19 @@ export interface ComposeEmailPayload {
   related_account_id?: number;
   related_invoice_id?: number;
   variables?: Record<string, any>;
+  cc?: string[];
+  bcc?: string[];
+  attachments?: File[];
 }
 
 export interface ScheduleEmailPayload extends ComposeEmailPayload {
   scheduled_at: string;
+}
+
+export interface EmailRecipient {
+  id: number;
+  name?: string;
+  email: string;
 }
 
 export interface MessagingOverview {

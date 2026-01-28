@@ -1,14 +1,17 @@
 import { useState } from 'react';
-import { X, Reply, Archive, MoreVertical, Download, Printer, Clock, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { X, Reply, Forward, Archive, MoreVertical, Download, Printer, Clock, CheckCircle, XCircle, RefreshCw, Send, Maximize2, Bold, Italic, Link2, Paperclip, Smile } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { retryEmail, cancelEmail } from '@/services/messaging';
+import { composeEmail, retryEmail, cancelEmail } from '@/services/messaging';
 import type { Message } from '@/types/messaging';
 import { useAuth } from '@/components/auth/AuthProvider';
+import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,13 +53,68 @@ const statusColors = {
 };
 
 export function EmailMessageDetail({ message, onClose, onRefresh }: EmailMessageDetailProps) {
+  const navigate = useNavigate();
   const [isRetrying, setIsRetrying] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [showReply, setShowReply] = useState(false);
+  const [replyBody, setReplyBody] = useState('');
+  const [sendingReply, setSendingReply] = useState(false);
   const { role } = useAuth();
   const isAdmin = role === 'admin' || role === 'superadmin';
 
+  const handleExpandToFull = () => {
+    navigate('/messaging/email/compose', {
+      state: {
+        mode: 'reply',
+        message,
+        prefillBody: replyBody,
+      },
+    });
+  };
+
+  const handleForward = () => {
+    navigate('/messaging/email/compose', {
+      state: {
+        mode: 'forward',
+        message,
+      },
+    });
+  };
+
   const StatusIcon = statusIcons[message.status];
   const senderLabel = message.sender_display_name || message.from_address;
+
+  const handleSendReply = async () => {
+    if (!message.from_address) {
+      toast.error('No sender address available to reply to');
+      return;
+    }
+    if (!replyBody.trim()) {
+      toast.error('Reply message is required');
+      return;
+    }
+
+    setSendingReply(true);
+    try {
+      await composeEmail({
+        to: message.from_address,
+        subject: message.subject ? `Re: ${message.subject}` : 'Re:',
+        body_text: replyBody,
+        body_html: `<p>${replyBody.replace(/\n/g, '</p><p>')}</p>`,
+        related_shoot_id: message.related_shoot_id,
+        related_account_id: message.related_account_id,
+        related_invoice_id: message.related_invoice_id,
+      });
+      toast.success('Reply sent');
+      setShowReply(false);
+      setReplyBody('');
+      onRefresh();
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to send reply');
+    } finally {
+      setSendingReply(false);
+    }
+  };
 
   const handleRetry = async () => {
     setIsRetrying(true);
@@ -269,15 +327,60 @@ export function EmailMessageDetail({ message, onClose, onRefresh }: EmailMessage
         )}
       </div>
 
-      {/* Reply Section */}
-      {isAdmin && (
-        <div className="p-4 border-t border-border">
-          <Button className="w-full">
-            <Reply className="mr-2 h-4 w-4" />
-            Reply
-          </Button>
-        </div>
-      )}
+      {/* Inline Reply Section */}
+      <div className="border-t border-border">
+        {!showReply ? (
+          <div className="p-4 flex gap-2">
+            <button
+              className="flex-1 flex items-center gap-2 p-3 border-2 border-dashed border-muted-foreground/30 rounded-lg text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+              onClick={() => setShowReply(true)}
+            >
+              <Reply className="h-4 w-4" />
+              <span className="text-sm">Reply to {senderLabel || 'sender'}...</span>
+            </button>
+            <Button variant="outline" size="sm" onClick={handleForward}>
+              <Forward className="h-4 w-4 mr-1" />
+              Forward
+            </Button>
+          </div>
+        ) : (
+          <div className="p-4 space-y-3 bg-muted/30">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-blue-600">Replying to {senderLabel}</span>
+              <Button variant="ghost" size="sm" onClick={handleExpandToFull} className="text-xs">
+                <Maximize2 className="h-3 w-3 mr-1" />
+                Expand
+              </Button>
+            </div>
+            <Textarea
+              placeholder="Type your reply..."
+              value={replyBody}
+              onChange={(e) => setReplyBody(e.target.value)}
+              rows={4}
+              className="resize-none"
+              autoFocus
+            />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1">
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0"><Bold className="h-4 w-4" /></Button>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0"><Italic className="h-4 w-4" /></Button>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0"><Link2 className="h-4 w-4" /></Button>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0"><Paperclip className="h-4 w-4" /></Button>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0"><Smile className="h-4 w-4" /></Button>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" onClick={() => { setShowReply(false); setReplyBody(''); }} disabled={sendingReply}>
+                  Cancel
+                </Button>
+                <Button size="sm" onClick={handleSendReply} disabled={sendingReply} className="bg-blue-600 hover:bg-blue-700">
+                  <Send className="h-4 w-4 mr-1" />
+                  {sendingReply ? 'Sending...' : 'Send'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

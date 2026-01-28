@@ -1,7 +1,7 @@
   const heroCopy = {
     login: {
       title: 'Log in to your dashboard',
-      subtitle: 'Centralize shoots, assets, and approvals',
+      subtitle: '',
     },
     register: {
       title: 'Create your account',

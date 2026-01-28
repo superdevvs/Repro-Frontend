@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { EmailNavigation } from '@/components/messaging/email/EmailNavigation';
@@ -9,8 +9,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Send, Clock, Save, FileText } from 'lucide-react';
-import { getEmailSettings, getTemplates, composeEmail, scheduleEmail } from '@/services/messaging';
+import { 
+  Send, Clock, FileText, Paperclip, Users, X, 
+  Pencil, Reply, Forward, ChevronDown, Check, 
+  Bold, Italic, List, Link2, Smile, Hash,
+  AlertCircle, Zap, Lightbulb, Info
+} from 'lucide-react';
+import { getEmailSettings, getTemplates, composeEmail, scheduleEmail, getEmailRecipients, getEmailMessages } from '@/services/messaging';
 import { useAuth } from '@/components/auth/AuthProvider';
 import {
   Select,
@@ -27,19 +32,43 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { cn } from '@/lib/utils';
+import type { Message } from '@/types/messaging';
+
+type Priority = 'normal' | 'high' | 'urgent';
 
 export default function EmailCompose() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { role, user } = useAuth();
-  const isClient = role === 'client';
   const isAdmin = role === 'admin' || role === 'superadmin';
   const canUseTemplates = isAdmin || role === 'salesRep';
-  const composeLabel = isAdmin ? 'Compose Email' : 'Compose Message';
-  const sendLabel = isAdmin ? 'Send Now' : 'Send Message';
-  const inboxRecipientLabel = isAdmin ? 'To' : 'To (Admin Inbox)';
+  const composeMode: 'compose' | 'reply' | 'forward' = (location.state as any)?.mode || 'compose';
+  const originalMessage: Message | undefined = (location.state as any)?.message;
+  const composeLabel =
+    composeMode === 'reply' ? 'Send Reply' : composeMode === 'forward' ? 'Forward Message' : isAdmin ? 'Compose Email' : 'Compose Message';
+  const sendLabel = composeMode === 'reply' ? 'Send Reply' : composeMode === 'forward' ? 'Forward' : isAdmin ? 'Send Now' : 'Send Message';
+  const inboxRecipientLabel = 'To';
   const [formData, setFormData] = useState({
     channel_id: '',
     to: '',
+    cc: '',
+    bcc: '',
     reply_to: '',
     subject: '',
     body_html: '',
@@ -50,8 +79,73 @@ export default function EmailCompose() {
     related_invoice_id: '',
     variables: '',
   });
+  const [showCcBcc, setShowCcBcc] = useState(false);
+  const [attachments, setAttachments] = useState<File[]>([]);
   const [scheduledAt, setScheduledAt] = useState('');
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
+  const [recipientSearch, setRecipientSearch] = useState('');
+  const [priority, setPriority] = useState<Priority>('normal');
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Mode-aware styling
+  const modeConfig = {
+    compose: { 
+      icon: Pencil, 
+      color: 'bg-muted', 
+      accent: 'text-foreground',
+      buttonClass: '',
+      title: 'Compose Message',
+      subtitle: 'NEW OUTBOUND COMMUNICATION'
+    },
+    reply: { 
+      icon: Reply, 
+      color: 'bg-blue-500/10', 
+      accent: 'text-blue-600',
+      buttonClass: 'bg-blue-600 hover:bg-blue-700',
+      title: 'Reply',
+      subtitle: 'REPLYING TO MESSAGE'
+    },
+    forward: { 
+      icon: Forward, 
+      color: 'bg-orange-500/10', 
+      accent: 'text-orange-600',
+      buttonClass: 'bg-orange-600 hover:bg-orange-700',
+      title: 'Forward',
+      subtitle: 'FORWARDING MESSAGE'
+    },
+  };
+  const currentMode = modeConfig[composeMode];
+  const ModeIcon = currentMode.icon;
+
+  // Priority colors
+  const priorityConfig = {
+    normal: { label: 'Normal', class: 'bg-muted hover:bg-muted/80' },
+    high: { label: 'High', class: 'bg-yellow-500/20 text-yellow-700 hover:bg-yellow-500/30' },
+    urgent: { label: 'Urgent', class: 'bg-red-500/20 text-red-700 hover:bg-red-500/30' },
+  };
+
+  // Autosave simulation
+  useEffect(() => {
+    if (formData.body_text || formData.subject) {
+      const timer = setTimeout(() => setLastSaved(new Date()), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [formData.body_text, formData.subject]);
+
+  // Character/word count
+  const charCount = formData.body_text.length;
+  const wordCount = formData.body_text.trim() ? formData.body_text.trim().split(/\s+/).length : 0;
+  const recipientCount = formData.to ? formData.to.split(',').filter(Boolean).length : 0;
+
+  // Insert variable helper
+  const insertVariable = useCallback((variable: string) => {
+    setFormData(prev => ({
+      ...prev,
+      body_text: prev.body_text + `{{${variable}}}`,
+      body_html: prev.body_html + `{{${variable}}}`,
+    }));
+  }, []);
 
   const parsedVariables = useMemo(() => {
     if (!formData.variables) {
@@ -79,7 +173,71 @@ export default function EmailCompose() {
     enabled: canUseTemplates,
   });
 
+  // Fetch recipients (admins only)
+  const { data: recipientsData = [] } = useQuery({
+    queryKey: ['email-recipients'],
+    queryFn: getEmailRecipients,
+    enabled: isAdmin,
+  });
+
+  const { data: recentMessagesData } = useQuery({
+    queryKey: ['email-recent-messages'],
+    queryFn: () => getEmailMessages({ per_page: 50 }),
+    enabled: !isAdmin,
+  });
+
   const channels = isAdmin ? settingsData?.channels || [] : [];
+  const recipients = recipientsData;
+  const recentRecipients = useMemo(() => {
+    const messages = recentMessagesData?.data ?? [];
+    const emails = new Map<string, { name?: string; email: string }>();
+    messages
+      .filter((message) => message.direction === 'OUTBOUND' && message.to_address)
+      .forEach((message) => {
+        if (!emails.has(message.to_address)) {
+          emails.set(message.to_address, {
+            name: message.sender_display_name,
+            email: message.to_address,
+          });
+        }
+      });
+    return Array.from(emails.values()).map((entry, index) => ({
+      id: index + 1,
+      name: entry.name,
+      email: entry.email,
+    }));
+  }, [recentMessagesData]);
+
+  const recipientOptions = isAdmin ? recipients : recentRecipients;
+  const recipientLabel = isAdmin ? 'Select' : 'Recent Recipients';
+  const recipientPlaceholder = isAdmin ? 'Search contacts...' : 'Search recent recipients...';
+  const recipientEmptyLabel = isAdmin
+    ? 'No contacts found.'
+    : 'No recent recipients. Type an email in the To field.';
+  const recipientHeading = isAdmin
+    ? `Contacts (${recipientOptions.length})`
+    : `Recent Recipients (${recipientOptions.length})`;
+
+  // Prefill when replying/forwarding
+  useEffect(() => {
+    if (!originalMessage) return;
+    const baseSubject = originalMessage.subject || '';
+    const newSubject = composeMode === 'reply' ? `Re: ${baseSubject}` : composeMode === 'forward' ? `Fwd: ${baseSubject}` : baseSubject;
+    const quotedBody = originalMessage.body_text
+      ? `\n\n---- Original message ----\n${originalMessage.body_text}`
+      : '';
+
+    setFormData((prev) => ({
+      ...prev,
+      subject: newSubject,
+      to: composeMode === 'reply' ? originalMessage.from_address || prev.to : prev.to,
+      body_text: composeMode === 'forward' ? quotedBody : prev.body_text,
+      body_html: composeMode === 'forward' && quotedBody ? `<p>${quotedBody.replace(/\n/g, '</p><p>')}</p>` : prev.body_html,
+      related_shoot_id: originalMessage.related_shoot_id?.toString() || prev.related_shoot_id,
+      related_account_id: originalMessage.related_account_id?.toString() || prev.related_account_id,
+      related_invoice_id: originalMessage.related_invoice_id?.toString() || prev.related_invoice_id,
+    }));
+  }, [composeMode, originalMessage]);
 
   // Send email mutation
   const sendMutation = useMutation({
@@ -128,6 +286,9 @@ export default function EmailCompose() {
       related_account_id: formData.related_account_id ? parseInt(formData.related_account_id) : undefined,
       related_invoice_id: formData.related_invoice_id ? parseInt(formData.related_invoice_id) : undefined,
       variables: parsedVariables,
+      cc: formData.cc ? formData.cc.split(',').map((v) => v.trim()).filter(Boolean) : undefined,
+      bcc: formData.bcc ? formData.bcc.split(',').map((v) => v.trim()).filter(Boolean) : undefined,
+      attachments: attachments.length > 0 ? attachments : undefined,
     });
   };
 
@@ -150,6 +311,7 @@ export default function EmailCompose() {
       related_invoice_id: formData.related_invoice_id ? parseInt(formData.related_invoice_id) : undefined,
       variables: parsedVariables,
       scheduled_at: scheduledAt,
+      attachments: attachments.length > 0 ? attachments : undefined,
     });
   };
 
@@ -169,226 +331,377 @@ export default function EmailCompose() {
   return (
     <DashboardLayout>
       <EmailNavigation />
-      <div className="container mx-auto py-6 max-w-5xl">
-        <Card className="p-6">
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h1 className="text-2xl font-bold">{composeLabel}</h1>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => navigate(-1)}>
-                  Cancel
-                </Button>
-                {isAdmin && (
-                  <Dialog open={showScheduleDialog} onOpenChange={setShowScheduleDialog}>
-                    <DialogTrigger asChild>
-                      <Button variant="outline">
-                        <Clock className="mr-2 h-4 w-4" />
-                        Schedule
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Schedule Email</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <div>
-                          <Label>Date & Time</Label>
-                          <Input
-                            type="datetime-local"
-                            value={scheduledAt}
-                            onChange={(e) => setScheduledAt(e.target.value)}
-                          />
-                        </div>
-                        <Button
-                          onClick={() => {
-                            handleSchedule();
-                            setShowScheduleDialog(false);
-                          }}
-                          disabled={scheduleMutation.isPending}
-                          className="w-full"
-                        >
-                          Schedule Send
-                        </Button>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                )}
-                <Button onClick={handleSendNow} disabled={sendMutation.isPending}>
-                  <Send className="mr-2 h-4 w-4" />
-                  {sendLabel}
-                </Button>
-              </div>
+      <div className="flex flex-col h-[calc(100vh-120px)]">
+        {/* Mode-aware Header */}
+        <div className={cn("px-6 py-4 border-b flex items-center justify-between", currentMode.color)}>
+          <div className="flex items-center gap-3">
+            <div className={cn("p-2 rounded-lg", currentMode.color)}>
+              <ModeIcon className={cn("h-5 w-5", currentMode.accent)} />
             </div>
-
-            {!isAdmin && (
-              <div className="rounded-md border border-border bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
-                Messages from non-admin dashboards are internal only. They appear in the admin inbox and do not send
-                external emails.
+            <div>
+              <h1 className={cn("text-xl font-semibold", currentMode.accent)}>{currentMode.title}</h1>
+              <p className="text-xs text-muted-foreground uppercase tracking-wide">{currentMode.subtitle}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            {lastSaved && (
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <div className="w-2 h-2 rounded-full bg-green-500" />
+                Saved {Math.round((Date.now() - lastSaved.getTime()) / 1000)}s ago
               </div>
             )}
+            <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
 
-            {/* From */}
+        {/* Main Content with Sidebars */}
+        <div className="flex flex-1 overflow-hidden">
+          {/* Left Sidebar */}
+          <div className="w-72 border-r bg-muted/30 p-4 space-y-6 overflow-y-auto">
+            {/* Priority */}
             <div className="space-y-2">
-              <Label>From</Label>
-              {isAdmin ? (
-                <Select value={formData.channel_id} onValueChange={(value) => setFormData({ ...formData, channel_id: value })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select email account" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {channels.map((channel) => (
-                      <SelectItem key={channel.id} value={channel.id.toString()}>
-                        {channel.display_name} ({channel.from_email})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <div className="rounded-md border px-3 py-2 text-sm">
-                  {user?.name ? `${user.name} <${user.email}>` : user?.email}
-                </div>
-              )}
+              <Label className="text-xs uppercase tracking-wide text-muted-foreground">Priority</Label>
+              <div className="flex gap-1">
+                {(['normal', 'high', 'urgent'] as Priority[]).map((p) => (
+                  <Button
+                    key={p}
+                    size="sm"
+                    variant="ghost"
+                    className={cn("flex-1 text-xs", priority === p ? priorityConfig[p].class : 'bg-background')}
+                    onClick={() => setPriority(p)}
+                  >
+                    {priority === p && <Check className="h-3 w-3 mr-1" />}
+                    {priorityConfig[p].label}
+                  </Button>
+                ))}
+              </div>
             </div>
 
-            {/* To */}
+            {/* Link Shoot */}
             <div className="space-y-2">
-              <Label>{inboxRecipientLabel}</Label>
-              {isAdmin ? (
+              <Label className="text-xs uppercase tracking-wide text-muted-foreground">Link Shoot ID</Label>
+              <div className="relative">
+                <Hash className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
-                  type="email"
-                  placeholder="recipient@example.com"
-                  value={formData.to}
-                  onChange={(e) => setFormData({ ...formData, to: e.target.value })}
+                  placeholder="Enter shoot ID"
+                  className="pl-8 h-9"
+                  value={formData.related_shoot_id}
+                  onChange={(e) => setFormData({ ...formData, related_shoot_id: e.target.value })}
                 />
-              ) : (
-                <div className="rounded-md border px-3 py-2 text-sm text-muted-foreground">
-                  Admin Inbox (contact@reprophotos.com)
+              </div>
+            </div>
+
+            {/* Quick Contacts */}
+            <div className="space-y-2">
+              <Label className="text-xs uppercase tracking-wide text-muted-foreground">Quick Contacts</Label>
+              <div className="space-y-1 max-h-40 overflow-y-auto">
+                {recipientOptions.slice(0, 5).map((contact) => (
+                  <button
+                    key={contact.id}
+                    className="w-full flex items-center gap-2 p-2 rounded-md hover:bg-muted text-left text-sm"
+                    onClick={() => {
+                      const current = formData.to ? formData.to.split(',').map((v) => v.trim()).filter(Boolean) : [];
+                      if (!current.includes(contact.email)) {
+                        setFormData({ ...formData, to: [...current, contact.email].join(', ') });
+                      }
+                    }}
+                  >
+                    <Avatar className="h-6 w-6">
+                      <AvatarFallback className="text-xs">{(contact.name || contact.email).charAt(0).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    <div className="truncate">
+                      <p className="font-medium text-xs truncate">{contact.name || contact.email}</p>
+                    </div>
+                  </button>
+                ))}
+                {recipientOptions.length === 0 && (
+                  <p className="text-xs text-muted-foreground p-2">No contacts available</p>
+                )}
+              </div>
+            </div>
+
+            {/* Attachments */}
+            <div className="space-y-2">
+              <Label className="text-xs uppercase tracking-wide text-muted-foreground">Attachments</Label>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-start"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Paperclip className="h-4 w-4 mr-2" />
+                Add Files
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept="image/*,.pdf,.doc,.docx"
+                className="hidden"
+                onChange={(e) => {
+                  const files = Array.from(e.target.files || []);
+                  if (files.length) setAttachments((prev) => [...prev, ...files]);
+                }}
+              />
+              {attachments.length > 0 && (
+                <div className="space-y-1">
+                  {attachments.map((file, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-2 bg-background rounded text-xs">
+                      <span className="truncate">{file.name}</span>
+                      <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => setAttachments((prev) => prev.filter((_, i) => i !== idx))}>
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
 
-            {/* Template - Only for non-clients */}
-            {canUseTemplates && (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Template (Optional)</Label>
-                  <Select value={formData.template_id} onValueChange={handleTemplateSelect}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a template" />
+            {/* Templates */}
+            {canUseTemplates && templates && templates.length > 0 && (
+              <div className="space-y-2">
+                <Label className="text-xs uppercase tracking-wide text-muted-foreground">Templates</Label>
+                <div className="space-y-1">
+                  {templates.slice(0, 5).map((template) => (
+                    <button
+                      key={template.id}
+                      className={cn(
+                        "w-full text-left p-2 rounded-md text-xs hover:bg-muted border",
+                        formData.template_id === template.id.toString() ? 'border-primary bg-primary/5' : 'border-transparent'
+                      )}
+                      onClick={() => handleTemplateSelect(template.id.toString())}
+                    >
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-3 w-3 shrink-0" />
+                        <span className="truncate font-medium">{template.name}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Center - Compose Area */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              {/* From */}
+              {isAdmin && (
+                <div className="flex items-center gap-2">
+                  <Label className="w-16 text-sm text-muted-foreground">From</Label>
+                  <Select value={formData.channel_id} onValueChange={(value) => setFormData({ ...formData, channel_id: value })}>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Select email account" />
                     </SelectTrigger>
                     <SelectContent>
-                      {templates?.map((template) => (
-                        <SelectItem key={template.id} value={template.id.toString()}>
-                          <div className="flex items-center gap-2">
-                            <FileText className="h-4 w-4" />
-                            {template.name}
-                          </div>
+                      {channels.map((channel) => (
+                        <SelectItem key={channel.id} value={channel.id.toString()}>
+                          {channel.display_name} ({channel.from_email})
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
+              )}
 
-                <Accordion type="single" collapsible className="rounded-md border">
-                  <AccordionItem value="advanced" className="border-none">
-                    <AccordionTrigger className="px-4 text-sm">Advanced template context</AccordionTrigger>
-                    <AccordionContent className="px-4 pb-4">
-                      <div className="grid gap-4 md:grid-cols-2">
-                        {isAdmin && (
-                          <div className="space-y-2">
-                            <Label>Reply-to (Optional)</Label>
-                            <Input
-                              type="email"
-                              placeholder="reply@example.com"
-                              value={formData.reply_to}
-                              onChange={(e) => setFormData({ ...formData, reply_to: e.target.value })}
-                            />
-                          </div>
-                        )}
-                        <div className="space-y-2">
-                          <Label>Related Shoot ID</Label>
-                          <Input
-                            placeholder="123"
-                            value={formData.related_shoot_id}
-                            onChange={(e) => setFormData({ ...formData, related_shoot_id: e.target.value })}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Related Account ID</Label>
-                          <Input
-                            placeholder="456"
-                            value={formData.related_account_id}
-                            onChange={(e) => setFormData({ ...formData, related_account_id: e.target.value })}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Related Invoice ID</Label>
-                          <Input
-                            placeholder="789"
-                            value={formData.related_invoice_id}
-                            onChange={(e) => setFormData({ ...formData, related_invoice_id: e.target.value })}
-                          />
-                        </div>
-                      </div>
-                      <div className="mt-4 space-y-2">
-                        <Label>Variables (JSON)</Label>
-                        <Textarea
-                          placeholder='{"client_first_name": "Ava", "shoot_date": "Feb 2"}'
-                          rows={4}
-                          value={formData.variables}
-                          onChange={(e) => setFormData({ ...formData, variables: e.target.value })}
-                        />
-                        {formData.variables && !parsedVariables && (
-                          <p className="text-xs text-destructive">Invalid JSON. Variables will be ignored.</p>
-                        )}
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
-              </div>
-            )}
-
-            {/* Subject */}
-            <div className="space-y-2">
-              <Label>Subject</Label>
-              <Input
-                placeholder="Email subject"
-                value={formData.subject}
-                onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-              />
-            </div>
-
-            {/* Body */}
-            <div className="space-y-2">
-              <Label>Message</Label>
-              <Textarea
-                placeholder="Write your message here..."
-                rows={12}
-                value={formData.body_text}
-                onChange={(e) => {
-                  setFormData({
-                    ...formData,
-                    body_text: e.target.value,
-                    body_html: `<p>${e.target.value.replace(/\n/g, '</p><p>')}</p>`,
-                  });
-                }}
-              />
-            </div>
-
-            {/* Variables Helper - Only for non-clients */}
-            {canUseTemplates && formData.template_id && (
-              <Card className="p-4 bg-muted">
-                <h3 className="font-semibold mb-2">Available Variables</h3>
-                <div className="text-sm text-muted-foreground space-y-1">
-                  <p>Use these placeholders in your message:</p>
-                  <code>
-                    {'{{client_first_name}}, {{client_last_name}}, {{shoot_date}}, {{shoot_time}}, {{shoot_address}}'}
-                  </code>
+              {/* To */}
+              <div className="flex items-center gap-2">
+                <Label className="w-16 text-sm text-muted-foreground">To</Label>
+                <div className="flex-1 flex items-center gap-2">
+                  <Input
+                    type="text"
+                    placeholder="recipient@example.com"
+                    value={formData.to}
+                    onChange={(e) => setFormData({ ...formData, to: e.target.value })}
+                    className="flex-1"
+                  />
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <Users className="h-4 w-4 mr-1" />
+                        {recipientLabel}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-72 p-0">
+                      <Command>
+                        <CommandInput placeholder={recipientPlaceholder} value={recipientSearch} onValueChange={setRecipientSearch} />
+                        <CommandList>
+                          <CommandEmpty>{recipientEmptyLabel}</CommandEmpty>
+                          <CommandGroup heading={recipientHeading}>
+                            {recipientOptions.map((contact) => (
+                              <CommandItem
+                                key={contact.id}
+                                value={contact.email}
+                                onSelect={(val) => {
+                                  const current = formData.to ? formData.to.split(',').map((v) => v.trim()).filter(Boolean) : [];
+                                  if (!current.includes(val)) setFormData({ ...formData, to: [...current, val].join(', ') });
+                                }}
+                              >
+                                <div className="flex flex-col">
+                                  <span className="font-medium">{contact.name || contact.email}</span>
+                                  <span className="text-xs text-muted-foreground">{contact.email}</span>
+                                </div>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                  <Button variant="ghost" size="sm" onClick={() => setShowCcBcc((v) => !v)}>
+                    {showCcBcc ? 'Hide' : '+Cc/Bcc'}
+                  </Button>
                 </div>
-              </Card>
-            )}
+              </div>
+
+              {/* Recipient badges */}
+              {formData.to && (
+                <div className="flex flex-wrap gap-1 ml-16">
+                  {formData.to.split(',').map((addr) => addr.trim()).filter(Boolean).map((addr) => (
+                    <Badge key={addr} variant="secondary" className="flex items-center gap-1 text-xs">
+                      {addr}
+                      <button type="button" onClick={() => {
+                        const remaining = formData.to.split(',').map((v) => v.trim()).filter(Boolean).filter((v) => v !== addr);
+                        setFormData({ ...formData, to: remaining.join(', ') });
+                      }}>
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
+
+              {/* CC / BCC */}
+              {showCcBcc && (
+                <div className="space-y-2 ml-16">
+                  <div className="flex items-center gap-2">
+                    <Label className="w-8 text-sm text-muted-foreground">Cc</Label>
+                    <Input placeholder="cc@example.com" value={formData.cc} onChange={(e) => setFormData({ ...formData, cc: e.target.value })} />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Label className="w-8 text-sm text-muted-foreground">Bcc</Label>
+                    <Input placeholder="bcc@example.com" value={formData.bcc} onChange={(e) => setFormData({ ...formData, bcc: e.target.value })} />
+                  </div>
+                </div>
+              )}
+
+              {/* Subject */}
+              <div className="flex items-center gap-2">
+                <Label className="w-16 text-sm text-muted-foreground">Subject</Label>
+                <Input placeholder="Email subject" value={formData.subject} onChange={(e) => setFormData({ ...formData, subject: e.target.value })} className="flex-1" />
+              </div>
+
+              {/* Body */}
+              <div className="flex-1 flex flex-col">
+                <Textarea
+                  placeholder={composeMode === 'reply' ? 'Type your reply...' : composeMode === 'forward' ? 'Add a message (optional)...' : 'Write your message here...'}
+                  className="flex-1 min-h-[200px] resize-none"
+                  value={formData.body_text}
+                  onChange={(e) => setFormData({ ...formData, body_text: e.target.value, body_html: `<p>${e.target.value.replace(/\n/g, '</p><p>')}</p>` })}
+                />
+              </div>
+
+              {/* Original message context */}
+              {originalMessage && (
+                <Card className="p-4 bg-muted/50 border-dashed">
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <p className="text-xs text-muted-foreground uppercase">Original Message</p>
+                      <p className="font-medium text-sm">{originalMessage.subject || '(No Subject)'}</p>
+                    </div>
+                    <Badge variant="outline" className={composeMode === 'reply' ? 'bg-blue-500/10' : 'bg-orange-500/10'}>
+                      {composeMode === 'reply' ? 'Reply' : 'Forward'}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">From: {originalMessage.from_address}</p>
+                  {originalMessage.body_text && (
+                    <pre className="mt-2 text-xs whitespace-pre-wrap text-muted-foreground max-h-32 overflow-y-auto">
+                      {originalMessage.body_text.substring(0, 500)}...
+                    </pre>
+                  )}
+                </Card>
+              )}
+            </div>
+
+            {/* Footer with formatting toolbar */}
+            <div className="border-t p-4 flex items-center justify-between bg-muted/30">
+              <div className="flex items-center gap-1">
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0"><Bold className="h-4 w-4" /></Button>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0"><Italic className="h-4 w-4" /></Button>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0"><List className="h-4 w-4" /></Button>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0"><Link2 className="h-4 w-4" /></Button>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0"><Smile className="h-4 w-4" /></Button>
+              </div>
+              <div className="flex items-center gap-2">
+                {isAdmin && (
+                  <Dialog open={showScheduleDialog} onOpenChange={setShowScheduleDialog}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <Clock className="h-4 w-4 mr-1" />
+                        Schedule
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader><DialogTitle>Schedule Email</DialogTitle></DialogHeader>
+                      <div className="space-y-4">
+                        <div><Label>Date & Time</Label><Input type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} /></div>
+                        <Button onClick={() => { handleSchedule(); setShowScheduleDialog(false); }} disabled={scheduleMutation.isPending} className="w-full">Schedule Send</Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                )}
+                <Button onClick={handleSendNow} disabled={sendMutation.isPending} className={cn(currentMode.buttonClass)}>
+                  <Send className="h-4 w-4 mr-1" />
+                  {sendLabel}
+                </Button>
+              </div>
+            </div>
           </div>
-        </Card>
+
+          {/* Right Sidebar */}
+          <div className="w-64 border-l bg-muted/30 p-4 space-y-6 overflow-y-auto hidden lg:block">
+            {/* Insert Variables */}
+            <div className="space-y-2">
+              <Label className="text-xs uppercase tracking-wide text-muted-foreground flex items-center gap-1">
+                <Zap className="h-3 w-3" /> Insert Variables
+              </Label>
+              <div className="flex flex-wrap gap-1">
+                {['client_name', 'shoot_date', 'shoot_time', 'shoot_address', 'company_name'].map((v) => (
+                  <Button key={v} variant="outline" size="sm" className="text-xs h-7" onClick={() => insertVariable(v)}>
+                    {`{{${v}}}`}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {/* Tips */}
+            <div className="space-y-2">
+              <Label className="text-xs uppercase tracking-wide text-muted-foreground flex items-center gap-1">
+                <Lightbulb className="h-3 w-3" /> Tips
+              </Label>
+              <div className="text-xs text-muted-foreground space-y-2">
+                <p>• Use variables for personalization</p>
+                <p>• Keep subject lines under 50 chars</p>
+                <p>• Preview before sending</p>
+              </div>
+            </div>
+
+            {/* Message Info */}
+            <div className="space-y-2">
+              <Label className="text-xs uppercase tracking-wide text-muted-foreground flex items-center gap-1">
+                <Info className="h-3 w-3" /> Message Info
+              </Label>
+              <div className="text-xs space-y-1">
+                <div className="flex justify-between"><span className="text-muted-foreground">Characters</span><span>{charCount}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Words</span><span>{wordCount}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Recipients</span><span>{recipientCount}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Attachments</span><span>{attachments.length}</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </DashboardLayout>
   );

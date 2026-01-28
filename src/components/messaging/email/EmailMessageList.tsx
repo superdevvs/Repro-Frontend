@@ -1,13 +1,26 @@
 import { useState } from 'react';
-import { Search, RefreshCw, Filter, Mail, Clock, Send, AlertCircle } from 'lucide-react';
+import { Search, RefreshCw, Mail, Clock, Send, AlertCircle, Filter, ChevronDown, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { format, formatDistanceToNow, isToday, isYesterday } from 'date-fns';
 import type { Message } from '@/types/messaging';
 import { useAuth } from '@/components/auth/AuthProvider';
+
+const FILTER_OPTIONS = [
+  { value: null, label: 'All Messages' },
+  { value: 'SENT', label: 'Sent' },
+  { value: 'SCHEDULED', label: 'Scheduled' },
+  { value: 'FAILED', label: 'Failed' },
+  { value: 'ARCHIVED', label: 'Archived' },
+];
 
 interface EmailMessageListProps {
   messages: Message[];
@@ -88,65 +101,61 @@ export function EmailMessageList({
     );
   }
 
+  const activeFilterLabel = FILTER_OPTIONS.find((o) => o.value === filterStatus)?.label || 'All Messages';
+
   return (
     <>
-      {/* Header */}
-      <div className="p-4 border-b border-border space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold">
-            {isAdmin ? 'Inbox' : 'Messages'} {messages.length > 0 && `(${messages.length})`}
-          </h3>
-          <Button variant="ghost" size="sm" onClick={onRefresh}>
+      {/* Compact Single-Row Header */}
+      <div className="p-3 border-b border-border">
+        <div className="flex items-center gap-2">
+          <form onSubmit={handleSearchSubmit} className="relative flex-1">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search messages..."
+              value={searchValue}
+              onChange={(e) => setSearchValue(e.target.value)}
+              className="pl-8 h-9"
+            />
+          </form>
+          
+          {/* Filter Popover */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button 
+                variant={filterStatus ? 'secondary' : 'outline'} 
+                size="sm" 
+                className="h-9 gap-1"
+              >
+                <Filter className="h-4 w-4" />
+                <span className="hidden sm:inline">{activeFilterLabel}</span>
+                <ChevronDown className="h-3 w-3" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-48 p-1" align="end">
+              {FILTER_OPTIONS.map((option) => (
+                <button
+                  key={option.value ?? 'all'}
+                  className={cn(
+                    'w-full flex items-center justify-between px-3 py-2 text-sm rounded-md hover:bg-muted',
+                    filterStatus === option.value && 'bg-muted'
+                  )}
+                  onClick={() => handleFilterChange(option.value)}
+                >
+                  {option.label}
+                  {filterStatus === option.value && <Check className="h-4 w-4" />}
+                </button>
+              ))}
+            </PopoverContent>
+          </Popover>
+
+          <Button variant="ghost" size="sm" className="h-9 w-9 p-0" onClick={onRefresh}>
             <RefreshCw className="h-4 w-4" />
-          </Button>
-        </div>
-
-        {/* Search */}
-        <form onSubmit={handleSearchSubmit} className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search messages..."
-            value={searchValue}
-            onChange={(e) => setSearchValue(e.target.value)}
-            className="pl-9"
-          />
-        </form>
-
-        {/* Filters */}
-        <div className="flex gap-2 flex-wrap">
-          <Button
-            variant={filterStatus === null ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => handleFilterChange(null)}
-          >
-            All
-          </Button>
-          <Button
-            variant={filterStatus === 'SENT' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => handleFilterChange('SENT')}
-          >
-            Sent
-          </Button>
-          <Button
-            variant={filterStatus === 'SCHEDULED' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => handleFilterChange('SCHEDULED')}
-          >
-            Scheduled
-          </Button>
-          <Button
-            variant={filterStatus === 'FAILED' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => handleFilterChange('FAILED')}
-          >
-            Failed
           </Button>
         </div>
       </div>
 
       {/* Message List */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto pt-4">
         {messages.length === 0 ? (
           <div className="flex items-center justify-center h-64 text-muted-foreground">
             <div className="text-center space-y-2">

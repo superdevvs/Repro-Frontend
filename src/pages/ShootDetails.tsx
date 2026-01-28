@@ -188,8 +188,9 @@ const ShootDetails: React.FC = () => {
   const { formatTemperature, formatTime, formatDate } = useUserPreferences();
   const role = user?.role || 'client';
   const isSuperAdmin = role === 'superadmin';
-  const isAdmin = role === 'admin' || isSuperAdmin;
-  const isAdminOrSuperAdmin = isAdmin; // Both admin and superadmin can access payments
+  const isEditingManager = role === 'editing_manager';
+  const isAdmin = role === 'admin' || isSuperAdmin || isEditingManager;
+  const isAdminOrSuperAdmin = isAdmin; // Admin, superadmin, and editing_manager can access most features
   const isRep = role === 'salesRep';
   const isAdminOrRep = isAdmin || isRep;
   const isEditor = role === 'editor';
@@ -896,13 +897,15 @@ const ShootDetails: React.FC = () => {
                       </TabsTrigger>
                     </>
                   )}
-                  <TabsTrigger 
-                    value="activity" 
-                    className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-semibold data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-10 sm:h-12 px-3 sm:px-4 text-xs sm:text-sm whitespace-nowrap"
-                  >
-                    <span className="hidden sm:inline">Activity Log</span>
-                    <span className="sm:hidden">Activity</span>
-                  </TabsTrigger>
+                  {!isPhotographer && (
+                    <TabsTrigger 
+                      value="activity" 
+                      className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-semibold data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-10 sm:h-12 px-3 sm:px-4 text-xs sm:text-sm whitespace-nowrap"
+                    >
+                      <span className="hidden sm:inline">Activity Log</span>
+                      <span className="sm:hidden">Activity</span>
+                    </TabsTrigger>
+                  )}
                   <TabsTrigger 
                     value="notes" 
                     className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-semibold data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-10 sm:h-12 px-3 sm:px-4 text-xs sm:text-sm whitespace-nowrap"
@@ -1043,15 +1046,17 @@ const ShootDetails: React.FC = () => {
                     </div>
                   </TabsContent>
 
-                  <TabsContent value="activity" className="!mt-0 !pt-0 px-4 sm:px-6 pb-4 sm:pb-6 overflow-y-auto" style={{ marginTop: 0, paddingTop: 0, flex: '0 0 auto', height: 'auto' }}>
-                    <div className="max-w-7xl mx-auto !pt-0 !mt-0" style={{ paddingTop: 0, marginTop: 0 }}>
-                      <ShootDetailsActivityLogTab
-                        shoot={shoot}
-                        isAdmin={isAdmin}
-                        onShootUpdate={loadShoot}
-                      />
-                    </div>
-                  </TabsContent>
+                  {!isPhotographer && (
+                    <TabsContent value="activity" className="!mt-0 !pt-0 px-4 sm:px-6 pb-4 sm:pb-6 overflow-y-auto" style={{ marginTop: 0, paddingTop: 0, flex: '0 0 auto', height: 'auto' }}>
+                      <div className="max-w-7xl mx-auto !pt-0 !mt-0" style={{ paddingTop: 0, marginTop: 0 }}>
+                        <ShootDetailsActivityLogTab
+                          shoot={shoot}
+                          isAdmin={isAdmin}
+                          onShootUpdate={loadShoot}
+                        />
+                      </div>
+                    </TabsContent>
+                  )}
 
                   <TabsContent value="notes" className="!mt-0 !pt-0 px-4 sm:px-6 pb-4 sm:pb-6" style={{ flex: '0 0 auto', height: 'auto' }}>
                     <div className="max-w-7xl mx-auto pt-0">

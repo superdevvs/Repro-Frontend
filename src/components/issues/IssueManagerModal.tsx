@@ -221,7 +221,7 @@ export const IssueManagerModal: React.FC = () => {
                     key={requestId}
                     className={cn(
                       'rounded-xl border p-4 bg-card hover:border-primary/40 hover:shadow-sm transition-all cursor-pointer',
-                      selectedRequestId === requestId && 'border-primary ring-2 ring-primary/20',
+                      selectedRequestId === requestId && 'border-primary ring-2 ring-inset ring-primary/20',
                       severity === 'high' 
                         ? 'border-destructive/40 bg-destructive/5 dark:bg-destructive/10' 
                         : severity === 'medium'

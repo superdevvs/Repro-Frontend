@@ -77,6 +77,24 @@ export const permissionsConfig: PermissionsMap = {
       )
     ]
   },
+  editing_manager: {
+    role: 'editing_manager',
+    permissions: [
+      // Editing managers have admin-like permissions EXCEPT accounting/payments/invoices
+      ...resources.flatMap(resource => 
+        actions.map(action => ({
+          id: `${resource.id}-${action.id}`,
+          resource: resource.id,
+          action: action.id,
+        }))
+      ).filter(p => 
+        // Exclude all accounting, payments, and invoice management
+        p.resource !== 'accounting' &&
+        p.resource !== 'payments' &&
+        !(p.resource === 'invoices' && p.action !== 'view')
+      )
+    ]
+  },
   salesRep: {
     role: 'salesRep',
     permissions: [

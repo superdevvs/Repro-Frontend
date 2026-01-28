@@ -503,7 +503,7 @@ export function ShootEditModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[900px] md:max-w-[1100px] lg:max-w-[1200px] max-h-[85vh]">
+      <DialogContent className="sm:max-w-[900px] md:max-w-[1100px] lg:max-w-[1200px] max-h-[85vh] text-slate-900 dark:text-slate-100">
         <DialogHeader className="pb-4">
           <div className="flex items-center gap-3">
             <div className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-500/10">

@@ -3,6 +3,7 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MoreVertical } from "lucide-react";
+import { getAvatarUrl } from "@/utils/defaultAvatars";
 import { 
   DropdownMenu,
   DropdownMenuContent,
@@ -47,7 +48,9 @@ export function AccountList({
 }: AccountListProps) {
   const getRoleBadgeColor = (role: Role) => {
     switch (role) {
+      case 'superadmin': return "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-200 border-red-200 dark:border-red-800";
       case 'admin': return "bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-200 border-purple-200 dark:border-purple-800";
+      case 'editing_manager': return "bg-violet-100 text-violet-800 dark:bg-violet-900/50 dark:text-violet-200 border-violet-200 dark:border-violet-800";
       case 'photographer': return "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200 border-blue-200 dark:border-blue-800";
       case 'client': return "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-200 border-green-200 dark:border-green-800";
       case 'editor': return "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200 border-amber-200 dark:border-amber-800";
@@ -101,7 +104,7 @@ export function AccountList({
               <TableCell onClick={() => onViewProfile(user)}>
                 <div className="flex items-center gap-3">
                   <Avatar className="h-9 w-9">
-                    <AvatarImage src={user.avatar} alt={user.name} />
+                    <AvatarImage src={getAvatarUrl(user.avatar, user.role, (user as any).gender, user.id)} alt={user.name} />
                     <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
                   </Avatar>
                   <div>
@@ -133,7 +136,7 @@ export function AccountList({
                       </DropdownMenuItem>
                     )}
                     {/* Only Super Admin can change roles (access rules) */}
-                    {canChangeRole && user.role !== 'client' && (
+                    {canChangeRole && (
                       <DropdownMenuItem onClick={() => onChangeRole(user)}>
                         Change Role
                       </DropdownMenuItem>

@@ -2,6 +2,7 @@
 import { User } from "@/components/auth/AuthProvider";
 import { useAuth } from "@/components/auth";
 import { Button } from "@/components/ui/button";
+import { getAvatarUrl } from "@/utils/defaultAvatars";
 import {
   Dialog,
   DialogContent,
@@ -124,7 +125,7 @@ export function UserProfileDialog({
         <div className="flex flex-col md:flex-row gap-6">
           <div className="flex flex-col items-center space-y-3">
             <Avatar className="h-24 w-24">
-              <AvatarImage src={user.avatar} alt={user.name} />
+              <AvatarImage src={getAvatarUrl(user.avatar, user.role, (user as any).gender, user.id)} alt={user.name} />
               <AvatarFallback className="text-lg">{getInitials(user.name)}</AvatarFallback>
             </Avatar>
             <div className="text-center">

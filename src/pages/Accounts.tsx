@@ -12,6 +12,8 @@ import { NotificationSettingsDialog } from '@/components/accounts/NotificationSe
 import { LinkClientBrandingDialog } from '@/components/accounts/LinkClientBrandingDialog';
 import { PermissionsManager } from '@/components/accounts/PermissionsManager';
 import { AccountLinkingManager } from '@/components/accounts/AccountLinkingManager';
+import { AccountsStatsCards } from '@/components/accounts/AccountsStatsCards';
+import { AccountsPagination } from '@/components/accounts/AccountsPagination';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Role } from '@/components/auth/AuthProvider';
 import { useToast } from "@/hooks/use-toast";
@@ -28,7 +30,8 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from '@/components/ui/alert-dialog';
-import { UsersIcon, PlusCircle, Loader2 } from 'lucide-react';
+import { UsersIcon, PlusCircle, Loader2, Search } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { ClientDetails } from '@/components/clients/ClientDetails';
 import { ClientForm } from '@/components/clients/ClientForm';
 import { useClientsData } from '@/hooks/useClientsData';
@@ -162,6 +165,8 @@ export default function Accounts() {
   const [isNewAccountOpen, setIsNewAccountOpen] = useState(false);
   const [showInteractionCloud, setShowInteractionCloud] = useState(true);
   const [activeInsightsRole, setActiveInsightsRole] = useState<InsightRole>('client');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(16);
 
   const [editUserDialogOpen, setEditUserDialogOpen] = useState(false);
   const [roleChangeDialogOpen, setRoleChangeDialogOpen] = useState(false);
@@ -372,6 +377,27 @@ export default function Accounts() {
     }
   }, [repOptions, repFilter]);
 
+  // Calculate role stats for AccountsStatsCards
+  const roleStats = React.useMemo(() => {
+    const stats = {
+      total: users.length,
+      superadmin: 0,
+      admin: 0,
+      editing_manager: 0,
+      photographer: 0,
+      editor: 0,
+      client: 0,
+      salesRep: 0,
+    };
+    users.forEach((user) => {
+      const role = user.role as keyof typeof stats;
+      if (role in stats && role !== 'total') {
+        stats[role]++;
+      }
+    });
+    return stats;
+  }, [users]);
+
   const filteredUsers = users.filter((user) => {
     const roleMatch = filterRole === "all" || user.role === filterRole;
     const searchMatch = searchQuery === "" ||
@@ -388,6 +414,18 @@ export default function Accounts() {
           : repKey === repFilter;
     return roleMatch && searchMatch && repMatch;
   });
+
+  // Pagination
+  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
+  const paginatedUsers = filteredUsers.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  // Reset to page 1 when filters change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [filterRole, searchQuery, repFilter]);
 
   const normalize = (value?: string | null) => value ? value.trim().toLowerCase() : "";
 
@@ -530,7 +568,7 @@ export default function Accounts() {
     [getShootSummaryForUser],
   );
 
-  const accountListUsers = filteredUsers.map((user) => ({
+  const accountListUsers = paginatedUsers.map((user) => ({
     ...user,
     accountRep: getAccountRep(user) || 'Unassigned',
     lastShootDate: getLastShootDateForUser(user),
@@ -1019,15 +1057,15 @@ export default function Accounts() {
 
   // Calculate number of tabs to show
   const tabCount =
-    2 +
+    1 +
     (showPermissionsTab ? 1 : 0) +
     (showLinkingTab ? 1 : 0);
   const gridCols =
-    tabCount === 4
-      ? 'grid-cols-4'
-      : tabCount === 3
-        ? 'grid-cols-3'
-        : 'grid-cols-2';
+    tabCount === 3
+      ? 'grid-cols-3'
+      : tabCount === 2
+        ? 'grid-cols-2'
+        : 'grid-cols-1';
 
   const getClientMenuHandlers = (user: UserType) => {
     const client = clientsData.find(
@@ -1115,29 +1153,42 @@ export default function Accounts() {
           description="Manage your team members and their permissions"
           icon={UsersIcon}
           action={
-            <Button
-              onClick={handleAddAccount}
-              className="h-10 bg-gradient-to-r from-[#4FA8FF] via-[#3E8BFF] to-[#2F6DFF] text-white shadow-lg shadow-blue-500/30 transition-all duration-200 hover:from-[#63B4FF] hover:via-[#4C94FF] hover:to-[#3775FF]"
-            >
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Add Account
-            </Button>
+            <div className="flex items-center gap-3">
+              {/* Search input in header */}
+              <div className="relative">
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 h-10 w-[180px]"
+                />
+              </div>
+              <Button
+                onClick={handleAddAccount}
+                className="h-10 bg-gradient-to-r from-[#4FA8FF] via-[#3E8BFF] to-[#2F6DFF] text-white shadow-lg shadow-blue-500/30 transition-all duration-200 hover:from-[#63B4FF] hover:via-[#4C94FF] hover:to-[#3775FF]"
+              >
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Add Account
+              </Button>
+            </div>
           }
         />
 
         <Tabs defaultValue="accounts" className="w-full">
-          <TabsList className={`grid w-full max-w-3xl ${gridCols}`}>
-            <TabsTrigger value="accounts">Accounts</TabsTrigger>
-            {showPermissionsTab && (
-              <TabsTrigger value="permissions">Permissions</TabsTrigger>
-            )}
-            {showLinkingTab && (
-              <TabsTrigger value="linking">Linking</TabsTrigger>
-            )}
-            <TabsTrigger value="insights">Insights</TabsTrigger>
-          </TabsList>
+          {/* Tabs row with inline controls */}
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-3">
+            <TabsList className={`grid w-fit ${gridCols}`}>
+              <TabsTrigger value="accounts">Accounts</TabsTrigger>
+              {showPermissionsTab && (
+                <TabsTrigger value="permissions">Permissions</TabsTrigger>
+              )}
+              {showLinkingTab && (
+                <TabsTrigger value="linking">Linking</TabsTrigger>
+              )}
+            </TabsList>
 
-          <TabsContent value="accounts" className="space-y-6 mt-6">
+            {/* Inline controls - only show on accounts tab */}
             <AccountsHeader
               onExport={handleExport}
               onImport={handleImportAccounts}
@@ -1151,6 +1202,15 @@ export default function Accounts() {
               onRepFilterChange={setRepFilter}
               repOptions={repOptions}
             />
+          </div>
+
+          <TabsContent value="accounts" className="space-y-6">
+            {/* Stats Cards - role filter pills with counts */}
+            <AccountsStatsCards
+              stats={roleStats}
+              selectedRole={filterRole === 'all' ? null : filterRole}
+              onRoleSelect={(role) => setFilterRole(role as Role | 'all' ?? 'all')}
+            />
 
             {loading ? (
               <div className="flex items-center justify-center py-12">
@@ -1159,7 +1219,7 @@ export default function Accounts() {
               </div>
             ) : viewMode === 'grid' ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {filteredUsers.map((user) => (
+                {paginatedUsers.map((user) => (
                   <AccountCard
                     key={user.id}
                     user={user}
@@ -1170,6 +1230,7 @@ export default function Accounts() {
                     onManageNotifications={handleManageNotifications}
                     onLinkClientBranding={handleLinkClientBranding}
                     onViewProfile={handleViewProfile}
+                    onDeleteUser={requestDeleteUser}
                     clientMenuActions={getClientMenuHandlers(user)}
                   />
                 ))}
@@ -1203,6 +1264,21 @@ export default function Accounts() {
                 onViewProfile={handleViewProfile}
                 onDeleteUser={requestDeleteUser}
                 getClientMenuActions={getClientMenuHandlers}
+              />
+            )}
+
+            {/* Pagination */}
+            {filteredUsers.length > 0 && (
+              <AccountsPagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={filteredUsers.length}
+                itemsPerPage={itemsPerPage}
+                onPageChange={setCurrentPage}
+                onItemsPerPageChange={(count) => {
+                  setItemsPerPage(count);
+                  setCurrentPage(1);
+                }}
               />
             )}
           </TabsContent>

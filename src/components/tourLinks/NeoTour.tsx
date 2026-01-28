@@ -6,8 +6,8 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { motion, useScroll, useTransform, useMotionValueEvent } from "framer-motion";
 import {
-  MapPin, BedDouble, Bath, Maximize, ChevronDown, Share2, Heart, X, 
-  ChevronLeft, ChevronRight, Video, Layers, FileText, Mail, Phone, 
+  MapPin, BedDouble, Bath, Maximize, ChevronDown, X,
+  ChevronLeft, ChevronRight, Video, Layers, FileText, Mail, Phone,
   User, Thermometer, Wind, Sun, Cloud, CloudRain, Snowflake, Droplets, Link2, ExternalLink, Users
 } from "lucide-react";
 
@@ -65,7 +65,6 @@ export function NeoTour() {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [activeSection, setActiveSection] = useState<SectionId>('header');
-  const [liked, setLiked] = useState(false);
   const [weather, setWeather] = useState<WeatherInfo | null>(null);
 
   const headerRef = useRef<HTMLDivElement>(null);
@@ -200,7 +199,6 @@ export function NeoTour() {
     }
   };
 
-  const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
   const beds = getBeds();
   const baths = getBaths();
   const sqft = getSqft();
@@ -376,25 +374,6 @@ export function NeoTour() {
                 {item.label}
               </button>
             ))}
-          </div>
-
-          <div className="flex items-center gap-2 ml-auto">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="rounded-full text-slate-400 hover:text-blue-400 hover:bg-slate-800/50"
-              onClick={() => setLiked(!liked)}
-            >
-              <Heart className={cn("w-5 h-5 transition-colors", liked && "fill-blue-500 text-blue-500")} />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="rounded-full text-slate-400 hover:text-blue-400 hover:bg-slate-800/50"
-              onClick={() => navigator.share?.({ url: shareUrl }).catch(() => {})}
-            >
-              <Share2 className="w-5 h-5" />
-            </Button>
           </div>
         </div>
       </motion.nav>
@@ -810,21 +789,8 @@ export function NeoTour() {
       {/* Footer */}
       <footer className="py-8 px-6 border-t border-blue-500/20 bg-slate-950">
         <div className="max-w-7xl mx-auto flex flex-col items-center justify-center gap-4">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" className="rounded-full text-slate-400 hover:text-blue-400" onClick={() => navigator.share?.({ url: shareUrl }).catch(() => {})}>
-              <Share2 className="w-5 h-5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="rounded-full text-slate-400 hover:text-blue-400"
-              onClick={() => setLiked(!liked)}
-            >
-              <Heart className={cn("w-5 h-5 transition-colors", liked && "fill-blue-500 text-blue-500")} />
-            </Button>
-          </div>
           <p className="text-slate-500 text-xs">
-            © {new Date().getFullYear()} All rights reserved.
+            © 2026 R/E Pro Photos. All Rights Reserved.
           </p>
         </div>
       </footer>

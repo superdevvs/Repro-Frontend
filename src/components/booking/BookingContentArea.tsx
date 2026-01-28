@@ -17,6 +17,8 @@ interface BookingContentAreaProps {
   formErrors: Record<string, string>;
   setFormErrors: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   clientPropertyFormData: any;
+  onAddressFieldsChange?: (fields: { address: string; city: string; state: string; zip: string }) => void;
+  onClientChange?: (clientId: string) => void;
   date: Date | undefined;
   setDate: React.Dispatch<React.SetStateAction<Date | undefined>>;
   time: string;
@@ -44,8 +46,6 @@ interface BookingContentAreaProps {
   setSendNotification: React.Dispatch<React.SetStateAction<boolean>>;
   getPackagePrice: () => number;
   getPhotographerRate: () => number;
-  getTax: () => number;
-  getTotal: () => number;
   clients: any[];
   photographers: any[];
   handleSubmit: () => void;
@@ -57,6 +57,8 @@ export function BookingContentArea({
   formErrors,
   setFormErrors,
   clientPropertyFormData,
+  onAddressFieldsChange,
+  onClientChange,
   date,
   setDate,
   time,
@@ -84,8 +86,6 @@ export function BookingContentArea({
   setSendNotification,
   getPackagePrice,
   getPhotographerRate,
-  getTax,
-  getTotal,
   clients,
   photographers,
   handleSubmit,
@@ -101,6 +101,8 @@ export function BookingContentArea({
           packages={packages}
           isClientAccount={clientPropertyFormData.isClientAccount}
           clients={clients}
+          onAddressFieldsChange={onAddressFieldsChange}
+          onClientChange={onClientChange}
           selectedServices={selectedServices}
           onSelectedServicesChange={onSelectedServicesChange}
           packagesLoading={packagesLoading}
@@ -151,8 +153,6 @@ export function BookingContentArea({
           selectedServices={selectedServices}
           packagePrice={getPackagePrice()}
           photographerRate={getPhotographerRate()}
-          tax={getTax()}
-          total={getTotal()}
           additionalNotes={notes}
           setAdditionalNotes={setNotes}
           onConfirm={handleSubmit}

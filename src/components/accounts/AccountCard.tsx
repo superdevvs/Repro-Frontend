@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { User, Role } from "@/components/auth/AuthProvider";
 import { useAuth } from "@/components/auth";
+import { getAvatarUrl } from "@/utils/defaultAvatars";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
 import { 
@@ -36,6 +37,7 @@ interface AccountCardProps {
   onManageNotifications: (user: User) => void;
   onLinkClientBranding: (user: User) => void;
   onViewProfile: (user: User) => void;
+  onDeleteUser?: (user: User) => void;
   isActive?: boolean;
   clientMenuActions?: {
     onBookShoot: (e: React.MouseEvent) => void;
@@ -53,6 +55,7 @@ export function AccountCard({
   onManageNotifications,
   onLinkClientBranding,
   onViewProfile,
+  onDeleteUser,
   clientMenuActions,
 }: AccountCardProps) {
   const [hovering, setHovering] = useState(false);
@@ -68,7 +71,9 @@ export function AccountCard({
 
   const getRoleBadgeColor = (role: Role) => {
     switch (role) {
+      case 'superadmin': return "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-200 border-red-200 dark:border-red-800";
       case 'admin': return "bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-200 border-purple-200 dark:border-purple-800";
+      case 'editing_manager': return "bg-violet-100 text-violet-800 dark:bg-violet-900/50 dark:text-violet-200 border-violet-200 dark:border-violet-800";
       case 'photographer': return "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200 border-blue-200 dark:border-blue-800";
       case 'client': return "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-200 border-green-200 dark:border-green-800";
       case 'editor': return "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200 border-amber-200 dark:border-amber-800";
@@ -99,7 +104,7 @@ export function AccountCard({
         <div className="flex justify-between items-start">
           <div className="flex items-center gap-3">
             <Avatar className="h-12 w-12 rounded-xl border-2 border-[#E5DEFF] dark:border-slate-700">
-              <AvatarImage src={user.avatar} alt={user.name} />
+              <AvatarImage src={getAvatarUrl(user.avatar, user.role, (user as any).gender, user.id)} alt={user.name} />
               <AvatarFallback className="bg-[#F1F0FB] dark:bg-slate-800 text-[#6E59A5] dark:text-[#9b87f5] font-medium">
                 {getInitials(user.name)}
               </AvatarFallback>
@@ -124,7 +129,7 @@ export function AccountCard({
                 </DropdownMenuItem>
               )}
               {/* Only Super Admin can change roles (access rules) */}
-              {canChangeRole && user.role !== 'client' && (
+              {canChangeRole && (
                 <DropdownMenuItem onClick={(e) => { 
                   e.stopPropagation();
                   onChangeRole(user);
@@ -183,6 +188,21 @@ export function AccountCard({
                     }}>
                       <Trash2 className="mr-2 h-4 w-4" /> Delete Client
                     </DropdownMenuItem>
+                </>
+              )}
+              {/* Delete Account - Super Admin only */}
+              {isSuperAdmin && onDeleteUser && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    className="text-red-600 focus:text-red-600" 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDeleteUser(user);
+                    }}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" /> Delete Account
+                  </DropdownMenuItem>
                 </>
               )}
             </DropdownMenuContent>

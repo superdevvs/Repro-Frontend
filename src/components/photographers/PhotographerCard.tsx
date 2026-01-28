@@ -23,7 +23,7 @@ export function PhotographerCard({ photographer, onEdit, onViewProfile }: Photog
       <CardContent className="p-0">
         <div className="p-4">
           <div className="flex items-center gap-3 mb-4">
-            <Avatar className="h-12 w-12 ring-2 ring-primary/10">
+            <Avatar className="h-12 w-12 ring-2 ring-inset ring-primary/10">
               <AvatarImage src={photographer.avatar} alt={photographer.name} />
               <AvatarFallback>{photographer.name.slice(0, 2).toUpperCase()}</AvatarFallback>
             </Avatar>

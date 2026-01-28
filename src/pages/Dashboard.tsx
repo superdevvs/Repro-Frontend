@@ -229,7 +229,7 @@ const Dashboard = () => {
   const [specialRequestOpen, setSpecialRequestOpen] = useState(false);
   const [selectedRequestId, setSelectedRequestId] = useState<number | null>(null);
   const [mobileDashboardTab, setMobileDashboardTab] = useState<MobileDashboardTab>("shoots");
-  const canCustomizeQuickActions = Boolean(user);
+  const canCustomizeQuickActions = Boolean(user) && (role === 'admin' || role === 'superadmin');
   const quickActionsStorageKey = useMemo(
     () => buildQuickActionsStorageKey(role, user?.id),
     [role, user?.id],
@@ -1552,28 +1552,6 @@ const Dashboard = () => {
             quickActions={withCustomQuickActions(quickActions)}
             quickActionsEyebrow="Workflow"
             leftColumnCard={
-              <Suspense fallback={<CompletedShootsCardSkeleton />}>
-                <LazyCompletedShootsCard
-                  shoots={photographerCompleted}
-                  title="Completed shoots"
-                  subtitle="Awaiting delivery / handoff"
-                  emptyStateText="No completed shoots yet today."
-                />
-              </Suspense>
-            }
-            rightColumnCards={[
-              <Suspense key="delivered-shoots" fallback={<CompletedShootsCardSkeleton />}>
-                <LazyCompletedShootsCard
-                  shoots={photographerDelivered}
-                  title="Delivered shoots"
-                  subtitle="Ready for clients"
-                  emptyStateText="No delivered shoots yet."
-                />
-              </Suspense>,
-            ]}
-            upcomingShoots={photographerUpcoming}
-            pendingReviews={photographerPendingReviews}
-            pendingCard={
               <PendingReviewsCard
                 title="Requests"
                 reviews={[]}
@@ -1582,6 +1560,19 @@ const Dashboard = () => {
                 emptyRequestsText="No active requests."
               />
             }
+            rightColumnCards={[
+              <Suspense key="completed-shoots" fallback={<CompletedShootsCardSkeleton />}>
+                <LazyCompletedShootsCard
+                  shoots={photographerDelivered}
+                  title="Completed shoots"
+                  subtitle="Ready for clients"
+                  emptyStateText="No completed shoots yet."
+                />
+              </Suspense>,
+            ]}
+            upcomingShoots={photographerUpcoming}
+            pendingReviews={photographerPendingReviews}
+            pendingCard={null}
             onSelectShoot={handleSelectShoot}
             canCustomizeQuickActions={canCustomizeQuickActions}
             onEditQuickActions={handleOpenQuickActionsEditor}

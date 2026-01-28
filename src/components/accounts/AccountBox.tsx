@@ -27,10 +27,13 @@ export function AccountBox({ account, onSelect, isSelected = false }: AccountBox
   
   const getRoleColor = (role: string) => {
     switch (role.toLowerCase()) {
-      case 'admin': return 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400';
+      case 'superadmin': return 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400';
+      case 'admin': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400';
+      case 'editing_manager': return 'bg-violet-100 text-violet-800 dark:bg-violet-900/20 dark:text-violet-400';
       case 'client': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
       case 'photographer': return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
-      case 'editor': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400';
+      case 'editor': return 'bg-amber-100 text-amber-800 dark:bg-amber-900/20 dark:text-amber-400';
+      case 'salesrep': return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-400';
       default: return 'bg-gray-100 text-gray-800 dark:bg-gray-700/20 dark:text-gray-400';
     }
   };
@@ -52,7 +55,7 @@ export function AccountBox({ account, onSelect, isSelected = false }: AccountBox
   
   return (
     <Card 
-      className={`p-4 transition-all cursor-pointer ${isSelected ? 'ring-2 ring-primary' : 'hover:bg-muted/5'}`}
+      className={`p-4 transition-all cursor-pointer ${isSelected ? 'ring-2 ring-inset ring-primary' : 'hover:bg-muted/5'}`}
       onClick={handleClick}
     >
       <div className={`flex ${isMobile ? 'flex-col' : 'flex-row'} gap-4`}>

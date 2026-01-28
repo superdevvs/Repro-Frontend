@@ -295,6 +295,27 @@ const BookShoot = () => {
               repName = client.rep;
             }
           }
+
+          const metadata = client.metadata || {};
+          const metadataRepName =
+            typeof metadata.accountRep === 'string'
+              ? metadata.accountRep
+              : typeof metadata.rep === 'string'
+                ? metadata.rep
+                : undefined;
+          const createdByNameRaw = client.created_by_name || client.createdBy || '';
+          const createdByName = typeof createdByNameRaw === 'string' ? createdByNameRaw : '';
+          const canUseCreatedBy = createdByName && createdByName.toLowerCase() !== 'superadmin';
+
+          if (!repName) {
+            repName =
+              metadataRepName ||
+              (typeof client.accountRep === 'string' ? client.accountRep : undefined) ||
+              (typeof client.rep_name === 'string' ? client.rep_name : undefined) ||
+              (typeof client.sales_rep === 'string' ? client.sales_rep : undefined) ||
+              (typeof client.salesRep === 'string' ? client.salesRep : undefined) ||
+              (canUseCreatedBy ? createdByName : undefined);
+          }
           
           // Client data processed from API
           
@@ -594,22 +615,7 @@ const BookShoot = () => {
     }
   }, [editShootId, packagesLoading, packages, toast]);
 
-  useEffect(() => {
-    if (navigator.geolocation && !address) {
-      navigator.permissions
-        .query({ name: 'geolocation' })
-        .then(permissionStatus => {
-          if (permissionStatus.state === 'prompt') {
-            toast({
-              title: "Location Services",
-              description: "Allow location access to automatically fill your property address.",
-              variant: "default",
-            });
-          }
-        })
-        .catch(err => console.error("Permission check failed:", err));
-    }
-  }, [address, toast]);
+  // Removed geolocation permission prompt to avoid asking for location on this page.
 
 
   const getPackagePrice = () => {
@@ -1088,6 +1094,20 @@ const BookShoot = () => {
     navigate('/shoots');
   };
 
+  const handleAddressFieldsChange = React.useCallback(
+    ({ address: newAddress, city: newCity, state: newState, zip: newZip }: { address: string; city: string; state: string; zip: string }) => {
+      setAddress(newAddress);
+      setCity(newCity);
+      setState(normalizeState(newState) || newState);
+      setZip(newZip);
+    },
+    []
+  );
+
+  const handleClientChange = React.useCallback((clientId: string) => {
+    setClient(clientId);
+  }, []);
+
   // Clear cached form data
   const handleClearCache = () => {
     if (shouldCacheForm) {
@@ -1135,6 +1155,7 @@ const BookShoot = () => {
       propertyCity: city,
       propertyState: state,
       propertyZip: zip,
+      completeAddress: address,
       propertyInfo: notes,
       shootNotes: notes,
       companyNotes: companyNotes,
@@ -1306,6 +1327,8 @@ const BookShoot = () => {
                   formErrors={formErrors}
                   setFormErrors={setFormErrors}
                   clientPropertyFormData={clientPropertyFormData}
+                  onAddressFieldsChange={handleAddressFieldsChange}
+                  onClientChange={handleClientChange}
                   date={date}
                   setDate={setDate}
                   time={time}
@@ -1333,8 +1356,6 @@ const BookShoot = () => {
                   setSendNotification={setSendNotification}
                   getPackagePrice={getPackagePrice}
                   getPhotographerRate={getPhotographerRate}
-                  getTax={getTax}
-                  getTotal={getTotal}
                   clients={clients}
                   photographers={photographers}
                   handleSubmit={handleSubmit}

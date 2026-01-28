@@ -98,7 +98,7 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
       )}
 
       {/* Exclusive Listings */}
-      {(role === 'admin' || role === 'superadmin' || role === 'salesRep' || role === 'client' || role === 'sales_rep') && (
+      {(role === 'admin' || role === 'superadmin' || role === 'editing_manager' || role === 'salesRep' || role === 'client' || role === 'sales_rep') && (
         <NavLink
           to="/portal"
           icon={<Search className="h-5 w-5" />}
@@ -134,7 +134,7 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
         />
       )}
       {/* Messaging - Expandable with Emails and SMS for admins */}
-      {(role === 'admin' || role === 'superadmin' || role === 'sales_rep') && (
+      {(role === 'admin' || role === 'superadmin' || role === 'editing_manager' || role === 'sales_rep') && (
         <ExpandableNavLink
           icon={<MessageSquare className="h-5 w-5" />}
           label="Messaging"
@@ -190,7 +190,7 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
       )}
 
       {/* AI Editing link - admins only */}
-      {(role === 'admin' || role === 'superadmin') && (
+      {(role === 'admin' || role === 'superadmin' || role === 'editing_manager') && (
         <NavLink
           to="/ai-editing"
           icon={<Sparkles className="h-5 w-5" />}
@@ -202,7 +202,7 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
 
       {/* Chat with Robbie - Special styled link - Above separator */}
       {/* Only visible to client, admin, superadmin */}
-      {(role === 'client' || role === 'admin' || role === 'superadmin') && (
+      {(role === 'client' || role === 'admin' || role === 'superadmin' || role === 'editing_manager') && (
         <Link
           to="/chat-with-reproai"
           className={cn(

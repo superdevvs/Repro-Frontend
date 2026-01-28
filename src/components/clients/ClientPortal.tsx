@@ -582,7 +582,7 @@ export function ClientPortal() {
                         onClick={() => setGalleryIndex(idx)}
                         className={`h-14 w-20 flex-shrink-0 rounded-lg overflow-hidden border-2 transition-all ${
                           idx === galleryIndex 
-                            ? 'border-primary ring-2 ring-primary/50' 
+                            ? 'border-primary ring-2 ring-inset ring-primary/50' 
                             : 'border-transparent hover:border-muted-foreground/50'
                         }`}
                       >

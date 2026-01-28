@@ -87,6 +87,9 @@ export function ShootDetailsModal({
   const [isCancellationFeeDialogOpen, setIsCancellationFeeDialogOpen] = useState(false);
   const [shouldAddCancellationFee, setShouldAddCancellationFee] = useState(false);
   const [pendingAction, setPendingAction] = useState<'hold' | 'cancel' | null>(null);
+  const [isCancelShootDialogOpen, setIsCancelShootDialogOpen] = useState(false);
+  const [cancelShootReason, setCancelShootReason] = useState('');
+  const [isCancellingShoot, setIsCancellingShoot] = useState(false);
   const [isPublishingToBrightMls, setIsPublishingToBrightMls] = useState(false);
   const [isDownloadDialogOpen, setIsDownloadDialogOpen] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -634,6 +637,9 @@ export function ShootDetailsModal({
 
   // Check if user can resume from hold (admin, rep, or assigned photographer)
   const canResumeFromHold = isOnHold && (isAdminOrRep || (isPhotographer && shoot?.photographer?.id === user?.id));
+
+  // Check if admin can cancel shoot (not already cancelled/declined)
+  const canCancelShoot = isAdmin && shoot && !['cancelled', 'canceled', 'declined'].includes(normalizedStatus);
 
   // Check if shoot is within 3-4 hours of scheduled time
   const isWithinCancellationFeeWindow = useMemo(() => {
@@ -1276,6 +1282,85 @@ export function ShootDetailsModal({
     setIsCancellationFeeDialogOpen(false);
     if (pendingAction === 'hold') {
       setIsOnHoldDialogOpen(true);
+    } else if (pendingAction === 'cancel') {
+      setIsCancelShootDialogOpen(true);
+    }
+  };
+
+  // Handle cancel shoot (admin only - direct cancel without client request)
+  const handleCancelShoot = async () => {
+    if (!shoot) return;
+
+    setIsCancellingShoot(true);
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const payload: Record<string, unknown> = { 
+        reason: cancelShootReason.trim() || 'Cancelled by admin',
+        notify_client: true,
+      };
+      
+      // Add cancellation fee if within window and user selected it
+      if (isWithinCancellationFeeWindow && shouldAddCancellationFee) {
+        payload.cancellation_fee = 60;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/cancel`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to cancel shoot');
+      }
+
+      const result = await response.json();
+      
+      // Update the shoot data
+      if (result.data) {
+        setShoot(result.data);
+        updateShoot(shoot.id.toString(), result.data);
+      }
+
+      toast({
+        title: 'Shoot cancelled',
+        description: shouldAddCancellationFee 
+          ? 'The shoot has been cancelled. $60 cancellation fee has been added.'
+          : 'The shoot has been successfully cancelled.',
+      });
+
+      setIsCancelShootDialogOpen(false);
+      setCancelShootReason('');
+      setShouldAddCancellationFee(false);
+      
+      // Refresh the shoot list if callback is provided
+      if (onShootUpdate) {
+        onShootUpdate();
+      }
+    } catch (error) {
+      console.error('Error cancelling shoot:', error);
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to cancel shoot. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsCancellingShoot(false);
+    }
+  };
+
+  // Handle cancel shoot click - check for cancellation fee first
+  const handleCancelShootClick = () => {
+    if (isWithinCancellationFeeWindow) {
+      setPendingAction('cancel');
+      setIsCancellationFeeDialogOpen(true);
+    } else {
+      setIsCancelShootDialogOpen(true);
     }
   };
 
@@ -1870,6 +1955,17 @@ export function ShootDetailsModal({
                   >
                     <PauseCircle className="h-3 w-3 mr-1" />
                     <span>Mark as on hold</span>
+                  </Button>
+                )}
+                {canCancelShoot && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="h-7 text-xs px-3 bg-red-50 hover:bg-red-100 text-red-700 border-red-200 dark:bg-red-950 dark:hover:bg-red-900 dark:text-red-300 dark:border-red-800"
+                    onClick={handleCancelShootClick}
+                  >
+                    <XCircle className="h-3 w-3 mr-1" />
+                    <span>Cancel Shoot</span>
                   </Button>
                 )}
                 {canResumeFromHold && (
@@ -2596,6 +2692,83 @@ export function ShootDetailsModal({
             >
               <PauseCircle className="h-4 w-4 mr-2" />
               Mark as On Hold
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cancel Shoot Dialog - Admin only */}
+      <Dialog open={isCancelShootDialogOpen} onOpenChange={setIsCancelShootDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Cancel Shoot</DialogTitle>
+            <DialogDescription>
+              This will permanently cancel the shoot. The client will be notified of the cancellation.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg p-4">
+              <p className="text-sm text-red-800 dark:text-red-200">
+                <strong>Warning:</strong> This action cannot be undone. The shoot will be marked as cancelled and the client will be notified.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cancelShootReason">Reason (optional)</Label>
+              <Textarea
+                id="cancelShootReason"
+                placeholder="Enter the reason for cancelling this shoot..."
+                value={cancelShootReason}
+                onChange={(e) => setCancelShootReason(e.target.value)}
+                rows={4}
+                className="resize-none"
+              />
+            </div>
+            {isWithinCancellationFeeWindow && (
+              <div className="space-y-2">
+                <Label htmlFor="addCancellationFeeCancelDialog">Add cancellation fee to invoice?</Label>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="addCancellationFeeCancelDialog"
+                    checked={shouldAddCancellationFee}
+                    onChange={(e) => setShouldAddCancellationFee(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
+                  />
+                  <Label htmlFor="addCancellationFeeCancelDialog" className="text-sm font-normal cursor-pointer">
+                    Yes, add $60 cancellation fee to the invoice
+                  </Label>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsCancelShootDialogOpen(false);
+                setCancelShootReason('');
+                setShouldAddCancellationFee(false);
+              }}
+              disabled={isCancellingShoot}
+            >
+              Keep Shoot
+            </Button>
+            <Button
+              onClick={handleCancelShoot}
+              disabled={isCancellingShoot}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isCancellingShoot ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Cancelling...
+                </>
+              ) : (
+                <>
+                  <XCircle className="h-4 w-4 mr-2" />
+                  Cancel Shoot
+                </>
+              )}
             </Button>
           </div>
         </DialogContent>

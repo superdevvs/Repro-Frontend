@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { motion, useScroll, useTransform } from "framer-motion";
-import { MapPin, BedDouble, Bath, Maximize, Calendar, Play, Pause, ChevronDown, Share2, Heart, Download, X, ChevronLeft, ChevronRight, Home, Video, Layers, FileText, Mail, Phone, User, Link2, ExternalLink, Users } from "lucide-react";
+import { MapPin, BedDouble, Bath, Maximize, Calendar, Play, Pause, ChevronDown, Download, X, ChevronLeft, ChevronRight, Home, Video, Layers, FileText, Mail, Phone, User, Link2, ExternalLink, Users } from "lucide-react";
 import { NeoTour } from "./NeoTour";
 
 interface ShootData {
@@ -52,7 +52,6 @@ export function BrandedPage() {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [activeSection, setActiveSection] = useState("photos");
-  const [liked, setLiked] = useState(false);
   const [tourStyle, setTourStyle] = useState<string>('default');
 
   const heroRef = useRef<HTMLDivElement>(null);
@@ -139,7 +138,6 @@ export function BrandedPage() {
     }
   };
 
-  const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
   const beds = getBeds();
   const baths = getBaths();
   const sqft = getSqft();
@@ -246,24 +244,7 @@ export function BrandedPage() {
             ))}
           </div>
 
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="rounded-full text-muted-foreground hover:text-foreground hover:bg-muted"
-              onClick={() => setLiked(!liked)}
-            >
-              <Heart className={cn("w-5 h-5 transition-colors", liked && "fill-red-500 text-red-500")} />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="rounded-full text-muted-foreground hover:text-foreground hover:bg-muted"
-              onClick={() => navigator.share?.({ url: shareUrl }).catch(() => {})}
-            >
-              <Share2 className="w-5 h-5" />
-            </Button>
-          </div>
+          <div className="flex items-center gap-2" />
         </div>
       </motion.nav>
 
@@ -768,21 +749,8 @@ export function BrandedPage() {
       {/* Footer */}
       <footer className="py-8 px-6 border-t border-border/40 bg-muted/20">
         <div className="max-w-7xl mx-auto flex flex-col items-center justify-center gap-4">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" className="rounded-full text-muted-foreground hover:text-foreground" onClick={() => navigator.share?.({ url: shareUrl }).catch(() => {})}>
-              <Share2 className="w-5 h-5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="rounded-full text-muted-foreground hover:text-foreground"
-              onClick={() => setLiked(!liked)}
-            >
-              <Heart className={cn("w-5 h-5 transition-colors", liked && "fill-red-500 text-red-500")} />
-            </Button>
-          </div>
           <p className="text-muted-foreground text-xs">
-            © {new Date().getFullYear()} All rights reserved.
+            © 2026 R/E Pro Photos. All Rights Reserved.
           </p>
         </div>
       </footer>

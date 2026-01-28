@@ -8,6 +8,9 @@ export interface AiChatRequest {
     intent?: string; // 'book_shoot' | 'manage_booking' | 'availability' | 'client_stats' | 'accounting'
     source?: string;
     insightId?: string;
+    insightType?: string;
+    entity?: string;
+    filters?: Record<string, any>;
     insightPriority?: string;
     insightSummary?: string;
     insightAction?: string;

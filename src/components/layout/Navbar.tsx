@@ -3,6 +3,7 @@ import { SearchIcon, SunIcon, MoonIcon, PlusCircleIcon, CloudIcon, HomeIcon, His
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { getAvatarUrl } from '@/utils/defaultAvatars';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,6 +27,8 @@ import { RobbieInsightStrip } from '@/components/ai/RobbieInsightStrip';
 
 const DEFAULT_WEATHER_COORDS = { lat: 40.7128, lon: -74.006 };
 const WEATHER_COORDS_KEY = 'dashboard.weatherCoords';
+const IP_LOCATION_KEY = 'dashboard.ipLocation';
+const IP_LOCATION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 const readStoredCoords = () => {
   if (typeof window === 'undefined') return null;
@@ -42,6 +45,64 @@ const readStoredCoords = () => {
   return null;
 };
 
+const readCachedIpLocation = () => {
+  if (typeof window === 'undefined') return null;
+  const raw = window.localStorage.getItem(IP_LOCATION_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as { lat?: number; lon?: number; ts?: number };
+    if (
+      typeof parsed.lat === 'number' &&
+      typeof parsed.lon === 'number' &&
+      typeof parsed.ts === 'number' &&
+      Date.now() - parsed.ts < IP_LOCATION_TTL_MS
+    ) {
+      return { lat: parsed.lat, lon: parsed.lon };
+    }
+  } catch {
+    // ignore parse errors
+  }
+  return null;
+};
+
+const cacheIpLocation = (coords: { lat: number; lon: number }) => {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(
+    IP_LOCATION_KEY,
+    JSON.stringify({ ...coords, ts: Date.now() })
+  );
+};
+
+const fetchIpLocation = async (signal?: AbortSignal) => {
+  // Primary: ipapi (HTTPS, production-safe)
+  try {
+    const res = await fetch('https://ipapi.co/json/', { signal });
+    if (res.ok) {
+      const data = await res.json();
+      if (typeof data.latitude === 'number' && typeof data.longitude === 'number') {
+        return { lat: data.latitude, lon: data.longitude };
+      }
+    }
+  } catch {
+    // ignore and try fallback
+  }
+
+  // Fallback: ip-api (may be HTTP in some environments)
+  try {
+    const res = await fetch('http://ip-api.com/json/', { signal });
+    if (res.ok) {
+      const data = await res.json();
+      if (typeof data.lat === 'number' && typeof data.lon === 'number') {
+        return { lat: data.lat, lon: data.lon };
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  return null;
+};
+
 export function Navbar() {
   const { user, logout, role } = useAuth();
   const navigate = useNavigate();
@@ -49,7 +110,9 @@ export function Navbar() {
   const { theme, setTheme } = useTheme();
   const [weather, setWeather] = useState<WeatherInfo | null>(null);
   const [providerVersion, setProviderVersion] = useState(0);
-  const [weatherCoords, setWeatherCoords] = useState(() => readStoredCoords() ?? DEFAULT_WEATHER_COORDS);
+  const [weatherCoords, setWeatherCoords] = useState(
+    () => readStoredCoords() ?? readCachedIpLocation() ?? DEFAULT_WEATHER_COORDS
+  );
   const [isLocating, setIsLocating] = useState(false);
   const isLocatingRef = useRef(false);
   const { formatTemperature } = useUserPreferences();
@@ -101,6 +164,13 @@ export function Navbar() {
 
   const canUseGeolocation = typeof navigator !== 'undefined' && Boolean(navigator.geolocation);
 
+  const storeWeatherCoords = useCallback((coords: { lat: number; lon: number }) => {
+    setWeatherCoords(coords);
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(WEATHER_COORDS_KEY, JSON.stringify(coords));
+    }
+  }, []);
+
   const requestDeviceLocation = useCallback(() => {
     if (!canUseGeolocation || isLocatingRef.current) return;
     isLocatingRef.current = true;
@@ -108,10 +178,7 @@ export function Navbar() {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const coords = { lat: pos.coords.latitude, lon: pos.coords.longitude };
-        setWeatherCoords(coords);
-        if (typeof window !== 'undefined') {
-          window.localStorage.setItem(WEATHER_COORDS_KEY, JSON.stringify(coords));
-        }
+        storeWeatherCoords(coords);
         isLocatingRef.current = false;
         setIsLocating(false);
       },
@@ -123,27 +190,31 @@ export function Navbar() {
     );
   }, [canUseGeolocation]);
 
+  // Prefer IP-based location (no prompt). Falls back to stored/default.
   useEffect(() => {
-    if (!canUseGeolocation || !('permissions' in navigator)) return;
-    let cancelled = false;
+    const cached = readCachedIpLocation();
+    if (cached) {
+      storeWeatherCoords(cached);
+      return;
+    }
 
-    const attemptAutoLocate = async () => {
-      try {
-        const status = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
-        if (!cancelled && status.state === 'granted') {
-          requestDeviceLocation();
+    const controller = new AbortController();
+
+    fetchIpLocation(controller.signal)
+      .then((coords) => {
+        if (coords) {
+          cacheIpLocation(coords);
+          storeWeatherCoords(coords);
         }
-      } catch {
-        // ignore permission errors
-      }
-    };
-
-    attemptAutoLocate();
+      })
+      .catch(() => {
+        // ignore IP lookup failures
+      });
 
     return () => {
-      cancelled = true;
+      controller.abort();
     };
-  }, [canUseGeolocation, requestDeviceLocation]);
+  }, [storeWeatherCoords]);
 
   const toggleTheme = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark');
@@ -240,11 +311,14 @@ export function Navbar() {
         )}
         </div>
 
-        <div className="hidden xl:flex flex-1 min-w-0 px-4 items-center">
-          <div className="h-8 w-px bg-border/60" />
-          <RobbieInsightStrip role={role} className="w-full border-0 bg-transparent shadow-none px-4 py-0 rounded-none" />
-          <div className="h-8 w-px bg-border/60" />
-        </div>
+        {/* Hide Robbie strip for photographer and editor roles */}
+        {role !== 'photographer' && role !== 'editor' && (
+          <div className="hidden xl:flex flex-1 min-w-0 px-4 items-center">
+            <div className="h-8 w-px bg-border/60" />
+            <RobbieInsightStrip role={role} className="w-full border-0 bg-transparent shadow-none px-4 py-0 rounded-none" />
+            <div className="h-8 w-px bg-border/60" />
+          </div>
+        )}
       
         <div className="flex items-center gap-4">
         {/* Weather Info */}
@@ -302,7 +376,7 @@ export function Navbar() {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-8 w-8 rounded-full">
               <Avatar className="h-8 w-8">
-                <AvatarImage src={user?.avatar} alt={user?.name} />
+                <AvatarImage src={getAvatarUrl(user?.avatar, user?.role, (user as any)?.gender, user?.id)} alt={user?.name} />
                 <AvatarFallback>{user?.name?.charAt(0)}</AvatarFallback>
               </Avatar>
             </Button>

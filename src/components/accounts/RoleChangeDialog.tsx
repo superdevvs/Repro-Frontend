@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { User, Role } from "@/components/auth/AuthProvider";
+import { User, Role, useAuth } from "@/components/auth/AuthProvider";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -33,6 +33,8 @@ export function RoleChangeDialog({
   user,
   onSubmit = () => {},
 }: RoleChangeDialogProps) {
+  const { role: viewerRole } = useAuth();
+  const isSuperAdmin = viewerRole === 'superadmin';
   const [primaryRole, setPrimaryRole] = useState<Role>(user?.role || 'client');
   
   // For multiple role assignment (optional feature)
@@ -87,7 +89,9 @@ export function RoleChangeDialog({
                 <SelectValue placeholder="Select role" />
               </SelectTrigger>
               <SelectContent>
+                {isSuperAdmin && <SelectItem value="superadmin">Super Admin</SelectItem>}
                 <SelectItem value="admin">Admin</SelectItem>
+                <SelectItem value="editing_manager">Editing Manager</SelectItem>
                 <SelectItem value="photographer">Photographer</SelectItem>
                 <SelectItem value="client">Client</SelectItem>
                 <SelectItem value="editor">Editor</SelectItem>

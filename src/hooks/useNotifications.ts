@@ -4,6 +4,7 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import type { DashboardActivityItem } from '@/types/dashboard';
 import type { SmsMessageDetail, SmsThreadSummary } from '@/types/messaging';
 import { useSmsRealtime } from './use-sms-realtime';
+import { useEmailRealtime, type EmailRealtimeMessage } from './use-email-realtime';
 import { useShootRealtime, type ShootActivityEvent } from './use-shoot-realtime';
 import { toast } from '@/hooks/use-toast';
 import { API_BASE_URL } from '@/config/env';
@@ -148,7 +149,7 @@ const buildSmsNotification = (
   const baseMessage =
     'body' in payload && payload.body
       ? payload.body
-      : payload?.lastMessageSnippet || 'New SMS activity';
+      : ('lastMessageSnippet' in payload && payload.lastMessageSnippet) || 'New SMS activity';
 
   const threadId = 'threadId' in payload ? payload.threadId : payload.id;
   const contactName =
@@ -165,6 +166,31 @@ const buildSmsNotification = (
     date: now,
     actionUrl: threadId ? `/messaging/${threadId}` : undefined,
     actionLabel: 'Open thread',
+  };
+};
+
+const buildEmailNotification = (event: EmailRealtimeMessage, readIds: Set<string>): NotificationItem => {
+  const isInbound = event.direction === 'INBOUND';
+  const now = new Date().toISOString();
+  const id = `email-${event.id}-${now}`;
+  
+  const title = isInbound 
+    ? 'New Email Received' 
+    : 'Email Sent';
+  const senderName = event.sender_display_name || event.from_address;
+  const subjectPreview = event.subject ? event.subject.substring(0, 50) : '(No Subject)';
+  
+  return {
+    id,
+    title,
+    message: isInbound 
+      ? `From ${senderName}: ${subjectPreview}`
+      : `To ${event.to_address}: ${subjectPreview}`,
+    type: 'messages',
+    isRead: readIds.has(id),
+    date: event.created_at || now,
+    actionUrl: '/messaging/email/inbox',
+    actionLabel: 'View Email',
   };
 };
 
@@ -369,6 +395,18 @@ export const useNotifications = () => {
     onThreadUpdated: canAccessSms ? (thread) => {
       addNotification(buildSmsNotification(thread, { isMessage: false }, readIdsRef.current));
     } : undefined,
+  });
+
+  // Email real-time events - all authenticated users can receive email notifications
+  useEmailRealtime({
+    onEmailReceived: (email) => {
+      const notification = buildEmailNotification(email, readIdsRef.current);
+      addNotification(notification, { showToast: true });
+    },
+    onEmailSent: (email) => {
+      const notification = buildEmailNotification(email, readIdsRef.current);
+      addNotification(notification, { showToast: false }); // Don't toast for sent emails
+    },
   });
 
   // Shoot activity real-time events - pass user role and id for channel subscription

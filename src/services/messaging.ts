@@ -12,6 +12,7 @@ import type {
   SmsThreadDetail,
   SmsMessageDetail,
   SmsContact,
+  EmailRecipient,
 } from '@/types/messaging';
 
 // Overview
@@ -120,6 +121,19 @@ export const getEmailMessage = async (id: number): Promise<Message> => {
   return response.data;
 };
 
+export const getEmailRecipients = async (): Promise<EmailRecipient[]> => {
+  const response = await apiClient.get('/admin/users');
+  // API commonly returns { users: [...] }
+  const users = response.data?.users ?? response.data ?? [];
+  return Array.isArray(users)
+    ? users.map((u: any, idx: number) => ({
+        id: u.id ?? idx,
+        name: u.name,
+        email: u.email,
+      }))
+    : [];
+};
+
 export const getEmailThreads = async (params?: {
   per_page?: number;
   page?: number;
@@ -129,11 +143,66 @@ export const getEmailThreads = async (params?: {
 };
 
 export const composeEmail = async (data: ComposeEmailPayload): Promise<Message> => {
+  // Use FormData if attachments are present
+  if (data.attachments && data.attachments.length > 0) {
+    const formData = new FormData();
+    
+    // Add all non-file fields
+    if (data.to) formData.append('to', data.to);
+    if (data.subject) formData.append('subject', data.subject);
+    if (data.body_html) formData.append('body_html', data.body_html);
+    if (data.body_text) formData.append('body_text', data.body_text);
+    if (data.reply_to) formData.append('reply_to', data.reply_to);
+    if (data.channel_id) formData.append('channel_id', String(data.channel_id));
+    if (data.template_id) formData.append('template_id', String(data.template_id));
+    if (data.related_shoot_id) formData.append('related_shoot_id', String(data.related_shoot_id));
+    if (data.related_account_id) formData.append('related_account_id', String(data.related_account_id));
+    if (data.related_invoice_id) formData.append('related_invoice_id', String(data.related_invoice_id));
+    if (data.variables) formData.append('variables', JSON.stringify(data.variables));
+    if (data.cc) data.cc.forEach((email) => formData.append('cc[]', email));
+    if (data.bcc) data.bcc.forEach((email) => formData.append('bcc[]', email));
+    
+    // Add attachments
+    data.attachments.forEach((file) => formData.append('attachments[]', file));
+    
+    const response = await apiClient.post('/messaging/email/compose', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  }
+  
   const response = await apiClient.post('/messaging/email/compose', data);
   return response.data;
 };
 
 export const scheduleEmail = async (data: ScheduleEmailPayload): Promise<Message> => {
+  // Use FormData if attachments are present
+  if (data.attachments && data.attachments.length > 0) {
+    const formData = new FormData();
+    
+    // Add all non-file fields
+    if (data.to) formData.append('to', data.to);
+    if (data.subject) formData.append('subject', data.subject);
+    if (data.body_html) formData.append('body_html', data.body_html);
+    if (data.body_text) formData.append('body_text', data.body_text);
+    if (data.reply_to) formData.append('reply_to', data.reply_to);
+    if (data.channel_id) formData.append('channel_id', String(data.channel_id));
+    if (data.template_id) formData.append('template_id', String(data.template_id));
+    if (data.related_shoot_id) formData.append('related_shoot_id', String(data.related_shoot_id));
+    if (data.related_account_id) formData.append('related_account_id', String(data.related_account_id));
+    if (data.related_invoice_id) formData.append('related_invoice_id', String(data.related_invoice_id));
+    if (data.variables) formData.append('variables', JSON.stringify(data.variables));
+    formData.append('scheduled_at', data.scheduled_at);
+    
+    // Add attachments
+    data.attachments.forEach((file) => formData.append('attachments[]', file));
+    
+    const response = await apiClient.post('/messaging/email/schedule', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  }
+  
   const response = await apiClient.post('/messaging/email/schedule', data);
   return response.data;
 };

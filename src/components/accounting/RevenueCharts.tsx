@@ -742,7 +742,6 @@ export function RevenueCharts({
                               )}
                               <span className="text-sm text-gray-300">Receipt</span>
                             </div>
-                            <p className="text-xs text-gray-500 mt-1">OCR Confidence: 93%</p>
 
                             <div className="grid grid-cols-2 gap-8 mt-6">
                               <div>

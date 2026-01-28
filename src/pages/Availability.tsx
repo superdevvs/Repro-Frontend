@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { addDays, isSameWeek } from "date-fns";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { getAvatarUrl } from "@/utils/defaultAvatars";
 import {
   Dialog,
   DialogContent,
@@ -1533,7 +1534,7 @@ export default function Availability() {
                                   >
                                     <div className="flex items-center gap-3">
                                       <Avatar className="h-12 w-12">
-                                        <AvatarImage src={undefined} alt={photographer.name} />
+                                        <AvatarImage src={getAvatarUrl(photographer.avatar, 'photographer', undefined, photographer.id)} alt={photographer.name} />
                                         <AvatarFallback
                                           className={cn(
                                             isSelected
@@ -2305,7 +2306,7 @@ export default function Availability() {
                           >
                             <div className="flex items-center gap-3">
                               <Avatar className="h-12 w-12">
-                                <AvatarImage src={undefined} alt={photographer.name} />
+                                <AvatarImage src={getAvatarUrl(photographer.avatar, 'photographer', undefined, photographer.id)} alt={photographer.name} />
                                 <AvatarFallback className={cn(
                                   isSelected
                                     ? "bg-primary-foreground/20 text-primary-foreground"
@@ -2868,7 +2869,7 @@ export default function Availability() {
                                                         }}
                                                       >
                                                         <Avatar className="h-full w-full">
-                                                          <AvatarImage src={photographer?.avatar} alt={photographer?.name} className="object-cover" />
+                                                          <AvatarImage src={getAvatarUrl(photographer?.avatar, 'photographer', undefined, photographer?.id)} alt={photographer?.name} className="object-cover" />
                                                           <AvatarFallback className="text-[10px] bg-muted">{initials}</AvatarFallback>
                                                         </Avatar>
                                                       </div>
@@ -3363,7 +3364,7 @@ export default function Availability() {
                                                 }}
                                               >
                                                 <Avatar className="h-full w-full">
-                                                  <AvatarImage src={photographer?.avatar} alt={photographer?.name} className="object-cover" />
+                                                  <AvatarImage src={getAvatarUrl(photographer?.avatar, 'photographer', undefined, photographer?.id)} alt={photographer?.name} className="object-cover" />
                                                   <AvatarFallback className="text-[10px] bg-muted">{initials}</AvatarFallback>
                                                 </Avatar>
                                               </div>
@@ -4013,6 +4014,8 @@ export default function Availability() {
                   value={editedAvailability.startTime || ""}
                   onChange={(time) => setEditedAvailability({ ...editedAvailability, startTime: time })}
                   placeholder="Select start time"
+                  startHour={6}
+                  endHour={21}
                 />
               </div>
               <div className="space-y-2">
@@ -4021,6 +4024,8 @@ export default function Availability() {
                   value={editedAvailability.endTime || ""}
                   onChange={(time) => setEditedAvailability({ ...editedAvailability, endTime: time })}
                   placeholder="Select end time"
+                  startHour={6}
+                  endHour={21}
                 />
               </div>
             </div>
@@ -4205,6 +4210,8 @@ export default function Availability() {
                   value={newWeeklySchedule.startTime}
                   onChange={(time) => setNewWeeklySchedule({ ...newWeeklySchedule, startTime: time })}
                   placeholder="Select start time"
+                  startHour={6}
+                  endHour={21}
                 />
               </div>
               <div className="space-y-2">
@@ -4213,6 +4220,8 @@ export default function Availability() {
                   value={newWeeklySchedule.endTime}
                   onChange={(time) => setNewWeeklySchedule({ ...newWeeklySchedule, endTime: time })}
                   placeholder="Select end time"
+                  startHour={6}
+                  endHour={21}
                 />
               </div>
             </div>

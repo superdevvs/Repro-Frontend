@@ -172,6 +172,11 @@ export function ShootDetailsMediaTab({
   const canDownload = isAdmin || isClient || isEditor;
 
   const normalizedShootStatus = String(shoot?.workflowStatus || (shoot as any)?.status || '').toLowerCase();
+  
+  // Determine if delete is allowed (before delivered status - admin, photographer, editor can delete)
+  const DELIVERED_STATUSES = ['delivered', 'client_delivered', 'workflow_completed', 'finalized'];
+  const isDelivered = DELIVERED_STATUSES.some(status => normalizedShootStatus.includes(status));
+  const canDelete = (isAdmin || isPhotographer || isEditor) && !isDelivered;
   const isScheduledShoot = normalizedShootStatus === 'scheduled' || normalizedShootStatus === 'booked';
   const hasAnyMedia = rawFiles.length > 0 || editedFiles.length > 0;
 
@@ -2028,7 +2033,7 @@ export function ShootDetailsMediaTab({
                     setDisplayTab('uploaded');
                   }}
                 >
-                  Uploaded ({rawFiles.length})
+                  Raw Uploads ({rawFiles.length})
                 </TabsTrigger>
               )}
               {/* Edited tab - hidden for photographers (they only see raw/uploaded media) */}
@@ -2086,8 +2091,8 @@ export function ShootDetailsMediaTab({
                 <span>Upload More</span>
               </Button>
             )}
-            {/* AI Edit, Download, Create Request, and Delete buttons for selected files - hidden for editors */}
-            {canDownload && selectedFiles.size > 0 && !isEditor && (
+            {/* AI Edit, Download, Create Request, and Delete buttons for selected files */}
+            {canDownload && selectedFiles.size > 0 && (
               <>
                 {/* Hide AI Edit button for clients */}
                 {!isClient && (
@@ -2135,15 +2140,17 @@ export function ShootDetailsMediaTab({
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  className="h-7 text-[11px] px-2 bg-red-600 hover:bg-red-700 text-white"
-                  onClick={handleDeleteFiles}
-                >
-                  <Trash2 className="h-3 w-3 mr-1" />
-                  <span>Delete ({selectedFiles.size})</span>
-                </Button>
+                {canDelete && (
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="h-7 text-[11px] px-2 bg-red-600 hover:bg-red-700 text-white"
+                    onClick={handleDeleteFiles}
+                  >
+                    <Trash2 className="h-3 w-3 mr-1" />
+                    <span>Delete ({selectedFiles.size})</span>
+                  </Button>
+                )}
               </>
             )}
           </div>
@@ -2230,15 +2237,17 @@ export function ShootDetailsMediaTab({
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  className="h-7 text-[11px] px-2 w-full bg-red-600 hover:bg-red-700 text-white"
-                  onClick={handleDeleteFiles}
-                >
-                  <Trash2 className="h-3 w-3 mr-1" />
-                  <span>Delete</span>
-                </Button>
+                {canDelete && (
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="h-7 text-[11px] px-2 w-full bg-red-600 hover:bg-red-700 text-white"
+                    onClick={handleDeleteFiles}
+                  >
+                    <Trash2 className="h-3 w-3 mr-1" />
+                    <span>Delete</span>
+                  </Button>
+                )}
               </>
             )}
             {/* Upload button - Full width on mobile */}
@@ -2416,14 +2425,14 @@ export function ShootDetailsMediaTab({
                     onClick={() => setUploadedMediaTab('videos')}
                     className={`text-xs py-1 border-b-2 transition-colors ${uploadedMediaTab === 'videos' ? 'border-foreground text-foreground font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
                   >
-                    Videos ({uploadedVideos.length})
+                    Video ({uploadedVideos.length})
                   </button>
                   {iguideUrl && (
                     <button
                       onClick={() => setUploadedMediaTab('iguide')}
                       className={`text-xs py-1 border-b-2 transition-colors ${uploadedMediaTab === 'iguide' ? 'border-foreground text-foreground font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
                     >
-                      iGuide
+                      iGuide zip file
                     </button>
                   )}
                   {iguideFloorplans.length > 0 && (
@@ -2445,7 +2454,7 @@ export function ShootDetailsMediaTab({
                           {/* Dashed circle with cloud icon */}
                           <div className="relative mb-6">
                             <div className="h-28 w-28 rounded-full border-2 border-dashed border-primary/30 flex items-center justify-center">
-                              <div className="h-20 w-20 rounded-full bg-slate-800/80 flex items-center justify-center">
+                              <div className="h-20 w-20 rounded-full bg-muted dark:bg-slate-800/80 flex items-center justify-center">
                                 <CloudUpload className="h-10 w-10 text-primary" />
                               </div>
                             </div>
@@ -2499,7 +2508,7 @@ export function ShootDetailsMediaTab({
                           {/* Dashed circle with cloud icon */}
                           <div className="relative mb-6">
                             <div className="h-28 w-28 rounded-full border-2 border-dashed border-primary/30 flex items-center justify-center">
-                              <div className="h-20 w-20 rounded-full bg-slate-800/80 flex items-center justify-center">
+                              <div className="h-20 w-20 rounded-full bg-muted dark:bg-slate-800/80 flex items-center justify-center">
                                 <CloudUpload className="h-10 w-10 text-primary" />
                               </div>
                             </div>
@@ -2614,14 +2623,14 @@ export function ShootDetailsMediaTab({
                     onClick={() => setEditedMediaTab('videos')}
                     className={`text-xs py-1 border-b-2 transition-colors ${editedMediaTab === 'videos' ? 'border-foreground text-foreground font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
                   >
-                    Videos ({editedVideos.length})
+                    Video ({editedVideos.length})
                   </button>
                   {iguideUrl && (
                     <button
                       onClick={() => setEditedMediaTab('iguide')}
                       className={`text-xs py-1 border-b-2 transition-colors ${editedMediaTab === 'iguide' ? 'border-foreground text-foreground font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
                     >
-                      iGuide
+                      iGuide zip file
                     </button>
                   )}
                   {iguideFloorplans.length > 0 && (
@@ -2643,7 +2652,7 @@ export function ShootDetailsMediaTab({
                           {/* Dashed circle with cloud icon */}
                           <div className="relative mb-6">
                             <div className="h-28 w-28 rounded-full border-2 border-dashed border-primary/30 flex items-center justify-center">
-                              <div className="h-20 w-20 rounded-full bg-slate-800/80 flex items-center justify-center">
+                              <div className="h-20 w-20 rounded-full bg-muted dark:bg-slate-800/80 flex items-center justify-center">
                                 <CloudUpload className="h-10 w-10 text-primary" />
                               </div>
                             </div>
@@ -2697,7 +2706,7 @@ export function ShootDetailsMediaTab({
                           {/* Dashed circle with cloud icon */}
                           <div className="relative mb-6">
                             <div className="h-28 w-28 rounded-full border-2 border-dashed border-primary/30 flex items-center justify-center">
-                              <div className="h-20 w-20 rounded-full bg-slate-800/80 flex items-center justify-center">
+                              <div className="h-20 w-20 rounded-full bg-muted dark:bg-slate-800/80 flex items-center justify-center">
                                 <CloudUpload className="h-10 w-10 text-primary" />
                               </div>
                             </div>

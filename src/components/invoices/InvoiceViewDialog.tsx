@@ -63,9 +63,12 @@ interface InvoiceViewDialogProps {
 
 export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialogProps) {
   const [isPdfGenerating, setIsPdfGenerating] = useState(false);
-  const invoiceNumber = invoice.invoice_number || invoice.number || `Invoice ${invoice.id}`;
+  const invoiceNumberRaw = invoice.invoice_number || invoice.number || invoice.id;
+  const invoiceNumber = invoiceNumberRaw ? String(invoiceNumberRaw).trim() : '';
+  const displayInvoiceNumber = invoiceNumber
+    ? (invoiceNumber.startsWith('#') ? invoiceNumber : `#${invoiceNumber}`)
+    : '';
   const issueDate = invoice.issue_date || invoice.date;
-  const dueDate = invoice.due_date || invoice.dueDate;
   
   // Handle client name - can be string or object
   const getClientName = () => {
@@ -81,6 +84,7 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
     return 'N/A';
   };
   const clientName = getClientName();
+  const clientEmail = invoice.shoot?.client?.email || (typeof invoice.client === 'object' ? invoice.client?.email : undefined);
   
   // Handle property/shoot address
   const getPropertyAddress = () => {
@@ -230,7 +234,7 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
       doc.setTextColor(100, 100, 100);
       doc.setFontSize(9);
       doc.setFont('helvetica', 'normal');
-      doc.text(`DATE: ${formatDate(issueDate)}`, headerRightX, headerTop + 18, { align: 'right' });
+      doc.text(formatDate(issueDate), headerRightX, headerTop + 18, { align: 'right' });
 
       yPos = headerTop + 30;
 
@@ -266,21 +270,21 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
       }
 
       // Company info (right side of blue box)
-      const rightColX = margin + contentWidth / 2 + 10;
+      const rightColX = pageWidth - margin;
       doc.setTextColor(0, 0, 0);
       doc.setFontSize(9);
       doc.setFont('helvetica', 'bold');
-      doc.text('FROM', rightColX, yPos + 10);
+      doc.text('FROM', rightColX, yPos + 10, { align: 'right' });
       
       doc.setFontSize(10);
       doc.setFont('helvetica', 'bold');
-      doc.text('REPRO PHOTOS', rightColX, yPos + 18);
+      doc.text('REPRO PHOTOS', rightColX, yPos + 18, { align: 'right' });
       
       doc.setFontSize(9);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(80, 80, 80);
-      doc.text('Phone: (202) 868-1663', rightColX, yPos + 25);
-      doc.text('Email: contact@reprophotos.com', rightColX, yPos + 32);
+      doc.text('Phone: (202) 868-1663', rightColX, yPos + 25, { align: 'right' });
+      doc.text('Email: contact@reprophotos.com', rightColX, yPos + 32, { align: 'right' });
 
       yPos += blueBoxHeight + 10;
 
@@ -288,10 +292,10 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
       doc.setTextColor(0, 0, 0);
       doc.setFontSize(9);
       doc.setFont('helvetica', 'normal');
-      doc.text(`DATE: ${formatDate(issueDate)}`, margin, yPos);
+      doc.text(formatDate(issueDate), margin, yPos);
       
       doc.setFont('helvetica', 'bold');
-      doc.text(`INVOICE NO: ${invoiceNumber}`, headerRightX, yPos, { align: 'right' });
+      doc.text(displayInvoiceNumber || invoiceNumber, headerRightX, yPos, { align: 'right' });
       
       yPos += 12;
 
@@ -386,19 +390,19 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
       
       doc.setFont('helvetica', 'bold');
       doc.text('GRAND TOTAL:', summaryLabelX, yPos + 5);
-      const grandTotal = isPaid ? 0 : total;
+      const grandTotal = total;
       doc.text(formatCurrency(grandTotal), summaryValueX, yPos + 5, { align: 'right' });
 
-      // ===== TOTAL DUE (Large, left side) =====
+      // ===== TOTAL DUE/PAYMENT (Large, left side) =====
       yPos += 5;
       doc.setFontSize(9);
       doc.setFont('helvetica', 'bold');
-      doc.text('TOTAL DUE', margin, yPos);
+      doc.text(isPaid ? 'TOTAL PAYMENT' : 'TOTAL DUE', margin, yPos);
       
       doc.setFontSize(24);
       if (isPaid) {
         doc.setTextColor(0, 128, 0);
-        doc.text(formatCurrency(0), margin, yPos + 12);
+        doc.text(formatCurrency(total), margin, yPos + 12);
       } else {
         doc.setTextColor(30, 64, 175);
         doc.text(formatCurrency(total), margin, yPos + 12);
@@ -417,11 +421,12 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
       doc.text('Email us at contact@reprophotos.com or call us at (202) 868-1663', margin, footerY + 5);
 
       // Save PDF
-      doc.save(`${invoiceNumber.replace(/\s+/g, '-')}.pdf`);
+      const invoiceFileNumber = (displayInvoiceNumber || invoiceNumber || 'invoice').replace('#', '');
+      doc.save(`${invoiceFileNumber.replace(/\s+/g, '-')}.pdf`);
     } finally {
       setIsPdfGenerating(false);
     }
-  }, [clientName, dueDate, formatDate, invoiceNumber, invoice, isPaid, issueDate, isPdfGenerating, items, loadLogoPngForPdf, propertyAddress, subtotal, tax, total]);
+  }, [clientName, formatDate, invoiceNumber, invoice, isPaid, issueDate, isPdfGenerating, items, loadLogoPngForPdf, propertyAddress, subtotal, tax, total, displayInvoiceNumber]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -460,19 +465,11 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
             <div className="text-right space-y-1">
               <div className="text-xs font-semibold text-muted-foreground tracking-widest">INVOICE</div>
               <div>
-                <span className="text-sm font-semibold">Invoice Number: </span>
-                <span className="text-sm font-bold">{invoiceNumber}</span>
+                <span className="text-sm font-bold">{displayInvoiceNumber}</span>
               </div>
               <div>
-                <span className="text-sm font-semibold">Date: </span>
                 <span className="text-sm">{formatDate(issueDate)}</span>
               </div>
-              {dueDate && (
-                <div>
-                  <span className="text-sm font-semibold">Due Date: </span>
-                  <span className="text-sm">{formatDate(dueDate)}</span>
-                </div>
-              )}
             </div>
           </div>
 
@@ -481,11 +478,8 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
             <h3 className="text-sm font-semibold text-muted-foreground mb-2">Invoice To</h3>
             <div className="space-y-1">
               <p className="font-medium text-base">{clientName}</p>
-              {invoice.shoot?.client?.email && (
-                <p className="text-sm text-muted-foreground">{invoice.shoot.client.email}</p>
-              )}
-              {typeof invoice.client === 'object' && invoice.client?.email && (
-                <p className="text-sm text-muted-foreground">{invoice.client.email}</p>
+              {clientEmail && (
+                <p className="text-sm text-muted-foreground">{clientEmail}</p>
               )}
             </div>
           </div>
@@ -556,8 +550,8 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
                 </div>
               )}
               <div className="flex justify-between text-base font-bold pt-2 border-t-2 border-border mt-2">
-                <span className="text-foreground">Total Due:</span>
-                <span className={isPaid ? 'text-green-600 dark:text-green-400' : 'text-foreground'}>{formatCurrency(isPaid ? 0 : total)}</span>
+                <span className="text-foreground">{isPaid ? 'Total Payment:' : 'Total Due:'}</span>
+                <span className={isPaid ? 'text-green-600 dark:text-green-400' : 'text-foreground'}>{formatCurrency(total)}</span>
               </div>
             </div>
           </div>

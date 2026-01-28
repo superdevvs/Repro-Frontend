@@ -295,7 +295,7 @@ export function PaymentDialog({
                                 setPaymentAmount(numericValue);
                               }
                             }}
-                            className={`text-lg font-semibold [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${isPartialPaymentMode ? 'ring-2 ring-blue-500 border-blue-500' : ''}`}
+                            className={`text-lg font-semibold [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${isPartialPaymentMode ? 'ring-2 ring-inset ring-blue-500 border-blue-500' : ''}`}
                             required
                             placeholder={`Enter amount (max $${outstandingAmount.toFixed(2)})`}
                           />

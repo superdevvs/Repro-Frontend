@@ -299,7 +299,7 @@ export const SpecialEditingRequestDialog: React.FC<SpecialEditingRequestDialogPr
                       key={request.id}
                       className={cn(
                         "rounded-xl border border-border/60 bg-muted/20 p-4 space-y-3",
-                        isSelected && "ring-2 ring-primary",
+                        isSelected && "ring-2 ring-inset ring-primary",
                         isLoading && "opacity-50"
                       )}
                     >

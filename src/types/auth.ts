@@ -2,6 +2,7 @@
 export type UserRole =
   | 'superadmin'
   | 'admin'
+  | 'editing_manager'
   | 'salesRep'
   | 'photographer'
   | 'editor'
@@ -45,6 +46,7 @@ export interface UserData {
   email: string;
   role: UserRole;
   avatar?: string;
+  gender?: 'male' | 'female' | 'unknown';
   phone?: string;
   address?: string;
   city?: string;

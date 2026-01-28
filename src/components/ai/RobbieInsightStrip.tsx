@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -18,6 +18,9 @@ interface RobbieInsight {
   prompt: string;
   intent?: string;
   action?: string;
+  insightType?: string;
+  entity?: string;
+  filters?: Record<string, any>;
 }
 
 interface RobbieInsightStripProps {
@@ -55,127 +58,78 @@ const priorityMeta: Record<InsightPriority, { label: string; badgeClass: string;
   },
 };
 
-const insightsByRole: Record<"admin" | "salesRep" | "client", RobbieInsight[]> = {
-  admin: [
-    {
-      id: "admin-block-1",
-      priority: "blocking",
-      message: "4 shoots risk missing today's delivery SLA - two edits are overdue.",
-      prompt: "Review the delivery SLA risk for today's shoots and recommend the fastest recovery plan.",
-      intent: "manage_booking",
-      action: "Open recovery plan",
-    },
-    {
-      id: "admin-attention-1",
-      priority: "attention",
-      message: "Tomorrow is at 92% photographer capacity in Rockville.",
-      prompt: "Check tomorrow's Rockville coverage and suggest how to rebalance the schedule.",
-      intent: "availability",
-      action: "Review coverage",
-    },
-    {
-      id: "admin-insight-1",
-      priority: "insight",
-      message: "HDR shoots in MD are taking 22% longer on average this week.",
-      prompt: "Analyze why HDR shoots are slower in MD and suggest operational improvements.",
-      intent: "client_stats",
-      action: "See trend",
-    },
-    {
-      id: "admin-assist-1",
-      priority: "assistive",
-      message: "I can rebalance photographers for tomorrow to reduce overbooking.",
-      prompt: "Draft a recommended reassignment plan for tomorrow’s photographers.",
-      intent: "availability",
-      action: "Rebalance coverage",
-    },
-  ],
-  salesRep: [
-    {
-      id: "rep-block-1",
-      priority: "blocking",
-      message: "A client has been waiting on a response for 42 minutes.",
-      prompt: "Draft a quick reply to the client who has been waiting for 42 minutes.",
-      action: "Draft reply",
-    },
-    {
-      id: "rep-attention-1",
-      priority: "attention",
-      message: "Shoot #619 may need rescheduling due to weather risk.",
-      prompt: "Review Shoot #619 and suggest rescheduling options if weather worsens.",
-      intent: "manage_booking",
-      action: "Review options",
-    },
-    {
-      id: "rep-insight-1",
-      priority: "insight",
-      message: "This client typically approves edits within 1 reminder.",
-      prompt: "Recommend the best timing and tone for a reminder to this client.",
-      action: "See guidance",
-    },
-    {
-      id: "rep-assist-1",
-      priority: "assistive",
-      message: "Want me to notify the editor and track the ETA?",
-      prompt: "Notify the editor and summarize the ETA expectations for this delivery.",
-      action: "Notify editor",
-    },
-  ],
-  client: [
-    {
-      id: "client-block-1",
-      priority: "blocking",
-      message: "Payment is required to release delivery for your last shoot.",
-      prompt: "Explain the payment needed to release my delivery and the next steps.",
-      intent: "accounting",
-      action: "View payment",
-    },
-    {
-      id: "client-attention-1",
-      priority: "attention",
-      message: "Your approval is needed to continue editing on your latest shoot.",
-      prompt: "Walk me through the approval I need to submit so editing can continue.",
-      action: "Review approval",
-    },
-    {
-      id: "client-insight-1",
-      priority: "insight",
-      message: "Delivery is still on track for tomorrow morning.",
-      prompt: "Give me a quick delivery status update for my most recent shoot.",
-      action: "View status",
-    },
-    {
-      id: "client-assist-1",
-      priority: "assistive",
-      message: "Need an ETA summary or help requesting an edit?",
-      prompt: "Summarize the ETA and how I can request an edit if needed.",
-      action: "Get help",
-    },
-  ],
-};
+const allowedRoles: UserRole[] = ["admin", "superadmin", "salesRep", "client", "photographer", "editor"];
 
-const allowedRoles: UserRole[] = ["admin", "superadmin", "salesRep", "client"];
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const REFRESH_INTERVAL_MS = 60000; // Auto-refresh every 60 seconds
 
 const getRotationDelay = () =>
   ROTATION_MIN_MS + Math.floor(Math.random() * (ROTATION_MAX_MS - ROTATION_MIN_MS + 1));
 
 export const RobbieInsightStrip: React.FC<RobbieInsightStripProps> = ({ role, className }) => {
-  const { role: authRole } = useAuth();
+  const { role: authRole, session } = useAuth();
+  const token = session?.accessToken;
   const navigate = useNavigate();
   const activeRole = role ?? authRole;
   const isAllowedRole = Boolean(activeRole && allowedRoles.includes(activeRole));
   const roleKey = (activeRole === "superadmin" ? "admin" : activeRole) ?? "admin";
 
-  const insights = useMemo(() => {
-    if (!isAllowedRole) return [];
-    const roleInsights = insightsByRole[roleKey as keyof typeof insightsByRole] ?? [];
-    const blockingInsights = roleInsights.filter((insight) => insight.priority === "blocking");
-    const prioritized = (blockingInsights.length ? blockingInsights : roleInsights).slice(0, 5);
-    return prioritized;
-  }, [isAllowedRole, roleKey]);
-
+  const [apiInsights, setApiInsights] = useState<RobbieInsight[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+
+  // Fetch insights from API
+  const fetchInsights = useCallback(async () => {
+    if (!isAllowedRole || !token) {
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      setError(null);
+      const response = await fetch(`${API_BASE_URL}/api/robbie/insights`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        setApiInsights([]);
+        setError('Unable to load insights right now.');
+        return;
+      }
+
+      const data = await response.json();
+      if (data?.success && Array.isArray(data.insights)) {
+        setApiInsights(data.insights);
+      } else {
+        setApiInsights([]);
+      }
+    } catch (error) {
+      console.error('Failed to fetch Robbie insights:', error);
+      setApiInsights([]);
+      setError('Unable to load insights right now.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isAllowedRole, token]);
+
+  // Initial fetch and auto-refresh
+  useEffect(() => {
+    fetchInsights();
+    const interval = setInterval(fetchInsights, REFRESH_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [fetchInsights]);
+
+  // Use API insights only (no static fallback)
+  const insights = useMemo(() => {
+    if (!isAllowedRole) return [];
+    const blockingInsights = apiInsights.filter((insight) => insight.priority === "blocking");
+    return (blockingInsights.length ? blockingInsights : apiInsights).slice(0, 5);
+  }, [isAllowedRole, roleKey, apiInsights]);
 
   useEffect(() => {
     setActiveIndex(0);
@@ -192,17 +146,40 @@ export const RobbieInsightStrip: React.FC<RobbieInsightStripProps> = ({ role, cl
   }, [activeIndex, insights.length, isPaused]);
 
   const activeInsight = insights[activeIndex];
+  if (!isAllowedRole) return null;
 
-  if (!isAllowedRole || !activeInsight) return null;
+  const placeholderMessage = isLoading
+    ? "Loading Robbie insights..."
+    : error
+    ? error
+    : "No insights yet — ask me anything.";
 
-  const meta = priorityMeta[activeInsight.priority];
+  const displayInsight: RobbieInsight = activeInsight ?? {
+    id: "robbie-placeholder",
+    priority: "assistive",
+    message: placeholderMessage,
+    prompt: "",
+    action: "",
+  };
+
+  const meta = priorityMeta[displayInsight.priority];
+  const isInteractive = Boolean(activeInsight && activeInsight.prompt);
 
   const handleOpenChat = () => {
+    if (!activeInsight || !activeInsight.prompt) {
+      if (error) {
+        fetchInsights();
+      }
+      return;
+    }
     const context: AiChatRequest["context"] = {
       mode: "insight",
       intent: activeInsight.intent,
       source: "robbie_insight_strip",
       insightId: activeInsight.id,
+      insightType: activeInsight.insightType,
+      entity: activeInsight.entity,
+      filters: activeInsight.filters,
       insightPriority: activeInsight.priority,
       insightSummary: activeInsight.message,
       insightAction: activeInsight.action,
@@ -222,9 +199,10 @@ export const RobbieInsightStrip: React.FC<RobbieInsightStripProps> = ({ role, cl
     <div
       role="button"
       tabIndex={0}
-      aria-label={`Robbie insight: ${activeInsight.message}`}
+      aria-label={`Robbie insight: ${displayInsight.message}`}
       onClick={handleOpenChat}
       onKeyDown={(event) => {
+        if (!isInteractive && !error) return;
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
           handleOpenChat();
@@ -258,15 +236,15 @@ export const RobbieInsightStrip: React.FC<RobbieInsightStripProps> = ({ role, cl
         </Badge>
         <AnimatePresence mode="wait">
           <motion.div
-            key={activeInsight.id}
+            key={displayInsight.id}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.35 }}
             className="min-w-0 text-sm font-medium text-foreground/90 truncate"
-            title={activeInsight.message}
+            title={displayInsight.message}
           >
-            {activeInsight.message}
+            {displayInsight.message}
           </motion.div>
         </AnimatePresence>
       </div>
