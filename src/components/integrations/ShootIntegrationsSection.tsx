@@ -112,6 +112,7 @@ export function ShootIntegrationsSection({ shoot, onRefresh }: ShootIntegrations
       const photos = shoot.files
         ?.filter((f, idx) => selectedPhotos.has(f.id) || idx === 0) // Include first photo by default
         .map((f) => ({
+          id: f.id,
           url: f.path || f.url || '',
           filename: f.filename || `photo-${f.id}`,
           selected: true,

@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { InvoiceData } from '@/utils/invoiceUtils';
+import { useAuth } from "@/components/auth";
 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast as sonnerToast } from "sonner";
@@ -47,6 +48,11 @@ export function ShootSettingsTab({
   const [autoEditEnabled, setAutoEditEnabled] = useState<boolean>(() => !!(shoot as any)?.auto_edit_enabled);
   const [autoEditStyle, setAutoEditStyle] = useState<string>(() => (shoot as any)?.auto_edit_preferences?.style || 'signature');
   const [autoEditType, setAutoEditType] = useState<string>(() => (shoot as any)?.auto_edit_preferences?.editing_type || 'enhance');
+  const [isPrivateExclusive, setIsPrivateExclusive] = useState<boolean>(() => !!((shoot as any)?.is_private_listing || (shoot as any)?.isPrivateListing));
+
+  const auth = useAuth();
+  const role = auth?.user?.role || 'client';
+  const isSalesRep = role === 'salesRep';
 
   const [savingToggleKey, setSavingToggleKey] = useState<string | null>(null); // to show loading state per toggle
 
@@ -67,7 +73,13 @@ export function ShootSettingsTab({
     setAutoEditEnabled(!!(shoot as any)?.auto_edit_enabled);
     setAutoEditStyle((shoot as any)?.auto_edit_preferences?.style || 'signature');
     setAutoEditType((shoot as any)?.auto_edit_preferences?.editing_type || 'enhance');
+    setIsPrivateExclusive(!!((shoot as any)?.is_private_listing || (shoot as any)?.isPrivateListing));
   }, [shoot]);
+
+  const canManagePrivateExclusive = isAdmin || isClient || isSalesRep;
+
+  const normalizedStatus = String((shoot as any)?.workflowStatus || (shoot as any)?.workflow_status || (shoot as any)?.status || '').toLowerCase();
+  const eligibleForPrivateExclusive = ['delivered', 'ready_for_client', 'admin_verified', 'ready', 'completed'].includes(normalizedStatus);
 
   // keep localInvoice in sync with prop changes
   useEffect(() => {
@@ -118,13 +130,63 @@ export function ShootSettingsTab({
           },
           body: JSON.stringify({ [key]: value })
         });
-        if (!res.ok) throw new Error(`Server ${res.status}`);
-        onUpdate?.({ meta: { ...((shoot as any).meta || {}), [key]: value } } as any);
+        if (!res.ok) {
+          const errorJson = await res.json().catch(() => null);
+          const message =
+            errorJson?.message
+            || errorJson?.error
+            || (errorJson?.errors ? Object.values(errorJson.errors).flat().join(' ') : null)
+            || `Server ${res.status}`;
+          throw new Error(message);
+        }
+
+        const successJson = await res.json().catch(() => null);
+        const returned = successJson?.data || successJson;
+        if (key === 'is_private_listing') {
+          const persisted =
+            returned?.is_private_listing !== undefined
+              ? Boolean(returned.is_private_listing)
+              : (returned?.isPrivateListing !== undefined ? Boolean(returned.isPrivateListing) : Boolean(value));
+          setIsPrivateExclusive(persisted);
+          onUpdate?.({ isPrivateListing: persisted } as any);
+
+          // Verify persistence by re-fetching the shoot
+          try {
+            const verifyRes = await fetch(`${base}/api/shoots/${shoot.id}`, {
+              headers: {
+                'Accept': 'application/json',
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+              },
+            });
+
+            if (verifyRes.ok) {
+              const verifyJson = await verifyRes.json().catch(() => null);
+              const verifyData = verifyJson?.data || verifyJson;
+              const verified =
+                verifyData?.is_private_listing !== undefined
+                  ? Boolean(verifyData.is_private_listing)
+                  : (verifyData?.isPrivateListing !== undefined ? Boolean(verifyData.isPrivateListing) : persisted);
+
+              setIsPrivateExclusive(verified);
+              onUpdate?.({ isPrivateListing: verified } as any);
+
+              if (verified !== persisted) {
+                sonnerToast.error('Private Exclusive did not persist after refresh. Please restart backend and try again.');
+              }
+            }
+          } catch {
+            // ignore verification errors
+          }
+        } else {
+          onUpdate?.({ meta: { ...((shoot as any).meta || {}), [key]: value } } as any);
+        }
         sonnerToast.success('Setting updated');
       }
     } catch (err) {
       console.error('Toggle update failed', err);
-      sonnerToast.error('Failed to update');
+      const message = err instanceof Error ? err.message : 'Failed to update';
+      sonnerToast.error(message);
+      throw err;
     } finally {
       setSavingToggleKey(null);
     }
@@ -268,7 +330,39 @@ export function ShootSettingsTab({
 
   // ---------- render ----------
   return (
-    <div className="space-y-0">
+    <div className="space-y-6 w-full">
+      {/* Private Exclusive Toggle */}
+      {canManagePrivateExclusive && (
+        <div className="border rounded-lg p-3.5">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium">Private Exclusive</div>
+              <div className="text-xs text-muted-foreground mt-0.5">
+                Mark this delivered shoot as Private Exclusive and hide it from public discovery
+              </div>
+              {!eligibleForPrivateExclusive && (
+                <div className="text-xs text-muted-foreground mt-2">
+                  Available only for delivered/completed shoots.
+                </div>
+              )}
+            </div>
+            <Switch
+              checked={isPrivateExclusive}
+              onCheckedChange={(checked: boolean) => {
+                if (!eligibleForPrivateExclusive) return;
+                const prev = isPrivateExclusive;
+                setIsPrivateExclusive(checked);
+                toggleSetting('is_private_listing', checked).catch(() => {
+                  setIsPrivateExclusive(prev);
+                });
+              }}
+              disabled={!eligibleForPrivateExclusive || savingToggleKey === 'is_private_listing'}
+              className="flex-shrink-0"
+            />
+          </div>
+        </div>
+      )}
+
       {/* Settings */}
       {isAdmin && (
         <div className="min-w-0 space-y-4">
@@ -589,6 +683,10 @@ export function ShootSettingsTab({
         isOpen={paymentDialogOpen}
         onClose={() => setPaymentDialogOpen(false)}
         onPaymentComplete={handlePaymentComplete}
+        shootAddress={shoot?.location?.fullAddress || shoot?.location?.address}
+        shootServices={Array.isArray(shoot?.services) ? shoot.services.map((s: any) => typeof s === 'string' ? s : s?.name || s?.label || String(s)).filter(Boolean) : []}
+        clientName={shoot?.client?.name}
+        clientEmail={shoot?.client?.email}
       />
     </div>
   );

@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { PageTransition } from '@/components/layout/PageTransition';
 import { AccountingHeader } from '@/components/accounting/AccountingHeader';
@@ -25,15 +25,32 @@ import { EditInvoiceDialog } from '@/components/invoices/EditInvoiceDialog';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { usePermission } from '@/hooks/usePermission';
 import { getAccountingMode, accountingConfigs } from '@/config/accountingConfig';
+import { fetchInvoices, markInvoiceAsPaid } from '@/services/invoiceService';
+import { registerInvoicesRefresh } from '@/realtime/realtimeRefreshBus';
+import { useShoots } from '@/context/ShootsContext';
 
-// We're reusing the existing initial invoices data for now
-import { initialInvoices } from '@/components/accounting/data';
+const toNumber = (value: unknown) => {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : 0;
+};
+
+const isPhotoServiceName = (name: string) => /photo|hdr|twilight/i.test(name);
+
+const isVideoServiceName = (name: string) => /video/i.test(name);
+
+const isFloorplanServiceName = (name: string) => /floor\s*plan|floorplan/i.test(name);
+
+const extractPhotoCountFromService = (name: string) => {
+  const match = name.match(/(\d+)\s*photo/i);
+  return match ? Number(match[1]) : 0;
+};
 
 const AccountingPage = () => {
   const { toast } = useToast();
   const { role, user } = useAuth(); // Use the correct AuthProvider
   const { can } = usePermission();
-  const [invoices, setInvoices] = useState<InvoiceData[]>(initialInvoices);
+  const [invoices, setInvoices] = useState<InvoiceData[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceData | null>(null);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
@@ -41,24 +58,52 @@ const AccountingPage = () => {
   const [batchDialogOpen, setBatchDialogOpen] = useState(false);
   const [timeFilter, setTimeFilter] = useState<'day' | 'week' | 'month' | 'quarter' | 'year'>('month');
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const { shoots: contextShoots } = useShoots();
 
   // Get accounting mode based on role
   const accountingMode = useMemo(() => getAccountingMode(role), [role]);
   const config = accountingConfigs[accountingMode];
 
-  // Filter invoices based on role
+  const loadInvoices = useCallback(async (): Promise<void> => {
+    try {
+      setLoading(true);
+      const response = await fetchInvoices({
+        per_page: 100, // Fetch more invoices for accounting view
+      });
+      setInvoices(response.data);
+    } catch (error) {
+      console.error('Failed to load invoices:', error);
+      toast({
+        title: 'Failed to load invoices',
+        description: error instanceof Error ? error.message : 'An error occurred while loading invoices',
+        variant: 'destructive',
+      });
+      setInvoices([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
+  // Fetch invoices from API
+  useEffect(() => {
+    loadInvoices();
+  }, [loadInvoices]);
+
+  useEffect(() => registerInvoicesRefresh(loadInvoices), [loadInvoices]);
+
+  // Filter invoices based on role (backend already filters, but this is a safety check)
   const filteredInvoices = useMemo(() => {
-    if (accountingMode === 'admin') {
-      return invoices; // Admin sees all
+    // Backend already applies role-based filtering, but we do a client-side safety check
+    if (accountingMode === 'admin' || accountingMode === 'rep') {
+      return invoices; // Admin and rep see all (filtered by backend)
     }
     if (accountingMode === 'client') {
-      return invoices.filter(i => i.client === user?.name || i.client_id === user?.id);
+      return invoices.filter(i => String(i.client_id ?? '') === String(user?.id ?? '') || i.client === user?.name);
     }
-    if (accountingMode === 'rep') {
-      // Filter by rep assignment - placeholder logic
-      return invoices; // Would filter by rep_id in real implementation
+    if (accountingMode === 'photographer') {
+      return invoices.filter(i => String(i.photographer_id ?? '') === String(user?.id ?? ''));
     }
-    // For photographer and editor, invoices might not be the primary data
+    // For editor, invoices might not be the primary data
     return invoices;
   }, [invoices, accountingMode, user]);
 
@@ -69,24 +114,101 @@ const AccountingPage = () => {
   // Example for editor:
   // const editingJobs = useEditingJobsForEditor(user?.id);
   const shoots = useMemo(() => {
-    if (accountingMode === 'photographer') {
-      // TODO: Fetch shoots for this photographer from API
-      // Filter by photographer_id === user?.id
-      // Include fields: id, client, location, scheduledDate, status, payment, photographer_fee
-      return [] as ShootData[];
+    if (accountingMode === 'photographer' || accountingMode === 'editor') {
+      return contextShoots;
     }
     return [] as ShootData[];
-  }, [accountingMode, user]);
+  }, [accountingMode, contextShoots]);
+
+  const editorRates = useMemo(() => {
+    const metadata = user?.metadata ?? {};
+    return {
+      photoEditRate: toNumber(metadata.photo_edit_rate ?? metadata.photoEditRate),
+      videoEditRate: toNumber(metadata.video_edit_rate ?? metadata.videoEditRate),
+      floorplanRate: toNumber(metadata.floorplan_rate ?? metadata.floorplanRate),
+      otherRate: toNumber(metadata.other_rate ?? metadata.otherRate),
+    };
+  }, [user?.metadata]);
 
   const editingJobs = useMemo(() => {
-    if (accountingMode === 'editor') {
-      // TODO: Fetch editing jobs for this editor from API
-      // Filter by editor_id === user?.id
-      // Include fields: id, shootId, client, type, status, pay, assignedDate, completedDate, payoutStatus
+    if (accountingMode !== 'editor') {
       return [] as EditorJob[];
     }
-    return [] as EditorJob[];
-  }, [accountingMode, user]);
+
+    const editorId = user?.id ? String(user.id) : null;
+    const jobs: EditorJob[] = [];
+
+    shoots.forEach((shoot) => {
+      const shootEditorId =
+        (shoot.editor?.id ? String(shoot.editor.id) : null) ||
+        ((shoot as any).editor_id ? String((shoot as any).editor_id) : null) ||
+        ((shoot as any).editorId ? String((shoot as any).editorId) : null);
+
+      if (editorId && shootEditorId && editorId !== shootEditorId) {
+        return;
+      }
+
+      const services = (shoot.services || []).map((service) => String(service));
+      const photoCountFromServices = services.reduce(
+        (sum, service) => sum + extractPhotoCountFromService(service),
+        0,
+      );
+      const photoCount =
+        toNumber(shoot.editedPhotoCount) ||
+        toNumber(shoot.expectedFinalCount) ||
+        photoCountFromServices ||
+        0;
+      const videoCount = services.filter((service) => isVideoServiceName(service)).length;
+      const floorplanCount = services.filter((service) => isFloorplanServiceName(service)).length;
+      const otherCount = services.filter(
+        (service) =>
+          !isPhotoServiceName(service) &&
+          !isVideoServiceName(service) &&
+          !isFloorplanServiceName(service),
+      ).length;
+
+      const statusValue = (() => {
+        const workflowStatus = shoot.workflowStatus?.toLowerCase();
+        const shootStatus = shoot.status?.toLowerCase();
+        if (shoot.completedDate || workflowStatus === 'delivered' || shootStatus === 'delivered') {
+          return 'delivered' as const;
+        }
+        if (workflowStatus === 'editing' || shootStatus === 'editing') {
+          return 'in_progress' as const;
+        }
+        return 'pending' as const;
+      })();
+
+      const assignedDate = shoot.scheduledDate || shoot.completedDate || new Date().toISOString();
+      const completedDate = shoot.completedDate || undefined;
+
+      const pushJob = (type: EditorJob['type'], count: number, rate: number) => {
+        if (!count || rate <= 0) return;
+        const pay = Number((count * rate).toFixed(2));
+        jobs.push({
+          id: `${shoot.id}-${type}`,
+          shootId: String(shoot.id),
+          client: shoot.client,
+          type,
+          status: statusValue,
+          pay,
+          payAmount: pay,
+          assignedDate,
+          completedDate,
+          payoutStatus: statusValue === 'delivered' ? 'pending' : 'unpaid',
+          editorId: shootEditorId ?? undefined,
+          editor_id: shootEditorId ?? undefined,
+        } as EditorJob & { editor_id?: string });
+      };
+
+      pushJob('photo_edit', photoCount, editorRates.photoEditRate);
+      pushJob('video_edit', videoCount, editorRates.videoEditRate);
+      pushJob('floorplan', floorplanCount, editorRates.floorplanRate);
+      pushJob('other', otherCount, editorRates.otherRate);
+    });
+
+    return jobs;
+  }, [accountingMode, editorRates, shoots, user?.id]);
 
   // Use permission system to check if user has admin capabilities
   const canCreateInvoice = can('invoices', 'create');
@@ -128,25 +250,37 @@ const AccountingPage = () => {
     setPaymentDialogOpen(false);
   };
 
-  const handlePaymentComplete = (invoiceId: string, paymentMethod: string) => {
-    setInvoices(currentInvoices =>
-      currentInvoices.map(invoice =>
-        invoice.id === invoiceId
-          ? {
-            ...invoice,
-            status: 'paid',
-            paymentMethod: paymentMethod
-          }
-          : invoice
-      )
-    );
+  const handlePaymentComplete = async (invoiceId: string, paymentMethod: string) => {
+    try {
+      const updatedInvoice = await markInvoiceAsPaid(invoiceId, {
+        amount_paid: undefined, // Use invoice total
+      });
+      
+      setInvoices(currentInvoices =>
+        currentInvoices.map(invoice =>
+          invoice.id === invoiceId
+            ? {
+              ...updatedInvoice,
+              paymentMethod: paymentMethod
+            }
+            : invoice
+        )
+      );
 
-    toast({
-      title: "Payment Successful",
-      description: `Invoice ${invoiceId} has been marked as paid.`,
-      variant: "default",
-    });
-    setPaymentDialogOpen(false);
+      toast({
+        title: "Payment Successful",
+        description: `Invoice ${invoiceId} has been marked as paid.`,
+        variant: "default",
+      });
+      setPaymentDialogOpen(false);
+    } catch (error) {
+      console.error('Failed to mark invoice as paid:', error);
+      toast({
+        title: "Payment Failed",
+        description: error instanceof Error ? error.message : 'Failed to mark invoice as paid',
+        variant: "destructive",
+      });
+    }
   };
 
   const handleCreateInvoice = (newInvoice: InvoiceData) => {

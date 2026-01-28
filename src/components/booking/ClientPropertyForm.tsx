@@ -48,7 +48,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import AddressLookupField from '@/components/AddressLookupField';
-import { normalizeState } from '@/utils/stateUtils';
+import { normalizeState, STATE_OPTIONS } from '@/utils/stateUtils';
 // add near other imports at top
 import { AccountForm } from '@/components/accounts/AccountForm';
 import type { AccountFormValues } from '@/components/accounts/AccountForm';
@@ -270,6 +270,7 @@ export const ClientPropertyForm = ({
   const [panelCategory, setPanelCategory] = useState<string>('all');
   const [presenceOption, setPresenceOption] = useState<PresenceOption>('self');
   const [propertyDetailsData, setPropertyDetailsData] = useState<any>(null);
+  const [completeAddress, setCompleteAddress] = useState<string>('');
   const { toast } = useToast();
 
   const navigate = useNavigate();
@@ -329,6 +330,29 @@ export const ClientPropertyForm = ({
       shouldValidate: true,
     });
   }, [selectedServices, form]);
+
+  // Seed complete address from initial data (so it is editable even before lookup)
+  React.useEffect(() => {
+    const parts = [
+      initialData.completeAddress,
+      initialData.propertyAddress,
+      initialData.propertyCity,
+      initialData.propertyState,
+      initialData.propertyZip,
+    ]
+      .filter(Boolean)
+      .map((p) => String(p).trim())
+      .filter(Boolean);
+
+    if (!completeAddress && parts.length) {
+      setCompleteAddress(
+        parts
+          .join(', ')
+          .replace(/, ([A-Z]{2}), /, ', $1 ')
+          .trim(),
+      );
+    }
+  }, [initialData, completeAddress]);
 
 const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
     if (!packages?.length) return [];
@@ -461,6 +485,13 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
   const selectedClient = selectedClientId ? clients.find(client => client.id === selectedClientId) : null;
 
   const handleSubmit = (data: FormValues) => {
+    const normalizedComplete =
+      completeAddress ||
+      [data.propertyAddress, data.propertyCity, data.propertyState, data.propertyZip]
+        .filter(Boolean)
+        .join(', ')
+        .trim();
+
     // Merge property details from address lookup with access info from form
     // Convert empty strings to undefined to avoid saving empty values
     const mergedPropertyDetails = {
@@ -479,6 +510,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
     
     const baseData = {
       ...data,
+      completeAddress: normalizedComplete || undefined,
       property_details: Object.keys(mergedPropertyDetails).length > 0 ? mergedPropertyDetails : undefined,
     };
 
@@ -698,30 +730,59 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                 name="propertyAddress"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Address</FormLabel>
+                    <FormLabel>Search Address</FormLabel>
                     <FormControl>
                       <AddressLookupField
                         value={field.value}
                         onChange={field.onChange}
                         onAddressSelect={(address) => {
+                          console.log('🏠 ClientPropertyForm onAddressSelect called:', address);
+                          
                           // Auto-fill city, state, and zip when address is selected
-                          form.setValue('propertyCity', address.city || '', { shouldDirty: true, shouldTouch: true, shouldValidate: true });
+                          const city = address.city || '';
+                          form.setValue('propertyCity', city, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
                           // Normalize state to 2-letter abbreviation
                           const normalizedState = normalizeState(address.state) || address.state || '';
                           form.setValue('propertyState', normalizedState, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
-                          form.setValue('propertyZip', address.zip || '', { shouldDirty: true, shouldTouch: true, shouldValidate: true });
-                          // Use street address (not formatted_address) for the address field
-                          const street = address.address || address.formatted_address || '';
-                          form.setValue('propertyAddress', street, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
+                          const zip = address.zip || '';
+                          form.setValue('propertyZip', zip, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
+                          
+                          // Extract only street address by removing city/state/zip from full address
+                          let streetAddress = address.address || address.formatted_address || '';
+                          if (streetAddress && (city || normalizedState || zip)) {
+                            // Remove city, state, zip from the address string
+                            if (city) streetAddress = streetAddress.replace(new RegExp(`\\s*,?\\s*${city}\\s*,?`, 'gi'), '');
+                            if (normalizedState) streetAddress = streetAddress.replace(new RegExp(`\\s*,?\\s*${normalizedState}\\s*,?`, 'gi'), '');
+                            if (address.state && address.state !== normalizedState) {
+                              streetAddress = streetAddress.replace(new RegExp(`\\s*,?\\s*${address.state}\\s*,?`, 'gi'), '');
+                            }
+                            if (zip) streetAddress = streetAddress.replace(new RegExp(`\\s*,?\\s*${zip}\\s*`, 'gi'), '');
+                            // Clean up trailing/leading commas and spaces
+                            streetAddress = streetAddress.replace(/^[,\s]+|[,\s]+$/g, '').trim();
+                          }
+                          
+                          form.setValue('propertyAddress', streetAddress, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
+                          
+                          // Set only street address (not full address with city/state/zip)
+                          setCompleteAddress(streetAddress);
                           
                           // Auto-fill property details (bedrooms, bathrooms, sqft) from address lookup
+                          console.log('🏠 Property metrics from address:', {
+                            bedrooms: address.bedrooms,
+                            bathrooms: address.bathrooms,
+                            sqft: address.sqft,
+                          });
+                          
                           if (address.bedrooms !== undefined && address.bedrooms !== null) {
+                            console.log('Setting bedRooms to:', address.bedrooms);
                             form.setValue('bedRooms' as any, address.bedrooms, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
                           }
                           if (address.bathrooms !== undefined && address.bathrooms !== null) {
+                            console.log('Setting bathRooms to:', address.bathrooms);
                             form.setValue('bathRooms' as any, address.bathrooms, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
                           }
                           if (address.sqft !== undefined && address.sqft !== null) {
+                            console.log('Setting sqft to:', address.sqft);
                             form.setValue('sqft' as any, address.sqft, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
                           }
                           
@@ -740,6 +801,21 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                   </FormItem>
                 )}
               />
+
+              {/* Editable Street Address Field - always visible */}
+              <div className="space-y-2">
+                <Label htmlFor="completeAddress">Street Address</Label>
+                <Input
+                  id="completeAddress"
+                  value={completeAddress}
+                  onChange={(e) => setCompleteAddress(e.target.value)}
+                  placeholder="Street address"
+                  className="font-medium"
+                />
+                <p className="text-xs text-muted-foreground">
+                  You can manually edit this street address if needed. It is prefilled when you select an address.
+                </p>
+              </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 <FormField
@@ -763,7 +839,18 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                     <FormItem>
                       <FormLabel>State</FormLabel>
                       <FormControl>
-                        <Input placeholder="State" {...field} />
+                        <Select value={field.value} onValueChange={field.onChange}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select state" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {STATE_OPTIONS.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -1192,59 +1279,68 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
           />
 
 
-          <FormField
-            control={form.control}
-            name="companyNotes"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Company Notes</FormLabel>
-                <FormControl>
-                  <Textarea
-                    placeholder="Provide any additional information to save for the selected client that will only be visible to company admins/photographer.."
-                    className="resize-none"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          {/* Company Notes - Admin only (not for clients) */}
+          {!isClientAccount && (
+            <FormField
+              control={form.control}
+              name="companyNotes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Company Notes</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Provide any additional information to save for the selected client that will only be visible to company admins/photographer.."
+                      className="resize-none"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
 
-          <FormField
-            control={form.control}
-            name="photographerNotes"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Photographer Notes</FormLabel>
-                <FormControl>
-                  <Textarea
-                    placeholder="Notes for the photographer (visible to photographer and admins)."
-                    className="resize-none"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          {/* Photographer Notes - Admin/Rep only (not for clients) */}
+          {!isClientAccount && (
+            <FormField
+              control={form.control}
+              name="photographerNotes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Photographer Notes</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Notes for the photographer (visible to photographer and admins)."
+                      className="resize-none"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
 
-          <FormField
-            control={form.control}
-            name="editorNotes"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Editor Notes</FormLabel>
-                <FormControl>
-                  <Textarea
-                    placeholder="Notes for the editor (visible to editor and admins)."
-                    className="resize-none"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          {/* Editor Notes - Admin/Rep only (not for clients) */}
+          {!isClientAccount && (
+            <FormField
+              control={form.control}
+              name="editorNotes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Editor Notes</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Notes for the editor (visible to editor and admins)."
+                      className="resize-none"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
         </div>
 
         <div className="mt-6 flex justify-end">

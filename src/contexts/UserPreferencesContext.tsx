@@ -107,7 +107,7 @@ export function UserPreferencesProvider({ children }: { children: React.ReactNod
     return time;
   }, [preferences.timeFormat]);
 
-  // Format date as "Day/Month_Name/Year" (e.g., "18/December/2025")
+  // Format date as "Day Month_Name Year" (e.g., "18 December 2025")
   const formatDate = useCallback((date: Date | string | null | undefined): string => {
     if (!date) return '';
     
@@ -136,7 +136,7 @@ export function UserPreferencesProvider({ children }: { children: React.ReactNod
     const month = monthNames[dateObj.getMonth()];
     const year = dateObj.getFullYear();
     
-    return `${day}/${month}/${year}`;
+    return `${day} ${month} ${year}`;
   }, []);
 
   return (

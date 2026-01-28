@@ -5,7 +5,6 @@ import { StorageSection } from './sections/StorageSection';
 import { VideoHostingSection } from './sections/VideoHostingSection';
 import { ToursSection } from './sections/ToursSection';
 import { WeatherSection } from './sections/WeatherSection';
-import { AddressAutocompleteSection } from './sections/AddressAutocompleteSection';
 
 export function IntegrationsGrid() {
   return (
@@ -20,8 +19,6 @@ export function IntegrationsGrid() {
         <WeatherSection />
         <ToursSection />
       </div>
-
-      <AddressAutocompleteSection />
     </div>
   );
 }

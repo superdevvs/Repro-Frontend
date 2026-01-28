@@ -28,16 +28,80 @@ export const apiClient = axios.create({
   },
 });
 
+/**
+ * Get the impersonation user ID if currently impersonating.
+ * Returns null if not impersonating.
+ */
+export const getImpersonatedUserId = (): string | null => {
+  try {
+    const originalUser = localStorage.getItem('originalUser');
+    const currentUser = localStorage.getItem('user');
+    
+    
+    if (originalUser && currentUser) {
+      const user = JSON.parse(currentUser);
+        if (user?.id) {
+        return String(user.id);
+      }
+    }
+  } catch (e) {
+    console.error('[getImpersonatedUserId] Error:', e);
+  }
+  return null;
+};
+
+/**
+ * Get headers for fetch requests, including auth token and impersonation header.
+ * Use this for non-axios fetch calls.
+ */
+export const getApiHeaders = (): Record<string, string> => {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  };
+  
+  const token =
+    localStorage.getItem('authToken') ||
+    localStorage.getItem('token') ||
+    localStorage.getItem('access_token');
+  
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  
+  const impersonatedUserId = getImpersonatedUserId();
+  if (impersonatedUserId) {
+    headers['X-Impersonate-User-Id'] = impersonatedUserId;
+  }
+  
+  return headers;
+};
+
 apiClient.interceptors.request.use((config) => {
   try {
+    const baseUrl = config.baseURL ?? '';
+    if (
+      config.url &&
+      !config.url.startsWith('http') &&
+      baseUrl.replace(/\/$/, '').endsWith(API_PREFIX) &&
+      config.url.startsWith(API_PREFIX)
+    ) {
+      config.url = config.url.replace(/^\/api/, '');
+    }
+
     const token =
       localStorage.getItem('authToken') ||
       localStorage.getItem('token') ||
       localStorage.getItem('access_token');
 
     if (token) {
-      config.headers = config.headers ?? {};
-      config.headers.Authorization = `Bearer ${token}`;
+      config.headers.set('Authorization', `Bearer ${token}`);
+    }
+
+    // Add impersonation header if impersonating
+    const impersonatedUserId = getImpersonatedUserId();
+    if (impersonatedUserId) {
+      config.headers.set('X-Impersonate-User-Id', impersonatedUserId);
     }
   } catch (error) {
     console.warn('Failed to attach auth token', error);

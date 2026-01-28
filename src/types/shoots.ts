@@ -62,6 +62,17 @@ export interface ShootFileData {
   sequence?: number;
   flag_reason?: string;
   metadata?: Record<string, unknown>;
+  media_type?: string;
+  processed_at?: string;
+  thumbnail_path?: string;
+  web_path?: string;
+  placeholder_path?: string;
+  watermarked_storage_path?: string;
+  watermarked_thumbnail_path?: string;
+  watermarked_web_path?: string;
+  watermarked_placeholder_path?: string;
+  processing_failed_at?: string;
+  processing_error?: string;
 }
 
 export interface ShootMediaPayload {
@@ -122,7 +133,7 @@ export interface ShootData {
     company?: string;
     phone?: string;
     totalShoots: number;
-    id?: string;
+    id?: string | number;
   };
   location: {
     address: string;
@@ -135,14 +146,16 @@ export interface ShootData {
     longitude?: number;
   };
   photographer: {
-    id?: string;
+    id?: string | number;
     name: string;
     avatar?: string;
+    email?: string;
   };
   editor?: {
-    id?: string;
+    id?: string | number;
     name: string;
     avatar?: string;
+    email?: string;
   };
   services: string[];
   payment: {
@@ -154,6 +167,7 @@ export interface ShootData {
     lastPaymentDate?: string;
     lastPaymentType?: string;
   };
+  isPrivateListing?: boolean;
   status: string;
   workflowStatus?: string;
   notes?: string | {
@@ -190,11 +204,21 @@ export interface ShootData {
   tourLinks?: {
     matterport?: string;
     iGuide?: string;
-    cubicasa?: string;
+    matterport_branded?: string;
+    matterport_mls?: string;
+    iguide_branded?: string;
+    iguide_mls?: string;
     branded?: string;
     mls?: string;
     genericMls?: string;
+    video_link?: string;
+    tour_style?: string;
+    [key: string]: any;
   };
+  iguideTourUrl?: string;
+  iguideFloorplans?: Array<{ url?: string; filename?: string; [key: string]: unknown } | string>;
+  iguidePropertyId?: string;
+  iguideLastSyncedAt?: string;
   files?: ShootFileData[];
   tourPurchased?: boolean; // Add this field for ImportShootsDialog
   propertyDetails?: {
@@ -205,6 +229,15 @@ export interface ShootData {
     accessContactPhone?: string;
     [key: string]: unknown;
   };
+  cancellationRequestedAt?: string;
+  cancellationReason?: string;
+  mmmStatus?: string;
+  mmmOrderNumber?: string;
+  mmmBuyerCookie?: string;
+  mmmRedirectUrl?: string;
+  mmmLastPunchoutAt?: string;
+  mmmLastOrderAt?: string;
+  mmmLastError?: string;
 }
 
 export interface ShootHistoryFinancials {

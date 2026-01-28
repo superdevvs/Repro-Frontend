@@ -32,10 +32,12 @@ import { getStateFullName } from '@/utils/stateUtils';
 import { formatWorkflowStatus } from '@/utils/status';
 import { cn } from '@/lib/utils';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
+import { RawImagePreview } from '@/components/media/RawImagePreview';
 
 interface ShootDetailsModalProps {
   shoot: DashboardShootSummary | null;
   onClose: () => void;
+  onViewInvoice?: (shoot: DashboardShootSummary) => void;
 }
 
 interface ShootDetailResponse {
@@ -76,7 +78,7 @@ const TIMELINE_ENTRIES = [
   { id: '4', label: 'Editor flagged missing shots', timestamp: '03:15 PM', user: 'Editing', type: 'warning' },
 ];
 
-export const ShootDetailsModal: React.FC<ShootDetailsModalProps> = ({ shoot, onClose }) => {
+export const ShootDetailsModal: React.FC<ShootDetailsModalProps> = ({ shoot, onClose, onViewInvoice }) => {
   const { session } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -212,7 +214,10 @@ export const ShootDetailsModal: React.FC<ShootDetailsModalProps> = ({ shoot, onC
                     })()}</span>
                   </div>
                 </div>
-                <h2 className="text-2xl font-bold text-foreground mt-3">{shoot.addressLine}</h2>
+                <h2 className="text-2xl font-bold text-foreground mt-3">
+                  {shoot.id ? `#${shoot.id} · ` : ''}
+                  {shoot.addressLine}
+                </h2>
                 <p className="text-sm text-muted-foreground">{shoot.cityStateZip}</p>
               </div>
               <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6">
@@ -233,9 +238,8 @@ export const ShootDetailsModal: React.FC<ShootDetailsModalProps> = ({ shoot, onC
                       <MapPin size={14} /> Location
                     </div>
                     <p className="font-semibold text-foreground">
-                      {detail ? `${detail.city}, ${getStateFullName(detail.state)}` : shoot.cityStateZip}
+                      {detail?.address || shoot.addressLine || 'Address TBD'}
                     </p>
-                    <p className="text-xs text-muted-foreground">{detail?.address}</p>
                   </div>
                 </div>
                 <div>
@@ -306,6 +310,14 @@ export const ShootDetailsModal: React.FC<ShootDetailsModalProps> = ({ shoot, onC
                       <CheckCircle2 size={14} /> Mark complete
                     </button>
                   </div>
+                  {onViewInvoice && shoot && (
+                    <button
+                      onClick={() => onViewInvoice(shoot)}
+                      className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 transition-colors w-full mt-3"
+                    >
+                      <FileText size={14} /> View Invoice
+                    </button>
+                  )}
                 </div>
                 <div className="space-y-3 border-t border-border pt-4">
                   <h3 className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">
@@ -387,10 +399,12 @@ export const ShootDetailsModal: React.FC<ShootDetailsModalProps> = ({ shoot, onC
                         key={file.id}
                         className="relative aspect-square rounded-2xl overflow-hidden border border-border/60 group"
                       >
-                        <img
+                        <RawImagePreview
                           src={file.url}
+                          filename={file.id}
+                          filePath={file.url}
+                          containerClassName="h-full w-full"
                           className="h-full w-full object-cover group-hover:scale-105 transition-transform"
-                          alt=""
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                         <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-[11px] text-white">

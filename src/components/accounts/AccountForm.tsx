@@ -37,6 +37,7 @@ import { FileUploadModal } from "@/components/accounts/FileUploadModal";
 import { useToast } from "@/hooks/use-toast";
 import { API_BASE_URL } from "@/config/env";
 import type { RepDetails } from "@/types/auth";
+import { STATE_OPTIONS } from "@/utils/stateUtils";
 import { Upload, FileText, X } from "lucide-react";
 
 // Define allowed roles for the form
@@ -479,7 +480,10 @@ export function AccountForm({
         if (values.zipcode) formData.append('zip', values.zipcode);
         formData.append('role', values.role || 'client');
         if (values.bio) formData.append('bio', values.bio);
-        if (avatarUrl) formData.append('avatar', avatarUrl);
+        // Only include avatar if it's a valid URL (not a blob URL)
+        if (avatarUrl && !avatarUrl.startsWith('blob:')) {
+          formData.append('avatar', avatarUrl);
+        }
         if (values.specialties && Array.isArray(values.specialties) && values.specialties.length > 0) {
           formData.append('specialties', JSON.stringify(values.specialties));
         }
@@ -927,7 +931,18 @@ export function AccountForm({
                       <FormItem>
                         <FormLabel>State</FormLabel>
                         <FormControl>
-                          <Input placeholder="State" {...field} />
+                          <Select value={field.value || ''} onValueChange={field.onChange}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select state" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {STATE_OPTIONS.map((state) => (
+                                <SelectItem key={state.value} value={state.value}>
+                                  {state.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1170,11 +1185,22 @@ export function AccountForm({
                       <FormItem>
                         <FormLabel>State</FormLabel>
                         <FormControl>
-                          <Input
-                            placeholder="State"
-                            {...field}
+                          <Select
+                            value={field.value || ''}
+                            onValueChange={field.onChange}
                             disabled={!canEditSensitiveRepFields}
-                          />
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select state" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {STATE_OPTIONS.map((state) => (
+                                <SelectItem key={state.value} value={state.value}>
+                                  {state.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </FormControl>
                         <FormMessage />
                       </FormItem>

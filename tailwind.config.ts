@@ -116,6 +116,14 @@ export default {
           "0%, 100%": { transform: "translateY(0)" },
           "50%": { transform: "translateY(-5px)" },
         },
+        "float-up": {
+          "0%, 100%": { transform: "translateY(-50%)" },
+          "50%": { transform: "translateY(calc(-50% - 20px))" },
+        },
+        "float-down": {
+          "0%, 100%": { transform: "translateY(-50%)" },
+          "50%": { transform: "translateY(calc(-50% + 20px))" },
+        },
         bounce: {
           "0%, 100%": { transform: "translateY(0)" },
           "50%": { transform: "translateY(-10px)" },
@@ -133,6 +141,8 @@ export default {
         pulse: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
         "pulse-slow": "pulse-slow 3s infinite ease-in-out",
         float: "float 3s ease-in-out infinite",
+        "float-up": "float-up 3s ease-in-out infinite",
+        "float-down": "float-down 3s ease-in-out infinite",
         bounce: "bounce 2s ease-in-out infinite",
       },
       backdropFilter: {

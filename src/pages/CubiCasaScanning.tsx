@@ -176,8 +176,8 @@ const CubiCasaScanning = () => {
     <DashboardLayout>
       <div className="space-y-6">
         <PageHeader
-          badge="CubiCasa"
-          title="CubiCasa Scanning"
+          badge="Property"
+          title="Property Scan"
           description="Create and manage floor plan scans"
         />
 

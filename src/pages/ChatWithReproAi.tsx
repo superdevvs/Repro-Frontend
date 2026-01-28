@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
@@ -18,7 +19,7 @@ import { ReproAiIcon } from '@/components/icons/ReproAiIcon';
 import { AiMessageBubble } from '@/components/ai/AiMessageBubble';
 import { cn } from '@/lib/utils';
 import { sendAiMessage, fetchAiSessions, fetchAiSessionMessages, deleteAiSession, archiveAiSession } from '@/services/aiService';
-import type { AiMessage, AiChatSession } from '@/types/ai';
+import type { AiChatRequest, AiMessage, AiChatSession } from '@/types/ai';
 import { 
   ImageIcon, 
   FileText, 
@@ -42,8 +43,17 @@ import { toast } from '@/components/ui/use-toast';
 type ViewMode = 'home' | 'chat';
 type TabMode = 'chat' | 'history';
 
+type InsightNavigationState = {
+  initialMessage?: string;
+  context?: AiChatRequest['context'];
+  source?: string;
+};
+
 const ChatWithReproAi = () => {
   const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const hasConsumedNavigation = useRef(false);
   const [viewMode, setViewMode] = useState<ViewMode>('home');
   const [tabMode, setTabMode] = useState<TabMode>('chat');
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -224,6 +234,15 @@ const ChatWithReproAi = () => {
       setIsLoading(false);
     }
   }, [message, sessionId, viewMode]);
+
+  useEffect(() => {
+    const state = location.state as InsightNavigationState | null;
+    if (!state?.initialMessage || hasConsumedNavigation.current) return;
+
+    hasConsumedNavigation.current = true;
+    void handleSendMessage(state.initialMessage, state.context);
+    navigate(location.pathname, { replace: true, state: null });
+  }, [handleSendMessage, location.pathname, location.state, navigate]);
 
   const handleCardClick = (cardType: 'booking' | 'listing' | 'insight') => {
     const prompts = {

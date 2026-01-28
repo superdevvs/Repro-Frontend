@@ -1,5 +1,5 @@
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { PageTransition } from '@/components/layout/PageTransition';
@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogTrigger } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
@@ -20,40 +21,59 @@ import { usePermission } from '@/hooks/usePermission';
 import { IntegrationsSettingsContent } from '@/pages/IntegrationsSettings';
 import { IntegrationsGrid } from '@/components/integrations/IntegrationsGrid';
 import { IntegrationsHeader } from '@/components/integrations/IntegrationsHeader';
-import { User, Settings as SettingsIcon, Palette, CreditCard, Bell, Plug } from 'lucide-react';
+import { CouponsList } from '@/components/coupons/CouponsList';
+import { CreateCouponDialog } from '@/components/coupons/CreateCouponDialog';
+import { User, Settings as SettingsIcon, Palette, Bell, Plug, MessageSquare, Droplets, Ticket, Plus } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { API_BASE_URL } from '@/config/env';
+import WatermarkEditor from '@/components/settings/WatermarkEditor';
 
-const BASE_TABS = ['profile', 'account', 'branding', 'billing', 'notifications'] as const;
-type TabValue = (typeof BASE_TABS)[number] | 'integrations';
+const BASE_TABS = ['profile', 'account', 'branding', 'notifications'] as const;
+type TabValue = (typeof BASE_TABS)[number] | 'coupons' | 'integrations' | 'watermark';
 
 const Settings = () => {
-  const { user, role } = useAuth();
+  const { user, role, setUser } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const permission = usePermission();
   const integrationsPermission = permission.forResource('integrations');
-  const brandingPermission = permission.forResource('branding');
   const canViewIntegrations = integrationsPermission.canView();
-  const canViewBranding = brandingPermission.canView(); // Only Super Admin and Admin can view branding
-  const isAdminOrSuperAdmin = role === 'admin' || role === 'superadmin';
+  const couponsPermission = permission.forResource('coupons');
+  const canViewCoupons = couponsPermission.canView();
+  const canCreateCoupons = couponsPermission.canCreate();
   const [searchParams, setSearchParams] = useSearchParams();
+  // Use clientId from URL if present (for admin editing), otherwise use logged-in user's id
+  const clientIdFromUrl = searchParams.get('clientId');
+  const clientIdForStorage = clientIdFromUrl || (user?.id ? String(user.id) : 'default');
+  const storageKey = (key: string) => `client-${clientIdForStorage}-${key}`;
   const [avatar, setAvatar] = React.useState(user?.avatar || '');
   const [brandLogo, setBrandLogo] = React.useState('');
   const [brandBanner, setBrandBanner] = React.useState('');
-  const [bio, setBio] = React.useState(''); // Add a separate state for bio
+  const [brandAbout, setBrandAbout] = React.useState('');
+  const [showMap, setShowMap] = React.useState<boolean>(() => {
+    const stored = localStorage.getItem(storageKey('showMap'));
+    return stored ? stored === 'true' : false;
+  });
+  const [bio, setBio] = React.useState(user?.bio || '');
+  const [name, setName] = useState(user?.name || '');
+  const [isSaving, setIsSaving] = useState(false);
 
+  const isSuperAdmin = role === 'superadmin';
+  
   const availableTabs = React.useMemo<TabValue[]>(() => {
     const tabs: TabValue[] = [...BASE_TABS];
-    // Only show branding tab for Super Admin and Admin
-    if (!canViewBranding || !isAdminOrSuperAdmin) {
-      const brandingIndex = tabs.indexOf('branding');
-      if (brandingIndex > -1) {
-        tabs.splice(brandingIndex, 1);
-      }
+    if (canViewCoupons) {
+      tabs.push('coupons');
     }
     if (canViewIntegrations) {
       tabs.push('integrations');
     }
+    if (isSuperAdmin) {
+      tabs.push('watermark');
+    }
     return tabs;
-  }, [canViewIntegrations, canViewBranding, isAdminOrSuperAdmin]);
+  }, [canViewCoupons, canViewIntegrations, isSuperAdmin]);
 
   const getValidTab = React.useCallback(
     (tabParam: string | null): TabValue => {
@@ -64,6 +84,23 @@ const Settings = () => {
     },
     [availableTabs]
   );
+
+  React.useEffect(() => {
+    const storedAbout = localStorage.getItem(storageKey('brandAbout'));
+    if (storedAbout) setBrandAbout(storedAbout);
+
+    const storedAvatar = localStorage.getItem(storageKey('avatar'));
+    if (storedAvatar) setAvatar(storedAvatar);
+
+    const storedLogo = localStorage.getItem(storageKey('brandLogo'));
+    if (storedLogo) setBrandLogo(storedLogo);
+
+    const storedBanner = localStorage.getItem(storageKey('brandBanner'));
+    if (storedBanner) setBrandBanner(storedBanner);
+
+    const storedShowMap = localStorage.getItem(storageKey('showMap'));
+    if (storedShowMap) setShowMap(storedShowMap === 'true');
+  }, [clientIdForStorage]);
 
   const [activeTab, setActiveTab] = React.useState<TabValue>(() => getValidTab(searchParams.get('tab')));
 
@@ -86,13 +123,65 @@ const Settings = () => {
     setSearchParams(nextParams, { replace: true });
   };
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSaving(true);
 
-    toast({
-      title: "Profile Updated",
-      description: "Your profile information has been saved.",
-    });
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+
+      const payload: Record<string, string> = {};
+      if (name && name !== user?.name) payload.name = name;
+      if (bio !== (user?.bio || '')) payload.bio = bio;
+      // Only include avatar if it's a valid URL (not a blob URL)
+      if (avatar && avatar !== user?.avatar && !avatar.startsWith('blob:')) {
+        payload.avatar = avatar;
+      }
+
+      // Only call API if there are changes
+      if (Object.keys(payload).length > 0) {
+        const { data } = await axios.put(
+          `${API_BASE_URL}/api/profile`,
+          payload,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        // Update the user in AuthProvider context
+        if (data.user) {
+          // Normalize the user data to ensure avatar is at top level
+          const updatedUser = {
+            ...data.user,
+            avatar: data.user.avatar,
+            bio: data.user.bio,
+            company: data.user.company_name,
+            phone: data.user.phonenumber,
+          };
+          setUser(updatedUser);
+        }
+      }
+
+      toast({
+        title: "Profile Updated",
+        description: "Your profile information has been saved.",
+      });
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save profile. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleSaveAccount = (e: React.FormEvent) => {
@@ -107,71 +196,119 @@ const Settings = () => {
   const handleSaveBranding = (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Persist locally so the client portal can read it until API wiring is added.
+    localStorage.setItem(storageKey('brandAbout'), brandAbout);
+
     toast({
       title: "Branding Updated",
       description: "Your branding settings have been saved.",
     });
   };
 
-  const handleAvatarChange = (url: string) => {
+  const handleAvatarChange = async (url: string) => {
     setAvatar(url);
+    localStorage.setItem(storageKey('avatar'), url);
+    
+    // Don't save blob URLs to the backend - they're only valid locally
+    if (!url || url.startsWith('blob:')) {
+      console.log('Skipping backend save for blob URL');
+      return;
+    }
+    
+    // Save to backend immediately for better UX
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) return;
+
+      const { data } = await axios.put(
+        `${API_BASE_URL}/api/profile`,
+        { avatar: url },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      // Update the user in AuthProvider context
+      if (data.user) {
+        // Normalize the user data to ensure avatar is at top level
+        const updatedUser = {
+          ...data.user,
+          avatar: data.user.avatar,
+          bio: data.user.bio,
+          company: data.user.company_name,
+          phone: data.user.phonenumber,
+        };
+        setUser(updatedUser);
+        toast({
+          title: "Avatar saved",
+          description: "Your profile photo has been saved to your account.",
+        });
+      }
+    } catch (error) {
+      console.error('Error saving avatar:', error);
+      toast({
+        title: "Avatar save failed",
+        description: "Could not save avatar to your profile. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleLogoChange = (url: string) => {
     setBrandLogo(url);
+    localStorage.setItem(storageKey('brandLogo'), url);
   };
 
   const handleBannerChange = (url: string) => {
     setBrandBanner(url);
+    localStorage.setItem(storageKey('brandBanner'), url);
   };
 
   // Auto-expanding tabs configuration
   const tabsConfig: AutoExpandingTab[] = useMemo(() => {
-    const baseTabs: AutoExpandingTab[] = [
-      {
-        value: 'profile',
-        icon: User,
-        label: 'Profile',
-      },
-      {
-        value: 'account',
-        icon: SettingsIcon,
-        label: 'Account',
-      },
-      {
-        value: 'branding',
-        icon: Palette,
-        label: 'Branding',
-      },
-      {
-        value: 'billing',
-        icon: CreditCard,
-        label: 'Billing',
-      },
-      {
-        value: 'notifications',
-        icon: Bell,
-        label: 'Notifications',
-      },
-    ];
+    const tabMeta: Record<Exclude<TabValue, 'integrations' | 'watermark'>, { icon: typeof User; label: string }> = {
+      profile: { icon: User, label: 'Profile' },
+      account: { icon: SettingsIcon, label: 'Account' },
+      branding: { icon: Palette, label: 'Branding' },
+      notifications: { icon: Bell, label: 'Notifications' },
+      coupons: { icon: Ticket, label: 'Coupons' },
+    };
 
-    if (canViewIntegrations) {
-      baseTabs.push({
+    const mappedTabs: AutoExpandingTab[] = availableTabs
+      .filter((tab) => tab !== 'integrations' && tab !== 'watermark')
+      .map((tab) => ({
+        value: tab,
+        icon: tabMeta[tab as Exclude<TabValue, 'integrations' | 'watermark'>].icon,
+        label: tabMeta[tab as Exclude<TabValue, 'integrations' | 'watermark'>].label,
+      }));
+
+    if (availableTabs.includes('integrations')) {
+      mappedTabs.push({
         value: 'integrations',
         icon: Plug,
         label: 'Integrations',
       });
     }
 
-    return baseTabs;
-  }, [canViewIntegrations]);
+    if (availableTabs.includes('watermark')) {
+      mappedTabs.push({
+        value: 'watermark',
+        icon: Droplets,
+        label: 'Watermark',
+      });
+    }
+
+    return mappedTabs;
+  }, [availableTabs]);
 
   return (
     <DashboardLayout>
       <PageTransition>
         <div className="space-y-6 p-6">
           <PageHeader
-            badge="Settings"
             title="Settings"
             description="Manage your account settings and preferences"
           />
@@ -230,7 +367,11 @@ const Settings = () => {
                               <label htmlFor="name" className="text-sm font-medium">
                                 Full Name
                               </label>
-                              <Input id="name" defaultValue={user?.name} />
+                              <Input 
+                                id="name" 
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                              />
                             </div>
                             <div className="space-y-2">
                               <label htmlFor="email" className="text-sm font-medium">
@@ -247,7 +388,7 @@ const Settings = () => {
                             <Textarea
                               id="bio"
                               rows={4}
-                              defaultValue={bio}
+                              value={bio}
                               placeholder="Write a short bio about yourself"
                               onChange={(e) => setBio(e.target.value)}
                             />
@@ -257,8 +398,8 @@ const Settings = () => {
                     </div>
 
                     <div className="flex justify-end">
-                      <Button type="submit">
-                        Save Changes
+                      <Button type="submit" disabled={isSaving}>
+                        {isSaving ? 'Saving...' : 'Save Changes'}
                       </Button>
                     </div>
                   </form>
@@ -426,6 +567,45 @@ const Settings = () => {
                           placeholder="Your business tagline"
                         />
                       </div>
+
+                      <div className="space-y-2">
+                        <label htmlFor="brand-about" className="text-sm font-medium">
+                          Portfolio About
+                        </label>
+                        <Textarea
+                          id="brand-about"
+                          placeholder="Short description to show in the client portfolio About section"
+                          value={brandAbout}
+                          onChange={(e) => setBrandAbout(e.target.value)}
+                          rows={4}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          This text appears in the client-facing portfolio About section.
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-medium">Show Map in Contact</p>
+                            <p className="text-xs text-muted-foreground">
+                              Toggle the map embed in the client portfolio contact section.
+                            </p>
+                          </div>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              className="sr-only peer"
+                              checked={showMap}
+                              onChange={(e) => {
+                                setShowMap(e.target.checked);
+                              localStorage.setItem(storageKey('showMap'), String(e.target.checked));
+                              }}
+                            />
+                            <div className="w-11 h-6 bg-muted-foreground rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                          </label>
+                        </div>
+                      </div>
                     </div>
 
                     <div className="flex justify-end">
@@ -438,108 +618,6 @@ const Settings = () => {
               </Card>
             </TabsContent>
 
-            <TabsContent value="billing" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Billing</CardTitle>
-                  <CardDescription>
-                    Manage your billing information and payment settings
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-6">
-                    {/* Square Payment Configuration */}
-                    <div className="space-y-4">
-                      <div>
-                        <h4 className="font-medium mb-2">Square Payment Configuration</h4>
-                        <p className="text-sm text-muted-foreground mb-4">
-                          Configure Square payment processing for client payments
-                        </p>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <label htmlFor="square-app-id" className="text-sm font-medium">
-                            Square Application ID
-                          </label>
-                          <Input
-                            id="square-app-id"
-                            type="text"
-                            placeholder="sandbox-sq0idb-..."
-                            defaultValue="sandbox-sq0idb-KBncaaZuhXcaX42j5O7zdg"
-                          />
-                        </div>
-
-                        <div className="space-y-2">
-                          <label htmlFor="square-location-id" className="text-sm font-medium">
-                            Square Location ID
-                          </label>
-                          <Input
-                            id="square-location-id"
-                            type="text"
-                            placeholder="L7DAFQ5SCKT74"
-                            defaultValue="L7DAFQ5SCKT74"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <label htmlFor="square-environment" className="text-sm font-medium">
-                          Environment
-                        </label>
-                        <select
-                          id="square-environment"
-                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                          defaultValue="sandbox"
-                        >
-                          <option value="sandbox">Sandbox (Testing)</option>
-                          <option value="production">Production (Live)</option>
-                        </select>
-                      </div>
-
-                      <div className="flex items-center justify-between border-b pb-4">
-                        <div>
-                          <h4 className="font-medium">Enable Square Payments</h4>
-                          <p className="text-sm text-muted-foreground">Allow clients to pay via Square</p>
-                        </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input type="checkbox" className="sr-only peer" defaultChecked />
-                          <div className="w-11 h-6 bg-muted-foreground rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                        </label>
-                      </div>
-                    </div>
-
-                    {/* Other Billing Settings */}
-                    <div className="space-y-4 pt-6 border-t">
-                      <div className="flex items-center justify-between border-b pb-4">
-                        <div>
-                          <h4 className="font-medium">Auto-invoicing</h4>
-                          <p className="text-sm text-muted-foreground">Automatically generate invoices for completed shoots</p>
-                        </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input type="checkbox" className="sr-only peer" defaultChecked />
-                          <div className="w-11 h-6 bg-muted-foreground rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                        </label>
-                      </div>
-
-                      <div className="flex items-center justify-between border-b pb-4">
-                        <div>
-                          <h4 className="font-medium">Payment Reminders</h4>
-                          <p className="text-sm text-muted-foreground">Send automatic payment reminders to clients</p>
-                        </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input type="checkbox" className="sr-only peer" defaultChecked />
-                          <div className="w-11 h-6 bg-muted-foreground rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-                <CardFooter className="flex justify-end">
-                  <Button>Save Billing Settings</Button>
-                </CardFooter>
-              </Card>
-            </TabsContent>
 
             <TabsContent value="notifications" className="space-y-4">
               <Card>
@@ -591,6 +669,31 @@ const Settings = () => {
               </Card>
             </TabsContent>
 
+            {canViewCoupons && (
+              <TabsContent value="coupons" className="space-y-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold">Coupons & Discounts</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Manage promotional codes and discounts
+                    </p>
+                  </div>
+                  {canCreateCoupons && (
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button>
+                          <Plus className="h-4 w-4 mr-2" />
+                          Create Coupon
+                        </Button>
+                      </DialogTrigger>
+                      <CreateCouponDialog />
+                    </Dialog>
+                  )}
+                </div>
+                <CouponsList />
+              </TabsContent>
+            )}
+
             {canViewIntegrations && (
               <TabsContent value="integrations" className="space-y-6">
                 <div className="space-y-8">
@@ -599,6 +702,28 @@ const Settings = () => {
                     <IntegrationsHeader />
                     <IntegrationsGrid />
                   </div>
+
+                  {/* SMS / MightyCall Settings Card */}
+                  <Card className="border-primary/20">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <MessageSquare className="h-5 w-5 text-primary" />
+                        SMS Settings (MightyCall)
+                      </CardTitle>
+                      <CardDescription>
+                        Configure MightyCall phone numbers and API keys for SMS messaging
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Manage your MightyCall SMS integration including phone numbers, API keys, and messaging settings.
+                      </p>
+                      <Button onClick={() => navigate('/messaging/settings')}>
+                        <MessageSquare className="mr-2 h-4 w-4" />
+                        Open SMS Settings
+                      </Button>
+                    </CardContent>
+                  </Card>
 
                   {/* API Integrations Section */}
                   <div className="space-y-6 pt-8 border-t">
@@ -611,6 +736,12 @@ const Settings = () => {
                     <IntegrationsSettingsContent />
                   </div>
                 </div>
+              </TabsContent>
+            )}
+
+            {isSuperAdmin && (
+              <TabsContent value="watermark" className="space-y-6">
+                <WatermarkEditor />
               </TabsContent>
             )}
           </Tabs>

@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { retryEmail, cancelEmail } from '@/services/messaging';
 import type { Message } from '@/types/messaging';
+import { useAuth } from '@/components/auth/AuthProvider';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -51,8 +52,11 @@ const statusColors = {
 export function EmailMessageDetail({ message, onClose, onRefresh }: EmailMessageDetailProps) {
   const [isRetrying, setIsRetrying] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
+  const { role } = useAuth();
+  const isAdmin = role === 'admin' || role === 'superadmin';
 
   const StatusIcon = statusIcons[message.status];
+  const senderLabel = message.sender_display_name || message.from_address;
 
   const handleRetry = async () => {
     setIsRetrying(true);
@@ -111,13 +115,13 @@ export function EmailMessageDetail({ message, onClose, onRefresh }: EmailMessage
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              {message.status === 'FAILED' && (
+              {isAdmin && message.status === 'FAILED' && (
                 <DropdownMenuItem onClick={handleRetry} disabled={isRetrying}>
                   <RefreshCw className="mr-2 h-4 w-4" />
                   Retry Send
                 </DropdownMenuItem>
               )}
-              {message.status === 'SCHEDULED' && (
+              {isAdmin && message.status === 'SCHEDULED' && (
                 <DropdownMenuItem onClick={handleCancel} disabled={isCancelling}>
                   <XCircle className="mr-2 h-4 w-4" />
                   Cancel
@@ -146,6 +150,15 @@ export function EmailMessageDetail({ message, onClose, onRefresh }: EmailMessage
 
         {/* Meta */}
         <div className="space-y-2 text-sm">
+          <div className="flex items-start gap-2">
+            <span className="text-muted-foreground w-20">Sender:</span>
+            <span>{senderLabel}</span>
+            {message.sender_role && (
+              <Badge variant="outline" className="ml-2 text-xs">
+                {message.sender_role}
+              </Badge>
+            )}
+          </div>
           <div className="flex items-start gap-2">
             <span className="text-muted-foreground w-20">From:</span>
             <span>{message.from_address}</span>
@@ -257,12 +270,14 @@ export function EmailMessageDetail({ message, onClose, onRefresh }: EmailMessage
       </div>
 
       {/* Reply Section */}
-      <div className="p-4 border-t border-border">
-        <Button className="w-full">
-          <Reply className="mr-2 h-4 w-4" />
-          Reply
-        </Button>
-      </div>
+      {isAdmin && (
+        <div className="p-4 border-t border-border">
+          <Button className="w-full">
+            <Reply className="mr-2 h-4 w-4" />
+            Reply
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

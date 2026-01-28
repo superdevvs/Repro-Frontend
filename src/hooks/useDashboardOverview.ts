@@ -1,14 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { DashboardOverview } from '@/types/dashboard';
 import { fetchDashboardOverview } from '@/services/dashboardService';
-
-interface UseDashboardOverviewResult {
-  data: DashboardOverview | null;
-  loading: boolean;
-  error: string | null;
-  refresh: () => Promise<void>;
-}
 
 const getToken = (sessionToken?: string | null) => {
   const localToken =
@@ -17,42 +10,41 @@ const getToken = (sessionToken?: string | null) => {
   return localToken || sessionToken || undefined;
 };
 
+interface UseDashboardOverviewResult {
+  data: DashboardOverview | null;
+  loading: boolean;
+  error: string | null;
+  refresh: () => Promise<void>;
+}
+
 export const useDashboardOverview = (): UseDashboardOverviewResult => {
   const { session, role } = useAuth();
-  const [data, setData] = useState<DashboardOverview | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  
+  const {
+    data,
+    isLoading: loading,
+    error: queryError,
+    refetch,
+  } = useQuery({
+    queryKey: ['dashboardOverview'],
+    queryFn: () => fetchDashboardOverview(getToken(session?.accessToken)),
+    enabled: ['admin', 'superadmin'].includes(role),
+    staleTime: 60 * 1000, // 60 seconds - dashboard data can be slightly stale
+    gcTime: 5 * 60 * 1000, // 5 minutes
+    retry: 1,
+  });
 
-  const load = useCallback(async () => {
-    const token = getToken(session?.accessToken);
-    if (!token) {
-      setError('Missing auth token');
-      setLoading(false);
-      return;
-    }
+  const refresh = async () => {
+    // Invalidate cache to force fresh data fetch
+    await queryClient.invalidateQueries({ queryKey: ['dashboardOverview'] });
+    await refetch();
+  };
 
-    try {
-      setLoading(true);
-      setError(null);
-      const overview = await fetchDashboardOverview(token);
-      setData(overview);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to load dashboard data';
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
-  }, [session?.accessToken]);
-
-  useEffect(() => {
-    if (!['admin', 'superadmin'].includes(role)) {
-      setLoading(false);
-      return;
-    }
-
-    load();
-  }, [role, load]);
-
-  return { data, loading, error, refresh: load };
+  return {
+    data: data ?? null,
+    loading,
+    error: queryError ? (queryError instanceof Error ? queryError.message : 'Failed to load dashboard data') : null,
+    refresh,
+  };
 };
-

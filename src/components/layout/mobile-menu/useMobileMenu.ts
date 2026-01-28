@@ -66,13 +66,6 @@ export const useMobileMenu = () => {
       roles: ['admin', 'superadmin']
     },
     {
-      to: "/coupons",
-      icon: "Ticket",
-      label: "Coupons",
-      isActive: pathname === '/coupons',
-      roles: ['admin', 'superadmin']
-    },
-    {
       to: "/scheduling-settings",
       icon: "Calendar",
       label: "Scheduling",
@@ -82,9 +75,9 @@ export const useMobileMenu = () => {
     {
       to: "/portal",
       icon: "Search",
-      label: "Listing Portal",
-      isActive: pathname === '/portal',
-      roles: ['admin', 'superadmin']
+      label: "Exclusive Listings",
+      isActive: pathname === '/portal' || pathname.startsWith('/exclusive-listings'),
+      roles: ['admin', 'superadmin', 'salesRep', 'sales_rep', 'client']
     },
     {
       to: "/accounting",
@@ -128,7 +121,7 @@ export const useMobileMenu = () => {
     {
       to: "/cubicasa-scanning",
       icon: "Home",
-      label: "CubiCasa Scan",
+      label: "Property Scan",
       isActive: pathname === '/cubicasa-scanning',
       roles: ['photographer', 'admin', 'superadmin']
     },

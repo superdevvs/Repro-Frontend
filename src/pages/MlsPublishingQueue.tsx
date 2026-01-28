@@ -100,6 +100,7 @@ const MlsPublishingQueue = () => {
         ?.filter((f: any) => f.path || f.url)
         .slice(0, 20)
         .map((f: any) => ({
+          id: f.id,
           url: f.path || f.url || '',
           filename: f.filename || `photo-${f.id}`,
           selected: true,

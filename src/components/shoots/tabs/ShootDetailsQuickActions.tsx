@@ -18,6 +18,10 @@ import {
   Send,
   Eye,
   DollarSignIcon,
+  Download,
+  Receipt,
+  RefreshCw,
+  ExternalLink,
 } from 'lucide-react';
 import { ShootData } from '@/types/shoots';
 import { useToast } from '@/hooks/use-toast';
@@ -31,6 +35,9 @@ interface ShootDetailsQuickActionsProps {
   isClient: boolean;
   role: string;
   onShootUpdate: () => void;
+  onProcessPayment?: () => void;
+  onViewInvoice?: () => void;
+  onDownloadAll?: () => void;
 }
 
 export function ShootDetailsQuickActions({
@@ -41,6 +48,9 @@ export function ShootDetailsQuickActions({
   isClient,
   role,
   onShootUpdate,
+  onProcessPayment,
+  onViewInvoice,
+  onDownloadAll,
 }: ShootDetailsQuickActionsProps) {
   const { toast } = useToast();
   const [assignPhotographerOpen, setAssignPhotographerOpen] = useState(false);
@@ -49,6 +59,7 @@ export function ShootDetailsQuickActions({
   const [selectedEditorId, setSelectedEditorId] = useState<string>('');
   const [photographers, setPhotographers] = useState<Array<{ id: string; name: string; email: string }>>([]);
   const [editors, setEditors] = useState<Array<{ id: string; name: string; email: string }>>([]);
+  const [syncingIguide, setSyncingIguide] = useState(false);
 
   // Fetch photographers for assignment
   const fetchPhotographers = async () => {
@@ -66,6 +77,37 @@ export function ShootDetailsQuickActions({
       }
     } catch (error) {
       console.error('Error fetching photographers:', error);
+    }
+  };
+
+  const handleSyncIguide = async () => {
+    try {
+      setSyncingIguide(true);
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/api/integrations/shoots/${shoot.id}/iguide/sync`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      });
+
+      if (!res.ok) throw new Error('Failed to sync iGUIDE');
+
+      toast({
+        title: 'iGUIDE synced',
+        description: 'Tour and floorplans updated from iGUIDE.',
+      });
+      onShootUpdate();
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to sync iGUIDE',
+        variant: 'destructive',
+      });
+    } finally {
+      setSyncingIguide(false);
     }
   };
 
@@ -217,12 +259,40 @@ export function ShootDetailsQuickActions({
     }
   };
 
-  // Process payment
+  // Process payment handler
   const handleProcessPayment = () => {
-    toast({
-      title: 'Payment',
-      description: 'Payment processing dialog would open here',
-    });
+    if (onProcessPayment) {
+      onProcessPayment();
+    } else {
+      toast({
+        title: 'Payment',
+        description: 'Payment processing dialog would open here',
+      });
+    }
+  };
+
+  // View invoice handler
+  const handleViewInvoice = () => {
+    if (onViewInvoice) {
+      onViewInvoice();
+    } else {
+      toast({
+        title: 'Invoice',
+        description: 'Invoice view would open here',
+      });
+    }
+  };
+
+  // Download all handler
+  const handleDownloadAll = () => {
+    if (onDownloadAll) {
+      onDownloadAll();
+    } else {
+      toast({
+        title: 'Download',
+        description: 'Download all media would start here',
+      });
+    }
   };
 
   // Mark as paid (Super Admin only)
@@ -270,68 +340,78 @@ export function ShootDetailsQuickActions({
 
   const isSuperAdmin = role === 'superadmin';
   const isPaid = (shoot.payment?.totalPaid ?? 0) >= (shoot.payment?.totalQuote ?? 0);
+  const iguideUrl =
+    shoot.iguideTourUrl ||
+    shoot.tourLinks?.iGuide ||
+    shoot.tourLinks?.iguide_branded ||
+    shoot.tourLinks?.iguide_mls ||
+    (shoot as any).iguide_tour_url ||
+    '';
+  const canSyncIguide = isAdmin || isSuperAdmin;
 
   return (
     <>
       <div className="flex flex-wrap gap-1.5 sm:gap-2.5">
-        {isPhotographer && (
-          <>
-            <Button 
-              variant="default" 
-              size="sm" 
-              className="h-7 sm:h-8 text-[10px] sm:text-xs px-2 sm:px-3 bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950 dark:hover:bg-blue-900 dark:text-blue-300 dark:border-blue-800"
-            >
-              <Upload className="h-3 w-3 sm:h-3.5 sm:w-3.5 sm:mr-1.5" />
-              <span className="hidden sm:inline">Upload RAW</span>
-            </Button>
-            <Button 
-              variant="default" 
-              size="sm" 
-              className="h-7 sm:h-8 text-[10px] sm:text-xs px-2 sm:px-3 bg-gray-50 hover:bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-300 dark:border-gray-700"
-            >
-              <FileText className="h-3 w-3 sm:h-3.5 sm:w-3.5 sm:mr-1.5" />
-              <span className="hidden sm:inline">Add note</span>
-            </Button>
-          </>
+        {/* Editor quick action buttons removed - Download Raw and Share Link are now in the header */}
+        {iguideUrl && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-1 h-7 sm:h-8 text-[10px] sm:text-xs px-2 sm:px-3"
+            onClick={() => window.open(iguideUrl, '_blank', 'noopener,noreferrer')}
+          >
+            <ExternalLink className="h-3 w-3 sm:h-3.5 sm:w-3.5 sm:mr-1.5" />
+            <span className="hidden sm:inline">Open iGUIDE</span>
+          </Button>
         )}
-        {isEditor && (
-          <>
-            <Button 
-              variant="default" 
-              size="sm" 
-              className="h-7 sm:h-8 text-[10px] sm:text-xs px-2 sm:px-3 bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-950 dark:hover:bg-purple-900 dark:text-purple-300 dark:border-purple-800"
-            >
-              <Upload className="h-3 w-3 sm:h-3.5 sm:w-3.5 sm:mr-1.5" />
-              <span className="hidden sm:inline">Upload Edits</span>
-            </Button>
-            <Button 
-              variant="default" 
-              size="sm" 
-              className="h-7 sm:h-8 text-[10px] sm:text-xs px-2 sm:px-3 bg-gray-50 hover:bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-300 dark:border-gray-700"
-            >
-              <FileText className="h-3 w-3 sm:h-3.5 sm:w-3.5 sm:mr-1.5" />
-              <span className="hidden sm:inline">Add note</span>
-            </Button>
-          </>
+        {canSyncIguide && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-1 h-7 sm:h-8 text-[10px] sm:text-xs px-2 sm:px-3"
+            onClick={handleSyncIguide}
+            disabled={syncingIguide}
+          >
+            <RefreshCw className={`h-3 w-3 sm:h-3.5 sm:w-3.5 sm:mr-1.5 ${syncingIguide ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">Sync iGUIDE</span>
+          </Button>
         )}
         {isClient && (
           <>
+            {/* Process Payment - only show when not paid */}
+            {!isPaid && (
+              <Button 
+                variant="default" 
+                size="sm" 
+                className="flex-1 h-7 sm:h-8 text-[10px] sm:text-xs px-2 sm:px-3 bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-950 dark:hover:bg-orange-900 dark:text-orange-300 dark:border-orange-800"
+                onClick={handleProcessPayment}
+              >
+                <DollarSignIcon className="h-3 w-3 sm:h-3.5 sm:w-3.5 sm:mr-1.5" />
+                <span className="hidden sm:inline">Process Payment</span>
+              </Button>
+            )}
+            {/* View Invoice - always visible */}
             <Button 
               variant="default" 
               size="sm" 
-              className="h-7 sm:h-8 text-[10px] sm:text-xs px-2 sm:px-3 bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950 dark:hover:bg-blue-900 dark:text-blue-300 dark:border-blue-800"
+              className="flex-1 h-7 sm:h-8 text-[10px] sm:text-xs px-2 sm:px-3 bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950 dark:hover:bg-blue-900 dark:text-blue-300 dark:border-blue-800"
+              onClick={handleViewInvoice}
             >
-              <Eye className="h-3 w-3 sm:h-3.5 sm:w-3.5 sm:mr-1.5" />
-              <span className="hidden sm:inline">View media</span>
+              <Receipt className="h-3 w-3 sm:h-3.5 sm:w-3.5 sm:mr-1.5" />
+              <span className="hidden sm:inline">View Invoice</span>
             </Button>
-            <Button 
-              variant="default" 
-              size="sm" 
-              className="h-7 sm:h-8 text-[10px] sm:text-xs px-2 sm:px-3 bg-red-50 hover:bg-red-100 text-red-700 border-red-200 dark:bg-red-950 dark:hover:bg-red-900 dark:text-red-300 dark:border-red-800"
-            >
-              <AlertCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5 sm:mr-1.5" />
-              <span className="hidden sm:inline">Raise issue</span>
-            </Button>
+            {/* Download All - only show when paid */}
+            {isPaid && (
+              <Button 
+                variant="default" 
+                size="sm" 
+                className="h-7 sm:h-8 text-[10px] sm:text-xs px-2 sm:px-3 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 dark:bg-green-950 dark:hover:bg-green-900 dark:text-green-300 dark:border-green-800"
+                onClick={handleDownloadAll}
+              >
+                <Download className="h-3 w-3 sm:h-3.5 sm:w-3.5 sm:mr-1.5" />
+                <span className="hidden sm:inline">Download All</span>
+              </Button>
+            )}
           </>
         )}
       </div>

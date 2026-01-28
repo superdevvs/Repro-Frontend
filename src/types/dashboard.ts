@@ -25,7 +25,7 @@ export interface DashboardPhotographerResponse {
 }
 
 export interface DashboardActivityResponse {
-  id: number;
+  id: number | string;
   message: string;
   action?: string;
   type: string;
@@ -34,6 +34,8 @@ export interface DashboardActivityResponse {
     id: number;
     name: string;
   } | null;
+  shootId?: number | null;
+  address?: string | null;
 }
 
 export interface DashboardIssueResponse {
@@ -67,6 +69,19 @@ export interface DashboardShootSummaryResponse {
   delivery_deadline?: string | null;
   submitted_for_review_at?: string | null;
   admin_issue_notes?: string | null;
+  created_by?: string | null;
+  // Notes fields
+  shoot_notes?: string | null;
+  company_notes?: string | null;
+  photographer_notes?: string | null;
+  editor_notes?: string | null;
+  // Property details
+  property_details?: {
+    bedrooms?: number;
+    bathrooms?: number;
+    sqft?: number;
+    [key: string]: any;
+  } | null;
 }
 
 export interface DashboardWorkflowColumnResponse {
@@ -119,12 +134,14 @@ export interface DashboardPhotographerSummary {
 }
 
 export interface DashboardActivityItem {
-  id: number;
+  id: number | string;
   message: string;
   action?: string;
   type: string;
   timestamp: string | null;
   userName?: string | null;
+  shootId?: number | null;
+  address?: string | null;
 }
 
 export interface DashboardIssueItem {
@@ -133,6 +150,30 @@ export interface DashboardIssueItem {
   severity: 'low' | 'medium' | 'high';
   status?: string | null;
   client?: string | null;
+  updatedAt?: string | null;
+  shootId?: number | null;
+  shoot_id?: number | null;
+}
+
+export interface DashboardClientRequest {
+  id: string;
+  note: string;
+  status: 'open' | 'in-progress' | 'in_progress' | 'resolved';
+  shootId: string | number;
+  shoot?: {
+    id: number | string;
+    address?: string | null;
+    client?: {
+      id: number | string;
+      name?: string | null;
+    } | null;
+  } | null;
+  raisedBy?: {
+    id?: string;
+    name?: string;
+    role?: string;
+  } | null;
+  createdAt?: string | null;
   updatedAt?: string | null;
 }
 
@@ -158,6 +199,21 @@ export interface DashboardShootSummary {
   deliveryDeadline?: string | null;
   submittedForReviewAt?: string | null;
   adminIssueNotes?: string | null;
+  createdBy?: string | null;
+  // Payment status
+  paymentStatus?: 'paid' | 'unpaid' | 'partial' | null;
+  // Notes fields
+  shootNotes?: string | null;
+  companyNotes?: string | null;
+  photographerNotes?: string | null;
+  editorNotes?: string | null;
+  // Property details
+  propertyDetails?: {
+    bedrooms?: number;
+    bathrooms?: number;
+    sqft?: number;
+    [key: string]: any;
+  } | null;
 }
 
 export interface DashboardWorkflowColumn {

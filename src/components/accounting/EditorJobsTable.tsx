@@ -24,6 +24,7 @@ export interface EditorJob {
   completedDate?: string;
   payoutStatus?: 'pending' | 'paid' | 'unpaid';
   editorId?: string;
+  editor_id?: string;
 }
 
 interface EditorJobsTableProps {

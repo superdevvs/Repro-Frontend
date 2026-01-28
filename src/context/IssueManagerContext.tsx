@@ -1,46 +1,46 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
-import { DashboardIssueItem } from '@/types/dashboard';
+import { DashboardClientRequest } from '@/types/dashboard';
 
 interface IssueManagerContextType {
   isOpen: boolean;
-  issues: DashboardIssueItem[];
-  selectedIssueId: number | null;
-  openModal: (issues: DashboardIssueItem[], selectedIssueId?: number | null) => void;
+  requests: DashboardClientRequest[];
+  selectedRequestId: string | null;
+  openModal: (requests: DashboardClientRequest[], selectedRequestId?: string | null) => void;
   closeModal: () => void;
-  selectIssue: (issueId: number | null) => void;
+  selectRequest: (requestId: string | null) => void;
 }
 
 const IssueManagerContext = createContext<IssueManagerContextType | undefined>(undefined);
 
 export const IssueManagerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [issues, setIssues] = useState<DashboardIssueItem[]>([]);
-  const [selectedIssueId, setSelectedIssueId] = useState<number | null>(null);
+  const [requests, setRequests] = useState<DashboardClientRequest[]>([]);
+  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
 
-  const openModal = useCallback((newIssues: DashboardIssueItem[], selectedId?: number | null) => {
-    setIssues(newIssues);
-    setSelectedIssueId(selectedId ?? null);
+  const openModal = useCallback((newRequests: DashboardClientRequest[], selectedId?: string | null) => {
+    setRequests(newRequests);
+    setSelectedRequestId(selectedId ?? null);
     setIsOpen(true);
   }, []);
 
   const closeModal = useCallback(() => {
     setIsOpen(false);
-    setSelectedIssueId(null);
+    setSelectedRequestId(null);
   }, []);
 
-  const selectIssue = useCallback((issueId: number | null) => {
-    setSelectedIssueId(issueId);
+  const selectRequest = useCallback((requestId: string | null) => {
+    setSelectedRequestId(requestId);
   }, []);
 
   return (
     <IssueManagerContext.Provider
       value={{
         isOpen,
-        issues,
-        selectedIssueId,
+        requests,
+        selectedRequestId,
         openModal,
         closeModal,
-        selectIssue,
+        selectRequest,
       }}
     >
       {children}

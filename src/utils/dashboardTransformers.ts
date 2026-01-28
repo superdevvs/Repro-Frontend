@@ -51,6 +51,14 @@ const normalizeShoot = (shoot: DashboardShootSummaryResponse): DashboardShootSum
   deliveryDeadline: shoot.delivery_deadline ?? null,
   submittedForReviewAt: shoot.submitted_for_review_at ?? null,
   adminIssueNotes: shoot.admin_issue_notes ?? null,
+  createdBy: shoot.created_by ?? null,
+  // Notes fields
+  shootNotes: shoot.shoot_notes ?? null,
+  companyNotes: shoot.company_notes ?? null,
+  photographerNotes: shoot.photographer_notes ?? null,
+  editorNotes: shoot.editor_notes ?? null,
+  // Property details
+  propertyDetails: shoot.property_details ?? null,
 });
 
 const normalizePhotographer = (
@@ -76,6 +84,8 @@ const normalizeActivity = (item: DashboardActivityResponse): DashboardActivityIt
   type: item.type,
   timestamp: item.timestamp ?? null,
   userName: item.user?.name ?? null,
+  shootId: item.shootId ?? null,
+  address: item.address ?? null,
 });
 
 const normalizeIssue = (issue: DashboardIssueResponse): DashboardIssueItem => ({
@@ -94,14 +104,16 @@ const normalizeWorkflowColumn = (
   label: column.label,
   accent: column.accent,
   count: column.count,
-  shoots: column.shoots.map(normalizeShoot),
+  shoots: Array.isArray(column.shoots) 
+    ? column.shoots.map(normalizeShoot)
+    : [],
 });
 
 const normalizeStats = (stats: DashboardOverviewResponse['stats']): DashboardStats => ({
-  totalShoots: stats.total_shoots,
-  scheduledToday: stats.scheduled_today,
-  flaggedShoots: stats.flagged_shoots,
-  pendingReviews: stats.pending_reviews,
+  totalShoots: stats?.total_shoots ?? 0,
+  scheduledToday: stats?.scheduled_today ?? 0,
+  flaggedShoots: stats?.flagged_shoots ?? 0,
+  pendingReviews: stats?.pending_reviews ?? 0,
 });
 
 const shootSortValue = (shoot: DashboardShootSummary) => {
@@ -127,22 +139,51 @@ const dedupeShoots = (shoots: DashboardShootSummary[]): DashboardShootSummary[] 
 export const transformDashboardOverview = (
   response: DashboardOverviewResponse,
 ): DashboardOverview => {
-  const workflow = {
-    columns: response.workflow.columns.map(normalizeWorkflowColumn),
-  };
+  try {
+    // Safely handle workflow data
+    const workflowColumns = Array.isArray(response.workflow?.columns) 
+      ? response.workflow.columns.map(normalizeWorkflowColumn)
+      : [];
+    
+    const workflow = {
+      columns: workflowColumns,
+    };
 
-  const normalizedUpcoming = response.upcoming_shoots.map(normalizeShoot);
-  const workflowShoots = workflow.columns.flatMap((column) => column.shoots);
-  const upcomingShoots = dedupeShoots([...normalizedUpcoming, ...workflowShoots]);
+    const normalizedUpcoming = Array.isArray(response.upcoming_shoots) 
+      ? response.upcoming_shoots.map(normalizeShoot)
+      : [];
+    const workflowShoots = workflow.columns.flatMap((column) => column.shoots);
+    const upcomingShoots = dedupeShoots([...normalizedUpcoming, ...workflowShoots]);
 
-  return {
-    stats: normalizeStats(response.stats),
-    upcomingShoots,
-    photographers: response.photographers.map(normalizePhotographer),
-    pendingReviews: response.pending_reviews.map(normalizeShoot),
-    activityLog: response.activity_log.map(normalizeActivity),
-    issues: response.issues.map(normalizeIssue),
-    workflow,
-  };
+    return {
+      stats: normalizeStats(response.stats || {}),
+      upcomingShoots,
+      photographers: Array.isArray(response.photographers) 
+        ? response.photographers.map(normalizePhotographer)
+        : [],
+      pendingReviews: Array.isArray(response.pending_reviews) 
+        ? response.pending_reviews.map(normalizeShoot)
+        : [],
+      activityLog: Array.isArray(response.activity_log) 
+        ? response.activity_log.map(normalizeActivity)
+        : [],
+      issues: Array.isArray(response.issues) 
+        ? response.issues.map(normalizeIssue)
+        : [],
+      workflow,
+    };
+  } catch (error) {
+    console.error('Error transforming dashboard overview:', error, response);
+    // Return safe defaults
+    return {
+      stats: { totalShoots: 0, scheduledToday: 0, flaggedShoots: 0, pendingReviews: 0 },
+      upcomingShoots: [],
+      photographers: [],
+      pendingReviews: [],
+      activityLog: [],
+      issues: [],
+      workflow: { columns: [] },
+    };
+  }
 };
 

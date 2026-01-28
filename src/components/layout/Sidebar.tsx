@@ -16,8 +16,7 @@ interface SidebarProps {
 
 export function Sidebar({ className }: SidebarProps) {
   const isMobile = useIsMobile();
-  const [isCollapsed, setIsCollapsed] = useState(true); // Start collapsed by default
-  const [isHovered, setIsHovered] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false); // Start expanded by default
   const { user, role, logout } = useAuth();
   
   // For mobile devices, use the MobileMenu component
@@ -25,15 +24,9 @@ export function Sidebar({ className }: SidebarProps) {
     return <MobileMenu />;
   }
   
-  // Auto-expand on hover, collapse when not hovering
-  const handleMouseEnter = () => {
-    setIsHovered(true);
-    setIsCollapsed(false);
-  };
-  
-  const handleMouseLeave = () => {
-    setIsHovered(false);
-    setIsCollapsed(true);
+  // Toggle sidebar collapse/expand manually
+  const toggleCollapse = () => {
+    setIsCollapsed(!isCollapsed);
   };
   
   // Desktop sidebar
@@ -41,11 +34,9 @@ export function Sidebar({ className }: SidebarProps) {
     <motion.div
       initial={false}
       animate={{
-        width: isCollapsed ? 80 : 240,
+        width: isCollapsed ? 80 : 200,
       }}
       transition={{ duration: 0.2, ease: 'easeInOut' }}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
       className={cn(
         'group border-r bg-background p-3 py-4 relative hidden md:block',
         isCollapsed && 'items-center',
@@ -53,16 +44,13 @@ export function Sidebar({ className }: SidebarProps) {
       )}
     >
       <div className="flex h-full flex-col">
-        <SidebarHeader 
-          isCollapsed={isCollapsed} 
-          toggleCollapsed={() => setIsCollapsed(!isCollapsed)} 
-        />
+        <SidebarHeader isCollapsed={isCollapsed} />
         
         <ScrollArea className="flex-1 overflow-auto">
           <SidebarLinks isCollapsed={isCollapsed} role={role} />
         </ScrollArea>
         
-        <SidebarFooter isCollapsed={isCollapsed} logout={logout} />
+        <SidebarFooter isCollapsed={isCollapsed} logout={logout} onToggleCollapse={toggleCollapse} />
       </div>
     </motion.div>
   );

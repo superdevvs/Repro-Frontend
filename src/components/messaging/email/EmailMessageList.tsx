@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { format, formatDistanceToNow, isToday, isYesterday } from 'date-fns';
 import type { Message } from '@/types/messaging';
+import { useAuth } from '@/components/auth/AuthProvider';
 
 interface EmailMessageListProps {
   messages: Message[];
@@ -59,6 +60,8 @@ export function EmailMessageList({
 }: EmailMessageListProps) {
   const [searchValue, setSearchValue] = useState('');
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
+  const { role } = useAuth();
+  const isAdmin = role === 'admin' || role === 'superadmin';
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,7 +94,7 @@ export function EmailMessageList({
       <div className="p-4 border-b border-border space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="font-semibold">
-            Inbox {messages.length > 0 && `(${messages.length})`}
+            {isAdmin ? 'Inbox' : 'Messages'} {messages.length > 0 && `(${messages.length})`}
           </h3>
           <Button variant="ghost" size="sm" onClick={onRefresh}>
             <RefreshCw className="h-4 w-4" />
@@ -149,13 +152,18 @@ export function EmailMessageList({
             <div className="text-center space-y-2">
               <Mail className="h-12 w-12 mx-auto opacity-20" />
               <p>No messages yet</p>
-              <p className="text-sm">Try sending your first email</p>
+              <p className="text-sm">Try sending your first message</p>
             </div>
           </div>
         ) : (
           messages.map((message) => {
             const StatusIcon = statusIcons[message.status] || Mail;
             const isSelected = selectedMessage?.id === message.id;
+            const senderLabel = message.sender_display_name
+              ? message.sender_display_name
+              : message.direction === 'OUTBOUND'
+                ? message.to_address
+                : message.from_address;
 
             return (
               <div
@@ -174,7 +182,7 @@ export function EmailMessageList({
                   <div className="flex-1 min-w-0 space-y-1">
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-medium truncate">
-                        {message.direction === 'OUTBOUND' ? message.to_address : message.from_address}
+                        {senderLabel}
                       </span>
                       <span className="text-xs text-muted-foreground whitespace-nowrap">
                         {formatMessageTime(message.created_at)}

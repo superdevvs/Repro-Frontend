@@ -8,16 +8,21 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
-import { Plus, Trash2, Check, AlertCircle } from 'lucide-react';
+import { Plus, Trash2, Check, AlertCircle, Send, Loader2, RefreshCw } from 'lucide-react';
 import {
   getEmailSettings,
   getSmsSettings,
   saveSmsSettings,
   createEmailChannel,
+  updateEmailChannel,
   deleteEmailChannel,
   testEmailChannel,
+  testSmsConnection,
+  testSmsSend,
+  syncSmsMessages,
 } from '@/services/messaging';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import type { EmailProviderType } from '@/types/messaging';
 import {
   Select,
   SelectContent,
@@ -34,22 +39,46 @@ import {
 } from '@/components/ui/dialog';
 
 export default function MessagingSettings() {
+  type ChannelFormState = {
+    provider: EmailProviderType;
+    display_name: string;
+    from_email: string;
+    reply_to_email: string;
+    is_default: boolean;
+    cakemail_sender_id: string;
+    cakemail_list_id: string;
+    cakemail_type: 'transactional' | 'marketing';
+    cakemail_tags: string;
+  };
+
   const queryClient = useQueryClient();
   const [showAddChannel, setShowAddChannel] = useState(false);
   const [showAddNumber, setShowAddNumber] = useState(false);
-  const [newChannel, setNewChannel] = useState({
+  const emptyChannelState: ChannelFormState = {
     provider: 'GENERIC_SMTP',
     display_name: '',
     from_email: '',
     reply_to_email: '',
     is_default: false,
-  });
+    cakemail_sender_id: '',
+    cakemail_list_id: '',
+    cakemail_type: 'transactional',
+    cakemail_tags: '',
+  };
+  const [newChannel, setNewChannel] = useState<ChannelFormState>(() => ({ ...emptyChannelState }));
+  const [editingChannelId, setEditingChannelId] = useState<number | null>(null);
   const [newNumber, setNewNumber] = useState({
     phone_number: '',
     label: '',
     mighty_call_key: '',
     is_default: false,
   });
+  const [showTestSend, setShowTestSend] = useState(false);
+  const [testPhone, setTestPhone] = useState('');
+  const [testMessage, setTestMessage] = useState('Hello! This is a test message from MightyCall.');
+  const [testingConnection, setTestingConnection] = useState(false);
+  const [testingSend, setTestingSend] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   // Fetch email settings
   const { data: emailSettings, isLoading: emailLoading } = useQuery({
@@ -70,16 +99,26 @@ export default function MessagingSettings() {
       toast.success('Email channel added successfully');
       queryClient.invalidateQueries({ queryKey: ['email-settings'] });
       setShowAddChannel(false);
-      setNewChannel({
-        provider: 'GENERIC_SMTP',
-        display_name: '',
-        from_email: '',
-        reply_to_email: '',
-        is_default: false,
-      });
+      setEditingChannelId(null);
+      setNewChannel({ ...emptyChannelState });
     },
     onError: (error: any) => {
       toast.error(error.message || 'Failed to add email channel');
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: Record<string, unknown> }) =>
+      updateEmailChannel(id, data),
+    onSuccess: () => {
+      toast.success('Email channel updated successfully');
+      queryClient.invalidateQueries({ queryKey: ['email-settings'] });
+      setShowAddChannel(false);
+      setEditingChannelId(null);
+      setNewChannel({ ...emptyChannelState });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to update email channel');
     },
   });
 
@@ -138,6 +177,36 @@ export default function MessagingSettings() {
 
   const channels = emailSettings?.channels || [];
   const numbers = smsSettings?.numbers || [];
+  const isEditing = editingChannelId !== null;
+
+  const buildCakemailConfig = () => {
+    const config: Record<string, string | string[]> = {};
+
+    if (newChannel.cakemail_sender_id.trim()) {
+      config.cakemail_sender_id = newChannel.cakemail_sender_id.trim();
+    }
+
+    if (newChannel.cakemail_list_id.trim()) {
+      config.cakemail_list_id = newChannel.cakemail_list_id.trim();
+    }
+
+    if (newChannel.cakemail_type) {
+      config.cakemail_type = newChannel.cakemail_type;
+    }
+
+    if (newChannel.cakemail_tags.trim()) {
+      const tags = newChannel.cakemail_tags
+        .split(',')
+        .map((tag) => tag.trim())
+        .filter(Boolean);
+
+      if (tags.length) {
+        config.cakemail_tags = tags;
+      }
+    }
+
+    return config;
+  };
 
   const handleAddChannel = () => {
     if (!newChannel.display_name || !newChannel.from_email) {
@@ -145,11 +214,63 @@ export default function MessagingSettings() {
       return;
     }
 
+    const cakemailConfig = newChannel.provider === 'CAKEMAIL' ? buildCakemailConfig() : undefined;
+
+    if (isEditing && editingChannelId) {
+      updateMutation.mutate({
+        id: editingChannelId,
+        data: {
+          display_name: newChannel.display_name,
+          from_email: newChannel.from_email,
+          reply_to_email: newChannel.reply_to_email,
+          is_default: newChannel.is_default,
+          ...(cakemailConfig && Object.keys(cakemailConfig).length > 0
+            ? { config_json: cakemailConfig }
+            : {}),
+        },
+      });
+      return;
+    }
+
     createMutation.mutate({
       type: 'EMAIL',
-      ...newChannel,
+      provider: newChannel.provider,
+      display_name: newChannel.display_name,
+      from_email: newChannel.from_email,
+      reply_to_email: newChannel.reply_to_email,
+      is_default: newChannel.is_default,
       owner_scope: 'GLOBAL',
+      ...(cakemailConfig && Object.keys(cakemailConfig).length > 0
+        ? { config_json: cakemailConfig }
+        : {}),
     });
+  };
+
+  const handleOpenAddChannel = () => {
+    setEditingChannelId(null);
+    setNewChannel({ ...emptyChannelState });
+    setShowAddChannel(true);
+  };
+
+  const handleEditChannel = (channel: any) => {
+    const config = channel?.config_json ?? {};
+    const tagsValue = Array.isArray(config.cakemail_tags)
+      ? config.cakemail_tags.join(', ')
+      : config.cakemail_tags ?? '';
+
+    setEditingChannelId(channel.id ?? null);
+    setNewChannel({
+      provider: (channel.provider as EmailProviderType) ?? 'GENERIC_SMTP',
+      display_name: channel.display_name ?? '',
+      from_email: channel.from_email ?? '',
+      reply_to_email: channel.reply_to_email ?? '',
+      is_default: !!channel.is_default,
+      cakemail_sender_id: config.cakemail_sender_id ?? '',
+      cakemail_list_id: config.cakemail_list_id ?? '',
+      cakemail_type: config.cakemail_type ?? 'transactional',
+      cakemail_tags: tagsValue,
+    });
+    setShowAddChannel(true);
   };
 
   const handleTestChannel = (channelId: number) => {
@@ -194,6 +315,60 @@ export default function MessagingSettings() {
     }
   };
 
+  const handleTestConnection = async () => {
+    setTestingConnection(true);
+    try {
+      const result = await testSmsConnection();
+      if (result.success) {
+        toast.success('MightyCall connection successful!');
+      } else {
+        toast.error(result.error || 'Connection test failed');
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || error.message || 'Connection test failed');
+    } finally {
+      setTestingConnection(false);
+    }
+  };
+
+  const handleTestSend = async () => {
+    if (!testPhone) {
+      toast.error('Please enter a phone number');
+      return;
+    }
+    setTestingSend(true);
+    try {
+      const result = await testSmsSend({ to: testPhone, message: testMessage });
+      if (result.success) {
+        toast.success(`Test SMS sent! Message ID: ${result.message_id}`);
+        setShowTestSend(false);
+        setTestPhone('');
+      } else {
+        toast.error(result.error || 'Failed to send test SMS');
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || error.message || 'Failed to send test SMS');
+    } finally {
+      setTestingSend(false);
+    }
+  };
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      const result = await syncSmsMessages(24);
+      if (result.success) {
+        toast.success('Messages synced successfully!');
+      } else {
+        toast.error(result.error || 'Sync failed');
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || error.message || 'Sync failed');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   return (
     <DashboardLayout>
       <div className="container mx-auto py-6 max-w-4xl">
@@ -214,21 +389,24 @@ export default function MessagingSettings() {
               <h2 className="text-xl font-semibold">Connected Email Accounts</h2>
               <Dialog open={showAddChannel} onOpenChange={setShowAddChannel}>
                 <DialogTrigger asChild>
-                  <Button>
+                  <Button onClick={handleOpenAddChannel}>
                     <Plus className="mr-2 h-4 w-4" />
                     Add Account
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Add Email Account</DialogTitle>
+                    <DialogTitle>{isEditing ? 'Edit Email Account' : 'Add Email Account'}</DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4">
                     <div>
                       <Label>Provider</Label>
                       <Select
                         value={newChannel.provider}
-                        onValueChange={(value) => setNewChannel({ ...newChannel, provider: value })}
+                        onValueChange={(value) =>
+                          setNewChannel({ ...newChannel, provider: value as EmailProviderType })
+                        }
+                        disabled={isEditing}
                       >
                         <SelectTrigger>
                           <SelectValue />
@@ -237,6 +415,7 @@ export default function MessagingSettings() {
                           <SelectItem value="GENERIC_SMTP">SMTP</SelectItem>
                           <SelectItem value="GOOGLE_OAUTH">Google (OAuth)</SelectItem>
                           <SelectItem value="MAILCHIMP">Mailchimp</SelectItem>
+                          <SelectItem value="CAKEMAIL">Cakemail</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -266,6 +445,60 @@ export default function MessagingSettings() {
                         placeholder="noreply@company.com"
                       />
                     </div>
+                    {newChannel.provider === 'CAKEMAIL' && (
+                      <div className="space-y-4 rounded-md border border-dashed border-muted p-4">
+                        <div>
+                          <Label>Cakemail Sender ID</Label>
+                          <Input
+                            value={newChannel.cakemail_sender_id}
+                            onChange={(e) =>
+                              setNewChannel({ ...newChannel, cakemail_sender_id: e.target.value })
+                            }
+                            placeholder="e.g., HeCJuYblJuMz441KoKwN"
+                          />
+                        </div>
+                        <div>
+                          <Label>Cakemail List ID</Label>
+                          <Input
+                            value={newChannel.cakemail_list_id}
+                            onChange={(e) =>
+                              setNewChannel({ ...newChannel, cakemail_list_id: e.target.value })
+                            }
+                            placeholder="e.g., 8651530"
+                          />
+                        </div>
+                        <div>
+                          <Label>Email Type</Label>
+                          <Select
+                            value={newChannel.cakemail_type}
+                            onValueChange={(value) =>
+                              setNewChannel({
+                                ...newChannel,
+                                cakemail_type: value as 'transactional' | 'marketing',
+                              })
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="transactional">Transactional</SelectItem>
+                              <SelectItem value="marketing">Marketing</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label>Tags (comma-separated)</Label>
+                          <Input
+                            value={newChannel.cakemail_tags}
+                            onChange={(e) =>
+                              setNewChannel({ ...newChannel, cakemail_tags: e.target.value })
+                            }
+                            placeholder="welcome, onboarding"
+                          />
+                        </div>
+                      </div>
+                    )}
                     <div className="flex items-center gap-2">
                       <Switch
                         checked={newChannel.is_default}
@@ -275,10 +508,16 @@ export default function MessagingSettings() {
                     </div>
                     <Button
                       onClick={handleAddChannel}
-                      disabled={createMutation.isPending}
+                      disabled={createMutation.isPending || updateMutation.isPending}
                       className="w-full"
                     >
-                      {createMutation.isPending ? 'Adding...' : 'Add Account'}
+                      {isEditing
+                        ? updateMutation.isPending
+                          ? 'Saving...'
+                          : 'Save Changes'
+                        : createMutation.isPending
+                        ? 'Adding...'
+                        : 'Add Account'}
                     </Button>
                   </div>
                 </DialogContent>
@@ -317,10 +556,38 @@ export default function MessagingSettings() {
                           <p>From: {channel.from_email}</p>
                           {channel.reply_to_email && <p>Reply-To: {channel.reply_to_email}</p>}
                           <p>Scope: {channel.owner_scope}</p>
+                          {channel.provider === 'CAKEMAIL' && channel.config_json && (
+                            <div className="pt-2 text-xs text-muted-foreground space-y-1">
+                              {channel.config_json.cakemail_sender_id && (
+                                <p>Sender ID: {channel.config_json.cakemail_sender_id}</p>
+                              )}
+                              {channel.config_json.cakemail_list_id && (
+                                <p>List ID: {channel.config_json.cakemail_list_id}</p>
+                              )}
+                              {channel.config_json.cakemail_type && (
+                                <p>Type: {channel.config_json.cakemail_type}</p>
+                              )}
+                              {channel.config_json.cakemail_tags && (
+                                <p>
+                                  Tags:{' '}
+                                  {Array.isArray(channel.config_json.cakemail_tags)
+                                    ? channel.config_json.cakemail_tags.join(', ')
+                                    : channel.config_json.cakemail_tags}
+                                </p>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
 
                       <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEditChannel(channel)}
+                        >
+                          Edit
+                        </Button>
                         <Button
                           variant="outline"
                           size="sm"
@@ -349,15 +616,80 @@ export default function MessagingSettings() {
 
           {/* SMS Settings */}
           <TabsContent value="sms" className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <h2 className="text-xl font-semibold">MightyCall Configuration</h2>
-              <Dialog open={showAddNumber} onOpenChange={setShowAddNumber}>
-                <DialogTrigger asChild>
-                  <Button>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Number
-                  </Button>
-                </DialogTrigger>
+              <div className="flex gap-2 flex-wrap">
+                <Button
+                  variant="outline"
+                  onClick={handleTestConnection}
+                  disabled={testingConnection || numbers.length === 0}
+                >
+                  {testingConnection ? (
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Testing...</>
+                  ) : (
+                    'Test Connection'
+                  )}
+                </Button>
+                <Dialog open={showTestSend} onOpenChange={setShowTestSend}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" disabled={numbers.length === 0}>
+                      <Send className="mr-2 h-4 w-4" />
+                      Test Send
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Send Test SMS</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div>
+                        <Label>Phone Number</Label>
+                        <Input
+                          value={testPhone}
+                          onChange={(e) => setTestPhone(e.target.value)}
+                          placeholder="+1 (555) 123-4567"
+                        />
+                      </div>
+                      <div>
+                        <Label>Message</Label>
+                        <Input
+                          value={testMessage}
+                          onChange={(e) => setTestMessage(e.target.value)}
+                          placeholder="Test message"
+                        />
+                      </div>
+                      <Button
+                        onClick={handleTestSend}
+                        disabled={testingSend || !testPhone}
+                        className="w-full"
+                      >
+                        {testingSend ? (
+                          <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending...</>
+                        ) : (
+                          <><Send className="mr-2 h-4 w-4" />Send Test SMS</>
+                        )}
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+                <Button
+                  variant="outline"
+                  onClick={handleSync}
+                  disabled={syncing || numbers.length === 0}
+                >
+                  {syncing ? (
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Syncing...</>
+                  ) : (
+                    <><RefreshCw className="mr-2 h-4 w-4" />Sync Messages</>
+                  )}
+                </Button>
+                <Dialog open={showAddNumber} onOpenChange={setShowAddNumber}>
+                  <DialogTrigger asChild>
+                    <Button>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add Number
+                    </Button>
+                  </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle>Add SMS Number</DialogTitle>
@@ -408,6 +740,7 @@ export default function MessagingSettings() {
                   </div>
                 </DialogContent>
               </Dialog>
+              </div>
             </div>
 
             <Card className="p-6">

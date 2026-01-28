@@ -1,11 +1,12 @@
 import React from 'react';
-import { DollarSign, Calendar as CalendarIcon, Clock, MapPin, User, CloudSun, Check } from 'lucide-react';
+import { DollarSign, Calendar as CalendarIcon, Clock, MapPin, User, CloudSun, Check, Send, Loader2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
+import { useAuth } from '@/components/auth/AuthProvider';
 
 interface BookingSummaryProps {
   summaryInfo: {
@@ -24,6 +25,7 @@ interface BookingSummaryProps {
   selectedServices: Array<{ id: string; name: string; description: string; price: number }>;
   onSubmit?: () => void;
   isLastStep?: boolean;
+  isSubmitting?: boolean;
   showRepName?: boolean; // Whether to show rep name (admin, superadmin, photographer only)
   weather?: {
     temperature?: number | null;
@@ -36,12 +38,17 @@ export function BookingSummary({
   selectedServices,
   onSubmit,
   isLastStep = false,
+  isSubmitting = false,
   showRepName = false,
   weather,
 }: BookingSummaryProps) {
   const { formatTemperature } = useUserPreferences();
+  const { user } = useAuth();
   const hasSelectedServices = selectedServices.length > 0;
   const hasWeather = weather && (weather.temperature !== undefined || weather.condition);
+  
+  // Clients submit requests, admin/rep book directly
+  const isClientRole = user?.role === 'client';
 
   return (
     <motion.div
@@ -151,9 +158,22 @@ export function BookingSummary({
         <div className="pt-4 mt-4 border-t border-gray-200 dark:border-slate-700">
           <Button
             onClick={onSubmit}
-            className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-md transition-colors"
+            disabled={isSubmitting}
+            className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-md transition-colors disabled:opacity-70"
           >
-            <Check className="mr-2 h-4 w-4" /> Book Shoot
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Requesting...
+              </>
+            ) : isClientRole ? (
+              <>
+                <Send className="mr-2 h-4 w-4" /> Request Shoot
+              </>
+            ) : (
+              <>
+                <Check className="mr-2 h-4 w-4" /> Book Shoot
+              </>
+            )}
           </Button>
         </div>
       </div>

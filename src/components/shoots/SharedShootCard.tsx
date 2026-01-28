@@ -13,6 +13,11 @@ import {
   User,
   Camera,
   Sun,
+  Check,
+  X,
+  Edit,
+  Trash2,
+  FileText,
 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import type { ShootAction, ShootData } from '@/types/shoots';
@@ -29,15 +34,37 @@ interface SharedShootCardProps {
   onSelect?: (shoot: ShootData) => void;
   onPrimaryAction?: (action: ShootAction, shoot: ShootData) => void;
   onOpenWorkflow?: (shoot: ShootData) => void;
+  onApprove?: (shoot: ShootData) => void;
+  onDecline?: (shoot: ShootData) => void;
+  onModify?: (shoot: ShootData) => void;
+  onDelete?: (shoot: ShootData) => void;
+  onViewInvoice?: (shoot: ShootData) => void;
+  shouldHideClientDetails?: boolean;
 }
 
 const statusColors: Record<string, string> = {
+  // Main status colors
+  requested: 'bg-blue-100 text-blue-700 border-blue-300',
   scheduled: 'bg-blue-100 text-blue-700 border-blue-200',
-  booked: 'bg-slate-100 text-slate-700 border-slate-200',
-  completed: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-  on_hold: 'bg-amber-100 text-amber-700 border-amber-200',
-  raw_uploaded: 'bg-indigo-100 text-indigo-700 border-indigo-200',
+  booked: 'bg-blue-100 text-blue-700 border-blue-200', // Alias for scheduled
+  uploaded: 'bg-indigo-100 text-indigo-700 border-indigo-200',
   editing: 'bg-purple-100 text-purple-700 border-purple-200',
+  delivered: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  
+  // Legacy/alias statuses
+  completed: 'bg-indigo-100 text-indigo-700 border-indigo-200', // Maps to uploaded
+  raw_uploaded: 'bg-indigo-100 text-indigo-700 border-indigo-200',
+  photos_uploaded: 'bg-indigo-100 text-indigo-700 border-indigo-200',
+  review: 'bg-orange-100 text-orange-700 border-orange-200',
+  pending_review: 'bg-orange-100 text-orange-700 border-orange-200',
+  ready_for_client: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  admin_verified: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  
+  // Other statuses
+  on_hold: 'bg-amber-100 text-amber-700 border-amber-200',
+  declined: 'bg-red-100 text-red-700 border-red-200',
+  canceled: 'bg-gray-100 text-gray-700 border-gray-200',
+  cancelled: 'bg-gray-100 text-gray-700 border-gray-200',
 };
 
 const roleDefaultActions: Record<Role, ShootAction> = {
@@ -55,16 +82,29 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
   onSelect,
   onPrimaryAction,
   onOpenWorkflow,
+  onApprove,
+  onDecline,
+  onModify,
+  onDelete,
+  onViewInvoice,
+  shouldHideClientDetails = false,
 }) => {
   const { formatTemperature, formatTime, formatDate } = useUserPreferences();
   const normalizedStatus = String(shoot.workflowStatus || shoot.status || '').toLowerCase();
-  const isScheduledOrBooked = normalizedStatus === 'scheduled' || normalizedStatus === 'booked';
-  const heroImage = shoot.heroImage || (!isScheduledOrBooked ? '/placeholder.svg' : null);
+  const isPreShootStatus = normalizedStatus === 'scheduled' || normalizedStatus === 'booked' || normalizedStatus === 'requested' || normalizedStatus === 'on_hold';
+  const heroImage = shoot.heroImage || (!isPreShootStatus ? '/placeholder.svg' : null);
+  // Get status color - check both workflowStatus and status, and handle case-insensitive lookup
+  const statusKey = normalizedStatus;
   const statusClass =
-    statusColors[shoot.workflowStatus || shoot.status] ?? 'bg-slate-100 text-slate-700 border-slate-200';
+    statusColors[statusKey] || 
+    statusColors[shoot.workflowStatus || ''] || 
+    statusColors[shoot.status || ''] || 
+    'bg-slate-100 text-slate-700 border-slate-200';
   const primaryAction = shoot.primaryAction || roleDefaultActions[role];
   const isSuperAdmin = role === 'superadmin';
+  const isAdmin = role === 'admin';
   const isClient = role === 'client';
+  const canDelete = (isSuperAdmin || isAdmin) && onDelete;
 
   const handlePrimary = () => {
     const action = shoot.primaryAction || roleDefaultActions[role];
@@ -128,6 +168,37 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
                   : shoot.weather.temperature}
               </span>
             </div>
+          )}
+          
+          {/* Invoice Button - Available for all roles */}
+          {onViewInvoice && (
+            <Button 
+              onClick={(e) => {
+                e.stopPropagation();
+                onViewInvoice(shoot);
+              }}
+              className="bg-blue-500 hover:bg-blue-600 text-white font-semibold px-3 py-1.5 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+              size="sm"
+              variant="outline"
+              title="View Invoice"
+            >
+              <FileText className="h-4 w-4" />
+            </Button>
+          )}
+          
+          {/* Delete Button - Only for admin/superadmin */}
+          {canDelete && (
+            <Button 
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete?.(shoot);
+              }}
+              className="bg-red-500 hover:bg-red-600 text-white font-semibold px-3 py-1.5 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+              size="sm"
+              variant="destructive"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           )}
           
           {/* Pay Now Button - Only show to clients for their own shoots if not paid */}
@@ -211,17 +282,24 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
         })()}
 
         {/* Client & Photographer Info */}
-        <div className="grid grid-cols-2 gap-4 pt-2 border-t border-border/50">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              <User className="h-3.5 w-3.5" />
-              <span>Client</span>
+        <div
+          className={cn(
+            'grid gap-4 pt-2 border-t border-border/50',
+            shouldHideClientDetails ? 'grid-cols-1' : 'grid-cols-2'
+          )}
+        >
+          {!shouldHideClientDetails && (
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                <User className="h-3.5 w-3.5" />
+                <span>Client</span>
+              </div>
+              <p className="text-sm font-semibold">{shoot.client.name}</p>
+              {shoot.client.email && (
+                <p className="text-xs text-muted-foreground truncate">{shoot.client.email}</p>
+              )}
             </div>
-            <p className="text-sm font-semibold">{shoot.client.name}</p>
-            {shoot.client.email && (
-              <p className="text-xs text-muted-foreground truncate">{shoot.client.email}</p>
-            )}
-          </div>
+          )}
           
           {shoot.photographer?.name && (
             <div className="space-y-1">
@@ -235,29 +313,93 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
         </div>
 
         {/* Additional Info & Metadata */}
-        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border/50">
-          {bracketSummary && (
-            <Badge variant="secondary" className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium">
-              <Layers className="h-3 w-3" />
-              {bracketSummary}
-            </Badge>
-          )}
-          {shoot.missingRaw && (
-            <Badge variant="destructive" className="rounded-md px-2.5 py-1 text-xs font-medium">
-              Missing RAW · {shoot.rawMissingCount}
-            </Badge>
-          )}
-          {shoot.missingFinal && (
-            <Badge variant="destructive" className="rounded-md px-2.5 py-1 text-xs font-medium">
-              Missing Finals · {shoot.editedMissingCount}
-            </Badge>
-          )}
-          {shoot.payment?.totalQuote && (isSuperAdmin || isClient) && (
-            <Badge variant="outline" className="rounded-md px-2.5 py-1 text-xs font-medium">
-              ${shoot.payment.totalQuote.toLocaleString()}
-            </Badge>
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border/50">
+          <div className="flex flex-wrap items-center gap-2">
+            {bracketSummary && (
+              <Badge variant="secondary" className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium">
+                <Layers className="h-3 w-3" />
+                {bracketSummary}
+              </Badge>
+            )}
+            {shoot.missingRaw && (
+              <Badge variant="destructive" className="rounded-md px-2.5 py-1 text-xs font-medium">
+                Missing RAW · {shoot.rawMissingCount}
+              </Badge>
+            )}
+            {shoot.missingFinal && (
+              <Badge variant="destructive" className="rounded-md px-2.5 py-1 text-xs font-medium">
+                Missing Finals · {shoot.editedMissingCount}
+              </Badge>
+            )}
+            {shoot.payment?.totalQuote && (isSuperAdmin || isClient) && (
+              <Badge variant="outline" className="rounded-md px-2.5 py-1 text-xs font-medium">
+                ${shoot.payment.totalQuote.toLocaleString()}
+              </Badge>
+            )}
+          </div>
+          {/* Invoice Button - Show in card content when no hero image */}
+          {!heroImage && onViewInvoice && (
+            <Button 
+              onClick={(e) => {
+                e.stopPropagation();
+                onViewInvoice(shoot);
+              }}
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1.5"
+              title="View Invoice"
+            >
+              <FileText className="h-3.5 w-3.5" />
+              Invoice
+            </Button>
           )}
         </div>
+
+        {/* Action buttons for requested shoots - Only visible to admin/superadmin */}
+        {normalizedStatus === 'requested' && (isAdmin || isSuperAdmin) && (onApprove || onDecline || onModify) && (
+          <div className="flex flex-wrap gap-2 pt-4 border-t border-blue-200">
+            {onApprove && (
+              <Button
+                size="sm"
+                className="bg-green-600 hover:bg-green-700 text-white"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onApprove(shoot);
+                }}
+              >
+                <Check className="h-4 w-4 mr-1" />
+                Approve
+              </Button>
+            )}
+            {onModify && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onModify(shoot);
+                }}
+              >
+                <Edit className="h-4 w-4 mr-1" />
+                Modify
+              </Button>
+            )}
+            {onDecline && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDecline(shoot);
+                }}
+              >
+                <X className="h-4 w-4 mr-1" />
+                Decline
+              </Button>
+            )}
+          </div>
+        )}
       </div>
     </Card>
   );

@@ -74,8 +74,32 @@ export function ShootDetailsActivityLogTab({
   const [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    loadActivities();
-  }, [shoot.id]);
+    // Check if activity logs are already in shoot data
+    if ((shoot as any).activityLogs && Array.isArray((shoot as any).activityLogs)) {
+      const activitiesData = (shoot as any).activityLogs;
+      const transformed = activitiesData.map((item: any) => ({
+        id: item.id || `activity-${Date.now()}-${Math.random()}`,
+        timestamp: item.created_at || item.timestamp || item.createdAt || new Date().toISOString(),
+        actor: item.user ? {
+          id: item.user.id || item.user_id,
+          name: item.user.name || 'System',
+          role: item.user.role,
+        } : null,
+        action: item.action || 'unknown',
+        type: determineActivityType(item.action || ''),
+        description: item.description || item.message || item.details || 'Activity logged',
+        details: item.metadata || item.details,
+        metadata: item.metadata,
+      }));
+      
+      setActivities(transformed.sort((a: ActivityLogEntry, b: ActivityLogEntry) => 
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      ));
+      setLoading(false);
+    } else {
+      loadActivities();
+    }
+  }, [shoot.id, shoot]);
 
   const loadActivities = async () => {
     setLoading(true);
@@ -88,32 +112,45 @@ export function ShootDetailsActivityLogTab({
         },
       });
       
-      if (res.ok) {
-        const json = await res.json();
-        const activitiesData = json.data || json || [];
-        
-        // Transform API data to ActivityLogEntry format
-        const transformed = activitiesData.map((item: any) => ({
-          id: item.id || String(Date.now() + Math.random()),
-          timestamp: item.created_at || item.timestamp || new Date().toISOString(),
-          actor: item.user ? {
-            id: item.user.id || item.user_id,
-            name: item.user.name || 'System',
-            role: item.user.role,
-          } : null,
-          action: item.action || 'unknown',
-          type: determineActivityType(item.action || ''),
-          description: item.details || item.description || 'Activity logged',
-          details: item.metadata || item.details,
-          metadata: item.metadata,
-        }));
-        
-        setActivities(transformed.sort((a: ActivityLogEntry, b: ActivityLogEntry) => 
-          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-        ));
+      if (!res.ok) {
+        // Silently handle errors - just show empty state
+        // Don't show error message to user
+        setActivities([]);
+        return;
       }
-    } catch (error) {
+
+      const json = await res.json();
+      const activitiesData = json.data || json || [];
+      
+      if (!Array.isArray(activitiesData)) {
+        console.warn('Activity log data is not an array:', activitiesData);
+        setActivities([]);
+        return;
+      }
+      
+      // Transform API data to ActivityLogEntry format
+      const transformed = activitiesData.map((item: any) => ({
+        id: item.id || `activity-${Date.now()}-${Math.random()}`,
+        timestamp: item.created_at || item.timestamp || item.createdAt || new Date().toISOString(),
+        actor: item.user ? {
+          id: item.user.id || item.user_id,
+          name: item.user.name || 'System',
+          role: item.user.role,
+        } : (item.actor || null),
+        action: item.action || 'unknown',
+        type: determineActivityType(item.action || ''),
+        description: item.description || item.message || item.details || 'Activity logged',
+        details: item.metadata || item.details,
+        metadata: item.metadata,
+      }));
+      
+      setActivities(transformed.sort((a: ActivityLogEntry, b: ActivityLogEntry) => 
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      ));
+    } catch (error: any) {
       console.error('Error loading activity log:', error);
+      // Silently handle errors - don't show error to user
+      setActivities([]);
     } finally {
       setLoading(false);
     }
@@ -166,20 +203,26 @@ export function ShootDetailsActivityLogTab({
 
   if (loading) {
     return (
-      <Card>
-        <CardContent className="py-10 text-center">
-          <div className="text-muted-foreground">Loading activity log...</div>
-        </CardContent>
-      </Card>
+      <div className="w-full !mt-0">
+        <Card className="!mt-0">
+          <CardHeader className="!pt-6">
+            <CardTitle>Activity Log</CardTitle>
+            <CardDescription>Timeline of all activities and events for this shoot</CardDescription>
+          </CardHeader>
+          <CardContent className="py-10 text-center">
+            <div className="text-muted-foreground">Loading activity log...</div>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
   const groupedActivities = groupByDate(activities);
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
+    <div className="w-full !mt-0">
+      <Card className="!mt-0">
+        <CardHeader className="!pt-6">
           <CardTitle>Activity Log</CardTitle>
           <CardDescription>Timeline of all activities and events for this shoot</CardDescription>
         </CardHeader>
@@ -206,7 +249,7 @@ export function ShootDetailsActivityLogTab({
                     return (
                       <div
                         key={entry.id}
-                        className="flex gap-4 p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                        className="flex gap-4 p-4 border rounded-lg hover:bg-muted/50 transition-colors bg-card"
                       >
                         <div className="flex-shrink-0">
                           <div className={`w-10 h-10 rounded-full flex items-center justify-center ${colorClass}`}>
@@ -219,7 +262,7 @@ export function ShootDetailsActivityLogTab({
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-1">
                                 <Badge className={colorClass}>
-                                  {entry.type.replace('_', ' ')}
+                                  {entry.type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                                 </Badge>
                                 <span className="text-sm font-medium">
                                   {entry.actor?.name || 'System'}
@@ -256,7 +299,7 @@ export function ShootDetailsActivityLogTab({
                           {isExpanded && (entry.details || entry.metadata) && (
                             <Collapsible open={isExpanded}>
                               <CollapsibleContent>
-                                <div className="mt-2 p-3 bg-muted/50 rounded text-xs space-y-2">
+                                <div className="mt-3 p-4 bg-muted/30 rounded-lg border text-xs space-y-3">
                                   {entry.type === 'payment' && isAdmin && (
                                     <div className="flex gap-2">
                                       <Button
@@ -276,9 +319,9 @@ export function ShootDetailsActivityLogTab({
                                     </div>
                                   )}
                                   {entry.details && (
-                                    <div>
-                                      <strong>Details:</strong>
-                                      <pre className="mt-1 whitespace-pre-wrap text-xs">
+                                    <div className="space-y-1">
+                                      <strong className="text-foreground">Details:</strong>
+                                      <pre className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground font-mono bg-background p-2 rounded border">
                                         {typeof entry.details === 'string' 
                                           ? entry.details 
                                           : JSON.stringify(entry.details, null, 2)}
@@ -286,9 +329,9 @@ export function ShootDetailsActivityLogTab({
                                     </div>
                                   )}
                                   {entry.metadata && Object.keys(entry.metadata).length > 0 && (
-                                    <div>
-                                      <strong>Metadata:</strong>
-                                      <pre className="mt-1 whitespace-pre-wrap text-xs">
+                                    <div className="space-y-1">
+                                      <strong className="text-foreground">Metadata:</strong>
+                                      <pre className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground font-mono bg-background p-2 rounded border">
                                         {JSON.stringify(entry.metadata, null, 2)}
                                       </pre>
                                     </div>

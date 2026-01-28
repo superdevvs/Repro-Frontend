@@ -1,6 +1,6 @@
-import React, { Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import React, { Profiler, Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
+import { cn } from "@/lib/utils";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   MapPin,
   Phone,
@@ -21,68 +21,82 @@ import {
   FileText,
   FileDown,
   Sun,
+  Download,
+  Edit3,
+  RefreshCw,
+  Calendar,
 } from "lucide-react";
-import {
-  format,
-  startOfDay,
-  endOfDay,
-  startOfWeek,
-  endOfWeek,
-  differenceInCalendarDays,
-  addDays,
-  parse,
-  parseISO,
-  isValid,
-} from "date-fns";
+import { format, parseISO } from "date-fns";
 
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useShoots } from "@/context/ShootsContext";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { InvoiceData } from "@/utils/invoiceUtils";
-import { ShootStatsCards } from "@/components/dashboard/ShootStatsCards";
-import { ShootApprovalsSection } from "@/components/dashboard/ShootApprovalsSection";
-import { ShootEditingSection } from "@/components/dashboard/ShootEditingSection";
-import { ShootScheduleCard } from "@/components/dashboard/ShootScheduleCard";
 import { useDashboardOverview } from "@/hooks/useDashboardOverview";
 import { WeatherInfo } from "@/services/weatherService";
 import { UpcomingShootsCard } from "@/components/dashboard/v2/UpcomingShootsCard";
 import { PendingReviewsCard } from "@/components/dashboard/v2/PendingReviewsCard";
+import { RequestedShootsCard } from "@/components/dashboard/v2/RequestedShootsCard";
+import { ShootApprovalModal } from "@/components/shoots/ShootApprovalModal";
+import { ShootDeclineModal } from "@/components/shoots/ShootDeclineModal";
+import { ShootEditModal } from "@/components/shoots/ShootEditModal";
+import { RescheduleDialog } from "@/components/dashboard/RescheduleDialog";
+import { SquarePaymentDialog } from "@/components/payments/SquarePaymentDialog";
 import { Avatar, Card, StatBadge } from "@/components/dashboard/v2/SharedComponents";
 import { formatWorkflowStatus } from "@/utils/status";
+import {
+  buildClientInvoiceSummary,
+  currencyFormatter,
+  getGreetingPrefix,
+  getSpecialInstructions,
+  matchesStatus,
+  shootDataToSummary,
+  DELIVERED_STATUS_KEYWORDS,
+} from "@/utils/dashboardDerivedUtils";
+import type { ClientShootRecord } from "@/utils/dashboardDerivedUtils";
+import type { UserRole } from "@/types/auth";
+import { useDashboardDerivedData } from "@/hooks/useDashboardDerivedData";
 import { Button } from "@/components/ui/button";
-import { getStateFullName } from "@/utils/stateUtils";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   DashboardPhotographerSummary,
   DashboardShootSummary,
-  DashboardIssueItem,
-  DashboardShootServiceTag,
+  DashboardClientRequest,
 } from "@/types/dashboard";
 import { useToast } from "@/hooks/use-toast";
 import type { ShootData } from "@/types/shoots";
-import type { UserData } from "@/types/auth";
 import { fetchAvailablePhotographers } from "@/services/dashboardService";
 import { API_BASE_URL } from "@/config/env";
 import { useUserPreferences } from "@/contexts/UserPreferencesContext";
 import { QuickActionsCard, type QuickActionItem } from "@/components/dashboard/v2/QuickActionsCard";
+import {
+  QuickActionsEditor,
+  type CustomQuickAction,
+  QUICK_ACTION_ICON_MAP,
+  normalizeQuickActions,
+} from "@/components/dashboard/v2/QuickActionsEditor";
 import { useEditingRequests } from "@/hooks/useEditingRequests";
+import { useIssueManager } from "@/context/IssueManagerContext";
 import { UpcomingShootsCardSkeleton } from "@/components/dashboard/v2/UpcomingShootsCardSkeleton";
 import { PendingReviewsCardSkeleton } from "@/components/dashboard/v2/PendingReviewsCardSkeleton";
 import { CompletedShootsCardSkeleton } from "@/components/dashboard/v2/CompletedShootsCardSkeleton";
 import { AssignPhotographersCardSkeleton } from "@/components/dashboard/v2/AssignPhotographersCardSkeleton";
 import { EditingRequestsCardSkeletonWrapper } from "@/components/dashboard/v2/EditingRequestsCardSkeletonWrapper";
 import { ProductionWorkflowBoardSkeleton } from "@/components/dashboard/v2/ProductionWorkflowBoardSkeleton";
-
-const LazyTaskManager = lazy(() =>
-  import("@/components/dashboard/TaskManager").then((module) => ({ default: module.TaskManager })),
-);
-
-const LazyRevenueCharts = lazy(() =>
-  import("@/components/accounting/RevenueCharts").then((module) => ({ default: module.RevenueCharts })),
-);
+import { RequestedShootsCardSkeleton } from "@/components/dashboard/v2/RequestedShootsCardSkeleton";
+import { RequestedShootsSection } from "@/components/dashboard/v2/RequestedShootsSection";
+import { ShootsTabsCard } from "@/components/dashboard/v2/ShootsTabsCard";
+import { ErrorBoundary, withErrorBoundary } from "@/components/ui/ErrorBoundary";
+import { InvoiceViewDialog } from "@/components/invoices/InvoiceViewDialog";
 
 const LazyAssignPhotographersCard = lazy(() =>
   import("@/components/dashboard/v2/AssignPhotographersCard").then((module) => ({
@@ -108,12 +122,6 @@ const LazyShootDetailsModal = lazy(() =>
   })),
 );
 
-const LazyIssuesListCard = lazy(() =>
-  import("@/components/dashboard/v2/IssuesListCard").then((module) => ({
-    default: module.IssuesListCard,
-  })),
-);
-
 const LazyEditingRequestsCard = lazy(() =>
   import("@/components/dashboard/EditingRequestsCard").then((module) => ({
     default: module.EditingRequestsCard,
@@ -126,12 +134,6 @@ const LazySpecialEditingRequestDialog = lazy(() =>
   })),
 );
 
-const SectionFallback: React.FC<{ label?: string }> = ({ label = "Loading..." }) => (
-  <div className="flex min-h-[200px] items-center justify-center rounded-2xl border border-dashed border-border/70 text-sm text-muted-foreground">
-    {label}
-  </div>
-);
-
 const WORKFLOW_SEQUENCE = [
   "booked",
   "photos_uploaded",
@@ -141,370 +143,284 @@ const WORKFLOW_SEQUENCE = [
   "completed",
 ] as const;
 
+const QUICK_ACTIONS_STORAGE_PREFIX = "repro.dashboard.quickActions";
+
+const buildQuickActionsStorageKey = (role?: string | null, userId?: string | number | null) => {
+  const safeRole = role ?? "default";
+  const safeUser = userId != null ? String(userId) : null;
+  const suffix = safeUser ? `.${safeUser}` : "";
+  return `${QUICK_ACTIONS_STORAGE_PREFIX}.${safeRole}${suffix}`;
+};
+
 const getToken = (sessionToken?: string | null) =>
   sessionToken ||
   localStorage.getItem("authToken") ||
   localStorage.getItem("token") ||
   undefined;
 
-const COMPLETED_STATUS_KEYWORDS = ["completed", "editing_complete", "admin_verified"];
-const DELIVERED_STATUS_KEYWORDS = ["delivered", "ready_for_client", "client_delivered"];
-const CANCELED_STATUS_KEYWORDS = ["canceled", "cancelled", "no_show"];
-const PENDING_REVIEW_KEYWORDS = ["pending_review", "pending review", "qc", "awaiting_review", "needs_review"];
-const HOLD_STATUS_KEYWORDS = ["hold", "issue", "pending_payment", "awaiting_client", "needs_client_action"];
-
-const hashString = (value: string): number => {
-  let hash = 0;
-  for (let i = 0; i < value.length; i += 1) {
-    hash = (hash << 5) - hash + value.charCodeAt(i);
-    hash |= 0;
-  }
-  return Math.abs(hash);
-};
-
-const toNumericId = (value?: string | number | null, fallback?: string): number => {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string" && value.length) {
-    const parsed = Number(value);
-    if (Number.isFinite(parsed)) return parsed;
-    return hashString(value);
-  }
-  if (fallback) return hashString(fallback);
-  return hashString("repro-fallback");
-};
-
-const doesShootBelongToClient = (shoot: ShootData, client?: UserData | null) => {
-  if (!client) return false;
-  const emailMatch = shoot.client.email && client.email && shoot.client.email === client.email;
-  const nameMatch = shoot.client.name && client.name && shoot.client.name === client.name;
-  const companyMatch = shoot.client.company && client.company && shoot.client.company === client.company;
-  return Boolean(emailMatch || nameMatch || companyMatch);
-};
-
-const getGreetingPrefix = () => {
-  const hour = new Date().getHours();
-  if (hour < 12) return "Good morning";
-  if (hour < 17) return "Good afternoon";
-  if (hour < 21) return "Good evening";
-  return "Hi";
-};
-
 const DASHBOARD_DESCRIPTION =
   "Here's an overview of all your shoots, approvals, and editing status.";
 
-const parseShootDateTime = (shoot: ShootData): Date | null => {
-  if (!shoot.scheduledDate) return null;
-  const patterns = ["yyyy-MM-dd h:mm aa", "yyyy-MM-dd hh:mm aa", "yyyy-MM-dd HH:mm"];
-  if (shoot.time) {
-    for (const pattern of patterns) {
-      const parsed = parse(`${shoot.scheduledDate} ${shoot.time}`, pattern, new Date());
-      if (isValid(parsed)) return parsed;
+const isProfilerLoggingEnabled = () => {
+  if (!import.meta.env.DEV || typeof window === "undefined") return false;
+  try {
+    const flag = window.localStorage.getItem("repro.debug.profiler");
+    if (flag === "1" || flag === "true") {
+      return true;
     }
+  } catch {
+    return false;
   }
-  const fallback = parseISO(shoot.scheduledDate);
-  return isValid(fallback) ? fallback : null;
+  return (window as Window & { __REPRO_DEBUG_PROFILER__?: boolean })
+    .__REPRO_DEBUG_PROFILER__ === true;
 };
 
-const getDayLabel = (date: Date | null) => {
-  if (!date) return "Upcoming";
-  const today = startOfDay(new Date());
-  const diff = differenceInCalendarDays(startOfDay(date), today);
-  if (diff === 0) return "Today";
-  if (diff === 1) return "Tomorrow";
-  if (diff === -1) return "Yesterday";
-  if (diff > 1 && diff < 7) return format(date, "EEEE");
-  return format(date, "MMM d");
+const logDashboardProfiler: React.ProfilerOnRenderCallback = (
+  id,
+  phase,
+  actualDuration,
+  baseDuration,
+  startTime,
+  commitTime,
+) => {
+  if (!isProfilerLoggingEnabled()) return;
+  console.debug(`[Profiler:${id}]`, {
+    phase,
+    actualDuration: Number(actualDuration.toFixed(2)),
+    baseDuration: Number(baseDuration.toFixed(2)),
+    startTime: Number(startTime.toFixed(2)),
+    commitTime: Number(commitTime.toFixed(2)),
+  });
 };
 
-const normalizeServices = (services?: string[] | Array<{ name?: string; id?: number | string }>): DashboardShootServiceTag[] => {
-  if (!services?.length) return [{ label: "Standard Package", type: "primary" }];
-  
-  // Convert services to strings first - handle both string arrays and object arrays
-  const serviceStrings = services.map((service) => {
-    if (typeof service === 'string') {
-      return service;
-    }
-    if (service && typeof service === 'object') {
-      // Handle object format: {id: 1, name: "Service Name", ...}
-      return (service as any).name ?? (service as any).label ?? (service as any).service_name ?? String(service);
-    }
-    return String(service);
-  }).filter(Boolean) as string[];
-  
-  const tags = serviceStrings.flatMap((service) =>
-    service
-      .split(/[,/|•+]+/g)
-      .map((item) => item.trim())
-      .filter(Boolean),
+const DevProfiler: React.FC<{ id: string; children: React.ReactNode }> = ({ id, children }) =>
+  import.meta.env.DEV ? (
+    <Profiler id={id} onRender={logDashboardProfiler}>
+      {children}
+    </Profiler>
+  ) : (
+    <>{children}</>
   );
-  return tags.map((label) => {
-    const lower = label.toLowerCase();
-    let type: DashboardShootServiceTag["type"] = "primary";
-    if (lower.includes("drone")) type = "drone";
-    if (lower.includes("video") || lower.includes("edit")) type = "video";
-    return { label, type };
-  });
+
+type MobileDashboardTab = "shoots" | "assign" | "requests" | "completed" | "pipeline";
+
+type CommandBarState = {
+  openRequestManager?: boolean;
+  selectedRequestId?: string | null;
+  openEditingRequest?: boolean;
+  editingRequestId?: number | null;
 };
-
-type ClientShootRecord = {
-  data: ShootData;
-  summary: DashboardShootSummary;
-};
-
-const isCompletedSummary = (summary: DashboardShootSummary) =>
-  matchesStatus(summary, [...COMPLETED_STATUS_KEYWORDS, ...DELIVERED_STATUS_KEYWORDS]);
-
-const isCanceledSummary = (summary: DashboardShootSummary) =>
-  matchesStatus(summary, CANCELED_STATUS_KEYWORDS);
-
-const isOnHoldRecord = (record: ClientShootRecord) =>
-  record.data.isFlagged || matchesStatus(record.summary, HOLD_STATUS_KEYWORDS);
-
-const getSpecialInstructions = (shoot: ShootData) => {
-  if (!shoot.notes) return undefined;
-  if (typeof shoot.notes === "string") return shoot.notes;
-  return (
-    shoot.notes.shootNotes ||
-    shoot.notes.photographerNotes ||
-    shoot.notes.companyNotes ||
-    shoot.notes.editingNotes ||
-    undefined
-  );
-};
-
-const currencyFormatter = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-});
-
-const buildClientInvoiceSummary = (shoots: ShootData[]) => {
-  const summary = {
-    dueNow: { amount: 0, count: 0 },
-    upcoming: { amount: 0, count: 0 },
-    paid: { amount: 0, count: 0 },
-  };
-  const now = new Date();
-
-  shoots.forEach((shoot) => {
-    const payment = shoot.payment;
-    if (!payment) return;
-    const total = payment.totalQuote ?? 0;
-    const paid = payment.totalPaid ?? 0;
-    const balance = Math.max(total - paid, 0);
-    if (balance > 1) {
-      const scheduledDate = shoot.scheduledDate ? parseISO(shoot.scheduledDate) : null;
-      const target = scheduledDate && isValid(scheduledDate) && scheduledDate > now ? "upcoming" : "dueNow";
-      summary[target].amount += balance;
-      summary[target].count += 1;
-    } else {
-      summary.paid.amount += total;
-      summary.paid.count += 1;
-    }
-  });
-
-  return summary;
-};
-
-const extractMetadataArray = (
-  metadata: Record<string, unknown>,
-  keys: string[],
-  transform?: (value: string) => string,
-): string[] => {
-  for (const key of keys) {
-    const raw = metadata?.[key];
-    if (Array.isArray(raw)) {
-      return raw
-        .map((item) => {
-          if (item == null) return "";
-          const value = String(item).trim();
-          return transform ? transform(value) : value;
-        })
-        .filter(Boolean);
-    }
-  }
-  return [];
-};
-
-const extractStateToken = (value?: string | null) => {
-  if (!value) return null;
-  const parts = value.split(",");
-  if (parts.length < 2) return null;
-  const token = parts[1]?.trim().split(" ")[0];
-  return token ? token.toLowerCase() : null;
-};
-
-const shootDataToSummary = (shoot: ShootData): DashboardShootSummary => {
-  const start = parseShootDateTime(shoot);
-  const location = shoot.location || { address: "No address", city: "", state: "", zip: "" };
-  return {
-    id: toNumericId(shoot.id, `${location.address}-${shoot.scheduledDate}`),
-    dayLabel: getDayLabel(start),
-    timeLabel: start ? format(start, "h:mm a") : shoot.time || null,
-    startTime: start ? start.toISOString() : null,
-    addressLine: location.address || "No address on file",
-    cityStateZip: [location.city, getStateFullName(location.state), location.zip].filter(Boolean).join(", "),
-    status: shoot.status || null,
-    workflowStatus: shoot.workflowStatus || shoot.status || null,
-    clientName: shoot.client?.name || null,
-    clientId: shoot.client?.id,
-    temperature: undefined,
-    services: normalizeServices(shoot.services),
-    photographer: shoot.photographer?.name
-      ? {
-          id: toNumericId(shoot.photographer.id, shoot.photographer.name),
-          name: shoot.photographer.name,
-          avatar: shoot.photographer.avatar,
-        }
-      : null,
-    isFlagged: Boolean(shoot.isFlagged),
-    deliveryDeadline: shoot.completedDate ?? null,
-    submittedForReviewAt: shoot.submittedForReviewAt ?? null,
-    adminIssueNotes:
-      typeof shoot.adminIssueNotes === "string" ? shoot.adminIssueNotes : undefined,
-  };
-};
-
-const getStatusKey = (shoot: DashboardShootSummary) =>
-  (shoot.workflowStatus || shoot.status || "").toLowerCase();
-
-const matchesStatus = (shoot: DashboardShootSummary, keywords: string[]) =>
-  keywords.some((keyword) => getStatusKey(shoot).includes(keyword));
-
-const sortByStartAsc = (a: DashboardShootSummary, b: DashboardShootSummary) => {
-  const aTime = a.startTime ? new Date(a.startTime).getTime() : Number.MAX_SAFE_INTEGER;
-  const bTime = b.startTime ? new Date(b.startTime).getTime() : Number.MAX_SAFE_INTEGER;
-  return aTime - bTime;
-};
-
-const sortByStartDesc = (a: DashboardShootSummary, b: DashboardShootSummary) =>
-  -sortByStartAsc(a, b);
-
-const filterUpcomingShoots = (shoots: DashboardShootSummary[]) => {
-  const todayStart = startOfDay(new Date()).getTime();
-  return shoots
-    .filter((shoot) => {
-      if (matchesStatus(shoot, [...COMPLETED_STATUS_KEYWORDS, ...DELIVERED_STATUS_KEYWORDS, ...CANCELED_STATUS_KEYWORDS])) {
-        return false;
-      }
-      if (!shoot.startTime) return true;
-      const ts = new Date(shoot.startTime).getTime();
-      if (Number.isNaN(ts)) return true;
-      return ts >= todayStart - 24 * 60 * 60 * 1000;
-    })
-    .sort(sortByStartAsc);
-};
-
-const filterCompletedShoots = (shoots: DashboardShootSummary[]) =>
-  shoots.filter((shoot) => matchesStatus(shoot, COMPLETED_STATUS_KEYWORDS)).sort(sortByStartDesc);
-
-const filterDeliveredShoots = (shoots: DashboardShootSummary[]) =>
-  shoots.filter((shoot) => matchesStatus(shoot, DELIVERED_STATUS_KEYWORDS)).sort(sortByStartDesc);
-
-const filterPendingReviews = (shoots: DashboardShootSummary[]) =>
-  shoots.filter((shoot) => matchesStatus(shoot, PENDING_REVIEW_KEYWORDS)).sort(sortByStartAsc);
-
-const buildIssuesFromShoots = (
-  shoots: ShootData[],
-  options?: { deliveredOnly?: boolean },
-): DashboardIssueItem[] => {
-  const deliveredOnly = Boolean(options?.deliveredOnly);
-  return shoots
-    .filter((shoot) => {
-      if (!(shoot.isFlagged || shoot.adminIssueNotes)) return false;
-      if (!deliveredOnly) return true;
-      const statusKey = (shoot.workflowStatus || shoot.status || "").toLowerCase();
-      return [...COMPLETED_STATUS_KEYWORDS, ...DELIVERED_STATUS_KEYWORDS].some((keyword) =>
-        statusKey.includes(keyword),
-      );
-    })
-    .map((shoot) => ({
-      id: toNumericId(shoot.id, shoot.location?.address || "issue"),
-      message: shoot.adminIssueNotes || "Flagged shoot",
-      severity: shoot.isFlagged ? "high" : "medium",
-      status: shoot.status,
-      client: shoot.client?.name,
-      updatedAt: shoot.completedDate || shoot.scheduledDate || null,
-    }));
-};
-
-const isAssignmentMatch = (shoot: ShootData, user: UserData | null, role: "photographer" | "editor") => {
-  if (!user) return false;
-  const assignment = role === "photographer" ? shoot.photographer : shoot.editor;
-  if (!assignment?.name && !assignment?.id) return false;
-  if (assignment?.id && assignment.id === user.id) return true;
-  const metadata = user.metadata as Record<string, unknown> | undefined;
-  const metaId =
-    typeof metadata?.[`${role}Id`] === "string"
-      ? (metadata?.[`${role}Id`] as string)
-      : undefined;
-  if (assignment?.id && metaId && assignment.id === metaId) return true;
-  const assignmentName = (assignment?.name || "").trim().toLowerCase();
-  const userName = (user.name || "").trim().toLowerCase();
-  return Boolean(assignmentName && userName && assignmentName === userName);
-};
-
-const buildPhotographerSummariesFromShoots = (shoots: ShootData[]): DashboardPhotographerSummary[] => {
-  const map = new Map<string, DashboardPhotographerSummary & { load: number }>();
-  shoots.forEach((shoot) => {
-    const name = shoot.photographer?.name;
-    if (!name) return;
-    const id = toNumericId(shoot.photographer.id, name);
-    const existing = map.get(name) ?? {
-      id,
-      name,
-      region: shoot.location?.state || "Local market",
-      loadToday: 0,
-      availableFrom: "09:00",
-      nextSlot: "15:00",
-      avatar: shoot.photographer.avatar,
-      status: "free" as DashboardPhotographerSummary["status"],
-    };
-    existing.loadToday += 1;
-    map.set(name, existing);
-  });
-  return Array.from(map.values()).map((photographer) => ({
-    ...photographer,
-    status:
-      photographer.loadToday > 4
-        ? "busy"
-        : photographer.loadToday > 2
-          ? "editing"
-          : "free",
-  }));
-};
-
-type MobileDashboardTab = "upcoming" | "assign" | "reviews" | "completed" | "pipeline";
 
 const Dashboard = () => {
   const { role, session, user } = useAuth();
-  const { shoots } = useShoots();
+  const { shoots, fetchShoots } = useShoots();
   const isMobile = useIsMobile();
   const isAdminExperience = ["admin", "superadmin"].includes(role);
   const canLoadAvailability = isAdminExperience || role === "salesRep";
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
+  const { openModal } = useIssueManager();
   const { data, loading, error, refresh } = useDashboardOverview();
   const [selectedShoot, setSelectedShoot] = useState<DashboardShootSummary | null>(null);
   const [selectedShootWeather, setSelectedShootWeather] = useState<WeatherInfo | null>(null);
   const [selectedPhotographer, setSelectedPhotographer] =
     useState<DashboardPhotographerSummary | null>(null);
   const [specialRequestOpen, setSpecialRequestOpen] = useState(false);
-  const [mobileDashboardTab, setMobileDashboardTab] = useState<MobileDashboardTab>("upcoming");
+  const [selectedRequestId, setSelectedRequestId] = useState<number | null>(null);
+  const [mobileDashboardTab, setMobileDashboardTab] = useState<MobileDashboardTab>("shoots");
+  const canCustomizeQuickActions = Boolean(user);
+  const quickActionsStorageKey = useMemo(
+    () => buildQuickActionsStorageKey(role, user?.id),
+    [role, user?.id],
+  );
+  const [customQuickActions, setCustomQuickActions] = useState<CustomQuickAction[]>([]);
+  const [quickActionsEditorOpen, setQuickActionsEditorOpen] = useState(false);
 
-  // Handler for selecting a shoot with optional weather data
+  // Handler for selecting a shoot with optional weather data - memoized to prevent child re-renders
   const handleSelectShoot = useCallback((shoot: DashboardShootSummary, weather?: WeatherInfo | null) => {
     setSelectedShoot(shoot);
     setSelectedShootWeather(weather || null);
   }, []);
 
-  const shootDetailsModal = (
-    <Suspense fallback={null}>
-      <LazyShootDetailsModal shoot={selectedShoot} onClose={() => { setSelectedShoot(null); setSelectedShootWeather(null); }} weather={selectedShootWeather} />
-    </Suspense>
+  useEffect(() => {
+    if (!quickActionsStorageKey) return;
+    try {
+      const stored = localStorage.getItem(quickActionsStorageKey);
+      if (stored) {
+        const parsed: CustomQuickAction[] = JSON.parse(stored);
+        setCustomQuickActions(normalizeQuickActions(parsed));
+      } else {
+        setCustomQuickActions([]);
+      }
+    } catch (storageError) {
+      console.warn("Unable to load quick actions preferences", storageError);
+      setCustomQuickActions([]);
+    }
+  }, [quickActionsStorageKey]);
+
+  const saveCustomQuickActions = useCallback(
+    (actions: CustomQuickAction[]) => {
+      const normalized = normalizeQuickActions(actions);
+      setCustomQuickActions(normalized);
+      if (!quickActionsStorageKey) return;
+      try {
+        localStorage.setItem(quickActionsStorageKey, JSON.stringify(normalized));
+      } catch (storageError) {
+        console.warn("Unable to persist quick actions preferences", storageError);
+      }
+    },
+    [quickActionsStorageKey],
   );
 
+  const customQuickActionItems = useMemo<QuickActionItem[]>(() => {
+    if (!customQuickActions.length) return [];
+    return customQuickActions.map((action) => {
+      const IconComponent = QUICK_ACTION_ICON_MAP[action.icon] ?? CheckCircle2;
+      return {
+        id: `custom-${action.id}`,
+        label: action.label,
+        description: action.description,
+        icon: <IconComponent size={16} />,
+        accent: action.accent,
+        onClick: () => {
+          const target = action.url.trim();
+          if (!target) return;
+          if (/^https?:/i.test(target)) {
+            if (typeof window !== "undefined") {
+              window.open(target, "_blank", "noopener,noreferrer");
+            }
+          } else {
+            navigate(target.startsWith("/") ? target : `/${target}`);
+          }
+        },
+      } satisfies QuickActionItem;
+    });
+  }, [customQuickActions, navigate]);
+
+  const handleOpenQuickActionsEditor = useCallback(() => {
+    setQuickActionsEditorOpen(true);
+  }, []);
+
+  const withCustomQuickActions = useCallback(
+    (actions: QuickActionItem[]) =>
+      customQuickActionItems.length ? [...actions, ...customQuickActionItems] : actions,
+    [customQuickActionItems],
+  );
+
+  // Refresh handler for when shoot is updated
+  // The context update happens synchronously, so summaryMap and allSummaries will update immediately
+  // This means the dashboard cards will show changes right away without needing a server refresh
+  const handleShootUpdate = useCallback(() => {
+    // The context update already happened synchronously in the modal
+    // summaryMap depends on shoots from context, so it will update automatically
+    // allSummaries depends on summaryMap, so it will also update
+    // upcomingShootsWithoutRequested depends on allSummaries, so it will update too
+    // This means the dashboard will re-render with the updated data immediately
+    if (import.meta.env.DEV) {
+      console.log('💾 Shoot updated - context refreshed, dashboard will update automatically via React re-render');
+    }
+    
+    // Optionally refresh shoots from server in background (non-blocking, errors suppressed)
+    // This ensures we have the latest data from server, but doesn't block the UI update
+    if (fetchShoots) {
+      fetchShoots().catch((error) => {
+        // Silently handle errors - context is already updated, so UI already shows changes
+        if (import.meta.env.DEV) {
+          console.log('💾 Background fetchShoots failed (non-critical):', error);
+        }
+      });
+    }
+  }, [fetchShoots]);
+
+  // Invoice dialog state - must be defined before shootDetailsModal
+  const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
+  const [invoiceLoading, setInvoiceLoading] = useState(false);
+
+  // Handler for viewing invoice from shoot cards
+  const handleViewInvoice = useCallback(async (shoot: DashboardShootSummary) => {
+    setInvoiceLoading(true);
+    try {
+      const token = session?.accessToken || localStorage.getItem('authToken') || localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/invoice`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+        },
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to fetch invoice');
+      }
+
+      const data = await res.json();
+      const invoiceData = data.data || data;
+      if (invoiceData) {
+        setSelectedInvoice(invoiceData);
+        setInvoiceDialogOpen(true);
+      } else {
+        toast({
+          title: 'Invoice not found',
+          description: 'Unable to load invoice for this shoot.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error: any) {
+      console.error('Error fetching invoice:', error);
+      toast({
+        title: 'Error loading invoice',
+        description: error.message || 'Unable to load invoice. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setInvoiceLoading(false);
+    }
+  }, [session?.accessToken, toast]);
+
+  const shootDetailsModal = (
+    <>
+      <Suspense fallback={null}>
+        <LazyShootDetailsModal 
+          shoot={selectedShoot} 
+          onClose={() => { setSelectedShoot(null); setSelectedShootWeather(null); }} 
+          weather={selectedShootWeather}
+          onShootUpdate={handleShootUpdate}
+          onViewInvoice={handleViewInvoice}
+        />
+      </Suspense>
+      {/* Invoice View Dialog */}
+      {selectedInvoice && (
+        <InvoiceViewDialog
+          isOpen={invoiceDialogOpen}
+          onClose={() => {
+            setInvoiceDialogOpen(false);
+            setSelectedInvoice(null);
+          }}
+          invoice={selectedInvoice}
+        />
+      )}
+    </>
+  );
+
+  const quickActionsEditor = canCustomizeQuickActions ? (
+    <QuickActionsEditor
+      open={quickActionsEditorOpen}
+      actions={customQuickActions}
+      onOpenChange={setQuickActionsEditorOpen}
+      onSave={saveCustomQuickActions}
+    />
+  ) : null;
+
   const firstName = user?.firstName || user?.name?.split(" ")[0] || "there";
-  const greetingTitle = `${getGreetingPrefix()} ${firstName}`;
+  const greetingPrefix = getGreetingPrefix();
+  const greetingTitle = (
+    <span className="inline-flex flex-wrap items-baseline gap-2">
+      <span className="font-light">{greetingPrefix}</span>
+      <span className="font-bold">{firstName}</span>
+    </span>
+  );
 
   const [availabilityWindow, setAvailabilityWindow] = useState(() => ({
     date: format(new Date(), "yyyy-MM-dd"),
@@ -534,193 +450,154 @@ const Dashboard = () => {
       .finally(() => setAvailabilityLoading(false));
   }, [availabilityWindow, canLoadAvailability, session?.accessToken]);
 
-  const summaryMap = useMemo(() => {
-    const map = new Map<string, DashboardShootSummary>();
-    shoots.forEach((shoot) => map.set(shoot.id, shootDataToSummary(shoot)));
-    return map;
-  }, [shoots]);
+  const {
+    allSummaries,
+    editorUpcoming,
+    editorPendingReviews,
+    editorCompleted,
+    editorDelivered,
+    photographerUpcoming,
+    photographerCompleted,
+    photographerDelivered,
+    photographerPendingReviews,
+    requestedShoots,
+    upcomingShootsWithoutRequested,
+    clientShoots,
+    clientUpcomingRecords,
+    clientCompletedRecords,
+    clientOnHoldRecords,
+    repVisibleSummaries,
+    repUpcoming,
+    repPendingReviews,
+    repDelivered,
+    clientLatestCompleted,
+    clientInvoiceSummary,
+    fallbackPhotographers,
+  } = useDashboardDerivedData({ shoots, role, user: user ?? null });
 
-  const toSummaryList = useCallback(
-    (source: ShootData[]) =>
-      source
-        .map((shoot) => summaryMap.get(shoot.id))
-        .filter((item): item is DashboardShootSummary => Boolean(item)),
-    [summaryMap],
-  );
-
-  const allSummaries = useMemo(() => Array.from(summaryMap.values()), [summaryMap]);
-
-  const photographerSourceShoots = useMemo(
-    () => shoots.filter((shoot) => isAssignmentMatch(shoot, user, "photographer")),
-    [shoots, user],
-  );
-  const editorSourceShoots = useMemo(
-    () => shoots.filter((shoot) => isAssignmentMatch(shoot, user, "editor")),
-    [shoots, user],
-  );
-
-  const photographerSummaries = useMemo(
-    () => toSummaryList(photographerSourceShoots),
-    [photographerSourceShoots, toSummaryList],
-  );
-  const editorSummaries = useMemo(
-    () => toSummaryList(editorSourceShoots),
-    [editorSourceShoots, toSummaryList],
-  );
-  const editorUpcoming = useMemo(
-    () => filterUpcomingShoots(editorSummaries),
-    [editorSummaries],
-  );
-
-  const photographerUpcoming = useMemo(
-    () => filterUpcomingShoots(photographerSummaries),
-    [photographerSummaries],
-  );
-  const photographerCompleted = useMemo(
-    () => filterCompletedShoots(photographerSummaries),
-    [photographerSummaries],
-  );
-  const photographerDelivered = useMemo(
-    () => filterDeliveredShoots(photographerSummaries),
-    [photographerSummaries],
-  );
-  const photographerPendingReviews = useMemo(
-    () => filterPendingReviews(photographerSummaries),
-    [photographerSummaries],
-  );
-  const photographerIssues = useMemo(
-    () => buildIssuesFromShoots(photographerSourceShoots, { deliveredOnly: true }),
-    [photographerSourceShoots],
-  );
-
-  const editorPendingReviews = useMemo(
-    () => filterPendingReviews(editorSummaries),
-    [editorSummaries],
-  );
-  const editorDelivered = useMemo(
-    () => filterDeliveredShoots(editorSummaries),
-    [editorSummaries],
-  );
-  const editorIssues = useMemo(
-    () => buildIssuesFromShoots(editorSourceShoots),
-    [editorSourceShoots],
-  );
-
-  const clientShoots = useMemo(() => {
-    if (role !== "client") return [];
-    const matches = shoots.filter((shoot) => doesShootBelongToClient(shoot, user));
-    if (matches.length > 0) return matches;
-    return shoots;
-  }, [role, shoots, user]);
-
-  const clientRecords = useMemo(() => {
-    if (!clientShoots.length) return [];
-    return clientShoots
-      .map((shoot) => {
-        const summary = summaryMap.get(shoot.id);
-        if (!summary) return null;
-        return { data: shoot, summary };
-      })
-      .filter((record): record is ClientShootRecord => Boolean(record));
-  }, [clientShoots, summaryMap]);
-
-  const clientUpcomingRecords = useMemo(() => {
-    return clientRecords
-      .filter(
-        (record) =>
-          !isCompletedSummary(record.summary) &&
-          !isCanceledSummary(record.summary) &&
-          !isOnHoldRecord(record),
-      )
-      .sort((a, b) => sortByStartAsc(a.summary, b.summary));
-  }, [clientRecords]);
-
-  const clientCompletedRecords = useMemo(() => {
-    return clientRecords
-      .filter((record) => isCompletedSummary(record.summary))
-      .sort((a, b) => sortByStartDesc(a.summary, b.summary));
-  }, [clientRecords]);
-
-  const clientOnHoldRecords = useMemo(() => {
-    return clientRecords
-      .filter((record) => isOnHoldRecord(record))
-      .sort((a, b) => sortByStartAsc(a.summary, b.summary));
-  }, [clientRecords]);
-
-  const clientInvoiceSummary = useMemo(
-    () => buildClientInvoiceSummary(clientShoots),
-    [clientShoots],
-  );
-
-  const shouldLoadEditingRequests = isAdminExperience || role === "salesRep" || role === "editor";
-  const { requests: editingRequests, loading: editingRequestsLoading } = useEditingRequests(shouldLoadEditingRequests);
-
-  const repScope = useMemo(() => {
-    const metadata = (user?.metadata as Record<string, unknown>) || {};
-    const clientIds = extractMetadataArray(metadata, ["managedClientIds", "clientIds"]).map((value) =>
-      value.toString(),
-    );
-    const clientNames = extractMetadataArray(
-      metadata,
-      ["managedClientNames", "clientNames"],
-      (value) => value.toLowerCase(),
-    );
-    const regions = extractMetadataArray(
-      metadata,
-      ["regions", "managedRegions", "territories"],
-      (value) => value.toLowerCase(),
-    );
-    const hasScope = clientIds.length > 0 || clientNames.length > 0 || regions.length > 0;
-    return { clientIds, clientNames, regions, hasScope };
-  }, [user?.metadata]);
-
-  const repVisibleSummaries = useMemo(() => {
-    if (!repScope.hasScope) return allSummaries;
-    return allSummaries.filter((shoot) => {
-      if (repScope.clientIds.length && shoot.clientId && repScope.clientIds.includes(String(shoot.clientId))) {
-        return true;
-      }
-      const clientName = shoot.clientName?.toLowerCase();
-      if (repScope.clientNames.length && clientName && repScope.clientNames.includes(clientName)) {
-        return true;
-      }
-      if (repScope.regions.length) {
-        const stateToken = extractStateToken(shoot.cityStateZip);
-        if (stateToken && repScope.regions.includes(stateToken)) {
-          return true;
+  // Fetch actual invoices for client invoice summary
+  const [clientInvoices, setClientInvoices] = useState<any[]>([]);
+  const [invoicesLoading, setInvoicesLoading] = useState(false);
+  
+  useEffect(() => {
+    if (role !== 'client' || !user) return;
+    
+    const fetchInvoices = async () => {
+      setInvoicesLoading(true);
+      try {
+        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+        // Check if impersonating by looking for originalUser
+        const originalUser = localStorage.getItem('originalUser');
+        const currentUser = localStorage.getItem('user');
+        let impersonatedUserId: string | null = null;
+        if (originalUser && currentUser) {
+          try {
+            const parsed = JSON.parse(currentUser);
+            impersonatedUserId = parsed?.id ? String(parsed.id) : null;
+          } catch (e) {}
         }
+        const headers: Record<string, string> = {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+        };
+        if (impersonatedUserId) {
+          headers['X-Impersonate-User-Id'] = impersonatedUserId;
+        }
+        const res = await fetch(`${API_BASE_URL}/api/invoices?client_id=${user.id}`, {
+          headers,
+        });
+        
+        if (res.ok) {
+          const json = await res.json();
+          const invoices = json.data || json || [];
+          setClientInvoices(Array.isArray(invoices) ? invoices : []);
+        }
+      } catch (error) {
+        console.error('Error fetching invoices:', error);
+        setClientInvoices([]);
+      } finally {
+        setInvoicesLoading(false);
       }
-      return false;
-    });
-  }, [allSummaries, repScope]);
+    };
+    
+    fetchInvoices();
+  }, [role, user, clientShoots.length]);
+  
+  const shouldLoadEditingRequests = isAdminExperience || role === "salesRep" || role === "editor";
+  const { 
+    requests: editingRequests, 
+    loading: editingRequestsLoading,
+    updateRequest: updateEditingRequest,
+    removeRequest: removeEditingRequest,
+    refresh: refreshEditingRequests,
+  } = useEditingRequests(shouldLoadEditingRequests);
 
-  const repSourceShoots = useMemo(() => {
-    if (!repScope.hasScope) return shoots;
-    return shoots.filter((shoot) => {
-      if (repScope.clientIds.length && shoot.client?.id && repScope.clientIds.includes(String(shoot.client.id))) {
-        return true;
+  // Fetch client requests for admin dashboard
+  const [clientRequests, setClientRequests] = useState<DashboardClientRequest[]>([]);
+  const [clientRequestsLoading, setClientRequestsLoading] = useState(false);
+  
+  useEffect(() => {
+    if (!isAdminExperience) return;
+    
+    const fetchClientRequests = async () => {
+      setClientRequestsLoading(true);
+      try {
+        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+        const res = await fetch(`${API_BASE_URL}/api/client-requests`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json',
+          },
+        });
+        
+        if (res.ok) {
+          const json = await res.json();
+          const data = Array.isArray(json.data) ? json.data : [];
+          setClientRequests(data as DashboardClientRequest[]);
+        } else {
+          setClientRequests([]);
+        }
+      } catch (error) {
+        console.error('Error fetching client requests:', error);
+        setClientRequests([]);
+      } finally {
+        setClientRequestsLoading(false);
       }
-      const clientName = shoot.client?.name?.toLowerCase();
-      if (repScope.clientNames.length && clientName && repScope.clientNames.includes(clientName)) {
-        return true;
-      }
-      const stateToken = shoot.location?.state?.toLowerCase();
-      if (repScope.regions.length && stateToken && repScope.regions.includes(stateToken)) {
-        return true;
-      }
-      return false;
-    });
-  }, [repScope, shoots]);
+    };
+    
+    fetchClientRequests();
+  }, [isAdminExperience]);
 
-  const repUpcoming = useMemo(() => filterUpcomingShoots(repVisibleSummaries), [repVisibleSummaries]);
-  const repPendingReviews = useMemo(
-    () => filterPendingReviews(repVisibleSummaries),
-    [repVisibleSummaries],
-  );
-  const repDelivered = useMemo(() => filterDeliveredShoots(repVisibleSummaries), [repVisibleSummaries]);
-  const repIssues = useMemo(() => buildIssuesFromShoots(repSourceShoots), [repSourceShoots]);
+  useEffect(() => {
+    const state = location.state as CommandBarState | null;
+    if (!state) return;
 
-  const clientLatestCompleted = clientCompletedRecords[0] ?? null;
+    let handled = false;
+
+    if (state.openRequestManager && isAdminExperience && !clientRequestsLoading) {
+      openModal(clientRequests, state.selectedRequestId ?? null);
+      handled = true;
+    }
+
+    if (state.openEditingRequest) {
+      setSelectedRequestId(
+        typeof state.editingRequestId === "number" ? state.editingRequestId : null,
+      );
+      setSpecialRequestOpen(true);
+      handled = true;
+    }
+
+    if (handled) {
+      navigate("/dashboard", { replace: true, state: {} });
+    }
+  }, [
+    clientRequests,
+    clientRequestsLoading,
+    isAdminExperience,
+    location.state,
+    navigate,
+    openModal,
+  ]);
 
   const openSupportEmail = useCallback(
     (subject: string, body?: string) => {
@@ -783,15 +660,15 @@ const Dashboard = () => {
         label: "Book a new shoot",
         description: "Schedule coverage for a listing",
         icon: <CalendarPlus size={16} />,
-        accent: "from-emerald-50 to-white text-emerald-600 dark:from-emerald-900/80 dark:to-emerald-800/80 dark:text-emerald-200",
+        accent: "from-white/95 via-emerald-50/70 to-emerald-100/80 text-emerald-800 dark:from-slate-950 dark:via-slate-900/80 dark:to-emerald-900/30 dark:text-emerald-200",
         onClick: handleClientBookShoot,
       },
       {
-        id: "report-issue",
-        label: "Report an issue",
-        description: "Flag missing edits or problems",
+        id: "make-request",
+        label: "Make a request",
+        description: "Request edits or changes",
         icon: <AlertCircle size={16} />,
-        accent: "from-rose-50 to-white text-rose-600 dark:from-rose-900/80 dark:to-rose-800/80 dark:text-rose-200",
+        accent: "from-white/95 via-rose-50/70 to-rose-100/80 text-rose-800 dark:from-slate-950 dark:via-slate-900/80 dark:to-rose-900/30 dark:text-rose-200",
         onClick: handleClientReportIssue,
       },
       {
@@ -799,7 +676,7 @@ const Dashboard = () => {
         label: "Download last shoot",
         description: "Grab final files instantly",
         icon: <DownloadCloud size={16} />,
-        accent: "from-sky-50 to-white text-sky-600 dark:from-sky-900/80 dark:to-sky-800/80 dark:text-sky-200",
+        accent: "from-white/95 via-sky-50/70 to-sky-100/80 text-sky-800 dark:from-slate-950 dark:via-slate-900/80 dark:to-sky-900/30 dark:text-sky-200",
         onClick: handleClientDownloadLast,
       },
       {
@@ -807,19 +684,15 @@ const Dashboard = () => {
         label: "View a tour",
         description: "Open a delivered 3D tour",
         icon: <PlayCircle size={16} />,
-        accent: "from-indigo-50 to-white text-indigo-600 dark:from-indigo-900/80 dark:to-indigo-800/80 dark:text-indigo-200",
+        accent: "from-white/95 via-violet-50/70 to-violet-100/80 text-violet-800 dark:from-slate-950 dark:via-slate-900/80 dark:to-violet-900/30 dark:text-violet-200",
         onClick: handleClientViewTour,
       },
     ];
   }, [role, handleClientBookShoot, handleClientReportIssue, handleClientDownloadLast, handleClientViewTour]);
 
-  const fallbackPhotographers = useMemo(
-    () => buildPhotographerSummariesFromShoots(shoots),
-    [shoots],
-  );
-  const assignPhotographers = data?.photographers?.length
+  const assignPhotographers = Array.isArray(data?.photographers) && data.photographers.length
     ? data.photographers
-    : fallbackPhotographers;
+    : Array.isArray(fallbackPhotographers) ? fallbackPhotographers : [];
 
   const photographerSchedule = useMemo(() => {
     if (!selectedPhotographer) return [];
@@ -847,21 +720,21 @@ const Dashboard = () => {
 
   const adminQuickActions: QuickActionItem[] = [
     {
-      id: "review-queue",
-      label: "Review queue",
-      description: "Jump into approvals",
+      id: "requests-queue",
+      label: "Requests",
+      description: "View active requests",
       icon: <CheckCircle2 size={16} />,
-      accent: "from-emerald-50 to-white text-emerald-600 dark:from-emerald-950/60 dark:to-emerald-900/60 dark:text-emerald-300",
+      accent: "from-white/95 via-emerald-50/70 to-emerald-100/80 text-emerald-800 dark:from-slate-950 dark:via-slate-900/80 dark:to-emerald-900/30 dark:text-emerald-200",
       onClick: () => {
-        const target = data?.pendingReviews?.[0];
-        if (target) {
-          setSelectedShoot(target);
-        } else {
-          toast({
-            title: "Nothing to review",
-            description: "All shoots are clear right now.",
-          });
+        const requestsSection = document.getElementById('requests-queue');
+        if (requestsSection) {
+          requestsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          return;
         }
+        toast({
+          title: "No requests",
+          description: "All requests are clear right now.",
+        });
       },
     },
     {
@@ -869,7 +742,7 @@ const Dashboard = () => {
       label: "Manage availability",
       description: "Update roster coverage",
       icon: <CalendarDays size={16} />,
-      accent: "from-amber-50 to-white text-amber-600 dark:from-amber-950/60 dark:to-amber-900/60 dark:text-amber-300",
+      accent: "from-white/95 via-amber-50/70 to-amber-100/80 text-amber-800 dark:from-slate-950 dark:via-slate-900/80 dark:to-amber-900/30 dark:text-amber-200",
       onClick: () => navigate("/availability"),
     },
     {
@@ -877,7 +750,7 @@ const Dashboard = () => {
       label: "Chat with robbie",
       description: "Get instant answers",
       icon: <MessageSquare size={16} />,
-      accent: "from-sky-50 to-white text-sky-600 dark:from-sky-950/60 dark:to-sky-900/60 dark:text-sky-300",
+      accent: "from-white/95 via-sky-50/70 to-sky-100/80 text-sky-800 dark:from-slate-950 dark:via-slate-900/80 dark:to-sky-900/30 dark:text-sky-200",
       onClick: () => navigate("/chat-with-reproai"),
     },
     {
@@ -885,7 +758,7 @@ const Dashboard = () => {
       label: "Special editing request",
       description: "Route tasks to editors",
       icon: <Sparkles size={16} />,
-      accent: "from-violet-50 to-white text-violet-600 dark:from-violet-950/60 dark:to-violet-900/60 dark:text-violet-300",
+      accent: "from-white/95 via-violet-50/70 to-violet-100/80 text-violet-800 dark:from-slate-950 dark:via-slate-900/80 dark:to-violet-900/30 dark:text-violet-200",
       onClick: () => setSpecialRequestOpen(true),
     },
   ];
@@ -899,15 +772,18 @@ const Dashboard = () => {
   };
   const nextShoot = data?.upcomingShoots?.[0];
 
-  const completedShoots = useMemo(() => {
-    if (!data?.workflow) return [];
+  // Delivered shoots - filter for ready_for_client, delivered, admin_verified statuses
+  const deliveredShoots = useMemo(() => {
+    if (!data?.workflow || !Array.isArray(data.workflow.columns)) return [];
     return data.workflow.columns
       .filter((column) => {
         const key = column.key.toLowerCase();
-        return key.includes("ready") || key.includes("deliver") || key.includes("complete");
+        // Focus on delivered/ready statuses only
+        return key.includes("ready") || key.includes("deliver") || key.includes("verified");
       })
-      .flatMap((column) => column.shoots)
+      .flatMap((column) => Array.isArray(column.shoots) ? column.shoots : [])
       .sort((a, b) => {
+        // Sort by most recent first
         const aTime = a.startTime ? new Date(a.startTime).getTime() : 0;
         const bTime = b.startTime ? new Date(b.startTime).getTime() : 0;
         return bTime - aTime;
@@ -966,29 +842,108 @@ const Dashboard = () => {
     [session?.accessToken, refresh, toast],
   );
 
-  const [pipelineRange, setPipelineRange] = useState<"today" | "week">("today");
+  // Handle pipeline move back
+  const handleMoveBack = useCallback(
+    async (shoot: DashboardShootSummary) => {
+      const token = getToken(session?.accessToken);
+      if (!token) {
+        toast({
+          title: "Authentication required",
+          description: "Please log in again to update workflow status.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const current = shoot.workflowStatus || "booked";
+      const index = WORKFLOW_SEQUENCE.indexOf(current as (typeof WORKFLOW_SEQUENCE)[number]);
+      if (index <= 0) {
+        toast({
+          title: "Already at first stage",
+          description: "This shoot cannot be moved back further.",
+        });
+        return;
+      }
+
+      const prev = WORKFLOW_SEQUENCE[index - 1];
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ workflow_status: prev }),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json?.message || "Failed to update workflow status");
+        toast({
+          title: "Workflow moved back",
+          description: `Shoot moved to ${prev.replace("_", " ")}.`,
+        });
+        refresh();
+      } catch (err) {
+        toast({
+          title: "Update failed",
+          description: err instanceof Error ? err.message : "Unknown error",
+          variant: "destructive",
+        });
+      }
+    },
+    [session?.accessToken, refresh, toast],
+  );
+
+  // Listen for pipeline:move-back custom event
+  useEffect(() => {
+    const handler = (e: CustomEvent<DashboardShootSummary>) => {
+      handleMoveBack(e.detail);
+    };
+    window.addEventListener('pipeline:move-back', handler as EventListener);
+    return () => window.removeEventListener('pipeline:move-back', handler as EventListener);
+  }, [handleMoveBack]);
+
+  // Pipeline date filter
+  const [pipelineFilter, setPipelineFilter] = useState<"today" | "this_week" | "month">("this_week");
 
   const renderAssignPhotographersCard = () => (
-    <Suspense fallback={<AssignPhotographersCardSkeleton />}>
-      <LazyAssignPhotographersCard
-        photographers={assignPhotographers}
-        onPhotographerSelect={setSelectedPhotographer}
-        onViewSchedule={() => navigate("/availability")}
-        availablePhotographerIds={availablePhotographerIds}
-        availabilityWindow={availabilityWindow}
-        onAvailabilityWindowChange={setAvailabilityWindow}
-        availabilityLoading={availabilityLoading}
-        availabilityError={availabilityError}
-        showContactActions={role === "salesRep"}
-      />
-    </Suspense>
+    <ErrorBoundary
+      fallback={
+        <div className="rounded-2xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
+          Unable to load photographers
+        </div>
+      }
+    >
+      <Suspense fallback={<AssignPhotographersCardSkeleton />}>
+        <LazyAssignPhotographersCard
+          photographers={assignPhotographers}
+          onPhotographerSelect={setSelectedPhotographer}
+          onViewSchedule={() => navigate("/availability")}
+          availablePhotographerIds={availablePhotographerIds}
+          availabilityWindow={availabilityWindow}
+          onAvailabilityWindowChange={setAvailabilityWindow}
+          availabilityLoading={availabilityLoading}
+          availabilityError={availabilityError}
+          showContactActions={role === "salesRep"}
+        />
+      </Suspense>
+    </ErrorBoundary>
   );
+
+  const [approvalModalShoot, setApprovalModalShoot] = useState<DashboardShootSummary | null>(null);
+  const [declineModalShoot, setDeclineModalShoot] = useState<DashboardShootSummary | null>(null);
+  const [editModalShoot, setEditModalShoot] = useState<DashboardShootSummary | null>(null);
 
   const renderUpcomingCard = () =>
     loading && !data ? (
       <UpcomingShootsCardSkeleton />
     ) : (
-      <UpcomingShootsCard shoots={data?.upcomingShoots || []} onSelect={handleSelectShoot} />
+      <UpcomingShootsCard 
+        shoots={upcomingShootsWithoutRequested} 
+        onSelect={handleSelectShoot}
+        onViewInvoice={handleViewInvoice}
+        role={role}
+      />
     );
 
   const renderPendingReviewsCard = () =>
@@ -997,14 +952,34 @@ const Dashboard = () => {
     ) : (
       <PendingReviewsCard
         reviews={data?.pendingReviews || []}
-        issues={data?.issues || []}
+        issues={[]}
         onSelect={(shoot) => handleSelectShoot(shoot)}
+        emptyRequestsText="No active requests."
+        title="Requests"
+        editingRequests={editingRequests}
+        editingRequestsLoading={editingRequestsLoading}
+        onCreateEditingRequest={() => {
+          setSelectedRequestId(null);
+          setSpecialRequestOpen(true);
+        }}
+        onEditingRequestClick={(requestId) => {
+          setSelectedRequestId(requestId);
+          setSpecialRequestOpen(true);
+        }}
+        showEditingTab={shouldLoadEditingRequests}
+        clientRequests={clientRequests}
+        clientRequestsLoading={clientRequestsLoading}
+        showClientTab={isAdminExperience}
       />
     );
 
   const renderCompletedShootsCard = () => (
     <Suspense fallback={<CompletedShootsCardSkeleton />}>
-      <LazyCompletedShootsCard shoots={completedShoots} />
+      <LazyCompletedShootsCard 
+        shoots={deliveredShoots} 
+        onSelect={handleSelectShoot}
+        onViewInvoice={handleViewInvoice}
+      />
     </Suspense>
   );
 
@@ -1014,84 +989,176 @@ const Dashboard = () => {
         <LazyEditingRequestsCard
           requests={editingRequests}
           loading={editingRequestsLoading}
-          onCreate={() => setSpecialRequestOpen(true)}
+          onCreate={() => {
+            setSelectedRequestId(null);
+            setSpecialRequestOpen(true);
+          }}
+          onRequestClick={(requestId) => {
+            setSelectedRequestId(requestId);
+            setSpecialRequestOpen(true);
+          }}
+          onUpdate={updateEditingRequest}
+          onDelete={isAdminExperience ? removeEditingRequest : undefined}
         />
       </Suspense>
     ) : null;
 
+  const renderRequestedShootsSection = () =>
+    loading && !data ? (
+      <RequestedShootsCardSkeleton />
+    ) : requestedShoots.length > 0 ? (
+      <RequestedShootsSection
+        shoots={requestedShoots}
+        onSelect={handleSelectShoot}
+        onApprove={(shoot) => setApprovalModalShoot(shoot)}
+        onDecline={(shoot) => setDeclineModalShoot(shoot)}
+        onModify={(shoot) => setEditModalShoot(shoot)}
+      />
+    ) : null;
+
+  const renderShootsTabsCard = () =>
+    loading && !data ? (
+      <UpcomingShootsCardSkeleton />
+    ) : (
+      <ShootsTabsCard
+        upcomingShoots={upcomingShootsWithoutRequested}
+        requestedShoots={requestedShoots}
+        onSelect={handleSelectShoot}
+        onApprove={(shoot) => setApprovalModalShoot(shoot)}
+        onDecline={(shoot) => setDeclineModalShoot(shoot)}
+        onModify={(shoot) => setEditModalShoot(shoot)}
+        onViewInvoice={handleViewInvoice}
+      />
+    );
+
+  const pipelineFilterButtons = [
+    { key: 'today' as const, label: 'Today' },
+    { key: 'this_week' as const, label: 'This Week' },
+    { key: 'month' as const, label: 'Month' },
+  ];
+
   const renderPipelineSection = () => (
-    <div className="space-y-3">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <h2 className="text-sm font-semibold text-slate-900 uppercase tracking-[0.3em]">
+    <div className="space-y-3 w-full max-w-full">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 uppercase tracking-[0.3em]">
           Pipeline
         </h2>
-        <div className="flex items-center gap-2 text-[11px] font-semibold">
-          {(["today", "week"] as Array<"today" | "week">).map((range) => (
+        <div className="flex gap-1 bg-muted/50 rounded-lg p-0.5">
+          {pipelineFilterButtons.map((btn) => (
             <button
-              key={range}
-              onClick={() => setPipelineRange(range)}
-              className={`px-3 py-1 rounded-full border ${
-                pipelineRange === range
-                  ? "border-primary/40 bg-primary/10 text-primary"
-                  : "border-border text-muted-foreground hover:text-foreground"
-              }`}
+              key={btn.key}
+              onClick={() => setPipelineFilter(btn.key)}
+              className={cn(
+                'px-3 py-1 text-xs font-medium rounded-md transition-colors',
+                pipelineFilter === btn.key
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
             >
-              {range === "today" ? "Today" : "This week"}
+              {btn.label}
             </button>
           ))}
         </div>
       </div>
-      <Suspense fallback={<ProductionWorkflowBoardSkeleton />}>
-        <LazyProductionWorkflowBoard
-          workflow={filteredWorkflow}
-          loading={loading}
-          onSelectShoot={handleSelectShoot}
-          onAdvanceStage={handleAdvanceStage}
-        />
-      </Suspense>
+      <ErrorBoundary
+        fallback={
+          <div className="flex items-center justify-center h-64 border border-dashed border-border rounded-3xl text-muted-foreground">
+            <p className="text-sm">Unable to load workflow board</p>
+          </div>
+        }
+      >
+        <Suspense fallback={<ProductionWorkflowBoardSkeleton />}>
+          <LazyProductionWorkflowBoard
+            workflow={filteredWorkflow}
+            loading={loading}
+            onSelectShoot={handleSelectShoot}
+            onAdvanceStage={handleAdvanceStage}
+            filter={pipelineFilter}
+          />
+        </Suspense>
+      </ErrorBoundary>
     </div>
   );
 
+  // Optimize workflow filtering
+  // Show all shoots in pipeline regardless of date - only exclude delivered shoots
+  // The date range filter is removed so uploaded/editing shoots from past dates remain visible
   const filteredWorkflow = useMemo(() => {
-    if (!data?.workflow) return null;
-    const now = new Date();
-    const rangeStart =
-      pipelineRange === "today"
-        ? startOfDay(now).getTime()
-        : startOfWeek(now, { weekStartsOn: 0 }).getTime();
-    const rangeEnd =
-      pipelineRange === "today"
-        ? endOfDay(now).getTime()
-        : endOfWeek(now, { weekStartsOn: 0 }).getTime();
+    if (!data?.workflow || !Array.isArray(data.workflow.columns)) return null;
 
-    const filterShoot = (shoot: DashboardShootSummary) => {
-      if (!shoot.startTime) return true;
-      const time = new Date(shoot.startTime).getTime();
-      if (Number.isNaN(time)) return true;
-      return time >= rangeStart && time <= rangeEnd;
-    };
+    // Return all workflow columns without date filtering
+    // This ensures scheduled, uploaded, and editing shoots are visible until delivered
+    const columns = data.workflow.columns.map((column) => {
+      // Ensure shoots is an array
+      const shoots = Array.isArray(column.shoots) ? column.shoots : [];
+      
+      // Filter out delivered shoots only (they should not appear in pipeline)
+      const filteredShoots = shoots.filter((shoot) => {
+        const statusKey = (shoot.workflowStatus || shoot.status || '').toLowerCase();
+        // Exclude delivered/finalized shoots
+        return !matchesStatus(shoot, DELIVERED_STATUS_KEYWORDS);
+      });
+      
+      return {
+        ...column,
+        shoots: filteredShoots,
+        count: filteredShoots.length,
+      };
+    });
 
-    return {
-      columns: data.workflow.columns.map((column) => {
-        const filteredShoots = column.shoots.filter(filterShoot);
-        return {
-          ...column,
-          shoots: filteredShoots,
-          count: filteredShoots.length,
-        };
-      }),
-    };
-  }, [data?.workflow, pipelineRange]);
+    return { columns };
+  }, [data?.workflow]);
 
   if (!isAdminExperience) {
     if (role === "client") {
-      const handleReschedule = (record: ClientShootRecord) =>
-        navigate(`/book-shoot?reschedule=${record.data.id}`);
-      const handleCancelShoot = (record: ClientShootRecord) =>
-        toast({
-          title: "Cancellation request received",
-          description: `We'll confirm the cancellation for ${record.summary.addressLine}.`,
-        });
+      const [rescheduleDialogOpen, setRescheduleDialogOpen] = useState(false);
+      const [shootToReschedule, setShootToReschedule] = useState<ShootData | null>(null);
+      const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+      const [shootToPay, setShootToPay] = useState<ClientShootRecord | null>(null);
+      const [squarePaymentOpen, setSquarePaymentOpen] = useState(false);
+      const [paymentSelectionOpen, setPaymentSelectionOpen] = useState(false);
+      const [selectedShootsForPayment, setSelectedShootsForPayment] = useState<ClientShootRecord[]>([]);
+      const [multiPaymentOpen, setMultiPaymentOpen] = useState(false);
+      
+      const handleReschedule = (record: ClientShootRecord) => {
+        setShootToReschedule(record.data);
+        setRescheduleDialogOpen(true);
+      };
+      const handleCancelShoot = async (record: ClientShootRecord) => {
+        try {
+          const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+          const response = await fetch(`${API_BASE_URL}/api/shoots/${record.data.id}/request-cancellation`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: JSON.stringify({ reason: 'Client requested cancellation' }),
+          });
+          
+          if (response.ok) {
+            toast({
+              title: "Cancellation request submitted",
+              description: `Your cancellation request for ${record.summary.addressLine} is pending admin approval.`,
+            });
+            refresh();
+          } else {
+            const error = await response.json();
+            toast({
+              title: "Error",
+              description: error.message || "Failed to request cancellation",
+              variant: "destructive",
+            });
+          }
+        } catch (error) {
+          toast({
+            title: "Error",
+            description: "Failed to request cancellation. Please try again.",
+            variant: "destructive",
+          });
+        }
+      };
       const handleContactSupport = () => openSupportEmail("Client dashboard support");
       const handleDownloadShoot = (record: ClientShootRecord) => setSelectedShoot(record.summary);
       const handleRebookShoot = (record: ClientShootRecord) =>
@@ -1114,24 +1181,23 @@ const Dashboard = () => {
         <>
           <DashboardLayout>
             <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
-              <PageHeader
-                badge="Client"
-                title={greetingTitle}
-                description={DASHBOARD_DESCRIPTION}
-              />
-              {error && (
-                <div className="p-4 border border-rose-200 bg-rose-50 rounded-2xl text-sm text-rose-700">
-                  {error}
-                </div>
-              )}
+              <PageHeader title={greetingTitle} description={DASHBOARD_DESCRIPTION} />
               <div className="grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-6">
                 <div className="md:col-span-3 flex flex-col gap-4 sm:gap-6">
-                  <QuickActionsCard actions={clientQuickActions} eyebrow="Quick actions" columns={1} />
+                  <QuickActionsCard
+                    actions={withCustomQuickActions(clientQuickActions)}
+                    eyebrow="Quick actions"
+                    columns={1}
+                    onEdit={canCustomizeQuickActions ? handleOpenQuickActionsEditor : undefined}
+                  />
                   <ClientInvoicesCard
                     summary={clientInvoiceSummary}
                     onViewAll={() => navigate("/invoices")}
                     onDownload={() => navigate("/invoices")}
-                    onPay={() => navigate("/invoices")}
+                    onPay={() => {
+                      setSelectedShootsForPayment([]);
+                      setPaymentSelectionOpen(true);
+                    }}
                   />
                 </div>
                 <div className="md:col-span-9">
@@ -1147,12 +1213,297 @@ const Dashboard = () => {
                     onRebook={handleRebookShoot}
                     onRequestRevision={handleRequestRevision}
                     onHoldAction={handleHoldAction}
+                    onPayment={(record) => {
+                      setShootToPay(record);
+                      setPaymentModalOpen(true);
+                    }}
+                    onBookNewShoot={() => navigate("/book-shoot")}
                   />
                 </div>
               </div>
             </div>
           </DashboardLayout>
           {shootDetailsModal}
+          {quickActionsEditor}
+          {shootToReschedule && (
+            <RescheduleDialog
+              shoot={shootToReschedule}
+              isOpen={rescheduleDialogOpen}
+              onClose={() => {
+                setRescheduleDialogOpen(false);
+                setShootToReschedule(null);
+              }}
+              onSuccess={() => {
+                refresh();
+              }}
+            />
+          )}
+          
+          {/* Payment Modal */}
+          <Dialog open={paymentModalOpen} onOpenChange={setPaymentModalOpen}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <CreditCard className="h-5 w-5 text-primary" />
+                  Complete Payment
+                </DialogTitle>
+                <DialogDescription>
+                  Secure your booking by completing the payment now.
+                </DialogDescription>
+              </DialogHeader>
+              
+              {shootToPay && (
+                <div className="space-y-4 py-4">
+                  <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Property</span>
+                      <span className="font-medium">{shootToPay.summary.addressLine}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Scheduled</span>
+                      <span className="font-medium">
+                        {shootToPay.summary.startTime 
+                          ? format(new Date(shootToPay.summary.startTime), "MMM d, yyyy 'at' h:mm a")
+                          : shootToPay.data.scheduledDate || "TBD"
+                        }
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm pt-2 border-t">
+                      <span className="text-muted-foreground">Balance Due</span>
+                      <span className="font-bold text-lg text-green-600">
+                        ${((shootToPay.data.payment?.totalQuote ?? 0) - (shootToPay.data.payment?.totalPaid ?? 0)).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <p className="text-sm text-muted-foreground text-center">
+                    You can also pay later from your invoices page.
+                  </p>
+                </div>
+              )}
+              
+              <div className="flex flex-col-reverse sm:flex-row gap-2">
+                <Button 
+                  variant="outline" 
+                  className="flex-1" 
+                  onClick={() => setPaymentModalOpen(false)}
+                >
+                  Pay Later
+                </Button>
+                <Button 
+                  className="flex-1 bg-green-600 hover:bg-green-700" 
+                  onClick={() => {
+                    setPaymentModalOpen(false);
+                    // Open Square Payment Dialog
+                    setSquarePaymentOpen(true);
+                  }}
+                >
+                  <CreditCard className="h-4 w-4 mr-2" />
+                  Pay Now
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+          
+          {/* Square Payment Dialog */}
+          {shootToPay && (
+            <SquarePaymentDialog
+              isOpen={squarePaymentOpen}
+              onClose={() => {
+                setSquarePaymentOpen(false);
+                setShootToPay(null);
+              }}
+              amount={(shootToPay.data.payment?.totalQuote ?? 0) - (shootToPay.data.payment?.totalPaid ?? 0)}
+              shootId={shootToPay.data.id}
+              shootAddress={shootToPay.summary.addressLine}
+              shootServices={shootToPay.summary.services?.map((s: any) => typeof s === 'string' ? s : s?.name || s?.label || String(s)).filter(Boolean) || []}
+              shootDate={shootToPay.data.scheduledDate}
+              shootTime={shootToPay.data.time}
+              clientName={user?.name}
+              clientEmail={user?.email}
+              totalQuote={shootToPay.data.payment?.totalQuote}
+              totalPaid={shootToPay.data.payment?.totalPaid}
+              onPaymentSuccess={() => {
+                setSquarePaymentOpen(false);
+                setShootToPay(null);
+                refresh();
+                toast({
+                  title: "Payment successful",
+                  description: "Your payment has been processed successfully.",
+                });
+              }}
+            />
+          )}
+
+          {/* Payment Selection Modal */}
+          <Dialog open={paymentSelectionOpen} onOpenChange={setPaymentSelectionOpen}>
+            <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <CreditCard className="h-5 w-5 text-primary" />
+                  Select Shoots to Pay
+                </DialogTitle>
+                <DialogDescription>
+                  Choose one or more shoots to pay. You can pay multiple at once.
+                </DialogDescription>
+              </DialogHeader>
+              
+              {(() => {
+                // Get all unpaid shoots
+                const allUnpaidShoots = [...clientUpcomingRecords, ...clientCompletedRecords, ...clientOnHoldRecords]
+                  .filter(record => {
+                    const balance = (record.data.payment?.totalQuote ?? 0) - (record.data.payment?.totalPaid ?? 0);
+                    return balance > 1;
+                  });
+                
+                const deliveredStatuses = ['delivered', 'admin_verified', 'ready', 'ready_for_client', 'completed', 'finalized'];
+                const dueNowShoots = allUnpaidShoots.filter(record => {
+                  const status = (record.data.workflowStatus || record.data.status || '').toLowerCase();
+                  return deliveredStatuses.some(s => status.includes(s));
+                });
+                const upcomingShoots = allUnpaidShoots.filter(record => {
+                  const status = (record.data.workflowStatus || record.data.status || '').toLowerCase();
+                  return !deliveredStatuses.some(s => status.includes(s));
+                });
+                
+                const isSelected = (record: ClientShootRecord) => 
+                  selectedShootsForPayment.some(s => s.data.id === record.data.id);
+                
+                const toggleSelection = (record: ClientShootRecord) => {
+                  if (isSelected(record)) {
+                    setSelectedShootsForPayment(prev => prev.filter(s => s.data.id !== record.data.id));
+                  } else {
+                    setSelectedShootsForPayment(prev => [...prev, record]);
+                  }
+                };
+                
+                const totalSelected = selectedShootsForPayment.reduce((sum, record) => {
+                  return sum + ((record.data.payment?.totalQuote ?? 0) - (record.data.payment?.totalPaid ?? 0));
+                }, 0);
+                
+                const renderShootItem = (record: ClientShootRecord) => {
+                  const balance = (record.data.payment?.totalQuote ?? 0) - (record.data.payment?.totalPaid ?? 0);
+                  return (
+                    <div 
+                      key={record.data.id}
+                      onClick={() => toggleSelection(record)}
+                      className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                        isSelected(record) 
+                          ? 'border-primary bg-primary/5' 
+                          : 'border-border hover:bg-muted/50'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected(record)}
+                        onChange={() => toggleSelection(record)}
+                        className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate">{record.summary.addressLine}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {record.data.scheduledDate ? format(new Date(record.data.scheduledDate), 'MMM d, yyyy') : 'TBD'}
+                        </p>
+                      </div>
+                      <span className="font-bold text-green-600">${balance.toFixed(2)}</span>
+                    </div>
+                  );
+                };
+                
+                return (
+                  <div className="space-y-4 py-2">
+                    {dueNowShoots.length > 0 && (
+                      <div>
+                        <h4 className="font-semibold text-sm text-red-600 mb-2 flex items-center gap-2">
+                          <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+                          Due Now ({dueNowShoots.length})
+                        </h4>
+                        <div className="space-y-2">
+                          {dueNowShoots.map(renderShootItem)}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {upcomingShoots.length > 0 && (
+                      <div>
+                        <h4 className="font-semibold text-sm text-blue-600 mb-2 flex items-center gap-2">
+                          <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                          Upcoming ({upcomingShoots.length})
+                        </h4>
+                        <div className="space-y-2">
+                          {upcomingShoots.map(renderShootItem)}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {allUnpaidShoots.length === 0 && (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <p>No outstanding payments</p>
+                      </div>
+                    )}
+                    
+                    {selectedShootsForPayment.length > 0 && (
+                      <div className="border-t pt-4 mt-4">
+                        <div className="flex justify-between items-center mb-4">
+                          <span className="text-sm text-muted-foreground">
+                            {selectedShootsForPayment.length} shoot{selectedShootsForPayment.length > 1 ? 's' : ''} selected
+                          </span>
+                          <span className="font-bold text-lg text-green-600">
+                            Total: ${totalSelected.toFixed(2)}
+                          </span>
+                        </div>
+                        <Button 
+                          className="w-full bg-green-600 hover:bg-green-700"
+                          onClick={() => {
+                            setPaymentSelectionOpen(false);
+                            if (selectedShootsForPayment.length === 1) {
+                              setShootToPay(selectedShootsForPayment[0]);
+                              setSquarePaymentOpen(true);
+                            } else {
+                              setMultiPaymentOpen(true);
+                            }
+                          }}
+                        >
+                          <CreditCard className="h-4 w-4 mr-2" />
+                          Pay ${totalSelected.toFixed(2)}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </DialogContent>
+          </Dialog>
+
+          {/* Multi-Payment Dialog */}
+          {selectedShootsForPayment.length > 1 && (
+            <SquarePaymentDialog
+              isOpen={multiPaymentOpen}
+              onClose={() => {
+                setMultiPaymentOpen(false);
+                setSelectedShootsForPayment([]);
+              }}
+              amount={selectedShootsForPayment.reduce((sum, record) => 
+                sum + ((record.data.payment?.totalQuote ?? 0) - (record.data.payment?.totalPaid ?? 0)), 0
+              )}
+              shootId={selectedShootsForPayment.map(r => r.data.id).join(',')}
+              shootAddress={`${selectedShootsForPayment.length} shoots selected`}
+              shootServices={[`${selectedShootsForPayment.length} shoots`]}
+              clientName={user?.name}
+              clientEmail={user?.email}
+              totalQuote={selectedShootsForPayment.reduce((sum, r) => sum + (r.data.payment?.totalQuote ?? 0), 0)}
+              totalPaid={selectedShootsForPayment.reduce((sum, r) => sum + (r.data.payment?.totalPaid ?? 0), 0)}
+              onPaymentSuccess={() => {
+                setMultiPaymentOpen(false);
+                setSelectedShootsForPayment([]);
+                refresh();
+                toast({
+                  title: "Payment successful",
+                  description: `Payment for ${selectedShootsForPayment.length} shoots has been processed successfully.`,
+                });
+              }}
+            />
+          )}
         </>
       );
     }
@@ -1196,9 +1547,9 @@ const Dashboard = () => {
       return (
         <>
           <RoleDashboardLayout
-            title="Photographers"
+            title={greetingTitle}
             description="Field schedule, quick actions, and delivery milestones."
-            quickActions={quickActions}
+            quickActions={withCustomQuickActions(quickActions)}
             quickActionsEyebrow="Workflow"
             leftColumnCard={
               <Suspense fallback={<CompletedShootsCardSkeleton />}>
@@ -1219,30 +1570,25 @@ const Dashboard = () => {
                   emptyStateText="No delivered shoots yet."
                 />
               </Suspense>,
-              <Suspense key="photographer-issues" fallback={<PendingReviewsCardSkeleton />}>
-                <LazyIssuesListCard
-                  issues={photographerIssues}
-                  title="Post-delivery issues"
-                  emptyStateText="No issues flagged."
-                />
-              </Suspense>,
             ]}
             upcomingShoots={photographerUpcoming}
             pendingReviews={photographerPendingReviews}
-            issues={photographerIssues}
             pendingCard={
               <PendingReviewsCard
-                title="In review"
-                variant="reviews-only"
-                reviews={photographerPendingReviews}
+                title="Requests"
+                reviews={[]}
                 issues={[]}
                 onSelect={(shoot) => handleSelectShoot(shoot)}
-                emptyReviewsText="Nothing waiting for you."
+                emptyRequestsText="No active requests."
               />
             }
             onSelectShoot={handleSelectShoot}
+            canCustomizeQuickActions={canCustomizeQuickActions}
+            onEditQuickActions={handleOpenQuickActionsEditor}
+            role="photographer"
           />
           {shootDetailsModal}
+          {quickActionsEditor}
         </>
       );
     }
@@ -1286,23 +1632,31 @@ const Dashboard = () => {
           <RoleDashboardLayout
             title="Rep"
             description="Assign coverage, monitor reviews, and close the loop."
-            quickActions={quickActions}
+            quickActions={withCustomQuickActions(quickActions)}
             quickActionsEyebrow="Pipeline"
             leftColumnCard={
-              <div id="assign-card" className="h-full flex flex-col">
-                <Suspense fallback={<AssignPhotographersCardSkeleton />}>
-                  <LazyAssignPhotographersCard
-                    photographers={assignPhotographers}
-                    onPhotographerSelect={setSelectedPhotographer}
-                    onViewSchedule={() => navigate("/availability")}
-                    availablePhotographerIds={availablePhotographerIds}
-                    availabilityWindow={availabilityWindow}
-                    onAvailabilityWindowChange={setAvailabilityWindow}
-                    availabilityLoading={availabilityLoading}
-                    availabilityError={availabilityError}
-                  />
-                </Suspense>
-              </div>
+              <ErrorBoundary
+                fallback={
+                  <div className="rounded-2xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
+                    Unable to load photographers
+                  </div>
+                }
+              >
+                <div id="assign-card" className="h-full flex flex-col">
+                  <Suspense fallback={<AssignPhotographersCardSkeleton />}>
+                    <LazyAssignPhotographersCard
+                      photographers={assignPhotographers}
+                      onPhotographerSelect={setSelectedPhotographer}
+                      onViewSchedule={() => navigate("/availability")}
+                      availablePhotographerIds={availablePhotographerIds}
+                      availabilityWindow={availabilityWindow}
+                      onAvailabilityWindowChange={setAvailabilityWindow}
+                      availabilityLoading={availabilityLoading}
+                      availabilityError={availabilityError}
+                    />
+                  </Suspense>
+                </div>
+              </ErrorBoundary>
             }
             rightColumnCards={[
               <Suspense key="rep-delivered" fallback={<CompletedShootsCardSkeleton />}>
@@ -1313,34 +1667,34 @@ const Dashboard = () => {
                   emptyStateText="No delivered shoots yet."
                 />
               </Suspense>,
-              <Suspense key="rep-issues" fallback={<PendingReviewsCardSkeleton />}>
-                <LazyIssuesListCard
-                  issues={repIssues}
-                  title="Client issues"
-                  emptyStateText="No client issues right now."
-                />
-              </Suspense>,
               shouldLoadEditingRequests ? (
                 <Suspense key="rep-editing-requests" fallback={<EditingRequestsCardSkeletonWrapper />}>
                   <LazyEditingRequestsCard
                     requests={editingRequests}
                     loading={editingRequestsLoading}
-                    onCreate={() => setSpecialRequestOpen(true)}
+                    onCreate={() => {
+                      setSelectedRequestId(null);
+                      setSpecialRequestOpen(true);
+                    }}
+                    onRequestClick={(requestId) => {
+                      setSelectedRequestId(requestId);
+                      setSpecialRequestOpen(true);
+                    }}
+                    onUpdate={updateEditingRequest}
+                    onDelete={isAdminExperience ? removeEditingRequest : undefined}
                   />
                 </Suspense>
               ) : null,
             ]}
             upcomingShoots={repUpcoming}
             pendingReviews={repPendingReviews}
-            issues={repIssues}
             pendingCard={
               <PendingReviewsCard
-                title="Pending reviews"
-                reviews={repPendingReviews}
-                issues={repIssues}
+                title="Requests"
+                reviews={[]}
+                issues={[]}
                 onSelect={(shoot) => handleSelectShoot(shoot)}
-                emptyReviewsText="No reviews awaiting attention."
-                emptyIssuesText="No open issues."
+                emptyRequestsText="No active requests."
               />
             }
             onSelectShoot={handleSelectShoot}
@@ -1371,13 +1725,13 @@ const Dashboard = () => {
         {
           id: "flag",
           label: "Flag a shoot",
-          description: "Document blockers",
+          description: "Document blockers for review",
           icon: <Flag size={16} />,
           accent: "from-amber-50 to-white text-amber-600 dark:from-amber-900/80 dark:to-amber-800/80 dark:text-amber-200",
           onClick: () =>
             toast({
               title: "Flag noted",
-              description: "Tag ops in issues so they can follow up.",
+              description: "Tag ops in requests so they can follow up.",
             }),
         },
         {
@@ -1394,17 +1748,26 @@ const Dashboard = () => {
         <>
           <RoleDashboardLayout
             title="Editor"
-            description="Upcoming edits, review queue, and delivery progress."
-            quickActions={quickActions}
+            description="Upcoming edits, requests, and delivery progress."
+            quickActions={withCustomQuickActions(quickActions)}
             quickActionsEyebrow="Production"
             leftColumnCard={
-              <Suspense fallback={<PendingReviewsCardSkeleton />}>
-                <LazyIssuesListCard
-                  issues={editorIssues}
-                  title="Issues"
-                  emptyStateText="No issues reported."
-                />
-              </Suspense>
+              shouldLoadEditingRequests ? (
+                <Suspense fallback={<EditingRequestsCardSkeletonWrapper />}>
+                  <LazyEditingRequestsCard
+                    requests={editingRequests}
+                    loading={editingRequestsLoading}
+                    onUpdate={updateEditingRequest}
+                  />
+                </Suspense>
+              ) : (
+                <Suspense fallback={<EditingRequestsCardSkeletonWrapper />}>
+                  <LazyEditingRequestsCard
+                    requests={[]}
+                    loading={editingRequestsLoading}
+                  />
+                </Suspense>
+              )
             }
             rightColumnCards={[
               <Suspense key="delivered-edits" fallback={<CompletedShootsCardSkeleton />}>
@@ -1415,51 +1778,30 @@ const Dashboard = () => {
                   emptyStateText="No delivered edits yet."
                 />
               </Suspense>,
-              shouldLoadEditingRequests ? (
-                <Suspense key="editor-editing-requests" fallback={<EditingRequestsCardSkeletonWrapper />}>
-                  <LazyEditingRequestsCard
-                    requests={editingRequests}
-                    loading={editingRequestsLoading}
-                    onCreate={() => setSpecialRequestOpen(true)}
-                  />
-                </Suspense>
-              ) : null,
+              null,
             ]}
             upcomingShoots={editorUpcoming}
+            upcomingTitle="Editing queue"
+            upcomingSubtitle="Uploads & active edits"
+            upcomingEmptyStateText="No edits in progress yet."
+            upcomingDefaultShowPastDays
             pendingReviews={editorPendingReviews}
-            issues={editorIssues}
-            pendingCard={
-              <PendingReviewsCard
-                title="Editing queue"
-                variant="reviews-only"
-                reviews={editorPendingReviews}
-                issues={[]}
-                onSelect={(shoot) => handleSelectShoot(shoot)}
-                emptyReviewsText="You're caught up!"
-              />
-            }
             onSelectShoot={handleSelectShoot}
+            role="editor"
           />
           {shootDetailsModal}
         </>
       );
     }
 
-    return (
-      <LegacyDashboardView
-        shoots={shoots}
-        role={role}
-        title={greetingTitle}
-        description={DASHBOARD_DESCRIPTION}
-      />
-    );
+    return null;
   }
 
   const mobileTabs = [
     {
-      id: "upcoming",
-      label: "Upcoming",
-      content: renderUpcomingCard(),
+      id: "shoots",
+      label: "Shoots",
+      content: renderShootsTabsCard(),
     },
     {
       id: "completed",
@@ -1468,18 +1810,13 @@ const Dashboard = () => {
     },
     {
       id: "assign",
-      label: "Assign Photographers",
+      label: "Assign",
       content: renderAssignPhotographersCard(),
     },
     {
-      id: "reviews",
-      label: "Reviews & Requests",
-      content: (
-        <div className="space-y-4">
-          {renderPendingReviewsCard()}
-          {renderEditingRequestsCard()}
-        </div>
-      ),
+      id: "requests",
+      label: "Requests",
+      content: renderPendingReviewsCard(),
     },
     {
       id: "pipeline",
@@ -1490,19 +1827,25 @@ const Dashboard = () => {
 
   const adminDesktopContent = (
     <>
+      {/* Requested shoots section at top, then Upcoming Shoots below */}
       {/* KPI cards temporarily removed by request */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-6 items-stretch">
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-6 items-start">
         <div className="md:col-span-3 flex flex-col gap-4 sm:gap-6 md:sticky md:top-6 h-full order-1 md:order-none">
           <div className="order-1 md:order-none">
-            <QuickActionsCard actions={adminQuickActions} columns={1} />
+            <QuickActionsCard
+              actions={withCustomQuickActions(adminQuickActions)}
+              columns={1}
+              onEdit={canCustomizeQuickActions ? handleOpenQuickActionsEditor : undefined}
+            />
           </div>
           <div id="assign-card" className="flex-1 min-h-0 flex flex-col hidden md:flex order-3 md:order-none">
             {renderAssignPhotographersCard()}
           </div>
         </div>
 
-        <div className="md:col-span-6 flex flex-col h-full order-2 md:order-none">
-          {renderUpcomingCard()}
+        <div className="md:col-span-6 flex flex-col gap-4 sm:gap-6 h-full order-2 md:order-none">
+          {/* Combined Shoots Card with Upcoming/Requested tabs */}
+          {renderShootsTabsCard()}
         </div>
 
         <div className="lg:hidden order-3">{renderAssignPhotographersCard()}</div>
@@ -1510,7 +1853,6 @@ const Dashboard = () => {
         <div className="md:col-span-3 flex flex-col gap-4 sm:gap-6 md:sticky md:top-6 h-full order-4 md:order-none">
           {renderPendingReviewsCard()}
           {renderCompletedShootsCard()}
-          {renderEditingRequestsCard()}
         </div>
       </div>
 
@@ -1550,15 +1892,27 @@ const Dashboard = () => {
   return (
     <DashboardLayout>
       <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
-        <PageHeader
-          badge="Dashboard"
-          title={greetingTitle}
-          description={DASHBOARD_DESCRIPTION}
-        />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex-1">
+            <PageHeader title={greetingTitle} description={DASHBOARD_DESCRIPTION} />
+          </div>
+        </div>
 
         {error && (
-          <div className="p-4 border border-rose-200 bg-rose-50 rounded-2xl text-sm text-rose-700">
-            {error}
+          <div className="p-4 border border-rose-200 bg-rose-50 dark:border-rose-800 dark:bg-rose-950/50 rounded-2xl text-sm text-rose-700 dark:text-rose-300">
+            <p className="font-semibold mb-1">Error loading dashboard:</p>
+            <p>{error}</p>
+            <button 
+              onClick={() => refresh()} 
+              className="mt-2 px-3 py-1.5 bg-rose-600 text-white rounded-lg text-xs font-medium hover:bg-rose-700 transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+        {!error && data && (!data.workflow || !Array.isArray(data.workflow.columns)) && (
+          <div className="p-4 border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/50 rounded-2xl text-sm text-amber-700 dark:text-amber-300">
+            <p>Workflow data is missing. <button onClick={() => refresh()} className="underline font-semibold">Refresh</button></p>
           </div>
         )}
 
@@ -1566,110 +1920,78 @@ const Dashboard = () => {
       </div>
 
       {shootDetailsModal}
+      {quickActionsEditor}
+
+      {/* Approval Modal for requested shoots */}
+      {approvalModalShoot && (
+        <ShootApprovalModal
+          isOpen={!!approvalModalShoot}
+          onClose={() => setApprovalModalShoot(null)}
+          shootId={approvalModalShoot.id}
+          shootAddress={approvalModalShoot.addressLine || ''}
+          currentScheduledAt={approvalModalShoot.startTime}
+          onApproved={() => {
+            setApprovalModalShoot(null);
+            refresh();
+          }}
+          photographers={Array.isArray(data?.photographers) ? data.photographers.map((p) => ({
+            id: p.id,
+            name: p.name,
+            avatar: p.avatar,
+          })) : []}
+        />
+      )}
+
+      {/* Decline Modal for requested shoots */}
+      {declineModalShoot && (
+        <ShootDeclineModal
+          isOpen={!!declineModalShoot}
+          onClose={() => setDeclineModalShoot(null)}
+          shootId={declineModalShoot.id}
+          shootAddress={declineModalShoot.addressLine || ''}
+          onDeclined={() => {
+            setDeclineModalShoot(null);
+            refresh();
+          }}
+        />
+      )}
+
+      {/* Edit Modal for modifying shoot requests */}
+      {editModalShoot && (
+        <ShootEditModal
+          isOpen={!!editModalShoot}
+          onClose={() => setEditModalShoot(null)}
+          shootId={editModalShoot.id}
+          onSaved={() => {
+            setEditModalShoot(null);
+            refresh();
+          }}
+        />
+      )}
 
       <Suspense fallback={null}>
         <LazySpecialEditingRequestDialog
           open={specialRequestOpen}
-          onOpenChange={setSpecialRequestOpen}
+          onOpenChange={(open) => {
+            setSpecialRequestOpen(open);
+            if (!open) {
+              setSelectedRequestId(null);
+            }
+          }}
           shoots={role === "salesRep" ? repVisibleSummaries : data?.upcomingShoots || []}
+          onSuccess={refreshEditingRequests}
+          requests={editingRequests}
+          selectedRequestId={selectedRequestId}
+          onUpdate={updateEditingRequest}
+          onDelete={isAdminExperience ? removeEditingRequest : undefined}
         />
       </Suspense>
     </DashboardLayout>
   );
 };
 
-const LegacyDashboardView = ({
-  shoots,
-  role,
-  title,
-  description,
-}: {
-  shoots: ShootData[];
-  role: string;
-  title: string;
-  description: string;
-}) => {
-  const showRevenue = ["admin", "superadmin"].includes(role);
-  const showClientInterface = role === "client";
-  const [invoiceTimeFilter, setInvoiceTimeFilter] = useState<
-    "day" | "week" | "month" | "quarter" | "year"
-  >("month");
-  const invoices: InvoiceData[] = [];
-
-  return (
-    <DashboardLayout>
-      <div className="space-y-6 p-6">
-        <PageHeader
-          badge="Dashboard"
-          title={title}
-          description={description}
-        />
-        <ShootStatsCards shoots={shoots} />
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-1">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              <ShootScheduleCard shoots={shoots} />
-            </motion.div>
-          </div>
-          <div className="lg:col-span-1">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.1 }}
-            >
-              <ShootApprovalsSection shoots={shoots} />
-            </motion.div>
-          </div>
-          <div className="lg:col-span-1">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.2 }}
-            >
-              <ShootEditingSection shoots={shoots} />
-            </motion.div>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {!showClientInterface && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.3 }}
-            >
-              <Suspense fallback={<SectionFallback label="Loading task manager..." />}>
-                <LazyTaskManager />
-              </Suspense>
-            </motion.div>
-          )}
-          {showRevenue && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.4 }}
-            >
-              <Suspense fallback={<SectionFallback label="Loading revenue trends..." />}>
-                <LazyRevenueCharts
-                  invoices={invoices}
-                  timeFilter={invoiceTimeFilter}
-                  onTimeFilterChange={setInvoiceTimeFilter}
-                  variant="compact"
-                />
-              </Suspense>
-            </motion.div>
-          )}
-        </div>
-      </div>
-    </DashboardLayout>
-  );
-};
-
 interface RoleDashboardLayoutProps {
-  title: string;
+  title: React.ReactNode;
   description: string;
   quickActions: QuickActionItem[];
   quickActionsEyebrow?: string;
@@ -1677,11 +1999,17 @@ interface RoleDashboardLayoutProps {
   rightColumnCards?: React.ReactNode[];
   upcomingShoots: DashboardShootSummary[];
   pendingReviews: DashboardShootSummary[];
-  issues: DashboardIssueItem[];
   onSelectShoot: (shoot: DashboardShootSummary, weather?: WeatherInfo | null) => void;
+  upcomingTitle?: string;
+  upcomingSubtitle?: string;
+  upcomingEmptyStateText?: string;
+  upcomingDefaultShowPastDays?: boolean;
   pendingCard?: React.ReactNode;
   pendingTitle?: string;
   emptyPendingText?: string;
+  canCustomizeQuickActions?: boolean;
+  onEditQuickActions?: () => void;
+  role?: UserRole;
 }
 
 const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
@@ -1693,56 +2021,129 @@ const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
   rightColumnCards = [],
   upcomingShoots,
   pendingReviews,
-  issues,
   onSelectShoot,
+  upcomingTitle,
+  upcomingSubtitle,
+  upcomingEmptyStateText,
+  upcomingDefaultShowPastDays,
   pendingCard,
-  pendingTitle = "Pending reviews",
-  emptyPendingText = "No items waiting.",
+  pendingTitle = "Requests",
+  emptyPendingText = "No active requests.",
+  canCustomizeQuickActions,
+  onEditQuickActions,
+  role,
 }) => {
   const pendingContent =
     pendingCard ||
     (
       <PendingReviewsCard
         title={pendingTitle}
-        variant="reviews-only"
-        reviews={pendingReviews}
-        issues={issues}
+        reviews={[]}
+        issues={[]}
         onSelect={onSelectShoot}
-        emptyReviewsText={emptyPendingText}
+        emptyRequestsText={emptyPendingText}
       />
     );
 
   return (
-    <DashboardLayout>
-      <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
-        <PageHeader badge="Dashboard" title={title} description={description} />
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-6 items-stretch">
-        <div className="md:col-span-3 flex flex-col gap-4 sm:gap-6 h-full order-1 md:order-none">
-            <div className="order-1 md:order-none">
-              <QuickActionsCard actions={quickActions} eyebrow={quickActionsEyebrow} columns={1} />
+    <DevProfiler id={`RoleDashboardLayout:${role ?? "default"}`}>
+      <DashboardLayout>
+        <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
+          <PageHeader title={title} description={description} />
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-6 items-stretch">
+          <div className="md:col-span-3 flex flex-col gap-4 sm:gap-6 h-full order-1 md:order-none">
+              <div className="order-1 md:order-none">
+                <ErrorBoundary
+                  fallback={
+                    <div className="rounded-2xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
+                      Unable to load quick actions
+                    </div>
+                  }
+                >
+                  <QuickActionsCard
+                    actions={quickActions}
+                    eyebrow={quickActionsEyebrow}
+                    columns={1}
+                    onEdit={
+                      canCustomizeQuickActions && onEditQuickActions
+                        ? onEditQuickActions
+                        : undefined
+                    }
+                  />
+                </ErrorBoundary>
+              </div>
+              <div className="flex-1 min-h-0 flex flex-col hidden md:flex order-3 md:order-none">
+                <ErrorBoundary
+                  fallback={
+                    <div className="rounded-2xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
+                      Unable to load card
+                    </div>
+                  }
+                >
+                  {leftColumnCard}
+                </ErrorBoundary>
+              </div>
             </div>
-            <div className="flex-1 min-h-0 flex flex-col hidden md:flex order-3 md:order-none">
-              {leftColumnCard}
+            <div className="md:col-span-6 flex flex-col h-full order-2 md:order-none">
+              <ErrorBoundary
+                fallback={
+                  <div className="rounded-2xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
+                    Unable to load upcoming shoots
+                  </div>
+                }
+              >
+                <UpcomingShootsCard 
+                  shoots={upcomingShoots} 
+                  onSelect={(shoot, weather) => onSelectShoot(shoot, weather)}
+                  role={role}
+                  title={upcomingTitle}
+                  subtitle={upcomingSubtitle}
+                  emptyStateText={upcomingEmptyStateText}
+                  defaultShowPastDays={upcomingDefaultShowPastDays}
+                />
+              </ErrorBoundary>
             </div>
-          </div>
-          <div className="md:col-span-6 flex flex-col h-full order-2 md:order-none">
-            <UpcomingShootsCard shoots={upcomingShoots} onSelect={(shoot, weather) => onSelectShoot(shoot, weather)} />
-          </div>
-          {/* Left Column Card - Mobile only, appears after Upcoming Shoots */}
-          <div className="md:hidden order-3">
-            {leftColumnCard}
-          </div>
-        <div className="md:col-span-3 flex flex-col gap-4 sm:gap-6 h-full order-4 md:order-none">
-          {pendingContent}
-          {rightColumnCards
-            .filter((card): card is React.ReactNode => Boolean(card))
-            .map((card, index) => (
-              <React.Fragment key={index}>{card}</React.Fragment>
-            ))}
+            {/* Left Column Card - Mobile only, appears after Upcoming Shoots */}
+            <div className="md:hidden order-3">
+              <ErrorBoundary
+                fallback={
+                  <div className="rounded-2xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
+                    Unable to load card
+                  </div>
+                }
+              >
+                {leftColumnCard}
+              </ErrorBoundary>
+            </div>
+          <div className="md:col-span-3 flex flex-col gap-4 sm:gap-6 h-full order-4 md:order-none">
+            <ErrorBoundary
+              fallback={
+                <div className="rounded-2xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
+                  Unable to load pending reviews
+                </div>
+              }
+            >
+              {pendingContent}
+            </ErrorBoundary>
+            {rightColumnCards
+              .filter((card): card is React.ReactNode => Boolean(card))
+              .map((card, index) => (
+                <ErrorBoundary
+                  key={index}
+                  fallback={
+                    <div className="rounded-2xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
+                      Unable to load card
+                    </div>
+                  }
+                >
+                  {card}
+                </ErrorBoundary>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
-    </DashboardLayout>
+      </DashboardLayout>
+    </DevProfiler>
   );
 };
 
@@ -1758,9 +2159,11 @@ interface ClientMyShootsProps {
   onRebook: (record: ClientShootRecord) => void;
   onRequestRevision: (record: ClientShootRecord) => void;
   onHoldAction: (record: ClientShootRecord) => void;
+  onPayment: (record: ClientShootRecord) => void;
+  onBookNewShoot: () => void;
 }
 
-const ClientMyShoots: React.FC<ClientMyShootsProps> = ({
+const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
   upcoming,
   completed,
   onHold,
@@ -1772,65 +2175,113 @@ const ClientMyShoots: React.FC<ClientMyShootsProps> = ({
   onRebook,
   onRequestRevision,
   onHoldAction,
+  onPayment,
+  onBookNewShoot,
 }) => {
   const tabs: Array<{ key: "upcoming" | "completed" | "hold"; label: string; count: number }> = [
-    { key: "upcoming", label: "Upcoming", count: upcoming.length },
-    { key: "completed", label: "Completed", count: completed.length },
-    { key: "hold", label: "On hold", count: onHold.length },
+    { key: "upcoming", label: "Scheduled", count: upcoming.length },
+    { key: "completed", label: "Delivered", count: completed.length },
+    // Only show On hold tab if there are items
+    ...(onHold.length > 0 ? [{ key: "hold" as const, label: "On hold", count: onHold.length }] : []),
   ];
   const [activeTab, setActiveTab] = useState<(typeof tabs)[number]["key"]>("upcoming");
   const list =
     activeTab === "upcoming" ? upcoming : activeTab === "completed" ? completed : onHold;
 
   return (
-    <Card className="h-full flex flex-col">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
-        <div>
-          <h2 className="text-base sm:text-lg font-bold text-foreground">My shoots</h2>
-          <p className="text-xs sm:text-sm text-muted-foreground">Track everything from booking to delivery.</p>
-        </div>
-        <div className="flex gap-2 sm:gap-4 text-xs sm:text-sm font-semibold overflow-x-auto pb-1 -mx-1 px-1">
-          {tabs.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`pb-1 border-b-2 transition-colors whitespace-nowrap ${
-                activeTab === tab.key ? "border-foreground text-foreground" : "border-transparent text-muted-foreground"
-              }`}
-            >
-              {tab.label} ({tab.count})
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="space-y-4">
-        {list.length === 0 ? (
-          <div className="text-sm text-muted-foreground text-center py-10">
-            {activeTab === "upcoming" && "No upcoming shoots yet."}
-            {activeTab === "completed" && "No delivered shoots yet."}
-            {activeTab === "hold" && "No shoots on hold."}
+    <DevProfiler id="ClientMyShoots">
+      <Card className="h-full flex flex-col">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
+          <div>
+            <h2 className="text-base sm:text-lg font-bold text-foreground">My shoots</h2>
+            <p className="text-xs sm:text-sm text-muted-foreground">Track everything from booking to delivery.</p>
           </div>
-        ) : (
-          list.map((record) => (
-            <ClientShootTile
-              key={record.data.id}
-              record={record}
-              variant={activeTab}
-              onSelect={onSelect}
-              onReschedule={onReschedule}
-              onCancel={onCancel}
-              onContactSupport={onContactSupport}
-              onDownload={onDownload}
-              onRebook={onRebook}
-              onRequestRevision={onRequestRevision}
-              onHoldAction={onHoldAction}
-            />
-          ))
-        )}
-      </div>
-    </Card>
-  );
-};
+          <div className="flex gap-2 sm:gap-4 text-xs sm:text-sm font-semibold overflow-visible pb-2 pt-2">
+            {tabs.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`pb-1 border-b-2 transition-colors whitespace-nowrap flex items-center gap-1.5 ${
+                  activeTab === tab.key ? "border-foreground text-foreground" : "border-transparent text-muted-foreground"
+                }`}
+              >
+                {tab.label}
+                {tab.key === "completed" && tab.count > 0 ? (
+                  <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[10px] font-bold text-white bg-blue-500 rounded-full animate-bounce">
+                    {tab.count}
+                  </span>
+                ) : (
+                  <span>({tab.count})</span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="space-y-4">
+          {list.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+              <div className="rounded-full bg-muted p-4 mb-4">
+                <CalendarDays className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <h3 className="text-base font-semibold text-foreground mb-1">
+                {activeTab === "upcoming" && "No scheduled shoots"}
+                {activeTab === "completed" && "No delivered shoots yet"}
+                {activeTab === "hold" && "No shoots on hold"}
+              </h3>
+              <p className="text-sm text-muted-foreground mb-4 max-w-xs">
+                {activeTab === "upcoming" && "You don't have any shoots scheduled. Book a new shoot to get started!"}
+                {activeTab === "completed" && "Once your shoots are delivered, they'll appear here."}
+                {activeTab === "hold" && "Shoots requiring your attention will appear here."}
+              </p>
+              {(activeTab === "upcoming" || activeTab === "completed") && (
+                <Button onClick={onBookNewShoot} className="gap-2">
+                  <CalendarPlus className="h-4 w-4" />
+                  Book New Shoot
+                </Button>
+              )}
+            </div>
+          ) : (
+            list.map((record) => (
+              <ClientShootTile
+                key={record.data.id}
+                record={record}
+                variant={activeTab}
+                onSelect={onSelect}
+                onReschedule={onReschedule}
+                onCancel={onCancel}
+                onContactSupport={onContactSupport}
+                onDownload={onDownload}
+                onRebook={onRebook}
+                onRequestRevision={onRequestRevision}
+                onHoldAction={onHoldAction}
+                onPayment={onPayment}
+              />
+            ))
+          )}
+        </div>
+        </Card>
+      </DevProfiler>
+    );
+  },
+  (prevProps, nextProps) => {
+    // Custom comparison for ClientMyShoots
+    return (
+      prevProps.upcoming.length === nextProps.upcoming.length &&
+      prevProps.completed.length === nextProps.completed.length &&
+      prevProps.onHold.length === nextProps.onHold.length &&
+      prevProps.onSelect === nextProps.onSelect &&
+      prevProps.onReschedule === nextProps.onReschedule &&
+      prevProps.onCancel === nextProps.onCancel &&
+      prevProps.onContactSupport === nextProps.onContactSupport &&
+      prevProps.onDownload === nextProps.onDownload &&
+      prevProps.onRebook === nextProps.onRebook &&
+      prevProps.onRequestRevision === nextProps.onRequestRevision &&
+      prevProps.onHoldAction === nextProps.onHoldAction &&
+      prevProps.onPayment === nextProps.onPayment &&
+      prevProps.onBookNewShoot === nextProps.onBookNewShoot
+    );
+  }
+);
 
 interface ClientShootTileProps {
   record: ClientShootRecord;
@@ -1843,9 +2294,10 @@ interface ClientShootTileProps {
   onRebook: (record: ClientShootRecord) => void;
   onRequestRevision: (record: ClientShootRecord) => void;
   onHoldAction: (record: ClientShootRecord) => void;
+  onPayment?: (record: ClientShootRecord) => void;
 }
 
-const ClientShootTile: React.FC<ClientShootTileProps> = ({
+const ClientShootTile: React.FC<ClientShootTileProps> = React.memo(({
   record,
   variant,
   onSelect,
@@ -1856,9 +2308,16 @@ const ClientShootTile: React.FC<ClientShootTileProps> = ({
   onRebook,
   onRequestRevision,
   onHoldAction,
+  onPayment,
 }) => {
   const { formatTime, formatDate } = useUserPreferences();
   const { data, summary } = record;
+  
+  // Calculate if payment is pending
+  const totalQuote = data.payment?.totalQuote ?? 0;
+  const totalPaid = data.payment?.totalPaid ?? 0;
+  const hasPendingPayment = totalQuote > 0 && totalPaid < totalQuote;
+  const balanceDue = Math.max(totalQuote - totalPaid, 0);
   const startDate = summary.startTime ? new Date(summary.startTime) : null;
   const completedDate = data.completedDate ? parseISO(data.completedDate) : null;
   const dateLabel = variant === "completed" && completedDate
@@ -1887,6 +2346,241 @@ const ClientShootTile: React.FC<ClientShootTileProps> = ({
   const serviceBadges = services.slice(0, 4);
   const overflow = services.length - serviceBadges.length;
 
+  // Get photos for delivered shoots
+  const getDeliveredPhotos = () => {
+    const allPhotos: string[] = [];
+    const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+    
+    // Helper to resolve URL - prefix with API URL if relative path
+    const resolveUrl = (url: string | null | undefined): string | null => {
+      if (!url) return null;
+      // Already absolute URL
+      if (url.startsWith('http://') || url.startsWith('https://')) return url;
+      // Relative path - prefix with API URL
+      if (url.startsWith('/')) return `${API_URL}${url}`;
+      return `${API_URL}/${url}`;
+    };
+    
+    // Check media.images first
+    if (data.media?.images) {
+      data.media.images.forEach((img: any) => {
+        // Try resolved URLs first, then fall back to paths
+        const url = img.thumbnail_url || img.web_url || resolveUrl(img.thumbnail_path || img.web_path || img.url || img.path);
+        if (url) allPhotos.push(url);
+      });
+    }
+    // Fallback to files - only include edited/final files (not raw)
+    if (allPhotos.length === 0 && data.files) {
+      data.files.forEach((file: any) => {
+        const stage = (file.workflow_stage || file.workflowStage || '').toLowerCase();
+        // Only include edited, completed, final, or delivered files - NOT raw/todo
+        if (stage === 'raw' || stage === 'todo' || stage === 'uploaded') return;
+        
+        // Try resolved URLs first (from backend), then fall back to paths
+        const url = file.thumbnail_url || file.web_url || file.placeholder_url || 
+                    resolveUrl(file.thumbnail_path || file.web_path || file.url || file.path);
+        if (url) allPhotos.push(url);
+      });
+    }
+    return allPhotos;
+  };
+
+  // Delivered variant - new layout with info on left and photos on right
+  // Photo cycling state
+  const [photoIndex, setPhotoIndex] = useState(0);
+  const allPhotosRef = React.useRef<string[]>([]);
+  
+  // Auto-cycle photos every 3 seconds for delivered shoots
+  useEffect(() => {
+    if (variant !== "completed") return;
+    const photos = allPhotosRef.current;
+    if (photos.length <= 3) return; // No need to cycle if 3 or fewer photos
+    
+    const interval = setInterval(() => {
+      setPhotoIndex((prev) => (prev + 1) % photos.length);
+    }, 3000);
+    
+    return () => clearInterval(interval);
+  }, [variant]);
+  
+  if (variant === "completed") {
+    const allPhotos = getDeliveredPhotos();
+    allPhotosRef.current = allPhotos;
+    const totalCount = allPhotos.length;
+    
+    // Get 3 photos starting from current index, cycling through
+    const getDisplayPhotos = () => {
+      if (allPhotos.length === 0) return [];
+      if (allPhotos.length <= 3) return allPhotos;
+      const photos: string[] = [];
+      for (let i = 0; i < 3; i++) {
+        photos.push(allPhotos[(photoIndex + i) % allPhotos.length]);
+      }
+      return photos;
+    };
+    const displayPhotos = getDisplayPhotos();
+
+    return (
+      <div className="border border-border rounded-2xl sm:rounded-3xl overflow-hidden hover:border-primary/40 transition-colors bg-card">
+        <div className="flex flex-col lg:flex-row">
+          {/* Left side - Info */}
+          <div className="flex-1 p-4 sm:p-6 space-y-3 sm:space-y-4">
+            <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
+              <Calendar className="w-3.5 h-3.5" />
+              <span>{dateLabel}</span>
+              <span>•</span>
+              <span>{timeLabel}</span>
+            </div>
+            
+            <button onClick={() => onSelect(record)} className="text-lg sm:text-xl font-semibold text-left hover:underline break-words block">
+              {summary.addressLine}
+            </button>
+            
+            <div className="flex flex-wrap gap-2">
+              {serviceBadges.map((service) => (
+                <Badge key={service} variant="secondary" className="rounded-full text-[10px] sm:text-xs bg-muted/50">
+                  {service}
+                </Badge>
+              ))}
+              {overflow > 0 && (
+                <Badge variant="secondary" className="rounded-full text-[10px] sm:text-xs bg-muted/50">
+                  +{overflow}
+                </Badge>
+              )}
+            </div>
+
+            <div className="text-sm text-muted-foreground space-y-2">
+              <p className="flex items-center gap-2">
+                <span className="uppercase text-[10px] tracking-wider">Photographer</span>
+                {data.photographer?.avatar && (
+                  <img src={data.photographer.avatar} alt="" className="w-5 h-5 rounded-full" />
+                )}
+                <span className="text-foreground font-medium">{photographerLabel}</span>
+              </p>
+              {instructions && (
+                <p>
+                  <span className="uppercase text-[10px] tracking-wider">Notes</span>
+                  <span className="block text-foreground/80 italic line-clamp-2">"{instructions}"</span>
+                </p>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Badge className="bg-green-600/20 text-green-500 border-green-600/30 hover:bg-green-600/30">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-500 mr-1.5" />
+                DELIVERED
+              </Badge>
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex flex-wrap gap-2 pt-2">
+              {hasPendingPayment && onPayment && (
+                <Button 
+                  size="sm"
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                  onClick={() => onPayment(record)}
+                >
+                  <CreditCard className="w-3.5 h-3.5 mr-1.5" />
+                  Pay ${balanceDue.toFixed(0)}
+                </Button>
+              )}
+              <Button size="sm" variant="outline" onClick={() => onDownload(record)}>
+                <Download className="w-3.5 h-3.5 mr-1.5" />
+                Download
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => onRequestRevision(record)}>
+                <Edit3 className="w-3.5 h-3.5 mr-1.5" />
+                Revision
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => onRebook(record)}>
+                <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+                Rebook
+              </Button>
+            </div>
+          </div>
+
+          {/* Right side - Photo stack */}
+          {displayPhotos.length > 0 && (
+            <div className="relative w-full lg:w-[280px] h-[200px] lg:h-auto lg:min-h-[260px] bg-gradient-to-br from-muted/20 to-transparent overflow-hidden">
+              {/* Background blur photos */}
+              {displayPhotos[0] && (
+                <div 
+                  className="absolute inset-0 opacity-20 blur-2xl scale-125"
+                  style={{ 
+                    backgroundImage: `url(${displayPhotos[0]})`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center'
+                  }}
+                />
+              )}
+              
+              {/* Stacked photos */}
+              <div className="absolute inset-0 flex items-center justify-center p-6">
+                <div className="relative w-full h-full max-w-[320px] max-h-[240px]">
+                  {/* Back photo (left) - lower, floating down animation */}
+                  <div 
+                    className="absolute left-0 w-[45%] aspect-[4/3] rounded-lg overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.4)] -rotate-12 opacity-85 animate-float-down"
+                    style={{ zIndex: 1, top: '75%' }}
+                  >
+                    {displayPhotos[2] && (
+                      <img 
+                        src={displayPhotos[2]} 
+                        alt="Preview 3"
+                        className="w-full h-full object-cover transition-all duration-1000 ease-in-out"
+                        style={{ opacity: 1 }}
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                      />
+                    )}
+                  </div>
+                  
+                  {/* Back photo (right) - higher, floating up animation */}
+                  <div 
+                    className="absolute right-0 w-[45%] aspect-[4/3] rounded-lg overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.4)] rotate-12 opacity-85 animate-float-up"
+                    style={{ zIndex: 2, top: '25%' }}
+                  >
+                    {displayPhotos[1] && (
+                      <img 
+                        src={displayPhotos[1]} 
+                        alt="Preview 2"
+                        className="w-full h-full object-cover transition-all duration-1000 ease-in-out"
+                        style={{ opacity: 1 }}
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                      />
+                    )}
+                  </div>
+                  
+                  {/* Front photo (center) - larger */}
+                  <div 
+                    className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[70%] aspect-[4/3] rounded-lg overflow-hidden shadow-[0_16px_50px_rgba(0,0,0,0.5)]"
+                    style={{ zIndex: 3 }}
+                  >
+                    {displayPhotos[0] && (
+                      <img 
+                        src={displayPhotos[0]} 
+                        alt="Preview 1"
+                        className="w-full h-full object-cover transition-all duration-1000 ease-in-out"
+                        style={{ opacity: 1 }}
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Photo count badge */}
+              {totalCount > 0 && (
+                <div className="absolute bottom-3 right-3 bg-black/60 backdrop-blur-sm text-white text-xs px-2.5 py-1 rounded-full">
+                  {totalCount} photo{totalCount !== 1 ? 's' : ''}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Default layout for upcoming and hold variants
   return (
     <div className="border border-border rounded-2xl sm:rounded-3xl p-4 sm:p-5 space-y-3 sm:space-y-4 hover:border-primary/40 transition-colors bg-card">
       <div className="flex flex-wrap items-start justify-between gap-3 sm:gap-4">
@@ -1910,14 +2604,10 @@ const ClientShootTile: React.FC<ClientShootTileProps> = ({
             )}
           </div>
         </div>
-        <div className="text-right space-y-2 flex-shrink-0">
+        <div className="text-right flex-shrink-0">
           <Badge variant="outline" className="uppercase tracking-widest text-[9px] sm:text-[10px]">
             {statusLabel}
           </Badge>
-          <div className="inline-flex items-center gap-1 text-[10px] sm:text-xs text-muted-foreground">
-            <Sun size={12} className="sm:w-3.5 sm:h-3.5" />
-            <span>{weatherLabel}</span>
-          </div>
         </div>
       </div>
 
@@ -1946,47 +2636,68 @@ const ClientShootTile: React.FC<ClientShootTileProps> = ({
         </div>
       )}
 
-      <div className="flex flex-wrap gap-2">
-        {variant === "upcoming" && (
-          <>
-            <Button size="sm" className="text-xs sm:text-sm" onClick={() => onReschedule(record)}>
-              Reschedule
-            </Button>
-            <Button size="sm" variant="outline" className="text-xs sm:text-sm" onClick={onContactSupport}>
-              Contact support
-            </Button>
-            <Button size="sm" variant="destructive" className="text-xs sm:text-sm" onClick={() => onCancel(record)}>
-              Cancel shoot
-            </Button>
-          </>
-        )}
-        {variant === "completed" && (
-          <>
-            <Button size="sm" className="text-xs sm:text-sm" onClick={() => onDownload(record)}>
-              Download final files
-            </Button>
-            <Button size="sm" variant="outline" className="text-xs sm:text-sm" onClick={() => onRequestRevision(record)}>
-              Request revision
-            </Button>
-            <Button size="sm" variant="ghost" className="text-xs sm:text-sm" onClick={() => onRebook(record)}>
-              Rebook this shoot
-            </Button>
-          </>
-        )}
-        {variant === "hold" && (
-          <>
-            <Button size="sm" className="text-xs sm:text-sm" onClick={() => onHoldAction(record)}>
-              {holdActionLabel}
-            </Button>
-            <Button size="sm" variant="outline" className="text-xs sm:text-sm" onClick={onContactSupport}>
-              Contact support
-            </Button>
-          </>
+      <div className="flex flex-wrap gap-2 items-center justify-between">
+        <div className="flex flex-wrap gap-2">
+          {variant === "upcoming" && (
+            <>
+              <Button size="sm" className="text-xs sm:text-sm" onClick={() => onReschedule(record)}>
+                Reschedule
+              </Button>
+              <Button size="sm" variant="outline" className="text-xs sm:text-sm" onClick={onContactSupport}>
+                Contact support
+              </Button>
+              <Button 
+                size="sm" 
+                variant={record.data.cancellationRequestedAt ? "outline" : "destructive"}
+                className={`text-xs sm:text-sm ${record.data.cancellationRequestedAt ? 'opacity-50 cursor-not-allowed' : ''}`}
+                onClick={() => !record.data.cancellationRequestedAt && onCancel(record)}
+                disabled={!!record.data.cancellationRequestedAt}
+              >
+                {record.data.cancellationRequestedAt ? 'Requested cancellation' : 'Cancel shoot'}
+              </Button>
+            </>
+          )}
+          {variant === "hold" && (
+            <>
+              <Button size="sm" className="text-xs sm:text-sm" onClick={() => onHoldAction(record)}>
+                {holdActionLabel}
+              </Button>
+              <Button size="sm" variant="outline" className="text-xs sm:text-sm" onClick={onContactSupport}>
+                Contact support
+              </Button>
+            </>
+          )}
+        </div>
+        {hasPendingPayment && onPayment && (
+          <Button 
+            size="sm" 
+            variant="default"
+            className="text-xs sm:text-sm bg-green-600 hover:bg-green-700"
+            onClick={() => onPayment(record)}
+          >
+            <CreditCard className="w-3 h-3 mr-1" />
+            Pay ${balanceDue.toFixed(0)}
+          </Button>
         )}
       </div>
     </div>
   );
-};
+}, (prevProps, nextProps) => {
+  // Custom comparison for ClientShootTile
+  return (
+    prevProps.record.data.id === nextProps.record.data.id &&
+    prevProps.variant === nextProps.variant &&
+    prevProps.onSelect === nextProps.onSelect &&
+    prevProps.onReschedule === nextProps.onReschedule &&
+    prevProps.onCancel === nextProps.onCancel &&
+    prevProps.onContactSupport === nextProps.onContactSupport &&
+    prevProps.onDownload === nextProps.onDownload &&
+    prevProps.onRebook === nextProps.onRebook &&
+    prevProps.onRequestRevision === nextProps.onRequestRevision &&
+    prevProps.onHoldAction === nextProps.onHoldAction &&
+    prevProps.onPayment === nextProps.onPayment
+  );
+});
 
 interface ClientInvoicesCardProps {
   summary: ReturnType<typeof buildClientInvoiceSummary>;
@@ -2033,4 +2744,12 @@ const ClientInvoicesCard: React.FC<ClientInvoicesCardProps> = ({ summary, onView
   </Card>
 );
 
-export default Dashboard;
+const DashboardWithProfiler = () => (
+  <DevProfiler id="Dashboard">
+    <Dashboard />
+  </DevProfiler>
+);
+
+const DashboardWithBoundary = withErrorBoundary(DashboardWithProfiler);
+
+export default React.memo(DashboardWithBoundary);

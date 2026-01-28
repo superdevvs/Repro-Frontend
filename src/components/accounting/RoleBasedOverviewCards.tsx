@@ -166,7 +166,7 @@ export function RoleBasedOverviewCards({
         // Filter editing jobs for this editor
         const myJobs = editingJobs.filter((j: any) => j.editor_id === user?.id || j.editorId === user?.id);
         const completedThisMonth = myJobs.filter((j: any) => {
-          const completed = j.completed_at || j.completedAt;
+          const completed = j.completed_at || j.completedAt || j.completedDate;
           if (!completed) return false;
           const d = new Date(completed);
           return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
@@ -179,7 +179,7 @@ export function RoleBasedOverviewCards({
         const pendingPayouts = myJobs
           .filter((j: any) => {
             const status = j.payout_status || j.payoutStatus;
-            return (j.completed_at || j.completedAt) && (status === 'pending' || status === 'unpaid');
+            return (j.completed_at || j.completedAt || j.completedDate) && (status === 'pending' || status === 'unpaid');
           })
           .reduce((sum: number, j: any) => {
             return sum + (Number(j.pay || j.payAmount || 0));
@@ -199,7 +199,9 @@ export function RoleBasedOverviewCards({
 
       case 'client': {
         // Filter invoices for this client
-        const myInvoices = invoices.filter((i) => i.client === user?.name || i.client_id === user?.id);
+        const myInvoices = invoices.filter(
+          (i) => i.client === user?.name || String(i.client_id ?? '') === String(user?.id ?? ''),
+        );
         
         const outstandingBalance = myInvoices
           .filter((i) => i.status === "pending" || i.status === "overdue")

@@ -8,12 +8,14 @@ export function EmailNavigation() {
   const { pathname } = useLocation();
   const { role } = useAuth();
   const isClient = role === 'client';
+  const isAdmin = role === 'admin' || role === 'superadmin';
+  const canManageMessaging = isAdmin || role === 'salesRep';
 
   const allTabs = [
     {
       to: '/messaging/email/inbox',
       icon: Mail,
-      label: 'Inbox',
+      label: isAdmin ? 'Inbox' : 'Messages',
       isActive: pathname.startsWith('/messaging/email/inbox') && pathname !== '/messaging/email/compose',
     },
     {
@@ -40,9 +42,13 @@ export function EmailNavigation() {
   ];
 
   // Filter tabs based on role - clients only see Inbox
-  const tabs = isClient 
-    ? allTabs.filter(tab => !tab.hideForClient)
-    : allTabs;
+  const tabs = isClient
+    ? allTabs.filter((tab) => !tab.hideForClient)
+    : canManageMessaging
+      ? allTabs
+      : allTabs.filter((tab) => tab.to === '/messaging/email/inbox');
+
+  const composeLabel = isAdmin ? 'Compose' : 'Compose Message';
 
   return (
     <div className="border-b border-border bg-background">
@@ -77,7 +83,7 @@ export function EmailNavigation() {
         >
           <Link to="/messaging/email/compose">
             <Pencil className="h-4 w-4 mr-2" />
-            Compose
+            {composeLabel}
           </Link>
         </Button>
       </div>

@@ -53,6 +53,9 @@ export const API_ROUTES = {
       publish: (shootId: number | string) => `${BASE_URL}/api/integrations/shoots/${shootId}/bright-mls/publish`,
       queue: `${BASE_URL}/api/integrations/mls-queue`,
     },
+    mmm: {
+      punchout: (shootId: number | string) => `${BASE_URL}/api/integrations/shoots/${shootId}/mmm/punchout`,
+    },
     testConnection: `${BASE_URL}/api/integrations/test-connection`,
   },
   categories: {

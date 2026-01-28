@@ -36,7 +36,50 @@ import { useClientActions } from '@/hooks/useClientActions';
 import { useShoots } from '@/context/ShootsContext';
 import { ShootData } from '@/types/shoots';
 import { API_BASE_URL } from '@/config/env';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { InteractionCloud, type InteractionCloudAccount } from '@/components/accounts/InteractionCloud';
+import { endOfMonth, isWithinInterval, startOfMonth } from 'date-fns';
+
+type InsightRole = Extract<Role, 'client' | 'photographer' | 'editor' | 'salesRep'>;
+
+const INSIGHT_ROLE_OPTIONS: {
+  value: InsightRole;
+  tabLabel: string;
+  headline: string;
+  description: string;
+  metric: 'bookings' | 'deliveries';
+}[] = [
+  {
+    value: 'client',
+    tabLabel: 'Clients',
+    headline: 'Client Momentum',
+    description: 'Month-to-date delivery and booking activity by client.',
+    metric: 'deliveries',
+  },
+  {
+    value: 'photographer',
+    tabLabel: 'Photographers',
+    headline: 'Photographer Momentum',
+    description: 'Month-to-date coverage and schedules driven by photographers.',
+    metric: 'bookings',
+  },
+  {
+    value: 'editor',
+    tabLabel: 'Editing',
+    headline: 'Editing Flow',
+    description: 'Month-to-date edit completions and delivery readiness.',
+    metric: 'bookings',
+  },
+  {
+    value: 'salesRep',
+    tabLabel: 'Sales',
+    headline: 'Sales Reach',
+    description: 'Month-to-date account touchpoints and shoots sourced by sales.',
+    metric: 'bookings',
+  },
+];
+
+const INSIGHT_ROLE_VALUES = INSIGHT_ROLE_OPTIONS.map((option) => option.value);
 
 const sampleUsersData = [
   {
@@ -117,6 +160,8 @@ export default function Accounts() {
   const { toast } = useToast();
   const { user: currentUser, role: currentUserRole, impersonate, logout } = useAuth();
   const [isNewAccountOpen, setIsNewAccountOpen] = useState(false);
+  const [showInteractionCloud, setShowInteractionCloud] = useState(true);
+  const [activeInsightsRole, setActiveInsightsRole] = useState<InsightRole>('client');
 
   const [editUserDialogOpen, setEditUserDialogOpen] = useState(false);
   const [roleChangeDialogOpen, setRoleChangeDialogOpen] = useState(false);
@@ -163,11 +208,32 @@ export default function Accounts() {
 
   const { shoots } = useShoots();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const sessionExpiredRef = useRef(false);
 
   useEffect(() => {
     sessionExpiredRef.current = false;
   }, [currentUser?.id]);
+
+  useEffect(() => {
+    const roleParam = searchParams.get('role');
+    const searchParam = searchParams.get('search');
+    const allowedRoles: Role[] = ['admin', 'superadmin', 'salesRep', 'photographer', 'editor', 'client'];
+
+    if (roleParam) {
+      if (roleParam === 'all') {
+        setFilterRole('all');
+      } else if (allowedRoles.includes(roleParam as Role)) {
+        setFilterRole(roleParam as Role);
+      }
+    }
+
+    if (searchParam !== null) {
+      setSearchQuery(searchParam);
+    } else {
+      setSearchQuery('');
+    }
+  }, [searchParams]);
 
   const handleSessionExpired = useCallback(
     (description?: string) => {
@@ -330,68 +396,214 @@ export default function Accounts() {
     return Boolean(shoot.completedDate) || status === 'completed' || status === 'delivered' || status === 'finalized';
   };
 
-  const getShootsForUser = (user: UserType) => {
-    const normalizedEmail = normalize(user.email);
-    const normalizedName = normalize(user.name);
+  const userShootSummaryById = React.useMemo(() => {
+    const clientShootsByKey = new Map<string, ShootData[]>();
+    const photographerShootsByKey = new Map<string, ShootData[]>();
+    const editorShootsByKey = new Map<string, ShootData[]>();
+    const createdByShootsByKey = new Map<string, ShootData[]>();
 
-    return shoots.filter((shoot) => {
-      if (!shoot) return false;
-      if (user.role === 'client') {
-        return normalize(shoot.client?.email) === normalizedEmail ||
-          normalize(shoot.client?.name) === normalizedName;
+    const pushToMap = (map: Map<string, ShootData[]>, key: string, shoot: ShootData) => {
+      if (!key) return;
+      const existing = map.get(key);
+      if (existing) {
+        existing.push(shoot);
+      } else {
+        map.set(key, [shoot]);
       }
-      if (user.role === 'photographer') {
-        return normalize(shoot.photographer?.name) === normalizedName;
-      }
-      if (user.role === 'editor') {
-        return normalize(shoot.editor?.name) === normalizedName;
-      }
-      const createdBy = normalize(shoot.createdBy);
-      return createdBy === normalizedEmail || createdBy === normalizedName;
-    });
-  };
-
-  const getLastShootDateForUser = (user: UserType) => {
-    const userShoots = getShootsForUser(user);
-    if (!userShoots.length) return user.lastShootDate;
-    const sorted = [...userShoots].sort((a, b) => {
-      const aDate = new Date(a.completedDate || a.scheduledDate).getTime();
-      const bDate = new Date(b.completedDate || b.scheduledDate).getTime();
-      return bDate - aDate;
-    });
-    const latest = sorted[0];
-    return latest.completedDate || latest.scheduledDate;
-  };
-
-  const getRecentShootsForUser = (user: UserType, type: 'scheduled' | 'completed') => {
-    const history = getShootsForUser(user);
-    return history
-      .filter((shoot) => type === 'completed' ? isCompletedShoot(shoot) : !isCompletedShoot(shoot))
-      .sort((a, b) => {
-        const aDate = new Date(type === 'completed' ? (a.completedDate || a.scheduledDate) : a.scheduledDate).getTime();
-        const bDate = new Date(type === 'completed' ? (b.completedDate || b.scheduledDate) : b.scheduledDate).getTime();
-        return bDate - aDate;
-      })
-      .slice(0, 3);
-  };
-
-  const getShootStatsForUser = (user: UserType) => {
-    const history = getShootsForUser(user);
-    const completed = history.filter(isCompletedShoot);
-    const upcoming = history.filter((shoot) => !isCompletedShoot(shoot));
-    return {
-      totalShoots: history.length,
-      completedShoots: completed.length,
-      upcomingShoots: upcoming.length,
-      lastShootDate: getLastShootDateForUser(user),
     };
-  };
+
+    shoots.forEach((shoot) => {
+      pushToMap(clientShootsByKey, normalize(shoot.client?.email), shoot);
+      pushToMap(clientShootsByKey, normalize(shoot.client?.name), shoot);
+      pushToMap(photographerShootsByKey, normalize(shoot.photographer?.name), shoot);
+      pushToMap(editorShootsByKey, normalize(shoot.editor?.name), shoot);
+      pushToMap(createdByShootsByKey, normalize(shoot.createdBy), shoot);
+    });
+
+    const getUniqueShoots = (list: ShootData[]) =>
+      Array.from(new Map(list.map((shoot) => [String(shoot.id), shoot])).values());
+
+    const getRecentShoots = (list: ShootData[], type: 'scheduled' | 'completed') =>
+      list
+        .filter((shoot) => (type === 'completed' ? isCompletedShoot(shoot) : !isCompletedShoot(shoot)))
+        .sort((a, b) => {
+          const aDate = new Date(type === 'completed' ? (a.completedDate || a.scheduledDate) : a.scheduledDate).getTime();
+          const bDate = new Date(type === 'completed' ? (b.completedDate || b.scheduledDate) : b.scheduledDate).getTime();
+          return bDate - aDate;
+        })
+        .slice(0, 3);
+
+    const summaryById = new Map<string, {
+      shoots: ShootData[];
+      stats: {
+        totalShoots: number;
+        completedShoots: number;
+        upcomingShoots: number;
+        lastShootDate?: string;
+      };
+      lastShootDate?: string;
+      recentScheduled: ShootData[];
+      recentCompleted: ShootData[];
+    }>();
+
+    users.forEach((user) => {
+      const normalizedEmail = normalize(user.email);
+      const normalizedName = normalize(user.name);
+
+      let candidateShoots: ShootData[] = [];
+      if (user.role === 'client') {
+        candidateShoots = [
+          ...(clientShootsByKey.get(normalizedEmail) ?? []),
+          ...(clientShootsByKey.get(normalizedName) ?? []),
+        ];
+      } else if (user.role === 'photographer') {
+        candidateShoots = photographerShootsByKey.get(normalizedName) ?? [];
+      } else if (user.role === 'editor') {
+        candidateShoots = editorShootsByKey.get(normalizedName) ?? [];
+      } else {
+        candidateShoots = [
+          ...(createdByShootsByKey.get(normalizedEmail) ?? []),
+          ...(createdByShootsByKey.get(normalizedName) ?? []),
+        ];
+      }
+
+      const uniqueShoots = getUniqueShoots(candidateShoots);
+      const completedShoots = uniqueShoots.filter(isCompletedShoot);
+      const upcomingShoots = uniqueShoots.filter((shoot) => !isCompletedShoot(shoot));
+
+      let lastShootDate = user.lastShootDate;
+      let latestTimestamp = -Infinity;
+      uniqueShoots.forEach((shoot) => {
+        const dateValue = shoot.completedDate || shoot.scheduledDate;
+        if (!dateValue) return;
+        const parsed = new Date(dateValue).getTime();
+        if (Number.isNaN(parsed)) return;
+        if (parsed > latestTimestamp) {
+          latestTimestamp = parsed;
+          lastShootDate = dateValue;
+        }
+      });
+
+      summaryById.set(String(user.id), {
+        shoots: uniqueShoots,
+        stats: {
+          totalShoots: uniqueShoots.length,
+          completedShoots: completedShoots.length,
+          upcomingShoots: upcomingShoots.length,
+          lastShootDate,
+        },
+        lastShootDate,
+        recentScheduled: getRecentShoots(uniqueShoots, 'scheduled'),
+        recentCompleted: getRecentShoots(uniqueShoots, 'completed'),
+      });
+    });
+
+    return summaryById;
+  }, [users, shoots]);
+
+  const getShootSummaryForUser = useCallback(
+    (user: UserType) => userShootSummaryById.get(String(user.id)),
+    [userShootSummaryById],
+  );
+
+  const getShootsForUser = useCallback(
+    (user: UserType) => getShootSummaryForUser(user)?.shoots ?? [],
+    [getShootSummaryForUser],
+  );
+
+  const getLastShootDateForUser = useCallback(
+    (user: UserType) => getShootSummaryForUser(user)?.lastShootDate ?? user.lastShootDate,
+    [getShootSummaryForUser],
+  );
+
+  const getRecentShootsForUser = useCallback(
+    (user: UserType, type: 'scheduled' | 'completed') => {
+      const summary = getShootSummaryForUser(user);
+      if (!summary) return [];
+      return type === 'completed' ? summary.recentCompleted : summary.recentScheduled;
+    },
+    [getShootSummaryForUser],
+  );
+
+  const getShootStatsForUser = useCallback(
+    (user: UserType) => getShootSummaryForUser(user)?.stats,
+    [getShootSummaryForUser],
+  );
 
   const accountListUsers = filteredUsers.map((user) => ({
     ...user,
     accountRep: getAccountRep(user) || 'Unassigned',
     lastShootDate: getLastShootDateForUser(user),
   }));
+
+  const insightAccountsByRole = React.useMemo<Record<InsightRole, InteractionCloudAccount[]>>(() => {
+    const buckets: Record<InsightRole, InteractionCloudAccount[]> = {
+      client: [],
+      photographer: [],
+      editor: [],
+      salesRep: [],
+    };
+
+    if (!users.length) return buckets;
+
+    const monthWindow = {
+      start: startOfMonth(new Date()),
+      end: endOfMonth(new Date()),
+    };
+
+    const isWithinMonth = (shoot: ShootData) => {
+      const referenceDate = shoot.completedDate || shoot.scheduledDate;
+      if (!referenceDate) return false;
+      const parsed = new Date(referenceDate);
+      if (Number.isNaN(parsed.getTime())) return false;
+      return isWithinInterval(parsed, monthWindow);
+    };
+
+    users.forEach((user) => {
+      const role = user.role as InsightRole;
+      if (!INSIGHT_ROLE_VALUES.includes(role)) return;
+
+      const userShoots = getShootsForUser(user).filter(isWithinMonth);
+      if (!userShoots.length) return;
+
+      const completedShoots = userShoots.filter(isCompletedShoot);
+      const deliveredImages = completedShoots.reduce((sum, shoot) => {
+        const deliveredCount =
+          shoot.media?.images?.length ??
+          shoot.media?.photos?.length ??
+          0;
+        return sum + deliveredCount;
+      }, 0);
+
+      const account: InteractionCloudAccount = {
+        id: String(user.id),
+        name: user.name,
+        company: user.company,
+        avatar: user.avatar,
+        totalShoots: userShoots.length,
+        deliveredShoots: completedShoots.length,
+        deliveredImages,
+        role: user.role,
+      };
+
+      buckets[role].push(account);
+    });
+
+    INSIGHT_ROLE_VALUES.forEach((role) => {
+      buckets[role] = buckets[role]
+        .sort((a, b) => {
+          if (role === 'client' && b.deliveredImages !== a.deliveredImages) {
+            return b.deliveredImages - a.deliveredImages;
+          }
+          return b.totalShoots - a.totalShoots;
+        });
+    });
+
+    return buckets;
+  }, [users, shoots]);
+
+  const activeInsightAccounts = insightAccountsByRole[activeInsightsRole] || [];
+  const activeInsightMeta = INSIGHT_ROLE_OPTIONS.find((option) => option.value === activeInsightsRole);
 
   const handleUpdateUser = (data) => {
     if (!selectedUser) return;
@@ -690,11 +902,46 @@ export default function Accounts() {
     });
   };
 
-  const handleUpdatePassword = (userId: string, password: string) => {
-    toast({
-      title: "Password updated",
-      description: "The user's password has been changed successfully.",
-    });
+  const handleUpdatePassword = async (userId: string, password: string) => {
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      if (!token) {
+        handleSessionExpired();
+        return;
+      }
+
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/users/${userId}/password`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ password }),
+      });
+
+      if (response.status === 401) {
+        handleSessionExpired();
+        return;
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to update password');
+      }
+
+      toast({
+        title: "Password updated",
+        description: "The user's password has been changed successfully.",
+      });
+      setResetPasswordDialogOpen(false);
+    } catch (error) {
+      console.error('Error updating password:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update password",
+        variant: "destructive",
+      });
+    }
   };
 
   const requestDeleteUser = (user: UserType) => {
@@ -772,7 +1019,7 @@ export default function Accounts() {
 
   // Calculate number of tabs to show
   const tabCount =
-    1 +
+    2 +
     (showPermissionsTab ? 1 : 0) +
     (showLinkingTab ? 1 : 0);
   const gridCols =
@@ -780,9 +1027,7 @@ export default function Accounts() {
       ? 'grid-cols-4'
       : tabCount === 3
         ? 'grid-cols-3'
-        : tabCount === 2
-          ? 'grid-cols-2'
-          : 'grid-cols-1';
+        : 'grid-cols-2';
 
   const getClientMenuHandlers = (user: UserType) => {
     const client = clientsData.find(
@@ -881,7 +1126,7 @@ export default function Accounts() {
         />
 
         <Tabs defaultValue="accounts" className="w-full">
-          <TabsList className={`grid w-full max-w-2xl ${gridCols}`}>
+          <TabsList className={`grid w-full max-w-3xl ${gridCols}`}>
             <TabsTrigger value="accounts">Accounts</TabsTrigger>
             {showPermissionsTab && (
               <TabsTrigger value="permissions">Permissions</TabsTrigger>
@@ -889,6 +1134,7 @@ export default function Accounts() {
             {showLinkingTab && (
               <TabsTrigger value="linking">Linking</TabsTrigger>
             )}
+            <TabsTrigger value="insights">Insights</TabsTrigger>
           </TabsList>
 
           <TabsContent value="accounts" className="space-y-6 mt-6">
@@ -896,6 +1142,7 @@ export default function Accounts() {
               onExport={handleExport}
               onImport={handleImportAccounts}
               onSearch={setSearchQuery}
+              searchQuery={searchQuery}
               onFilterChange={setFilterRole}
               selectedFilter={filterRole}
               viewMode={viewMode}
@@ -971,6 +1218,56 @@ export default function Accounts() {
               <AccountLinkingManager />
             </TabsContent>
           )}
+
+          <TabsContent value="insights" className="space-y-6 mt-6">
+            <div className="rounded-2xl border border-slate-200/60 bg-white dark:border-slate-800 dark:bg-slate-900 p-5 shadow-sm">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="text-sm font-medium text-slate-900 dark:text-white">Team focus</p>
+                  <p className="text-sm text-muted-foreground">Dive into month-to-date momentum by role.</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {INSIGHT_ROLE_OPTIONS.map((option) => {
+                    const isActive = activeInsightsRole === option.value;
+                    const roleCount = insightAccountsByRole[option.value]?.length || 0;
+                    return (
+                      <Button
+                        key={option.value}
+                        type="button"
+                        size="sm"
+                        variant={isActive ? 'default' : 'outline'}
+                        onClick={() => setActiveInsightsRole(option.value)}
+                        className={`rounded-full px-4 ${isActive ? 'shadow-lg' : 'bg-transparent dark:border-white/20 dark:text-white/80'}`}
+                      >
+                        <span className="mr-2 text-sm font-semibold">{option.tabLabel}</span>
+                        <span className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground dark:text-white/70">
+                          {roleCount} active
+                        </span>
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {activeInsightAccounts.length ? (
+              <InteractionCloud
+                accounts={activeInsightAccounts}
+                showCloud={showInteractionCloud}
+                onToggle={() => setShowInteractionCloud((prev) => !prev)}
+                headline={activeInsightMeta?.headline}
+                subline={activeInsightMeta?.description}
+                metric={activeInsightMeta?.metric}
+              />
+            ) : (
+              <div className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 p-12 text-center">
+                <p className="text-base font-medium text-slate-700 dark:text-white">No momentum data yet</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Bookings for this role will appear here once shoots are logged this month.
+                </p>
+              </div>
+            )}
+          </TabsContent>
         </Tabs>
       </div>
 

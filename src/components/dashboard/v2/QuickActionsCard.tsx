@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, PencilLine } from 'lucide-react';
 import { Card } from './SharedComponents';
 import { cn } from '@/lib/utils';
 
@@ -18,6 +18,8 @@ interface QuickActionsCardProps {
   eyebrow?: string;
   columns?: 1 | 2;
   emptyStateText?: string;
+  onEdit?: () => void;
+  editLabel?: string;
 }
 
 export const QuickActionsCard: React.FC<QuickActionsCardProps> = ({
@@ -26,15 +28,30 @@ export const QuickActionsCard: React.FC<QuickActionsCardProps> = ({
   eyebrow,
   columns = 1,
   emptyStateText = 'No quick actions available right now.',
+  onEdit,
+  editLabel = 'Customize',
 }) => (
   <Card className="flex flex-col gap-4 flex-shrink-0">
-    <div>
-      {eyebrow && (
-        <p className="text-[10px] sm:text-[11px] uppercase tracking-[0.3em] text-muted-foreground font-semibold">
-          {eyebrow}
-        </p>
+    <div className="flex items-start justify-between gap-3">
+      <div>
+        {eyebrow && (
+          <p className="text-[10px] sm:text-[11px] uppercase tracking-[0.3em] text-muted-foreground font-semibold">
+            {eyebrow}
+          </p>
+        )}
+        <h2 className="text-base sm:text-lg font-bold text-foreground">{title}</h2>
+      </div>
+      {onEdit && (
+        <button
+          type="button"
+          onClick={onEdit}
+          className="inline-flex items-center gap-1 rounded-full border border-border/70 px-2 py-1 text-[11px] font-semibold text-muted-foreground transition hover:text-foreground hover:border-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+          aria-label={editLabel}
+        >
+          <PencilLine size={12} aria-hidden="true" />
+          <span className="hidden sm:inline">{editLabel}</span>
+        </button>
       )}
-      <h2 className="text-base sm:text-lg font-bold text-foreground">{title}</h2>
     </div>
     {actions.length > 0 ? (
       <div

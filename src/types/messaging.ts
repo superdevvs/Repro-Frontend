@@ -4,23 +4,35 @@ export type MessageStatus = 'QUEUED' | 'SCHEDULED' | 'SENT' | 'DELIVERED' | 'FAI
 export type SendSource = 'MANUAL' | 'AUTOMATION' | 'SYSTEM';
 export type TemplateScope = 'SYSTEM' | 'GLOBAL' | 'ACCOUNT' | 'USER';
 export type TemplateCategory = 'BOOKING' | 'REMINDER' | 'PAYMENT' | 'INVOICE' | 'ACCOUNT' | 'GENERAL';
-export type EmailProviderType = 'GOOGLE_OAUTH' | 'GENERIC_SMTP' | 'MAILCHIMP';
+export type EmailProviderType = 'GOOGLE_OAUTH' | 'GENERIC_SMTP' | 'MAILCHIMP' | 'CAKEMAIL';
 export type ChannelScope = 'GLOBAL' | 'ACCOUNT' | 'USER';
 
 export type AutomationTriggerType =
   | 'ACCOUNT_CREATED'
   | 'ACCOUNT_VERIFIED'
+  | 'PASSWORD_RESET'
+  | 'TERMS_ACCEPTED'
   | 'SHOOT_BOOKED'
   | 'SHOOT_SCHEDULED'
+  | 'SHOOT_UPDATED'
   | 'SHOOT_REMINDER'
   | 'SHOOT_COMPLETED'
+  | 'SHOOT_CANCELED'
+  | 'SHOOT_REMOVED'
   | 'PAYMENT_COMPLETED'
+  | 'PAYMENT_FAILED'
+  | 'PAYMENT_REFUNDED'
+  | 'INVOICE_DUE'
+  | 'INVOICE_OVERDUE'
   | 'INVOICE_SUMMARY'
+  | 'INVOICE_PAID'
   | 'WEEKLY_PHOTOGRAPHER_INVOICE'
   | 'WEEKLY_REP_INVOICE'
   | 'WEEKLY_SALES_REPORT'
   | 'WEEKLY_AUTOMATED_INVOICING'
-  | 'PHOTO_UPLOADED';
+  | 'PHOTO_UPLOADED'
+  | 'MEDIA_UPLOAD_COMPLETE'
+  | 'PHOTOGRAPHER_ASSIGNED';
 
 export interface MessageChannelConfig {
   id: number;
@@ -96,6 +108,10 @@ export interface Message {
   delivered_at?: string;
   failed_at?: string;
   created_by?: number;
+  sender_user_id?: number;
+  sender_account_id?: number;
+  sender_role?: string;
+  sender_display_name?: string;
   template_id?: number;
   related_shoot_id?: number;
   related_account_id?: number;
@@ -229,7 +245,7 @@ export interface AutomationRule {
 }
 
 export interface ComposeEmailPayload {
-  to: string;
+  to?: string;
   subject?: string;
   body_html?: string;
   body_text?: string;
@@ -239,6 +255,7 @@ export interface ComposeEmailPayload {
   related_shoot_id?: number;
   related_account_id?: number;
   related_invoice_id?: number;
+  variables?: Record<string, any>;
 }
 
 export interface ScheduleEmailPayload extends ComposeEmailPayload {

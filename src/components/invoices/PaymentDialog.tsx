@@ -1,12 +1,12 @@
-
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CreditCardIcon, CheckIcon, QrCodeIcon } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { CreditCard, CheckIcon, Banknote, MapPin, Package, Loader2 } from "lucide-react";
 import { InvoiceData } from '@/utils/invoiceUtils';
 import { useToast } from '@/hooks/use-toast';
 import { SquarePaymentForm } from '@/components/payments/SquarePaymentForm';
@@ -15,134 +15,483 @@ interface PaymentDialogProps {
   invoice: InvoiceData | null;
   isOpen: boolean;
   onClose: () => void;
-  onPaymentComplete?: (invoiceId: string, paymentMethod: string) => void;
+  onPaymentComplete?: (invoiceId: string, paymentMethod: string, amount?: number) => void;
+  // Additional context for display
+  shootAddress?: string;
+  shootServices?: string[];
+  clientEmail?: string;
+  clientName?: string;
 }
 
-export function PaymentDialog({ invoice, isOpen, onClose, onPaymentComplete }: PaymentDialogProps) {
+export function PaymentDialog({ 
+  invoice, 
+  isOpen, 
+  onClose, 
+  onPaymentComplete,
+  shootAddress,
+  shootServices,
+  clientEmail,
+  clientName,
+}: PaymentDialogProps) {
   const { toast } = useToast();
   const [paymentMethod, setPaymentMethod] = useState<string>("square");
+  const [manualPaymentType, setManualPaymentType] = useState<string>("cash");
   const [loading, setLoading] = useState(false);
+  
+  // Partial payment state
+  const [paymentAmount, setPaymentAmount] = useState(0);
+  const [paymentAmountInput, setPaymentAmountInput] = useState('0.00');
+  const [isPartialPaymentMode, setIsPartialPaymentMode] = useState(false);
+  const [showConfirmationDialog, setShowConfirmationDialog] = useState(false);
+  const paymentAmountInputRef = useRef<HTMLInputElement>(null);
+
+  // Reset state when invoice changes
+  useEffect(() => {
+    if (invoice) {
+      setPaymentAmount(invoice.amount);
+      setPaymentAmountInput(invoice.amount.toFixed(2));
+      setIsPartialPaymentMode(false);
+    }
+  }, [invoice]);
 
   if (!invoice) return null;
 
+  const outstandingAmount = invoice.amount;
+  const remainingBalanceAfterPayment = outstandingAmount - paymentAmount;
+
   const handleSquarePaymentSuccess = (payment: any) => {
     if (onPaymentComplete) {
-      onPaymentComplete(invoice.id, 'Square Payment');
+      onPaymentComplete(invoice.id, 'Square Payment', paymentAmount);
     }
     toast({
       title: "Payment Successful",
-      description: `Payment for invoice ${invoice.id} has been processed.`,
+      description: `Payment of $${paymentAmount.toFixed(2)} for invoice ${invoice.id} has been processed.`,
       variant: "default",
     });
     onClose();
   };
 
-  const handlePayment = (e: React.FormEvent) => {
+  const handleManualPaymentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate payment amount
+    if (paymentAmount <= 0 || paymentAmount > outstandingAmount) {
+      toast({
+        title: 'Invalid Payment Amount',
+        description: `Payment amount must be between $0.01 and $${outstandingAmount.toFixed(2)}`,
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    // Show confirmation dialog
+    setShowConfirmationDialog(true);
+  };
+
+  const handleConfirmManualPayment = () => {
+    setShowConfirmationDialog(false);
     setLoading(true);
     
     // Get the display name for the payment method
     const paymentMethodDisplay = 
-      paymentMethod === "credit-card" ? "Credit Card" : 
-      paymentMethod === "bank-transfer" ? "Bank Transfer" : 
-      paymentMethod === "square-upi" ? "Square UPI" : "Cash";
+      manualPaymentType === "bank-transfer" ? "Bank Transfer" : 
+      manualPaymentType === "check" ? "Check" : "Cash";
     
     // Simulate payment processing
     setTimeout(() => {
       setLoading(false);
       
-      // Call the onPaymentComplete callback to update the invoice status and payment method
       if (onPaymentComplete) {
-        onPaymentComplete(invoice.id, paymentMethodDisplay);
+        onPaymentComplete(invoice.id, paymentMethodDisplay, paymentAmount);
       }
       
       toast({
-        title: "Payment Successful",
-        description: `Payment for invoice ${invoice.id} has been processed.`,
+        title: "Payment Recorded",
+        description: `${paymentMethodDisplay} payment of $${paymentAmount.toFixed(2)} for invoice ${invoice.id} has been recorded.${remainingBalanceAfterPayment > 0 ? ` Remaining: $${remainingBalanceAfterPayment.toFixed(2)}` : ''}`,
         variant: "default",
       });
       onClose();
-    }, 1500);
+    }, 1000);
   };
 
+  // Check if we have context details to display
+  const hasContextDetails = shootAddress || (shootServices && shootServices.length > 0);
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Process Payment</DialogTitle>
-          <DialogDescription>
-            Complete payment for invoice #{invoice.id} totaling ${invoice.amount.toFixed(2)}
-          </DialogDescription>
-        </DialogHeader>
-        
-        <Tabs value={paymentMethod} onValueChange={setPaymentMethod} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="square">Square Payment</TabsTrigger>
-            <TabsTrigger value="manual">Manual Payment</TabsTrigger>
-          </TabsList>
+    <>
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className={`${hasContextDetails ? 'sm:max-w-[800px]' : 'sm:max-w-[500px]'}`}>
+          <DialogHeader>
+            <DialogTitle>Process Payment</DialogTitle>
+            <DialogDescription>
+              Complete payment for invoice #{invoice.id} totaling ${invoice.amount.toFixed(2)}
+            </DialogDescription>
+          </DialogHeader>
           
-          <TabsContent value="square" className="space-y-4 py-4">
-            <SquarePaymentForm
-              amount={invoice.amount}
-              currency="USD"
-              onPaymentSuccess={handleSquarePaymentSuccess}
-            />
-          </TabsContent>
+          <Tabs value={paymentMethod} onValueChange={setPaymentMethod} className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="square" className="gap-2">
+                <CreditCard className="h-4 w-4" />
+                Card Payment
+              </TabsTrigger>
+              <TabsTrigger value="manual" className="gap-2">
+                <Banknote className="h-4 w-4" />
+                Manual Payment
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="square" className="space-y-4 py-4">
+              <SquarePaymentForm
+                amount={invoice.amount}
+                currency="USD"
+                shootAddress={shootAddress}
+                shootServices={shootServices}
+                clientEmail={clientEmail}
+                clientName={clientName}
+                totalQuote={invoice.amount}
+                totalPaid={0}
+                onPaymentSuccess={handleSquarePaymentSuccess}
+              />
+            </TabsContent>
+            
+            <TabsContent value="manual" className="py-4">
+              <div className={`grid gap-6 ${hasContextDetails ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'}`}>
+                {/* Left Column - Context Details */}
+                {hasContextDetails && (
+                  <div className="space-y-6">
+                    <div>
+                      <h3 className="text-lg font-semibold mb-4">Invoice Details</h3>
+                      <div className="space-y-4">
+                        {/* Location */}
+                        {shootAddress && (
+                          <div className="p-4 border rounded-lg bg-muted/30">
+                            <div className="flex items-start gap-3">
+                              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                <MapPin className="h-5 w-5 text-primary" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <Label className="text-xs text-muted-foreground mb-1 block">Location</Label>
+                                <p className="text-sm font-medium break-words">{shootAddress}</p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Services */}
+                        {shootServices && shootServices.length > 0 && (
+                          <div className="p-4 border rounded-lg bg-muted/30">
+                            <div className="flex items-start gap-3">
+                              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                <Package className="h-5 w-5 text-primary" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <Label className="text-sm font-semibold mb-2 block">Services</Label>
+                                <div className="space-y-2">
+                                  {shootServices.map((service, index) => (
+                                    <div key={index} className="text-sm font-medium text-foreground">
+                                      • {service}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Billing Summary */}
+                        <div className="p-4 border rounded-lg bg-muted/30">
+                          <Label className="text-xs text-muted-foreground mb-2 block">Billing Summary</Label>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between font-medium">
+                              <span>Invoice Total:</span>
+                              <span>${invoice.amount.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Outstanding:</span>
+                              <span className="font-medium text-orange-600">
+                                ${outstandingAmount.toFixed(2)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Right Column - Payment Form */}
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-lg font-semibold mb-4">Record Payment</h3>
+                    <form onSubmit={handleManualPaymentSubmit} className="space-y-4">
+                      {/* Payment Amount Input */}
+                      <div className="space-y-2 p-4 border rounded-lg bg-muted/30">
+                        <Label htmlFor="manualPaymentAmount" className="text-sm font-medium">Payment Amount</Label>
+                        <div className="space-y-2">
+                          <Input
+                            ref={paymentAmountInputRef}
+                            id="manualPaymentAmount"
+                            type="text"
+                            inputMode="decimal"
+                            value={paymentAmountInput}
+                            onChange={(e) => {
+                              let inputValue = e.target.value;
+                              
+                              if (inputValue === '') {
+                                setPaymentAmountInput('');
+                                setPaymentAmount(0);
+                                setIsPartialPaymentMode(true);
+                                return;
+                              }
+                              
+                              inputValue = inputValue.replace(/[^0-9.]/g, '');
+                              
+                              const parts = inputValue.split('.');
+                              if (parts.length > 2) {
+                                inputValue = parts[0] + '.' + parts.slice(1).join('');
+                              }
+                              
+                              if (parts.length === 2 && parts[1].length > 2) {
+                                inputValue = parts[0] + '.' + parts[1].substring(0, 2);
+                              }
+                              
+                              setPaymentAmountInput(inputValue);
+                              setIsPartialPaymentMode(true);
+                              
+                              const numericValue = parseFloat(inputValue);
+                              if (!isNaN(numericValue) && numericValue > 0) {
+                                if (numericValue <= outstandingAmount) {
+                                  setPaymentAmount(numericValue);
+                                } else {
+                                  setPaymentAmount(outstandingAmount);
+                                }
+                              } else {
+                                setPaymentAmount(0);
+                              }
+                            }}
+                            onFocus={(e) => {
+                              e.target.select();
+                              setIsPartialPaymentMode(true);
+                            }}
+                            onBlur={(e) => {
+                              const inputValue = e.target.value.trim();
+                              
+                              if (inputValue === '' || inputValue === '.') {
+                                setPaymentAmountInput('0.00');
+                                setPaymentAmount(0);
+                                return;
+                              }
+                              
+                              const numericValue = parseFloat(inputValue);
+                              
+                              if (isNaN(numericValue) || numericValue < 0.01) {
+                                setPaymentAmountInput('0.00');
+                                setPaymentAmount(0);
+                              } else if (numericValue > outstandingAmount) {
+                                setPaymentAmountInput(outstandingAmount.toFixed(2));
+                                setPaymentAmount(outstandingAmount);
+                              } else {
+                                setPaymentAmountInput(numericValue.toFixed(2));
+                                setPaymentAmount(numericValue);
+                              }
+                            }}
+                            className={`text-lg font-semibold [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${isPartialPaymentMode ? 'ring-2 ring-blue-500 border-blue-500' : ''}`}
+                            required
+                            placeholder={`Enter amount (max $${outstandingAmount.toFixed(2)})`}
+                          />
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setPaymentAmount(outstandingAmount);
+                                setPaymentAmountInput(outstandingAmount.toFixed(2));
+                                setIsPartialPaymentMode(false);
+                              }}
+                              className="text-xs"
+                            >
+                              Pay Full Amount (${outstandingAmount.toFixed(2)})
+                            </Button>
+                            <Button
+                              type="button"
+                              variant={isPartialPaymentMode ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => {
+                                setIsPartialPaymentMode(true);
+                                const defaultPartial = Math.ceil(outstandingAmount * 0.5 * 100) / 100;
+                                setPaymentAmount(defaultPartial);
+                                setPaymentAmountInput(defaultPartial.toFixed(2));
+                                setTimeout(() => {
+                                  paymentAmountInputRef.current?.focus();
+                                  paymentAmountInputRef.current?.select();
+                                }, 100);
+                              }}
+                              className={`text-xs ${isPartialPaymentMode ? 'bg-blue-600 hover:bg-blue-700 text-white' : ''}`}
+                            >
+                              Partial Payment
+                            </Button>
+                          </div>
+                          {isPartialPaymentMode && (
+                            <div className="text-xs text-blue-600 dark:text-blue-400 font-medium bg-blue-50 dark:bg-blue-950 p-2 rounded border border-blue-200 dark:border-blue-800">
+                              Partial Payment Mode: Enter your desired amount (between $0.01 and ${outstandingAmount.toFixed(2)})
+                            </div>
+                          )}
+                          <div className="text-xs text-muted-foreground space-y-1">
+                            <div className="flex justify-between">
+                              <span>This payment:</span>
+                              <span className="font-medium">${paymentAmount.toFixed(2)}</span>
+                            </div>
+                            {remainingBalanceAfterPayment > 0 && (
+                              <div className="flex justify-between">
+                                <span>Remaining after this payment:</span>
+                                <span className="font-medium text-orange-600">${remainingBalanceAfterPayment.toFixed(2)}</span>
+                              </div>
+                            )}
+                            {remainingBalanceAfterPayment <= 0 && (
+                              <div className="flex justify-between text-green-600 font-medium">
+                                <span>Balance will be fully paid</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Payment Method Selection */}
+                      <div className="space-y-2">
+                        <Label htmlFor="manual-payment-method">Payment Method</Label>
+                        <Select 
+                          value={manualPaymentType} 
+                          onValueChange={(value) => setManualPaymentType(value)}
+                        >
+                          <SelectTrigger id="manual-payment-method">
+                            <SelectValue placeholder="Select payment method" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="cash">Cash</SelectItem>
+                            <SelectItem value="bank-transfer">Bank Transfer</SelectItem>
+                            <SelectItem value="check">Check</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      {manualPaymentType === "bank-transfer" && (
+                        <div className="space-y-2">
+                          <Label htmlFor="reference">Reference Number</Label>
+                          <Input id="reference" placeholder="Enter reference number" required />
+                        </div>
+                      )}
+                      
+                      {manualPaymentType === "check" && (
+                        <div className="space-y-2">
+                          <Label htmlFor="checkNumber">Check Number</Label>
+                          <Input id="checkNumber" placeholder="Enter check number" required />
+                        </div>
+                      )}
+                      
+                      <DialogFooter className="pt-4">
+                        <Button variant="outline" type="button" onClick={onClose}>Cancel</Button>
+                        <Button 
+                          type="submit" 
+                          disabled={loading || paymentAmount <= 0 || paymentAmount > outstandingAmount}
+                        >
+                          {loading ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Processing...
+                            </>
+                          ) : (
+                            <>
+                              <CheckIcon className="h-4 w-4 mr-2" />
+                              Record Payment (${paymentAmount.toFixed(2)})
+                            </>
+                          )}
+                        </Button>
+                      </DialogFooter>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manual Payment Confirmation Dialog */}
+      <Dialog open={showConfirmationDialog} onOpenChange={setShowConfirmationDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Confirm Manual Payment</DialogTitle>
+            <DialogDescription>
+              Please review the payment details before confirming.
+            </DialogDescription>
+          </DialogHeader>
           
-          <TabsContent value="manual" className="space-y-4 py-4">
-            <form onSubmit={handlePayment} className="space-y-4">
-          <div className="space-y-2">
-                <Label htmlFor="manual-payment-method">Payment Method</Label>
-            <Select 
-                  value={paymentMethod === "manual" ? "cash" : paymentMethod} 
-                  onValueChange={(value) => setPaymentMethod(value)}
-            >
-                  <SelectTrigger id="manual-payment-method">
-                <SelectValue placeholder="Select payment method" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="bank-transfer">Bank Transfer</SelectItem>
-                <SelectItem value="cash">Cash</SelectItem>
-                    <SelectItem value="check">Check</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          
-          {paymentMethod === "bank-transfer" && (
-            <div className="space-y-2">
-              <Label htmlFor="reference">Reference Number</Label>
-              <Input id="reference" placeholder="Enter reference number" required />
-            </div>
-          )}
-          
-          <div className="space-y-2">
-            <Label htmlFor="amount">Payment Amount</Label>
-            <Input 
-              id="amount" 
-              type="number" 
-              step="0.01" 
-              defaultValue={invoice.amount.toFixed(2)} 
-              required 
-            />
-          </div>
-          
-          <DialogFooter className="pt-4">
-            <Button variant="outline" type="button" onClick={onClose}>Cancel</Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? (
-                <>Processing...</>
+          <div className="space-y-4 py-4">
+            <div className="space-y-3">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Payment Amount:</span>
+                <span className="font-semibold text-lg">${paymentAmount.toFixed(2)}</span>
+              </div>
+              
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Invoice Total:</span>
+                <span>${invoice.amount.toFixed(2)}</span>
+              </div>
+              
+              <Separator />
+              
+              {remainingBalanceAfterPayment > 0 ? (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Remaining Balance:</span>
+                  <span className="font-medium text-orange-600">${remainingBalanceAfterPayment.toFixed(2)}</span>
+                </div>
               ) : (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Status:</span>
+                  <span className="font-medium text-green-600">Full Payment</span>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Payment Method:</span>
+                <span className="font-medium capitalize">
+                  {manualPaymentType === "bank-transfer" ? "Bank Transfer" : 
+                   manualPaymentType === "check" ? "Check" : "Cash"}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowConfirmationDialog(false)}
+              disabled={loading}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleConfirmManualPayment}
+              disabled={loading}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {loading ? (
                 <>
-                    <CheckIcon className="h-4 w-4 mr-2" />
-                  Process Payment
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Processing...
                 </>
+              ) : (
+                `Confirm Payment of $${paymentAmount.toFixed(2)}`
               )}
             </Button>
           </DialogFooter>
-        </form>
-          </TabsContent>
-        </Tabs>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

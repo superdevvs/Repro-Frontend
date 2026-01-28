@@ -250,3 +250,18 @@ export const saveSmsSettings = async (data: { numbers: any[] }): Promise<any> =>
   return response;
 };
 
+export const testSmsConnection = async (apiKey?: string): Promise<{ success: boolean; message?: string; error?: string }> => {
+  const response = await apiClient.post('/messaging/settings/sms/test-connection', { api_key: apiKey });
+  return response.data;
+};
+
+export const testSmsSend = async (data: { to: string; message: string; sms_number_id?: number }): Promise<{ success: boolean; message_id?: string; error?: string }> => {
+  const response = await apiClient.post('/messaging/settings/sms/test-send', data);
+  return response.data;
+};
+
+export const syncSmsMessages = async (hours?: number): Promise<{ success: boolean; message?: string; output?: string; error?: string }> => {
+  const response = await apiClient.post('/messaging/settings/sms/sync', { hours });
+  return response.data;
+};
+

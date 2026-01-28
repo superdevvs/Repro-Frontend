@@ -7,7 +7,6 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
@@ -22,13 +21,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Check, Bell, MoreVertical, Search, Filter, X } from 'lucide-react';
-import { DashboardIssueItem } from '@/types/dashboard';
+import { Check, Bell, MoreVertical, Search, Filter, X, ExternalLink } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { DashboardClientRequest } from '@/types/dashboard';
 import { useIssueManager } from '@/context/IssueManagerContext';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
-const severityBadge = (severity: DashboardIssueItem['severity']) => {
+type Severity = 'high' | 'medium' | 'low';
+
+const severityBadge = (severity: Severity) => {
   switch (severity) {
     case 'high':
       return 'bg-destructive text-destructive-foreground border-destructive/30';
@@ -42,84 +44,88 @@ const severityBadge = (severity: DashboardIssueItem['severity']) => {
 type SeverityFilter = 'all' | 'high' | 'medium' | 'low';
 type SortOption = 'newest' | 'oldest' | 'severity' | 'client';
 
+const statusToSeverity = (status?: string | null): Severity => {
+  const normalized = (status || '').toLowerCase();
+  if (normalized === 'resolved') return 'low';
+  if (normalized === 'in-progress' || normalized === 'in_progress') return 'medium';
+  return 'high';
+};
+
 export const IssueManagerModal: React.FC = () => {
-  const { isOpen, issues, selectedIssueId, closeModal, selectIssue } = useIssueManager();
+  const { isOpen, requests, selectedRequestId, closeModal, selectRequest } = useIssueManager();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('all');
   const [sortOption, setSortOption] = useState<SortOption>('newest');
-  const [resolvedIssues, setResolvedIssues] = useState<Set<number>>(new Set());
+  const [resolvedRequests, setResolvedRequests] = useState<Set<string>>(new Set());
 
-  const handleMarkResolved = (issueId: number) => {
-    setResolvedIssues(prev => new Set(prev).add(issueId));
+  const handleMarkResolved = (requestId: string) => {
+    setResolvedRequests(prev => new Set(prev).add(requestId));
     toast({
-      title: "Issue Resolved",
-      description: "The issue has been marked as resolved.",
+      title: "Request Resolved",
+      description: "The request has been marked as resolved.",
       variant: "default",
     });
   };
 
-  const handleNotifyConcerned = (issue: DashboardIssueItem, recipient: 'photographer' | 'editor' | 'management') => {
+  const handleNotifyConcerned = (recipient: 'photographer' | 'editor' | 'management') => {
     const recipientName = recipient === 'photographer' ? 'Photographer' : 
                           recipient === 'editor' ? 'Editor' : 
                           'Management';
     toast({
       title: "Notification Sent",
-      description: `${recipientName} has been notified about this issue.`,
+      description: `${recipientName} has been notified about this request.`,
       variant: "default",
     });
   };
 
-  const filteredAndSortedIssues = useMemo(() => {
-    let filtered = issues.filter(issue => !resolvedIssues.has(issue.id));
+  const filteredAndSortedRequests = useMemo(() => {
+    let filtered = requests.filter(request => !resolvedRequests.has(String(request.id)));
 
     // Apply search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(issue =>
-        issue.message.toLowerCase().includes(query) ||
-        issue.client?.toLowerCase().includes(query) ||
-        issue.status?.toLowerCase().includes(query)
+      filtered = filtered.filter(request =>
+        request.note.toLowerCase().includes(query) ||
+        request.raisedBy?.name?.toLowerCase().includes(query) ||
+        request.shoot?.address?.toLowerCase().includes(query) ||
+        request.status?.toLowerCase().includes(query)
       );
     }
 
     // Apply severity filter
     if (severityFilter !== 'all') {
-      filtered = filtered.filter(issue => issue.severity === severityFilter);
+      filtered = filtered.filter(request => statusToSeverity(request.status) === severityFilter);
     }
 
     // Apply sorting
     filtered.sort((a, b) => {
       switch (sortOption) {
         case 'newest':
-          return new Date(b.updatedAt || b.id).getTime() - new Date(a.updatedAt || a.id).getTime();
+          return new Date(b.updatedAt || b.createdAt || 0).getTime() - new Date(a.updatedAt || a.createdAt || 0).getTime();
         case 'oldest':
-          return new Date(a.updatedAt || a.id).getTime() - new Date(b.updatedAt || b.id).getTime();
+          return new Date(a.updatedAt || a.createdAt || 0).getTime() - new Date(b.updatedAt || b.createdAt || 0).getTime();
         case 'severity':
           const severityOrder = { high: 3, medium: 2, low: 1 };
-          return severityOrder[b.severity] - severityOrder[a.severity];
+          return severityOrder[statusToSeverity(b.status)] - severityOrder[statusToSeverity(a.status)];
         case 'client':
-          return (a.client || '').localeCompare(b.client || '');
+          return (a.shoot?.client?.name || '').localeCompare(b.shoot?.client?.name || '');
         default:
           return 0;
       }
     });
 
     return filtered;
-  }, [issues, resolvedIssues, searchQuery, severityFilter, sortOption]);
-
-  const selectedIssue = useMemo(() => {
-    if (selectedIssueId === null) return null;
-    return issues.find(issue => issue.id === selectedIssueId) || null;
-  }, [issues, selectedIssueId]);
+  }, [requests, resolvedRequests, searchQuery, severityFilter, sortOption]);
 
   return (
     <Dialog open={isOpen} onOpenChange={closeModal}>
       <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0">
         <DialogHeader className="px-6 pt-6 pb-4 border-b">
-          <DialogTitle className="text-2xl font-bold">Issue Manager</DialogTitle>
+          <DialogTitle className="text-2xl font-bold">Request Manager</DialogTitle>
           <DialogDescription>
-            Manage and track all issues across your shoots
+            Manage and track all requests across your shoots
           </DialogDescription>
         </DialogHeader>
 
@@ -130,7 +136,7 @@ export const IssueManagerModal: React.FC = () => {
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search issues..."
+                  placeholder="Search requests..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-9"
@@ -172,16 +178,16 @@ export const IssueManagerModal: React.FC = () => {
             </div>
             <div className="flex items-center justify-between text-sm text-muted-foreground">
               <span>
-                Showing {filteredAndSortedIssues.length} of {issues.length} issues
+                Showing {filteredAndSortedRequests.length} of {requests.length} requests
               </span>
-              {resolvedIssues.size > 0 && (
+              {resolvedRequests.size > 0 && (
                 <Button
                   variant="ghost"
                   size="sm"
                   className="h-7 text-xs"
-                  onClick={() => setResolvedIssues(new Set())}
+                  onClick={() => setResolvedRequests(new Set())}
                 >
-                  Show resolved ({resolvedIssues.size})
+                  Show resolved ({resolvedRequests.size})
                 </Button>
               )}
             </div>
@@ -189,17 +195,17 @@ export const IssueManagerModal: React.FC = () => {
 
           {/* Issues List */}
           <div className="flex-1 overflow-y-auto px-6 py-4">
-            {filteredAndSortedIssues.length === 0 ? (
+            {filteredAndSortedRequests.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <div className="text-muted-foreground mb-2">
-                  {issues.length === 0 ? (
+                  {requests.length === 0 ? (
                     <>
-                      <p className="text-lg font-medium mb-1">No issues found</p>
-                      <p className="text-sm">All clear! No issues to manage.</p>
+                      <p className="text-lg font-medium mb-1">No requests found</p>
+                      <p className="text-sm">All clear! No requests to manage.</p>
                     </>
                   ) : (
                     <>
-                      <p className="text-lg font-medium mb-1">No matching issues</p>
+                      <p className="text-lg font-medium mb-1">No matching requests</p>
                       <p className="text-sm">Try adjusting your filters or search query.</p>
                     </>
                   )}
@@ -207,45 +213,48 @@ export const IssueManagerModal: React.FC = () => {
               </div>
             ) : (
               <div className="space-y-3">
-                {filteredAndSortedIssues.map((issue) => (
+                {filteredAndSortedRequests.map((request) => {
+                  const requestId = String(request.id);
+                  const severity = statusToSeverity(request.status);
+                  return (
                   <div
-                    key={issue.id}
+                    key={requestId}
                     className={cn(
                       'rounded-xl border p-4 bg-card hover:border-primary/40 hover:shadow-sm transition-all cursor-pointer',
-                      selectedIssueId === issue.id && 'border-primary ring-2 ring-primary/20',
-                      issue.severity === 'high' 
+                      selectedRequestId === requestId && 'border-primary ring-2 ring-primary/20',
+                      severity === 'high' 
                         ? 'border-destructive/40 bg-destructive/5 dark:bg-destructive/10' 
-                        : issue.severity === 'medium'
+                        : severity === 'medium'
                         ? 'border-amber-500/40 bg-amber-50/30 dark:bg-amber-500/10 dark:border-amber-500/40'
                         : 'border-border bg-card'
                     )}
-                    onClick={() => selectIssue(issue.id)}
+                    onClick={() => selectRequest(requestId)}
                   >
                     <div className="flex flex-col gap-3">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-foreground leading-snug break-words">
-                            {issue.message}
+                            {request.note}
                           </p>
                         </div>
                         <span
                           className={cn(
                             'px-2.5 py-1 rounded-full text-[11px] font-semibold flex-shrink-0 whitespace-nowrap border',
-                            severityBadge(issue.severity)
+                            severityBadge(severity)
                           )}
                         >
-                          {issue.severity}
+                          {severity}
                         </span>
                       </div>
                       
                       <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
                         <span className="truncate">
-                          {issue.client ? `${issue.client} • ` : ''}
-                          {issue.status || 'Needs review'}
+                          {request.raisedBy?.name ? `${request.raisedBy.name} • ` : ''}
+                          {request.status || 'Needs review'}
                         </span>
-                        {issue.updatedAt && (
+                        {request.updatedAt && (
                           <span className="text-[10px] text-muted-foreground/70 flex-shrink-0">
-                            Updated {new Date(issue.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            Updated {new Date(request.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         )}
                       </div>
@@ -257,7 +266,21 @@ export const IssueManagerModal: React.FC = () => {
                           className="h-7 text-xs px-2 hover:bg-primary/10 hover:text-primary flex-shrink-0"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleMarkResolved(issue.id);
+                            const shootId = request.shootId || request.shoot?.id;
+                            closeModal();
+                            navigate(`/shoots/${shootId}#requests`);
+                          }}
+                        >
+                          <ExternalLink className="h-3 w-3 mr-1" />
+                          View Shoot
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 text-xs px-2 hover:bg-primary/10 hover:text-primary flex-shrink-0"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleMarkResolved(requestId);
                           }}
                         >
                           <Check className="h-3 w-3 mr-1" />
@@ -277,15 +300,15 @@ export const IssueManagerModal: React.FC = () => {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                            <DropdownMenuItem onClick={() => handleNotifyConcerned(issue, 'photographer')}>
+                            <DropdownMenuItem onClick={() => handleNotifyConcerned('photographer')}>
                               <Bell className="h-4 w-4 mr-2" />
                               Notify Photographer
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleNotifyConcerned(issue, 'editor')}>
+                            <DropdownMenuItem onClick={() => handleNotifyConcerned('editor')}>
                               <Bell className="h-4 w-4 mr-2" />
                               Notify Editor
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleNotifyConcerned(issue, 'management')}>
+                            <DropdownMenuItem onClick={() => handleNotifyConcerned('management')}>
                               <Bell className="h-4 w-4 mr-2" />
                               Notify Management
                             </DropdownMenuItem>
@@ -294,7 +317,8 @@ export const IssueManagerModal: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

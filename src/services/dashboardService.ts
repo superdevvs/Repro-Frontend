@@ -20,7 +20,65 @@ export const fetchDashboardOverview = async (token?: string): Promise<DashboardO
   }
 
   const json = await res.json();
-  return transformDashboardOverview(json.data);
+  
+  // Ensure data exists and has required structure
+  if (!json.data) {
+    console.error('Dashboard API response missing data:', json);
+    throw new Error('Invalid dashboard response: missing data');
+  }
+  
+  // Log the structure for debugging (dev only)
+  if (import.meta.env.DEV) {
+    console.log('📊 Dashboard data received:', {
+      hasWorkflow: !!json.data.workflow,
+      workflowColumns: json.data.workflow?.columns?.length ?? 0,
+      issuesCount: Array.isArray(json.data.issues) ? json.data.issues.length : 'not array',
+      photographersCount: Array.isArray(json.data.photographers) ? json.data.photographers.length : 'not array',
+    });
+  }
+  
+  // Ensure workflow exists with columns array
+  if (!json.data.workflow) {
+    console.warn('⚠️ Dashboard response missing workflow, creating empty structure');
+    json.data.workflow = { columns: [] };
+  }
+  if (!Array.isArray(json.data.workflow.columns)) {
+    console.warn('⚠️ Dashboard workflow.columns is not an array:', typeof json.data.workflow.columns);
+    json.data.workflow.columns = [];
+  }
+  
+  // Ensure other arrays exist
+  if (!Array.isArray(json.data.upcoming_shoots)) {
+    console.warn('⚠️ upcoming_shoots is not an array');
+    json.data.upcoming_shoots = [];
+  }
+  if (!Array.isArray(json.data.photographers)) {
+    console.warn('⚠️ photographers is not an array');
+    json.data.photographers = [];
+  }
+  if (!Array.isArray(json.data.pending_reviews)) {
+    console.warn('⚠️ pending_reviews is not an array');
+    json.data.pending_reviews = [];
+  }
+  if (!Array.isArray(json.data.activity_log)) {
+    console.warn('⚠️ activity_log is not an array');
+    json.data.activity_log = [];
+  }
+  if (!Array.isArray(json.data.issues)) {
+    console.warn('⚠️ issues is not an array');
+    json.data.issues = [];
+  }
+  if (!json.data.stats) {
+    console.warn('⚠️ stats is missing');
+    json.data.stats = {};
+  }
+  
+  try {
+    return transformDashboardOverview(json.data);
+  } catch (error) {
+    console.error('❌ Error transforming dashboard data:', error);
+    throw error;
+  }
 };
 
 interface AvailabilityWindow {

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { addDays, endOfWeek, format, isAfter, isSameDay, isWithinInterval, startOfWeek, startOfDay } from 'date-fns';
 import { DashboardShootServiceTag, DashboardShootSummary } from '@/types/dashboard';
 import { Card, Avatar } from './SharedComponents';
@@ -17,6 +17,10 @@ import {
   Map as MapIcon,
   Home,
   Sparkles,
+  Check,
+  X,
+  Edit,
+  Eye,
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -33,23 +37,45 @@ import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 interface UpcomingShootsCardProps {
   shoots: DashboardShootSummary[];
   onSelect: (shoot: DashboardShootSummary, weather?: WeatherInfo | null) => void;
+  onApprove?: (shoot: DashboardShootSummary) => void;
+  onDecline?: (shoot: DashboardShootSummary) => void;
+  onModify?: (shoot: DashboardShootSummary) => void;
+  onViewInvoice?: (shoot: DashboardShootSummary) => void;
+  role?: string;
+  title?: string;
+  subtitle?: string;
+  emptyStateText?: string;
+  defaultShowPastDays?: boolean;
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  scheduled: 'bg-primary/10 text-primary border-primary/30',
-  confirmed: 'bg-primary/10 text-primary border-primary/30',
-  in_field: 'bg-sky-500/10 text-sky-500 border-sky-500/30',
-  uploading: 'bg-indigo-500/10 text-indigo-500 border-indigo-500/30',
-  editing: 'bg-violet-500/10 text-violet-500 border-violet-500/30',
-  qc: 'bg-amber-500/10 text-amber-500 border-amber-500/30',
-  ready: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30',
-  delivered: 'bg-muted text-muted-foreground border-border',
-  canceled: 'bg-destructive/10 text-destructive border-destructive/30',
-  booked: 'bg-primary/10 text-primary border-primary/30',
-  photos_uploaded: 'bg-sky-500/10 text-sky-500 border-sky-500/30',
-  pending_review: 'bg-amber-500/10 text-amber-500 border-amber-500/30',
-  admin_verified: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30',
-  completed: 'bg-muted text-muted-foreground border-border',
+  // Main statuses with distinct colors
+  requested: 'bg-blue-100 text-blue-700 border-blue-300',
+  scheduled: 'bg-blue-100 text-blue-700 border-blue-200',
+  booked: 'bg-blue-100 text-blue-700 border-blue-200', // Alias for scheduled
+  uploaded: 'bg-indigo-100 text-indigo-700 border-indigo-200',
+  editing: 'bg-purple-100 text-purple-700 border-purple-200',
+  review: 'bg-orange-100 text-orange-700 border-orange-200',
+  delivered: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  
+  // Legacy/alias statuses
+  confirmed: 'bg-blue-100 text-blue-700 border-blue-200',
+  in_field: 'bg-sky-100 text-sky-700 border-sky-200',
+  uploading: 'bg-indigo-100 text-indigo-700 border-indigo-200',
+  photos_uploaded: 'bg-indigo-100 text-indigo-700 border-indigo-200',
+  raw_uploaded: 'bg-indigo-100 text-indigo-700 border-indigo-200',
+  completed: 'bg-indigo-100 text-indigo-700 border-indigo-200', // Maps to uploaded
+  qc: 'bg-orange-100 text-orange-700 border-orange-200',
+  pending_review: 'bg-orange-100 text-orange-700 border-orange-200',
+  ready: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  ready_for_client: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  admin_verified: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  
+  // Other statuses
+  declined: 'bg-red-100 text-red-700 border-red-200',
+  canceled: 'bg-gray-100 text-gray-700 border-gray-200',
+  cancelled: 'bg-gray-100 text-gray-700 border-gray-200',
+  on_hold: 'bg-amber-100 text-amber-700 border-amber-200',
 };
 
 const STATUS_FILTERS = [
@@ -225,19 +251,48 @@ const countActiveFilters = (filters: FiltersState) => {
   return count;
 };
 
-export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = ({
+export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(({
   shoots,
   onSelect,
+  onApprove,
+  onDecline,
+  onModify,
+  onViewInvoice,
+  role,
+  title,
+  subtitle,
+  emptyStateText,
+  defaultShowPastDays,
 }) => {
+  // Hide client info for photographers and editors
+  const hideClientInfo = role === 'photographer' || role === 'editor';
+  // Hide weather for editors (they don't need it)
+  const hideWeather = role === 'editor';
   const { formatTemperature, formatTime, formatDate } = useUserPreferences();
   const [filters, setFilters] = useState<FiltersState>(defaultFilters);
   const [draftFilters, setDraftFilters] = useState<FiltersState>(defaultFilters);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [showPastDays, setShowPastDays] = useState(false);
+  const [showPastDays, setShowPastDays] = useState(Boolean(defaultShowPastDays));
+  const [showRequestsFirst, setShowRequestsFirst] = useState(false);
   const [weatherMap, setWeatherMap] = useState<Record<number, WeatherInfo>>({});
   const weatherMapRef = useRef<Map<number, WeatherInfo>>(new Map());
   const [providerVersion, setProviderVersion] = useState(0);
   const [hoveredShoot, setHoveredShoot] = useState<number | null>(null);
+  
+  // Pagination state - show 5 shoots at a time
+  const SHOOTS_PER_PAGE = 5;
+  const [visibleCount, setVisibleCount] = useState(SHOOTS_PER_PAGE);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const displayTitle = title ?? 'Upcoming shoots';
+  const filterTitle = title ? `Filter ${title.toLowerCase()}` : 'Filter upcoming shoots';
+  const emptyText = emptyStateText ?? 'No upcoming shoots found.';
+
+  // Count requested shoots
+  const requestedShootsCount = useMemo(() => 
+    shoots.filter(s => s.status?.toLowerCase() === 'requested' || s.workflowStatus?.toLowerCase() === 'requested').length,
+    [shoots]
+  );
 
   useEffect(() => {
     const unsubscribe = subscribeToWeatherProvider(() =>
@@ -425,12 +480,115 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = ({
     const visiblePastGroups = showPastDays ? pastGroups.slice(0, 3) : [];
     const hasPastDays = pastGroups.length > 0;
 
+    // Include all groups: past (if shown), today, future
+    // Also include any groups with requested shoots regardless of date
+    const requestedPastGroups = pastGroups.filter(group => 
+      group.shoots.some(s => s.status?.toLowerCase() === 'requested' || s.workflowStatus?.toLowerCase() === 'requested')
+    );
+    
+    let finalGroups = [...visiblePastGroups, ...todayGroups, ...futureGroups];
+    
+    // Add past groups with requested shoots even if showPastDays is false
+    if (!showPastDays && requestedPastGroups.length > 0) {
+      // Add requested shoots from past groups to the beginning
+      const requestedFromPast = requestedPastGroups.flatMap(g => 
+        g.shoots.filter(s => s.status?.toLowerCase() === 'requested' || s.workflowStatus?.toLowerCase() === 'requested')
+      );
+      if (requestedFromPast.length > 0) {
+        const requestedPastGroup = {
+          label: 'Pending Approval',
+          shoots: requestedFromPast,
+          isPast: false,
+          isToday: false,
+          dayTime: 0,
+        };
+        finalGroups = [requestedPastGroup, ...finalGroups];
+      }
+    }
+
+    // If showRequestsFirst is enabled, extract ALL requested shoots and show them in a separate group at the top
+    if (showRequestsFirst) {
+      // Collect all requested shoots from all groups
+      const allRequestedShoots: DashboardShootSummary[] = [];
+      const groupsWithoutRequested = finalGroups.map(group => {
+        const requestedInGroup = group.shoots.filter(s => 
+          s.status?.toLowerCase() === 'requested' || s.workflowStatus?.toLowerCase() === 'requested'
+        );
+        const nonRequestedInGroup = group.shoots.filter(s => 
+          s.status?.toLowerCase() !== 'requested' && s.workflowStatus?.toLowerCase() !== 'requested'
+        );
+        allRequestedShoots.push(...requestedInGroup);
+        return {
+          ...group,
+          shoots: nonRequestedInGroup,
+        };
+      }).filter(group => group.shoots.length > 0); // Remove empty groups
+
+      // Create a special "Requested" group at the top if there are any requested shoots
+      if (allRequestedShoots.length > 0) {
+        const requestedGroup = {
+          label: 'Pending Approval',
+          shoots: allRequestedShoots,
+          isPast: false,
+          isToday: false,
+          dayTime: 0, // Ensure it stays at top
+        };
+        finalGroups = [requestedGroup, ...groupsWithoutRequested];
+      } else {
+        finalGroups = groupsWithoutRequested;
+      }
+    }
+
     return {
-      visibleGroups: [...visiblePastGroups, ...todayGroups, ...futureGroups],
+      visibleGroups: finalGroups,
       hasPastDays,
-      pastButtonLabel: showPastDays ? 'Hide previous shoots' : 'Previous shoots',
+      pastButtonLabel: showPastDays ? 'Hide' : 'Previous shoots',
     };
-  }, [filteredShoots, showPastDays]);
+  }, [filteredShoots, showPastDays, showRequestsFirst]);
+
+  // Calculate total shoots and paginated groups
+  const { paginatedGroups, totalShootsCount, hasMore } = useMemo(() => {
+    const allShoots = visibleGroups.flatMap(g => g.shoots);
+    const total = allShoots.length;
+    const hasMoreShoots = visibleCount < total;
+    
+    // Build paginated groups showing only visibleCount shoots
+    let shootsRemaining = visibleCount;
+    const paginated: typeof visibleGroups = [];
+    
+    for (const group of visibleGroups) {
+      if (shootsRemaining <= 0) break;
+      
+      const shootsToShow = group.shoots.slice(0, shootsRemaining);
+      if (shootsToShow.length > 0) {
+        paginated.push({
+          ...group,
+          shoots: shootsToShow,
+        });
+        shootsRemaining -= shootsToShow.length;
+      }
+    }
+    
+    return {
+      paginatedGroups: paginated,
+      totalShootsCount: total,
+      hasMore: hasMoreShoots,
+    };
+  }, [visibleGroups, visibleCount]);
+
+  // Reset visible count when filters change
+  useEffect(() => {
+    setVisibleCount(SHOOTS_PER_PAGE);
+  }, [filters, showRequestsFirst]);
+
+  // Handle scroll for infinite loading
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLDivElement;
+    const nearBottom = target.scrollHeight - target.scrollTop <= target.clientHeight + 100;
+    if (nearBottom && hasMore) {
+      setVisibleCount(prev => prev + SHOOTS_PER_PAGE);
+    }
+  }, [hasMore]);
 
   useEffect(() => {
     let isMounted = true;
@@ -488,10 +646,23 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = ({
   };
 
   return (
-    <Card className="h-full flex flex-col">
-      <div className="flex flex-wrap items-center justify-between mb-4 gap-3">
-        <h2 className="text-lg font-bold text-foreground">Upcoming shoots</h2>
+    <Card className="flex flex-col">
+      <div className="flex flex-wrap items-start justify-between mb-4 gap-3">
+        <div>
+          <h2 className="text-lg font-bold text-foreground">{displayTitle}</h2>
+          {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
+        </div>
         <div className="flex items-center gap-2">
+          {requestedShootsCount > 0 && (
+            <Button
+              variant={showRequestsFirst ? "default" : "outline"}
+              size="sm"
+              className={`text-xs rounded-full ${showRequestsFirst ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'border-blue-500 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950'}`}
+              onClick={() => setShowRequestsFirst((prev) => !prev)}
+            >
+              Shoot requests +{requestedShootsCount}
+            </Button>
+          )}
           {hasPastDays && (
             <Button
               variant="outline"
@@ -526,7 +697,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = ({
             </DialogTrigger>
             <DialogContent className="max-w-3xl w-[calc(100vw-2rem)] sm:w-full max-h-[85vh] sm:max-h-[80vh] overflow-y-auto">
               <DialogHeader className="mb-2">
-                <DialogTitle className="text-base sm:text-lg">Filter upcoming shoots</DialogTitle>
+                <DialogTitle className="text-base sm:text-lg">{filterTitle}</DialogTitle>
                 <p className="text-xs sm:text-sm text-muted-foreground">
                   Narrow the list by status, assignments, services, and priority.
                 </p>
@@ -819,13 +990,18 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = ({
         </div>
       </div>
 
-      {visibleGroups.length === 0 ? (
+      {paginatedGroups.length === 0 ? (
         <div className="flex-1 flex items-center justify-center text-center text-sm text-slate-500">
-          No upcoming shoots found.
+          {emptyText}
         </div>
       ) : (
-        <div className="space-y-6 flex-1 overflow-y-auto custom-scrollbar pr-2">
-          {visibleGroups.map((group) => (
+        <div 
+          ref={scrollContainerRef}
+          onScroll={handleScroll}
+          className="space-y-6 overflow-y-auto hidden-scrollbar"
+          style={{ maxHeight: '800px' }}
+        >
+          {paginatedGroups.map((group) => (
             <div key={group.label} className="space-y-3">
               <div className="flex items-center gap-2">
                 <span className="h-2 w-2 rounded-full bg-primary" />
@@ -836,6 +1012,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = ({
               {group.shoots.map((shoot) => {
                 const statusKey = (shoot.workflowStatus || shoot.status || '').toLowerCase();
                 const statusClass = STATUS_COLORS[statusKey] || STATUS_COLORS.scheduled;
+                const isRequested = statusKey === 'requested';
                 const serviceList = shoot.services.flatMap((service) => {
                   const parts = service.label
                     .split(/[,•|]+/)
@@ -857,8 +1034,14 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = ({
                     onClick={() => onSelect(shoot, weather)}
                     onMouseEnter={() => setHoveredShoot(shoot.id)}
                     onMouseLeave={() => setHoveredShoot(null)}
-                    className="relative border border-border rounded-3xl p-5 hover:border-primary/40 hover:shadow-lg transition-all cursor-pointer bg-card"
+                    className={cn(
+                      "relative border rounded-3xl p-5 hover:shadow-lg transition-all cursor-pointer bg-card group",
+                      isRequested 
+                        ? "border-blue-400 bg-blue-50/30 dark:bg-blue-950/20 hover:border-blue-500" 
+                        : "border-border hover:border-primary/40"
+                    )}
                   >
+                    {/* Top right actions - flag only (invoice available in shoot details modal) */}
                     {shoot.isFlagged && (
                       <div className="absolute top-3 right-3 text-destructive">
                         <Flag size={14} />
@@ -866,6 +1049,17 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = ({
                     )}
                     <div className="grid grid-cols-1 sm:grid-cols-[auto,1fr,auto] items-stretch gap-3 sm:gap-4">
                       <div className="flex flex-row sm:flex-col items-center sm:items-center gap-2 sm:gap-2">
+                        {/* For requested shoots, show status ABOVE time */}
+                        {isRequested && (
+                          <span
+                            className={cn(
+                              'px-2 sm:px-3 py-1 rounded-full text-[10px] sm:text-[11px] font-semibold border whitespace-nowrap order-first sm:order-first',
+                              statusClass,
+                            )}
+                          >
+                            {formatWorkflowStatus(shoot.workflowStatus || shoot.status)}
+                          </span>
+                        )}
                         <div className="w-16 sm:w-20 rounded-xl sm:rounded-2xl border border-border bg-background text-center py-2 sm:py-3 shadow-sm flex-shrink-0">
                           {(() => {
                             const formattedTime = shoot.timeLabel ? formatTime(shoot.timeLabel) : '--';
@@ -882,14 +1076,17 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = ({
                             );
                           })()}
                         </div>
-                            <span
-                              className={cn(
-                                'px-2 sm:px-3 py-1 rounded-full text-[10px] sm:text-[11px] font-semibold border whitespace-nowrap',
-                                statusClass,
-                              )}
-                            >
-                              {formatWorkflowStatus(shoot.workflowStatus || shoot.status)}
-                            </span>
+                        {/* For non-requested shoots, show status BELOW time */}
+                        {!isRequested && (
+                          <span
+                            className={cn(
+                              'px-2 sm:px-3 py-1 rounded-full text-[10px] sm:text-[11px] font-semibold border whitespace-nowrap',
+                              statusClass,
+                            )}
+                          >
+                            {formatWorkflowStatus(shoot.workflowStatus || shoot.status)}
+                          </span>
+                        )}
                       </div>
 
                       <div className="space-y-2 sm:space-y-3 min-w-0">
@@ -900,8 +1097,11 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = ({
                             {shoot.cityStateZip}
                           </p>
                         </div>
-                        <div className="text-[10px] sm:text-xs text-muted-foreground">
-                          Client <span className="font-semibold text-foreground">• {shoot.clientName || 'Client TBD'}</span>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] sm:text-xs text-muted-foreground">
+                          {!hideClientInfo && (
+                            <span>Client <span className="font-semibold text-foreground">• {shoot.clientName || 'Client TBD'}</span></span>
+                          )}
+                          <span>Shoot ID <span className="font-semibold text-foreground">• #{shoot.id}</span></span>
                         </div>
                         <div className="flex gap-1.5 sm:gap-2 flex-wrap text-[10px] sm:text-xs text-muted-foreground transition-all">
                           {visibleServices.map((tag, index) => {
@@ -929,17 +1129,19 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = ({
                       </div>
 
                       <div className="flex flex-row sm:flex-col items-center sm:items-end gap-2 sm:gap-3 sm:min-w-[120px] justify-between sm:justify-between">
-                        <div className="flex items-center gap-1 rounded-full border border-border px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-semibold text-muted-foreground bg-background shadow-sm">
-                          {renderWeatherIcon(weather?.icon)}
-                          <span>{(() => {
-                            const temp = weather?.temperature ?? shoot.temperature;
-                            if (!temp) return '--°';
-                            if (typeof temp === 'number') return formatTemperature(temp);
-                            const match = String(temp).match(/^(-?\d+)/);
-                            if (match) return formatTemperature(parseInt(match[1], 10));
-                            return temp;
-                          })()}</span>
-                        </div>
+                        {!hideWeather && (
+                          <div className="flex items-center gap-1 rounded-full border border-border px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-semibold text-muted-foreground bg-background shadow-sm">
+                            {renderWeatherIcon(weather?.icon)}
+                            <span>{(() => {
+                              const temp = weather?.temperature ?? shoot.temperature;
+                              if (!temp) return '--°';
+                              if (typeof temp === 'number') return formatTemperature(temp);
+                              const match = String(temp).match(/^(-?\d+)/);
+                              if (match) return formatTemperature(parseInt(match[1], 10));
+                              return temp;
+                            })()}</span>
+                          </div>
+                        )}
                         <div className="text-[10px] sm:text-xs text-muted-foreground text-right sm:text-right">
                           Photographer{' '}
                           <span className="font-semibold text-foreground">
@@ -948,14 +1150,83 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = ({
                         </div>
                       </div>
                     </div>
+                    
+                    {/* Action buttons for requested shoots */}
+                    {isRequested && (onApprove || onDecline || onModify) && (
+                      <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-blue-200 dark:border-blue-800">
+                        {onApprove && (
+                          <Button
+                            size="sm"
+                            className="bg-green-600 hover:bg-green-700 text-white h-8 text-xs"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onApprove(shoot);
+                            }}
+                          >
+                            <Check className="h-3.5 w-3.5 mr-1" />
+                            Approve
+                          </Button>
+                        )}
+                        {onModify && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 text-xs"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onModify(shoot);
+                            }}
+                          >
+                            <Edit className="h-3.5 w-3.5 mr-1" />
+                            Modify
+                          </Button>
+                        )}
+                        {onDecline && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDecline(shoot);
+                            }}
+                          >
+                            <X className="h-3.5 w-3.5 mr-1" />
+                            Decline
+                          </Button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })}
             </div>
           ))}
+          {/* Scroll indicator */}
+          {hasMore && (
+            <div className="flex justify-center py-2 text-xs text-muted-foreground">
+              Scroll for more
+            </div>
+          )}
         </div>
       )}
     </Card>
   );
-};
+}, (prevProps, nextProps) => {
+  // Custom comparison to prevent unnecessary re-renders
+  if (prevProps.shoots.length !== nextProps.shoots.length) return false;
+  if (prevProps.shoots !== nextProps.shoots) {
+    // Check if shoot IDs are the same (shallow comparison)
+    const prevIds = prevProps.shoots.map(s => s.id).join(',');
+    const nextIds = nextProps.shoots.map(s => s.id).join(',');
+    if (prevIds !== nextIds) return false;
+  }
+  return (
+    prevProps.onSelect === nextProps.onSelect &&
+    prevProps.onApprove === nextProps.onApprove &&
+    prevProps.onDecline === nextProps.onDecline &&
+    prevProps.onModify === nextProps.onModify &&
+    prevProps.onViewInvoice === nextProps.onViewInvoice
+  );
+});
 

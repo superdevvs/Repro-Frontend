@@ -56,7 +56,10 @@ const BookShoot = () => {
   const clientIdFromUrl = queryParams.get('clientId');
   const clientNameFromUrl = queryParams.get('clientName');
   const clientCompanyFromUrl = queryParams.get('clientCompany');
-  const { user } = useAuth();
+  const editShootId = queryParams.get('edit'); // For modifying existing shoot requests
+  const { user, isImpersonating } = useAuth();
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editShootLoading, setEditShootLoading] = useState(false);
   const [packages, setPackages] = useState<ServicePackage[]>([]);
   const [packagesLoading, setPackagesLoading] = useState(true);
 
@@ -92,6 +95,8 @@ const BookShoot = () => {
   const [sendNotification, setSendNotification] = useState(true);
   const [step, setStep] = useState(1);
   const [isComplete, setIsComplete] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [createdShootId, setCreatedShootId] = useState<string | number | undefined>(undefined);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const { toast } = useToast();
   const { addShoot } = useShoots();
@@ -117,7 +122,9 @@ const BookShoot = () => {
     };
   }, []);
 
-  const isClientAccount = user && user.role === 'client';
+  // Check if user is a client (either actual client or admin impersonating a client)
+  // When impersonating, user.role is already set to the target user's role
+  const isClientAccount = user && (user.role as string) === 'client';
   
   // Check if user should have form data cached (admin, rep, or photographer)
   const shouldCacheForm = user && ['admin', 'superadmin', 'rep', 'photographer'].includes(user.role);
@@ -320,25 +327,43 @@ const BookShoot = () => {
   useEffect(() => {
     const fetchPhotographers = async () => {
       try {
-        const token = localStorage.getItem('authToken');
+        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
         const headers: Record<string, string> = {};
         if (token) headers['Authorization'] = `Bearer ${token}`;
+        
         // Try secured list first (supports role filtering)
         const response = await axios.get(API_ROUTES.people.adminPhotographers, { headers });
-        const formatted = response.data.data.map((photographer: any) => ({
+        const data = response.data?.data || response.data || [];
+        const formatted = Array.isArray(data) ? data.map((photographer: any) => ({
           ...photographer,
-          id: photographer.id.toString(),
-        }));
-        setPhotographersList(formatted);
+          id: photographer.id?.toString() || '',
+          name: photographer.name || 'Unknown',
+        })) : [];
+        
+        if (formatted.length > 0) {
+          setPhotographersList(formatted);
+          console.debug('[BookShoot] Loaded photographers from admin endpoint:', formatted.length);
+          return;
+        }
       } catch (error) {
         console.warn('Admin photographers endpoint failed, falling back to public list:', error);
-        try {
-          const res2 = await axios.get(API_ROUTES.people.photographers);
-          const formatted2 = res2.data.data.map((p: any) => ({ ...p, id: p.id.toString() }));
-          setPhotographersList(formatted2);
-        } catch (err2) {
-          console.error('Public photographers endpoint also failed:', err2);
-        }
+      }
+      
+      // Fallback to public endpoint
+      try {
+        const res2 = await axios.get(API_ROUTES.people.photographers);
+        const data2 = res2.data?.data || res2.data || [];
+        const formatted2 = Array.isArray(data2) ? data2.map((p: any) => ({ 
+          ...p, 
+          id: p.id?.toString() || '',
+          name: p.name || 'Unknown',
+        })) : [];
+        
+        setPhotographersList(formatted2);
+        console.debug('[BookShoot] Loaded photographers from public endpoint:', formatted2.length);
+      } catch (err2) {
+        console.error('Public photographers endpoint also failed:', err2);
+        setPhotographersList([]);
       }
     };
 
@@ -484,6 +509,90 @@ const BookShoot = () => {
       });
     }
   }, [clientIdFromUrl, clientNameFromUrl, clientCompanyFromUrl, toast]);
+
+  // Fetch existing shoot data when in edit mode
+  useEffect(() => {
+    const fetchShootForEdit = async () => {
+      if (!editShootId) return;
+      
+      setEditShootLoading(true);
+      setIsEditMode(true);
+      
+      try {
+        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+        const response = await axios.get(`${API_BASE_URL}/api/shoots/${editShootId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        const shootData = response.data?.data || response.data;
+        
+        if (shootData) {
+          // Prefill form fields
+          setClient(shootData.client_id?.toString() || shootData.client?.id?.toString() || '');
+          setAddress(shootData.address || shootData.location?.address || '');
+          setCity(shootData.city || shootData.location?.city || '');
+          setState(shootData.state || shootData.location?.state || '');
+          setZip(shootData.zip || shootData.location?.zip || '');
+          setNotes(shootData.shoot_notes || shootData.notes || '');
+          setCompanyNotes(shootData.company_notes || '');
+          setPhotographerNotes(shootData.photographer_notes || '');
+          setEditorNotes(shootData.editor_notes || '');
+          
+          // Set photographer if assigned
+          if (shootData.photographer_id) {
+            setPhotographer(shootData.photographer_id.toString());
+          }
+          
+          // Set date and time
+          if (shootData.scheduled_at || shootData.scheduledAt) {
+            const scheduledDate = new Date(shootData.scheduled_at || shootData.scheduledAt);
+            if (!isNaN(scheduledDate.getTime())) {
+              setDate(scheduledDate);
+              // Format time as "HH:MM AM/PM"
+              let hours = scheduledDate.getHours();
+              const minutes = scheduledDate.getMinutes().toString().padStart(2, '0');
+              const ampm = hours >= 12 ? 'PM' : 'AM';
+              hours = hours % 12 || 12;
+              setTime(`${hours}:${minutes} ${ampm}`);
+            }
+          }
+          
+          // Set services - need to match with available packages
+          if (shootData.services && Array.isArray(shootData.services) && packages.length > 0) {
+            const matchedServices = shootData.services
+              .map((svc: any) => {
+                const serviceId = svc.id?.toString() || svc.service_id?.toString();
+                return packages.find(pkg => pkg.id === serviceId);
+              })
+              .filter(Boolean) as ServicePackage[];
+            
+            if (matchedServices.length > 0) {
+              setSelectedServices(matchedServices);
+            }
+          }
+          
+          toast({
+            title: "Editing Shoot Request",
+            description: `Modifying shoot at ${shootData.address || shootData.location?.address || 'unknown address'}`,
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching shoot for edit:', error);
+        toast({
+          title: "Error loading shoot",
+          description: "Could not load the shoot data for editing.",
+          variant: "destructive",
+        });
+      } finally {
+        setEditShootLoading(false);
+      }
+    };
+    
+    // Wait for packages to load before fetching shoot
+    if (!packagesLoading && editShootId) {
+      fetchShootForEdit();
+    }
+  }, [editShootId, packagesLoading, packages, toast]);
 
   useEffect(() => {
     if (navigator.geolocation && !address) {
@@ -734,15 +843,22 @@ const BookShoot = () => {
   // };
 
   const handleSubmit = async () => {
+    // Prevent duplicate submissions
+    if (isSubmitting) return;
+    
     setFormErrors({});
 
     if (step === 3) {
-      if (!client || !address || !city || !state || !zip || !date || !time || selectedServices.length === 0) {
+      setIsSubmitting(true);
+      // For client accounts, they don't need to select a client (they ARE the client)
+      const clientValid = isClientAccount || !!client;
+      if (!clientValid || !address || !city || !state || !zip || !date || !time || selectedServices.length === 0) {
         toast({
           title: "Missing information",
           description: "Please fill in all required fields before confirming the booking.",
           variant: "destructive",
         });
+        setIsSubmitting(false);
         return;
       }
 
@@ -754,6 +870,7 @@ const BookShoot = () => {
           description: "State must be a valid 2-letter abbreviation (e.g., CA, NY, DC). Please enter a valid state code.",
           variant: "destructive",
         });
+        setIsSubmitting(false);
         return;
       }
 
@@ -827,8 +944,11 @@ const BookShoot = () => {
       
       // Preparing shoot submission
       
+      // For client accounts, use their own user ID as the client_id
+      const effectiveClientId = isClientAccount ? user?.id : client;
+      
       const payload = {
-        client_id: client,
+        client_id: effectiveClientId,
         address,
         city,
         state: normalizedState, // Use normalized state
@@ -853,8 +973,10 @@ const BookShoot = () => {
         tax_amount: taxAmount,
         total_quote: totalQuote,
         payment_status: bypassPayment ? 'pending' : 'paid', // or whatever statuses your API expects
-        status: 'scheduled', // or 'scheduled', 'confirmed' - check your API documentation
-        created_by: user?.name || user?.email || 'System' // Use available user info
+        // Don't send status - let backend determine based on user role (client = requested, admin = scheduled)
+        created_by: user?.name || user?.email || 'System', // Use available user info
+        // Flag to indicate this is a client-initiated request (needs approval)
+        is_client_request: isClientAccount,
       };
 
       try {
@@ -866,12 +988,22 @@ const BookShoot = () => {
           }
         });
 
+        // Show appropriate message based on user role
+        const isClientRole = user?.role === 'client';
         toast({
-          title: "Shoot Booked!",
-          description: "The shoot has been successfully created.",
+          title: isClientRole ? "Shoot Request Submitted!" : "Shoot Booked!",
+          description: isClientRole 
+            ? "Your shoot request has been submitted for approval. We'll notify you once it's reviewed."
+            : "The shoot has been successfully created.",
           variant: "default"
         });
 
+        // Store created shoot ID for payment
+        const shootData = response.data?.data || response.data;
+        if (shootData?.id) {
+          setCreatedShootId(shootData.id);
+        }
+        
         setIsComplete(true);
         await fetchShoots();
         
@@ -911,6 +1043,7 @@ const BookShoot = () => {
             variant: "destructive"
           });
         }
+        setIsSubmitting(false);
       }
     } else {
       if (!validateCurrentStep()) {
@@ -1083,7 +1216,7 @@ const BookShoot = () => {
       services: selectedServices,
       packageLabel: serviceNames,
       packagePrice: getPackagePrice(),
-      address: address ? `${address}, ${city}, ${state} ${zip}` : '',
+      address: address || '',
       bedrooms: 0,
       bathrooms: 0,
       sqft: 0,
@@ -1127,7 +1260,18 @@ const BookShoot = () => {
       <div className="space-y-6 p-6">
           <AnimatePresence mode="wait">
             {isComplete ? (
-              <BookingComplete date={date} time={time} resetForm={resetForm} />
+              <BookingComplete 
+                date={date} 
+                time={time} 
+                resetForm={resetForm} 
+                isClientRequest={isClientAccount}
+                shootId={createdShootId}
+                totalAmount={getTotal()}
+                shootAddress={`${address}, ${city}, ${state} ${zip}`}
+                shootServices={selectedServices.map(s => s.name)}
+                clientName={user?.name}
+                clientEmail={user?.email}
+              />
             ) : (
               <div className="space-y-4">
               <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -1192,7 +1336,7 @@ const BookShoot = () => {
                   getTax={getTax}
                   getTotal={getTotal}
                   clients={clients}
-                  photographers={getAvailablePhotographers()}
+                  photographers={photographers}
                   handleSubmit={handleSubmit}
                   goBack={goBack}
                 />
@@ -1203,6 +1347,7 @@ const BookShoot = () => {
                     selectedServices={selectedServices}
                     onSubmit={step === 3 ? handleSubmit : undefined}
                     isLastStep={step === 3}
+                    isSubmitting={isSubmitting}
                     showRepName={user?.role === 'admin' || user?.role === 'superadmin' || user?.role === 'photographer'}
                     weather={{ temperature: parsedTemperature, condition }}
                   />

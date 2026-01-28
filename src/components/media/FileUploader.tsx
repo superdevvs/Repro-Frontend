@@ -477,8 +477,21 @@ useEffect(() => {
     const validFiles: File[] = [];
     const invalidFiles: { file: File; reason: string }[] = [];
     
+    // Allowed extensions for RAW and other formats that browsers don't recognize properly
+    const allowedExtensions = [
+      '.jpg', '.jpeg', '.png', '.tiff', '.tif', '.gif', '.webp', '.bmp',
+      '.nef', '.cr2', '.cr3', '.arw', '.dng', '.orf', '.rw2', '.pef', '.srw', '.raf',
+      '.mp4', '.mov', '.avi', '.mkv', '.webm',
+      '.zip'
+    ];
+    
     Array.from(fileList).forEach(file => {
-      if (!allowedFileTypes.includes(file.type)) {
+      const extension = '.' + file.name.split('.').pop()?.toLowerCase();
+      const isValidByExtension = allowedExtensions.includes(extension);
+      const isValidByType = allowedFileTypes.includes(file.type) || file.type === '' || file.type === 'application/octet-stream';
+      
+      // Accept if extension is valid (for RAW files) or if MIME type is in allowed list
+      if (!isValidByExtension && !allowedFileTypes.includes(file.type)) {
         invalidFiles.push({ file, reason: 'File type not supported' });
         return;
       }

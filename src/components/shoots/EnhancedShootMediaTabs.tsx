@@ -11,6 +11,7 @@ import {
   Trash2,
   Flag,
 } from 'lucide-react';
+import { RawImagePreview } from '@/components/media/RawImagePreview';
 import { useAuth } from '@/components/auth';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -315,10 +316,16 @@ export const EnhancedShootMediaTabs: React.FC<EnhancedShootMediaTabsProps> = ({
     return (
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {files.map((file) => (
-          <Card key={file.id} className="overflow-hidden">
+          <Card key={file.id} className="overflow-hidden group cursor-pointer hover:ring-2 hover:ring-primary transition-all">
             <CardContent className="p-2">
-              <div className="aspect-square bg-muted rounded flex items-center justify-center mb-2">
-                <ImageIcon className="h-8 w-8 text-muted-foreground" />
+              <div className="aspect-square rounded overflow-hidden mb-2">
+                <RawImagePreview
+                  src={file.thumbnail_link}
+                  filename={file.name}
+                  filePath={file.path}
+                  containerClassName="w-full h-full"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                />
               </div>
               <div className="text-xs truncate" title={file.name}>
                 {file.name}

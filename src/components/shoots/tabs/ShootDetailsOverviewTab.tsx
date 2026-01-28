@@ -15,6 +15,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -41,6 +43,10 @@ import {
   Key,
   UserCheck,
   Link2,
+  BedDouble,
+  ShowerHead,
+  Ruler,
+  Check,
 } from 'lucide-react';
 import { format, isValid, parse } from 'date-fns';
 import { ShootData } from '@/types/shoots';
@@ -52,6 +58,7 @@ import { cn } from '@/lib/utils';
 import { getStateFullName } from '@/utils/stateUtils';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import { getServicePricingForSqft } from '@/utils/servicePricing';
+import AddressLookupField from '@/components/AddressLookupField';
 
 const serviceCurrencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -107,6 +114,20 @@ type ServiceCategoryOption = {
   count: number;
 };
 
+type AddressDetailsForLookup = {
+  formatted_address?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  bedrooms?: number;
+  bathrooms?: number;
+  sqft?: number;
+  property_details?: Record<string, unknown>;
+  latitude?: number;
+  longitude?: number;
+};
+
 const slugify = (value: string) =>
   value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'uncategorized';
 
@@ -126,12 +147,233 @@ const deriveServiceCategoryName = (service: ServiceOption) => {
   return service.category.name || 'Uncategorized';
 };
 
+interface ShareLink {
+  id: number;
+  share_url: string;
+  download_count: number;
+  created_at: string;
+  expires_at: string | null;
+  is_expired: boolean;
+  is_revoked: boolean;
+  is_active: boolean;
+  created_by: { id: number; name: string } | null;
+}
+
+interface MediaLinksSectionProps {
+  shoot: ShootData;
+  isEditor: boolean;
+  onShootUpdate: () => void;
+}
+
+function MediaLinksSection({ shoot, isEditor, onShootUpdate }: MediaLinksSectionProps) {
+  const [shareLinks, setShareLinks] = React.useState<ShareLink[]>([]);
+  const [loading, setLoading] = React.useState(false);
+  const [revoking, setRevoking] = React.useState<number | null>(null);
+  const { toast } = useToast();
+
+  // Fetch share links
+  React.useEffect(() => {
+    const fetchShareLinks = async () => {
+      try {
+        setLoading(true);
+        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+        const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/share-links`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json',
+          },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setShareLinks(data.data || []);
+        }
+      } catch (error) {
+        console.error('Failed to fetch share links:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    if (isEditor) {
+      fetchShareLinks();
+    }
+  }, [shoot.id, isEditor]);
+
+  const handleRevokeLink = async (linkId: number) => {
+    try {
+      setRevoking(linkId);
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/share-links/${linkId}/revoke`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+        },
+      });
+      
+      if (res.ok) {
+        setShareLinks(prev => prev.map(link => 
+          link.id === linkId ? { ...link, is_revoked: true, is_active: false } : link
+        ));
+        toast({
+          title: 'Link revoked',
+          description: 'Share link has been revoked successfully.',
+        });
+      } else {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to revoke link');
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to revoke share link',
+        variant: 'destructive',
+      });
+    } finally {
+      setRevoking(null);
+    }
+  };
+
+  const copyToClipboard = async (url: string) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      toast({
+        title: 'Copied!',
+        description: 'Share link copied to clipboard.',
+      });
+    } catch {
+      toast({
+        title: 'Error',
+        description: 'Failed to copy link',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return 'Never';
+    try {
+      return format(new Date(dateStr), 'MMM d, yyyy h:mm a');
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const activeLinks = shareLinks.filter(link => link.is_active);
+  const inactiveLinks = shareLinks.filter(link => !link.is_active);
+
+  return (
+    <div className="p-2.5 border rounded-lg bg-card">
+      <div className="flex items-center gap-1.5 mb-1.5">
+        <Link2 className="h-3.5 w-3.5 text-muted-foreground" />
+        <span className="text-[11px] font-semibold text-muted-foreground uppercase">Media Links</span>
+      </div>
+      <div className="space-y-2 text-xs">
+        {/* Dropbox Links */}
+        {(shoot as any).dropbox_raw_folder && (
+          <div className="flex justify-between items-center">
+            <span className="text-muted-foreground">RAW Photos:</span>
+            <a 
+              href={(shoot as any).dropbox_raw_folder} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-primary hover:underline flex items-center gap-1"
+            >
+              <span>Open Dropbox</span>
+              <Link2 className="h-3 w-3" />
+            </a>
+          </div>
+        )}
+        
+        {/* Generated Share Links */}
+        {loading ? (
+          <div className="flex items-center justify-center py-2">
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          </div>
+        ) : shareLinks.length > 0 ? (
+          <div className="space-y-1.5 pt-1 border-t">
+            <span className="text-muted-foreground block text-[10px] uppercase">Generated Share Links:</span>
+            
+            {/* Active Links */}
+            {activeLinks.map((link) => (
+              <div key={link.id} className="p-1.5 border rounded bg-muted/30 space-y-1">
+                <div className="flex items-center justify-between gap-1">
+                  <div className="flex items-center gap-1 flex-1 min-w-0">
+                    <span className="text-green-600 text-[10px] font-medium">Active</span>
+                    <span className="text-muted-foreground text-[10px]">•</span>
+                    <span className="text-[10px] text-muted-foreground">{link.download_count} downloads</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-5 w-5 p-0"
+                      onClick={() => copyToClipboard(link.share_url)}
+                      title="Copy link"
+                    >
+                      <Link2 className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-5 w-5 p-0 text-red-600 hover:text-red-700"
+                      onClick={() => handleRevokeLink(link.id)}
+                      disabled={revoking === link.id}
+                      title="Revoke link"
+                    >
+                      {revoking === link.id ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <X className="h-3 w-3" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+                <div className="text-[10px] text-muted-foreground">
+                  Expires: {formatDate(link.expires_at)}
+                </div>
+              </div>
+            ))}
+            
+            {/* Inactive/Revoked Links */}
+            {inactiveLinks.length > 0 && (
+              <details className="text-[10px]">
+                <summary className="text-muted-foreground cursor-pointer hover:text-foreground">
+                  {inactiveLinks.length} inactive link(s)
+                </summary>
+                <div className="space-y-1 mt-1">
+                  {inactiveLinks.map((link) => (
+                    <div key={link.id} className="p-1.5 border rounded bg-muted/20 opacity-60">
+                      <div className="flex items-center gap-1">
+                        <span className={`text-[10px] font-medium ${link.is_revoked ? 'text-red-600' : 'text-orange-600'}`}>
+                          {link.is_revoked ? 'Revoked' : 'Expired'}
+                        </span>
+                        <span className="text-muted-foreground">•</span>
+                        <span className="text-[10px] text-muted-foreground">{link.download_count} downloads</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
+          </div>
+        ) : (
+          <div className="text-muted-foreground text-[10px] pt-1 border-t">
+            No share links generated yet. Use the "Share Link" button in the header to create one.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 interface ShootDetailsOverviewTabProps {
   shoot: ShootData;
   isAdmin: boolean;
   isPhotographer: boolean;
   isEditor: boolean;
   isClient: boolean;
+  shouldHideClientDetails?: boolean;
   role: string;
   onShootUpdate: () => void;
   weather?: WeatherInfo | null;
@@ -147,6 +389,7 @@ export function ShootDetailsOverviewTab({
   isPhotographer,
   isEditor,
   isClient,
+  shouldHideClientDetails = false,
   role,
   onShootUpdate,
   weather,
@@ -173,6 +416,15 @@ export function ShootDetailsOverviewTab({
     }
     return [];
   });
+  const [selectedClientId, setSelectedClientId] = useState<string>(() => {
+    return shoot.client ? String(shoot.client.id) : '';
+  });
+  const [editPhotographers, setEditPhotographers] = useState<Array<{ id: string; name: string; email: string }>>([]);
+  const [selectedPhotographerIdEdit, setSelectedPhotographerIdEdit] = useState<string>(() => {
+    return shoot.photographer ? String(shoot.photographer.id) : '';
+  });
+  const [clientSearchOpen, setClientSearchOpen] = useState(false);
+  const [photographerSearchOpen, setPhotographerSearchOpen] = useState(false);
   const [servicesList, setServicesList] = useState<ServiceOption[]>([]);
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [servicePrices, setServicePrices] = useState<Record<string, string>>({});
@@ -185,6 +437,99 @@ export function ShootDetailsOverviewTab({
   const [lockboxLocation, setLockboxLocation] = useState('');
   const [accessContactName, setAccessContactName] = useState('');
   const [accessContactPhone, setAccessContactPhone] = useState('');
+  const [propertyMetricsEdit, setPropertyMetricsEdit] = useState<{ beds: string; baths: string; sqft: string }>({
+    beds: '',
+    baths: '',
+    sqft: '',
+  });
+  const [addressInput, setAddressInput] = useState('');
+
+  const toNumberOrUndefined = (value: string | number | null | undefined) => {
+    if (value === null || value === undefined) return undefined;
+    const num = typeof value === 'number' ? value : Number(value);
+    return Number.isFinite(num) ? num : undefined;
+  };
+
+  const formatEditableValue = (value: unknown) => {
+    if (value === null || value === undefined || value === '') return '';
+    const num = Number(value);
+    return Number.isNaN(num) ? String(value) : String(num);
+  };
+
+  const initializeMetricsFromShoot = () => {
+    const pd = shoot.propertyDetails || (shoot as any).property_details || {};
+    setPropertyMetricsEdit({
+      beds: formatEditableValue(
+        pd.beds ??
+        pd.bedrooms ??
+        pd.bed ??
+        (shoot as any).beds ??
+        (shoot as any).bedrooms ??
+        '',
+      ),
+      baths: formatEditableValue(
+        pd.baths ??
+        pd.bathrooms ??
+        pd.bath ??
+        (shoot as any).baths ??
+        (shoot as any).bathrooms ??
+        '',
+      ),
+      sqft: formatEditableValue(
+        pd.sqft ??
+        pd.squareFeet ??
+        pd.square_feet ??
+        (shoot as any).sqft ??
+        (shoot as any).squareFeet ??
+        (shoot as any).square_feet ??
+        (shoot as any).livingArea ??
+        (shoot as any).living_area ??
+        '',
+      ),
+    });
+  };
+
+  const deriveMetricsFromAddress = (details: AddressDetailsForLookup) => {
+    const pd = details.property_details || {};
+    const bedrooms =
+      details.bedrooms ??
+      pd.beds ??
+      pd.bedrooms ??
+      pd.bed;
+    const bathrooms =
+      details.bathrooms ??
+      (details as any).baths ??
+      pd.baths ??
+      pd.bathrooms ??
+      pd.bath;
+    const sqftVal =
+      details.sqft ??
+      pd.sqft ??
+      (pd as any).livingArea ??
+      (pd as any).living_area ??
+      pd.squareFeet ??
+      pd.square_feet;
+    return { bedrooms, bathrooms, sqft: sqftVal };
+  };
+
+  const handleAddressSelect = (details: AddressDetailsForLookup) => {
+    const mergedAddress = details.address || details.formatted_address || '';
+    setAddressInput(mergedAddress);
+    updateField('location.address', mergedAddress);
+    updateField('location.fullAddress', details.formatted_address || mergedAddress);
+    if (details.city) updateField('location.city', details.city);
+    if (details.state) updateField('location.state', details.state);
+    if (details.zip) updateField('location.zip', details.zip);
+    if (details.latitude) updateField('location.latitude', details.latitude);
+    if (details.longitude) updateField('location.longitude', details.longitude);
+
+    const derived = deriveMetricsFromAddress(details);
+    setPropertyMetricsEdit({
+      beds: formatEditableValue(derived.bedrooms),
+      baths: formatEditableValue(derived.bathrooms),
+      sqft: formatEditableValue(derived.sqft),
+    });
+  };
   
   // Search states
   const [clientSearchQuery, setClientSearchQuery] = useState('');
@@ -246,6 +591,10 @@ export function ShootDetailsOverviewTab({
               pricing_type: s.pricing_type || 'fixed',
               allow_multiple: s.allow_multiple ?? false,
               sqft_ranges: s.sqft_ranges || [],
+              category: s.category || s.service_category || null,
+              description: s.description || '',
+              photographer_pay: s.photographer_pay || null,
+              duration: s.duration || null,
             }));
             setServicesList(servicesData);
             
@@ -290,8 +639,61 @@ export function ShootDetailsOverviewTab({
         }
       };
 
+      // Fetch photographers for edit mode
+      const fetchPhotographers = async () => {
+        try {
+          const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+          const headers: Record<string, string> = {
+            'Accept': 'application/json',
+          };
+          if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+          }
+          
+          // Try admin endpoint first (requires auth)
+          let res = await fetch(`${API_BASE_URL}/api/admin/photographers`, {
+            headers,
+          });
+          
+          // If admin endpoint fails, try public endpoint
+          if (!res.ok) {
+            res = await fetch(`${API_BASE_URL}/api/photographers`, {
+              headers: {
+                'Accept': 'application/json',
+              },
+            });
+          }
+          
+          if (res.ok) {
+            const json = await res.json();
+            const photographersList = (json.data || json || []).map((p: any) => ({
+              id: String(p.id),
+              name: p.name || 'Unknown',
+              email: p.email || '',
+            }));
+            const currentPhotographer = shoot.photographer;
+            if (currentPhotographer && !photographersList.some((p) => p.id === String(currentPhotographer.id))) {
+              photographersList.unshift({
+                id: String(currentPhotographer.id),
+                name: currentPhotographer.name || 'Current photographer',
+                email: currentPhotographer.email || '',
+              });
+            }
+            console.log('[ShootDetailsOverviewTab] Loaded photographers for edit mode:', photographersList.length);
+            setEditPhotographers(photographersList);
+          } else {
+            console.error('Failed to fetch photographers:', res.status, res.statusText);
+            setEditPhotographers([]);
+          }
+        } catch (error) {
+          console.error('Error fetching photographers:', error);
+          setEditPhotographers([]);
+        }
+      };
+
       fetchClients();
       fetchServices();
+      fetchPhotographers();
     }
   }, [isEditMode, shoot]);
 
@@ -318,6 +720,20 @@ export function ShootDetailsOverviewTab({
           ...shoot.payment,
         } : undefined,
       });
+      setAddressInput(
+        shoot.location?.address ||
+        shoot.location?.fullAddress ||
+        (shoot as any).address ||
+        ''
+      );
+      initializeMetricsFromShoot();
+      // Initialize selected IDs
+      if (shoot.client) {
+        setSelectedClientId(String(shoot.client.id));
+      }
+      if (shoot.photographer) {
+        setSelectedPhotographerIdEdit(String(shoot.photographer.id));
+      }
     }
   }, [isEditMode, shoot]);
   
@@ -344,14 +760,70 @@ export function ShootDetailsOverviewTab({
   const handleSave = () => {
     if (onSave) {
       const updates = { ...editedShoot };
-      updates.propertyDetails = {
+      const basePropertyDetails = {
+        ...(shoot.propertyDetails || (shoot as any).property_details || {}),
         ...(updates.propertyDetails || {}),
+      };
+
+      const bedsValue = toNumberOrUndefined(propertyMetricsEdit.beds);
+      const bathsValue = toNumberOrUndefined(propertyMetricsEdit.baths);
+      const sqftValue = toNumberOrUndefined(propertyMetricsEdit.sqft);
+
+      if (bedsValue !== undefined) {
+        basePropertyDetails.beds = bedsValue;
+        basePropertyDetails.bedrooms = bedsValue;
+      }
+      if (bathsValue !== undefined) {
+        basePropertyDetails.baths = bathsValue;
+        basePropertyDetails.bathrooms = bathsValue;
+      }
+      if (sqftValue !== undefined) {
+        basePropertyDetails.sqft = sqftValue;
+        basePropertyDetails.squareFeet = sqftValue;
+      }
+
+      updates.propertyDetails = {
+        ...basePropertyDetails,
         presenceOption,
         lockboxCode: presenceOption === 'lockbox' ? lockboxCode || undefined : undefined,
         lockboxLocation: presenceOption === 'lockbox' ? lockboxLocation || undefined : undefined,
         accessContactName: presenceOption === 'other' ? accessContactName || undefined : undefined,
         accessContactPhone: presenceOption === 'other' ? accessContactPhone || undefined : undefined,
       };
+      
+      // Ensure client and photographer IDs are numbers
+      if (updates.client?.id !== undefined && updates.client.id !== null) {
+        const clientId = typeof updates.client.id === 'string' 
+          ? parseInt(updates.client.id, 10) 
+          : Number(updates.client.id);
+        if (!isNaN(clientId) && clientId > 0) {
+          updates.client = {
+            ...updates.client,
+            id: clientId,
+          };
+        } else {
+          console.warn('⚠️ Invalid client ID:', updates.client.id);
+        }
+      }
+      if (updates.photographer?.id !== undefined && updates.photographer.id !== null) {
+        const photographerId = typeof updates.photographer.id === 'string' 
+          ? parseInt(updates.photographer.id, 10) 
+          : Number(updates.photographer.id);
+        if (!isNaN(photographerId) && photographerId > 0) {
+          console.log('📸 Converting photographer ID to number:', { 
+            original: updates.photographer.id, 
+            converted: photographerId 
+          });
+          updates.photographer = {
+            ...updates.photographer,
+            id: photographerId,
+          };
+        } else {
+          console.warn('⚠️ Invalid photographer ID:', updates.photographer.id);
+          // Don't send invalid photographer ID
+          delete updates.photographer;
+        }
+      }
       
       // Get sqft from shoot for variable pricing
       const sqft = (shoot as any).sqft || (shoot as any).livingArea || (shoot as any).living_area || null;
@@ -709,12 +1181,52 @@ export function ShootDetailsOverviewTab({
     return formatTimePreference(timeString);
   };
 
-  // Get location address - handle different data structures
+  const parsedScheduleDate = useMemo(
+    () => parseFlexibleDate(shoot.scheduledDate || (shoot as any).scheduled_date),
+    [shoot]
+  );
+  const scheduleDateDisplay = parsedScheduleDate ? formatDatePreference(parsedScheduleDate) : 'Not scheduled';
+  const scheduleTimeDisplay = shoot.time ? formatTime(shoot.time) : null;
+
+  const weatherSource = weather || shoot.weather || (shoot as any).weather || null;
+  const rawTemperature = weather?.temperature ?? weatherSource?.temperature ?? (shoot as any).temperature ?? null;
+  const weatherDescription = weather?.description ?? weatherSource?.description ?? (shoot as any).weather_description ?? null;
+  const weatherIcon = (weather?.icon ?? weatherSource?.icon ?? (shoot as any).weather_icon) as WeatherInfo['icon'] | undefined;
+  const formattedTemperature = useMemo(() => {
+    if (rawTemperature === null || rawTemperature === undefined) return null;
+    if (typeof rawTemperature === 'number') {
+      return formatTemperature(rawTemperature);
+    }
+    const match = String(rawTemperature).match(/-?\d+/);
+    if (match) {
+      return formatTemperature(parseInt(match[0], 10));
+    }
+    return `${rawTemperature}`;
+  }, [rawTemperature, formatTemperature]);
+  const hasWeatherDetails = Boolean(formattedTemperature || weatherDescription);
+
+  // Get location address - return only street address, not full address with city/state/zip
   const getLocationAddress = () => {
-    if (shoot.location?.address) return shoot.location.address;
+    let address = shoot.location?.address || (shoot as any).address || '';
+    
+    // If we have city/state/zip, try to strip them from the address to get just street address
+    const city = shoot.location?.city || (shoot as any).city || '';
+    const state = shoot.location?.state || (shoot as any).state || '';
+    const zip = shoot.location?.zip || (shoot as any).zip || '';
+    
+    if (address && (city || state || zip)) {
+      // Remove city, state, zip from the end of address if present
+      let streetAddress = address;
+      if (city) streetAddress = streetAddress.replace(new RegExp(`\\s*,?\\s*${city}\\s*,?`, 'i'), '');
+      if (state) streetAddress = streetAddress.replace(new RegExp(`\\s*,?\\s*${state}\\s*,?`, 'i'), '');
+      if (zip) streetAddress = streetAddress.replace(new RegExp(`\\s*,?\\s*${zip}\\s*`, 'i'), '');
+      // Clean up any trailing commas or spaces
+      streetAddress = streetAddress.replace(/[,\s]+$/, '').trim();
+      if (streetAddress) return streetAddress;
+    }
+    
+    if (address) return address;
     if (shoot.location?.fullAddress) return shoot.location.fullAddress;
-    // Fallback to direct properties if location object doesn't exist
-    if ((shoot as any).address) return (shoot as any).address;
     return 'Not set';
   };
 
@@ -749,7 +1261,75 @@ export function ShootDetailsOverviewTab({
   const locationDetails = getLocationDetails();
   
   // Get property details - handle both camelCase and snake_case
-  const propertyDetails = shoot.propertyDetails || (shoot as any).property_details;
+  const propertyDetails = shoot.propertyDetails || (shoot as any).property_details || {};
+  const baseBeds =
+    propertyDetails?.beds ??
+    propertyDetails?.bedrooms ??
+    propertyDetails?.bed ??
+    (shoot as any).beds ??
+    (shoot as any).bedrooms;
+  const baseBaths =
+    propertyDetails?.baths ??
+    propertyDetails?.bathrooms ??
+    propertyDetails?.bath ??
+    (shoot as any).baths ??
+    (shoot as any).bathrooms;
+  const baseSqft =
+    propertyDetails?.sqft ??
+    propertyDetails?.squareFeet ??
+    propertyDetails?.square_feet ??
+    (shoot as any).sqft ??
+    (shoot as any).squareFeet ??
+    (shoot as any).square_feet ??
+    (shoot as any).livingArea ??
+    (shoot as any).living_area;
+  const iguideTourUrl =
+    shoot.iguideTourUrl ||
+    shoot.tourLinks?.iGuide ||
+    shoot.tourLinks?.iguide_branded ||
+    shoot.tourLinks?.iguide_mls ||
+    (shoot as any).iguide_tour_url ||
+    '';
+  const iguideFloorplans =
+    shoot.iguideFloorplans || (shoot as any).iguide_floorplans || [];
+  const iguideLastSyncedAt =
+    shoot.iguideLastSyncedAt || (shoot as any).iguide_last_synced_at;
+  const iguidePropertyId =
+    shoot.iguidePropertyId || (shoot as any).iguide_property_id;
+
+  const metricDisplayValues = {
+    beds: isEditMode ? propertyMetricsEdit.beds : baseBeds,
+    baths: isEditMode ? propertyMetricsEdit.baths : baseBaths,
+    sqft: isEditMode ? propertyMetricsEdit.sqft : baseSqft,
+  };
+
+  const formatMetricValue = (value: unknown) => {
+    if (value === null || value === undefined || value === '') return '—';
+    const numeric = Number(value);
+    if (!Number.isNaN(numeric)) {
+      return numeric.toLocaleString();
+    }
+    return String(value);
+  };
+
+
+  const propertyMetrics = [
+    {
+      label: 'Beds',
+      icon: BedDouble,
+      value: formatMetricValue(metricDisplayValues.beds),
+    },
+    {
+      label: 'Baths',
+      icon: ShowerHead,
+      value: formatMetricValue(metricDisplayValues.baths),
+    },
+    {
+      label: 'Sqft',
+      icon: Ruler,
+      value: formatMetricValue(metricDisplayValues.sqft),
+    },
+  ];
 
   // Toggle service selection
   const toggleServiceSelection = (serviceId: string) => {
@@ -783,41 +1363,119 @@ export function ShootDetailsOverviewTab({
 
   return (
     <div className="space-y-2">
-      {/* Schedule Card - Only in edit mode (view mode shows in header) */}
-      {isEditMode && (
+      {/* Date, Time, Weather - Three Separate Cards */}
+      <div className="grid grid-cols-[1fr_0.7fr_1.3fr] gap-2">
+        {/* Date Card */}
         <div className="p-2.5 border rounded-lg bg-card">
-          <div className="flex items-center gap-1.5 mb-1.5">
-            <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-[11px] font-semibold text-muted-foreground uppercase">Schedule</span>
-          </div>
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="flex flex-col gap-1">
-              <span className="text-muted-foreground">Date:</span>
-              <div className="relative">
-                <CalendarIcon className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                <Input
-                  type="date"
-                  value={editedShoot.scheduledDate || formatDateForInput(shoot.scheduledDate)}
-                  onChange={(e) => updateField('scheduledDate', e.target.value)}
-                  className="h-7 text-xs pl-8 [&::-webkit-calendar-picker-indicator]:opacity-100"
-                />
-              </div>
+          {isEditMode ? (
+            <div className="flex items-center gap-1.5">
+              <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+              <Input
+                type="date"
+                value={editedShoot.scheduledDate || formatDateForInput(shoot.scheduledDate)}
+                onChange={(e) => updateField('scheduledDate', e.target.value)}
+                className="h-7 text-xs [&::-webkit-calendar-picker-indicator]:opacity-100"
+              />
             </div>
-            <div className="flex flex-col gap-1">
-              <span className="text-muted-foreground">Time:</span>
-              <div className="relative">
-                <ClockIcon className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                <Input
-                  type="time"
-                  value={editedShoot.time ?? shoot.time ?? ''}
-                  onChange={(e) => updateField('time', e.target.value)}
-                  className="h-7 text-xs pl-8"
-                />
-              </div>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+              <span className="text-sm font-medium text-foreground">{scheduleDateDisplay}</span>
             </div>
+          )}
+        </div>
+
+        {/* Time Card */}
+        <div className="p-2.5 border rounded-lg bg-card">
+          {isEditMode ? (
+            <div className="flex items-center gap-1.5">
+              <ClockIcon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+              <Input
+                type="time"
+                value={editedShoot.time ?? shoot.time ?? ''}
+                onChange={(e) => updateField('time', e.target.value)}
+                className="h-7 text-xs"
+              />
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <ClockIcon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+              <span className="text-sm font-medium text-foreground">{scheduleTimeDisplay || 'Not set'}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Weather Card */}
+        <div className="p-2.5 border rounded-lg bg-card">
+          <div className="flex items-center gap-2">
+            {renderWeatherIcon(weatherIcon)}
+            {hasWeatherDetails ? (
+              <div className="flex items-center gap-1.5">
+                {formattedTemperature && (
+                  <span className="text-sm font-medium text-foreground">{formattedTemperature}</span>
+                )}
+                {weatherDescription && (
+                  <span className="text-sm text-muted-foreground capitalize">{weatherDescription}</span>
+                )}
+              </div>
+            ) : (
+              <span className="text-sm text-muted-foreground">No data</span>
+            )}
           </div>
         </div>
-      )}
+      </div>
+
+      {/* Property Metrics */}
+      <div className="p-2.5 border rounded-lg bg-card">
+        <div className="text-[11px] font-semibold text-muted-foreground uppercase mb-1.5">
+          Property details
+        </div>
+        {isEditMode ? (
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { key: 'beds', label: 'Beds', icon: BedDouble, placeholder: '0' },
+              { key: 'baths', label: 'Baths', icon: ShowerHead, placeholder: '0' },
+              { key: 'sqft', label: 'Sqft', icon: Ruler, placeholder: '0' },
+            ].map(({ key, label, icon: Icon, placeholder }) => (
+              <div key={key} className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
+                  <Icon className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  <div className="text-[11px] uppercase text-muted-foreground font-semibold">{label}</div>
+                  <Input
+                    type="text"
+                    inputMode="decimal"
+                    value={(propertyMetricsEdit as any)[key]}
+                    onChange={(e) =>
+                      setPropertyMetricsEdit((prev) => ({
+                        ...prev,
+                        [key]: e.target.value,
+                      }))
+                    }
+                    placeholder={placeholder}
+                    className="h-8 text-xs"
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-3 gap-2">
+            {propertyMetrics.map(({ label, icon: Icon, value }) => (
+              <div key={label} className="flex items-center gap-2">
+                <div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center">
+                  <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+                </div>
+                <div>
+                  <div className="text-[11px] uppercase text-muted-foreground font-semibold">{label}</div>
+                  <div className="text-xs font-medium">{value}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Location Card - Full width where weather was */}
       <div className="p-2.5 border rounded-lg bg-card">
@@ -829,11 +1487,14 @@ export function ShootDetailsOverviewTab({
           <div className="space-y-1.5 text-xs">
             <div className="flex flex-col gap-1">
               <span className="text-muted-foreground">Address:</span>
-              <Input
-                type="text"
-                value={editedShoot.location?.address || shoot.location?.address || ''}
-                onChange={(e) => updateField('location.address', e.target.value)}
-                className="h-7 text-xs"
+              <AddressLookupField
+                value={addressInput}
+                onChange={(value) => {
+                  setAddressInput(value);
+                  updateField('location.address', value);
+                }}
+                onAddressSelect={handleAddressSelect as any}
+                className="text-xs"
               />
             </div>
             <div className="grid grid-cols-2 gap-1.5">
@@ -1049,109 +1710,240 @@ export function ShootDetailsOverviewTab({
         )}
       </div>
 
-      {/* Client & Contact Card - Hide from editors */}
-      {!isEditor && (
+      {/* Client Card - with Sales Rep info right-aligned for admins */}
+      {(iguideTourUrl || iguideFloorplans.length > 0 || iguidePropertyId || iguideLastSyncedAt) && (
+        <div className="p-2.5 border rounded-lg bg-card">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <Link2 className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-[11px] font-semibold text-muted-foreground uppercase">iGUIDE</span>
+          </div>
+          <div className="space-y-1 text-xs">
+            <div className="flex justify-between items-center">
+              <span className="text-muted-foreground">Tour:</span>
+              {iguideTourUrl ? (
+                <a
+                  href={iguideTourUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline flex items-center gap-1"
+                >
+                  <span>Open tour</span>
+                  <Link2 className="h-3 w-3" />
+                </a>
+              ) : (
+                <span className="text-muted-foreground">Not synced</span>
+              )}
+            </div>
+            {iguidePropertyId && (
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Property ID:</span>
+                <span className="font-medium">{iguidePropertyId}</span>
+              </div>
+            )}
+            {iguideLastSyncedAt && (
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Last sync:</span>
+                <span className="font-medium">{formatDate(iguideLastSyncedAt)}</span>
+              </div>
+            )}
+            {iguideFloorplans.length > 0 && (
+              <div className="space-y-1 pt-1">
+                <span className="text-[10px] uppercase text-muted-foreground">Floorplans</span>
+                <div className="space-y-1">
+                  {iguideFloorplans.map((floorplan: any, index: number) => {
+                    const url = typeof floorplan === 'string' ? floorplan : floorplan?.url;
+                    if (!url) return null;
+                    const label =
+                      typeof floorplan === 'string'
+                        ? `Floorplan ${index + 1}`
+                        : floorplan?.filename || `Floorplan ${index + 1}`;
+                    return (
+                      <a
+                        key={`${url}-${index}`}
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline block"
+                      >
+                        {label}
+                      </a>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Client Card - with Sales Rep info right-aligned for admins */}
+      {/* Hidden from photographers and editors */}
+      {(shoot.client || isEditMode) && !isPhotographer && !isEditor && !shouldHideClientDetails && (
         <div className="p-2.5 border rounded-lg bg-card">
           <div className="flex items-center gap-1.5 mb-1.5">
             <UserIcon className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="text-[11px] font-semibold text-muted-foreground uppercase">Client</span>
           </div>
-        {isEditMode ? (
-          <div className="space-y-1.5 text-xs">
-            <Select
-              value={editedShoot.client?.id || shoot.client?.id || ''}
-              onValueChange={(value) => {
-                const selectedClient = filteredClients.find(c => c.id === value);
-                if (selectedClient) {
-                  updateField('client', {
-                    id: selectedClient.id,
-                    name: selectedClient.name,
-                    email: selectedClient.email,
-                    company: selectedClient.company,
-                  });
-                  setClientSearchQuery(''); // Clear search after selection
-                }
-              }}
-            >
-              <SelectTrigger className="h-7 text-xs">
-                <SelectValue placeholder="Select client">
-                  {(editedShoot.client?.name || shoot.client?.name) || 'Select client'}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent className="max-h-[200px]">
-                {/* Search input inside SelectContent */}
-                <div className="sticky top-0 z-10 bg-background border-b px-2 py-1.5">
-                  <div className="relative">
-                    <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-                    <Input
-                      type="text"
-                      placeholder="Search clients..."
-                      value={clientSearchQuery}
-                      onChange={(e) => {
-                        e.stopPropagation();
-                        setClientSearchQuery(e.target.value);
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                      className="h-7 text-xs pl-7"
-                    />
-                  </div>
-                </div>
-                {/* Filtered clients list */}
-                <div className="max-h-[150px] overflow-y-auto">
-                  {filteredClients.length > 0 ? (
-                    filteredClients.map((client) => (
-                      <SelectItem key={client.id} value={client.id} className="text-xs">
-                        <div>
-                          <div className="font-medium">{client.name}</div>
-                          {client.company && (
-                            <div className="text-muted-foreground text-[10px]">{client.company}</div>
+          {isEditMode ? (
+            <Popover open={clientSearchOpen} onOpenChange={setClientSearchOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={clientSearchOpen}
+                  className="w-full justify-between h-8 text-xs font-normal"
+                >
+                  {selectedClientId
+                    ? clients.find((c) => c.id === selectedClientId)?.name || 'Select client...'
+                    : 'Select client...'}
+                  <ArrowUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent 
+                className="w-[var(--radix-popover-trigger-width)] max-w-[300px] p-0 shadow-lg z-50 max-h-[250px]" 
+                align="start" 
+                sideOffset={4}
+                side="bottom"
+              >
+                <Command className="rounded-lg flex flex-col" shouldFilter={true}>
+                  <CommandInput placeholder="Search clients..." className="h-9 flex-shrink-0 border-b" />
+                  <CommandList className="max-h-[200px] overflow-y-auto overflow-x-hidden">
+                    <CommandEmpty>No client found.</CommandEmpty>
+                    <CommandGroup>
+                      {clients.map((client) => (
+                        <CommandItem
+                          key={client.id}
+                          value={`${client.name} ${client.email} ${client.company || ''}`}
+                          onSelect={() => {
+                            setSelectedClientId(client.id);
+                            updateField('client', {
+                              id: client.id,
+                              name: client.name,
+                              email: client.email,
+                              company: client.company,
+                            });
+                            setClientSearchOpen(false);
+                          }}
+                        >
+                          <div className="flex flex-col">
+                            <span className="font-medium">{client.name}</span>
+                            {client.email && (
+                              <span className="text-[10px] text-muted-foreground">{client.email}</span>
+                            )}
+                          </div>
+                          {selectedClientId === client.id && (
+                            <Check className="ml-auto h-4 w-4" />
                           )}
-                        </div>
-                      </SelectItem>
-                    ))
-                  ) : (
-                    <div className="px-2 py-1.5 text-xs text-muted-foreground text-center">
-                      {clientSearchQuery ? 'No clients found' : 'No clients available'}
-                    </div>
-                  )}
-                </div>
-              </SelectContent>
-            </Select>
-            {editedShoot.client?.name || shoot.client?.name ? (
-              <div className="space-y-0.5 text-xs pt-1">
-                <div className="font-medium">{editedShoot.client?.name || shoot.client?.name}</div>
-                {(editedShoot.client?.company || shoot.client?.company) && (
-                  <div className="text-muted-foreground">{editedShoot.client?.company || shoot.client?.company}</div>
-                )}
-                {(editedShoot.client?.email || shoot.client?.email) && (
-                  <a href={`mailto:${editedShoot.client?.email || shoot.client?.email}`} className="text-primary hover:underline block truncate">
-                    {editedShoot.client?.email || shoot.client?.email}
-                  </a>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          ) : (
+            <div className="flex items-start justify-between">
+              <div className="space-y-1 text-xs">
+                <div className="font-medium">{shoot.client?.name || 'Unknown'}</div>
+                {shoot.client?.email && (
+                  <div className="text-muted-foreground truncate">{shoot.client.email}</div>
                 )}
               </div>
-            ) : null}
-          </div>
-        ) : (
-          <div className="space-y-0.5 text-xs">
-            <div className="font-medium">{shoot.client?.name}</div>
-            {shoot.client?.company && (
-              <div className="text-muted-foreground">{shoot.client.company}</div>
-            )}
-            {shoot.client?.email && (
-              <a href={`mailto:${shoot.client.email}`} className="text-primary hover:underline block truncate">
-                {shoot.client.email}
-              </a>
-            )}
-            {shoot.client?.phone && (
-              <a href={`tel:${shoot.client.phone}`} className="text-primary hover:underline block">
-                {shoot.client.phone}
-              </a>
-            )}
-          </div>
-        )}
-      </div>
+              {/* Sales Rep - right aligned, from client's account */}
+              {isAdmin && (
+                <div className="text-xs text-right">
+                  <div className="text-[10px] text-muted-foreground uppercase mb-0.5">Rep</div>
+                  {(shoot.client as any)?.rep ? (
+                    <div className="font-medium">{(shoot.client as any).rep.name}</div>
+                  ) : (
+                    <div className="text-muted-foreground">No rep</div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       )}
-      
+
+      {/* Photographer Card */}
+      {(shoot.photographer || isEditMode) && (
+        <div className="p-2.5 border rounded-lg bg-card">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <CameraIcon className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-[11px] font-semibold text-muted-foreground uppercase">Photographer</span>
+          </div>
+          {isEditMode ? (
+            <Popover open={photographerSearchOpen} onOpenChange={setPhotographerSearchOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={photographerSearchOpen}
+                  className="w-full justify-between h-8 text-xs font-normal"
+                >
+                  {selectedPhotographerIdEdit
+                    ? editPhotographers.find((p) => p.id === selectedPhotographerIdEdit)?.name || 'Select photographer...'
+                    : 'Select photographer...'}
+                  <ArrowUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent 
+                className="w-[var(--radix-popover-trigger-width)] max-w-[300px] p-0 shadow-lg z-50 max-h-[250px]" 
+                align="start" 
+                sideOffset={4}
+                side="bottom"
+              >
+                <Command className="rounded-lg flex flex-col" shouldFilter={true}>
+                  <CommandInput placeholder="Search photographers..." className="h-9 flex-shrink-0 border-b" />
+                  <CommandList className="max-h-[200px] overflow-y-auto overflow-x-hidden">
+                    <CommandEmpty>
+                      {editPhotographers.length === 0 ? 'Loading photographers...' : 'No photographer found.'}
+                    </CommandEmpty>
+                    <CommandGroup>
+                      {editPhotographers.length > 0 ? editPhotographers.map((photographer) => (
+                        <CommandItem
+                          key={photographer.id}
+                          value={`${photographer.name} ${photographer.email}`}
+                          onSelect={() => {
+                            // Ensure photographer ID is properly set
+                            const photographerId = photographer.id;
+                            console.log('📸 Selecting photographer:', { id: photographerId, name: photographer.name });
+                            setSelectedPhotographerIdEdit(photographerId);
+                            updateField('photographer', {
+                              id: photographerId, // Keep as string for now, will convert to number in handleSave
+                              name: photographer.name,
+                              email: photographer.email,
+                            });
+                            setPhotographerSearchOpen(false);
+                          }}
+                        >
+                          <div className="flex flex-col">
+                            <span className="font-medium">{photographer.name}</span>
+                            {photographer.email && (
+                              <span className="text-[10px] text-muted-foreground">{photographer.email}</span>
+                            )}
+                          </div>
+                          {selectedPhotographerIdEdit === photographer.id && (
+                            <Check className="ml-auto h-4 w-4" />
+                          )}
+                        </CommandItem>
+                      )) : null}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          ) : (
+            <div className="space-y-1 text-xs">
+              <div className="font-medium">{shoot.photographer?.name || 'Not assigned'}</div>
+              {shoot.photographer?.email && (
+                <div className="text-muted-foreground truncate">{shoot.photographer.email}</div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Property Access Card - Lockbox or Access Contact Info */}
       <div className="p-2.5 border rounded-lg bg-card">
         <div className="flex items-center gap-1.5 mb-1.5">
@@ -1282,78 +2074,6 @@ export function ShootDetailsOverviewTab({
         )}
       </div>
 
-      {/* Photographer Card - Hide from editors */}
-      {!isEditor && (
-        <div className="p-2.5 border rounded-lg bg-card">
-          <div className="flex items-center gap-1.5 mb-1.5">
-            <CameraIcon className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-[11px] font-semibold text-muted-foreground uppercase">Photographer</span>
-          </div>
-        {isEditMode ? (
-          <div className="space-y-1.5">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs px-3 font-medium w-full"
-              onClick={() => setAssignPhotographerOpen(true)}
-            >
-              <UserPlus className="h-3.5 w-3.5 mr-1.5" />
-              {editedShoot.photographer?.name || shoot.photographer?.name || 'Assign Photographer'}
-            </Button>
-            {(editedShoot.photographer?.name || shoot.photographer?.name) && (
-              <div className="text-xs">
-                <div className="font-medium">{editedShoot.photographer?.name || shoot.photographer?.name}</div>
-                {(editedShoot.photographer as any)?.email && (
-                  <a href={`mailto:${(editedShoot.photographer as any).email}`} className="text-primary hover:underline block truncate text-[10px]">
-                    {(editedShoot.photographer as any).email}
-                  </a>
-                )}
-              </div>
-            )}
-          </div>
-        ) : (
-          <>
-            {shoot.photographer ? (
-              <div className="space-y-0.5 text-xs">
-                <div className="font-medium">{shoot.photographer.name}</div>
-                {(shoot.photographer as any)?.email && (
-                  <a 
-                    href={`mailto:${(shoot.photographer as any).email}`}
-                    className="text-primary hover:underline block truncate"
-                  >
-                    {(shoot.photographer as any).email}
-                  </a>
-                )}
-                {(shoot.photographer as any)?.phone && (
-                  <a 
-                    href={`tel:${(shoot.photographer as any).phone}`}
-                    className="text-primary hover:underline block"
-                  >
-                    {(shoot.photographer as any).phone}
-                  </a>
-                )}
-              </div>
-            ) : (
-              <div className="flex items-center justify-between">
-                <div className="text-xs text-muted-foreground">Not assigned</div>
-                {isAdminOrRep && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-xs px-3 font-medium"
-                    onClick={() => setAssignPhotographerOpen(true)}
-                  >
-                    <UserPlus className="h-3.5 w-3.5 mr-1.5" />
-                    Assign
-                  </Button>
-                )}
-              </div>
-            )}
-          </>
-        )}
-      </div>
-      )}
-
       {/* Completion Info Card - Only show if completed */}
       {shoot.completedDate && (
         <div className="p-2.5 border rounded-lg bg-card">
@@ -1369,85 +2089,11 @@ export function ShootDetailsOverviewTab({
 
       {/* Media Links Card - Editor only */}
       {isEditor && (
-        <div className="p-2.5 border rounded-lg bg-card">
-          <div className="flex items-center gap-1.5 mb-1.5">
-            <Link2 className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-[11px] font-semibold text-muted-foreground uppercase">Media Links</span>
-          </div>
-          <div className="space-y-1.5 text-xs">
-            {/* Dropbox Links */}
-            {(shoot as any).dropbox_raw_folder && (
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">RAW Photos:</span>
-                <a 
-                  href={(shoot as any).dropbox_raw_folder} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-primary hover:underline flex items-center gap-1"
-                >
-                  <span>Open Dropbox</span>
-                  <Link2 className="h-3 w-3" />
-                </a>
-              </div>
-            )}
-            {(shoot as any).dropbox_edited_folder && (
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Edited Photos:</span>
-                <a 
-                  href={(shoot as any).dropbox_edited_folder} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-primary hover:underline flex items-center gap-1"
-                >
-                  <span>Open Dropbox</span>
-                  <Link2 className="h-3 w-3" />
-                </a>
-              </div>
-            )}
-            {/* Custom Media Links */}
-            {(shoot as any).media_links && Array.isArray((shoot as any).media_links) && (shoot as any).media_links.length > 0 && (
-              <div className="space-y-1 pt-1 border-t">
-                <span className="text-muted-foreground block mb-1">Custom Links:</span>
-                {(shoot as any).media_links.map((link: any, index: number) => (
-                  <div key={index} className="flex justify-between items-center">
-                    <span className="text-muted-foreground truncate flex-1 mr-2">{link.label || 'Media Link'}</span>
-                    <a 
-                      href={link.url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline flex items-center gap-1 whitespace-nowrap"
-                    >
-                      <span>Open</span>
-                      <Link2 className="h-3 w-3" />
-                    </a>
-                  </div>
-                ))}
-              </div>
-            )}
-            {/* Add Media Link Button */}
-            {isEditMode && (
-              <div className="pt-1 border-t">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-6 text-xs px-2 w-full"
-                  onClick={() => {
-                    toast({
-                      title: 'Add Media Link',
-                      description: 'Media link management would be implemented here',
-                    });
-                  }}
-                >
-                  <Link2 className="h-3 w-3 mr-1" />
-                  Add Media Link
-                </Button>
-              </div>
-            )}
-          </div>
-        </div>
+        <MediaLinksSection shoot={shoot} isEditor={isEditor} onShootUpdate={onShootUpdate} />
       )}
 
-      {/* Payment Summary Card */}
+      {/* Payment Summary Card - Hidden from photographers and editors */}
+      {!isPhotographer && !isEditor && (
       <div className="p-2.5 border rounded-lg bg-card">
         <span className="text-[11px] font-semibold text-muted-foreground uppercase mb-1.5 block">Payment</span>
         {isEditMode && isAdmin ? (
@@ -1545,6 +2191,7 @@ export function ShootDetailsOverviewTab({
           </div>
         )}
       </div>
+      )}
 
       {/* Assign Photographer Dialog - Matching Book Shoot selector */}
       <Dialog open={assignPhotographerOpen} onOpenChange={(open) => {

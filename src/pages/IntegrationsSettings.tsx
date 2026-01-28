@@ -15,7 +15,7 @@ import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { apiClient } from '@/services/api';
 import API_ROUTES from '@/lib/api';
-import { Loader2, CheckCircle2, XCircle, Home, Upload, Layers, Settings2 } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, Home, Upload, Layers, Settings2, Building2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import axios from 'axios';
 import { API_BASE_URL } from '@/config/env';
@@ -69,6 +69,25 @@ export const IntegrationsSettingsContent = () => {
   const [testingDropbox, setTestingDropbox] = useState(false);
   const [dropboxTestResult, setDropboxTestResult] = useState<any>(null);
 
+  // MMM Settings
+  const [mmmSettings, setMmmSettings] = useState({
+    enabled: true,
+    duns: '',
+    sharedSecret: '',
+    userAgent: 'REPro Photos',
+    punchoutUrl: '',
+    templateExternalNumber: '',
+    deploymentMode: 'test',
+    startPoint: 'Category',
+    toIdentity: '',
+    senderIdentity: '',
+    urlReturn: '',
+    returnRedirectUrl: '',
+    timeout: 20,
+  });
+  const [testingMmm, setTestingMmm] = useState(false);
+  const [mmmTestResult, setMmmTestResult] = useState<any>(null);
+
   const [saving, setSaving] = useState(false);
 
   // Load settings on mount
@@ -80,11 +99,12 @@ export const IntegrationsSettingsContent = () => {
     try {
       // Try to load from database settings first
       try {
-        const [zillowRes, brightMlsRes, iguideRes, dropboxRes] = await Promise.all([
+        const [zillowRes, brightMlsRes, iguideRes, dropboxRes, mmmRes] = await Promise.all([
           apiClient.get(API_ROUTES.admin.settings.get('integrations.zillow')).catch(() => null),
           apiClient.get(API_ROUTES.admin.settings.get('integrations.bright_mls')).catch(() => null),
           apiClient.get(API_ROUTES.admin.settings.get('integrations.iguide')).catch(() => null),
           apiClient.get(API_ROUTES.admin.settings.get('integrations.dropbox')).catch(() => null),
+          apiClient.get(API_ROUTES.admin.settings.get('integrations.mmm')).catch(() => null),
         ]);
 
         if (zillowRes?.data?.success && zillowRes.data.data?.value) {
@@ -101,6 +121,14 @@ export const IntegrationsSettingsContent = () => {
 
         if (dropboxRes?.data?.success && dropboxRes.data.data?.value) {
           setDropboxSettings({ ...dropboxRes.data.data.value, enabled: dropboxRes.data.data.value.enabled ?? false });
+        }
+
+        if (mmmRes?.data?.success && mmmRes.data.data?.value) {
+          setMmmSettings({
+            ...mmmSettings,
+            ...mmmRes.data.data.value,
+            enabled: mmmRes.data.data.value.enabled ?? true,
+          });
         }
       } catch (err) {
         console.warn('Could not load settings from database, using defaults');
@@ -135,6 +163,24 @@ export const IntegrationsSettingsContent = () => {
           apiPassword: '',
           apiKey: '',
           enabled: true,
+        });
+      }
+
+      if (!mmmSettings.duns && !mmmSettings.sharedSecret && !mmmSettings.punchoutUrl) {
+        setMmmSettings({
+          enabled: true,
+          duns: '',
+          sharedSecret: '',
+          userAgent: 'REPro Photos',
+          punchoutUrl: '',
+          templateExternalNumber: '',
+          deploymentMode: 'test',
+          startPoint: 'Category',
+          toIdentity: '',
+          senderIdentity: '',
+          urlReturn: '',
+          returnRedirectUrl: '',
+          timeout: 20,
         });
       }
     } catch (error) {
@@ -175,6 +221,14 @@ export const IntegrationsSettingsContent = () => {
         value: dropboxSettings,
         type: 'json',
         description: 'Dropbox storage integration',
+      });
+
+      // Save MMM settings
+      await apiClient.post(API_ROUTES.admin.settings.store, {
+        key: 'integrations.mmm',
+        value: mmmSettings,
+        type: 'json',
+        description: 'MyMarketingMatters (MMM) punchout integration',
       });
 
       toast({
@@ -264,10 +318,28 @@ export const IntegrationsSettingsContent = () => {
     }
   };
 
+  const testMmmConnection = async () => {
+    setTestingMmm(true);
+    setMmmTestResult(null);
+    try {
+      const response = await apiClient.post(API_ROUTES.integrations.testConnection, {
+        service: 'mmm',
+      });
+      setMmmTestResult(response.data);
+    } catch (error: any) {
+      setMmmTestResult({
+        success: false,
+        message: error.response?.data?.message || 'Connection test failed',
+      });
+    } finally {
+      setTestingMmm(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Tabs defaultValue="zillow" className="w-full">
-            <TabsList className="grid w-full max-w-3xl grid-cols-4">
+            <TabsList className="grid w-full max-w-4xl grid-cols-5">
               <TabsTrigger value="dropbox">
                 <Upload className="mr-2 h-4 w-4" />
                 Dropbox
@@ -283,6 +355,10 @@ export const IntegrationsSettingsContent = () => {
               <TabsTrigger value="iguide">
                 <Settings2 className="mr-2 h-4 w-4" />
                 iGUIDE
+              </TabsTrigger>
+              <TabsTrigger value="mmm">
+                <Building2 className="mr-2 h-4 w-4" />
+                MMM
               </TabsTrigger>
             </TabsList>
 
@@ -821,6 +897,227 @@ export const IntegrationsSettingsContent = () => {
                       )}
                       <p className="text-sm">
                         {iguideTestResult.message || iguideTestResult.data?.message}
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* MMM Settings */}
+            <TabsContent value="mmm" className="mt-6">
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>MyMarketingMatters (MMM)</CardTitle>
+                      <CardDescription>
+                        Configure punchout SSO credentials and defaults
+                      </CardDescription>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="mmm-enabled">Enabled</Label>
+                      <Switch
+                        id="mmm-enabled"
+                        checked={mmmSettings.enabled}
+                        onCheckedChange={(checked) =>
+                          setMmmSettings({ ...mmmSettings, enabled: checked })
+                        }
+                      />
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="mmm-duns">DUNS</Label>
+                      <Input
+                        id="mmm-duns"
+                        type="text"
+                        value={mmmSettings.duns}
+                        onChange={(e) =>
+                          setMmmSettings({ ...mmmSettings, duns: e.target.value })
+                        }
+                        placeholder="Enter DUNS"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="mmm-shared-secret">Shared Secret</Label>
+                      <Input
+                        id="mmm-shared-secret"
+                        type="password"
+                        value={mmmSettings.sharedSecret}
+                        onChange={(e) =>
+                          setMmmSettings({ ...mmmSettings, sharedSecret: e.target.value })
+                        }
+                        placeholder="Enter shared secret"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="mmm-user-agent">User Agent</Label>
+                      <Input
+                        id="mmm-user-agent"
+                        type="text"
+                        value={mmmSettings.userAgent}
+                        onChange={(e) =>
+                          setMmmSettings({ ...mmmSettings, userAgent: e.target.value })
+                        }
+                        placeholder="REPro Photos"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="mmm-punchout-url">Punchout URL</Label>
+                      <Input
+                        id="mmm-punchout-url"
+                        type="text"
+                        value={mmmSettings.punchoutUrl}
+                        onChange={(e) =>
+                          setMmmSettings({ ...mmmSettings, punchoutUrl: e.target.value })
+                        }
+                        placeholder="https://..."
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="mmm-template">Template External Number</Label>
+                      <Input
+                        id="mmm-template"
+                        type="text"
+                        value={mmmSettings.templateExternalNumber}
+                        onChange={(e) =>
+                          setMmmSettings({ ...mmmSettings, templateExternalNumber: e.target.value })
+                        }
+                        placeholder="Template External Number"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="mmm-deployment">Deployment Mode</Label>
+                      <select
+                        id="mmm-deployment"
+                        value={mmmSettings.deploymentMode}
+                        onChange={(e) =>
+                          setMmmSettings({ ...mmmSettings, deploymentMode: e.target.value })
+                        }
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                      >
+                        <option value="test">Test</option>
+                        <option value="production">Production</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="mmm-start-point">Start Point</Label>
+                      <Input
+                        id="mmm-start-point"
+                        type="text"
+                        value={mmmSettings.startPoint}
+                        onChange={(e) =>
+                          setMmmSettings({ ...mmmSettings, startPoint: e.target.value })
+                        }
+                        placeholder="Category"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="mmm-timeout">Timeout (seconds)</Label>
+                      <Input
+                        id="mmm-timeout"
+                        type="number"
+                        min={1}
+                        value={mmmSettings.timeout}
+                        onChange={(e) =>
+                          setMmmSettings({ ...mmmSettings, timeout: Number(e.target.value) })
+                        }
+                        placeholder="20"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="mmm-to-identity">To Identity</Label>
+                      <Input
+                        id="mmm-to-identity"
+                        type="text"
+                        value={mmmSettings.toIdentity}
+                        onChange={(e) =>
+                          setMmmSettings({ ...mmmSettings, toIdentity: e.target.value })
+                        }
+                        placeholder="To Identity"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="mmm-sender-identity">Sender Identity</Label>
+                      <Input
+                        id="mmm-sender-identity"
+                        type="text"
+                        value={mmmSettings.senderIdentity}
+                        onChange={(e) =>
+                          setMmmSettings({ ...mmmSettings, senderIdentity: e.target.value })
+                        }
+                        placeholder="Sender Identity"
+                      />
+                    </div>
+                    <div className="space-y-2 col-span-2">
+                      <Label htmlFor="mmm-url-return">URL Return</Label>
+                      <Input
+                        id="mmm-url-return"
+                        type="text"
+                        value={mmmSettings.urlReturn}
+                        onChange={(e) =>
+                          setMmmSettings({ ...mmmSettings, urlReturn: e.target.value })
+                        }
+                        placeholder="https://.../api/integrations/mmm/return"
+                      />
+                    </div>
+                    <div className="space-y-2 col-span-2">
+                      <Label htmlFor="mmm-return-redirect">Return Redirect URL</Label>
+                      <Input
+                        id="mmm-return-redirect"
+                        type="text"
+                        value={mmmSettings.returnRedirectUrl}
+                        onChange={(e) =>
+                          setMmmSettings({ ...mmmSettings, returnRedirectUrl: e.target.value })
+                        }
+                        placeholder="https://..."
+                      />
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium">Test Connection</p>
+                      <p className="text-xs text-muted-foreground">
+                        Validate MMM configuration
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      onClick={testMmmConnection}
+                      disabled={testingMmm || !mmmSettings.enabled}
+                    >
+                      {testingMmm ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Testing...
+                        </>
+                      ) : (
+                        'Test Connection'
+                      )}
+                    </Button>
+                  </div>
+
+                  {mmmTestResult && (
+                    <div
+                      className={`flex items-center gap-2 p-3 rounded-md ${
+                        mmmTestResult.success
+                          ? 'bg-green-50 text-green-900'
+                          : 'bg-red-50 text-red-900'
+                      }`}
+                    >
+                      {mmmTestResult.success ? (
+                        <CheckCircle2 className="h-4 w-4" />
+                      ) : (
+                        <XCircle className="h-4 w-4" />
+                      )}
+                      <p className="text-sm">
+                        {mmmTestResult.message || mmmTestResult.data?.message}
                       </p>
                     </div>
                   )}

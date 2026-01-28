@@ -14,7 +14,6 @@ import {
   BuildingIcon,
   CalendarIcon,
   BarChart3Icon,
-  TicketIcon,
   Settings2Icon,
   MapPinIcon,
   TestTubeIcon,
@@ -89,13 +88,6 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
             isActive={pathname === '/accounts'}
           />
           <NavLink
-            to="/coupons"
-            icon={<TicketIcon className="h-5 w-5" />}
-            label="Coupons"
-            isCollapsed={isCollapsed}
-            isActive={pathname === '/coupons'}
-          />
-          <NavLink
             to="/scheduling-settings"
             icon={<Settings2Icon className="h-5 w-5" />}
             label="Scheduling"
@@ -105,14 +97,14 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
         </>
       )}
 
-      {/* Private Listing Portal - admin only */}
-      {(role === 'admin' || role === 'superadmin') && (
+      {/* Exclusive Listings */}
+      {(role === 'admin' || role === 'superadmin' || role === 'salesRep' || role === 'client' || role === 'sales_rep') && (
         <NavLink
           to="/portal"
           icon={<Search className="h-5 w-5" />}
-          label="Listing Portal"
+          label="Exclusive Listings"
           isCollapsed={isCollapsed}
-          isActive={pathname === '/portal'}
+          isActive={pathname === '/portal' || pathname.startsWith('/exclusive-listings')}
         />
       )}
       

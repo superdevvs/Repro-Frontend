@@ -85,6 +85,15 @@ interface MediaFile {
   created_at?: string;
   bracketGroup?: number;
   isEdited?: boolean;
+  // Processed paths
+  thumbnail_path?: string;
+  web_path?: string;
+  placeholder_path?: string;
+  // Watermarked paths
+  watermarked_storage_path?: string;
+  watermarked_thumbnail_path?: string;
+  watermarked_web_path?: string;
+  watermarked_placeholder_path?: string;
 }
 
 const AiEditing = () => {
@@ -167,6 +176,12 @@ const AiEditing = () => {
   const getImageUrl = useCallback((file: MediaFile, size: 'thumb' | 'medium' | 'large' | 'original' = 'medium'): string => {
     const baseUrl = API_BASE_URL;
     
+    const resolveUrl = (value: string): string => {
+      if (/^https?:\/\//i.test(value)) return value;
+      if (value.startsWith('/')) return `${baseUrl}${value}`;
+      return `${baseUrl}/${value}`;
+    };
+    
     // Try size-specific URL first
     const sizeMap: Record<string, keyof MediaFile> = {
       thumb: 'thumb_url',
@@ -179,23 +194,40 @@ const AiEditing = () => {
     const sizeUrl = file[sizeKey as keyof MediaFile] as string | undefined;
     
     if (sizeUrl) {
-      if (/^https?:\/\//i.test(sizeUrl)) return sizeUrl;
-      if (sizeUrl.startsWith('/')) return `${baseUrl}${sizeUrl}`;
-      return `${baseUrl}/${sizeUrl}`;
+      return resolveUrl(sizeUrl);
+    }
+    
+    // Avoid loading originals for thumbnails/medium previews
+    if (size === 'thumb') {
+      // Use placeholder if available, otherwise return empty
+      if (file.placeholder_path) return resolveUrl(file.placeholder_path);
+      return '';
+    }
+    
+    if (size === 'medium') {
+      // Use thumb if available, otherwise return empty
+      if (file.thumb_url) return resolveUrl(file.thumb_url);
+      return '';
+    }
+    
+    if (size === 'large' && file.medium_url) {
+      return resolveUrl(file.medium_url);
+    }
+    
+    // Only allow original fallback for large/original sizes
+    const allowOriginalFallback = size === 'large' || size === 'original';
+    if (!allowOriginalFallback) {
+      return '';
     }
     
     // Fallback to original
     if (file.original_url) {
-      if (/^https?:\/\//i.test(file.original_url)) return file.original_url;
-      if (file.original_url.startsWith('/')) return `${baseUrl}${file.original_url}`;
-      return `${baseUrl}/${file.original_url}`;
+      return resolveUrl(file.original_url);
     }
     
     // Final fallback
     if (file.url) {
-      if (/^https?:\/\//i.test(file.url)) return file.url;
-      if (file.url.startsWith('/')) return `${baseUrl}${file.url}`;
-      return `${baseUrl}/${file.url}`;
+      return resolveUrl(file.url);
     }
     
     if (file.path) {

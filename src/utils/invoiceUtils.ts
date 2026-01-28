@@ -14,6 +14,33 @@ export interface InvoiceData {
   status: 'paid' | 'pending' | 'overdue';
   services: string[];
   paymentMethod: string;
+
+  // Optional fields filled when data comes from the backend
+  invoiceNumber?: string;
+  client_id?: number;
+  photographer?: string;
+  photographer_id?: number;
+  salesRep?: string;
+  sales_rep_id?: number;
+  amountPaid?: number;
+  balance?: number;
+  issueDate?: string;
+  billingPeriodStart?: string;
+  billingPeriodEnd?: string;
+  createdAt?: string;
+  paidAt?: string;
+  shootsCount?: number;
+  shoot_id?: number;
+  shoot?: any;
+  items?: Array<{
+    id?: number | string;
+    description?: string;
+    quantity?: number;
+    unit_amount?: number;
+    total_amount?: number;
+    [key: string]: any;
+  }>;
+  notes?: string;
 }
 
 export const generateInvoicePDF = (invoice: InvoiceData): void => {

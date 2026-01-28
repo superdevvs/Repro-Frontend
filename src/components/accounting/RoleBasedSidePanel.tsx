@@ -262,10 +262,7 @@ function PhotographerSidePanel({ shoots, user }: { shoots: any[]; user: any }) {
     return status === 'pending' || status === 'unpaid';
   }).length;
 
-  const inReview = myShoots.filter((s: any) => {
-    const status = s.workflow_status || s.workflowStatus;
-    return status === 'pending_review' || status === 'review';
-  }).length;
+  const inReview = 0; // Review status removed
 
   const upcomingShoots = myShoots
     .filter((s: any) => {

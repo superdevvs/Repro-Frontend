@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -95,6 +96,39 @@ body {
     --sidebar-border: 210 40% 16%;
     --sidebar-ring: 210 100% 50%;
   }
+  /* MapLibre GL Popup Styling - Theme Aware */
+  .maplibregl-popup-content {
+    @apply bg-card border border-border rounded-md shadow-lg p-0;
+    @apply dark:bg-card dark:border-border;
+  }
+  
+  .maplibregl-popup-tip {
+    @apply border-t-card;
+    @apply dark:border-t-card;
+  }
+  
+  .maplibregl-popup-close-button {
+    @apply text-foreground hover:text-destructive;
+    @apply dark:text-foreground dark:hover:text-destructive;
+    font-size: 18px;
+    padding: 4px 8px;
+  }
+  
+  /* Map Controls Styling */
+  .maplibregl-ctrl {
+    @apply bg-background/80 backdrop-blur-sm border border-border;
+    @apply dark:bg-background/80 dark:border-border;
+  }
+  
+  .maplibregl-ctrl button {
+    @apply text-foreground;
+    @apply dark:text-foreground;
+  }
+  
+  .maplibregl-ctrl button:hover {
+    @apply bg-accent text-accent-foreground;
+    @apply dark:bg-accent dark:text-accent-foreground;
+  }
 }
 
 @layer base {
@@ -115,6 +149,10 @@ body {
 
   body {
     @apply bg-background text-foreground font-sans antialiased overflow-hidden;
+  }
+
+  .font-display {
+    font-family: 'Playfair Display', serif;
   }
 
   /* Custom Scrollbar Styling - Theme-aware and 50% width */
@@ -452,8 +490,38 @@ body {
 /* Ensure TabsContent displays correctly when active */
 [data-radix-tabs-content][data-state="active"] {
   display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  justify-content: flex-start !important;
+}
+
+/* Media tab needs full height for proper layout with upload buttons */
+[data-radix-tabs-content][data-state="active"][id*="content-media"] {
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  overflow: hidden !important;
+}
+
+/* Other tabs should not expand - use natural height and allow scrolling */
+[data-radix-tabs-content][data-state="active"]:not([id*="content-media"]) {
+  flex: 0 1 auto !important;
+  height: auto !important;
+  min-height: auto !important;
+  max-height: 100% !important;
+  overflow-y: auto !important;
 }
 
 [data-radix-tabs-content][data-state="inactive"] {
   display: none;
+}
+
+/* Hidden scrollbar for upcoming shoots */
+.hidden-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.hidden-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

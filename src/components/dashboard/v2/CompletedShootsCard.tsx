@@ -9,6 +9,8 @@ interface CompletedShootsCardProps {
   subtitle?: string;
   emptyStateText?: string;
   ctaLabel?: string;
+  onSelect?: (shoot: DashboardShootSummary) => void;
+  onViewInvoice?: (shoot: DashboardShootSummary) => void;
 }
 
 const COMPLETED_SHOOT_IMAGE_COUNT = 10;
@@ -109,12 +111,16 @@ const Slideshow: React.FC<SlideshowProps> = ({ images, shootId, addressLine, cli
 };
 
 export const CompletedShootsCard: React.FC<CompletedShootsCardProps> = ({
-  shoots,
-  title = 'Completed shoots',
-  subtitle = 'Latest deliveries from editors',
-  emptyStateText = 'No completed shoots yet today.',
-  ctaLabel = 'View all completed shoots',
+  shoots = [],
+  title = 'Delivered shoots',
+  subtitle = 'Latest deliveries',
+  emptyStateText = 'No delivered shoots yet.',
+  ctaLabel = 'View all delivered shoots',
+  onSelect,
+  onViewInvoice,
 }) => {
+  const safeShoots = Array.isArray(shoots) ? shoots : [];
+  
   return (
     <Card className="flex flex-col h-full">
       <div className="flex items-center justify-between mb-3 sm:mb-4">
@@ -122,21 +128,23 @@ export const CompletedShootsCard: React.FC<CompletedShootsCardProps> = ({
           <h2 className="text-base sm:text-lg font-bold text-foreground">{title}</h2>
           <p className="text-[10px] sm:text-xs text-muted-foreground">{subtitle}</p>
         </div>
-        <span className="text-[10px] sm:text-xs text-muted-foreground">{shoots.length} ready</span>
+        <span className="text-[10px] sm:text-xs text-muted-foreground">{safeShoots.length} ready</span>
       </div>
-      {shoots.length === 0 ? (
+      {safeShoots.length === 0 ? (
         <div className="flex-1 flex items-center justify-center text-center text-sm text-muted-foreground">
           {emptyStateText}
         </div>
       ) : (
         <div className="space-y-3 flex-1 overflow-y-auto custom-scrollbar pr-1">
-          {shoots.slice(0, 2).map((shoot, index) => {
+          {safeShoots.slice(0, 3).map((shoot, index) => {
             const images = getShootImages(shoot, index);
             return (
               <div
                 key={shoot.id}
-                className="rounded-3xl border border-border/60 overflow-hidden hover:border-primary/40 transition-colors bg-card"
+                className="rounded-3xl border border-border/60 overflow-hidden hover:border-primary/40 transition-colors bg-card group relative cursor-pointer"
+                onClick={() => onSelect?.(shoot)}
               >
+                  {/* Invoice available in shoot details modal */}
                 <Slideshow
                   images={images}
                   shootId={shoot.id}

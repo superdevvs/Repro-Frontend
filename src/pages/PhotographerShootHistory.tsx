@@ -19,6 +19,7 @@ import { motion } from 'framer-motion';
 import { Input } from '@/components/ui/input';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ShootCard } from '@/components/dashboard/ShootCard';
+import { withErrorBoundary } from '@/components/ui/ErrorBoundary';
 
 const statusColors = {
   scheduled: 'bg-blue-500',
@@ -59,9 +60,9 @@ const PhotographerShootHistory = () => {
   const scheduledShoots = photographerShoots.filter(shoot =>
     ['scheduled', 'booked'].includes(shoot.status)
   );
-  // Completed tab: photographer completed + editing/review
+  // Completed tab: photographer completed + editing
   const completedShoots = photographerShoots.filter(shoot =>
-    ['uploaded', 'editing', 'review'].includes(shoot.status)
+    ['uploaded', 'editing'].includes(shoot.status)
   );
   // Delivered tab: final delivered/ready-for-client equivalents
   const deliveredShoots = photographerShoots.filter(shoot =>
@@ -346,4 +347,6 @@ const PhotographerShootHistory = () => {
   );
 };
 
-export default PhotographerShootHistory;
+const PhotographerShootHistoryWithBoundary = withErrorBoundary(PhotographerShootHistory);
+
+export default PhotographerShootHistoryWithBoundary;

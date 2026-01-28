@@ -152,6 +152,10 @@ const STATE_ABBREV_TO_NAME: Record<string, string> = {
   'DC': 'District of Columbia',
 };
 
+export const STATE_OPTIONS = Object.entries(STATE_ABBREV_TO_NAME)
+  .map(([value, label]) => ({ value, label }))
+  .sort((a, b) => a.label.localeCompare(b.label));
+
 /**
  * Converts a state abbreviation to its full name for display purposes.
  * - 2-letter abbreviations (like "MD", "CA") are converted to full names (like "Maryland", "California")

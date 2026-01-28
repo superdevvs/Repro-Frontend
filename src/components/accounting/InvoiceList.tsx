@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { 
   Calendar as CalendarIcon,
 } from 'lucide-react';
@@ -13,13 +13,21 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
 import { InvoiceViewDialog } from '@/components/invoices/InvoiceViewDialog';
 import { InvoiceData } from '@/utils/invoiceUtils';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
 
 interface InvoiceListProps {
   data: {
@@ -51,10 +59,35 @@ export function InvoiceList({
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceData | null>(null);
   const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'paid' | 'overdue'>('all');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+  const [currentPage, setCurrentPage] = useState(1);
 
   const filteredInvoices = activeTab === 'all' 
     ? data.invoices 
     : data.invoices.filter(invoice => invoice.status === activeTab);
+
+  const itemsPerPage = viewMode === 'list' ? 15 : 10;
+  const totalPages = Math.max(1, Math.ceil(filteredInvoices.length / itemsPerPage));
+  const safePage = Math.min(currentPage, totalPages);
+  const startIndex = (safePage - 1) * itemsPerPage;
+  const paginatedInvoices = filteredInvoices.slice(startIndex, startIndex + itemsPerPage);
+
+  const { showingFrom, showingTo } = useMemo(() => {
+    if (filteredInvoices.length === 0) {
+      return { showingFrom: 0, showingTo: 0 };
+    }
+    const start = startIndex + 1;
+    const end = Math.min(startIndex + paginatedInvoices.length, filteredInvoices.length);
+    return { showingFrom: start, showingTo: end };
+  }, [filteredInvoices.length, paginatedInvoices.length, startIndex]);
+
+  useEffect(() => {
+    // Reset pagination whenever tab or view mode changes
+    setCurrentPage(1);
+  }, [activeTab, viewMode]);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+  };
 
   const handleViewInvoice = (invoice: InvoiceData) => {
     setSelectedInvoice(invoice);
@@ -155,7 +188,7 @@ export function InvoiceList({
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredInvoices.map((invoice) => (
+                  {paginatedInvoices.map((invoice) => (
                     <tr key={invoice.id} className="border-b hover:bg-muted/30 transition">
                       <td className="py-1 px-2 font-medium text-xs">#{invoice.number}</td>
                       <td className="py-1 px-2 text-xs">{invoice.client}</td>
@@ -212,7 +245,7 @@ export function InvoiceList({
                       </td>
                     </tr>
                   ))}
-                  {filteredInvoices.length === 0 && (
+                  {paginatedInvoices.length === 0 && (
                     <tr>
                       <td colSpan={6} className="py-4 text-center text-muted-foreground text-sm">
                         No invoices found
@@ -223,38 +256,91 @@ export function InvoiceList({
               </table>
             </div>
           ) : (
-            <Tabs value={activeTab}>
-              <TabsContent value={activeTab} className="p-0">
-                <ScrollArea className="h-[calc(100vh-320px)] sm:h-[calc(100vh-280px)]">
-                  <div className="space-y-3 p-3">
-                    {filteredInvoices.map((invoice) => (
-                      <InvoiceItem 
-                        key={invoice.id} 
-                        invoice={invoice}
-                        onView={handleViewInvoice}
-                        onDownload={handleDownloadInvoice}
-                        onSend={handleSendInvoice}
-                        onPrint={handlePrintInvoice}
-                        onEdit={handleEditInvoice}
-                        onDelete={handleDeleteInvoice}
-                        getStatusColor={getStatusColor}
-                        onPay={onPay}
-                        isAdmin={isAdmin}
-                        isSuperAdmin={isSuperAdmin}
-                      />
-                    ))}
-                    {filteredInvoices.length === 0 && (
-                      <div className="py-8 text-center">
-                        <p className="text-muted-foreground text-sm">No invoices found</p>
-                      </div>
-                    )}
-                  </div>
-                </ScrollArea>
-              </TabsContent>
-            </Tabs>
+            <div className="p-4">
+              {paginatedInvoices.length > 0 ? (
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  {paginatedInvoices.map((invoice) => (
+                    <InvoiceGridCard
+                      key={invoice.id}
+                      invoice={invoice}
+                      onView={handleViewInvoice}
+                      onDownload={handleDownloadInvoice}
+                      onSend={handleSendInvoice}
+                      onPrint={handlePrintInvoice}
+                      onEdit={handleEditInvoice}
+                      onDelete={handleDeleteInvoice}
+                      getStatusColor={getStatusColor}
+                      onPay={onPay}
+                      isAdmin={isAdmin}
+                      isSuperAdmin={isSuperAdmin}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="py-8 text-center text-muted-foreground text-sm">
+                  No invoices found
+                </div>
+              )}
+            </div>
           )}
         </div>
       </Card>
+
+      {filteredInvoices.length > 0 && (
+        <div className="mt-4 flex flex-col gap-3 rounded-lg border bg-card px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-muted-foreground text-xs sm:text-sm">
+            Showing {showingFrom}-{showingTo} of {filteredInvoices.length} invoices
+          </p>
+          {totalPages > 1 && (
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    href="#"
+                    className={safePage === 1 ? 'pointer-events-none opacity-40' : ''}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      handlePageChange(safePage - 1);
+                    }}
+                  />
+                </PaginationItem>
+
+                {generatePageNumbers(safePage, totalPages).map((item, index) => (
+                  item === 'ellipsis' ? (
+                    <PaginationItem key={`ellipsis-${index}`}>
+                      <PaginationEllipsis />
+                    </PaginationItem>
+                  ) : (
+                    <PaginationItem key={item}>
+                      <PaginationLink
+                        href="#"
+                        isActive={item === safePage}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          handlePageChange(item as number);
+                        }}
+                      >
+                        {item}
+                      </PaginationLink>
+                    </PaginationItem>
+                  )
+                ))}
+
+                <PaginationItem>
+                  <PaginationNext
+                    href="#"
+                    className={safePage === totalPages ? 'pointer-events-none opacity-40' : ''}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      handlePageChange(safePage + 1);
+                    }}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          )}
+        </div>
+      )}
       
       {selectedInvoice && (
         <InvoiceViewDialog
@@ -267,7 +353,7 @@ export function InvoiceList({
   );
 }
 
-interface InvoiceItemProps {
+interface InvoiceCardProps {
   invoice: InvoiceData;
   onView: (invoice: InvoiceData) => void;
   onDownload: (invoice: InvoiceData) => void;
@@ -277,123 +363,126 @@ interface InvoiceItemProps {
   onDelete: (invoice: InvoiceData) => void;
   getStatusColor: (status: string) => string;
   onPay: (invoice: InvoiceData) => void;
-  isAdmin?: boolean; // Admin role prop
-  isSuperAdmin?: boolean; // Super Admin role prop for payment visibility
+  isAdmin?: boolean;
+  isSuperAdmin?: boolean;
 }
 
-function InvoiceItem({ 
-  invoice, 
-  onView, 
-  onDownload, 
-  onSend, 
-  onPrint, 
-  onEdit, 
-  onDelete, 
-  getStatusColor, 
+function InvoiceGridCard({
+  invoice,
+  onView,
+  onDownload,
+  onSend,
+  onPrint,
+  onEdit,
+  onDelete,
+  getStatusColor,
   onPay,
-  isAdmin = false, // Default to false for safety
-  isSuperAdmin = false, // Default to false for safety
-}: InvoiceItemProps) {
+  isAdmin = false,
+  isSuperAdmin = false,
+}: InvoiceCardProps) {
   const showMarkAsPaid = isSuperAdmin && (invoice.status === 'pending' || invoice.status === 'overdue');
-  
+  const amountFormatted = useMemo(() => {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(invoice.amount || 0);
+  }, [invoice.amount]);
+
+  const formattedIssue = invoice.date ? format(new Date(invoice.date), 'MMM d, yyyy') : '—';
+  const formattedDue = invoice.dueDate ? format(new Date(invoice.dueDate), 'MMM d, yyyy') : '—';
+
   return (
-    <div className="flex flex-col bg-card rounded-lg shadow-sm">
-      <div className="p-3 flex-row justify-between items-center border-b border-border hidden sm:flex">
-        <div className="flex items-center gap-3">
-          <div>
-            <h3 className="font-medium text-sm">Invoice #{invoice.number}</h3>
-            <div className="text-xs text-muted-foreground truncate max-w-xs">{invoice.client}</div>
-          </div>
+    <div className="relative flex h-full flex-col justify-between rounded-2xl border border-border bg-gradient-to-b from-background via-background to-muted/40 p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Invoice</p>
+          <h3 className="text-xl font-semibold text-foreground">#{invoice.number}</h3>
         </div>
-        <div className="flex items-center gap-3 text-xs">
-          <Badge className={getStatusColor(invoice.status)}>{invoice.status}</Badge>
-          <div className="text-right">
-            <div className="font-medium">${invoice.amount}</div>
-            <div className="text-muted-foreground flex items-center gap-1">
-              <CalendarIcon className="h-3 w-3" />
-              <span>{format(new Date(invoice.date), 'MMM d, yyyy')}</span>
-            </div>
-          </div>
-        </div>
+        <Badge className={`${getStatusColor(invoice.status)} capitalize`}>{invoice.status}</Badge>
       </div>
 
-      <div className="p-3 flex-row justify-between items-center border-b border-border flex sm:hidden">
-        <div className="space-y-1">
-          <h3 className="font-medium text-sm">Invoice #{invoice.number}</h3>
-          <div className="text-xs text-muted-foreground truncate max-w-xs">{invoice.client}</div>
-          <div className="flex items-center gap-2 mt-1">
-            <Badge className={getStatusColor(invoice.status)}>{invoice.status}</Badge>
-            <div className="text-xs">${invoice.amount}</div>
-          </div>
+      <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+        <div>
+          <p className="text-xs text-muted-foreground">Client</p>
+          <p className="font-medium text-foreground" title={invoice.client}>{invoice.client}</p>
         </div>
+        <div className="text-right">
+          <p className="text-xs text-muted-foreground">Amount</p>
+          <p className="text-lg font-semibold text-foreground">{amountFormatted}</p>
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground">Issued</p>
+          <p className="font-medium text-foreground flex items-center gap-1">
+            <CalendarIcon className="h-3.5 w-3.5" /> {formattedIssue}
+          </p>
+        </div>
+        <div className="text-right">
+          <p className="text-xs text-muted-foreground">Due</p>
+          <p className={`font-medium ${invoice.status === 'overdue' ? 'text-destructive' : 'text-foreground'}`}>{formattedDue}</p>
+        </div>
+        {invoice.property && (
+          <div className="col-span-2">
+            <p className="text-xs text-muted-foreground">Property</p>
+            <p className="truncate text-sm text-foreground" title={invoice.property}>{invoice.property}</p>
+          </div>
+        )}
       </div>
 
-      <div className="p-3 flex justify-between items-center">
-        <div className="flex flex-wrap gap-2 text-xs">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => onView(invoice)}
-            className="px-3 py-1"
-          >
-            View
+      <div className="mt-4 flex flex-wrap gap-2 text-xs">
+        <Button variant="secondary" size="sm" onClick={() => onView(invoice)}>
+          View
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => onDownload(invoice)}>
+          Download
+        </Button>
+        {showMarkAsPaid && (
+          <Button variant="accent" size="sm" onClick={() => onPay(invoice)}>
+            Mark Paid
           </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => onDownload(invoice)}
-            className="px-3 py-1 hidden sm:inline-block"
-          >
-            Download
+        )}
+        {isAdmin && (
+          <Button variant="outline" size="sm" onClick={() => onEdit(invoice)}>
+            Edit
           </Button>
-          {showMarkAsPaid && (
-            <Button
-              variant="accent"
-              size="sm"
-              onClick={() => onPay(invoice)}
-              className="px-3 py-1"
-            >
-              Mark as Paid
+        )}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" className="px-2">
+              More
+              <span className="sr-only">More invoice actions</span>
             </Button>
-          )}
-        </div>
-
-        <div className="flex flex-wrap gap-2 text-xs">
-          {/* Only show edit button for admins */}
-          {isAdmin && (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => onEdit(invoice)}
-              className="px-3 py-1"
-            >
-              Edit
-            </Button>
-          )}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="px-3 py-1">
-                More
-                <span className="sr-only">More options</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="text-sm">
-              <DropdownMenuLabel>Actions</DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => onView(invoice)}>View</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onDownload(invoice)}>Download</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onPrint(invoice)}>Print</DropdownMenuItem>
-              {isAdmin && (
-                <>
-                  <DropdownMenuItem onClick={() => onSend(invoice)}>Send</DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => onEdit(invoice)}>Edit</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onDelete(invoice)} className="text-red-500">Delete</DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="text-sm">
+            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+            <DropdownMenuItem onClick={() => onView(invoice)}>View</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onDownload(invoice)}>Download</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onPrint(invoice)}>Print</DropdownMenuItem>
+            {isAdmin && (
+              <>
+                <DropdownMenuItem onClick={() => onSend(invoice)}>Send</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => onDelete(invoice)} className="text-red-500">
+                  Delete
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
   );
+}
+
+function generatePageNumbers(current: number, total: number): Array<number | 'ellipsis'> {
+  const pages: Array<number | 'ellipsis'> = [];
+
+  for (let page = 1; page <= total; page++) {
+    if (page === 1 || page === total || (page >= current - 1 && page <= current + 1)) {
+      pages.push(page);
+    } else if (page === 2 && current > 3) {
+      pages.push('ellipsis');
+    } else if (page === total - 1 && current < total - 2) {
+      pages.push('ellipsis');
+    }
+  }
+
+  // Remove consecutive ellipsis duplicates
+  return pages.filter((item, index, arr) => item !== 'ellipsis' || arr[index - 1] !== 'ellipsis');
 }

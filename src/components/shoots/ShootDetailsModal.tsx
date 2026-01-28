@@ -12,16 +12,20 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { X, ExternalLink, CalendarIcon, MapPinIcon, ClockIcon, Send, CheckCircle, DollarSign as DollarSignIcon, ChevronUp, ChevronDown, Edit, Save, XCircle, PauseCircle, PlayCircle, Upload, Download } from "lucide-react";
+import { X, ExternalLink, CalendarIcon, MapPinIcon, ClockIcon, Send, CheckCircle, DollarSign as DollarSignIcon, ChevronUp, ChevronDown, Edit, Save, XCircle, PauseCircle, PlayCircle, Upload, Download, UserIcon, Check, FileText, Loader2, Share2, Link2, Printer } from "lucide-react";
 import { format } from 'date-fns';
 import { ShootData } from '@/types/shoots';
+import { transformShootFromApi } from '@/context/ShootsContext';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { API_BASE_URL } from '@/config/env';
+import { getApiHeaders } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 import { useShoots } from '@/context/ShootsContext';
+import { useShoot } from '@/hooks/useShoot';
 import { getWeatherForLocation, WeatherInfo } from '@/services/weatherService';
 import { subscribeToWeatherProvider } from '@/state/weatherProviderStore';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
+import { mmmService } from '@/services/mmmService';
 
 // Import tab components
 import { ShootDetailsOverviewTab } from './tabs/ShootDetailsOverviewTab';
@@ -32,6 +36,10 @@ import { ShootDetailsSettingsTab } from './tabs/ShootDetailsSettingsTab';
 import { ShootDetailsTourTab } from './tabs/ShootDetailsTourTab';
 import { ShootDetailsQuickActions } from './tabs/ShootDetailsQuickActions';
 import { SquarePaymentDialog } from '@/components/payments/SquarePaymentDialog';
+import { ShootApprovalModal } from './ShootApprovalModal';
+import { ShootDeclineModal } from './ShootDeclineModal';
+import { InvoiceViewDialog } from '@/components/invoices/InvoiceViewDialog';
+import { InvoiceData } from '@/utils/invoiceUtils';
 
 interface ShootDetailsModalProps {
   shootId: string | number;
@@ -40,6 +48,11 @@ interface ShootDetailsModalProps {
   currentRole?: string; // Optional override, defaults to auth role
   onShootUpdate?: () => void; // Callback to refresh shoot list when shoot is updated
   initialWeather?: WeatherInfo | null; // Pre-fetched weather from dashboard to avoid re-fetching
+  onModify?: () => void; // Callback to modify/edit the shoot request
+  photographers?: Array<{ id: string | number; name: string; avatar?: string }>; // For approval modal
+  initialTab?: 'overview' | 'notes' | 'issues' | 'tours' | 'settings';
+  openDownloadDialog?: boolean;
+  shouldHideClientDetails?: boolean;
 }
 
 export function ShootDetailsModal({ 
@@ -48,7 +61,12 @@ export function ShootDetailsModal({
   onClose,
   currentRole,
   onShootUpdate,
-  initialWeather
+  initialWeather,
+  onModify,
+  photographers = [],
+  initialTab = 'overview',
+  openDownloadDialog = false,
+  shouldHideClientDetails: shouldHideClientDetailsProp = false,
 }: ShootDetailsModalProps) {
   const navigate = useNavigate();
   const { role: authRole, user } = useAuth();
@@ -58,7 +76,7 @@ export function ShootDetailsModal({
   
   const [shoot, setShoot] = useState<ShootData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [weather, setWeather] = useState<WeatherInfo | null>(null);
   const [providerVersion, setProviderVersion] = useState(0);
   const [isMediaExpanded, setIsMediaExpanded] = useState(false);
@@ -72,7 +90,16 @@ export function ShootDetailsModal({
   const [isPublishingToBrightMls, setIsPublishingToBrightMls] = useState(false);
   const [isDownloadDialogOpen, setIsDownloadDialogOpen] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isGeneratingShareLink, setIsGeneratingShareLink] = useState(false);
+  const [isStartingMmmPunchout, setIsStartingMmmPunchout] = useState(false);
+  const [rawFileCount, setRawFileCount] = useState<number>(0);
+  const [selectedFileIds, setSelectedFileIds] = useState<string[]>([]);
   const [editActions, setEditActions] = useState<{ save: () => void; cancel: () => void } | null>(null);
+  const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);
+  const [isDeclineModalOpen, setIsDeclineModalOpen] = useState(false);
+  const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState<InvoiceData | null>(null);
+  const [isLoadingInvoice, setIsLoadingInvoice] = useState(false);
   
   // Use provided role or fallback to auth role
   const currentUserRole = currentRole || authRole;
@@ -95,6 +122,7 @@ export function ShootDetailsModal({
   const isPhotographer = currentUserRole === 'photographer';
   const isEditor = currentUserRole === 'editor';
   const isClient = currentUserRole === 'client';
+  const shouldHideClientDetails = shouldHideClientDetailsProp || isEditor;
 
   // Subscribe to weather provider updates
   useEffect(() => {
@@ -106,197 +134,79 @@ export function ShootDetailsModal({
     };
   }, []);
 
-  // Fetch shoot data
+  // Fetch shoot data using React Query hook for caching and deduplication
+  const { data: shootData, isLoading: shootLoading, error: shootError, refetch: refetchShoot } = useShoot(
+    isOpen ? shootId : null,
+    { enabled: isOpen && Boolean(shootId) }
+  );
+
+  // Update local state when data changes
   useEffect(() => {
-    if (!isOpen || !shootId) return;
-    
-    const fetchShoot = async () => {
-      setLoading(true);
+    if (shootData) {
+      setShoot(shootData);
+    }
+  }, [shootData]);
+
+  // Fetch raw file count for editor download button
+  useEffect(() => {
+    const fetchRawFileCount = async () => {
+      if (!shoot?.id || !isEditor) return;
       try {
-        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-        const res = await fetch(`${API_BASE_URL}/api/shoots/${shootId}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json',
-          },
+        const headers = getApiHeaders();
+        headers['Accept'] = 'application/json';
+        const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/files?type=raw`, {
+          headers,
         });
-        
-        if (!res.ok) throw new Error('Failed to fetch shoot');
-        
-        const json = await res.json();
-        // Handle different API response structures
-        let shootData = json.data || json;
-        
-        // If the response has nested structure, try to extract
-        if (json.success && json.data) {
-          shootData = json.data;
+        if (res.ok) {
+          const data = await res.json();
+          const files = data.data || data.files || data || [];
+          setRawFileCount(Array.isArray(files) ? files.length : 0);
         }
-        
-        // Normalize the data structure
-        if (shootData) {
-          // Ensure location object exists
-          if (!shootData.location && (shootData.address || shootData.city)) {
-            shootData.location = {
-              address: shootData.address || '',
-              city: shootData.city || '',
-              state: shootData.state || '',
-              zip: shootData.zip || '',
-              fullAddress: shootData.fullAddress || shootData.address || '',
-            };
-          }
-          
-          // Ensure services is an array - try multiple sources
-          if (!Array.isArray(shootData.services)) {
-            // Try services_list first (explicitly added by backend)
-            if (shootData.services_list && Array.isArray(shootData.services_list)) {
-              shootData.services = shootData.services_list;
-            }
-            // Try services as object with data property
-            else if (shootData.services && typeof shootData.services === 'object' && shootData.services.data) {
-              shootData.services = Array.isArray(shootData.services.data) ? shootData.services.data : [];
-            }
-            // Try package.servicesIncluded
-            else if (shootData.package?.servicesIncluded && Array.isArray(shootData.package.servicesIncluded)) {
-              shootData.services = shootData.package.servicesIncluded;
-            }
-            // Try service (singular)
-            else if (shootData.service) {
-              shootData.services = [shootData.service.name || shootData.service];
-            }
-            // Try string
-            else if (typeof shootData.services === 'string') {
-              shootData.services = [shootData.services];
-            }
-            // Default to empty array
-            else {
-              shootData.services = [];
-            }
-          }
-          
-          // Normalize service names to strings
-          if (Array.isArray(shootData.services)) {
-            shootData.services = shootData.services.map((service: any) => {
-              if (typeof service === 'string') return service;
-              if (service && typeof service === 'object') {
-                return service.name || service.label || service.service_name || String(service);
-              }
-              return String(service);
-            }).filter(Boolean);
-          }
-          
-          // Also ensure services_list exists
-          if (!shootData.services_list && Array.isArray(shootData.services)) {
-            shootData.services_list = shootData.services;
-          }
-          
-          // Ensure scheduledDate exists
-          if (!shootData.scheduledDate && shootData.scheduled_date) {
-            shootData.scheduledDate = shootData.scheduled_date;
-          }
-          
-          // Normalize property_details to propertyDetails
-          if (!shootData.propertyDetails && (shootData as any).property_details) {
-            shootData.propertyDetails = (shootData as any).property_details;
-          }
-          
-          // Ensure status and workflowStatus are properly set
-          if (!shootData.status && shootData.workflow_status) {
-            // If status is missing but workflow_status exists, use it as fallback
-            shootData.status = shootData.workflow_status;
-          }
-          if (!shootData.workflowStatus && shootData.workflow_status) {
-            shootData.workflowStatus = shootData.workflow_status;
-          }
-          // Normalize hold_on to on_hold for consistency
-          if (shootData.status === 'hold_on') {
-            shootData.status = 'on_hold';
-          }
-          if (shootData.workflowStatus === 'hold_on') {
-            shootData.workflowStatus = 'on_hold';
-          }
-          
-          // Ensure payment object exists with proper structure and convert to numbers
-          const toNumber = (value: any): number => {
-            if (value === null || value === undefined) return 0;
-            const num = typeof value === 'string' ? parseFloat(value) : Number(value);
-            return isNaN(num) ? 0 : num;
-          };
-          
-          if (!shootData.payment) {
-            shootData.payment = {
-              baseQuote: toNumber(shootData.base_quote),
-              taxRate: toNumber(shootData.tax_rate),
-              taxAmount: toNumber(shootData.tax_amount),
-              totalQuote: toNumber(shootData.total_quote),
-              totalPaid: toNumber(shootData.total_paid),
-              lastPaymentDate: shootData.last_payment_date || undefined,
-              lastPaymentType: shootData.last_payment_type || undefined,
-            };
-          } else {
-            // Normalize payment fields if payment object exists but has wrong field names
-            // Also ensure all values are numbers
-            if (shootData.payment.base_quote !== undefined && shootData.payment.baseQuote === undefined) {
-              shootData.payment.baseQuote = toNumber(shootData.payment.base_quote);
-            } else if (shootData.payment.baseQuote !== undefined) {
-              shootData.payment.baseQuote = toNumber(shootData.payment.baseQuote);
-            }
-            
-            if (shootData.payment.tax_amount !== undefined && shootData.payment.taxAmount === undefined) {
-              shootData.payment.taxAmount = toNumber(shootData.payment.tax_amount);
-            } else if (shootData.payment.taxAmount !== undefined) {
-              shootData.payment.taxAmount = toNumber(shootData.payment.taxAmount);
-            }
-            
-            if (shootData.payment.total_quote !== undefined && shootData.payment.totalQuote === undefined) {
-              shootData.payment.totalQuote = toNumber(shootData.payment.total_quote);
-            } else if (shootData.payment.totalQuote !== undefined) {
-              shootData.payment.totalQuote = toNumber(shootData.payment.totalQuote);
-            }
-            
-            if (shootData.payment.total_paid !== undefined && shootData.payment.totalPaid === undefined) {
-              shootData.payment.totalPaid = toNumber(shootData.payment.total_paid);
-            } else if (shootData.payment.totalPaid !== undefined) {
-              shootData.payment.totalPaid = toNumber(shootData.payment.totalPaid);
-            }
-            
-            // Ensure all payment fields are numbers
-            shootData.payment.baseQuote = toNumber(shootData.payment.baseQuote);
-            shootData.payment.taxRate = toNumber(shootData.payment.taxRate);
-            shootData.payment.taxAmount = toNumber(shootData.payment.taxAmount);
-            shootData.payment.totalQuote = toNumber(shootData.payment.totalQuote);
-            shootData.payment.totalPaid = toNumber(shootData.payment.totalPaid);
-          }
-        }
-        
-        // Debug: Log status for troubleshooting
-        if (shootData.status || shootData.workflowStatus) {
-          console.log('Shoot status:', {
-            status: shootData.status,
-            workflowStatus: shootData.workflowStatus,
-            isOnHold: shootData.status === 'on_hold' || shootData.status === 'hold_on' || shootData.workflowStatus === 'on_hold'
-          });
-        }
-        
-        setShoot(shootData);
       } catch (error) {
-        console.error('Error fetching shoot:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load shoot details',
-          variant: 'destructive',
-        });
-      } finally {
-        setLoading(false);
+        console.error('Failed to fetch raw file count:', error);
+        // Try to use raw_photo_count from shoot data
+        if ((shoot as any).raw_photo_count) {
+          setRawFileCount((shoot as any).raw_photo_count);
+        }
       }
     };
-    
-    fetchShoot();
-  }, [isOpen, shootId, toast]);
+    fetchRawFileCount();
+  }, [shoot?.id, isEditor]);
+
+  // Update loading state
+  useEffect(() => {
+    setLoading(shootLoading);
+  }, [shootLoading]);
+
+  // Handle errors - only show toast if modal is open and we have an error
+  useEffect(() => {
+    if (isOpen && shootError) {
+      const errorMessage = shootError instanceof Error 
+        ? shootError.message 
+        : 'Failed to load shoot details';
+      
+      // Provide more helpful error messages
+      let userMessage = errorMessage;
+      if (errorMessage.includes('Network error') || errorMessage.includes('Failed to fetch')) {
+        userMessage = 'Unable to load shoot details. Please check your connection and try again.';
+      } else if (errorMessage.includes('Unauthorized')) {
+        userMessage = 'Session expired. Please refresh the page.';
+      } else if (errorMessage.includes('not found')) {
+        userMessage = 'Shoot not found. It may have been deleted.';
+      }
+      
+      toast({
+        title: 'Error',
+        description: userMessage,
+        variant: 'destructive',
+      });
+    }
+  }, [isOpen, shootError, toast]);
 
   // Use initialWeather from dashboard if provided, otherwise fetch
   useEffect(() => {
-    if (!isOpen) {
-      setWeather(null);
+    if (initialWeather) {
+      setWeather(initialWeather);
       return;
     }
 
@@ -356,58 +266,73 @@ export function ShootDetailsModal({
     return () => {
       controller.abort();
     };
-  }, [shoot?.id, shoot?.location?.city, shoot?.location?.state, shoot?.scheduledDate, shoot?.time, isOpen, providerVersion, initialWeather]);
+  }, [shoot?.id, shoot?.location?.city, shoot?.location?.state, shoot?.scheduledDate, shoot?.time, isOpen, providerVersion, initialWeather, formatTemperature]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setActiveTab(initialTab);
+  }, [isOpen, initialTab]);
+
+  useEffect(() => {
+    if (!isOpen || !openDownloadDialog) return;
+    setIsDownloadDialogOpen(true);
+  }, [isOpen, openDownloadDialog]);
 
   // Refresh shoot data
-  const refreshShoot = async () => {
-    if (!shootId) return;
+  // Refresh shoot using React Query refetch
+  const refreshShoot = async (): Promise<ShootData | null> => {
+    if (!shootId || !refetchShoot) return null;
     try {
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      const res = await fetch(`${API_BASE_URL}/api/shoots/${shootId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-        },
-      });
-      
-      if (res.ok) {
-        const json = await res.json();
-        let shootData = json.data || json;
-        
-        // Normalize status - ensure hold_on is converted to scheduled/booked
-        if (shootData.status === 'hold_on' || shootData.status === 'on_hold') {
-          shootData.status = 'scheduled';
-        }
-        if (shootData.workflowStatus === 'hold_on' || shootData.workflowStatus === 'on_hold') {
-          shootData.workflowStatus = 'booked';
-        }
-        
-        // Normalize scheduledDate to camelCase for UI
-        if (!shootData.scheduledDate && shootData.scheduled_date) {
-          shootData.scheduledDate = shootData.scheduled_date;
-        }
-        
-        setShoot(shootData);
+      const result = await refetchShoot();
+      if (result.data) {
+        setShoot(result.data);
+        return result.data;
+      }
+      // If refetch didn't return data, return current shoot data
+      if (shootData) {
+        return shootData;
       }
     } catch (error) {
       console.error('Error refreshing shoot:', error);
+      // Return current shoot data as fallback
+      if (shootData) {
+        return shootData;
+      }
     }
+    return null;
   };
 
   // Get status badge
   const getStatusBadge = (status: string) => {
+    const key = status.toLowerCase();
     const statusMap: Record<string, { label: string; className: string }> = {
-      'booked': { label: 'Scheduled', className: 'bg-blue-500/10 text-blue-500 border-blue-500/20' },
-      'raw_uploaded': { label: 'Raw uploaded', className: 'bg-purple-500/10 text-purple-500 border-purple-500/20' },
-      'editing': { label: 'Editing', className: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' },
-      'in_review': { label: 'In review', className: 'bg-orange-500/10 text-orange-500 border-orange-500/20' },
-      'ready': { label: 'Ready', className: 'bg-green-500/10 text-green-500 border-green-500/20' },
-      'delivered': { label: 'Delivered', className: 'bg-green-600/10 text-green-600 border-green-600/20' },
+      'requested': { label: 'Requested', className: 'bg-slate-500/10 text-slate-600 border-slate-500/20' },
       'scheduled': { label: 'Scheduled', className: 'bg-blue-500/10 text-blue-500 border-blue-500/20' },
-      'completed': { label: 'Completed', className: 'bg-green-500/10 text-green-500 border-green-500/20' },
+      'booked': { label: 'Scheduled', className: 'bg-blue-500/10 text-blue-500 border-blue-500/20' },
+      'raw_upload_pending': { label: 'Scheduled', className: 'bg-blue-500/10 text-blue-500 border-blue-500/20' },
+      'uploaded': { label: 'Uploaded', className: 'bg-purple-500/10 text-purple-600 border-purple-500/20' },
+      'raw_uploaded': { label: 'Uploaded', className: 'bg-purple-500/10 text-purple-600 border-purple-500/20' },
+      'photos_uploaded': { label: 'Uploaded', className: 'bg-purple-500/10 text-purple-600 border-purple-500/20' },
+      'in_progress': { label: 'Uploaded', className: 'bg-purple-500/10 text-purple-600 border-purple-500/20' },
+      'completed': { label: 'Uploaded', className: 'bg-purple-500/10 text-purple-600 border-purple-500/20' }, // legacy alias
+      'editing': { label: 'Editing', className: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20' },
+      'review': { label: 'In review', className: 'bg-orange-500/10 text-orange-600 border-orange-500/20' },
+      'in_review': { label: 'In review', className: 'bg-orange-500/10 text-orange-600 border-orange-500/20' },
+      'editing_uploaded': { label: 'Ready for review', className: 'bg-orange-500/10 text-orange-600 border-orange-500/20' },
+      'ready_for_review': { label: 'Ready for review', className: 'bg-orange-500/10 text-orange-600 border-orange-500/20' },
+      'pending_review': { label: 'In review', className: 'bg-orange-500/10 text-orange-600 border-orange-500/20' },
+      'delivered': { label: 'Delivered', className: 'bg-green-600/10 text-green-700 border-green-600/20' },
+      'ready_for_client': { label: 'Delivered', className: 'bg-green-600/10 text-green-700 border-green-600/20' },
+      'ready': { label: 'Delivered', className: 'bg-green-600/10 text-green-700 border-green-600/20' },
+      'admin_verified': { label: 'Delivered', className: 'bg-green-600/10 text-green-700 border-green-600/20' },
+      'on_hold': { label: 'On hold', className: 'bg-amber-500/10 text-amber-700 border-amber-500/20' },
+      'hold_on': { label: 'On hold', className: 'bg-amber-500/10 text-amber-700 border-amber-500/20' },
+      'cancelled': { label: 'Cancelled', className: 'bg-red-500/10 text-red-600 border-red-500/20' },
+      'canceled': { label: 'Cancelled', className: 'bg-red-500/10 text-red-600 border-red-500/20' },
+      'declined': { label: 'Declined', className: 'bg-red-500/10 text-red-600 border-red-500/20' },
     };
     
-    const statusInfo = statusMap[status.toLowerCase()] || { label: status, className: 'bg-gray-500/10 text-gray-500 border-gray-500/20' };
+    const statusInfo = statusMap[key] || { label: status, className: 'bg-gray-500/10 text-gray-500 border-gray-500/20' };
     return <Badge className={statusInfo.className}>{statusInfo.label}</Badge>;
   };
 
@@ -479,6 +404,39 @@ export function ShootDetailsModal({
     }
   };
 
+  const handleStartMmmPunchout = async () => {
+    if (!shoot?.id) return;
+    setIsStartingMmmPunchout(true);
+    try {
+      const response = await mmmService.startPunchout(shoot.id);
+      const redirectUrl = response.redirect_url || mmmRedirectUrl;
+      toast({
+        title: response.success ? 'Print session started' : 'Print session failed',
+        description:
+          response.message ||
+          (response.success ? 'MMM punchout started.' : 'MMM punchout failed.'),
+        variant: response.success ? 'default' : 'destructive',
+      });
+      if (response.success && redirectUrl) {
+        window.open(redirectUrl, '_blank', 'noopener,noreferrer');
+      }
+      refreshShoot();
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        error?.message ||
+        'Failed to start MMM punchout.';
+      toast({
+        title: 'Print session failed',
+        description: message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsStartingMmmPunchout(false);
+    }
+  };
+
   // Mark complete handler
   const handleFinalise = async () => {
     if (!shoot) return;
@@ -515,6 +473,9 @@ export function ShootDetailsModal({
     }
   };
 
+  const amountDue = shoot ? (shoot.payment?.totalQuote || 0) - (shoot.payment?.totalPaid || 0) : 0;
+  const isPaid = amountDue <= 0.01;
+
   const handleProcessPayment = () => {
     // Debug logging to check payment data
     console.log('Payment Debug:', {
@@ -538,15 +499,104 @@ export function ShootDetailsModal({
     refreshShoot(); // Reload shoot data to update payment status
   };
 
-  const amountDue = shoot ? (shoot.payment?.totalQuote || 0) - (shoot.payment?.totalPaid || 0) : 0;
+  const handleShowInvoice = async () => {
+    if (!shoot) return;
+    
+    setIsLoadingInvoice(true);
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/invoice`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+        },
+      });
 
-  // Check if shoot is completed
-  const isCompleted = shoot && (
-    shoot.status === 'completed' || 
-    shoot.status === 'delivered' ||
-    shoot.workflowStatus === 'completed' ||
-    shoot.workflowStatus === 'delivered'
-  );
+      if (!res.ok) {
+        throw new Error('Failed to fetch invoice');
+      }
+
+      const data = await res.json();
+      const invoiceData = data.data || data;
+
+      // Convert API response to InvoiceData format
+      const invoice: InvoiceData = {
+        id: invoiceData.id?.toString() || '',
+        number: invoiceData.invoice_number || invoiceData.number || `Invoice ${invoiceData.id}`,
+        client: typeof invoiceData.client === 'string' 
+          ? invoiceData.client 
+          : invoiceData.client?.name || invoiceData.shoot?.client?.name || 'Unknown Client',
+        property: invoiceData.shoot?.location?.fullAddress 
+          || invoiceData.shoot?.address 
+          || invoiceData.property 
+          || 'N/A',
+        date: invoiceData.issue_date || invoiceData.date || new Date().toISOString(),
+        dueDate: invoiceData.due_date || invoiceData.dueDate || new Date().toISOString(),
+        amount: invoiceData.total || invoiceData.amount || 0,
+        status: invoiceData.status === 'paid' ? 'paid' : invoiceData.status === 'sent' ? 'pending' : 'pending',
+        services: invoiceData.items?.map((item: any) => item.description) || invoiceData.services || [],
+        paymentMethod: invoiceData.paymentMethod || 'N/A',
+      };
+
+      setSelectedInvoice(invoice);
+      setIsInvoiceDialogOpen(true);
+    } catch (error: any) {
+      console.error('Error fetching invoice:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to load invoice',
+        variant: 'destructive',
+      });
+      // Fallback: navigate to accounting page
+      navigate('/accounting');
+    } finally {
+      setIsLoadingInvoice(false);
+    }
+  };
+
+  const normalizeStatus = (value?: string | null) => {
+    if (!value) return '';
+    const key = value.toLowerCase();
+    const map: Record<string, string> = {
+      booked: 'scheduled',
+      raw_upload_pending: 'scheduled',
+      raw_uploaded: 'uploaded',
+      photos_uploaded: 'uploaded',
+      in_progress: 'uploaded',
+      completed: 'uploaded',
+      editing_uploaded: 'review',
+      editing_complete: 'review',
+      editing_issue: 'review',
+      pending_review: 'review',
+      ready_for_review: 'review',
+      qc: 'review',
+      ready: 'delivered',
+      ready_for_client: 'delivered',
+      admin_verified: 'delivered',
+    };
+    return map[key] || key;
+  };
+
+  const normalizedStatus = normalizeStatus(shoot?.workflowStatus || shoot?.status);
+  const isDelivered = normalizedStatus === 'delivered';
+  const isUploadedStatus = normalizedStatus === 'uploaded';
+  const isEditingStatus = normalizedStatus === 'editing';
+  const canShowInvoiceButton = isUploadedStatus || isEditingStatus;
+  const canFinalise = isAdmin && !isDelivered && ['uploaded', 'editing'].includes(normalizedStatus);
+  const canSendToEditing = isAdmin && !isDelivered && (normalizedStatus === 'uploaded' || normalizedStatus === 'scheduled');
+  const mmmRedirectUrl =
+    shoot?.mmmRedirectUrl || (shoot as any)?.mmm_redirect_url || undefined;
+  const canStartMmmPunchout = [
+    'admin',
+    'superadmin',
+    'client',
+    'salesRep',
+    'sales_rep',
+    'rep',
+    'representative',
+  ].includes(currentUserRole || '');
+  const showMmmPunchoutButtons = isDelivered && (canStartMmmPunchout || mmmRedirectUrl);
 
   // Check if shoot is scheduled or on hold - make it more lenient
   const isScheduledOrOnHold = shoot && (
@@ -558,6 +608,9 @@ export function ShootDetailsModal({
     !shoot.photographer?.id // Hold-on shoots (no photographer assigned)
   );
 
+  // Check if admin/superadmin can edit (allow editing for most statuses except delivered/cancelled)
+  const canAdminEdit = isAdmin && shoot && !['delivered', 'cancelled', 'declined'].includes(normalizedStatus);
+
   // Check if shoot is on hold (defined first as it's used in canPutOnHold)
   const isOnHold = shoot && (
     shoot.status === 'on_hold' || 
@@ -565,15 +618,19 @@ export function ShootDetailsModal({
     shoot.workflowStatus === 'on_hold'
   );
 
-  // Check if shoot can be put on hold (scheduled or booked, not already on hold)
+  // Check if shoot can be put on hold (scheduled, booked, editing, uploaded - not already on hold)
   const canPutOnHold = shoot && !isOnHold && (
     shoot.status === 'scheduled' || 
     shoot.status === 'booked' || 
-    shoot.workflowStatus === 'booked'
+    shoot.workflowStatus === 'booked' ||
+    normalizedStatus === 'editing' ||
+    normalizedStatus === 'uploaded'
   );
 
   // Check if user can put shoot on hold
-  const canUserPutOnHold = (isAdminOrRep || (isPhotographer && shoot?.photographer?.id === user?.id)) && canPutOnHold;
+  // For photographers: only allow until status reaches 'editing' (i.e., scheduled, booked, uploaded)
+  const photographerCanPutOnHold = isPhotographer && shoot?.photographer?.id === user?.id && canPutOnHold && normalizedStatus !== 'editing';
+  const canUserPutOnHold = (isAdminOrRep && canPutOnHold) || photographerCanPutOnHold;
 
   // Check if user can resume from hold (admin, rep, or assigned photographer)
   const canResumeFromHold = isOnHold && (isAdminOrRep || (isPhotographer && shoot?.photographer?.id === user?.id));
@@ -618,10 +675,33 @@ export function ShootDetailsModal({
 
   // Handle save changes
   const handleSaveChanges = async (updates: Partial<ShootData>) => {
-    if (!shoot) return;
+    if (!shoot) {
+      console.error('💾 Cannot save: shoot is null');
+      return;
+    }
+    
+    if (!shoot.id) {
+      console.error('💾 Cannot save: shoot.id is missing');
+      toast({
+        title: 'Error',
+        description: 'Cannot save: Shoot ID is missing',
+        variant: 'destructive',
+      });
+      return;
+    }
     
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      if (!token) {
+        console.error('💾 Cannot save: No authentication token');
+        toast({
+          title: 'Error',
+          description: 'Authentication required. Please refresh the page.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      
       const payload: Record<string, unknown> = {};
       
       // Map updates to API format (support snake_case from API)
@@ -643,46 +723,420 @@ export function ShootDetailsModal({
       if (updates.location?.state) payload.state = updates.location.state;
       if (updates.location?.zip) payload.zip = updates.location.zip;
       
-      // Client and photographer
-      if (updates.client?.id) payload.client_id = updates.client.id;
-      if (updates.photographer?.id) payload.photographer_id = updates.photographer.id;
+      // Client and photographer - ensure IDs are numbers and valid
+      if (updates.client?.id !== undefined && updates.client.id !== null) {
+        const clientId = typeof updates.client.id === 'string' 
+          ? parseInt(updates.client.id, 10) 
+          : Number(updates.client.id);
+        // Only send if it's a valid number
+        if (!isNaN(clientId) && clientId > 0) {
+          const currentClientId = shoot.client?.id 
+            ? (typeof shoot.client.id === 'string' ? parseInt(String(shoot.client.id), 10) : Number(shoot.client.id))
+            : null;
+          // Always send if explicitly set, even if same (allows clearing/resetting)
+          console.log('💾 Client ID update:', { new: clientId, current: currentClientId, shootClient: shoot.client });
+          payload.client_id = clientId;
+        } else {
+          console.warn('💾 Invalid client_id:', updates.client.id);
+        }
+      }
+      // Handle photographer update - check if it's being cleared (null) or updated
+      if (updates.photographer === null) {
+        // Explicitly clearing photographer
+        console.log('💾 Clearing photographer assignment');
+        payload.photographer_id = null;
+      } else if (updates.photographer?.id !== undefined && updates.photographer.id !== null) {
+        const photographerId = typeof updates.photographer.id === 'string' 
+          ? parseInt(updates.photographer.id, 10) 
+          : Number(updates.photographer.id);
+        // Only send if it's a valid number
+        if (!isNaN(photographerId) && photographerId > 0) {
+          const currentPhotographerId = shoot.photographer?.id 
+            ? (typeof shoot.photographer.id === 'string' ? parseInt(String(shoot.photographer.id), 10) : Number(shoot.photographer.id))
+            : null;
+          // Always send if explicitly set, even if same (allows clearing/resetting)
+          console.log('💾 Photographer ID update:', { 
+            new: photographerId, 
+            current: currentPhotographerId, 
+            shootPhotographer: shoot.photographer,
+            updatesPhotographer: updates.photographer
+          });
+          payload.photographer_id = photographerId;
+        } else {
+          console.warn('💾 Invalid photographer_id:', updates.photographer.id, 'Type:', typeof updates.photographer.id);
+        }
+      }
       
       // Payment fields
       if (updates.payment?.baseQuote !== undefined) payload.base_quote = updates.payment.baseQuote;
       if (updates.payment?.taxAmount !== undefined) payload.tax_amount = updates.payment.taxAmount;
       if (updates.payment?.totalQuote !== undefined) payload.total_quote = updates.payment.totalQuote;
       
+      // Property details (beds, baths, sqft, access info)
+      if (updates.propertyDetails) {
+        // Ensure numeric fields are properly converted to numbers
+        const propertyDetails: any = { ...updates.propertyDetails };
+        
+        // Convert beds/bedrooms to number
+        if (propertyDetails.beds !== undefined && propertyDetails.beds !== null) {
+          const bedsNum = typeof propertyDetails.beds === 'string' 
+            ? parseInt(propertyDetails.beds, 10) 
+            : Number(propertyDetails.beds);
+          if (!isNaN(bedsNum) && bedsNum > 0) {
+            payload.bedrooms = bedsNum;
+            propertyDetails.beds = bedsNum;
+            propertyDetails.bedrooms = bedsNum;
+          }
+        }
+        
+        // Convert baths/bathrooms to number
+        if (propertyDetails.baths !== undefined && propertyDetails.baths !== null) {
+          const bathsNum = typeof propertyDetails.baths === 'string' 
+            ? parseInt(propertyDetails.baths, 10) 
+            : Number(propertyDetails.baths);
+          if (!isNaN(bathsNum) && bathsNum > 0) {
+            payload.bathrooms = bathsNum;
+            propertyDetails.baths = bathsNum;
+            propertyDetails.bathrooms = bathsNum;
+          }
+        }
+        
+        // Convert sqft to number
+        if (propertyDetails.sqft !== undefined && propertyDetails.sqft !== null) {
+          const sqftNum = typeof propertyDetails.sqft === 'string' 
+            ? parseInt(propertyDetails.sqft, 10) 
+            : Number(propertyDetails.sqft);
+          if (!isNaN(sqftNum) && sqftNum > 0) {
+            payload.sqft = sqftNum;
+            propertyDetails.sqft = sqftNum;
+            propertyDetails.squareFeet = sqftNum;
+          }
+        }
+        
+        // Send the full property_details object (excluding the numeric fields we already sent)
+        // Keep other fields like presenceOption, lockboxCode, lockboxLocation, accessContactName, accessContactPhone, etc.
+        // Only include fields that are not undefined/null and are serializable
+        const cleanPropertyDetails: Record<string, unknown> = {};
+        Object.keys(propertyDetails).forEach(key => {
+          const value = propertyDetails[key];
+          // Skip numeric fields we already sent separately, and skip undefined/null
+          // But keep all other fields including lockbox fields
+          if (key !== 'beds' && key !== 'baths' && key !== 'sqft' && 
+              key !== 'bedrooms' && key !== 'bathrooms' && key !== 'squareFeet' &&
+              value !== undefined && value !== null) {
+            // Ensure string values are properly trimmed
+            if (typeof value === 'string') {
+              cleanPropertyDetails[key] = value.trim();
+            } else {
+              cleanPropertyDetails[key] = value;
+            }
+          }
+        });
+        
+        // Always include property_details if there are any fields
+        // This ensures lockbox and access fields are sent
+        // Include property_details even if only numeric fields were updated (for lockbox/access preservation)
+        if (Object.keys(cleanPropertyDetails).length > 0 || 
+            payload.bedrooms !== undefined || 
+            payload.bathrooms !== undefined || 
+            payload.sqft !== undefined) {
+          // Merge numeric fields back into property_details for consistency
+          if (payload.bedrooms !== undefined) {
+            cleanPropertyDetails.bedrooms = payload.bedrooms;
+            cleanPropertyDetails.beds = payload.bedrooms;
+          }
+          if (payload.bathrooms !== undefined) {
+            cleanPropertyDetails.bathrooms = payload.bathrooms;
+            cleanPropertyDetails.baths = payload.bathrooms;
+          }
+          if (payload.sqft !== undefined) {
+            cleanPropertyDetails.sqft = payload.sqft;
+            cleanPropertyDetails.squareFeet = payload.sqft;
+          }
+          payload.property_details = cleanPropertyDetails;
+        }
+        
+        console.log('💾 Property details update:', { 
+          bedrooms: payload.bedrooms, 
+          bathrooms: payload.bathrooms, 
+          sqft: payload.sqft,
+          property_details: payload.property_details 
+        });
+      }
+      
       // Services - convert to API format
       if (updates.services && Array.isArray(updates.services)) {
-        payload.services = updates.services.map((service: any) => {
+        const servicesPayload = updates.services.map((service: any) => {
           if (typeof service === 'string') {
             // If it's just a string (service name), we can't update it without ID
             // Return null to skip
             return null;
           }
-          if (service.id) {
-            return {
-              id: parseInt(service.id),
-              quantity: service.quantity || 1,
-              price: service.price || undefined,
-              photographer_pay: service.photographer_pay !== undefined ? service.photographer_pay : undefined,
-            };
+          if (service.id !== undefined && service.id !== null) {
+            // Ensure service ID is a number
+            const serviceId = typeof service.id === 'string' 
+              ? parseInt(service.id, 10) 
+              : Number(service.id);
+            
+            if (!isNaN(serviceId) && serviceId > 0) {
+              const serviceData: any = {
+                id: serviceId,
+                quantity: service.quantity || 1,
+              };
+              
+              // Include price if provided
+              if (service.price !== undefined && service.price !== null) {
+                const price = typeof service.price === 'string' 
+                  ? parseFloat(service.price) 
+                  : Number(service.price);
+                if (!isNaN(price) && price >= 0) {
+                  serviceData.price = price;
+                }
+              }
+              
+              // Include photographer_pay if provided
+              if (service.photographer_pay !== undefined && service.photographer_pay !== null) {
+                const photographerPay = typeof service.photographer_pay === 'string' 
+                  ? parseFloat(service.photographer_pay) 
+                  : Number(service.photographer_pay);
+                if (!isNaN(photographerPay) && photographerPay >= 0) {
+                  serviceData.photographer_pay = photographerPay;
+                }
+              }
+              
+              return serviceData;
+            }
           }
           return null;
         }).filter(Boolean);
+        
+        if (servicesPayload.length > 0) {
+          payload.services = servicesPayload;
+          console.log('💾 Services update:', servicesPayload);
+        }
       }
       
-      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
+      // Don't send empty payloads
+      if (Object.keys(payload).length === 0) {
+        console.log('💾 No changes to save');
+        toast({
+          title: 'Info',
+          description: 'No changes to save',
+        });
+        setIsEditMode(false);
+        return;
+      }
       
-      if (!res.ok) throw new Error('Failed to update shoot');
+      console.log('💾 Saving shoot updates:', payload);
+      console.log('💾 API URL:', `${API_BASE_URL}/api/shoots/${shoot.id}`);
+      console.log('💾 API_BASE_URL:', API_BASE_URL);
+      console.log('💾 Shoot ID:', shoot.id);
+      console.log('💾 Token present:', !!token);
+      console.log('💾 Token length:', token ? token.length : 0);
+      
+      // Validate payload can be stringified (catch circular references, etc.)
+      let payloadString: string;
+      try {
+        payloadString = JSON.stringify(payload);
+        console.log('💾 Payload stringified successfully, length:', payloadString.length);
+      } catch (stringifyError) {
+        console.error('💾 Failed to stringify payload:', stringifyError);
+        throw new Error('Invalid data format - cannot serialize request');
+      }
+      
+      let res: Response;
+      try {
+        // Add timeout to prevent hanging requests
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+        
+        res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: payloadString,
+          signal: controller.signal,
+        });
+        
+        clearTimeout(timeoutId);
+      } catch (fetchError) {
+        // Network error (CORS, connection issue, timeout, etc.)
+        console.error('💾 Network error during fetch:', fetchError);
+        console.error('💾 Error details:', {
+          name: fetchError instanceof Error ? fetchError.name : 'Unknown',
+          message: fetchError instanceof Error ? fetchError.message : String(fetchError),
+          stack: fetchError instanceof Error ? fetchError.stack : undefined,
+          url: `${API_BASE_URL}/api/shoots/${shoot.id}`,
+          method: 'PATCH',
+        });
+        
+        let errorMessage = 'Network error - please check your connection and try again';
+        
+        if (fetchError instanceof Error) {
+          if (fetchError.name === 'AbortError') {
+            errorMessage = 'Request timed out - please try again';
+          } else if (fetchError.message.includes('Failed to fetch') || 
+                     fetchError.message.includes('NetworkError') ||
+                     fetchError.message.includes('Network request failed')) {
+            // This is a true network error - server unreachable, CORS, etc.
+            errorMessage = 'Unable to connect to server. Please check:\n' +
+              '1. Your internet connection\n' +
+              '2. The backend server is running\n' +
+              '3. CORS is properly configured';
+          } else {
+            errorMessage = fetchError.message;
+          }
+        }
+        
+        throw new Error(errorMessage);
+      }
+      
+      console.log('💾 Save response status:', res.status, res.statusText);
+      console.log('💾 Response headers:', Object.fromEntries(res.headers.entries()));
+      
+      if (!res.ok) {
+        // Try to get error message from response
+        let errorMessage = 'Failed to update shoot';
+        let errorData: any = null;
+        
+        try {
+          // Try to read response as text first to see what we got
+          const responseText = await res.text();
+          console.error('💾 Save error response text:', responseText);
+          
+          if (responseText) {
+            try {
+              errorData = JSON.parse(responseText);
+              console.error('💾 Save error response (parsed):', errorData);
+            } catch (parseError) {
+              // Response is not JSON, use the text as error message
+              errorMessage = responseText || `Failed to update shoot (${res.status} ${res.statusText})`;
+            }
+          }
+          
+          // Handle validation errors
+          if (errorData) {
+            if (errorData.errors && typeof errorData.errors === 'object') {
+              const errorMessages = Object.entries(errorData.errors)
+                .map(([key, value]) => {
+                  if (Array.isArray(value)) {
+                    return `${key}: ${value.join(', ')}`;
+                  }
+                  return `${key}: ${value}`;
+                })
+                .join('; ');
+              errorMessage = errorMessages || errorData.message || errorMessage;
+            } else if (errorData.message) {
+              errorMessage = errorData.message;
+            } else if (errorData.error) {
+              errorMessage = errorData.error;
+            }
+          }
+        } catch (parseError) {
+          console.error('Failed to parse error response:', parseError);
+          errorMessage = `Failed to update shoot (${res.status} ${res.statusText})`;
+        }
+        
+        // Provide more specific error messages based on status code
+        if (res.status === 401 || res.status === 403) {
+          errorMessage = 'Unauthorized - please refresh the page and try again';
+        } else if (res.status === 404) {
+          errorMessage = 'Shoot not found - it may have been deleted';
+        } else if (res.status === 422) {
+          errorMessage = errorMessage || 'Validation error - please check your input';
+        } else if (res.status >= 500) {
+          errorMessage = 'Server error - please try again later';
+        }
+        
+        throw new Error(errorMessage);
+      }
+      
+      let responseData: any;
+      try {
+        const responseText = await res.text();
+        if (responseText) {
+          responseData = JSON.parse(responseText);
+        } else {
+          responseData = {};
+        }
+      } catch (parseError) {
+        console.warn('💾 Failed to parse response as JSON, using empty object:', parseError);
+        responseData = {};
+      }
+      
+      console.log('💾 Save success response:', responseData);
+      
+      // Get updated shoot data from response or refresh
+      let updatedShootData: ShootData | null = responseData.data || responseData;
+
+      const shouldTransform = updatedShootData && (
+        'scheduled_date' in (updatedShootData as any) ||
+        'workflow_status' in (updatedShootData as any) ||
+        'base_quote' in (updatedShootData as any) ||
+        'services_list' in (updatedShootData as any)
+      );
+
+      if (updatedShootData && shouldTransform) {
+        try {
+          updatedShootData = transformShootFromApi(updatedShootData as any);
+        } catch (error) {
+          console.warn('💾 Failed to normalize shoot response, using raw data:', error);
+        }
+      }
+
+      // If response doesn't have valid data, refresh from API using React Query
+      if (!updatedShootData || Object.keys(updatedShootData).length === 0 || !updatedShootData.id) {
+        console.log('💾 Response missing data, refreshing from API...');
+        updatedShootData = await refreshShoot();
+      } else {
+        // Normalize location if needed (raw responses may omit location wrapper)
+        const shootAny = updatedShootData as any;
+        if (!updatedShootData.location && (shootAny.address || shootAny.city)) {
+          updatedShootData.location = {
+            address: shootAny.address || '',
+            city: shootAny.city || '',
+            state: shootAny.state || '',
+            zip: shootAny.zip || '',
+            fullAddress: shootAny.fullAddress || shootAny.address || '',
+          };
+        }
+        // Update local state
+        setShoot(updatedShootData);
+      }
+      
+      // Invalidate React Query cache to ensure fresh data on next load
+      if (refetchShoot) {
+        refetchShoot().catch((err) => {
+          console.log('💾 Background refetch error (non-critical):', err);
+        });
+      }
+      
+      // Update shoot in context to refresh dashboard cards (SYNCHRONOUS - happens immediately)
+      // We only pass the fields that changed to avoid triggering unnecessary API calls
+      // The context's updateShoot only makes an API call for status, workflowStatus, scheduledDate, or time
+      if (updatedShootData && updatedShootData.id) {
+        const shootIdStr = String(updatedShootData.id);
+        console.log('💾 Updating shoot in context for dashboard refresh:', shootIdStr);
+        
+        // Pass the entire updated shoot data to context
+        // The context's updateShoot updates local state IMMEDIATELY and SYNCHRONOUSLY
+        // It may make an API call for status/time fields, but that happens async and errors are suppressed
+        // The important part is the synchronous state update, which triggers dashboard re-render
+        const contextUpdates: Partial<ShootData> = updatedShootData;
+        
+        // Update context - this updates local state IMMEDIATELY and SYNCHRONOUSLY
+        // The setShoots call in the context happens first, before any async API call
+        // This means the dashboard will update right away via React re-render
+        updateShoot(shootIdStr, contextUpdates, { skipApi: true }).catch((contextError) => {
+          // Silently ignore errors from context's API call - local state is already updated
+          console.log('💾 Context updateShoot API call had an error (ignored, state already updated):', contextError);
+        });
+      } else {
+        console.warn('💾 No updated shoot data to update context');
+      }
       
       toast({
         title: 'Success',
@@ -690,11 +1144,43 @@ export function ShootDetailsModal({
       });
       
       setIsEditMode(false);
-      refreshShoot();
+      
+      // Call onShootUpdate callback to refresh parent components (like dashboard)
+      // This runs in the background - the context is already updated, so dashboard shows changes immediately
+      if (onShootUpdate) {
+        console.log('💾 Calling onShootUpdate callback (background, non-blocking)');
+        // Use setTimeout to ensure this runs after the current execution context
+        // This prevents any errors from blocking the success flow
+        setTimeout(() => {
+          try {
+            onShootUpdate();
+          } catch (error) {
+            // Silently handle errors - context is already updated, so dashboard already shows changes
+            console.log('💾 onShootUpdate callback had an error (non-critical, background sync):', error);
+          }
+        }, 0);
+      }
     } catch (error) {
+      console.error('💾 Save error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update shoot';
+      
+      // Provide more helpful error messages
+      let userMessage = errorMessage;
+      if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError')) {
+        userMessage = 'Network error - please check your connection and try again. If the problem persists, the changes may have been saved. Please refresh the page to verify.';
+      } else if (errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
+        userMessage = 'Authentication error - please refresh the page and try again.';
+      } else if (errorMessage.includes('403') || errorMessage.includes('Forbidden')) {
+        userMessage = 'You do not have permission to update this shoot.';
+      } else if (errorMessage.includes('404')) {
+        userMessage = 'Shoot not found - it may have been deleted.';
+      } else if (errorMessage.includes('422') || errorMessage.includes('validation')) {
+        userMessage = `Validation error: ${errorMessage}`;
+      }
+      
       toast({
         title: 'Error',
-        description: 'Failed to update shoot',
+        description: userMessage,
         variant: 'destructive',
       });
     }
@@ -1026,6 +1512,118 @@ export function ShootDetailsModal({
     }
   };
 
+  // Handle editor download raw files with activity logging
+  const handleEditorDownloadRaw = async () => {
+    if (!shoot) return;
+
+    try {
+      setIsDownloading(true);
+      const headers = getApiHeaders();
+      headers['Accept'] = 'application/json, application/zip';
+      const queryParams = new URLSearchParams();
+      if (selectedFileIds.length > 0) {
+        queryParams.set('file_ids', selectedFileIds.join(','));
+      }
+      const queryString = queryParams.toString();
+      
+      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/editor-download-raw${queryString ? `?${queryString}` : ''}`, {
+        method: 'GET',
+        headers,
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: 'Download failed' }));
+        throw new Error(errorData.error || 'Download failed');
+      }
+
+      const contentType = res.headers.get('content-type');
+      
+      if (contentType && contentType.includes('application/json')) {
+        const data = await res.json();
+        if (data.type === 'redirect' && data.url) {
+          window.open(data.url, '_blank');
+          toast({
+            title: 'Download started',
+            description: data.message || 'Raw files downloading. Switch to Edited tab to upload your edits.',
+          });
+        }
+      } else {
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `shoot-${shoot.id}-raw-files-${Date.now()}.zip`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+
+        toast({
+          title: 'Download started',
+          description: 'Raw files downloaded. Switch to Edited tab to upload your edits.',
+        });
+      }
+    } catch (error) {
+      console.error('Error downloading raw files:', error);
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to download raw files.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  // Handle generate share link for editors
+  const handleGenerateShareLink = async () => {
+    if (!shoot) return;
+
+    try {
+      setIsGeneratingShareLink(true);
+      const headers = getApiHeaders();
+      headers['Accept'] = 'application/json';
+      headers['Content-Type'] = 'application/json';
+      
+      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/generate-share-link`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          file_ids: selectedFileIds,
+          expires_in_hours: 72,
+        }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: 'Failed to generate share link' }));
+        throw new Error(errorData.error || 'Failed to generate share link');
+      }
+
+      const data = await res.json();
+      
+      // Copy to clipboard
+      await navigator.clipboard.writeText(data.share_link);
+      
+      toast({
+        title: 'Share link generated!',
+        description: `Link copied to clipboard. Valid for ${data.expires_in_hours} hours.`,
+      });
+      
+      // Refresh shoot to show new link in Media Links section
+      refreshShoot();
+      
+    } catch (error) {
+      console.error('Error generating share link:', error);
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to generate share link.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsGeneratingShareLink(false);
+    }
+  };
+
   // Handle download media with size selection
   const handleDownloadMedia = async (size: 'original' | 'small' | 'medium' | 'large') => {
     if (!shoot) return;
@@ -1107,30 +1705,53 @@ export function ShootDetailsModal({
     return Number.isFinite(parsedId) ? `/shoots/${parsedId}` : null;
   }, [shoot?.id]);
 
-  // Determine visible tabs based on role (excluding media which is always in right pane)
+  // Check if shoot is in requested status (awaiting approval)
+  const isRequestedStatus = useMemo(() => {
+    const status = (shoot?.status || shoot?.workflowStatus || '').toLowerCase();
+    return status === 'requested';
+  }, [shoot?.status, shoot?.workflowStatus]);
+
+  // Determine visible tabs based on role and status (excluding media which is always in right pane)
   const visibleTabs = useMemo(() => {
     const tabs = [];
     tabs.push({ id: 'overview', label: 'Overview' });
     tabs.push({ id: 'notes', label: 'Notes' });
     
+    // For requested shoots (pending approval), only show Overview and Notes tabs
+    if (isRequestedStatus) {
+      return tabs;
+    }
+    
     // Requests tab - visible to all but with different permissions
     tabs.push({ id: 'issues', label: 'Requests' });
     
-    // Tours tab - admin only
-    if (isAdmin) {
+    // Tours tab - visible to admin and clients (clients can view delivered tours)
+    if (isAdmin || isClient) {
       tabs.push({ id: 'tours', label: 'Tours' });
+    }
+    
+    // Settings tab - admin only
+    if (isAdmin) {
       tabs.push({ id: 'settings', label: 'Settings' });
     }
     
     return tabs;
-  }, [isAdmin]);
+  }, [isAdmin, isClient, isRequestedStatus]);
 
   if (loading) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="max-w-6xl max-h-[90vh]">
           <DialogHeader className="sr-only">
-            <DialogTitle>Shoot Details</DialogTitle>
+            <DialogTitle>
+              {shoot ? (
+                <>
+                  #{shoot.id} · Shoot Details
+                </>
+              ) : (
+                'Shoot Details'
+              )}
+            </DialogTitle>
             <DialogDescription>Loading shoot details</DialogDescription>
           </DialogHeader>
           <div className="flex items-center justify-center p-8">
@@ -1162,7 +1783,9 @@ export function ShootDetailsModal({
       <DialogContent className="max-w-[95vw] w-full max-h-[98vh] h-auto sm:max-h-[95vh] sm:h-[95vh] overflow-y-auto flex flex-col p-0">
         {/* DialogHeader for accessibility - must be first child */}
         <DialogHeader className="sr-only">
-          <DialogTitle>{shoot.location?.address || shoot.location?.fullAddress || 'Shoot Details'}</DialogTitle>
+            <DialogTitle>
+              {shoot ? `#${shoot.id} · ${shoot.location?.address || shoot.location?.fullAddress || 'Shoot Details'}` : 'Shoot Details'}
+            </DialogTitle>
           <DialogDescription>
             View and manage shoot details including media, notes, issues, and settings
           </DialogDescription>
@@ -1171,103 +1794,235 @@ export function ShootDetailsModal({
         {/* Action buttons - Top right: Edit, Send to editing, Finalise, View full page (before close) - Desktop only */}
         <div className="hidden sm:flex absolute top-4 z-[80] flex-col items-end right-14">
           <div className="flex items-center gap-1.5">
-            {isAdminOrRep && isScheduledOrOnHold && !isEditMode && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs px-3 bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950 dark:hover:bg-blue-900 dark:text-blue-300 dark:border-blue-800"
-                onClick={() => setIsEditMode(true)}
-              >
-                <Edit className="h-3 w-3 mr-1" />
-                <span>Edit</span>
-              </Button>
-            )}
-            {canUserPutOnHold && !isEditMode && (
-              <Button
-                variant="default"
-                size="sm"
-                className="h-7 text-xs px-3 bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950 dark:hover:bg-amber-900 dark:text-amber-300 dark:border-amber-800"
-                onClick={handleMarkOnHoldClick}
-              >
-                <PauseCircle className="h-3 w-3 mr-1" />
-                <span>Mark as on hold</span>
-              </Button>
-            )}
-            {canResumeFromHold && !isEditMode && (
-              <Button
-                variant="default"
-                size="sm"
-                className="h-7 text-xs px-3 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 dark:bg-green-950 dark:hover:bg-green-900 dark:text-green-300 dark:border-green-800"
-                onClick={handleResumeFromHold}
-              >
-                <PlayCircle className="h-3 w-3 mr-1" />
-                <span>Resume from hold</span>
-              </Button>
-            )}
-            {isAdmin && !isEditMode && (
+            {isEditMode ? (
               <>
-                {/* Send to editing - only show when shoot is booked/scheduled/in_progress */}
-                {(shoot?.status === 'uploaded' || shoot?.workflowStatus === 'uploaded' ||
-                  shoot?.status === 'booked' || shoot?.status === 'scheduled' || shoot?.status === 'in_progress' || 
-                  shoot?.workflowStatus === 'booked' || shoot?.workflowStatus === 'SCHEDULED' || shoot?.workflowStatus === 'IN_PROGRESS') && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="h-8 text-xs px-3"
+                  onClick={() => editActions?.save()}
+                  disabled={!editActions}
+                >
+                  <Save className="h-3.5 w-3.5 mr-1.5" />
+                  Save Changes
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs px-3"
+                  onClick={() => editActions?.cancel()}
+                  disabled={!editActions}
+                >
+                  Cancel
+                </Button>
+              </>
+            ) : (
+              <>
+                {/* Approve/Decline buttons for requested shoots */}
+                {isAdminOrRep && isRequestedStatus && (
+                  <>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="h-7 text-xs px-3 bg-green-600 hover:bg-green-700 text-white"
+                      onClick={() => setIsApprovalModalOpen(true)}
+                    >
+                      <Check className="h-3 w-3 mr-1" />
+                      <span>Approve</span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs px-3 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                      onClick={() => setIsDeclineModalOpen(true)}
+                    >
+                      <X className="h-3 w-3 mr-1" />
+                      <span>Decline</span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs px-3"
+                      onClick={() => setIsEditMode(true)}
+                    >
+                      <Edit className="h-3 w-3 mr-1" />
+                      <span>Modify</span>
+                    </Button>
+                  </>
+                )}
+                {(canAdminEdit || (isAdminOrRep && isScheduledOrOnHold)) && !isRequestedStatus && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs px-3 bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950 dark:hover:bg-blue-900 dark:text-blue-300 dark:border-blue-800"
+                    onClick={() => setIsEditMode(true)}
+                  >
+                    <Edit className="h-3 w-3 mr-1" />
+                    <span>Edit</span>
+                  </Button>
+                )}
+                {canUserPutOnHold && (
                   <Button
                     variant="default"
                     size="sm"
-                    className="h-7 text-xs px-3 bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-950 dark:hover:bg-purple-900 dark:text-purple-300 dark:border-purple-800"
-                    onClick={handleSendToEditing}
+                    className="h-7 text-xs px-3 bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950 dark:hover:bg-amber-900 dark:text-amber-300 dark:border-amber-800"
+                    onClick={handleMarkOnHoldClick}
                   >
-                    <Send className="h-3 w-3 mr-1" />
-                    <span>Send to editing</span>
+                    <PauseCircle className="h-3 w-3 mr-1" />
+                    <span>Mark as on hold</span>
                   </Button>
                 )}
-                {/* Finalise - show when shoot is ready for admin review/finalization */}
-                {(shoot?.workflowStatus === 'editing_uploaded' || shoot?.workflowStatus === 'EDITING_UPLOADED' ||
-                  shoot?.workflowStatus === 'review' || shoot?.workflowStatus === 'in_review' ||
-                  shoot?.status === 'ready_for_review' || shoot?.status === 'review' || shoot?.status === 'in_review') && (
+                {canResumeFromHold && (
                   <Button
                     variant="default"
                     size="sm"
                     className="h-7 text-xs px-3 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 dark:bg-green-950 dark:hover:bg-green-900 dark:text-green-300 dark:border-green-800"
-                    onClick={handleFinalise}
+                    onClick={handleResumeFromHold}
                   >
-                    <CheckCircle className="h-3 w-3 mr-1" />
-                    <span>Finalise</span>
+                    <PlayCircle className="h-3 w-3 mr-1" />
+                    <span>Resume from hold</span>
+                  </Button>
+                )}
+                {isAdmin && (
+                  <>
+                    {canSendToEditing && (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="h-7 text-xs px-3 bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-950 dark:hover:bg-purple-900 dark:text-purple-300 dark:border-purple-800"
+                        onClick={handleSendToEditing}
+                      >
+                        <Send className="h-3 w-3 mr-1" />
+                        <span>Send to editing</span>
+                      </Button>
+                    )}
+                    {canFinalise && (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="h-7 text-xs px-3 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 dark:bg-green-950 dark:hover:bg-green-900 dark:text-green-300 dark:border-green-800"
+                        onClick={handleFinalise}
+                      >
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                        <span>Finalise</span>
+                      </Button>
+                    )}
+                  </>
+                )}
+                {canShowInvoiceButton && !isPhotographer && !isEditor && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs px-3 bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950 dark:hover:bg-blue-900 dark:text-blue-300 dark:border-blue-800"
+                    onClick={handleShowInvoice}
+                    disabled={isLoadingInvoice}
+                  >
+                    {isLoadingInvoice ? (
+                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                    ) : (
+                      <FileText className="h-3 w-3 mr-1" />
+                    )}
+                    <span>{isLoadingInvoice ? 'Loading…' : 'Invoice'}</span>
+                  </Button>
+                )}
+                {/* Publish to Bright MLS button - before View full page */}
+                {isDelivered && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs px-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-950 dark:hover:bg-indigo-900 dark:text-indigo-300 dark:border-indigo-800"
+                    onClick={handleSendToBrightMls}
+                    disabled={isPublishingToBrightMls}
+                  >
+                    <Upload className="h-3 w-3 mr-1" />
+                    <span>{isPublishingToBrightMls ? 'Sending...' : 'Publish to Bright MLS'}</span>
+                  </Button>
+                )}
+                {showMmmPunchoutButtons && (
+                  <>
+                    {mmmRedirectUrl && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs px-3 bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-950 dark:hover:bg-slate-900 dark:text-slate-300 dark:border-slate-800"
+                        onClick={() => window.open(mmmRedirectUrl, '_blank', 'noopener,noreferrer')}
+                      >
+                        <Link2 className="h-3 w-3 mr-1" />
+                        <span>Open MMM</span>
+                      </Button>
+                    )}
+                    {canStartMmmPunchout && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:hover:bg-emerald-900 dark:text-emerald-300 dark:border-emerald-800"
+                        onClick={handleStartMmmPunchout}
+                        disabled={isStartingMmmPunchout}
+                      >
+                        {isStartingMmmPunchout ? (
+                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                        ) : (
+                          <Printer className="h-3 w-3 mr-1" />
+                        )}
+                        <span>{isStartingMmmPunchout ? 'Starting...' : 'Print'}</span>
+                      </Button>
+                    )}
+                  </>
+                )}
+                {/* Editor-specific: Download Raw and Share Link buttons */}
+                {isEditor && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs px-3 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 dark:bg-green-950 dark:hover:bg-green-900 dark:text-green-300 dark:border-green-800"
+                      onClick={handleEditorDownloadRaw}
+                      disabled={isDownloading || rawFileCount === 0}
+                    >
+                      <Download className="h-3 w-3 mr-1" />
+                      <span>
+                        {isDownloading
+                          ? 'Downloading...'
+                          : selectedFileIds.length > 0
+                            ? `Download Selected (${selectedFileIds.length})`
+                            : `Download All (${rawFileCount})`}
+                      </span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs px-3 bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-950 dark:hover:bg-purple-900 dark:text-purple-300 dark:border-purple-800"
+                      onClick={handleGenerateShareLink}
+                      disabled={isGeneratingShareLink || rawFileCount === 0}
+                    >
+                      <Share2 className="h-3 w-3 mr-1" />
+                      <span>
+                        {isGeneratingShareLink
+                          ? 'Generating...'
+                          : selectedFileIds.length > 0
+                            ? `Share Selected (${selectedFileIds.length})`
+                            : `Share All (${rawFileCount})`}
+                      </span>
+                    </Button>
+                  </>
+                )}
+                {fullPagePath && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs px-3"
+                    onClick={() => {
+                      onClose();
+                      navigate(fullPagePath);
+                    }}
+                  >
+                    <ExternalLink className="h-3 w-3 mr-1" />
+                    <span>View full page</span>
                   </Button>
                 )}
               </>
             )}
-            {(isAdmin || isClient) && isCompleted && !isEditMode && (
-              <Button
-                variant="default"
-                size="sm"
-                className="h-7 text-xs px-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-950 dark:hover:bg-indigo-900 dark:text-indigo-300 dark:border-indigo-800"
-                onClick={handleSendToBrightMls}
-                disabled={isPublishingToBrightMls}
-              >
-                <Upload className="h-3 w-3 mr-1" />
-                <span>{isPublishingToBrightMls ? 'Sending...' : 'Send images to Bright MLS'}</span>
-              </Button>
-            )}
-            {fullPagePath && !isEditMode && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs px-3"
-                onClick={() => {
-                  onClose();
-                  navigate(fullPagePath);
-                }}
-              >
-                <ExternalLink className="h-3 w-3 mr-1" />
-                <span>View full page</span>
-              </Button>
-            )}
           </div>
-          {createdByLabel && (
-            <div className="w-full mt-1 text-xs text-muted-foreground text-right whitespace-nowrap">
-              Created by: {createdByLabel}
-            </div>
-          )}
         </div>
         
         {/* Mobile: Edit button, Mark as on hold, Resume from hold, and View full page button - Top right before close button */}
@@ -1292,7 +2047,7 @@ export function ShootDetailsModal({
               <PlayCircle className="h-3 w-3" />
             </Button>
           )}
-          {isAdmin && !isEditMode && (shoot?.status === 'uploaded' || shoot?.workflowStatus === 'uploaded') && (
+          {isAdmin && !isEditMode && canSendToEditing && (
             <Button
               variant="outline"
               size="sm"
@@ -1302,7 +2057,7 @@ export function ShootDetailsModal({
               <Send className="h-3 w-3" />
             </Button>
           )}
-          {isAdminOrRep && isScheduledOrOnHold && !isEditMode && (
+          {(canAdminEdit || (isAdminOrRep && isScheduledOrOnHold)) && !isEditMode && !isRequestedStatus && (
             <Button
               variant="outline"
               size="sm"
@@ -1312,7 +2067,7 @@ export function ShootDetailsModal({
               <Edit className="h-3 w-3" />
             </Button>
           )}
-          {(isAdmin || isClient) && isCompleted && !isEditMode && (
+          {(isAdmin || isClient) && isDelivered && !isEditMode && (
             <Button
               variant="outline"
               size="sm"
@@ -1322,6 +2077,35 @@ export function ShootDetailsModal({
             >
               <Upload className="h-3 w-3" />
             </Button>
+          )}
+          {showMmmPunchoutButtons && (
+            <>
+              {mmmRedirectUrl && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs px-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200"
+                  onClick={() => window.open(mmmRedirectUrl, '_blank', 'noopener,noreferrer')}
+                >
+                  <Link2 className="h-3 w-3" />
+                </Button>
+              )}
+              {canStartMmmPunchout && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs px-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200"
+                  onClick={handleStartMmmPunchout}
+                  disabled={isStartingMmmPunchout}
+                >
+                  {isStartingMmmPunchout ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Printer className="h-3 w-3" />
+                  )}
+                </Button>
+              )}
+            </>
           )}
           {fullPagePath && !isEditMode && (
             <Button
@@ -1352,50 +2136,56 @@ export function ShootDetailsModal({
               {/* Main Title - Location/Address with Status Badge inline */}
               <div className="flex items-center gap-2 sm:gap-3 mb-1.5 sm:mb-2 flex-wrap">
                 <h2 className="text-base sm:text-lg font-bold truncate text-left">
-                  {shoot.location?.address || shoot.location?.fullAddress || 'Shoot Details'}
+                  {(() => {
+                    let address = shoot.location?.address || (shoot as any).address || '';
+                    const city = shoot.location?.city || (shoot as any).city || '';
+                    const state = shoot.location?.state || (shoot as any).state || '';
+                    const zip = shoot.location?.zip || (shoot as any).zip || '';
+                    if (address && (city || state || zip)) {
+                      let streetAddress = address;
+                      if (city) streetAddress = streetAddress.replace(new RegExp(`\\s*,?\\s*${city}\\s*,?`, 'i'), '');
+                      if (state) streetAddress = streetAddress.replace(new RegExp(`\\s*,?\\s*${state}\\s*,?`, 'i'), '');
+                      if (zip) streetAddress = streetAddress.replace(new RegExp(`\\s*,?\\s*${zip}\\s*`, 'i'), '');
+                      streetAddress = streetAddress.replace(/[,\s]+$/, '').trim();
+                      if (streetAddress) return streetAddress;
+                    }
+                    return address || shoot.location?.fullAddress || 'Shoot Details';
+                  })()}
                 </h2>
                 <div className="flex-shrink-0">
                   {getStatusBadge(shoot.status || shoot.workflowStatus || 'booked')}
                 </div>
               </div>
               
-              {/* Schedule Info - Date & Time */}
-              <div className="text-xs sm:text-sm text-muted-foreground text-left flex items-center gap-2">
-                <CalendarIcon className="h-3.5 w-3.5" />
-                <span>
-                  {shoot.scheduledDate ? format(new Date(shoot.scheduledDate), 'MMM d, yyyy') : 'Not scheduled'}
-                  {shoot.time && ` • ${formatTime(shoot.time)}`}
-                </span>
-              </div>
+              {/* Created By Info */}
+              {createdByLabel && (
+                <div className="text-[11px] text-muted-foreground text-left flex items-center gap-1.5">
+                  <UserIcon className="h-3 w-3" />
+                  <span>Created by: {createdByLabel}</span>
+                </div>
+              )}
             </div>
-            {(isEditMode || createdByLabel) && (
+            {isEditMode && (
               <div className="w-full sm:hidden flex flex-col items-end gap-1">
-                {isEditMode && (
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="default"
-                      size="sm"
-                      className="h-8 text-xs px-3"
-                      onClick={() => editActions?.save()}
-                    >
-                      <Save className="h-3.5 w-3.5 mr-1.5" />
-                      Save Changes
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 text-xs px-3"
-                      onClick={() => editActions?.cancel()}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                )}
-                {createdByLabel && (
-                  <div className="text-xs text-muted-foreground text-right">
-                    Created by: {createdByLabel}
-                  </div>
-                )}
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="h-8 text-xs px-3"
+                    onClick={() => editActions?.save()}
+                  >
+                    <Save className="h-3.5 w-3.5 mr-1.5" />
+                    Save Changes
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs px-3"
+                    onClick={() => editActions?.cancel()}
+                  >
+                    Cancel
+                  </Button>
+                </div>
               </div>
             )}
           </div>
@@ -1403,8 +2193,8 @@ export function ShootDetailsModal({
 
         {/* Split Pane Layout - Stack on mobile, expandable media */}
         <div className={`flex flex-col sm:flex-row overflow-hidden pb-20 sm:pb-0 ${isMediaExpanded ? 'min-h-[70vh]' : 'min-h-[50vh]'} sm:flex-1 sm:min-h-0`}>
-          {/* Left Pane - Full width on mobile, 40% on desktop */}
-          <div className={`relative w-full sm:w-[40%] border-r sm:border-r border-b sm:border-b-0 flex flex-col ${isMediaExpanded ? 'min-h-[35vh]' : 'flex-1'} sm:min-h-0 overflow-hidden bg-muted/30 flex-1 sm:flex-none`}>
+          {/* Left Pane - Full width on mobile, 37.5% on desktop */}
+          <div className={`relative w-full sm:w-[37.5%] border-r sm:border-r border-b sm:border-b-0 flex flex-col ${isMediaExpanded ? 'min-h-[35vh]' : 'flex-1'} sm:min-h-0 overflow-hidden bg-muted/30 flex-1 sm:flex-none`}>
             {/* Tab Navigation */}
             <div className="px-2 sm:px-4 py-1.5 sm:py-2 border-b bg-background flex-shrink-0 overflow-x-auto">
               <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -1432,6 +2222,7 @@ export function ShootDetailsModal({
                     isPhotographer={isPhotographer}
                     isEditor={isEditor}
                     isClient={isClient}
+                    shouldHideClientDetails={shouldHideClientDetails}
                     role={currentUserRole}
                     onShootUpdate={refreshShoot}
                     weather={weather || null}
@@ -1465,54 +2256,31 @@ export function ShootDetailsModal({
                   />
                 </TabsContent>
 
+                {(isAdmin || isClient) && (
+                  <TabsContent value="tours" className="mt-0">
+                    <ShootDetailsTourTab
+                      shoot={shoot}
+                      isAdmin={isAdmin}
+                      isClient={isClient}
+                      onShootUpdate={refreshShoot}
+                    />
+                  </TabsContent>
+                )}
                 {isAdmin && (
-                  <>
-                    <TabsContent value="tours" className="mt-0">
-                      <ShootDetailsTourTab
-                        shoot={shoot}
-                        isAdmin={isAdmin}
-                        onShootUpdate={refreshShoot}
-                      />
-                    </TabsContent>
-                    <TabsContent value="settings" className="mt-0">
-                      <ShootDetailsSettingsTab
-                        shoot={shoot}
-                        isAdmin={isAdmin}
-                        onShootUpdate={refreshShoot}
-                      />
-                    </TabsContent>
-                  </>
+                  <TabsContent value="settings" className="mt-0">
+                    <ShootDetailsSettingsTab
+                      shoot={shoot}
+                      isAdmin={isAdmin}
+                      onShootUpdate={refreshShoot}
+                    />
+                  </TabsContent>
                 )}
               </Tabs>
             </div>
 
             {/* Buttons Section at Bottom */}
             <div className="px-2 sm:px-4 py-1.5 sm:py-2 border-t bg-background flex-shrink-0 space-y-2">
-              {/* Client-specific buttons for completed shoots */}
-              {isClient && isCompleted && !isEditMode && (
-                <div className="flex gap-2 w-full">
-                  <Button
-                    variant="default"
-                    size="sm"
-                    className="flex-1 h-8 text-xs px-3 bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950 dark:hover:bg-blue-900 dark:text-blue-300 dark:border-blue-800"
-                    onClick={() => setIsDownloadDialogOpen(true)}
-                    disabled={isDownloading}
-                  >
-                    <Download className="h-3.5 w-3.5 mr-1.5" />
-                    <span>{isDownloading ? 'Downloading...' : 'Download media'}</span>
-                  </Button>
-                  <Button
-                    variant="default"
-                    size="sm"
-                    className="flex-1 h-8 text-xs px-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-950 dark:hover:bg-indigo-900 dark:text-indigo-300 dark:border-indigo-800"
-                    onClick={handleSendToBrightMls}
-                    disabled={isPublishingToBrightMls}
-                  >
-                    <Upload className="h-3.5 w-3.5 mr-1.5" />
-                    <span>{isPublishingToBrightMls ? 'Sending...' : 'Publish to Bright MLS'}</span>
-                  </Button>
-                </div>
-              )}
+              {/* Publish to Bright MLS moved to top right header */}
               <ShootDetailsQuickActions
                 shoot={shoot}
                 isAdmin={isAdmin}
@@ -1521,11 +2289,14 @@ export function ShootDetailsModal({
                 isClient={isClient}
                 role={currentUserRole}
                 onShootUpdate={refreshShoot}
+                onProcessPayment={handleProcessPayment}
+                onViewInvoice={handleShowInvoice}
+                onDownloadAll={isEditor ? handleEditorDownloadRaw : () => setIsDownloadDialogOpen(true)}
               />
               {/* Payment Buttons - Mark as Paid and Process Payment (50/50 split) */}
-              {(isAdmin || currentUserRole === 'superadmin') && (
+              {(isAdmin || isClient || isRep) && (
                 <div className="hidden sm:flex gap-2 w-full">
-                  {currentUserRole === 'superadmin' && !((shoot.payment?.totalPaid ?? 0) >= (shoot.payment?.totalQuote ?? 0)) && (
+                  {(currentUserRole === 'superadmin' || currentUserRole === 'admin') && !((shoot.payment?.totalPaid ?? 0) >= (shoot.payment?.totalQuote ?? 0)) && (
                     <Button
                       variant="default"
                       size="sm"
@@ -1533,6 +2304,7 @@ export function ShootDetailsModal({
                       onClick={async () => {
                         try {
                           const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+                          const outstandingAmount = (shoot.payment?.totalQuote ?? 0) - (shoot.payment?.totalPaid ?? 0);
                           const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/mark-paid`, {
                             method: 'POST',
                             headers: {
@@ -1540,10 +2312,14 @@ export function ShootDetailsModal({
                               'Content-Type': 'application/json',
                               'Accept': 'application/json',
                             },
+                            body: JSON.stringify({
+                              payment_type: 'manual',
+                              amount: outstandingAmount > 0 ? outstandingAmount : shoot.payment?.totalQuote ?? 0,
+                            }),
                           });
                           if (!res.ok) {
                             const errorData = await res.json().catch(() => ({ message: 'Failed to mark as paid' }));
-                            throw new Error(errorData.message || 'Failed to mark as paid');
+                            throw new Error(errorData.message || errorData.error || 'Failed to mark as paid');
                           }
                           refreshShoot();
                           toast({
@@ -1564,7 +2340,23 @@ export function ShootDetailsModal({
                       <span>Mark as Paid</span>
                     </Button>
                   )}
-                  {isAdmin && (
+                  {isAdmin && isPaid && (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="w-full h-8 text-xs px-3 bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950 dark:hover:bg-blue-900 dark:text-blue-300 dark:border-blue-800"
+                      onClick={handleShowInvoice}
+                      disabled={isLoadingInvoice}
+                    >
+                      {isLoadingInvoice ? (
+                        <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                      ) : (
+                        <FileText className="h-3.5 w-3.5 mr-1.5" />
+                      )}
+                      <span>{isLoadingInvoice ? 'Loading...' : 'Show Invoice'}</span>
+                    </Button>
+                  )}
+                  {(isAdmin || isRep) && !isPaid && (
                     <Button
                       variant="default"
                       size="sm"
@@ -1580,9 +2372,9 @@ export function ShootDetailsModal({
             </div>
           </div>
 
-          {/* Right Pane - Full width on mobile, 60% on desktop - Media Tab Always Visible, Expandable */}
-          <div className={`w-full sm:w-[60%] flex flex-col ${isMediaExpanded ? 'fixed inset-x-0 bottom-0 top-[7.5rem] sm:relative sm:inset-auto sm:top-auto sm:bottom-auto flex-1' : 'h-auto max-h-[12vh] overflow-hidden'} sm:min-h-0 sm:flex-1 sm:max-h-none transition-all duration-300 flex-1 sm:flex-none bg-background border-t sm:border-t-0 z-40 sm:z-auto shadow-lg sm:shadow-none`}>
-            <div className={`flex-1 min-h-0 flex flex-col overflow-hidden px-2 sm:px-3 py-1.5 sm:py-2 ${!isMediaExpanded ? 'overflow-hidden' : ''}`}>
+          {/* Right Pane - Full width on mobile, 62.5% on desktop - Media Tab Always Visible, Expandable */}
+          <div className={`w-full sm:w-[62.5%] flex flex-col ${isMediaExpanded ? 'fixed inset-x-0 bottom-0 top-[7.5rem] sm:relative sm:inset-auto sm:top-auto sm:bottom-auto flex-1' : 'h-auto max-h-[12vh] overflow-hidden'} sm:min-h-0 sm:flex-1 sm:max-h-none transition-all duration-300 flex-1 sm:flex-none bg-background border-t sm:border-t-0 z-40 sm:z-auto shadow-lg sm:shadow-none`}>
+            <div className={`flex-1 min-h-0 flex flex-col ${!isMediaExpanded ? 'overflow-hidden' : 'overflow-y-auto'} sm:overflow-y-auto px-2 sm:px-3`}>
               <ShootDetailsMediaTab
                 shoot={shoot}
                 isAdmin={isAdmin}
@@ -1591,6 +2383,7 @@ export function ShootDetailsModal({
                 isClient={isClient}
                 role={currentUserRole}
                 onShootUpdate={refreshShoot}
+                onSelectionChange={setSelectedFileIds}
                 isExpanded={isMediaExpanded}
                 onToggleExpand={() => setIsMediaExpanded(!isMediaExpanded)}
               />
@@ -1599,12 +2392,10 @@ export function ShootDetailsModal({
         </div>
         
         {/* Bottom Overlay Buttons - Mobile only */}
-        {isAdmin && (
+        {(isAdmin || isClient || isRep) && (
           <div className="fixed sm:hidden bottom-0 left-0 right-0 bg-background border-t shadow-lg z-50 px-3 py-2 space-y-2">
             {/* Admin-only actions */}
-            {(shoot?.workflowStatus === 'editing_uploaded' || shoot?.workflowStatus === 'EDITING_UPLOADED' ||
-              shoot?.workflowStatus === 'review' || shoot?.workflowStatus === 'in_review' ||
-              shoot?.status === 'ready_for_review' || shoot?.status === 'review' || shoot?.status === 'in_review') && (
+            {canFinalise && (
               <div className="flex items-center justify-between gap-2">
                 <Button
                   variant="default"
@@ -1620,7 +2411,7 @@ export function ShootDetailsModal({
 
             {/* Payment Buttons - Mark as Paid and Process Payment (50/50 split) */}
             <div className="flex gap-2 w-full">
-              {currentUserRole === 'superadmin' && !((shoot.payment?.totalPaid ?? 0) >= (shoot.payment?.totalQuote ?? 0)) && (
+              {(currentUserRole === 'superadmin' || currentUserRole === 'admin') && !((shoot.payment?.totalPaid ?? 0) >= (shoot.payment?.totalQuote ?? 0)) && (
                 <Button
                   variant="default"
                   size="sm"
@@ -1628,6 +2419,7 @@ export function ShootDetailsModal({
                   onClick={async () => {
                     try {
                       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+                      const outstandingAmount = (shoot.payment?.totalQuote ?? 0) - (shoot.payment?.totalPaid ?? 0);
                       const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/mark-paid`, {
                         method: 'POST',
                         headers: {
@@ -1635,10 +2427,14 @@ export function ShootDetailsModal({
                           'Content-Type': 'application/json',
                           'Accept': 'application/json',
                         },
+                        body: JSON.stringify({
+                          payment_type: 'manual',
+                          amount: outstandingAmount > 0 ? outstandingAmount : shoot.payment?.totalQuote ?? 0,
+                        }),
                       });
                       if (!res.ok) {
                         const errorData = await res.json().catch(() => ({ message: 'Failed to mark as paid' }));
-                        throw new Error(errorData.message || 'Failed to mark as paid');
+                        throw new Error(errorData.message || errorData.error || 'Failed to mark as paid');
                       }
                       refreshShoot();
                       toast({
@@ -1659,7 +2455,23 @@ export function ShootDetailsModal({
                   <span>Mark as Paid</span>
                 </Button>
               )}
-              {isAdmin && (
+              {isAdmin && isPaid && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="w-full h-9 text-xs px-3 bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950 dark:hover:bg-blue-900 dark:text-blue-300 dark:border-blue-800"
+                  onClick={handleShowInvoice}
+                  disabled={isLoadingInvoice}
+                >
+                  {isLoadingInvoice ? (
+                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                  ) : (
+                    <FileText className="h-3.5 w-3.5 mr-1.5" />
+                  )}
+                  <span>{isLoadingInvoice ? 'Loading...' : 'Show Invoice'}</span>
+                </Button>
+              )}
+              {(isAdmin || isRep) && !isPaid && (
                 <Button
                   variant="default"
                   size="sm"
@@ -1679,9 +2491,16 @@ export function ShootDetailsModal({
         <SquarePaymentDialog
           isOpen={isPaymentDialogOpen}
           onClose={() => setIsPaymentDialogOpen(false)}
-          amount={amountDue || 100} // Default to $100 if amountDue is 0
+          amount={amountDue || 100}
           shootId={shoot.id}
           shootAddress={shoot.location?.fullAddress || shoot.location?.address}
+          shootServices={Array.isArray(shoot.services) ? shoot.services.map((s: any) => typeof s === 'string' ? s : s?.name || s?.label || String(s)).filter(Boolean) : []}
+          shootDate={shoot.scheduledDate}
+          shootTime={shoot.time ? formatTime(shoot.time) : undefined}
+          clientName={shouldHideClientDetails ? undefined : shoot.client?.name}
+          clientEmail={shouldHideClientDetails ? undefined : shoot.client?.email}
+          totalQuote={shoot.payment?.totalQuote}
+          totalPaid={shoot.payment?.totalPaid}
           onPaymentSuccess={handlePaymentSuccess}
         />
       )}
@@ -1845,6 +2664,49 @@ export function ShootDetailsModal({
             </div>
           </DialogContent>
         </Dialog>
+      )}
+
+      {/* Approval Modal for requested shoots */}
+      {isApprovalModalOpen && shoot && (
+        <ShootApprovalModal
+          isOpen={isApprovalModalOpen}
+          onClose={() => setIsApprovalModalOpen(false)}
+          shootId={shoot.id}
+          shootAddress={(shoot as any).addressLine || shoot.location?.address || ''}
+          currentScheduledAt={shoot.scheduledDate}
+          onApproved={() => {
+            setIsApprovalModalOpen(false);
+            onShootUpdate?.();
+            onClose();
+          }}
+          photographers={photographers}
+        />
+      )}
+
+      {/* Decline Modal for requested shoots */}
+      {isDeclineModalOpen && shoot && (
+        <ShootDeclineModal
+          isOpen={isDeclineModalOpen}
+          onClose={() => setIsDeclineModalOpen(false)}
+          shootId={shoot.id}
+          shootAddress={(shoot as any).addressLine || shoot.location?.address || ''}
+          onDeclined={() => {
+            setIsDeclineModalOpen(false);
+            onShootUpdate?.();
+            onClose();
+          }}
+        />
+      )}
+      
+      {selectedInvoice && (
+        <InvoiceViewDialog
+          isOpen={isInvoiceDialogOpen}
+          onClose={() => {
+            setIsInvoiceDialogOpen(false);
+            setSelectedInvoice(null);
+          }}
+          invoice={selectedInvoice}
+        />
       )}
     </Dialog>
   );

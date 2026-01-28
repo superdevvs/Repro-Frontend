@@ -95,7 +95,14 @@ export const ShootDetailDialog = ({ shoot, isOpen, onOpenChange }: ShootDetailDi
         onClose={() => setIsPaymentDialogOpen(false)}
         amount={amountDue}
         shootId={shoot.id}
-        shootAddress={shoot.location.fullAddress}
+        shootAddress={shoot.location?.fullAddress || shoot.location?.address}
+        shootServices={Array.isArray(shoot.services) ? shoot.services.map((s: any) => typeof s === 'string' ? s : s?.name || s?.label || String(s)).filter(Boolean) : []}
+        shootDate={shoot.scheduledDate}
+        shootTime={shoot.scheduledTime}
+        clientName={shoot.client?.name}
+        clientEmail={shoot.client?.email}
+        totalQuote={shoot.payment?.totalQuote}
+        totalPaid={shoot.payment?.totalPaid}
         onPaymentSuccess={handlePaymentSuccess}
       />
     </Dialog>

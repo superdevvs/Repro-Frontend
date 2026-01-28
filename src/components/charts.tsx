@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { useTheme } from '@/hooks/useTheme';
 import {
   ResponsiveContainer,
   LineChart as RechartsLineChart,
@@ -33,6 +34,20 @@ type ChartProps = {
   connectNulls?: boolean;
   curveType?: 'natural' | 'monotone' | 'step';
   className?: string;
+  themeMode?: 'auto' | 'light' | 'dark';
+};
+
+const useGridColors = (themeMode: ChartProps['themeMode']) => {
+  const { theme } = useTheme();
+  const mode = themeMode === 'auto' ? theme : themeMode || 'light';
+  return {
+    mode,
+    grid: mode === 'dark' ? 'rgba(148, 163, 184, 0.16)' : 'rgba(15, 23, 42, 0.06)',
+    axis: mode === 'dark' ? 'rgba(148, 163, 184, 0.7)' : 'rgba(15, 23, 42, 0.65)',
+    tooltipBorder: mode === 'dark' ? 'rgba(148, 163, 184, 0.35)' : 'rgba(148, 163, 184, 0.4)',
+    tooltipBg: mode === 'dark' ? '#0f172a' : '#ffffff',
+    legendText: mode === 'dark' ? '#cbd5f5' : '#475569',
+  };
 };
 
 export function LineChart({
@@ -49,27 +64,56 @@ export function LineChart({
   connectNulls = false,
   curveType = "monotone", 
   className = "",
+  themeMode = 'auto',
 }: ChartProps) {
+  const palette = useGridColors(themeMode);
   return (
     <div className={`w-full h-full ${className}`}>
       <ResponsiveContainer width="100%" height="100%">
         <RechartsLineChart data={data} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
-          {showGrid && <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />}
-          {showXAxis && <XAxis dataKey={index} tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />}
-          {showYAxis && <YAxis width={yAxisWidth} tick={{ fontSize: 12 }} tickLine={false} axisLine={false} tickFormatter={valueFormatter} />}
+          {showGrid && (
+            <CartesianGrid
+              strokeDasharray="2 6"
+              stroke={palette.grid}
+              strokeWidth={0.75}
+              vertical={false}
+            />
+          )}
+          {showXAxis && (
+            <XAxis
+              dataKey={index}
+              tick={{ fontSize: 12, fill: palette.axis }}
+              tickLine={false}
+              axisLine={false}
+            />
+          )}
+          {showYAxis && (
+            <YAxis
+              width={yAxisWidth}
+              tick={{ fontSize: 12, fill: palette.axis }}
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={valueFormatter}
+            />
+          )}
           <Tooltip
             formatter={(value: number) => [valueFormatter(value)]}
             labelFormatter={(value) => `${value}`}
-            contentStyle={{ border: "1px solid #f0f0f0", borderRadius: "6px" }}
+            contentStyle={{
+              border: `1px solid ${palette.tooltipBorder}`,
+              backgroundColor: palette.tooltipBg,
+              borderRadius: '8px',
+              color: palette.axis,
+            }}
           />
-          {showLegend && <Legend />}
+          {showLegend && <Legend wrapperStyle={{ color: palette.legendText, fontSize: 12 }} />}
           {categories.map((category, index) => (
             <Line
               key={category}
               type={curveType}
               dataKey={category}
               stroke={colors[index % colors.length]}
-              strokeWidth={2}
+              strokeWidth={2.4}
               dot={{ r: 0 }}
               activeDot={{ r: 4 }}
               connectNulls={connectNulls}
@@ -94,20 +138,43 @@ export function BarChart({
   yAxisWidth = 56,
   stack = false,
   className = "",
+  themeMode = 'auto',
 }: ChartProps) {
+  const palette = useGridColors(themeMode);
   return (
     <div className={`w-full h-full ${className}`}>
       <ResponsiveContainer width="100%" height="100%">
         <RechartsBarChart data={data} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
-          {showGrid && <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />}
-          {showXAxis && <XAxis dataKey={index} tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />}
-          {showYAxis && <YAxis width={yAxisWidth} tick={{ fontSize: 12 }} tickLine={false} axisLine={false} tickFormatter={valueFormatter} />}
+          {showGrid && (
+            <CartesianGrid strokeDasharray="2 6" vertical={false} stroke={palette.grid} strokeWidth={0.75} />
+          )}
+          {showXAxis && (
+            <XAxis
+              dataKey={index}
+              tick={{ fontSize: 12, fill: palette.axis }}
+              tickLine={false}
+              axisLine={false}
+            />
+          )}
+          {showYAxis && (
+            <YAxis
+              width={yAxisWidth}
+              tick={{ fontSize: 12, fill: palette.axis }}
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={valueFormatter}
+            />
+          )}
           <Tooltip
             formatter={(value: number) => [valueFormatter(value)]}
             labelFormatter={(value) => `${value}`}
-            contentStyle={{ border: "1px solid #f0f0f0", borderRadius: "6px" }}
+            contentStyle={{
+              border: `1px solid ${palette.tooltipBorder}`,
+              backgroundColor: palette.tooltipBg,
+              borderRadius: '8px',
+            }}
           />
-          {showLegend && <Legend />}
+          {showLegend && <Legend wrapperStyle={{ color: palette.legendText, fontSize: 12 }} />}
           {categories.map((category, index) => (
             <Bar
               key={category}
@@ -138,20 +205,43 @@ export function AreaChart({
   connectNulls = false,
   curveType = "monotone",
   className = "",
+  themeMode = 'auto',
 }: ChartProps) {
+  const palette = useGridColors(themeMode);
   return (
     <div className={`w-full h-full ${className}`}>
       <ResponsiveContainer width="100%" height="100%">
         <RechartsAreaChart data={data} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
-          {showGrid && <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />}
-          {showXAxis && <XAxis dataKey={index} tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />}
-          {showYAxis && <YAxis width={yAxisWidth} tick={{ fontSize: 12 }} tickLine={false} axisLine={false} tickFormatter={valueFormatter} />}
+          {showGrid && (
+            <CartesianGrid strokeDasharray="2 6" vertical={false} stroke={palette.grid} strokeWidth={0.75} />
+          )}
+          {showXAxis && (
+            <XAxis
+              dataKey={index}
+              tick={{ fontSize: 12, fill: palette.axis }}
+              tickLine={false}
+              axisLine={false}
+            />
+          )}
+          {showYAxis && (
+            <YAxis
+              width={yAxisWidth}
+              tick={{ fontSize: 12, fill: palette.axis }}
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={valueFormatter}
+            />
+          )}
           <Tooltip
             formatter={(value: number) => [valueFormatter(value)]}
             labelFormatter={(value) => `${value}`}
-            contentStyle={{ border: "1px solid #f0f0f0", borderRadius: "6px" }}
+            contentStyle={{
+              border: `1px solid ${palette.tooltipBorder}`,
+              backgroundColor: palette.tooltipBg,
+              borderRadius: '8px',
+            }}
           />
-          {showLegend && <Legend />}
+          {showLegend && <Legend wrapperStyle={{ color: palette.legendText, fontSize: 12 }} />}
           {categories.map((category, index) => (
             <Area
               key={category}
@@ -159,7 +249,7 @@ export function AreaChart({
               dataKey={category}
               fill={colors[index % colors.length]}
               stroke={colors[index % colors.length]}
-              fillOpacity={0.2}
+              fillOpacity={modeAwareFillOpacity(palette.mode)}
               stackId={stack ? "stack" : undefined}
               connectNulls={connectNulls}
             />
@@ -178,6 +268,7 @@ type DonutChartProps = {
   valueFormatter?: (value: number) => string;
   showLabel?: boolean;
   className?: string;
+  themeMode?: 'auto' | 'light' | 'dark';
 };
 
 export function DonutChart({
@@ -188,7 +279,9 @@ export function DonutChart({
   valueFormatter = (value: number) => `${value}`,
   showLabel = false,
   className = "",
+  themeMode = 'auto',
 }: DonutChartProps) {
+  const palette = useGridColors(themeMode);
   return (
     <div className={`w-full h-full ${className}`}>
       <ResponsiveContainer width="100%" height="100%">
@@ -210,11 +303,17 @@ export function DonutChart({
           </Pie>
           <Tooltip
             formatter={(value: number) => [valueFormatter(value)]}
-            contentStyle={{ border: "1px solid #f0f0f0", borderRadius: "6px" }}
+            contentStyle={{
+              border: `1px solid ${palette.tooltipBorder}`,
+              backgroundColor: palette.tooltipBg,
+              borderRadius: '8px',
+            }}
           />
-          <Legend />
+          <Legend wrapperStyle={{ color: palette.legendText, fontSize: 12 }} />
         </RechartsPieChart>
       </ResponsiveContainer>
     </div>
   );
 }
+
+const modeAwareFillOpacity = (mode: 'dark' | 'light') => (mode === 'dark' ? 0.25 : 0.15);

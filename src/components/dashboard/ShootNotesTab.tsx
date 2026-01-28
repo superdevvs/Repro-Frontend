@@ -334,7 +334,7 @@ export function ShootNotesTab({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6 w-full mt-0">
       {canView('shootNotes') && (
       <div>
         <div className="flex items-center justify-between mb-2">

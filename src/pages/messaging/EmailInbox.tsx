@@ -8,8 +8,11 @@ import { EmailAccountSidebar } from '@/components/messaging/email/EmailAccountSi
 import { EmailMessageList } from '@/components/messaging/email/EmailMessageList';
 import { EmailMessageDetail } from '@/components/messaging/email/EmailMessageDetail';
 import type { Message, MessageChannelConfig } from '@/types/messaging';
+import { useAuth } from '@/components/auth/AuthProvider';
 
 export default function EmailInbox() {
+  const { role } = useAuth();
+  const isAdmin = role === 'admin' || role === 'superadmin';
   const [selectedChannel, setSelectedChannel] = useState<number | null>(null);
   const [selectedFolder, setSelectedFolder] = useState<string>('inbox');
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
@@ -20,6 +23,7 @@ export default function EmailInbox() {
   const { data: settingsData } = useQuery({
     queryKey: ['email-settings'],
     queryFn: getEmailSettings,
+    enabled: isAdmin,
   });
 
   // Fetch messages
@@ -34,7 +38,7 @@ export default function EmailInbox() {
       }),
   });
 
-  const channels = settingsData?.channels || [];
+  const channels = isAdmin ? settingsData?.channels || [] : [];
   const messages = messagesData?.data || [];
 
   return (

@@ -25,6 +25,8 @@ export const resources: Resource[] = [
   { id: 'photographer-notes', name: 'Photographer Notes', description: 'Photographer notes visibility' },
   { id: 'branding', name: 'Branding', description: 'Branding information management' },
   { id: 'media', name: 'Media', description: 'Media upload and management' },
+  { id: 'raw-media', name: 'Raw Media', description: 'View uploaded/raw media files' },
+  { id: 'edited-media', name: 'Edited Media', description: 'View edited media files' },
   { id: 'tours', name: 'Tours', description: 'Tour settings and management' },
   { id: 'history', name: 'History', description: 'Shoot history access' },
 ];
@@ -69,8 +71,8 @@ export const permissionsConfig: PermissionsMap = {
           action: action.id,
         }))
       ).filter(p => 
-        // Remove payment-related permissions for admin
-        !(p.resource === 'payments' && (p.action === 'view' || p.action === 'mark-paid' || p.action === 'update')) &&
+        // Remove some payment-related permissions for admin (but allow mark-paid for cash payments)
+        !(p.resource === 'payments' && (p.action === 'view' || p.action === 'update')) &&
         !(p.resource === 'integrations' && p.action === 'delete')
       )
     ]
@@ -107,6 +109,8 @@ export const permissionsConfig: PermissionsMap = {
       { id: 'media-view', resource: 'media', action: 'view', conditions: { selfOnly: true } },
       { id: 'media-download', resource: 'media', action: 'download', conditions: { selfOnly: true } },
       { id: 'media-upload', resource: 'media', action: 'upload', conditions: { selfOnly: true } },
+      // Clients can only see edited media, not raw/uploaded
+      { id: 'edited-media-view', resource: 'edited-media', action: 'view', conditions: { selfOnly: true } },
       
       // Tour permissions - read only
       { id: 'tours-view', resource: 'tours', action: 'view', conditions: { selfOnly: true } },
@@ -132,9 +136,11 @@ export const permissionsConfig: PermissionsMap = {
       // Client permissions - view only
       { id: 'clients-view', resource: 'clients', action: 'view' },
       
-      // Media permissions - upload RAW files only
+      // Media permissions - upload RAW files only, can only see raw/uploaded media
       { id: 'media-view', resource: 'media', action: 'view', conditions: { assignedOnly: true } },
       { id: 'media-upload', resource: 'media', action: 'upload', conditions: { assignedOnly: true } },
+      // Photographers can only see raw/uploaded media, not edited
+      { id: 'raw-media-view', resource: 'raw-media', action: 'view', conditions: { assignedOnly: true } },
       
       // Tour permissions
       { id: 'tours-view', resource: 'tours', action: 'view', conditions: { assignedOnly: true } },

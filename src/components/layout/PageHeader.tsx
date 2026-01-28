@@ -1,10 +1,9 @@
 import React from 'react';
-import { Badge } from '@/components/ui/badge';
 import { LucideIcon } from 'lucide-react';
 
 interface PageHeaderProps {
   badge?: string;
-  title: string;
+  title: React.ReactNode;
   description: string;
   icon?: LucideIcon;
   iconText?: string;
@@ -12,23 +11,31 @@ interface PageHeaderProps {
 }
 
 export function PageHeader({ 
-  badge, 
   title, 
   description, 
   icon: Icon, 
   iconText,
   action 
 }: PageHeaderProps) {
+  const renderTitle = (value: React.ReactNode) => {
+    if (typeof value !== 'string') return value;
+    const words = value.trim().split(/\s+/).filter(Boolean);
+    if (words.length <= 1) return value;
+    const lastWord = words.pop();
+    const prefix = words.join(' ');
+    return (
+      <span className="inline-flex flex-wrap items-baseline gap-2">
+        <span className="font-light">{prefix}</span>
+        <span className="font-bold">{lastWord}</span>
+      </span>
+    );
+  };
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          {badge && (
-            <Badge className="mb-2 bg-primary/10 text-primary hover:bg-primary/20 border-primary/20">
-              {badge}
-            </Badge>
-          )}
-          <h1 className="text-3xl font-bold">{title}</h1>
+          <h1 className="text-3xl font-bold">{renderTitle(title)}</h1>
           <p className="text-slate-600 dark:text-slate-400 mt-1">
             {description}
           </p>

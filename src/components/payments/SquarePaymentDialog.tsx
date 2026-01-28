@@ -7,8 +7,6 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { SquarePaymentForm } from './SquarePaymentForm';
-import { X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 
 interface SquarePaymentDialogProps {
   isOpen: boolean;
@@ -17,6 +15,13 @@ interface SquarePaymentDialogProps {
   currency?: string;
   shootId?: string;
   shootAddress?: string;
+  shootServices?: string[];
+  shootDate?: string;
+  shootTime?: string;
+  clientEmail?: string;
+  clientName?: string;
+  totalQuote?: number;
+  totalPaid?: number;
   onPaymentSuccess?: (payment: any) => void;
   onPaymentError?: (error: any) => void;
 }
@@ -28,6 +33,13 @@ export function SquarePaymentDialog({
   currency = 'USD',
   shootId,
   shootAddress,
+  shootServices,
+  shootDate,
+  shootTime,
+  clientEmail,
+  clientName,
+  totalQuote,
+  totalPaid,
   onPaymentSuccess,
   onPaymentError,
 }: SquarePaymentDialogProps) {
@@ -51,21 +63,24 @@ export function SquarePaymentDialog({
     }
   };
 
+  // Check if we have shoot details to display (determines dialog width)
+  const hasShootDetails = shootAddress || (shootServices && shootServices.length > 0) || totalQuote !== undefined || clientName || shootDate;
+
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className={`${hasShootDetails ? 'sm:max-w-[850px]' : 'sm:max-w-[450px]'}`}>
         <DialogHeader>
-          <DialogTitle>Complete Payment</DialogTitle>
+          <DialogTitle>Process Payment</DialogTitle>
           <DialogDescription>
             {shootAddress ? (
-              <>Payment for shoot at {shootAddress}</>
+              <>Complete payment for shoot at {shootAddress}</>
             ) : (
               <>Enter your payment information to complete the transaction</>
             )}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="py-4">
+        <div className="pt-2">
           {paymentCompleted ? (
             <div className="text-center py-8">
               <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
@@ -93,22 +108,20 @@ export function SquarePaymentDialog({
               amount={amount}
               currency={currency}
               shootId={shootId}
+              clientEmail={clientEmail}
+              clientName={clientName}
+              shootAddress={shootAddress}
+              shootServices={shootServices}
+              shootDate={shootDate}
+              shootTime={shootTime}
+              totalQuote={totalQuote}
+              totalPaid={totalPaid}
               onPaymentSuccess={handlePaymentSuccess}
               onPaymentError={onPaymentError}
             />
           )}
         </div>
-
-        {!paymentCompleted && (
-          <div className="flex justify-end">
-            <Button variant="outline" onClick={handleClose}>
-              Cancel
-            </Button>
-          </div>
-        )}
       </DialogContent>
     </Dialog>
   );
 }
-
-

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -34,17 +34,28 @@ import {
   Sparkles,
   Loader2,
   Check,
+  ArrowUpDown,
+  Trash2,
+  CloudUpload,
+  Circle,
+  MinusCircle,
+  Link2,
+  Share2,
 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { ShootData } from '@/types/shoots';
 import { useToast } from '@/hooks/use-toast';
 import { API_BASE_URL } from '@/config/env';
-import { FileUploader } from '@/components/media/FileUploader';
+// FileUploader import removed - using RawUploadSection and EditedUploadSection instead
 import { useAuth } from '@/components/auth/AuthProvider';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { fotelloService, type EditingType } from '@/services/fotelloService';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { isRawFile } from '@/services/rawPreviewService';
+import { useShootFiles, type MediaFile } from '@/hooks/useShootFiles';
+import { useQueryClient } from '@tanstack/react-query';
+import { ShootIssueManager } from './ShootIssueManager';
 
 interface ShootDetailsMediaTabProps {
   shoot: ShootData;
@@ -56,26 +67,12 @@ interface ShootDetailsMediaTabProps {
   onShootUpdate: () => void;
   isExpanded?: boolean;
   onToggleExpand?: () => void;
+  onSelectionChange?: (selectedIds: string[]) => void;
 }
 
-interface MediaFile {
-  id: string;
-  filename: string;
-  url?: string;
-  path?: string;
-  fileType?: string;
-  workflowStage?: string;
-  isExtra?: boolean;
-  // Image size URLs from backend
-  thumb?: string;
-  medium?: string;
-  large?: string;
-  original?: string;
-  // Size info
-  width?: number;
-  height?: number;
-  fileSize?: number;
-}
+type MediaSubTab = 'photos' | 'videos' | 'iguide' | 'floorplans';
+
+// MediaFile interface is imported from useShootFiles hook
 
 export function ShootDetailsMediaTab({
   shoot,
@@ -87,10 +84,16 @@ export function ShootDetailsMediaTab({
   onShootUpdate,
   isExpanded = false,
   onToggleExpand,
+  onSelectionChange,
 }: ShootDetailsMediaTabProps) {
   const { toast } = useToast();
-  const [activeSubTab, setActiveSubTab] = useState<'uploaded' | 'edited' | 'upload'>('uploaded');
-  const [displayTab, setDisplayTab] = useState<'uploaded' | 'edited'>('uploaded');
+  const queryClient = useQueryClient();
+  // Default tab based on role: clients see edited, others see uploaded
+  const defaultTab = isClient ? 'edited' : 'uploaded';
+  const [activeSubTab, setActiveSubTab] = useState<'uploaded' | 'edited' | 'upload'>(defaultTab);
+  const [displayTab, setDisplayTab] = useState<'uploaded' | 'edited'>(defaultTab);
+  const [uploadedMediaTab, setUploadedMediaTab] = useState<MediaSubTab>('photos');
+  const [editedMediaTab, setEditedMediaTab] = useState<MediaSubTab>('photos');
   const [rawFiles, setRawFiles] = useState<MediaFile[]>([]);
   const [editedFiles, setEditedFiles] = useState<MediaFile[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
@@ -102,9 +105,22 @@ export function ShootDetailsMediaTab({
   const [editingTypes, setEditingTypes] = useState<EditingType[]>([]);
   const [selectedEditingType, setSelectedEditingType] = useState<string>('');
   const [submittingAiEdit, setSubmittingAiEdit] = useState(false);
+  const [sortOrder, setSortOrder] = useState<'name' | 'date' | 'time' | 'manual'>('time');
+  const [manualOrder, setManualOrder] = useState<string[]>([]);
+  const [requestManagerOpen, setRequestManagerOpen] = useState(false);
 
-  // Load editing types
   useEffect(() => {
+    if (onSelectionChange) {
+      onSelectionChange(Array.from(selectedFiles));
+    }
+  }, [onSelectionChange, selectedFiles]);
+
+  // Load editing types - only for admin/editor users (clients don't have access)
+  const canAccessFotello = ['admin', 'superadmin', 'editor'].includes(role || '');
+  
+  useEffect(() => {
+    if (!canAccessFotello) return;
+    
     const loadEditingTypes = async () => {
       try {
         const types = await fotelloService.getEditingTypes();
@@ -113,69 +129,43 @@ export function ShootDetailsMediaTab({
           setSelectedEditingType(types[0].id);
         }
       } catch (error) {
-        console.error('Failed to load editing types:', error);
+        // Silently fail - editing types are optional and may not be configured
       }
     };
     loadEditingTypes();
-  }, []);
+  }, [canAccessFotello]);
 
-  // Load files
+  // Load files using React Query hooks for deduplication and caching
+  const { data: rawFilesData = [], isLoading: rawLoading } = useShootFiles(shoot.id, 'raw', {
+    enabled: Boolean(shoot.id),
+  });
+  const { data: editedFilesData = [], isLoading: editedLoading } = useShootFiles(shoot.id, 'edited', {
+    enabled: Boolean(shoot.id),
+  });
+
+  // Update local state when data changes - use JSON.stringify to detect actual content changes
+  // This prevents infinite loops from new array references with same content
+  const rawFilesRef = useRef<string>('');
   useEffect(() => {
-    if (!shoot.id) return;
-    const loadFiles = async () => {
-      try {
-        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-        const headers = {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-        };
+    const newRawFilesJson = JSON.stringify(rawFilesData.map(f => ({ id: f.id, url: f.url })));
+    if (rawFilesRef.current !== newRawFilesJson) {
+      rawFilesRef.current = newRawFilesJson;
+      setRawFiles(rawFilesData);
+    }
+  }, [rawFilesData]);
 
-        const mapFiles = (json: any): MediaFile[] =>
-          (json?.data || json || []).map((f: any) => ({
-            id: String(f.id),
-            filename: f.filename || f.stored_filename,
-            url: f.url || f.path,
-            path: f.path,
-            fileType: f.file_type || f.fileType,
-            workflowStage: f.workflow_stage || f.workflowStage,
-            isExtra: f.is_extra || false,
-            // Image sizes from backend
-            thumb: f.thumb_url || f.thumb,
-            medium: f.medium_url || f.medium,
-            large: f.large_url || f.large,
-            original: f.original_url || f.original || f.url || f.path,
-            width: f.width,
-            height: f.height,
-            fileSize: f.file_size || f.fileSize,
-          }));
+  const editedFilesRef = useRef<string>('');
+  useEffect(() => {
+    const newEditedFilesJson = JSON.stringify(editedFilesData.map(f => ({ id: f.id, url: f.url })));
+    if (editedFilesRef.current !== newEditedFilesJson) {
+      editedFilesRef.current = newEditedFilesJson;
+      setEditedFiles(editedFilesData);
+    }
+  }, [editedFilesData]);
 
-        const [rawRes, editedRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/files?type=raw`, { headers }),
-          fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/files?type=edited`, { headers }),
-        ]);
-
-        if (!rawRes.ok && rawRes.status !== 404) {
-          throw new Error('Failed to load raw files');
-        }
-        if (!editedRes.ok && editedRes.status !== 404) {
-          throw new Error('Failed to load edited files');
-        }
-
-        const rawJson = rawRes.ok ? await rawRes.json() : { data: [] };
-        const editedJson = editedRes.ok ? await editedRes.json() : { data: [] };
-
-        setRawFiles(mapFiles(rawJson));
-        setEditedFiles(mapFiles(editedJson));
-      } catch (error) {
-        console.error('Error loading files:', error);
-        // Set empty arrays on error to prevent UI issues
-        setRawFiles([]);
-        setEditedFiles([]);
-      }
-    };
-    
-    loadFiles();
-  }, [shoot.id, onShootUpdate]);
+  // Don't invalidate queries on every render - this causes infinite loops
+  // The queries will automatically refetch when shoot.id changes due to React Query's queryKey
+  // Only invalidate when explicitly needed (e.g., after file uploads)
 
   // Determine which tabs to show
   const showUploadTab = isAdmin || isPhotographer || isEditor;
@@ -185,14 +175,110 @@ export function ShootDetailsMediaTab({
   const isScheduledShoot = normalizedShootStatus === 'scheduled' || normalizedShootStatus === 'booked';
   const hasAnyMedia = rawFiles.length > 0 || editedFiles.length > 0;
 
+  // Determine if shoot is finalized (client can view photos)
+  const FINALIZED_STATUSES = ['admin_verified', 'delivered', 'client_delivered', 'ready', 'workflow_completed', 'finalized'];
+  const isShootFinalized = FINALIZED_STATUSES.some(status => normalizedShootStatus.includes(status));
+  
+  // Calculate progress for non-finalized shoots (for client progress indicator)
+  const getShootProgress = () => {
+    if (isShootFinalized) return 100;
+    if (normalizedShootStatus.includes('scheduled') || normalizedShootStatus.includes('booked') || normalizedShootStatus.includes('requested')) return 10;
+    if (normalizedShootStatus.includes('upload') || normalizedShootStatus.includes('raw')) return 30;
+    if (normalizedShootStatus.includes('editing') || normalizedShootStatus.includes('in_progress')) return 50;
+    if (normalizedShootStatus.includes('review') || normalizedShootStatus.includes('pending')) return 75;
+    if (normalizedShootStatus.includes('complete')) return 90;
+    return 25;
+  };
+  
+  const getProgressLabel = () => {
+    if (isShootFinalized) return 'Ready for download';
+    if (normalizedShootStatus.includes('scheduled') || normalizedShootStatus.includes('booked')) return 'Shoot scheduled';
+    if (normalizedShootStatus.includes('requested')) return 'Awaiting confirmation';
+    if (normalizedShootStatus.includes('upload') || normalizedShootStatus.includes('raw')) return 'Photos uploaded';
+    if (normalizedShootStatus.includes('editing') || normalizedShootStatus.includes('in_progress')) return 'Being edited';
+    if (normalizedShootStatus.includes('review') || normalizedShootStatus.includes('pending')) return 'Under review';
+    if (normalizedShootStatus.includes('complete')) return 'Almost ready';
+    return 'In progress';
+  };
+
+  const isVideoUpload = (file: File): boolean => {
+    const name = file.name.toLowerCase();
+    if (file.type && file.type.toLowerCase().startsWith('video/')) {
+      return true;
+    }
+    return /\.(mp4|mov|avi|mkv|wmv)$/.test(name);
+  };
+
+  // Check if a MediaFile is a video
+  const isVideoFile = (file: MediaFile): boolean => {
+    if (file.media_type === 'video') return true;
+    const name = (file.filename || '').toLowerCase();
+    const mime = (file.fileType || '').toLowerCase();
+    if (mime.startsWith('video/')) return true;
+    return /\.(mp4|mov|avi|mkv|wmv|webm)$/.test(name);
+  };
+
+  // Filter files into photos and videos
+  const filterPhotoFiles = (files: MediaFile[]): MediaFile[] => 
+    files.filter(f => !isVideoFile(f));
+  
+  const filterVideoFiles = (files: MediaFile[]): MediaFile[] => 
+    files.filter(f => isVideoFile(f));
+
+  // Computed filtered lists for uploaded (raw) files
+  const uploadedPhotos = useMemo(() => filterPhotoFiles(rawFiles), [rawFiles]);
+  const uploadedVideos = useMemo(() => filterVideoFiles(rawFiles), [rawFiles]);
+
+  // Computed filtered lists for edited files
+  const editedPhotos = useMemo(() => filterPhotoFiles(editedFiles), [editedFiles]);
+  const editedVideos = useMemo(() => filterVideoFiles(editedFiles), [editedFiles]);
+
+  // Get iGuide and floorplan data from shoot
+  const iguideUrl =
+    shoot?.iguideTourUrl ||
+    shoot?.tourLinks?.iguide_branded ||
+    shoot?.tourLinks?.iguide_mls ||
+    shoot?.tourLinks?.iGuide ||
+    (shoot as any)?.iguide_tour_url;
+  const iguideFloorplansSource =
+    shoot?.iguideFloorplans || (shoot as any)?.iguide_floorplans || [];
+  const iguideFloorplans: Array<{ url: string; filename?: string }> = useMemo(() => {
+    const fps = iguideFloorplansSource || [];
+    if (!Array.isArray(fps)) return [];
+    return fps.map((fp: any) => ({
+      url: typeof fp === 'string' ? fp : (fp?.url || fp?.path || ''),
+      filename: typeof fp === 'string' ? 'Floorplan' : (fp?.filename || 'Floorplan'),
+    })).filter((fp: { url: string }) => fp.url);
+  }, [iguideFloorplansSource]);
+
+  // Get current filtered files based on active sub-tab
+  const getFilteredFiles = (baseFiles: MediaFile[], subTab: MediaSubTab): MediaFile[] => {
+    if (subTab === 'photos') return filterPhotoFiles(baseFiles);
+    if (subTab === 'videos') return filterVideoFiles(baseFiles);
+    return baseFiles;
+  };
+
+  // Get the currently displayed files based on display tab and sub-tab
+  const getCurrentDisplayedFiles = (): MediaFile[] => {
+    if (displayTab === 'uploaded') {
+      if (uploadedMediaTab === 'photos') return uploadedPhotos;
+      if (uploadedMediaTab === 'videos') return uploadedVideos;
+      return rawFiles;
+    } else {
+      if (editedMediaTab === 'photos') return editedPhotos;
+      if (editedMediaTab === 'videos') return editedVideos;
+      return editedFiles;
+    }
+  };
+
+  const currentDisplayedFiles = getCurrentDisplayedFiles();
+
   // Get image URL with fallback chain
   const getImageUrl = (file: MediaFile, size: 'thumb' | 'medium' | 'large' | 'original' = 'medium'): string => {
     const baseUrl = API_BASE_URL;
     const base = baseUrl.replace(/\/+$/, '');
 
     const encodeIfNeeded = (value: string): string => {
-      // Always encode to handle spaces and other special chars in filenames.
-      // encodeURI keeps query strings intact.
       try {
         return encodeURI(value);
       } catch {
@@ -202,33 +288,59 @@ export function ShootDetailsMediaTab({
 
     const normalizeRelative = (value: string): string => {
       const v = value.replace(/^\/+/, '');
-      // Local public disk files live under /storage
       if (v.startsWith('shoots/')) {
         return `${base}${encodeIfNeeded(`/storage/${v}`)}`;
       }
       return `${base}${encodeIfNeeded(`/${v}`)}`;
     };
     
-    // Try size-specific URL first
+    const resolveValue = (value: string): string => {
+      if (/^https?:\/\//i.test(value)) return value;
+      if (value.startsWith('/')) return `${base}${value}`;
+      return normalizeRelative(value);
+    };
+
+    // Try size-specific URL first (backend provides pre-encoded URLs)
     const sizeUrl = file[size];
     if (sizeUrl) {
-      if (/^https?:\/\//i.test(sizeUrl)) return encodeIfNeeded(sizeUrl);
-      if (sizeUrl.startsWith('/')) return `${base}${encodeIfNeeded(sizeUrl)}`;
-      return normalizeRelative(sizeUrl);
+      return resolveValue(sizeUrl);
+    }
+
+    // Avoid loading originals for thumbnails/medium previews
+    if (size === 'thumb') {
+      if (file.placeholder_path) {
+        return resolveValue(file.placeholder_path);
+      }
+      return '';
+    }
+
+    if (size === 'medium') {
+      if (file.thumb) {
+        return resolveValue(file.thumb);
+      }
+      return '';
+    }
+
+    if (size === 'large') {
+      // For large, try medium first, then thumb - never load original for preview
+      if (file.medium) return resolveValue(file.medium);
+      if (file.thumb) return resolveValue(file.thumb);
+      return '';
+    }
+
+    // Only allow original fallback when explicitly requesting 'original' size
+    if (size !== 'original') {
+      return '';
     }
     
-    // Fallback to original
+    // Fallback to original - only for 'original' size
     if (file.original) {
-      if (/^https?:\/\//i.test(file.original)) return encodeIfNeeded(file.original);
-      if (file.original.startsWith('/')) return `${base}${encodeIfNeeded(file.original)}`;
-      return normalizeRelative(file.original);
+      return resolveValue(encodeIfNeeded(file.original));
     }
     
     // Final fallback
     if (file.url) {
-      if (/^https?:\/\//i.test(file.url)) return encodeIfNeeded(file.url);
-      if (file.url.startsWith('/')) return `${base}${encodeIfNeeded(file.url)}`;
-      return normalizeRelative(file.url);
+      return resolveValue(encodeIfNeeded(file.url));
     }
     
     if (file.path) {
@@ -247,8 +359,13 @@ export function ShootDetailsMediaTab({
     return sizes.join(', ');
   };
 
-  // Check if file is image
+  // Check if file is image (including RAW files with processed thumbnails)
   const isPreviewableImage = (file: MediaFile): boolean => {
+    // If RAW file has processed thumbnail, it's previewable
+    if ((file.media_type === 'raw' || file.media_type === 'image') && file.thumbnail_path) {
+      return true;
+    }
+    
     const name = file.filename.toLowerCase();
     const rawExt = /\.(nef|cr2|cr3|arw|dng|raf|rw2|orf|pef|srw|3fr|iiq)$/.test(name);
     if (rawExt) return false;
@@ -258,7 +375,6 @@ export function ShootDetailsMediaTab({
     if (rawMime) return false;
 
     if (mime.startsWith('image/')) {
-      // Many servers report RAW as image/*; exclude those above.
       return true;
     }
 
@@ -401,16 +517,214 @@ export function ShootDetailsMediaTab({
     }
   };
 
+  // Editor-specific download raw files (with activity logging and admin notification)
+  const handleEditorDownloadRaw = async (downloadAll: boolean = true) => {
+    const fileIds = downloadAll ? [] : Array.from(selectedFiles);
+    
+    if (!downloadAll && fileIds.length === 0) {
+      toast({
+        title: 'No files selected',
+        description: 'Please select files to download or use "Download All"',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setDownloading(true);
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      
+      const queryParams = new URLSearchParams();
+      if (!downloadAll && fileIds.length > 0) {
+        queryParams.append('file_ids', fileIds.join(','));
+      }
+      
+      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/editor-download-raw?${queryParams.toString()}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json, application/zip',
+        },
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: 'Download failed' }));
+        throw new Error(errorData.error || 'Download failed');
+      }
+
+      const contentType = res.headers.get('content-type');
+      
+      if (contentType && contentType.includes('application/json')) {
+        // Redirect response - open Dropbox link
+        const data = await res.json();
+        if (data.type === 'redirect' && data.url) {
+          window.open(data.url, '_blank');
+          toast({
+            title: 'Download started',
+            description: data.message || `Downloading ${data.file_count || 'all'} raw files. Switch to Edited tab to upload your edits.`,
+          });
+        }
+      } else {
+        // Direct blob download
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `shoot-${shoot.id}-raw-files-${Date.now()}.zip`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+
+        toast({
+          title: 'Download started',
+          description: 'Raw files downloaded. Switch to Edited tab to upload your edits.',
+        });
+      }
+
+      // Auto-switch to Edited tab after download
+      setSelectedFiles(new Set());
+      setActiveSubTab('edited');
+      setDisplayTab('edited');
+      
+    } catch (error: any) {
+      toast({
+        title: 'Download failed',
+        description: error.message || 'Failed to download raw files',
+        variant: 'destructive',
+      });
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  // Generate shareable ZIP link for editor
+  const [shareLink, setShareLink] = useState<string | null>(null);
+  const [generatingShareLink, setGeneratingShareLink] = useState(false);
+  
+  const handleGenerateShareLink = async (shareAll: boolean = true) => {
+    const fileIds = shareAll ? [] : Array.from(selectedFiles);
+    
+    if (!shareAll && fileIds.length === 0) {
+      toast({
+        title: 'No files selected',
+        description: 'Please select files to share or use "Share All"',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setGeneratingShareLink(true);
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      
+      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/generate-share-link`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({
+          file_ids: shareAll ? [] : fileIds,
+          expires_in_hours: 72,
+        }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: 'Failed to generate share link' }));
+        throw new Error(errorData.error || 'Failed to generate share link');
+      }
+
+      const data = await res.json();
+      setShareLink(data.share_link);
+      
+      // Copy to clipboard
+      await navigator.clipboard.writeText(data.share_link);
+      
+      toast({
+        title: 'Share link generated!',
+        description: `Link copied to clipboard. Valid for ${data.expires_in_hours} hours.`,
+      });
+      
+    } catch (error: any) {
+      toast({
+        title: 'Failed to generate link',
+        description: error.message || 'Failed to generate share link',
+        variant: 'destructive',
+      });
+    } finally {
+      setGeneratingShareLink(false);
+    }
+  };
+
+  // Delete selected files
+  const handleDeleteFiles = async () => {
+    if (selectedFiles.size === 0) {
+      toast({
+        title: 'No files selected',
+        description: 'Please select files to delete',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Confirm deletion
+    if (!window.confirm(`Are you sure you want to delete ${selectedFiles.size} file(s)? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const fileIds = Array.from(selectedFiles).map(id => parseInt(id));
+      
+      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/media/bulk-delete`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({
+          ids: fileIds,
+        }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ message: 'Failed to delete files' }));
+        throw new Error(errorData.message || 'Failed to delete files');
+      }
+
+      toast({
+        title: 'Success',
+        description: `Deleted ${selectedFiles.size} file(s) successfully`,
+      });
+
+      // Invalidate React Query cache to refresh files
+      queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'raw'] });
+      queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'edited'] });
+      queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'all'] });
+      
+      setSelectedFiles(new Set());
+      onShootUpdate();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to delete files',
+        variant: 'destructive',
+      });
+    }
+  };
+
   // Get current files based on active tab
   const currentFiles = activeSubTab === 'uploaded' ? rawFiles : editedFiles;
 
   // Edited Upload Section Component (for Editors)
-  const EditedUploadSection = ({ shoot, onUploadComplete }: { shoot: ShootData; onUploadComplete: () => void }) => {
+  const EditedUploadSection = ({ shoot, onUploadComplete, isEditor = false }: { shoot: ShootData; onUploadComplete: () => void; isEditor?: boolean }) => {
     const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
     const [uploading, setUploading] = useState(false);
     const [editingNotes, setEditingNotes] = useState('');
     const [showChecklistDialog, setShowChecklistDialog] = useState(false);
-    const [showNotesDialog, setShowNotesDialog] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
     const [fileProgress, setFileProgress] = useState<Record<number, number>>({});
     const [checklistItems, setChecklistItems] = useState<Record<string, boolean>>({
@@ -472,8 +786,13 @@ export function ShootDetailsMediaTab({
         return;
       }
 
-      // Show checklist dialog first
-      setShowChecklistDialog(true);
+      // Show checklist dialog only for editors, not admins
+      if (isEditor) {
+        setShowChecklistDialog(true);
+      } else {
+        // For admins, skip checklist and upload directly
+        handleConfirmSubmit();
+      }
     };
 
     const handleChecklistComplete = () => {
@@ -486,7 +805,7 @@ export function ShootDetailsMediaTab({
         return;
       }
       setShowChecklistDialog(false);
-      setShowNotesDialog(true);
+      handleConfirmSubmit();
     };
 
     // Upload a single edited file with progress tracking
@@ -498,8 +817,12 @@ export function ShootDetailsMediaTab({
     ): Promise<{ success: boolean; error?: string }> => {
       return new Promise((resolve) => {
         const formData = new FormData();
+        const isVideo = isVideoUpload(file);
         formData.append('files[]', file);
         formData.append('upload_type', 'edited');
+        if (isVideo) {
+          formData.append('service_category', 'video');
+        }
         
         // Only send metadata with first file
         if (isFirstFile) {
@@ -543,7 +866,6 @@ export function ShootDetailsMediaTab({
     };
 
     const handleConfirmSubmit = async () => {
-      setShowNotesDialog(false);
       setUploading(true);
       setUploadProgress(0);
       
@@ -591,19 +913,6 @@ export function ShootDetailsMediaTab({
         setFileProgress(completeProgress);
         setUploadProgress(100);
 
-        // Submit for review after uploading edited files
-        try {
-          await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/submit-for-review`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-            },
-          });
-        } catch (statusError) {
-          console.error('Failed to submit for review:', statusError);
-        }
 
         if (errors.length > 0) {
           toast({
@@ -651,7 +960,7 @@ export function ShootDetailsMediaTab({
     const editedMissingCount = Math.max(0, expectedFinalCount - existingEditedCount - uploadedFiles.length);
 
     return (
-      <div className="space-y-4">
+      <div className="space-y-3 flex flex-col">
         {/* Photographer Notes for Editor */}
         {photographerNotes && (
           <Alert className="bg-blue-500/10 border-blue-500/30">
@@ -682,25 +991,64 @@ export function ShootDetailsMediaTab({
         </div>
 
         {/* Drag and Drop Upload Area */}
-        <div
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-          className="border-2 border-dashed rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer"
-        >
-          <input
-            type="file"
-            multiple
-            accept="image/*,video/*,.raw,.cr2,.nef,.arw,.dng,.raf,.orf,.pef,.rw2,.srw"
-            onChange={handleFileSelect}
-            className="hidden"
-            id="edited-file-upload"
-          />
-          <label htmlFor="edited-file-upload" className="cursor-pointer">
-            <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-            <div className="text-sm font-medium">Drag and drop edited files here</div>
-            <div className="text-xs text-muted-foreground mt-1">or click to browse</div>
-          </label>
-        </div>
+        {uploadedFiles.length === 0 ? (
+          <div
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            className="border-2 border-dashed border-border/50 rounded-lg p-12 text-center hover:border-primary/50 transition-colors cursor-pointer bg-card flex-1 flex items-center justify-center min-h-[400px] shadow-sm"
+          >
+            <input
+              type="file"
+              multiple
+              accept="image/*,video/*,.raw,.cr2,.nef,.arw,.dng,.raf,.orf,.pef,.rw2,.srw"
+              onChange={handleFileSelect}
+              className="hidden"
+              id="edited-file-upload"
+            />
+            <label htmlFor="edited-file-upload" className="cursor-pointer flex flex-col items-center w-full">
+              <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                <ImageIcon className="h-10 w-10 text-primary/60" />
+              </div>
+              <h3 className="text-lg font-semibold mb-2">No uploaded files yet</h3>
+              <p className="text-sm text-muted-foreground text-center mb-6 max-w-md">
+                Upload photos and videos to get started. You can drag and drop files or use the upload button.
+              </p>
+              <Button
+                variant="default"
+                size="lg"
+                className="bg-primary hover:bg-primary/90"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  document.getElementById('edited-file-upload')?.click();
+                }}
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                Upload Files
+              </Button>
+            </label>
+          </div>
+        ) : (
+          <div
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            className="border-2 border-dashed rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer"
+          >
+            <input
+              type="file"
+              multiple
+              accept="image/*,video/*,.raw,.cr2,.nef,.arw,.dng,.raf,.orf,.pef,.rw2,.srw"
+              onChange={handleFileSelect}
+              className="hidden"
+              id="edited-file-upload"
+            />
+            <label htmlFor="edited-file-upload" className="cursor-pointer">
+              <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+              <div className="text-sm font-medium">Drag and drop more edited files here</div>
+              <div className="text-xs text-muted-foreground mt-1">or click to browse</div>
+            </label>
+          </div>
+        )}
 
         {/* Uploaded Files List */}
         {uploadedFiles.length > 0 && (
@@ -744,8 +1092,21 @@ export function ShootDetailsMediaTab({
           </div>
         )}
 
+        {/* Editing Notes - Inline */}
+        {uploadedFiles.length > 0 && !uploading && (
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Notes (Optional)</label>
+            <textarea
+              value={editingNotes}
+              onChange={(e) => setEditingNotes(e.target.value)}
+              placeholder="Add any notes about the editing..."
+              className="w-full min-h-[80px] p-2 border rounded-md text-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+            />
+          </div>
+        )}
+
         {/* Submit Button with Progress Bar */}
-        <div className="space-y-2">
+        <div className="space-y-2 pb-4">
           {/* Overall Progress Bar - shown during upload */}
           {uploading && (
             <div className="space-y-1">
@@ -770,7 +1131,7 @@ export function ShootDetailsMediaTab({
             ) : (
               <>
                 <Upload className="h-4 w-4 mr-2" />
-                Submit Edits for Review
+                Upload Edited Files
               </>
             )}
           </Button>
@@ -896,37 +1257,7 @@ export function ShootDetailsMediaTab({
           </DialogContent>
         </Dialog>
 
-        {/* Editing Notes Dialog */}
-        <Dialog open={showNotesDialog} onOpenChange={setShowNotesDialog}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add Editing Notes (Optional)</DialogTitle>
-              <DialogDescription>
-                Add any notes about the editing process.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Notes</label>
-                <textarea
-                  value={editingNotes}
-                  onChange={(e) => setEditingNotes(e.target.value)}
-                  placeholder="Add any notes about the editing..."
-                  className="w-full min-h-[100px] p-2 border rounded-md text-sm"
-                />
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setShowNotesDialog(false)}>
-                  Skip
-                </Button>
-                <Button onClick={handleConfirmSubmit} disabled={uploading}>
-                  Submit Edits
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-      </div>
+        </div>
     );
   };
 
@@ -972,69 +1303,79 @@ export function ShootDetailsMediaTab({
     );
   };
 
+  // Helper type for photo service breakdown
+  type PhotoService = { name: string; count: number };
+  
+  // Helper function to extract photo services with their counts from service names
+  const extractPhotoServicesFromServices = (services: string[]): PhotoService[] => {
+    if (!services || services.length === 0) return [];
+    
+    const photoServices: PhotoService[] = [];
+    const photoPatterns = [
+      /^(\d+)\s*(flash|hdr|exterior|interior|twilight)?\s*photos?/i,
+      /^(\d+)\s*(flash|hdr|exterior|interior|twilight)/i,
+    ];
+    
+    for (const service of services) {
+      for (const pattern of photoPatterns) {
+        const match = service.match(pattern);
+        if (match) {
+          photoServices.push({
+            name: service,
+            count: parseInt(match[1], 10),
+          });
+          break;
+        }
+      }
+    }
+    
+    return photoServices;
+  };
+  
+  // Helper function to get total photo count from services
+  const extractPhotoCountFromServices = (services: string[]): number => {
+    const photoServices = extractPhotoServicesFromServices(services);
+    return photoServices.reduce((sum, s) => sum + s.count, 0);
+  };
+
+  // Helper function to check if shoot requires HDR bracketing
+  // Standard/flash shoots don't need brackets - only HDR shoots do
+  const isHdrShoot = (services: string[]): boolean => {
+    if (!services || services.length === 0) return false;
+    // Check if any service explicitly mentions HDR
+    return services.some(service => /\bhdr\b/i.test(service));
+  };
+
   // Raw Upload Section Component
   const RawUploadSection = ({ shoot, onUploadComplete }: { shoot: ShootData; onUploadComplete: () => void }) => {
     const [bracketType, setBracketType] = useState<'3-bracket' | '5-bracket'>(
-      shoot.bracketMode === 5 ? '5-bracket' : '3-bracket'
+      shoot.bracketMode === 3 ? '3-bracket' : '5-bracket'
     );
     const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
     const [uploading, setUploading] = useState(false);
-    const [submittingForReview, setSubmittingForReview] = useState(false);
     const [extraFiles, setExtraFiles] = useState<Set<string>>(new Set());
     const [editingNotes, setEditingNotes] = useState('');
-    const [showNotesDialog, setShowNotesDialog] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
     const [fileProgress, setFileProgress] = useState<Record<number, number>>({});
 
+    // Check if this is an HDR shoot (requires brackets) vs standard/flash (no brackets)
+    const shootRequiresBrackets = isHdrShoot(shoot.services || []);
+
     // Use shoot's existing counts for display
     const existingRawCount = shoot.rawPhotoCount || 0;
-    const expectedPhotos = shoot.package?.expectedDeliveredCount || shoot.expectedFinalCount || 0;
-    const bracketMultiplier = bracketType === '3-bracket' ? 3 : 5;
+    // Get photo services breakdown for display
+    const photoServices = extractPhotoServicesFromServices(shoot.services || []);
+    // Try to get expected photos from package, expectedFinalCount, or parse from services
+    const expectedPhotos = shoot.package?.expectedDeliveredCount || shoot.expectedFinalCount || photoServices.reduce((sum, s) => sum + s.count, 0);
+    // For standard/flash shoots, no bracket multiplier (1:1 ratio)
+    const bracketMultiplier = shootRequiresBrackets ? (bracketType === '3-bracket' ? 3 : 5) : 1;
     const expectedRawCount = expectedPhotos * bracketMultiplier;
     const uploadedCount = uploadedFiles.length;
     const totalRawCount = existingRawCount + uploadedCount;
-    const equivalentFinalPhotos = Math.floor(totalRawCount / bracketMultiplier);
+    const equivalentFinalPhotos = shootRequiresBrackets ? Math.floor(totalRawCount / bracketMultiplier) : totalRawCount;
     const missingCount = Math.max(0, expectedRawCount - totalRawCount);
     const isShort = totalRawCount < expectedRawCount;
     
-    // Can submit for review if there are uploaded files and workflow allows it
-    const canSubmitForReview = existingRawCount > 0 && 
-      ['raw_uploaded', 'raw_issue'].includes(shoot.workflowStatus || '');
-
-    // Handle submit for review
-    const handleSubmitForReview = async () => {
-      setSubmittingForReview(true);
-      try {
-        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-        const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/submit-for-review`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-          },
-        });
-
-        if (!res.ok) {
-          const errorData = await res.json().catch(() => ({}));
-          throw new Error(errorData.message || 'Failed to submit for review');
-        }
-
-        toast({
-          title: 'Success',
-          description: 'Shoot submitted for admin review',
-        });
-        onUploadComplete();
-      } catch (error: any) {
-        toast({
-          title: 'Error',
-          description: error.message || 'Failed to submit for review',
-          variant: 'destructive',
-        });
-      } finally {
-        setSubmittingForReview(false);
-      }
-    };
 
     const MAX_FILE_SIZE_RAW = 500 * 1024 * 1024; // 500MB per file - effectively unlimited
     
@@ -1118,8 +1459,8 @@ export function ShootDetailsMediaTab({
         return;
       }
 
-      // Show notes dialog before submitting
-      setShowNotesDialog(true);
+      // Directly start upload (notes are inline now)
+      handleConfirmSubmit();
     };
 
     // Upload a single file with progress tracking
@@ -1131,12 +1472,19 @@ export function ShootDetailsMediaTab({
     ): Promise<{ success: boolean; error?: string }> => {
       return new Promise((resolve) => {
         const formData = new FormData();
+        const isVideo = isVideoUpload(file);
         formData.append('files[]', file);
         formData.append('upload_type', 'raw');
+        if (isVideo) {
+          formData.append('service_category', 'video');
+        }
         
         // Only send metadata with first file to avoid duplicate updates
         if (isFirstFile) {
-          formData.append('bracket_mode', bracketType === '3-bracket' ? '3' : '5');
+          // Only send bracket_mode for HDR shoots
+          if (shootRequiresBrackets) {
+            formData.append('bracket_mode', bracketType === '3-bracket' ? '3' : '5');
+          }
           if (extraFiles.has(String(fileIndex))) {
             formData.append('is_extra', 'true');
           }
@@ -1144,7 +1492,10 @@ export function ShootDetailsMediaTab({
             formData.append('photographer_notes', editingNotes.trim());
           }
         } else {
-          formData.append('bracket_mode', bracketType === '3-bracket' ? '3' : '5');
+          // Only send bracket_mode for HDR shoots
+          if (shootRequiresBrackets) {
+            formData.append('bracket_mode', bracketType === '3-bracket' ? '3' : '5');
+          }
           if (extraFiles.has(String(fileIndex))) {
             formData.append('is_extra', 'true');
           }
@@ -1184,7 +1535,6 @@ export function ShootDetailsMediaTab({
     };
 
     const handleConfirmSubmit = async () => {
-      setShowNotesDialog(false);
       setUploading(true);
       setUploadProgress(0);
       
@@ -1284,43 +1634,46 @@ export function ShootDetailsMediaTab({
     };
 
     return (
-      <div className="space-y-4">
-        {/* Bracket Type Selector */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Bracket Type</label>
-          <RadioGroup value={bracketType} onValueChange={(v) => setBracketType(v as '3-bracket' | '5-bracket')}>
-            <div className="flex gap-4">
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="3-bracket" id="3-bracket" />
-                <label htmlFor="3-bracket" className="text-sm cursor-pointer">3-Bracket</label>
+      <div className="space-y-3 flex flex-col">
+        {/* Bracket Type Selector - Only show for HDR shoots */}
+        {shootRequiresBrackets && (
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Bracket Type</label>
+            <RadioGroup value={bracketType} onValueChange={(v) => setBracketType(v as '3-bracket' | '5-bracket')}>
+              <div className="flex gap-4">
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="3-bracket" id="3-bracket" />
+                  <label htmlFor="3-bracket" className="text-sm cursor-pointer">3-Bracket</label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="5-bracket" id="5-bracket" />
+                  <label htmlFor="5-bracket" className="text-sm cursor-pointer">5-Bracket</label>
+                </div>
               </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="5-bracket" id="5-bracket" />
-                <label htmlFor="5-bracket" className="text-sm cursor-pointer">5-Bracket</label>
-              </div>
-            </div>
-          </RadioGroup>
-        </div>
+            </RadioGroup>
+          </div>
+        )}
 
         {/* Counters */}
-        <div className="grid grid-cols-4 gap-2 text-xs">
+        <div className="grid grid-cols-3 gap-2 text-xs">
           <div className="p-2 border rounded bg-muted/50">
             <div className="text-muted-foreground">Expected</div>
             <div className="font-semibold text-base">{expectedRawCount}</div>
+            {photoServices.length > 0 && (
+              <div className="text-[10px] text-muted-foreground mt-1 space-y-0.5">
+                {photoServices.map((s, i) => (
+                  <div key={i}>{s.name}: {shootRequiresBrackets ? s.count * bracketMultiplier : s.count}</div>
+                ))}
+              </div>
+            )}
           </div>
           <div className="p-2 border rounded bg-muted/50">
             <div className="text-muted-foreground">Existing</div>
-            <div className="font-semibold text-base">{existingRawCount}</div>
+            <div className="font-semibold text-base">{existingRawCount + uploadedCount}</div>
           </div>
           <div className="p-2 border rounded bg-muted/50">
-            <div className="text-muted-foreground">New</div>
-            <div className="font-semibold text-base">{uploadedCount}</div>
-          </div>
-          <div className={`p-2 border rounded ${missingCount > 0 ? 'bg-orange-500/10 border-orange-500/30' : 'bg-green-500/10 border-green-500/30'}`}>
-            <div className="text-muted-foreground">{missingCount > 0 ? 'Missing' : 'Complete'}</div>
-            <div className={`font-semibold text-base ${missingCount > 0 ? 'text-orange-600' : 'text-green-600'}`}>
-              {missingCount > 0 ? missingCount : '✓'}
-            </div>
+            <div className="text-muted-foreground">Extras</div>
+            <div className="font-semibold text-base">{extraFiles.size}</div>
           </div>
         </div>
         
@@ -1329,37 +1682,76 @@ export function ShootDetailsMediaTab({
           <Alert className="bg-orange-500/10 border-orange-500/30">
             <AlertCircle className="h-4 w-4 text-orange-600" />
             <AlertDescription className="text-orange-700">
-              {missingCount} photo(s) missing. Expected {expectedRawCount} RAW photos ({expectedPhotos} final × {bracketMultiplier} brackets), but only {totalRawCount} uploaded.
+              {missingCount} photo(s) missing. Expected {expectedRawCount} photos{shootRequiresBrackets ? ` (${expectedPhotos} final × ${bracketMultiplier} brackets)` : ''}, but only {totalRawCount} uploaded.
             </AlertDescription>
           </Alert>
         )}
 
         {/* Drag and Drop Upload Area */}
-        <div
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-          className="border-2 border-dashed rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer"
-        >
-          <input
-            type="file"
-            multiple
-            accept="image/*,video/*,.raw,.cr2,.nef,.arw,.dng,.raf,.orf,.pef,.rw2,.srw,.3fr,.fff,.iiq,.rwl,.srw,.x3f"
-            onChange={handleFileSelect}
-            className="hidden"
-            id="file-upload"
-          />
-          <label htmlFor="file-upload" className="cursor-pointer">
-            <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-            <div className="text-sm font-medium">Drag and drop files here</div>
-            <div className="text-xs text-muted-foreground mt-1">or click to browse</div>
-          </label>
-        </div>
+        {uploadedFiles.length === 0 ? (
+          <div
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            className="border-2 border-dashed border-border/50 rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer bg-card flex items-center justify-center min-h-[250px] shadow-sm"
+          >
+            <input
+              type="file"
+              multiple
+              accept="image/*,video/*,.raw,.cr2,.nef,.arw,.dng,.raf,.orf,.pef,.rw2,.srw,.3fr,.fff,.iiq,.rwl,.srw,.x3f"
+              onChange={handleFileSelect}
+              className="hidden"
+              id="file-upload"
+            />
+            <label htmlFor="file-upload" className="cursor-pointer flex flex-col items-center w-full">
+              <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                <ImageIcon className="h-10 w-10 text-primary/60" />
+              </div>
+              <h3 className="text-lg font-semibold mb-2">No uploaded files yet</h3>
+              <p className="text-sm text-muted-foreground text-center mb-6 max-w-md">
+                Upload photos and videos to get started. You can drag and drop files or use the upload button.
+              </p>
+              <Button
+                variant="default"
+                size="lg"
+                className="bg-primary hover:bg-primary/90"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  document.getElementById('file-upload')?.click();
+                }}
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                Upload Files
+              </Button>
+            </label>
+          </div>
+        ) : (
+          <div
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            className="border-2 border-dashed rounded-lg p-3 text-center hover:border-primary/50 transition-colors cursor-pointer"
+          >
+            <input
+              type="file"
+              multiple
+              accept="image/*,video/*,.raw,.cr2,.nef,.arw,.dng,.raf,.orf,.pef,.rw2,.srw,.3fr,.fff,.iiq,.rwl,.srw,.x3f"
+              onChange={handleFileSelect}
+              className="hidden"
+              id="file-upload"
+            />
+            <label htmlFor="file-upload" className="cursor-pointer flex items-center justify-center gap-2">
+              <Upload className="h-4 w-4 text-muted-foreground" />
+              <div className="text-xs text-muted-foreground">Drag and drop more files here or click to browse</div>
+            </label>
+          </div>
+        )}
 
         {/* Uploaded Files List */}
         {uploadedFiles.length > 0 && (
           <div className="space-y-2">
-            <div className="text-sm font-medium">
+            <div className="text-sm font-medium flex items-center gap-2">
               {uploading ? `Uploading Files (${uploadProgress}%)` : `Selected Files (${uploadedFiles.length})`}
+              {!uploading && <span className="text-xs text-muted-foreground font-normal">(mark extras by clicking on the checkmark)</span>}
             </div>
             <div className="max-h-48 overflow-y-auto space-y-1 border rounded p-2">
               {uploadedFiles.map((file, index) => (
@@ -1415,20 +1807,12 @@ export function ShootDetailsMediaTab({
           </div>
         )}
 
-        {/* Warning if short */}
-        {isShort && uploadedCount > 0 && (
-          <Alert variant="destructive">
-            <AlertDescription>
-              Warning: You have uploaded {uploadedCount} files, but {expectedRawCount} are expected for {expectedPhotos} final photos with {bracketType}. {expectedRawCount - uploadedCount} photos are missing.
-            </AlertDescription>
-          </Alert>
-        )}
 
         {/* Extras Section - Show below main uploads */}
         {extraFiles.size > 0 && uploadedFiles.length > 0 && (
-          <div className="space-y-2 border-t pt-4">
+          <div className="space-y-2 border-t pt-2">
             <div className="text-sm font-medium text-muted-foreground">Extras ({extraFiles.size})</div>
-            <div className="max-h-32 overflow-y-auto space-y-1 border rounded p-2 bg-muted/30">
+            <div className="max-h-24 overflow-y-auto space-y-1 border rounded p-2 bg-muted/30">
               {Array.from(extraFiles).map((fileId) => {
                 const index = parseInt(fileId);
                 const file = uploadedFiles[index];
@@ -1441,6 +1825,19 @@ export function ShootDetailsMediaTab({
                 );
               })}
             </div>
+          </div>
+        )}
+
+        {/* Editing Notes - Inline */}
+        {uploadedFiles.length > 0 && !uploading && (
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Notes for Editor (Optional)</label>
+            <textarea
+              value={editingNotes}
+              onChange={(e) => setEditingNotes(e.target.value)}
+              placeholder="Add any notes for the editor..."
+              className="w-full min-h-[60px] max-h-[80px] p-2 border rounded-md text-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 resize-none"
+            />
           </div>
         )}
 
@@ -1476,145 +1873,244 @@ export function ShootDetailsMediaTab({
               )}
             </Button>
             
-            {canSubmitForReview && !uploading && (
-              <Button
-                onClick={handleSubmitForReview}
-                disabled={submittingForReview}
-                variant="default"
-                className="flex-1 bg-green-600 hover:bg-green-700"
-              >
-                <CheckCircle2 className="h-4 w-4 mr-2" />
-                {submittingForReview ? 'Submitting...' : 'Mark Complete'}
-              </Button>
-            )}
           </div>
         </div>
-        
-        {/* Info about submit for review */}
-        {existingRawCount > 0 && !canSubmitForReview && (
-          <p className="text-xs text-muted-foreground text-center">
-            Upload all required photos, then click "Mark Complete" to submit for admin review.
-          </p>
-        )}
-
-        {/* Editing Notes Dialog */}
-        <Dialog open={showNotesDialog} onOpenChange={setShowNotesDialog}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add Editing Notes (Optional)</DialogTitle>
-              <DialogDescription>
-                Add any notes for the editor before submitting RAW files.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Notes</label>
-                <textarea
-                  value={editingNotes}
-                  onChange={(e) => setEditingNotes(e.target.value)}
-                  placeholder="Add any notes for the editor..."
-                  className="w-full min-h-[100px] p-2 border rounded-md text-sm"
-                />
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setShowNotesDialog(false)}>
-                  Skip
-                </Button>
-                <Button onClick={handleConfirmSubmit} disabled={uploading}>
-                  Submit RAW
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
     );
   };
 
+  // Admin Upload Section - shows raw or edited uploader based on current context
+  const AdminUploadSection = ({ 
+    shoot, 
+    onUploadComplete, 
+    onEditedUploadComplete,
+    uploadContext 
+  }: { 
+    shoot: ShootData; 
+    onUploadComplete: () => void;
+    onEditedUploadComplete: () => void;
+    uploadContext: 'raw' | 'edited';
+  }) => {
+    if (uploadContext === 'edited') {
+      return (
+        <div className="space-y-4 flex-1 flex flex-col min-h-0">
+          <div className="text-sm text-muted-foreground mb-4">
+            Upload final, edited files ready for client delivery. Supported formats: JPG, PNG (photos), MP4 (videos).
+          </div>
+          <EditedUploadSection shoot={shoot} onUploadComplete={onEditedUploadComplete} isEditor={false} />
+        </div>
+      );
+    }
+    
+    return (
+      <div className="space-y-4 flex-1 flex flex-col min-h-0">
+        <div className="text-sm text-muted-foreground mb-4">
+          Upload RAW, unedited files for processing. Supported formats: JPG, PNG, TIFF, NEF, CR2, CR3, ARW, DNG (photos), MP4, MOV (videos).
+        </div>
+        <RawUploadSection shoot={shoot} onUploadComplete={onUploadComplete} />
+      </div>
+    );
+  };
+
+  // Show "Work in Progress" UI for clients when shoot is not finalized
+  if (isClient && !isShootFinalized) {
+    const progress = getShootProgress();
+    const progressLabel = getProgressLabel();
+    
+    return (
+      <div className="flex flex-col h-full min-h-0 bg-background px-3 sm:px-4 lg:px-6 items-center justify-center" style={{ height: '100%', minHeight: '300px' }}>
+        <div className="flex flex-col items-center justify-center max-w-md text-center space-y-6 py-12">
+          {/* Animated icon */}
+          <div className="relative">
+            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+              <Sparkles className="w-10 h-10 text-primary animate-pulse" />
+            </div>
+            <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center">
+              <Loader2 className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 animate-spin" />
+            </div>
+          </div>
+          
+          {/* Title and description */}
+          <div className="space-y-2">
+            <h3 className="text-lg font-semibold text-foreground">Work in Progress</h3>
+            <p className="text-sm text-muted-foreground">
+              Your photos are being professionally edited. We'll notify you when they're ready for viewing.
+            </p>
+          </div>
+          
+          {/* Progress bar */}
+          <div className="w-full max-w-xs space-y-2">
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>{progressLabel}</span>
+              <span>{progress}%</span>
+            </div>
+            <Progress value={progress} className="h-2" />
+          </div>
+          
+          {/* Status steps */}
+          <div className="w-full max-w-xs">
+            <div className="flex justify-between items-center text-[10px] text-muted-foreground">
+              <div className={`flex flex-col items-center gap-1 ${progress >= 10 ? 'text-primary' : ''}`}>
+                <div className={`w-2.5 h-2.5 rounded-full ${progress >= 10 ? 'bg-primary' : 'bg-muted'}`} />
+                <span>Scheduled</span>
+              </div>
+              <div className={`flex flex-col items-center gap-1 ${progress >= 30 ? 'text-primary' : ''}`}>
+                <div className={`w-2.5 h-2.5 rounded-full ${progress >= 30 ? 'bg-primary' : 'bg-muted'}`} />
+                <span>Uploaded</span>
+              </div>
+              <div className={`flex flex-col items-center gap-1 ${progress >= 50 ? 'text-primary' : ''}`}>
+                <div className={`w-2.5 h-2.5 rounded-full ${progress >= 50 ? 'bg-primary' : 'bg-muted'}`} />
+                <span>Editing</span>
+              </div>
+              <div className={`flex flex-col items-center gap-1 ${progress >= 75 ? 'text-primary' : ''}`}>
+                <div className={`w-2.5 h-2.5 rounded-full ${progress >= 75 ? 'bg-primary' : 'bg-muted'}`} />
+                <span>Review</span>
+              </div>
+              <div className={`flex flex-col items-center gap-1 ${progress >= 100 ? 'text-primary' : ''}`}>
+                <div className={`w-2.5 h-2.5 rounded-full ${progress >= 100 ? 'bg-primary' : 'bg-muted'}`} />
+                <span>Ready</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col h-full min-h-0">
+    <div className="flex flex-col h-full min-h-0 bg-background px-3 sm:px-4 lg:px-6" style={{ height: '100%', minHeight: '100%' }}>
       {/* Header - Tabs with Upload button inline on desktop, expand/collapse button */}
-      <div className="mb-1.5 pb-1 border-b flex-shrink-0">
+      <div className="border-b flex-shrink-0 bg-background pt-3 sm:pt-4">
         <div className="flex items-center justify-between gap-2">
-          <Tabs value={activeSubTab === 'upload' ? 'uploaded' : (activeSubTab === 'uploaded' || activeSubTab === 'edited' ? activeSubTab : 'uploaded')} onValueChange={(v) => {
-            if (v === 'media' || v === 'uploaded') {
+          <Tabs value={activeSubTab === 'upload' ? displayTab : (activeSubTab === 'uploaded' || activeSubTab === 'edited' ? activeSubTab : defaultTab)} onValueChange={(v) => {
+            if (v === 'media') {
+              // Media tab defaults based on role
+              if (isClient) {
+                setActiveSubTab('edited');
+                setDisplayTab('edited');
+              } else {
+                setActiveSubTab('uploaded');
+                setDisplayTab('uploaded');
+              }
+            } else if (v === 'uploaded' && !isClient) {
               setActiveSubTab('uploaded');
               setDisplayTab('uploaded');
-            } else if (v === 'edited') {
+            } else if (v === 'edited' && !isPhotographer) {
               setActiveSubTab('edited');
               setDisplayTab('edited');
             }
           }} className="flex-1 min-w-0">
-            <TabsList className="w-full justify-start h-7 sm:h-8 bg-transparent p-0 min-w-max sm:min-w-0">
+            <TabsList className="w-full justify-start h-7 sm:h-8 bg-background p-0 min-w-max sm:min-w-0 border-b">
+              {/* Media tab - visible to all */}
               <TabsTrigger 
                 value="media" 
-                className="text-[11px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 h-7 sm:h-8 data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:rounded-none whitespace-nowrap"
+                className="text-[11px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 h-7 sm:h-8 data-[state=active]:bg-primary/10 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:rounded-none data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground whitespace-nowrap"
                 onClick={() => {
-                  setActiveSubTab('uploaded');
-                  setDisplayTab('uploaded');
+                  // For clients, Media tab shows edited; for others, shows uploaded
+                  if (isClient) {
+                    setActiveSubTab('edited');
+                    setDisplayTab('edited');
+                  } else {
+                    setActiveSubTab('uploaded');
+                    setDisplayTab('uploaded');
+                  }
                 }}
               >
                 Media
               </TabsTrigger>
+              {/* Uploaded tab - hidden for clients (they only see edited media) */}
+              {!isClient && (
               <TabsTrigger 
                 value="uploaded" 
-                className="text-[11px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 h-7 sm:h-8 data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:rounded-none whitespace-nowrap"
-                onClick={() => {
-                  setActiveSubTab('uploaded');
-                  setDisplayTab('uploaded');
-                }}
-              >
-                Uploaded ({rawFiles.length})
-              </TabsTrigger>
-              <TabsTrigger 
-                value="edited" 
-                className="text-[11px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 h-7 sm:h-8 data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:rounded-none whitespace-nowrap"
-                onClick={() => {
-                  setActiveSubTab('edited');
-                  setDisplayTab('edited');
-                }}
-              >
-                Edited ({editedFiles.length})
-              </TabsTrigger>
+                className="text-[11px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 h-7 sm:h-8 data-[state=active]:bg-primary/10 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:rounded-none data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground whitespace-nowrap"
+                  onClick={() => {
+                    setActiveSubTab('uploaded');
+                    setDisplayTab('uploaded');
+                  }}
+                >
+                  Uploaded ({rawFiles.length})
+                </TabsTrigger>
+              )}
+              {/* Edited tab - hidden for photographers (they only see raw/uploaded media) */}
+              {!isPhotographer && (
+                <TabsTrigger 
+                  value="edited" 
+                  className="text-[11px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 h-7 sm:h-8 data-[state=active]:bg-primary/10 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:rounded-none data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground whitespace-nowrap"
+                  onClick={() => {
+                    setActiveSubTab('edited');
+                    setDisplayTab('edited');
+                  }}
+                >
+                  Edited ({editedFiles.length})
+                </TabsTrigger>
+              )}
             </TabsList>
           </Tabs>
           
           {/* Upload and Download buttons - Inline on desktop, below on mobile */}
           <div className="hidden sm:flex items-center gap-1.5 flex-shrink-0">
-            {/* Select All / Deselect All button */}
-            {(rawFiles.length > 0 || editedFiles.length > 0) && (
+            {/* Sort dropdown - hidden for editors */}
+            {!isEditor && (rawFiles.length > 0 || editedFiles.length > 0) && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-7 text-[11px] px-2">
+                    <ArrowUpDown className="h-3 w-3 mr-1" />
+                    <span>Sort: {sortOrder === 'name' ? 'Name' : sortOrder === 'date' ? 'Date' : sortOrder === 'manual' ? 'Manual' : 'Time'}</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setSortOrder('time')}>
+                    <span className={sortOrder === 'time' ? 'font-medium' : ''}>Time Captured</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSortOrder('name')}>
+                    <span className={sortOrder === 'name' ? 'font-medium' : ''}>File Name</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSortOrder('date')}>
+                    <span className={sortOrder === 'date' ? 'font-medium' : ''}>Date Added</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSortOrder('manual')}>
+                    <span className={sortOrder === 'manual' ? 'font-medium' : ''}>Manual (Drag & Drop)</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+            {/* Upload More button - shown when files exist and user can upload */}
+            {showUploadTab && (rawFiles.length > 0 || editedFiles.length > 0) && (
               <Button
-                variant="outline"
+                variant="default"
                 size="sm"
-                className="h-7 text-[11px] px-2"
-                onClick={() => {
-                  const currentFiles = displayTab === 'uploaded' ? rawFiles : editedFiles;
-                  if (selectedFiles.size === currentFiles.length) {
-                    setSelectedFiles(new Set());
-                  } else {
-                    setSelectedFiles(new Set(currentFiles.map(f => f.id)));
-                  }
-                }}
+                className="h-7 text-[11px] px-2 bg-blue-600 hover:bg-blue-700 text-white"
+                onClick={() => setActiveSubTab('upload')}
               >
-                <CheckCircle2 className="h-3 w-3 mr-1" />
-                <span>
-                  {selectedFiles.size === (displayTab === 'uploaded' ? rawFiles : editedFiles).length 
-                    ? 'Deselect All' 
-                    : 'Select All'}
-                </span>
+                <Upload className="h-3 w-3 mr-1" />
+                <span>Upload More</span>
               </Button>
             )}
-            {/* AI Edit and Download buttons for selected files */}
-            {canDownload && selectedFiles.size > 0 && (
+            {/* AI Edit, Download, Create Request, and Delete buttons for selected files - hidden for editors */}
+            {canDownload && selectedFiles.size > 0 && !isEditor && (
               <>
-                <Button
-                  size="sm"
-                  className="h-7 text-[11px] px-2 bg-purple-600 hover:bg-purple-700 text-white"
-                  onClick={() => setShowAiEditDialog(true)}
-                >
-                  <Sparkles className="h-3 w-3 mr-1" />
-                  <span>AI Edit ({selectedFiles.size})</span>
-                </Button>
+                {/* Hide AI Edit button for clients */}
+                {!isClient && (
+                  <Button
+                    size="sm"
+                    className="h-7 text-[11px] px-2 bg-purple-600 hover:bg-purple-700 text-white"
+                    onClick={() => setShowAiEditDialog(true)}
+                  >
+                    <Sparkles className="h-3 w-3 mr-1" />
+                    <span>AI Edit ({selectedFiles.size})</span>
+                  </Button>
+                )}
+                {/* Show Create Request button for clients when photos are selected */}
+                {isClient && (
+                  <Button
+                    size="sm"
+                    className="h-7 text-[11px] px-2 bg-blue-600 hover:bg-blue-700 text-white"
+                    onClick={() => setRequestManagerOpen(true)}
+                  >
+                    <AlertCircle className="h-3 w-3 mr-1" />
+                    <span>Create Request ({selectedFiles.size})</span>
+                  </Button>
+                )}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button size="sm" className="h-7 text-[11px] px-2" disabled={downloading}>
@@ -1639,19 +2135,16 @@ export function ShootDetailsMediaTab({
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  className="h-7 text-[11px] px-2 bg-red-600 hover:bg-red-700 text-white"
+                  onClick={handleDeleteFiles}
+                >
+                  <Trash2 className="h-3 w-3 mr-1" />
+                  <span>Delete ({selectedFiles.size})</span>
+                </Button>
               </>
-            )}
-            {/* Upload button - Inline on desktop */}
-            {showUploadTab && (
-              <Button
-                variant="default"
-                size="sm"
-                className="h-7 text-[11px] px-3 bg-blue-600 hover:bg-blue-700 text-white"
-                onClick={() => setActiveSubTab('upload')}
-              >
-                <Upload className="h-3 w-3 mr-1" />
-                <span>Upload</span>
-              </Button>
             )}
           </div>
           
@@ -1676,40 +2169,43 @@ export function ShootDetailsMediaTab({
       {(showUploadTab || (canDownload && selectedFiles.size > 0) || rawFiles.length > 0 || editedFiles.length > 0) && (
         <div className="mb-1.5 pb-1 border-b flex-shrink-0 sm:hidden">
           <div className="flex items-center justify-end gap-1.5">
-            {/* Select All / Deselect All button */}
-            {(rawFiles.length > 0 || editedFiles.length > 0) && (
+            {/* Upload More button - shown when files exist and user can upload */}
+            {showUploadTab && (rawFiles.length > 0 || editedFiles.length > 0) && (
               <Button
-                variant="outline"
+                variant="default"
                 size="sm"
-                className="h-7 text-[11px] px-2 w-full"
-                onClick={() => {
-                  const currentFiles = displayTab === 'uploaded' ? rawFiles : editedFiles;
-                  if (selectedFiles.size === currentFiles.length) {
-                    setSelectedFiles(new Set());
-                  } else {
-                    setSelectedFiles(new Set(currentFiles.map(f => f.id)));
-                  }
-                }}
+                className="h-7 text-[11px] px-3 bg-blue-600 hover:bg-blue-700 text-white w-full"
+                onClick={() => setActiveSubTab('upload')}
               >
-                <CheckCircle2 className="h-3 w-3 mr-1" />
-                <span>
-                  {selectedFiles.size === (displayTab === 'uploaded' ? rawFiles : editedFiles).length 
-                    ? 'Deselect All' 
-                    : 'Select All'}
-                </span>
+                <Upload className="h-3 w-3 mr-1" />
+                <span>Upload More</span>
               </Button>
             )}
-            {/* AI Edit and Download buttons for selected files */}
+            {/* AI Edit, Download, and Delete buttons for selected files */}
             {canDownload && selectedFiles.size > 0 && (
               <>
-                <Button
-                  size="sm"
-                  className="h-7 text-[11px] px-2 w-full bg-purple-600 hover:bg-purple-700 text-white"
-                  onClick={() => setShowAiEditDialog(true)}
-                >
-                  <Sparkles className="h-3 w-3 mr-1" />
-                  <span>AI Edit</span>
-                </Button>
+                {/* Hide AI Edit button for clients */}
+                {!isClient && (
+                  <Button
+                    size="sm"
+                    className="h-7 text-[11px] px-2 w-full bg-purple-600 hover:bg-purple-700 text-white"
+                    onClick={() => setShowAiEditDialog(true)}
+                  >
+                    <Sparkles className="h-3 w-3 mr-1" />
+                    <span>AI Edit</span>
+                  </Button>
+                )}
+                {/* Show Create Request button for clients when photos are selected */}
+                {isClient && (
+                  <Button
+                    size="sm"
+                    className="h-7 text-[11px] px-2 w-full bg-blue-600 hover:bg-blue-700 text-white"
+                    onClick={() => setRequestManagerOpen(true)}
+                  >
+                    <AlertCircle className="h-3 w-3 mr-1" />
+                    <span>Create Request</span>
+                  </Button>
+                )}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button size="sm" className="h-7 text-[11px] px-2 w-full" disabled={downloading}>
@@ -1734,6 +2230,15 @@ export function ShootDetailsMediaTab({
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  className="h-7 text-[11px] px-2 w-full bg-red-600 hover:bg-red-700 text-white"
+                  onClick={handleDeleteFiles}
+                >
+                  <Trash2 className="h-3 w-3 mr-1" />
+                  <span>Delete</span>
+                </Button>
               </>
             )}
             {/* Upload button - Full width on mobile */}
@@ -1752,20 +2257,54 @@ export function ShootDetailsMediaTab({
         </div>
       )}
 
-      {/* Content - Compact Overview-style layout, scrollable */}
-      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+      {/* Content - Compact Overview-style layout */}
+      <div className="flex-1 min-h-0 flex flex-col bg-background pb-4">
         {activeSubTab === 'upload' ? (
           /* Upload Tab Content */
-          <div className="space-y-2">
-            <div className="p-2.5 border rounded-lg bg-card">
-              {isEditor ? (
+          <div className="flex-1 flex flex-col min-h-0 p-2.5">
+            <div className="border rounded-lg bg-card p-3 pb-6 flex flex-col">
+              {isAdmin ? (
+                /* Admins upload raw or edited files based on which tab they're on */
+                <AdminUploadSection
+                  shoot={shoot}
+                  uploadContext={displayTab === 'edited' ? 'edited' : 'raw'}
+                  onUploadComplete={() => {
+                    toast({
+                      title: 'Upload complete',
+                      description: 'Files uploaded successfully',
+                    });
+                    // Invalidate React Query cache to refresh files
+                    queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'raw'] });
+                    queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'edited'] });
+                    onShootUpdate();
+                    setActiveSubTab('uploaded');
+                    setDisplayTab('uploaded');
+                  }}
+                  onEditedUploadComplete={() => {
+                    toast({
+                      title: 'Upload complete',
+                      description: 'Edited files uploaded successfully',
+                    });
+                    // Invalidate React Query cache to refresh files
+                    queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'raw'] });
+                    queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'edited'] });
+                    onShootUpdate();
+                    setActiveSubTab('edited');
+                    setDisplayTab('edited');
+                  }}
+                />
+              ) : isEditor ? (
                 <EditedUploadSection
                   shoot={shoot}
+                  isEditor={isEditor}
                     onUploadComplete={() => {
                       toast({
                         title: 'Upload complete',
                         description: 'Edited files uploaded successfully',
                       });
+                      // Invalidate React Query cache to refresh files
+                      queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'raw'] });
+                      queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'edited'] });
                       onShootUpdate();
                       setActiveSubTab('edited');
                       setDisplayTab('edited');
@@ -1779,6 +2318,9 @@ export function ShootDetailsMediaTab({
                         title: 'Upload complete',
                         description: 'Files uploaded successfully',
                       });
+                      // Invalidate React Query cache to refresh files
+                      queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'raw'] });
+                      queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'edited'] });
                       onShootUpdate();
                       setActiveSubTab('uploaded');
                       setDisplayTab('uploaded');
@@ -1788,19 +2330,12 @@ export function ShootDetailsMediaTab({
             </div>
           </div>
         ) : (
-          <Tabs value={displayTab} onValueChange={(v) => {
-            if (v === 'media' || v === 'uploaded') {
-              setActiveSubTab('uploaded');
-              setDisplayTab('uploaded');
-            } else if (v === 'edited') {
-              setActiveSubTab('edited');
-              setDisplayTab('edited');
-            }
-          }}>
-            {/* Media/Uploaded Tab - Media tab shows uploaded content */}
-            <TabsContent value="media" className="mt-0">
+          <div className="flex-1 flex flex-col min-h-0 w-full h-full bg-background py-3 sm:py-4" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+            {/* Media/Uploaded Tab - shows when uploaded tab is active and user is client viewing media */}
+            {displayTab === 'uploaded' && isClient && (
+              <div className="flex-1" style={{ minHeight: 0, position: 'relative', height: '100%', width: '100%' }}>
               {!hasAnyMedia && isScheduledShoot ? (
-                <div className="p-2.5 border rounded-lg bg-card">
+                <div className="border rounded-lg bg-card p-2.5 m-2.5">
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <FileIcon className="h-4 w-4" />
                     <span>Scheduled shoot — photos are not available yet.</span>
@@ -1817,126 +2352,451 @@ export function ShootDetailsMediaTab({
                   </div>
                 </div>
               ) : rawFiles.length === 0 ? (
-                <Card className="border-2 border-dashed bg-muted/30">
-                  <CardContent className="flex flex-col items-center justify-center py-16 px-6">
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'hsl(var(--background))' }}>
+                  <div className="flex flex-col items-center justify-center text-center" style={{ margin: 0, padding: 0 }}>
                     <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center mb-4">
                       <ImageIcon className="h-10 w-10 text-primary/60" />
                     </div>
-                    <h3 className="text-lg font-semibold mb-2">No media uploaded yet</h3>
-                    <p className="text-sm text-muted-foreground text-center mb-6 max-w-md">
+                    <h3 className="text-lg font-semibold mb-2 text-center">No media uploaded yet</h3>
+                    <p className="text-sm text-muted-foreground text-center mb-6 max-w-md mx-auto">
                       Upload photos and videos to get started. You can drag and drop files or use the upload button.
                     </p>
                     {showUploadTab && (
                       <Button
                         variant="default"
                         size="lg"
-                        className="bg-primary hover:bg-primary/90"
+                        className="bg-primary hover:bg-primary/90 mx-auto"
                         onClick={() => setActiveSubTab('upload')}
                       >
                         <Upload className="h-4 w-4 mr-2" />
                         Upload Files
                       </Button>
                     )}
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
               ) : (
-                <div className="p-2.5 border rounded-lg bg-card">
+                <div className="flex-1 m-2.5 border rounded-lg bg-card overflow-y-auto p-2.5 min-h-0">
                   <MediaGrid
                     files={rawFiles}
                     onFileClick={(index) => openViewer(index, rawFiles)}
                     selectedFiles={selectedFiles}
                     onSelectionChange={toggleSelection}
+                    onSelectAll={() => {
+                      if (selectedFiles.size === rawFiles.length) {
+                        setSelectedFiles(new Set());
+                      } else {
+                        setSelectedFiles(new Set(rawFiles.map(f => f.id)));
+                      }
+                    }}
                     canSelect={canDownload}
+                    sortOrder={sortOrder}
+                    manualOrder={manualOrder}
+                    onManualOrderChange={setManualOrder}
                     getImageUrl={getImageUrl}
                     getSrcSet={getSrcSet}
                     isImage={isPreviewableImage}
                   />
                 </div>
               )}
-            </TabsContent>
+              </div>
+            )}
             
-            {/* Uploaded Media Tab */}
-            <TabsContent value="uploaded" className="mt-0">
-              {rawFiles.length === 0 ? (
-                <Card className="border-2 border-dashed bg-muted/30">
-                  <CardContent className="flex flex-col items-center justify-center py-16 px-6">
-                    <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                      <ImageIcon className="h-10 w-10 text-primary/60" />
-                    </div>
-                    <h3 className="text-lg font-semibold mb-2">No uploaded files yet</h3>
-                    <p className="text-sm text-muted-foreground text-center mb-6 max-w-md">
-                      Upload photos and videos to get started. You can drag and drop files or use the upload button.
-                    </p>
-                    {showUploadTab && (
-                      <Button
-                        variant="default"
-                        size="lg"
-                        className="bg-primary hover:bg-primary/90"
-                        onClick={() => setActiveSubTab('upload')}
-                      >
-                        <Upload className="h-4 w-4 mr-2" />
-                        Upload Files
-                      </Button>
-                    )}
-                  </CardContent>
-                </Card>
-              ) : (
-                <div className="p-2.5 border rounded-lg bg-card">
-                  <MediaGrid
-                    files={rawFiles}
-                    onFileClick={(index) => openViewer(index, rawFiles)}
-                    selectedFiles={selectedFiles}
-                    onSelectionChange={toggleSelection}
-                    canSelect={canDownload}
-                    getImageUrl={getImageUrl}
-                    getSrcSet={getSrcSet}
-                    isImage={isPreviewableImage}
-                  />
+            {/* Uploaded Media Tab - Hidden for clients */}
+            {!isClient && displayTab === 'uploaded' && (
+              <div className="flex-1" style={{ minHeight: 0, display: 'flex', flexDirection: 'column', height: '100%', width: '100%' }}>
+                {/* Sub-tabs for Photos/Videos/iGuide/Floorplans */}
+                <div className="flex items-center gap-4 px-2.5 py-1 border-b" style={{ flexShrink: 0 }}>
+                  <button
+                    onClick={() => setUploadedMediaTab('photos')}
+                    className={`text-xs py-1 border-b-2 transition-colors ${uploadedMediaTab === 'photos' ? 'border-foreground text-foreground font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                  >
+                    Photos ({uploadedPhotos.length})
+                  </button>
+                  <button
+                    onClick={() => setUploadedMediaTab('videos')}
+                    className={`text-xs py-1 border-b-2 transition-colors ${uploadedMediaTab === 'videos' ? 'border-foreground text-foreground font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                  >
+                    Videos ({uploadedVideos.length})
+                  </button>
+                  {iguideUrl && (
+                    <button
+                      onClick={() => setUploadedMediaTab('iguide')}
+                      className={`text-xs py-1 border-b-2 transition-colors ${uploadedMediaTab === 'iguide' ? 'border-foreground text-foreground font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                    >
+                      iGuide
+                    </button>
+                  )}
+                  {iguideFloorplans.length > 0 && (
+                    <button
+                      onClick={() => setUploadedMediaTab('floorplans')}
+                      className={`text-xs py-1 border-b-2 transition-colors ${uploadedMediaTab === 'floorplans' ? 'border-foreground text-foreground font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                    >
+                      Floorplans ({iguideFloorplans.length})
+                    </button>
+                  )}
                 </div>
-              )}
-            </TabsContent>
+                
+                {/* Sub-tab content */}
+                <div style={{ flex: '1 1 0%', minHeight: 0, overflow: 'hidden' }}>
+                  {uploadedMediaTab === 'photos' && (
+                    uploadedPhotos.length === 0 ? (
+                      <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <div className="flex flex-col items-center justify-center text-center p-6 max-w-md">
+                          {/* Dashed circle with cloud icon */}
+                          <div className="relative mb-6">
+                            <div className="h-28 w-28 rounded-full border-2 border-dashed border-primary/30 flex items-center justify-center">
+                              <div className="h-20 w-20 rounded-full bg-slate-800/80 flex items-center justify-center">
+                                <CloudUpload className="h-10 w-10 text-primary" />
+                              </div>
+                            </div>
+                            <div className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-green-500" />
+                          </div>
+                          <h3 className="text-xl font-semibold mb-2">No uploaded files yet</h3>
+                          <p className="text-sm text-muted-foreground mb-6">
+                            Upload property photos and videos to get started. Our AI will automatically analyze assets for quality and categorization.
+                          </p>
+                          {showUploadTab && (
+                            <Button 
+                              size="lg" 
+                              className="w-full max-w-sm h-14 text-base bg-primary hover:bg-primary/90"
+                              onClick={() => setActiveSubTab('upload')}
+                            >
+                              <ImageIcon className="h-5 w-5 mr-2" /> Upload Files
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="h-full m-2.5 border rounded-lg bg-card overflow-y-auto p-2.5">
+                        <MediaGrid
+                          files={uploadedPhotos}
+                          onFileClick={(index) => openViewer(index, uploadedPhotos)}
+                          selectedFiles={selectedFiles}
+                          onSelectionChange={toggleSelection}
+                          onSelectAll={() => {
+                            if (selectedFiles.size === uploadedPhotos.length) {
+                              setSelectedFiles(new Set());
+                            } else {
+                              setSelectedFiles(new Set(uploadedPhotos.map(f => f.id)));
+                            }
+                          }}
+                          canSelect={canDownload}
+                          sortOrder={sortOrder}
+                          manualOrder={manualOrder}
+                          onManualOrderChange={setManualOrder}
+                          getImageUrl={getImageUrl}
+                          getSrcSet={getSrcSet}
+                          isImage={isPreviewableImage}
+                        />
+                      </div>
+                    )
+                  )}
+                  
+                  {uploadedMediaTab === 'videos' && (
+                    uploadedVideos.length === 0 ? (
+                      <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <div className="flex flex-col items-center justify-center text-center p-6 max-w-md">
+                          {/* Dashed circle with cloud icon */}
+                          <div className="relative mb-6">
+                            <div className="h-28 w-28 rounded-full border-2 border-dashed border-primary/30 flex items-center justify-center">
+                              <div className="h-20 w-20 rounded-full bg-slate-800/80 flex items-center justify-center">
+                                <CloudUpload className="h-10 w-10 text-primary" />
+                              </div>
+                            </div>
+                            <div className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-green-500" />
+                          </div>
+                          <h3 className="text-xl font-semibold mb-2">No uploaded videos yet</h3>
+                          <p className="text-sm text-muted-foreground mb-6">
+                            Upload property videos to get started. Our AI will automatically analyze assets for quality and categorization.
+                          </p>
+                          {showUploadTab && (
+                            <Button 
+                              size="lg" 
+                              className="w-full max-w-sm h-14 text-base bg-primary hover:bg-primary/90"
+                              onClick={() => setActiveSubTab('upload')}
+                            >
+                              <ImageIcon className="h-5 w-5 mr-2" /> Upload Files
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="h-full m-2.5 border rounded-lg bg-card overflow-y-auto p-2.5">
+                        <MediaGrid
+                          files={uploadedVideos}
+                          onFileClick={(index) => openViewer(index, uploadedVideos)}
+                          selectedFiles={selectedFiles}
+                          onSelectionChange={toggleSelection}
+                          onSelectAll={() => {
+                            if (selectedFiles.size === uploadedVideos.length) {
+                              setSelectedFiles(new Set());
+                            } else {
+                              setSelectedFiles(new Set(uploadedVideos.map(f => f.id)));
+                            }
+                          }}
+                          canSelect={canDownload}
+                          sortOrder={sortOrder}
+                          manualOrder={manualOrder}
+                          onManualOrderChange={setManualOrder}
+                          getImageUrl={getImageUrl}
+                          getSrcSet={getSrcSet}
+                          isImage={isPreviewableImage}
+                        />
+                      </div>
+                    )
+                  )}
+                  
+                  {uploadedMediaTab === 'iguide' && iguideUrl && (
+                    <div className="h-full m-2.5 border rounded-lg bg-card p-4">
+                      <div className="flex flex-col gap-4">
+                        <div>
+                          <h4 className="font-medium mb-2">iGuide 3D Tour</h4>
+                          <a
+                            href={iguideUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-primary hover:underline flex items-center gap-1"
+                          >
+                            View 3D Tour <ChevronRight className="h-3 w-3" />
+                          </a>
+                        </div>
+                        <div className="aspect-video w-full max-w-2xl rounded-lg overflow-hidden border">
+                          <iframe
+                            src={iguideUrl}
+                            className="w-full h-full"
+                            allowFullScreen
+                            title="iGuide 3D Tour"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {uploadedMediaTab === 'floorplans' && iguideFloorplans.length > 0 && (
+                    <div className="h-full m-2.5 border rounded-lg bg-card overflow-y-auto p-4">
+                      <h4 className="font-medium mb-3">Floorplans ({iguideFloorplans.length})</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {iguideFloorplans.map((fp, idx) => (
+                          <div key={idx} className="border rounded-lg p-3 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <FileIcon className="h-5 w-5 text-muted-foreground" />
+                              <span className="text-sm">{fp.filename || `Floorplan ${idx + 1}`}</span>
+                            </div>
+                            <a
+                              href={fp.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-primary hover:underline"
+                            >
+                              View
+                            </a>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
-            {/* Edited Media Tab */}
-            <TabsContent value="edited" className="mt-0">
-              {editedFiles.length === 0 ? (
-                <Card className="border-2 border-dashed bg-muted/30">
-                  <CardContent className="flex flex-col items-center justify-center py-16 px-6">
-                    <div className="h-20 w-20 rounded-full bg-purple-500/10 flex items-center justify-center mb-4">
-                      <ImageIcon className="h-10 w-10 text-purple-500/60" />
-                    </div>
-                    <h3 className="text-lg font-semibold mb-2">No edited files yet</h3>
-                    <p className="text-sm text-muted-foreground text-center mb-6 max-w-md">
-                      Edited photos will appear here once they've been processed and uploaded.
-                    </p>
-                    {isEditor && (
-                      <Button
-                        variant="default"
-                        size="lg"
-                        className="bg-purple-600 hover:bg-purple-700"
-                        onClick={() => setActiveSubTab('upload')}
-                      >
-                        <Upload className="h-4 w-4 mr-2" />
-                        Upload Edited Files
-                      </Button>
-                    )}
-                  </CardContent>
-                </Card>
-              ) : (
-                <div className="p-2.5 border rounded-lg bg-card">
-                  <MediaGrid
-                    files={editedFiles}
-                    onFileClick={(index) => openViewer(index, editedFiles)}
-                    selectedFiles={selectedFiles}
-                    onSelectionChange={toggleSelection}
-                    canSelect={canDownload}
-                    getImageUrl={getImageUrl}
-                    getSrcSet={getSrcSet}
-                    isImage={isPreviewableImage}
-                  />
+            {/* Edited Media Tab - Hidden for photographers */}
+            {!isPhotographer && displayTab === 'edited' && (
+              <div className="flex-1" style={{ minHeight: 0, display: 'flex', flexDirection: 'column', height: '100%', width: '100%' }}>
+                {/* Sub-tabs for Photos/Videos/iGuide/Floorplans */}
+                <div className="flex items-center gap-4 px-2.5 py-1 border-b" style={{ flexShrink: 0 }}>
+                  <button
+                    onClick={() => setEditedMediaTab('photos')}
+                    className={`text-xs py-1 border-b-2 transition-colors ${editedMediaTab === 'photos' ? 'border-foreground text-foreground font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                  >
+                    Photos ({editedPhotos.length})
+                  </button>
+                  <button
+                    onClick={() => setEditedMediaTab('videos')}
+                    className={`text-xs py-1 border-b-2 transition-colors ${editedMediaTab === 'videos' ? 'border-foreground text-foreground font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                  >
+                    Videos ({editedVideos.length})
+                  </button>
+                  {iguideUrl && (
+                    <button
+                      onClick={() => setEditedMediaTab('iguide')}
+                      className={`text-xs py-1 border-b-2 transition-colors ${editedMediaTab === 'iguide' ? 'border-foreground text-foreground font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                    >
+                      iGuide
+                    </button>
+                  )}
+                  {iguideFloorplans.length > 0 && (
+                    <button
+                      onClick={() => setEditedMediaTab('floorplans')}
+                      className={`text-xs py-1 border-b-2 transition-colors ${editedMediaTab === 'floorplans' ? 'border-foreground text-foreground font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                    >
+                      Floorplans ({iguideFloorplans.length})
+                    </button>
+                  )}
                 </div>
-              )}
-            </TabsContent>
-          </Tabs>
+                
+                {/* Sub-tab content */}
+                <div style={{ flex: '1 1 0%', minHeight: 0, overflow: 'hidden' }}>
+                  {editedMediaTab === 'photos' && (
+                    editedPhotos.length === 0 ? (
+                      <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <div className="flex flex-col items-center justify-center text-center p-6 max-w-md">
+                          {/* Dashed circle with cloud icon */}
+                          <div className="relative mb-6">
+                            <div className="h-28 w-28 rounded-full border-2 border-dashed border-primary/30 flex items-center justify-center">
+                              <div className="h-20 w-20 rounded-full bg-slate-800/80 flex items-center justify-center">
+                                <CloudUpload className="h-10 w-10 text-primary" />
+                              </div>
+                            </div>
+                            <div className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-green-500" />
+                          </div>
+                          <h3 className="text-xl font-semibold mb-2">No edited files yet</h3>
+                          <p className="text-sm text-muted-foreground mb-6">
+                            Upload edited photos and videos to get started. Our AI will automatically analyze assets for quality and categorization.
+                          </p>
+                          {showUploadTab && (
+                            <Button 
+                              size="lg" 
+                              className="w-full max-w-sm h-14 text-base bg-primary hover:bg-primary/90"
+                              onClick={() => setActiveSubTab('upload')}
+                            >
+                              <ImageIcon className="h-5 w-5 mr-2" /> Upload Files
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="h-full m-2.5 border rounded-lg bg-card overflow-y-auto p-2.5">
+                        <MediaGrid
+                          files={editedPhotos}
+                          onFileClick={(index) => openViewer(index, editedPhotos)}
+                          selectedFiles={selectedFiles}
+                          onSelectionChange={toggleSelection}
+                          onSelectAll={() => {
+                            if (selectedFiles.size === editedPhotos.length) {
+                              setSelectedFiles(new Set());
+                            } else {
+                              setSelectedFiles(new Set(editedPhotos.map(f => f.id)));
+                            }
+                          }}
+                          canSelect={canDownload}
+                          sortOrder={sortOrder}
+                          manualOrder={manualOrder}
+                          onManualOrderChange={setManualOrder}
+                          getImageUrl={getImageUrl}
+                          getSrcSet={getSrcSet}
+                          isImage={isPreviewableImage}
+                        />
+                      </div>
+                    )
+                  )}
+                  
+                  {editedMediaTab === 'videos' && (
+                    editedVideos.length === 0 ? (
+                      <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <div className="flex flex-col items-center justify-center text-center p-6 max-w-md">
+                          {/* Dashed circle with cloud icon */}
+                          <div className="relative mb-6">
+                            <div className="h-28 w-28 rounded-full border-2 border-dashed border-primary/30 flex items-center justify-center">
+                              <div className="h-20 w-20 rounded-full bg-slate-800/80 flex items-center justify-center">
+                                <CloudUpload className="h-10 w-10 text-primary" />
+                              </div>
+                            </div>
+                            <div className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-green-500" />
+                          </div>
+                          <h3 className="text-xl font-semibold mb-2">No edited videos yet</h3>
+                          <p className="text-sm text-muted-foreground mb-6">
+                            Upload edited videos to get started. Our AI will automatically analyze assets for quality and categorization.
+                          </p>
+                          {showUploadTab && (
+                            <Button 
+                              size="lg" 
+                              className="w-full max-w-sm h-14 text-base bg-primary hover:bg-primary/90"
+                              onClick={() => setActiveSubTab('upload')}
+                            >
+                              <ImageIcon className="h-5 w-5 mr-2" /> Upload Files
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="h-full m-2.5 border rounded-lg bg-card overflow-y-auto p-2.5">
+                        <MediaGrid
+                          files={editedVideos}
+                          onFileClick={(index) => openViewer(index, editedVideos)}
+                          selectedFiles={selectedFiles}
+                          onSelectionChange={toggleSelection}
+                          onSelectAll={() => {
+                            if (selectedFiles.size === editedVideos.length) {
+                              setSelectedFiles(new Set());
+                            } else {
+                              setSelectedFiles(new Set(editedVideos.map(f => f.id)));
+                            }
+                          }}
+                          canSelect={canDownload}
+                          sortOrder={sortOrder}
+                          manualOrder={manualOrder}
+                          onManualOrderChange={setManualOrder}
+                          getImageUrl={getImageUrl}
+                          getSrcSet={getSrcSet}
+                          isImage={isPreviewableImage}
+                        />
+                      </div>
+                    )
+                  )}
+                  
+                  {editedMediaTab === 'iguide' && iguideUrl && (
+                    <div className="h-full m-2.5 border rounded-lg bg-card p-4">
+                      <div className="flex flex-col gap-4">
+                        <div>
+                          <h4 className="font-medium mb-2">iGuide 3D Tour</h4>
+                          <a
+                            href={iguideUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-primary hover:underline flex items-center gap-1"
+                          >
+                            View 3D Tour <ChevronRight className="h-3 w-3" />
+                          </a>
+                        </div>
+                        <div className="aspect-video w-full max-w-2xl rounded-lg overflow-hidden border">
+                          <iframe
+                            src={iguideUrl}
+                            className="w-full h-full"
+                            allowFullScreen
+                            title="iGuide 3D Tour"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {editedMediaTab === 'floorplans' && iguideFloorplans.length > 0 && (
+                    <div className="h-full m-2.5 border rounded-lg bg-card overflow-y-auto p-4">
+                      <h4 className="font-medium mb-3">Floorplans ({iguideFloorplans.length})</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {iguideFloorplans.map((fp, idx) => (
+                          <div key={idx} className="border rounded-lg p-3 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <FileIcon className="h-5 w-5 text-muted-foreground" />
+                              <span className="text-sm">{fp.filename || `Floorplan ${idx + 1}`}</span>
+                            </div>
+                            <a
+                              href={fp.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-primary hover:underline"
+                            >
+                              View
+                            </a>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </div>
 
@@ -2015,6 +2875,25 @@ export function ShootDetailsMediaTab({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Request Manager Modal - for creating requests with selected photos */}
+      <ShootIssueManager
+        isOpen={requestManagerOpen}
+        onClose={() => {
+          setRequestManagerOpen(false);
+          setSelectedFiles(new Set()); // Clear selection after closing
+        }}
+        shootId={shoot.id}
+        isAdmin={isAdmin}
+        isPhotographer={isPhotographer}
+        isEditor={isEditor}
+        isClient={isClient}
+        onIssueUpdate={() => {
+          onShootUpdate();
+          setSelectedFiles(new Set()); // Clear selection after request is created
+        }}
+        preselectedMediaIds={Array.from(selectedFiles)}
+      />
     </div>
   );
 }
@@ -2025,7 +2904,11 @@ interface MediaGridProps {
   onFileClick: (index: number) => void;
   selectedFiles: Set<string>;
   onSelectionChange: (fileId: string) => void;
+  onSelectAll?: () => void;
   canSelect: boolean;
+  sortOrder?: 'name' | 'date' | 'time' | 'manual';
+  manualOrder?: string[];
+  onManualOrderChange?: (newOrder: string[]) => void;
   getImageUrl: (file: MediaFile, size?: 'thumb' | 'medium' | 'large' | 'original') => string;
   getSrcSet: (file: MediaFile) => string;
   isImage: (file: MediaFile) => boolean;
@@ -2035,76 +2918,416 @@ function MediaGrid({
   files, 
   onFileClick, 
   selectedFiles, 
-  onSelectionChange, 
+  onSelectionChange,
+  onSelectAll,
   canSelect,
+  sortOrder = 'time',
+  manualOrder = [],
+  onManualOrderChange,
   getImageUrl,
   getSrcSet,
   isImage,
 }: MediaGridProps) {
-  return (
-    <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-7 lg:grid-cols-8 gap-1">
-      {files.map((file, index) => {
-        const isSelected = selectedFiles.has(file.id);
-        const isImg = isImage(file);
-        const imageUrl = getImageUrl(file, 'medium');
-        const srcSet = getSrcSet(file);
-        const ext = file.filename.split('.').pop()?.toUpperCase();
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+
+  // Sort files based on sortOrder, then separate regular and extra files
+  const sortedFiles = useMemo(() => {
+    if (sortOrder === 'manual' && manualOrder.length > 0) {
+      // Sort by manual order
+      const orderMap = new Map(manualOrder.map((id, idx) => [id, idx]));
+      return [...files].sort((a, b) => {
+        const idxA = orderMap.get(a.id) ?? Number.MAX_SAFE_INTEGER;
+        const idxB = orderMap.get(b.id) ?? Number.MAX_SAFE_INTEGER;
+        return idxA - idxB;
+      });
+    }
+    
+    return [...files].sort((a, b) => {
+      if (sortOrder === 'name') {
+        return (a.filename || '').localeCompare(b.filename || '');
+      } else if (sortOrder === 'date') {
+        const dateA = a.created_at || '';
+        const dateB = b.created_at || '';
+        return dateA.localeCompare(dateB);
+      } else {
+        // time - sort by captured_at
+        const timeA = a.captured_at || a.created_at || '';
+        const timeB = b.captured_at || b.created_at || '';
+        return timeA.localeCompare(timeB);
+      }
+    });
+  }, [files, sortOrder, manualOrder]);
+
+  // Handle drag start
+  const handleDragStart = (e: React.DragEvent, fileId: string) => {
+    if (sortOrder !== 'manual') return;
+    setDraggedId(fileId);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  // Handle drag over
+  const handleDragOver = (e: React.DragEvent, fileId: string) => {
+    if (sortOrder !== 'manual' || !draggedId) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (fileId !== draggedId) {
+      setDragOverId(fileId);
+    }
+  };
+
+  // Handle drag leave
+  const handleDragLeave = () => {
+    setDragOverId(null);
+  };
+
+  // Handle drop
+  const handleDrop = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    if (sortOrder !== 'manual' || !draggedId || draggedId === targetId) {
+      setDraggedId(null);
+      setDragOverId(null);
+      return;
+    }
+
+    // Get current order or create from files
+    const currentOrder = manualOrder.length > 0 
+      ? [...manualOrder] 
+      : sortedFiles.filter(f => !f.isExtra).map(f => f.id);
+    
+    const draggedIdx = currentOrder.indexOf(draggedId);
+    const targetIdx = currentOrder.indexOf(targetId);
+    
+    if (draggedIdx !== -1 && targetIdx !== -1) {
+      // Remove dragged item and insert at target position
+      currentOrder.splice(draggedIdx, 1);
+      currentOrder.splice(targetIdx, 0, draggedId);
+      onManualOrderChange?.(currentOrder);
+    }
+
+    setDraggedId(null);
+    setDragOverId(null);
+  };
+
+  // Handle drag end
+  const handleDragEnd = () => {
+    setDraggedId(null);
+    setDragOverId(null);
+  };
+  
+  const regularFiles = sortedFiles.filter(f => !f.isExtra);
+  const extraFiles = sortedFiles.filter(f => f.isExtra);
+
+  // Helper function to format file size
+  const formatFileSize = (bytes?: number): string => {
+    if (!bytes) return '-';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  };
+
+  // Helper function to format date/time
+  const formatDateTime = (dateStr?: string): string => {
+    if (!dateStr) return '-';
+    try {
+      const date = new Date(dateStr);
+      return date.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      });
+    } catch {
+      return '-';
+    }
+  };
+
+  // Helper function to get resolution string
+  const getResolution = (file: MediaFile): string => {
+    if (file.width && file.height) {
+      return `${file.width} × ${file.height}`;
+    }
+    return '-';
+  };
+  
+  const renderFileCard = (file: MediaFile, index: number, isExtraSection: boolean = false) => {
+    const isSelected = selectedFiles.has(file.id);
+    const isImg = isImage(file);
+    const isRaw = isRawFile(file.filename);
+    const imageUrl = getImageUrl(file, 'medium');
+    const srcSet = getSrcSet(file);
+    const ext = file.filename.split('.').pop()?.toUpperCase();
+    
+    // Find the actual index in the full sorted array for viewer
+    const actualIndex = sortedFiles.findIndex(f => f.id === file.id);
+    
+    const isDragging = draggedId === file.id;
+    const isDragOver = dragOverId === file.id;
+    
+    return (
+      <div
+        key={file.id}
+        draggable={sortOrder === 'manual' && !isExtraSection}
+        onDragStart={(e) => handleDragStart(e, file.id)}
+        onDragOver={(e) => handleDragOver(e, file.id)}
+        onDragLeave={handleDragLeave}
+        onDrop={(e) => handleDrop(e, file.id)}
+        onDragEnd={handleDragEnd}
+        className={`relative aspect-square rounded overflow-hidden border cursor-pointer transition-all group ${
+          isSelected ? 'border-primary ring-1 ring-primary' : 'border-border hover:border-primary/50'
+        } ${isExtraSection ? 'opacity-90' : ''} ${isDragging ? 'opacity-50 scale-95' : ''} ${isDragOver ? 'ring-2 ring-blue-500 border-blue-500' : ''} ${sortOrder === 'manual' && !isExtraSection ? 'cursor-grab active:cursor-grabbing' : ''}`}
+        onClick={() => {
+          if (canSelect) {
+            onSelectionChange(file.id);
+          } else {
+            onFileClick(actualIndex);
+          }
+        }}
+        onDoubleClick={() => onFileClick(actualIndex)}
+      >
+        {/* Simple image display - backend generates thumbnails at upload time */}
+        {/* For RAW files, only show image if we have a processed thumbnail (thumbnail_path set by backend) */}
+        {/* For non-RAW files, show the image URL */}
+        {(() => {
+          // For RAW files, we need an actual processed thumbnail (thumbnail_path is only set on success)
+          // Don't try to display original RAW file URLs - browsers can't render them
+          const hasProcessedThumb = isRaw 
+            ? !!(file.thumbnail_path || file.web_path)
+            : true;
+          const hasDisplayableImage = hasProcessedThumb && (file.thumb || imageUrl);
+          const thumbSrc = file.thumb || getImageUrl(file, 'thumb');
+          
+          return hasDisplayableImage ? (
+            <img
+              src={thumbSrc}
+              srcSet={!isRaw ? srcSet : undefined}
+              sizes={!isRaw ? "(max-width: 640px) 33vw, (max-width: 768px) 25vw, 20vw" : undefined}
+              alt={file.filename}
+              className="w-full h-full object-cover"
+              loading="lazy"
+              onError={(e) => {
+                // On error, hide image and show fallback
+                e.currentTarget.style.display = 'none';
+                const fallback = e.currentTarget.parentElement?.querySelector('.file-fallback') as HTMLElement;
+                if (fallback) fallback.style.display = 'flex';
+              }}
+            />
+          ) : null;
+        })()}
         
-        return (
-          <div
-            key={file.id}
-            className={`relative aspect-square rounded overflow-hidden border cursor-pointer transition-all group ${
-              isSelected ? 'border-primary ring-1 ring-primary' : 'border-border hover:border-primary/50'
-            }`}
-            onClick={() => {
-              if (canSelect) {
-                onSelectionChange(file.id);
-              } else {
-                onFileClick(index);
-              }
+        {/* Fallback placeholder - shown if no thumbnail or on load error */}
+        <div 
+          className="file-fallback w-full h-full items-center justify-center bg-muted absolute inset-0"
+          style={{ display: (() => {
+            const hasProcessedThumb = isRaw 
+              ? !!(file.thumbnail_path || file.web_path)
+              : true;
+            const hasDisplayableImage = hasProcessedThumb && (file.thumb || imageUrl);
+            return !hasDisplayableImage ? 'flex' : 'none';
+          })() }}
+        >
+          <div className="flex flex-col items-center gap-1 text-muted-foreground">
+            <ImageIcon className="h-6 w-6" />
+            <span className="text-[10px] font-semibold uppercase">{ext || 'FILE'}</span>
+          </div>
+        </div>
+        
+        {/* Extra badge */}
+        {file.isExtra && (
+          <div className="absolute top-1 left-1 bg-orange-500 text-white text-[8px] px-1 py-0.5 rounded font-medium">
+            EXTRA
+          </div>
+        )}
+        
+        {/* Hero badge */}
+        {file.is_cover && !file.isExtra && (
+          <div className="absolute top-1 left-1 bg-blue-600 text-white text-[8px] px-1 py-0.5 rounded font-medium">
+            HERO
+          </div>
+        )}
+        
+        {isSelected && (
+          <div className="absolute top-1 right-1 bg-primary text-primary-foreground rounded-full p-0.5">
+            <CheckCircle2 className="h-3 w-3" />
+          </div>
+        )}
+        
+        {canSelect && (
+          <div className={`absolute ${file.isExtra ? 'top-5' : 'top-1'} left-1 opacity-0 group-hover:opacity-100 transition-opacity`}>
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={() => onSelectionChange(file.id)}
+              className="bg-background/80"
+            />
+          </div>
+        )}
+        
+        <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] p-1 truncate opacity-0 group-hover:opacity-100 transition-opacity">
+          {file.filename}
+        </div>
+      </div>
+    );
+  };
+
+  // List view row renderer
+  const renderFileRow = (file: MediaFile, index: number, isExtraSection: boolean = false) => {
+    const isSelected = selectedFiles.has(file.id);
+    const isRaw = isRawFile(file.filename);
+    const imageUrl = getImageUrl(file, 'thumb');
+    const ext = file.filename.split('.').pop()?.toUpperCase();
+    const actualIndex = sortedFiles.findIndex(f => f.id === file.id);
+    const isDragging = draggedId === file.id;
+    const isDragOver = dragOverId === file.id;
+
+    const hasProcessedThumb = isRaw 
+      ? !!(file.thumbnail_path || file.web_path)
+      : true;
+    const hasDisplayableImage = hasProcessedThumb && (file.thumb || imageUrl);
+
+    return (
+      <div
+        key={file.id}
+        draggable={sortOrder === 'manual' && !isExtraSection}
+        onDragStart={(e) => handleDragStart(e, file.id)}
+        onDragOver={(e) => handleDragOver(e, file.id)}
+        onDragLeave={handleDragLeave}
+        onDrop={(e) => handleDrop(e, file.id)}
+        onDragEnd={handleDragEnd}
+        className={`flex items-center gap-3 p-2 rounded-lg border cursor-pointer transition-all group hover:bg-muted/50 ${
+          isSelected ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-border'
+        } ${isExtraSection ? 'opacity-90' : ''} ${isDragging ? 'opacity-50' : ''} ${isDragOver ? 'ring-2 ring-blue-500 border-blue-500' : ''} ${sortOrder === 'manual' && !isExtraSection ? 'cursor-grab active:cursor-grabbing' : ''}`}
+        onClick={() => {
+          if (canSelect) {
+            onSelectionChange(file.id);
+          } else {
+            onFileClick(actualIndex);
+          }
+        }}
+        onDoubleClick={() => onFileClick(actualIndex)}
+      >
+        {/* Selection indicator - moved to left */}
+        {canSelect && (
+          <div 
+            className="flex-shrink-0 cursor-pointer"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelectionChange(file.id);
             }}
-            onDoubleClick={() => onFileClick(index)}
           >
-            {isImg && imageUrl ? (
-              <img
-                src={getImageUrl(file, 'thumb')}
-                srcSet={srcSet}
-                sizes="(max-width: 640px) 33vw, (max-width: 768px) 25vw, 20vw"
-                alt={file.filename}
-                className="w-full h-full object-cover"
-                loading="lazy"
-              />
+            {isSelected ? (
+              <CheckCircle2 className="h-5 w-5 text-primary" />
             ) : (
-              <div className="w-full h-full flex items-center justify-center bg-muted">
-                <div className="flex flex-col items-center gap-1 text-muted-foreground">
-                  <FileIcon className="h-6 w-6" />
-                  {ext && <span className="text-[10px] font-semibold">{ext}</span>}
-                </div>
-              </div>
+              <Circle className="h-5 w-5 text-muted-foreground hover:text-foreground transition-colors" />
             )}
-            
-            {isSelected && (
-              <div className="absolute top-1 right-1 bg-primary text-primary-foreground rounded-full p-0.5">
-                <CheckCircle2 className="h-3 w-3" />
-              </div>
-            )}
-            
-            {canSelect && (
-              <div className="absolute top-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Checkbox
-                  checked={isSelected}
-                  onCheckedChange={() => onSelectionChange(file.id)}
-                  className="bg-background/80"
-                />
-              </div>
-            )}
-            
-            <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] p-1 truncate opacity-0 group-hover:opacity-100 transition-opacity">
-              {file.filename}
+          </div>
+        )}
+
+        {/* Thumbnail - wide aspect ratio */}
+        <div className="relative w-20 h-12 sm:w-28 sm:h-16 flex-shrink-0 rounded overflow-hidden border bg-muted">
+          {hasDisplayableImage ? (
+            <img
+              src={file.thumb || imageUrl}
+              alt={file.filename}
+              className="w-full h-full object-cover"
+              loading="lazy"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+                const fallback = e.currentTarget.parentElement?.querySelector('.file-fallback') as HTMLElement;
+                if (fallback) fallback.style.display = 'flex';
+              }}
+            />
+          ) : null}
+          <div 
+            className="file-fallback w-full h-full items-center justify-center bg-muted absolute inset-0"
+            style={{ display: !hasDisplayableImage ? 'flex' : 'none' }}
+          >
+            <div className="flex flex-col items-center gap-0.5 text-muted-foreground">
+              <ImageIcon className="h-4 w-4" />
+              <span className="text-[8px] font-semibold uppercase">{ext || 'FILE'}</span>
             </div>
           </div>
-        );
-      })}
+          {file.isExtra && (
+            <div className="absolute top-0.5 left-0.5 bg-orange-500 text-white text-[6px] px-0.5 py-0 rounded font-medium">
+              EXTRA
+            </div>
+          )}
+        </div>
+
+        {/* Filename - takes remaining space */}
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-medium truncate" title={file.filename}>
+            {file.filename}
+          </p>
+          <p className="text-[10px] text-muted-foreground sm:hidden">
+            {formatDateTime(file.captured_at || file.created_at)}
+          </p>
+        </div>
+
+        {/* Shot Time - fixed width on right */}
+        <div className="hidden sm:block w-36 flex-shrink-0 text-right">
+          <p className="text-[10px] text-muted-foreground">Shot Time</p>
+          <p className="text-xs">{formatDateTime(file.captured_at || file.created_at)}</p>
+        </div>
+
+        {/* Size - fixed width on right */}
+        <div className="hidden sm:block w-20 flex-shrink-0 text-right">
+          <p className="text-[10px] text-muted-foreground">Size</p>
+          <p className="text-xs">{formatFileSize(file.fileSize)}</p>
+        </div>
+
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-2">
+      {/* Header row - visible on larger screens */}
+      <div className="hidden sm:flex items-center gap-3 px-2 py-1 text-[10px] text-muted-foreground font-medium border-b">
+        {canSelect && (
+          <div 
+            className="w-4 flex-shrink-0 cursor-pointer hover:text-foreground transition-colors"
+            onClick={onSelectAll}
+            title={selectedFiles.size === files.length ? 'Deselect All' : 'Select All'}
+          >
+            {selectedFiles.size === files.length ? (
+              <CheckCircle2 className="h-4 w-4 text-primary" />
+            ) : selectedFiles.size > 0 ? (
+              <MinusCircle className="h-4 w-4" />
+            ) : (
+              <Circle className="h-4 w-4" />
+            )}
+          </div>
+        )}
+        <div className="w-28 flex-shrink-0">Preview</div>
+        <div className="flex-1">Filename</div>
+        <div className="w-36 flex-shrink-0 text-right">Shot Time</div>
+        <div className="w-20 flex-shrink-0 text-right">Size</div>
+        <div className="w-6 flex-shrink-0"></div>
+      </div>
+
+      {/* Regular files */}
+      <div className="space-y-1">
+        {regularFiles.map((file, index) => renderFileRow(file, index, false))}
+      </div>
+      
+      {/* Extra files section with separator */}
+      {extraFiles.length > 0 && (
+        <>
+          <div className="flex items-center gap-2 py-2">
+            <div className="flex-1 h-px bg-orange-500/30" />
+            <span className="text-xs font-medium text-orange-600 dark:text-orange-400 px-2">
+              Extras ({extraFiles.length})
+            </span>
+            <div className="flex-1 h-px bg-orange-500/30" />
+          </div>
+          <div className="space-y-1">
+            {extraFiles.map((file, index) => renderFileRow(file, index, true))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -2138,6 +3361,11 @@ function MediaViewer({
   const { toast } = useToast();
   
   const isImageFile = (file: MediaFile): boolean => {
+    // If RAW file has processed thumbnail, it's displayable
+    if ((file.media_type === 'raw' || file.media_type === 'image') && (file.thumbnail_path || file.thumb || file.medium)) {
+      return true;
+    }
+
     const name = file.filename.toLowerCase();
     const rawExt = /\.(nef|cr2|cr3|arw|dng|raf|rw2|orf|pef|srw|3fr|iiq)$/.test(name);
     if (rawExt) return false;
@@ -2150,6 +3378,11 @@ function MediaViewer({
     return /\.(jpg|jpeg|png|gif|webp|tiff|tif|heic|heif)$/.test(name);
   };
   const isPreviewableImage = (file: MediaFile): boolean => {
+    // If RAW file has processed thumbnail, it's previewable
+    if ((file.media_type === 'raw' || file.media_type === 'image') && (file.thumbnail_path || file.thumb || file.medium)) {
+      return true;
+    }
+
     const name = file.filename.toLowerCase();
     const rawExt = /\.(nef|cr2|cr3|arw|dng|raf|rw2|orf|pef|srw|3fr|iiq)$/.test(name);
     if (rawExt) return false;
@@ -2284,7 +3517,8 @@ function MediaViewer({
 
   if (!isOpen || !currentFile) return null;
 
-  const imageUrl = getImageUrl(currentFile, 'large');
+  // Use medium size for viewer (1500px) - only load original when user explicitly requests
+  const imageUrl = getImageUrl(currentFile, 'medium') || getImageUrl(currentFile, 'large');
   const srcSet = getSrcSet(currentFile);
   const isImg = isPreviewableImage(currentFile);
   const fileExt = currentFile?.filename?.split('.')?.pop()?.toUpperCase();
@@ -2371,16 +3605,16 @@ function MediaViewer({
                         console.error('Cover API error:', response.status, errorData);
                         throw new Error(errorData.message || `HTTP ${response.status}`);
                       }
-                      toast({ title: 'Cover Photo', description: 'Cover photo updated successfully' });
+                      toast({ title: 'Hero Image', description: 'Hero image updated successfully' });
                       onShootUpdate();
                     } catch (error) {
                       console.error('Set cover error:', error);
-                      toast({ title: 'Error', description: error instanceof Error ? error.message : 'Failed to set cover photo', variant: 'destructive' });
+                      toast({ title: 'Error', description: error instanceof Error ? error.message : 'Failed to set hero image', variant: 'destructive' });
                     }
                   }}
                 >
                   <CheckCircle2 className="h-3 w-3 mr-1" />
-                  Make Cover
+                  Make Hero
                 </Button>
               )}
             </div>
@@ -2482,9 +3716,14 @@ function MediaViewer({
             {/* Filmstrip Thumbnails */}
             <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
               {files.map((file, index) => {
-                    const isActive = index === currentIndex;
-                    const fileImageUrl = getImageUrl(file, 'thumb');
-                    const fileIsImg = isImageFile(file);
+                const isActive = index === currentIndex;
+                const fileImageUrl = getImageUrl(file, 'thumb');
+                const fileIsImg = isImageFile(file);
+                const fileIsRaw = isRawFile(file.filename);
+                // For RAW files, only show thumbnail if processed (thumbnail_path exists)
+                const hasDisplayableThumb = fileIsRaw 
+                  ? !!(file.thumbnail_path || file.web_path)
+                  : fileIsImg;
                 
                 return (
                   <button
@@ -2499,17 +3738,24 @@ function MediaViewer({
                         : 'border-white/30 hover:border-white/60 opacity-70 hover:opacity-100'
                     }`}
                   >
-                    {fileIsImg && fileImageUrl ? (
+                    {hasDisplayableThumb && fileImageUrl ? (
                       <img
                         src={fileImageUrl}
                         alt={file.filename}
                         className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                          const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                          if (fallback) fallback.style.display = 'flex';
+                        }}
                       />
-                    ) : (
-                      <div className="w-full h-full bg-muted flex items-center justify-center">
-                        <FileIcon className="h-6 w-6 text-muted-foreground" />
-                      </div>
-                    )}
+                    ) : null}
+                    <div 
+                      className="w-full h-full bg-muted items-center justify-center"
+                      style={{ display: hasDisplayableThumb && fileImageUrl ? 'none' : 'flex' }}
+                    >
+                      <FileIcon className="h-6 w-6 text-muted-foreground" />
+                    </div>
                   </button>
                 );
               })}

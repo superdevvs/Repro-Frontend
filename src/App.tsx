@@ -1,5 +1,5 @@
 
-import React, { Suspense, lazy } from 'react'
+import React, { Suspense, lazy, useEffect, useRef } from 'react'
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -8,13 +8,21 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./components/auth";
 import { PermissionsProvider } from './context/PermissionsContext';
 import { UserPreferencesProvider } from './contexts/UserPreferencesContext';
-import { IssueManagerProvider } from './context/IssueManagerContext';
-import { PhotographerAssignmentProvider } from './context/PhotographerAssignmentContext';
-import { IssueManagerModal } from './components/issues/IssueManagerModal';
-import { PhotographerAssignmentModal } from './components/photographers/PhotographerAssignmentModal';
+import { IssueManagerProvider, useIssueManager } from './context/IssueManagerContext';
+import { PhotographerAssignmentProvider, usePhotographerAssignment } from './context/PhotographerAssignmentContext';
 import Index from "./pages/Index";
 import { ShootsProvider } from './context/ShootsContext';
 import { toast } from "./components/ui/use-toast";
+import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
+import { startRealtimeListener } from '@/realtime/realtimeListener';
+import { subscribeRealtimeEvents } from '@/realtime/realtimeEvents';
+import {
+  triggerEditingRequestsRefresh,
+  triggerShootDetailRefresh,
+  triggerShootHistoryRefresh,
+  triggerInvoicesRefresh,
+  triggerShootListRefresh,
+} from '@/realtime/realtimeRefreshBus';
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const BookShoot = lazy(() => import('./pages/BookShoot'));
@@ -34,9 +42,9 @@ const ShootDetails = lazy(() => import('./pages/ShootDetails'));
 const Profile = lazy(() => import('./pages/Profile'));
 const Accounting = lazy(() => import('./pages/Accounting'));
 const Integrations = lazy(() => import('./pages/Integrations'));
-const Coupons = lazy(() => import('./pages/Coupons'));
 const MlsPublishingQueue = lazy(() => import('./pages/MlsPublishingQueue'));
 const PrivateListingPortal = lazy(() => import('./pages/PrivateListingPortal'));
+const ExclusiveListingDetails = lazy(() => import('./pages/ExclusiveListingDetails'));
 const ChatWithReproAi = lazy(() => import('./pages/ChatWithReproAi'));
 const AiEditing = lazy(() => import('./pages/AiEditing'));
 const PermissionSettings = lazy(() => import('./pages/PermissionSettings'));
@@ -60,12 +68,18 @@ const Automations = lazy(() => import('./pages/messaging/Automations'));
 const SmsCenter = lazy(() => import('./pages/messaging/SmsCenter'));
 const MessagingSettings = lazy(() => import('./pages/messaging/MessagingSettings'));
 
-// Create a new QueryClient instance
+// Lazy-load modals
+const IssueManagerModal = lazy(() => import('./components/issues/IssueManagerModal').then(module => ({ default: module.IssueManagerModal })));
+const PhotographerAssignmentModal = lazy(() => import('./components/photographers/PhotographerAssignmentModal').then(module => ({ default: module.PhotographerAssignmentModal })));
+
+// Create a new QueryClient instance with optimized defaults for caching
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
       retry: 1,
+      staleTime: 30 * 1000, // Data is fresh for 30 seconds
+      gcTime: 5 * 60 * 1000, // Cache for 5 minutes (formerly cacheTime)
     },
   },
 });
@@ -79,6 +93,22 @@ const FullScreenSpinner = () => (
 // Protected route component
 const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
   const { isAuthenticated, isLoading } = useAuth();
+  const hasNotifiedRef = useRef(false);
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (!isAuthenticated) {
+      if (hasNotifiedRef.current) return;
+      hasNotifiedRef.current = true;
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to access this page.",
+        variant: "destructive",
+      });
+    } else {
+      hasNotifiedRef.current = false;
+    }
+  }, [isAuthenticated, isLoading]);
 
   // Show loading state if auth is still initializing
   if (isLoading) {
@@ -86,12 +116,6 @@ const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
   }
 
   if (!isAuthenticated) {
-    // Show a toast notification when redirecting
-    toast({
-      title: "Authentication Required",
-      description: "Please log in to access this page.",
-      variant: "destructive",
-    });
     return <Navigate to="/" replace />;
   }
 
@@ -101,6 +125,39 @@ const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
 // Admin route component
 const AdminRoute = ({ children }: { children: JSX.Element }) => {
   const { role, isAuthenticated, isLoading } = useAuth();
+  const authNotifiedRef = useRef(false);
+  const denyNotifiedRef = useRef(false);
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (!isAuthenticated) {
+      if (authNotifiedRef.current) return;
+      authNotifiedRef.current = true;
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to access this page.",
+        variant: "destructive",
+      });
+    } else {
+      authNotifiedRef.current = false;
+    }
+  }, [isAuthenticated, isLoading]);
+
+  useEffect(() => {
+    if (isLoading || !isAuthenticated) return;
+    const isDenied = !['admin', 'superadmin'].includes(role);
+    if (!isDenied) {
+      denyNotifiedRef.current = false;
+      return;
+    }
+    if (denyNotifiedRef.current) return;
+    denyNotifiedRef.current = true;
+    toast({
+      title: "Access Denied",
+      description: "You don't have permission to access this page.",
+      variant: "destructive",
+    });
+  }, [isAuthenticated, isLoading, role]);
 
   // Show loading state if auth is still initializing
   if (isLoading) {
@@ -108,20 +165,10 @@ const AdminRoute = ({ children }: { children: JSX.Element }) => {
   }
 
   if (!isAuthenticated) {
-    toast({
-      title: "Authentication Required",
-      description: "Please log in to access this page.",
-      variant: "destructive",
-    });
     return <Navigate to="/" replace />;
   }
 
   if (!['admin', 'superadmin'].includes(role)) {
-    toast({
-      title: "Access Denied",
-      description: "You don't have permission to access this page.",
-      variant: "destructive",
-    });
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -137,6 +184,39 @@ const RoleRestrictedRoute = ({
   allowedRoles: string[] 
 }) => {
   const { role, isAuthenticated, isLoading } = useAuth();
+  const authNotifiedRef = useRef(false);
+  const denyNotifiedRef = useRef(false);
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (!isAuthenticated) {
+      if (authNotifiedRef.current) return;
+      authNotifiedRef.current = true;
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to access this page.",
+        variant: "destructive",
+      });
+    } else {
+      authNotifiedRef.current = false;
+    }
+  }, [isAuthenticated, isLoading]);
+
+  useEffect(() => {
+    if (isLoading || !isAuthenticated) return;
+    const isDenied = !role || !allowedRoles.includes(role);
+    if (!isDenied) {
+      denyNotifiedRef.current = false;
+      return;
+    }
+    if (denyNotifiedRef.current) return;
+    denyNotifiedRef.current = true;
+    toast({
+      title: "Access Denied",
+      description: "You don't have permission to access this page.",
+      variant: "destructive",
+    });
+  }, [allowedRoles, isAuthenticated, isLoading, role]);
 
   // Show loading state if auth is still initializing
   if (isLoading) {
@@ -144,33 +224,98 @@ const RoleRestrictedRoute = ({
   }
 
   if (!isAuthenticated) {
-    toast({
-      title: "Authentication Required",
-      description: "Please log in to access this page.",
-      variant: "destructive",
-    });
     return <Navigate to="/" replace />;
   }
 
   // Redirect to dashboard if role is not in allowed roles
   if (!role || !allowedRoles.includes(role)) {
-    toast({
-      title: "Access Denied",
-      description: "You don't have permission to access this page.",
-      variant: "destructive",
-    });
     return <Navigate to="/dashboard" replace />;
   }
 
   return children;
 };
 
+// Wrapper for Dashboard route with IssueManager and PhotographerAssignment contexts
+const DashboardWrapper = ({ children }: { children: React.ReactNode }) => {
+  const { isOpen: isIssueModalOpen } = useIssueManager();
+  const { isOpen: isPhotoModalOpen } = usePhotographerAssignment();
+
+  return (
+    <>
+      {isIssueModalOpen && (
+        <Suspense fallback={null}>
+          <IssueManagerModal />
+        </Suspense>
+      )}
+      {isPhotoModalOpen && (
+        <Suspense fallback={null}>
+          <PhotographerAssignmentModal />
+        </Suspense>
+      )}
+      {children}
+    </>
+  );
+};
+
+// Wrapper retained for route compatibility; ShootsProvider now sits above AppRoutes.
+const ShootRoutesWrapper = ({ children }: { children: React.ReactNode }) => {
+  return <>{children}</>;
+};
+
+const RealtimeBridge = () => {
+  const { isAuthenticated, role, user } = useAuth();
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    let cleanup: (() => void) | undefined;
+    let cancelled = false;
+
+    startRealtimeListener({ role, userId: user?.id ?? null }).then((stop) => {
+      if (cancelled) {
+        stop?.();
+        return;
+      }
+      cleanup = stop;
+    });
+
+    return () => {
+      cancelled = true;
+      cleanup?.();
+    };
+  }, [isAuthenticated, role, user?.id]);
+
+  useEffect(() =>
+    subscribeRealtimeEvents((event) => {
+      switch (event.type) {
+        case 'shoot.updated':
+        case 'shoot.assigned':
+          triggerShootListRefresh();
+          triggerShootHistoryRefresh();
+          triggerShootDetailRefresh(event.shootId);
+          break;
+        case 'request.updated':
+          triggerEditingRequestsRefresh();
+          triggerShootDetailRefresh(event.shootId);
+          break;
+        case 'invoice.paid':
+          triggerInvoicesRefresh();
+          triggerShootListRefresh();
+          triggerShootDetailRefresh(event.shootId);
+          break;
+        default:
+          break;
+      }
+    }),
+  []);
+
+  return null;
+};
+
 // Routes wrapper with auth provider
 const AppRoutes = () => {
+
   return (
     <Suspense fallback={<FullScreenSpinner />}>
-      <IssueManagerModal />
-      <PhotographerAssignmentModal />
       <Routes>
       <Route path="/" element={<Index />} />
       
@@ -182,7 +327,7 @@ const AppRoutes = () => {
       {/* Public client-facing tour pages (accept ?shootId=) */}
       <Route path="/tour/branded" element={<BrandedPage />} />
       <Route path="/tour/mls" element={<MlsCompliant />} />
-      <Route path="/tour/generic-mls" element={<GenericMLS />} />
+      <Route path="/tour/g-mls" element={<GenericMLS />} />
       {/* Public client portal so clients can share their link */}
       <Route path="/client-portal" element={<ClientPortal />} />
        <Route path="/tours/branded" element={
@@ -197,7 +342,7 @@ const AppRoutes = () => {
         // </ProtectedRoute>
       } />
 
-       <Route path="/tours/generic-mls" element={
+       <Route path="/tours/g-mls" element={
         // <ProtectedRoute>
           <GenericMLS />
         // </ProtectedRoute>
@@ -205,22 +350,36 @@ const AppRoutes = () => {
 
       <Route path="/dashboard" element={
         <ProtectedRoute>
-          <Dashboard />
+          <ShootRoutesWrapper>
+            <IssueManagerProvider>
+              <PhotographerAssignmentProvider>
+                <DashboardWrapper>
+                  <Dashboard />
+                </DashboardWrapper>
+              </PhotographerAssignmentProvider>
+            </IssueManagerProvider>
+          </ShootRoutesWrapper>
         </ProtectedRoute>
       } />
       <Route path="/shoots/:id" element={
         <ProtectedRoute>
-          <ShootDetails />
+          <ShootRoutesWrapper>
+            <ShootDetails />
+          </ShootRoutesWrapper>
         </ProtectedRoute>
       } />
       <Route path="/book-shoot" element={
         <ProtectedRoute>
-          <BookShoot />
+          <ShootRoutesWrapper>
+            <BookShoot />
+          </ShootRoutesWrapper>
         </ProtectedRoute>
       } />
       <Route path="/shoot-history" element={
         <ProtectedRoute>
-          <ShootHistory />
+          <ShootRoutesWrapper>
+            <ShootHistory />
+          </ShootRoutesWrapper>
         </ProtectedRoute>
       } />
       <Route path="/invoices" element={
@@ -230,18 +389,24 @@ const AppRoutes = () => {
       } />
       <Route path="/accounting" element={
         <ProtectedRoute>
-          <Accounting />
+          <ShootRoutesWrapper>
+            <Accounting />
+          </ShootRoutesWrapper>
         </ProtectedRoute>
       } />
       <Route path="/accounts" element={
         <ProtectedRoute>
-          <Accounts />
+          <ShootRoutesWrapper>
+            <Accounts />
+          </ShootRoutesWrapper>
         </ProtectedRoute>
       } />
       <Route path="/availability" element={
-        <ProtectedRoute>
-          <Availability />
-        </ProtectedRoute>
+        <RoleRestrictedRoute allowedRoles={['admin', 'superadmin', 'photographer', 'salesRep', 'sales_rep']}>
+          <ShootRoutesWrapper>
+            <Availability />
+          </ShootRoutesWrapper>
+        </RoleRestrictedRoute>
       } />
       <Route path="/reports" element={
         <ProtectedRoute>
@@ -294,18 +459,27 @@ const AppRoutes = () => {
         </ProtectedRoute>
       } />
       <Route path="/portal" element={
-        <ProtectedRoute>
+        <RoleRestrictedRoute allowedRoles={['admin', 'superadmin', 'salesRep', 'sales_rep', 'client']}>
           <PrivateListingPortal />
-        </ProtectedRoute>
+        </RoleRestrictedRoute>
+      } />
+      <Route path="/exclusive-listings/:id" element={
+        <RoleRestrictedRoute allowedRoles={['admin', 'superadmin', 'salesRep', 'sales_rep', 'client']}>
+          <ExclusiveListingDetails />
+        </RoleRestrictedRoute>
       } />
       <Route path="/photographer-history" element={
         <ProtectedRoute>
-          <PhotographerShootHistory />
+          <ShootRoutesWrapper>
+            <PhotographerShootHistory />
+          </ShootRoutesWrapper>
         </ProtectedRoute>
       } />
       <Route path="/photographer-account" element={
         <ProtectedRoute>
-          <PhotographerAccount />
+          <ShootRoutesWrapper>
+            <PhotographerAccount />
+          </ShootRoutesWrapper>
         </ProtectedRoute>
       } />
       <Route path="/photographer-availability" element={
@@ -315,7 +489,7 @@ const AppRoutes = () => {
       } />
       <Route path="/coupons" element={
         <ProtectedRoute>
-          <Coupons />
+          <Navigate to="/settings?tab=coupons" replace />
         </ProtectedRoute>
       } />
       {/* CubiCasa mobile scanning - photographers and admins only */}
@@ -402,11 +576,10 @@ function App() {
               <UserPreferencesProvider>
                 <PermissionsProvider>
                   <ShootsProvider>
-                    <IssueManagerProvider>
-                      <PhotographerAssignmentProvider>
-                        <AppRoutes />
-                      </PhotographerAssignmentProvider>
-                    </IssueManagerProvider>
+                    <RealtimeBridge />
+                    <ErrorBoundary>
+                      <AppRoutes />
+                    </ErrorBoundary>
                   </ShootsProvider>
                 </PermissionsProvider>
               </UserPreferencesProvider>

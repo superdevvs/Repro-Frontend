@@ -1,5 +1,6 @@
 import { ShootSettingsTab } from '@/components/dashboard/ShootSettingsTab';
 import { ShootData } from '@/types/shoots';
+import { useAuth } from '@/components/auth';
 
 interface ShootDetailsSettingsTabProps {
   shoot: ShootData;
@@ -8,10 +9,13 @@ interface ShootDetailsSettingsTabProps {
 }
 
 export function ShootDetailsSettingsTab(props: ShootDetailsSettingsTabProps) {
+  const { user } = useAuth();
+  const role = user?.role || 'client';
+  const isClient = role === 'client';
   return <ShootSettingsTab 
     shoot={props.shoot}
     isAdmin={props.isAdmin}
-    isClient={false}
+    isClient={isClient}
     onUpdate={(updated) => {
       props.onShootUpdate();
     }}

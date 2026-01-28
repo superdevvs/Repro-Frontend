@@ -158,7 +158,7 @@ export function ReviewForm({
 
           <div className="flex justify-between">
             <span className="text-sm text-slate-500 dark:text-slate-400">Property:</span>
-            <span className="text-sm font-medium text-slate-900 dark:text-slate-100">{address ? `${address}, ${city}, ${getStateFullName(state)} ${zip}` : "No address provided"}</span>
+            <span className="text-sm font-medium text-slate-900 dark:text-slate-100">{address || "No address provided"}</span>
           </div>
 
           <div className="flex justify-between">

@@ -29,18 +29,20 @@ const resolveDefaultBase = () => {
 
 const envBase = import.meta.env?.VITE_API_URL?.trim();
 
-const resolveEnvBase = () => {
-  // In development, always use empty string to leverage Vite proxy
-  if (import.meta.env.DEV) {
-    return '';
-  }
+const stripApiSuffix = (value: string) =>
+  value.endsWith('/api') ? value.slice(0, -4) : value;
 
+const resolveEnvBase = () => {
   if (!envBase || envBase.length === 0) {
-    return null;
+    return import.meta.env.DEV ? '' : null;
   }
 
   try {
-    return normalizeUrl(envBase);
+    const normalized = stripApiSuffix(normalizeUrl(envBase));
+    if (normalized === 'api') {
+      return '';
+    }
+    return normalized;
   } catch (error) {
     console.warn('[env] Invalid VITE_API_URL. Falling back to window.origin.', {
       envBase,

@@ -112,21 +112,39 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
   }, [photographers, availabilitySet, hasAvailabilityData]);
 
   const filteredPhotographers = useMemo(() => {
+    if (!Array.isArray(photographers) || photographers.length === 0) return [];
+    
     const filtered = photographers.filter(p => {
-      const isAvailable = hasAvailabilityData ? availabilitySet.has(p.id) : p.status !== 'busy';
-      if (tab === 'available') return isAvailable;
-      if (tab === 'booked') return !isAvailable;
+      if (!p) return false;
+      
+      // Determine availability: if availability data is loaded, use that; otherwise use status
+      const isAvailable = hasAvailabilityData 
+        ? availabilitySet.has(p.id) 
+        : p.status !== 'busy' && p.status !== 'offline';
+      
+      if (tab === 'available') {
+        // Show photographers who are available (based on availability data or status)
+        return isAvailable;
+      }
+      if (tab === 'booked') {
+        // Show photographers who are busy/editing or not in availability set when data is loaded
+        if (hasAvailabilityData) {
+          return !availabilitySet.has(p.id) && (p.status === 'busy' || p.status === 'editing');
+        }
+        return p.status === 'busy' || p.status === 'editing';
+      }
+      // 'all' tab shows everyone
       return true;
     });
 
     return filtered.sort((a, b) => {
-      if (sortBy === 'load') return a.loadToday - b.loadToday;
-      if (sortBy === 'alpha') return a.name.localeCompare(b.name);
+      if (sortBy === 'load') return (a.loadToday || 0) - (b.loadToday || 0);
+      if (sortBy === 'alpha') return (a.name || '').localeCompare(b.name || '');
       const aTime = a.availableFrom || '23:59';
       const bTime = b.availableFrom || '23:59';
       return aTime.localeCompare(bTime);
     });
-  }, [photographers, tab, sortBy]);
+  }, [photographers, tab, sortBy, hasAvailabilityData, availabilitySet]);
 
   return (
     <Card className="p-0 h-full flex flex-col overflow-hidden min-h-0">
@@ -159,7 +177,7 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
         </div>
       </div>
 
-      <div className="max-h-[520px] overflow-y-auto px-3 sm:px-4 py-2 space-y-2 custom-scrollbar">
+      <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-2 space-y-2 custom-scrollbar min-h-0">
         {filteredPhotographers.map((photographer) => (
           <div
             key={photographer.id}
@@ -237,7 +255,7 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
         )}
       </div>
 
-      <div className="p-3 sm:p-4 border-t border-border/60">
+      <div className="p-3 sm:p-4 border-t border-border/60 mt-auto">
         <div className="space-y-2 mb-3">
           <p className="text-[10px] sm:text-[11px] text-muted-foreground uppercase tracking-wide">Select window</p>
           <div className="grid grid-cols-3 gap-1.5 sm:gap-2">

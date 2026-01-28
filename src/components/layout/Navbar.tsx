@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { BellIcon, SearchIcon, SunIcon, MoonIcon, PlusCircleIcon, CloudIcon } from 'lucide-react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { SearchIcon, SunIcon, MoonIcon, PlusCircleIcon, CloudIcon, HomeIcon, HistoryIcon, CalendarIcon, BarChart3Icon, Settings2Icon, MapPinIcon } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -11,25 +11,55 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useTheme } from '@/hooks/useTheme';
 import { getWeatherByCoordinates, WeatherInfo } from '@/services/weatherService';
 import { subscribeToWeatherProvider } from '@/state/weatherProviderStore';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
+import { NotificationCenter } from '@/components/notifications/NotificationCenter';
+import { cn } from '@/lib/utils';
+import { GlobalCommandBar } from '@/components/search/GlobalCommandBar';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { RobbieInsightStrip } from '@/components/ai/RobbieInsightStrip';
+
+const DEFAULT_WEATHER_COORDS = { lat: 40.7128, lon: -74.006 };
+const WEATHER_COORDS_KEY = 'dashboard.weatherCoords';
+
+const readStoredCoords = () => {
+  if (typeof window === 'undefined') return null;
+  const stored = window.localStorage.getItem(WEATHER_COORDS_KEY);
+  if (!stored) return null;
+  try {
+    const parsed = JSON.parse(stored) as { lat?: number; lon?: number };
+    if (typeof parsed.lat === 'number' && typeof parsed.lon === 'number') {
+      return { lat: parsed.lat, lon: parsed.lon };
+    }
+  } catch {
+    // ignore parse errors
+  }
+  return null;
+};
 
 export function Navbar() {
   const { user, logout, role } = useAuth();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { theme, setTheme } = useTheme();
   const [weather, setWeather] = useState<WeatherInfo | null>(null);
   const [providerVersion, setProviderVersion] = useState(0);
+  const [weatherCoords, setWeatherCoords] = useState(() => readStoredCoords() ?? DEFAULT_WEATHER_COORDS);
+  const [isLocating, setIsLocating] = useState(false);
+  const isLocatingRef = useRef(false);
   const { formatTemperature } = useUserPreferences();
+  const [commandOpen, setCommandOpen] = useState(false);
 
   // Allow client users to create new shoots
   const canBookShoot = ['admin', 'superadmin', 'client'].includes(role);
+  
+  // Photographers and editors get simplified nav with menu in top bar
+  const isSimplifiedLayout = role === 'photographer' || role === 'editor';
 
   useEffect(() => {
     const unsubscribe = subscribeToWeatherProvider(() => {
@@ -45,9 +75,14 @@ export function Navbar() {
     const controller = new AbortController();
     setWeather(null);
 
-    const loadWeather = async (lat: number, lon: number) => {
+    const loadWeather = async () => {
       try {
-        const info = await getWeatherByCoordinates(lat, lon, null, controller.signal);
+        const info = await getWeatherByCoordinates(
+          weatherCoords.lat,
+          weatherCoords.lon,
+          null,
+          controller.signal,
+        );
         if (!cancelled) {
           setWeather(info);
         }
@@ -56,64 +91,165 @@ export function Navbar() {
       }
     };
 
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          loadWeather(pos.coords.latitude, pos.coords.longitude);
-        },
-        () => {
-          loadWeather(40.7128, -74.006);
-        },
-        { enableHighAccuracy: false, timeout: 5000, maximumAge: 600000 },
-      );
-    } else {
-      loadWeather(40.7128, -74.006);
-    }
+    loadWeather();
 
     return () => {
       cancelled = true;
       controller.abort();
     };
-  }, [providerVersion]);
+  }, [providerVersion, weatherCoords.lat, weatherCoords.lon]);
+
+  const canUseGeolocation = typeof navigator !== 'undefined' && Boolean(navigator.geolocation);
+
+  const requestDeviceLocation = useCallback(() => {
+    if (!canUseGeolocation || isLocatingRef.current) return;
+    isLocatingRef.current = true;
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const coords = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+        setWeatherCoords(coords);
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem(WEATHER_COORDS_KEY, JSON.stringify(coords));
+        }
+        isLocatingRef.current = false;
+        setIsLocating(false);
+      },
+      () => {
+        isLocatingRef.current = false;
+        setIsLocating(false);
+      },
+      { enableHighAccuracy: false, timeout: 5000, maximumAge: 600000 },
+    );
+  }, [canUseGeolocation]);
+
+  useEffect(() => {
+    if (!canUseGeolocation || !('permissions' in navigator)) return;
+    let cancelled = false;
+
+    const attemptAutoLocate = async () => {
+      try {
+        const status = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
+        if (!cancelled && status.state === 'granted') {
+          requestDeviceLocation();
+        }
+      } catch {
+        // ignore permission errors
+      }
+    };
+
+    attemptAutoLocate();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [canUseGeolocation, requestDeviceLocation]);
 
   const toggleTheme = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark');
   };
 
+  // Photographer/Editor nav items (availability only for photographers)
+  const simplifiedNavItems = [
+    { to: '/dashboard', icon: HomeIcon, label: 'Dashboard' },
+    { to: '/shoot-history', icon: HistoryIcon, label: 'Shoot History' },
+    { to: '/accounting', icon: BarChart3Icon, label: 'Earnings' },
+    ...(role === 'photographer'
+      ? [{ to: '/availability', icon: CalendarIcon, label: 'Availability' }]
+      : []),
+    { to: '/settings', icon: Settings2Icon, label: 'Settings' },
+  ];
+
   return (
     <motion.div 
-      className="w-full h-16 border-b border-border flex items-center justify-between px-4 bg-background/95 backdrop-blur-md"
+      className="w-full border-b border-border bg-background/95 backdrop-blur-md"
       initial={{ y: -10, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.3, delay: 0.1 }}
     >
-      <div className="flex items-center gap-4 pl-4">
-        {canBookShoot && (
-          <Button 
-            variant="default" 
-            size="sm" 
-            className="mr-2 flex items-center gap-1 bg-primary text-primary-foreground hover:bg-primary/90"
-            onClick={() => navigate('/book-shoot')}
-          >
-            <PlusCircleIcon className="h-4 w-4" />
-            <span className="hidden sm:inline">New Shoot</span>
-          </Button>
+      <div className="h-16 flex items-center justify-between px-4">
+        <div className="flex items-center gap-4 pl-4">
+        {/* Logo for simplified layout (photographer/editor) */}
+        {isSimplifiedLayout && (
+          <div className="flex items-center gap-6">
+            {/* Dark logo for light mode */}
+            <img 
+              src="/Repro HQ dark.png" 
+              alt="REPRO-HQ" 
+              className="h-8 cursor-pointer dark:hidden" 
+              onClick={() => navigate('/dashboard')}
+            />
+            {/* Light logo for dark mode */}
+            <img 
+              src="/REPRO-HQ.png" 
+              alt="REPRO-HQ" 
+              className="h-8 cursor-pointer hidden dark:block" 
+              onClick={() => navigate('/dashboard')}
+            />
+            {/* Nav menu items */}
+            <nav className="hidden md:flex items-center gap-1">
+              {simplifiedNavItems.map((item) => (
+                <Button
+                  key={item.to}
+                  variant="ghost"
+                  size="sm"
+                  className={cn(
+                    'h-9 px-3 text-sm font-medium',
+                    pathname === item.to || pathname.startsWith(item.to + '/')
+                      ? 'bg-secondary text-foreground'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                  onClick={() => navigate(item.to)}
+                >
+                  <item.icon className="h-4 w-4 mr-2" />
+                  {item.label}
+                </Button>
+              ))}
+            </nav>
+          </div>
         )}
-      
-        <div className="flex w-full max-w-sm items-center gap-1.5 relative">
-          <SearchIcon className="h-4 w-4 text-muted-foreground absolute ml-3" />
-          <Input 
-            type="search" 
-            placeholder="Search..." 
-            className="pl-9 bg-secondary/50 border-none focus-visible:ring-primary/20"
-          />
+        
+        {/* Standard layout - Book shoot button and search */}
+        {!isSimplifiedLayout && (
+          <>
+            {canBookShoot && (
+              <Button 
+                variant="default" 
+                size="sm" 
+                className="mr-2 flex items-center gap-1 bg-primary text-primary-foreground hover:bg-primary/90"
+                onClick={() => navigate('/book-shoot')}
+              >
+                <PlusCircleIcon className="h-4 w-4" />
+                <span className="hidden sm:inline">New Shoot</span>
+              </Button>
+            )}
+          
+            <div className="flex w-full max-w-sm items-center gap-1.5 relative">
+              <SearchIcon className="h-4 w-4 text-muted-foreground absolute ml-3" />
+              <Input 
+                type="search" 
+                placeholder="Search or run a command..." 
+                className="pl-9 bg-secondary/50 border-none focus-visible:ring-primary/20"
+                readOnly
+                onClick={() => setCommandOpen(true)}
+                onFocus={() => setCommandOpen(true)}
+              />
+            </div>
+            <GlobalCommandBar open={commandOpen} onOpenChange={setCommandOpen} />
+          </>
+        )}
         </div>
-      </div>
+
+        <div className="hidden xl:flex flex-1 min-w-0 px-4 items-center">
+          <div className="h-8 w-px bg-border/60" />
+          <RobbieInsightStrip role={role} className="w-full border-0 bg-transparent shadow-none px-4 py-0 rounded-none" />
+          <div className="h-8 w-px bg-border/60" />
+        </div>
       
-      <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4">
         {/* Weather Info */}
         {weather && (
-          <div className="hidden md:flex items-center gap-1 text-sm text-muted-foreground">
+          <div className="hidden md:flex items-center gap-2 text-sm text-muted-foreground">
             <span>
               {weather.location ? `${weather.location} · ` : ''}
             </span>
@@ -124,6 +260,25 @@ export function Navbar() {
                 : weather.temperature || '--°'}
               {weather.description ? ` · ${weather.description}` : ''}
             </span>
+            {canUseGeolocation && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={requestDeviceLocation}
+                    disabled={isLocating}
+                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                    aria-label="Use my location"
+                  >
+                    <MapPinIcon className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {isLocating ? 'Locating...' : 'Use my location'}
+                </TooltipContent>
+              </Tooltip>
+            )}
           </div>
         )}
         
@@ -141,31 +296,7 @@ export function Navbar() {
           )}
         </Button>
         
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative">
-              <BellIcon className="h-5 w-5" />
-              <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center text-[10px]">
-                3
-              </Badge>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-[300px]">
-            <DropdownMenuLabel>Notifications</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <div className="max-h-[300px] overflow-auto">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <DropdownMenuItem key={i} className="cursor-pointer py-3">
-                  <div className="flex flex-col gap-1">
-                    <p className="text-sm font-medium">New shoot booked</p>
-                    <p className="text-xs text-muted-foreground">123 Main St, Anytown USA</p>
-                    <p className="text-xs text-muted-foreground">2 hours ago</p>
-                  </div>
-                </DropdownMenuItem>
-              ))}
-            </div>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <NotificationCenter />
         
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -191,6 +322,7 @@ export function Navbar() {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        </div>
       </div>
     </motion.div>
   );

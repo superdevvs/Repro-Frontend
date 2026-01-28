@@ -6,6 +6,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { TimeSelect } from "@/components/ui/time-select";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { ShootData } from '@/types/shoots';
 import { format } from 'date-fns';
 import { useAuth } from '@/components/auth/AuthProvider';
@@ -13,14 +14,16 @@ import { useToast } from "@/hooks/use-toast";
 import { useShoots } from '@/context/ShootsContext';
 import axios from 'axios';
 import { API_BASE_URL } from '@/config/env';
+import { MapPin, Camera, Calendar as CalendarIcon, Clock } from 'lucide-react';
 
 interface RescheduleDialogProps {
   shoot: ShootData;
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
 }
 
-export function RescheduleDialog({ shoot, isOpen, onClose }: RescheduleDialogProps) {
+export function RescheduleDialog({ shoot, isOpen, onClose, onSuccess }: RescheduleDialogProps) {
   const [date, setDate] = useState<Date | undefined>(
     shoot.scheduledDate ? new Date(shoot.scheduledDate) : undefined
   );
@@ -73,12 +76,14 @@ export function RescheduleDialog({ shoot, isOpen, onClose }: RescheduleDialogPro
       
       // Show success message
       toast({
-        title: 'Rescheduling requested',
-        description:
-          role === 'admin'
-            ? 'The shoot has been rescheduled successfully.'
-            : 'Your reschedule request has been submitted for review.',
+        title: 'Shoot rescheduled',
+        description: 'The shoot has been rescheduled successfully.',
       });
+      
+      // Notify parent to refresh
+      if (onSuccess) {
+        onSuccess();
+      }
       
       // Close the dialog
       onClose();
@@ -94,20 +99,9 @@ export function RescheduleDialog({ shoot, isOpen, onClose }: RescheduleDialogPro
     }
   };
   
-  const getAvailableTimes = () => {
-    return [
-      "9:00 AM", 
-      "10:00 AM", 
-      "11:00 AM", 
-      "1:00 PM", 
-      "2:00 PM", 
-      "3:00 PM"
-    ];
-  };
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>Reschedule Shoot</DialogTitle>
           <DialogDescription>
@@ -115,43 +109,109 @@ export function RescheduleDialog({ shoot, isOpen, onClose }: RescheduleDialogPro
           </DialogDescription>
         </DialogHeader>
         
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label>Select Date</Label>
-            <Calendar
-              mode="single"
-              selected={date}
-              onSelect={setDate}
-              className="border rounded-md p-3"
-              disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
-            />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
+          {/* Left Pane - Shoot Details */}
+          <div className="space-y-4 p-4 bg-muted/50 rounded-lg border">
+            <h3 className="font-semibold text-sm uppercase text-muted-foreground">Current Shoot Details</h3>
+            
+            <div className="space-y-3">
+              {/* Address */}
+              <div className="flex items-start gap-2">
+                <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                <div className="text-sm">
+                  <div className="font-medium">{shoot.location?.address || 'No address'}</div>
+                  {shoot.location?.city && (
+                    <div className="text-muted-foreground">
+                      {shoot.location.city}, {shoot.location.state} {shoot.location.zip}
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              {/* Current Date & Time */}
+              <div className="flex items-center gap-2">
+                <CalendarIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                <div className="text-sm">
+                  <span className="font-medium">
+                    {shoot.scheduledDate ? format(new Date(shoot.scheduledDate), 'MMMM d, yyyy') : 'Not scheduled'}
+                  </span>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                <div className="text-sm">
+                  <span className="font-medium">{shoot.time || 'No time set'}</span>
+                </div>
+              </div>
+              
+              {/* Photographer */}
+              {shoot.photographer?.name && (
+                <div className="flex items-center gap-2">
+                  <Camera className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  <div className="text-sm">
+                    <span className="font-medium">{shoot.photographer.name}</span>
+                  </div>
+                </div>
+              )}
+              
+              {/* Services */}
+              {shoot.services && shoot.services.length > 0 && (
+                <div className="pt-2">
+                  <div className="text-xs text-muted-foreground mb-1.5">Services</div>
+                  <div className="flex flex-wrap gap-1">
+                    {shoot.services.map((service, idx) => (
+                      <Badge key={idx} variant="secondary" className="text-xs">
+                        {typeof service === 'string' ? service : (service as any).name || service}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
           
-          <div className="space-y-2">
-            <Label>Select Time</Label>
-            <TimeSelect
-              value={time}
-              onChange={setTime}
-              availableTimes={getAvailableTimes()}
-            />
-          </div>
-          
-          <div className="space-y-2">
-            <Label>Reason for Rescheduling (Optional)</Label>
-            <Textarea
-              placeholder="Enter the reason for rescheduling..."
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              className="resize-none"
-              rows={3}
-            />
+          {/* Right Pane - Reschedule Form */}
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Select New Date</Label>
+              <Calendar
+                mode="single"
+                selected={date}
+                onSelect={setDate}
+                className="border rounded-md p-3"
+                disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Select New Time</Label>
+              <TimeSelect
+                value={time}
+                onChange={setTime}
+                startHour={6}
+                endHour={20}
+                interval={15}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Reason for Rescheduling (Optional)</Label>
+              <Textarea
+                placeholder="Enter the reason for rescheduling..."
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                className="resize-none"
+                rows={3}
+              />
+            </div>
           </div>
         </div>
         
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
           <Button onClick={handleReschedule} disabled={isSubmitting}>
-            Submit Request
+            {isSubmitting ? 'Submitting...' : 'Reschedule Shoot'}
           </Button>
         </DialogFooter>
       </DialogContent>

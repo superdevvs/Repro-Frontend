@@ -6,6 +6,12 @@ export interface AiChatRequest {
     propertyId?: string;
     listingId?: string;
     intent?: string; // 'book_shoot' | 'manage_booking' | 'availability' | 'client_stats' | 'accounting'
+    source?: string;
+    insightId?: string;
+    insightPriority?: string;
+    insightSummary?: string;
+    insightAction?: string;
+    role?: string;
   };
 }
 

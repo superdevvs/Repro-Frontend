@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState, memo, lazy, Suspense } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { format } from 'date-fns'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
@@ -24,11 +24,12 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { Card, CardHeader, CardContent } from '@/components/ui/card'
+import { Card, CardHeader, CardContent, CardTitle, CardDescription } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/components/ui/use-toast'
+import { withErrorBoundary } from '@/components/ui/ErrorBoundary'
 import {
   Dialog,
   DialogContent,
@@ -37,6 +38,16 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -44,7 +55,11 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { SharedShootCard } from '@/components/shoots/SharedShootCard'
 import { ShootDetailsModal } from '@/components/shoots/ShootDetailsModal'
-import { PayMultipleShootsDialog } from '@/components/payments/PayMultipleShootsDialog'
+import { ShootApprovalModal } from '@/components/shoots/ShootApprovalModal'
+import { ShootDeclineModal } from '@/components/shoots/ShootDeclineModal'
+import { ShootEditModal } from '@/components/shoots/ShootEditModal'
+import { BulkActionsDialog } from '@/components/shoots/BulkActionsDialog'
+import { InvoiceViewDialog } from '@/components/invoices/InvoiceViewDialog'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { cn } from '@/lib/utils'
 import { API_BASE_URL } from '@/config/env'
@@ -82,16 +97,17 @@ import {
   CreditCard,
   Grid3X3,
   List,
-  Map,
+  Map as MapIcon,
+  Pin,
   Eye,
   XCircle,
   Link2,
+  Trash2,
+  Check,
+  Edit,
+  X,
 } from 'lucide-react'
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
-import L from 'leaflet'
-import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
-import markerIcon from 'leaflet/dist/images/marker-icon.png'
-import markerShadow from 'leaflet/dist/images/marker-shadow.png'
+import { useTheme } from '@/hooks/useTheme'
 import {
   ShootAction,
   ShootData,
@@ -101,6 +117,7 @@ import {
 } from '@/types/shoots'
 import { apiClient } from '@/services/api'
 import API_ROUTES from '@/lib/api'
+import { registerShootHistoryRefresh } from '@/realtime/realtimeRefreshBus'
 
 const resolvePreviewUrl = (value: string | null | undefined): string | null => {
   if (!value) return null
@@ -124,6 +141,10 @@ const HISTORY_ALLOWED_ROLES = new Set([
   'superadmin',
   'finance',
   'accounting',
+  'editor',
+  'client',
+  'salesRep',
+  'sales_rep',
 ])
 
 const DEFAULT_GEO_CENTER = { lat: 39.8283, lng: -98.5795 }
@@ -132,26 +153,32 @@ const currencyFormatter = new Intl.NumberFormat('en-US', {
   currency: 'USD',
 })
 
-if (typeof window !== 'undefined') {
-  const defaultIcon = L.icon({
-    iconRetinaUrl: markerIcon2x,
-    iconUrl: markerIcon,
-    shadowUrl: markerShadow,
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    popupAnchor: [1, -28],
-  })
-  L.Marker.prototype.options.icon = defaultIcon
-}
 
-type ActiveOperationalTab = 'scheduled' | 'completed' | 'delivered' | 'hold'
+type ActiveOperationalTab = 'scheduled' | 'completed' | 'delivered' | 'hold' | 'editing' | 'edited'
 type AvailableTab = ActiveOperationalTab | 'history' | 'linked'
 
 const STATUS_FILTERS_BY_TAB: Record<ActiveOperationalTab, string[]> = {
-  scheduled: ['scheduled'],
-  completed: ['uploaded', 'editing', 'review'],
-  delivered: ['delivered'],
-  hold: ['on_hold', 'cancelled'],
+  scheduled: ['scheduled', 'requested', 'booked'],
+  completed: ['uploaded', 'editing', 'review', 'qc', 'in_progress', 'raw_issue'],
+  editing: [
+    'uploaded',
+    'editing',
+    'review',
+    'qc',
+    'in_progress',
+    'raw_issue',
+    'completed',
+    'editing_complete',
+    'editing_uploaded',
+    'editing_issue',
+    'pending_review',
+    'ready_for_review',
+    'raw_uploaded',
+    'photos_uploaded',
+  ],
+  delivered: ['delivered', 'ready_for_client', 'admin_verified', 'ready', 'workflow_completed', 'client_delivered'],
+  edited: ['delivered', 'ready_for_client', 'admin_verified', 'ready', 'workflow_completed', 'client_delivered'],
+  hold: ['on_hold', 'cancelled', 'canceled', 'declined', 'no_show'],
 }
 
 type OperationalFiltersState = {
@@ -170,13 +197,13 @@ type HistoryFiltersState = {
   clientId: string
   photographerId: string
   services: string[]
-  dateRange: 'q1' | 'q2' | 'q3' | 'q4' | 'this_month' | 'this_quarter' | 'custom'
+  dateRange: 'all' | 'q1' | 'q2' | 'q3' | 'q4' | 'this_month' | 'this_quarter' | 'custom'
   scheduledStart: string
   scheduledEnd: string
   completedStart: string
   completedEnd: string
   groupBy: 'shoot' | 'services'
-  viewAs: 'list' | 'map'
+  viewAs: 'grid' | 'list' | 'map'
 }
 
 type HistoryMeta = {
@@ -245,6 +272,73 @@ const formatDisplayDate = (value?: string | null) => {
 }
 
 const formatCurrency = (value?: number) => currencyFormatter.format(value ?? 0)
+
+// Lazy-loaded Map View component
+const LazyMapView = lazy(() => 
+  import('@/components/ui/map')
+    .then(module => {
+      const Map = module.Map
+      const MapControls = module.MapControls
+      const Marker = module.Marker
+      
+      return {
+        default: ({ markers, theme }: { markers: MapMarker[]; theme: 'light' | 'dark' }) => {
+          const center = markers[0]?.coords ?? DEFAULT_GEO_CENTER
+          const centerCoords: [number, number] = [center.lng, center.lat]
+          const zoom = markers.length > 1 ? 6 : 12
+
+          return (
+            <div className="h-[520px] overflow-hidden rounded-xl border relative">
+              <Map 
+                center={centerCoords}
+                zoom={zoom}
+                theme={theme}
+                className="h-full w-full"
+              >
+                <MapControls position="top-right" showZoom />
+                {markers.map((marker) => (
+                  <Marker 
+                    key={marker.id} 
+                    position={[marker.coords.lng, marker.coords.lat]}
+                  >
+                    <div className="space-y-1 p-2">
+                      <p className="font-semibold text-sm">{marker.title}</p>
+                      {marker.subtitle && (
+                        <p className="text-xs text-muted-foreground">{marker.subtitle}</p>
+                      )}
+                      <p className="text-xs">{marker.address}</p>
+                    </div>
+                  </Marker>
+                ))}
+              </Map>
+              {!markers.length && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="bg-background/80 backdrop-blur-sm border rounded-lg p-4 text-center text-muted-foreground">
+                    <p className="font-medium">No geocoded addresses yet</p>
+                    <p className="text-sm mt-1">Open shoots in the list view to ensure addresses are valid.</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        }
+      }
+    })
+    .catch((error) => {
+      console.error('Failed to load map component:', error)
+      // Return a fallback component
+      return {
+        default: ({ markers }: { markers: MapMarker[]; theme: 'light' | 'dark' }) => (
+          <div className="h-[520px] rounded-xl border flex items-center justify-center">
+            <div className="text-center text-muted-foreground">
+              <p className="font-medium">Failed to load map</p>
+              <p className="text-sm mt-1">Please refresh the page to try again.</p>
+            </div>
+          </div>
+        )
+      }
+    })
+)
 
 // Payment Button Component for Super Admin
 const PaymentButton = ({ shoot }: { shoot: ShootData }) => {
@@ -357,11 +451,11 @@ const deriveFilterOptionsFromShoots = (shoots: ShootData[]): FilterCollections =
 
   shoots.forEach((shoot) => {
     if (shoot.client?.name) {
-      clientMap.set(shoot.client.id ?? shoot.client.name, shoot.client.name)
+      clientMap.set(String(shoot.client.id ?? shoot.client.name), shoot.client.name)
     }
 
     if (shoot.photographer?.name) {
-      photographerMap.set(shoot.photographer.id ?? shoot.photographer.name, shoot.photographer.name)
+      photographerMap.set(String(shoot.photographer.id ?? shoot.photographer.name), shoot.photographer.name)
     }
 
     shoot.services?.forEach((service) => {
@@ -444,6 +538,7 @@ const mapShootApiToShootData = (item: Record<string, unknown>): ShootData => {
     total_shoots?: number
   }>(item.client)
   const photographer = toObjectValue<{ id?: number | string; name?: string; avatar?: string }>(item.photographer)
+  const editor = toObjectValue<{ id?: number | string; name?: string; avatar?: string }>(item.editor)
   const paymentDetails = toObjectValue<{
     taxRate?: number
     totalPaid?: number
@@ -483,6 +578,13 @@ const mapShootApiToShootData = (item: Record<string, unknown>): ShootData => {
       name: photographer?.name ?? 'Unassigned',
       avatar: photographer?.avatar,
     },
+    editor: editor?.id || editor?.name
+      ? {
+          id: editor?.id ? String(editor.id) : undefined,
+          name: editor?.name ?? 'Editor',
+          avatar: editor?.avatar,
+        }
+      : undefined,
     services: serviceValues,
     status: (() => {
       const status = toStringValue(item.status);
@@ -503,6 +605,7 @@ const mapShootApiToShootData = (item: Record<string, unknown>): ShootData => {
       lastPaymentDate: paymentDetails?.lastPaymentDate,
       lastPaymentType: paymentDetails?.lastPaymentType ?? toStringValue(item.payment_type),
     },
+    isPrivateListing: toBooleanValue(item.is_private_listing ?? item.isPrivateListing),
     notes: item.shoot_notes ?? item.notes,
     adminIssueNotes: item.admin_issue_notes as string | undefined,
     isFlagged: toBooleanValue(item.is_flagged),
@@ -608,10 +711,24 @@ const ScheduledShootListRow = ({
   shoot,
   onSelect,
   isSuperAdmin = false,
+  isAdmin = false,
+  onDelete,
+  onViewInvoice,
+  onApprove,
+  onDecline,
+  onModify,
+  shouldHideClientDetails = false,
 }: {
   shoot: ShootData
   onSelect: (shoot: ShootData) => void
   isSuperAdmin?: boolean
+  isAdmin?: boolean
+  onDelete?: (shoot: ShootData) => void
+  onViewInvoice?: (shoot: ShootData) => void
+  onApprove?: (shoot: ShootData) => void
+  onDecline?: (shoot: ShootData) => void
+  onModify?: (shoot: ShootData) => void
+  shouldHideClientDetails?: boolean
 }) => {
   const { formatTime, formatDate: formatDatePref } = useUserPreferences()
   const formatDisplayDateLocal = (value?: string | null) => {
@@ -633,21 +750,51 @@ const ScheduledShootListRow = ({
 
   return (
     <Card
-      className="cursor-pointer border border-border/70 bg-card/50 hover:border-primary/50 hover:shadow-lg transition-all group backdrop-blur-sm"
+      className="cursor-pointer border border-border/70 bg-card/50 hover:border-primary/50 hover:shadow-lg transition-all group backdrop-blur-sm flex flex-col"
       onClick={() => onSelect(shoot)}
     >
-      <div className="p-4">
+      <div className="p-3 sm:p-4 flex flex-col flex-1">
         {/* Row 1: Date/Time | Address | Client/Photographer | Status */}
-        <div className="flex items-start gap-4 mb-2">
-          {/* Date and Time - Left Side */}
-          <div className="flex flex-col gap-0.5 min-w-[140px] flex-shrink-0">
+        {/* Mobile: Stack vertically, Desktop: Horizontal layout */}
+        <div className="space-y-3 md:space-y-0 md:flex md:items-start md:gap-4 mb-2">
+          {/* Top row on mobile: Date/Time and Status */}
+          <div className="flex items-start justify-between gap-3 md:hidden">
+            {/* Date and Time - Left Side */}
+            <div className="flex flex-col gap-0.5">
+              <div className="flex items-center gap-1.5 text-sm font-medium">
+                <CalendarIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                <span>{formatDisplayDateLocal(shoot.scheduledDate)}</span>
+              </div>
+              {shoot.time && shoot.time !== 'TBD' && (
+                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                  <Clock className="h-3.5 w-3.5 flex-shrink-0" />
+                  <span>{formatTime(shoot.time)}</span>
+                </div>
+              )}
+            </div>
+            {/* Status - Right Side (mobile only) */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Badge className={cn('capitalize font-medium', config.bgColor, config.color)}>
+                <StatusIcon className="h-3.5 w-3.5 mr-1.5" />
+                {statusLabel}
+              </Badge>
+              {paymentStatus && (
+                <Badge variant={paymentStatus === 'Paid' ? 'secondary' : 'destructive'} className="text-xs">
+                  {paymentStatus}
+                </Badge>
+              )}
+            </div>
+          </div>
+
+          {/* Desktop: Date and Time - Left Side */}
+          <div className="hidden md:flex flex-col gap-0.5 min-w-[140px] flex-shrink-0">
             <div className="flex items-center gap-1.5 text-sm font-medium">
-              <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+              <CalendarIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
               <span>{formatDisplayDateLocal(shoot.scheduledDate)}</span>
             </div>
             {shoot.time && shoot.time !== 'TBD' && (
               <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                <Clock className="h-3.5 w-3.5" />
+                <Clock className="h-3.5 w-3.5 flex-shrink-0" />
                 <span>{formatTime(shoot.time)}</span>
               </div>
             )}
@@ -661,14 +808,16 @@ const ScheduledShootListRow = ({
             </p>
           </div>
 
-          {/* Client & Photographer - Compact Inline (no duplicate, no truncation) */}
-          <div className="flex items-center gap-4 min-w-0 flex-shrink text-sm">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <User className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-              <span className="font-medium break-words" title={shoot.client.name}>
-                {shoot.client.name}
-              </span>
-            </div>
+          {/* Client & Photographer - Compact Inline */}
+          <div className="flex flex-wrap items-center gap-3 md:gap-4 min-w-0 text-sm">
+            {!shouldHideClientDetails && (
+              <div className="flex items-center gap-1.5 min-w-0">
+                <User className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                <span className="font-medium break-words" title={shoot.client.name}>
+                  {shoot.client.name}
+                </span>
+              </div>
+            )}
             {shoot.photographer?.name && shoot.photographer.name !== 'Unassigned' && (
               <div className="flex items-center gap-1.5 min-w-0">
                 <Camera className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
@@ -679,8 +828,8 @@ const ScheduledShootListRow = ({
             )}
           </div>
 
-          {/* Status & Actions - Right Side */}
-          <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Desktop: Status & Actions - Right Side */}
+          <div className="hidden md:flex items-center gap-2 flex-shrink-0">
             <Badge className={cn('capitalize font-medium', config.bgColor, config.color)}>
               <StatusIcon className="h-3.5 w-3.5 mr-1.5" />
               {statusLabel}
@@ -694,6 +843,35 @@ const ScheduledShootListRow = ({
               <div className="relative" onClick={(e) => e.stopPropagation()}>
                 <PaymentButton shoot={shoot} />
               </div>
+            )}
+            {/* Invoice button - Available for all roles */}
+            {onViewInvoice && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 gap-1.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onViewInvoice(shoot)
+                }}
+                title="View Invoice"
+              >
+                <FileText className="h-3.5 w-3.5" />
+              </Button>
+            )}
+            {/* Delete button - Only for admin/superadmin */}
+            {(isSuperAdmin || isAdmin) && onDelete && (
+              <Button
+                size="sm"
+                variant="destructive"
+                className="h-8 gap-1.5 bg-red-500 hover:bg-red-600 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onDelete(shoot)
+                }}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
             )}
           </div>
         </div>
@@ -739,27 +917,75 @@ const ScheduledShootListRow = ({
           // Always show services section, even if empty
           return (
             <div className="flex items-start gap-4 mt-2 pt-2 border-t border-border/30">
-              <div className="min-w-[140px] flex-shrink-0"></div> {/* Spacer for date column */}
+              <div className="hidden md:block min-w-[140px] flex-shrink-0"></div> {/* Spacer for date column on desktop */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   <Layers className="h-3.5 w-3.5" />
                   <span>Services</span>
                 </div>
-                {normalizedServices.length > 0 ? (
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-1.5 sm:justify-between">
                   <div className="flex flex-wrap gap-1.5">
-                    {normalizedServices.map((serviceName, idx) => (
-                      <Badge 
-                        key={idx} 
-                        variant="secondary" 
-                        className="bg-primary/10 text-primary hover:bg-primary/20 font-medium px-2.5 py-1 text-xs rounded-md border border-primary/20"
-                      >
-                        {serviceName}
-                      </Badge>
-                    ))}
+                    {normalizedServices.length > 0 ? (
+                      normalizedServices.map((serviceName, idx) => (
+                        <Badge 
+                          key={idx} 
+                          variant="secondary" 
+                          className="bg-primary/10 text-primary hover:bg-primary/20 font-medium px-2.5 py-1 text-xs rounded-md border border-primary/20"
+                        >
+                          {serviceName}
+                        </Badge>
+                      ))
+                    ) : (
+                      <p className="text-xs text-muted-foreground/70 italic">No services assigned</p>
+                    )}
                   </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground/70 italic">No services assigned</p>
-                )}
+                  {/* Action buttons for requested shoots - bottom right */}
+                  {displayStatus === 'requested' && (isAdmin || isSuperAdmin) && (onApprove || onDecline || onModify) && (
+                    <div className="flex flex-wrap gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                      {onApprove && (
+                        <Button
+                          size="sm"
+                          className="bg-green-600 hover:bg-green-700 text-white h-8 text-xs"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onApprove(shoot);
+                          }}
+                        >
+                          <Check className="h-3.5 w-3.5 mr-1" />
+                          Approve
+                        </Button>
+                      )}
+                      {onModify && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 text-xs"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onModify(shoot);
+                          }}
+                        >
+                          <Edit className="h-3.5 w-3.5 mr-1" />
+                          Modify
+                        </Button>
+                      )}
+                      {onDecline && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDecline(shoot);
+                          }}
+                        >
+                          <X className="h-3.5 w-3.5 mr-1" />
+                          Decline
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           );
@@ -775,23 +1001,36 @@ const CompletedAlbumCard = ({
   onSelect,
   onDownload,
   isSuperAdmin = false,
+  isAdmin = false,
+  onDelete,
+  onViewInvoice,
+  shouldHideClientDetails = false,
 }: {
   shoot: ShootData
   onSelect: (shoot: ShootData) => void
   onDownload?: (shoot: ShootData, type: 'full' | 'web') => void
   isSuperAdmin?: boolean
+  isAdmin?: boolean
+  onDelete?: (shoot: ShootData) => void
+  onViewInvoice?: (shoot: ShootData) => void
+  shouldHideClientDetails?: boolean
 }) => {
   const { formatTime, formatDate: formatDatePref } = useUserPreferences()
   const formatDisplayDateLocal = (value?: string | null) => {
     if (!value) return '—'
     try { return formatDatePref(new Date(value)) } catch { return value ?? '—' }
   }
+  // Get first file from files array for cover image (raw uploads)
+  const firstFile = shoot.files?.[0]
+  const firstFileUrl = firstFile?.thumbnail_path || firstFile?.web_path || firstFile?.url || firstFile?.path
   const heroImage =
     resolvePreviewUrl(shoot.heroImage) ||
     resolvePreviewUrl(shoot.media?.images?.[0]?.url) ||
     resolvePreviewUrl((shoot.media as any)?.photos?.[0]) ||
+    resolvePreviewUrl(firstFileUrl) ||
     '/placeholder.svg'
-  const photoCount = shoot.media?.images?.length ?? shoot.editedPhotoCount ?? 0
+  const photoCount = shoot.media?.images?.length ?? shoot.editedPhotoCount ?? shoot.rawPhotoCount ?? shoot.files?.length ?? 0
+  const hasNoImages = !heroImage || heroImage === '/placeholder.svg' || photoCount === 0
   const hasTour = shoot.tourPurchased || Boolean(shoot.tourLinks?.branded || shoot.tourLinks?.mls)
   const isPaid = isSuperAdmin ? ((shoot.payment?.totalPaid ?? 0) >= (shoot.payment?.totalQuote ?? 0)) : false
   const statusValue = shoot.workflowStatus ?? shoot.status ?? ''
@@ -802,23 +1041,68 @@ const CompletedAlbumCard = ({
       className="overflow-hidden cursor-pointer border border-border/70 hover:border-primary/50 hover:shadow-xl transition-all group bg-card/50 backdrop-blur-sm"
       onClick={() => onSelect(shoot)}
     >
-      {/* Cover Image */}
-      <div className="relative h-48 overflow-hidden bg-muted">
-        <img 
-          src={heroImage} 
-          alt={shoot.location.address} 
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-          loading="lazy"
-        />
+      {/* Cover Image or Placeholder */}
+      <div className="relative h-64 overflow-hidden bg-muted">
+        {hasNoImages ? (
+          <img 
+            src="/no-image-placeholder.svg" 
+            alt="No images yet" 
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <img 
+            src={heroImage} 
+            alt={shoot.location.address} 
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            loading="lazy"
+          />
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
         
         {/* Overlay badges */}
         <div className="absolute top-3 left-3">
-          <Badge className="bg-emerald-500 text-white">
-            <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
-            {statusLabel}
-          </Badge>
+          {(() => {
+            // Get status color based on status value
+            const statusKey = statusValue.toLowerCase();
+            const getStatusColor = () => {
+              if (statusKey.includes('requested')) return 'bg-blue-500 text-white';
+              if (statusKey.includes('scheduled') || statusKey.includes('booked')) return 'bg-blue-500 text-white';
+              if (statusKey.includes('uploaded') || statusKey.includes('completed') || statusKey.includes('photos_uploaded') || statusKey.includes('raw_uploaded')) return 'bg-indigo-500 text-white';
+              if (statusKey.includes('editing')) return 'bg-purple-500 text-white';
+              // Review status removed - no longer needed
+              if (statusKey.includes('delivered') || statusKey.includes('admin_verified') || statusKey.includes('ready_for_client') || statusKey.includes('ready')) return 'bg-emerald-500 text-white';
+              if (statusKey.includes('declined')) return 'bg-red-500 text-white';
+              if (statusKey.includes('cancel')) return 'bg-gray-500 text-white';
+              if (statusKey.includes('hold')) return 'bg-amber-500 text-white';
+              return 'bg-emerald-500 text-white'; // Default
+            };
+            return (
+              <Badge className={getStatusColor()}>
+                <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+                {statusLabel}
+              </Badge>
+            );
+          })()}
         </div>
+        
+        {/* Invoice button - Top right */}
+        {onViewInvoice && (
+          <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+            <Button
+              size="sm"
+              variant="secondary"
+              className="h-8 gap-1.5 bg-white/90 dark:bg-gray-800/90 hover:bg-white dark:hover:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-md"
+              onClick={(e) => {
+                e.stopPropagation()
+                onViewInvoice(shoot)
+              }}
+              title="View Invoice"
+            >
+              <FileText className="h-4 w-4" />
+              Invoice
+            </Button>
+          </div>
+        )}
         
         {/* Photo count */}
         <div className="absolute bottom-3 left-3 flex items-center gap-2">
@@ -833,23 +1117,38 @@ const CompletedAlbumCard = ({
           )}
         </div>
 
-        {/* Download button */}
-        {onDownload && (
-          <div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+        {/* Download and Delete buttons */}
+        <div className="absolute bottom-3 right-3 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          {onDownload && (
             <Button
               size="sm"
               variant="secondary"
-              className="h-8 gap-1.5"
+              className="h-8 w-8 p-0"
               onClick={(e) => {
                 e.stopPropagation()
                 onDownload(shoot, 'full')
               }}
+              title="Download"
             >
-              <Download className="h-3.5 w-3.5" />
-              Download
+              <Download className="h-4 w-4" />
             </Button>
-          </div>
-        )}
+          )}
+          {/* Delete button - Only for admin/superadmin */}
+          {(isAdmin || isSuperAdmin) && onDelete && (
+            <Button
+              size="sm"
+              variant="destructive"
+              className="h-8 w-8 p-0 bg-red-500 hover:bg-red-600"
+              onClick={(e) => {
+                e.stopPropagation()
+                onDelete(shoot)
+              }}
+              title="Delete"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Card Content */}
@@ -885,15 +1184,17 @@ const CompletedAlbumCard = ({
 
         <div className="flex items-center justify-between text-sm">
           <div className="flex items-center gap-4">
+          {!shouldHideClientDetails && (
             <div className="flex items-center gap-1.5">
               <User className="h-4 w-4 text-muted-foreground" />
               <span className="font-medium truncate max-w-[120px]">{shoot.client.name}</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <Camera className="h-4 w-4 text-muted-foreground" />
-              <span className="font-medium truncate max-w-[120px]">{shoot.photographer?.name ?? 'Unassigned'}</span>
-            </div>
+          )}
+          <div className="flex items-center gap-1.5">
+            <Camera className="h-4 w-4 text-muted-foreground" />
+            <span className="font-medium truncate max-w-[120px]">{shoot.photographer?.name ?? 'Unassigned'}</span>
           </div>
+        </div>
           {isSuperAdmin && (
             <Badge variant={isPaid ? 'secondary' : 'destructive'} className="text-xs font-medium">
               {isPaid ? 'Paid' : 'Unpaid'}
@@ -911,38 +1212,53 @@ const CompletedShootListRow = ({
   onSelect,
   onDownload,
   isSuperAdmin = false,
+  isAdmin = false,
+  onDelete,
+  onViewInvoice,
+  shouldHideClientDetails = false,
 }: {
   shoot: ShootData
   onSelect: (shoot: ShootData) => void
   onDownload?: (shoot: ShootData, type: 'full' | 'web') => void
   isSuperAdmin?: boolean
+  isAdmin?: boolean
+  onDelete?: (shoot: ShootData) => void
+  onViewInvoice?: (shoot: ShootData) => void
+  shouldHideClientDetails?: boolean
 }) => {
   const { formatDate: formatDatePref } = useUserPreferences()
   const formatDisplayDateLocal = (value?: string | null) => {
     if (!value) return '—'
     try { return formatDatePref(new Date(value)) } catch { return value ?? '—' }
   }
+  // Get first file from files array for cover image (raw uploads)
+  const firstFile = shoot.files?.[0]
+  const firstFileUrl = firstFile?.thumbnail_path || firstFile?.web_path || firstFile?.url || firstFile?.path
   const heroImage =
     resolvePreviewUrl(shoot.heroImage) ||
     resolvePreviewUrl(shoot.media?.images?.[0]?.url) ||
     resolvePreviewUrl((shoot.media as any)?.photos?.[0]) ||
+    resolvePreviewUrl(firstFileUrl) ||
     '/placeholder.svg'
-  const photoCount = shoot.media?.images?.length ?? shoot.editedPhotoCount ?? 0
+  const photoCount = shoot.media?.images?.length ?? shoot.editedPhotoCount ?? shoot.rawPhotoCount ?? shoot.files?.length ?? 0
   const hasTour = shoot.tourPurchased || Boolean(shoot.tourLinks?.branded || shoot.tourLinks?.mls)
   const isPaid = isSuperAdmin ? ((shoot.payment?.totalPaid ?? 0) >= (shoot.payment?.totalQuote ?? 0)) : false
   const statusValue = shoot.workflowStatus ?? shoot.status ?? ''
   const statusLabel = formatWorkflowStatus(statusValue)
+
+  const hasNoImages = !heroImage || heroImage === '/placeholder.svg' || photoCount === 0
+  const displayImage = hasNoImages ? '/no-image-placeholder.svg' : heroImage
 
   return (
     <Card
       className="cursor-pointer hover:border-primary/60 hover:shadow-md transition-all group"
       onClick={() => onSelect(shoot)}
     >
-      <div className="flex items-center gap-5 p-4">
-        {/* Thumbnail - Larger */}
-        <div className="w-32 h-32 rounded-lg overflow-hidden bg-muted flex-shrink-0 shadow-sm">
+      <div className="flex gap-3 sm:gap-4 p-3 sm:p-4">
+        {/* Thumbnail - Small square on mobile, rectangular landscape on desktop */}
+        <div className="w-24 h-24 sm:w-40 sm:h-28 rounded-lg overflow-hidden bg-muted flex-shrink-0 shadow-sm">
           <img 
-            src={heroImage} 
+            src={displayImage} 
             alt={shoot.location.address} 
             className="w-full h-full object-cover"
             loading="lazy"
@@ -950,21 +1266,22 @@ const CompletedShootListRow = ({
         </div>
 
         {/* Content */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-4 mb-3">
+        <div className="flex-1 min-w-0 flex flex-col">
+          {/* Top row: Date, Address and Status badges */}
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4 mb-2">
             <div className="min-w-0 flex-1">
-              <p className="text-sm text-muted-foreground mb-1">
+              <p className="text-xs text-muted-foreground mb-0.5">
                 {formatDisplayDateLocal(shoot.completedDate || shoot.scheduledDate)}
               </p>
-              <h3 className="font-semibold text-lg leading-tight truncate">{shoot.location.fullAddress}</h3>
+              <h3 className="font-semibold text-base leading-tight truncate">{shoot.location.fullAddress}</h3>
             </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 px-3 py-1">
-                <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
+            <div className="flex flex-wrap items-center gap-1.5 flex-shrink-0">
+              <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs">
+                <CheckCircle2 className="h-3 w-3 mr-1" />
                 {statusLabel}
               </Badge>
               {isSuperAdmin && (
-                <Badge variant={isPaid ? 'secondary' : 'destructive'} className="px-3 py-1">
+                <Badge variant={isPaid ? 'secondary' : 'destructive'} className="text-xs">
                   {isPaid ? 'Paid' : 'Unpaid'}
                 </Badge>
               )}
@@ -973,35 +1290,40 @@ const CompletedShootListRow = ({
                   <PaymentButton shoot={shoot} />
                 </div>
               )}
-              {onDownload && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-8 gap-1.5"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onDownload(shoot, 'full')
-                  }}
-                >
-                  <Download className="h-3.5 w-3.5" />
-                  Download
-                </Button>
-              )}
             </div>
           </div>
 
-          {/* Services - Prominent - Always show */}
+          {/* Middle row: Client, Photographer, Photo count */}
+          <div className="flex flex-wrap items-center gap-x-3 sm:gap-x-4 gap-y-1.5 text-xs text-muted-foreground mb-2">
+            {!shouldHideClientDetails && (
+              <span className="flex items-center gap-1">
+                <User className="h-3.5 w-3.5" />
+                <span>{shoot.client.name}</span>
+              </span>
+            )}
+            <span className="flex items-center gap-1">
+              <Camera className="h-3.5 w-3.5" />
+              <span>{shoot.photographer?.name ?? 'Unassigned'}</span>
+            </span>
+            <span className="flex items-center gap-1">
+              <Image className="h-3.5 w-3.5" />
+              <span>{photoCount} photos</span>
+            </span>
+            {hasTour && (
+              <Badge variant="secondary" className="text-[10px] font-medium py-0 px-1.5">
+                Tour
+              </Badge>
+            )}
+          </div>
+
+          {/* Bottom row: Services + Actions */}
           {(() => {
             const services = Array.isArray(shoot.services) ? shoot.services : [];
             return (
-              <div className="mb-3 pb-3 border-b border-border/50">
-                <div className="flex items-center gap-2 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  <Layers className="h-3.5 w-3.5" />
-                  <span>Services</span>
-                </div>
-                {services.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
-                    {services.map((service, idx) => {
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border/50">
+                <div className="flex flex-wrap gap-1.5">
+                  {services.length > 0 ? (
+                    services.map((service, idx) => {
                       const serviceName = typeof service === 'string' 
                         ? service 
                         : (service as any)?.name || (service as any)?.label || String(service);
@@ -1009,43 +1331,67 @@ const CompletedShootListRow = ({
                       return (
                         <Badge 
                           key={idx} 
-                          variant="secondary" 
-                          className="bg-primary/10 text-primary hover:bg-primary/20 font-medium px-3 py-1 text-sm rounded-md border border-primary/20"
+                          variant="outline" 
+                          className="bg-primary/5 text-primary font-medium text-xs py-0.5 px-2 rounded-full border-primary/20"
                         >
                           {serviceName}
                         </Badge>
                       );
-                    })}
-                  </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground/70 italic">No services assigned</p>
-                )}
+                    })
+                  ) : (
+                    <p className="text-xs text-muted-foreground/70 italic">No services assigned</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5 ml-auto">
+                  {onViewInvoice && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 gap-1 text-xs opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onViewInvoice(shoot)
+                      }}
+                      title="View Invoice"
+                    >
+                      <FileText className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Invoice</span>
+                    </Button>
+                  )}
+                  {onDownload && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 gap-1 text-xs opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onDownload(shoot, 'full')
+                      }}
+                      title="Download"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Download</span>
+                    </Button>
+                  )}
+                  {(isSuperAdmin || isAdmin) && onDelete && (
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="h-7 w-7 sm:w-auto sm:px-2 p-0 bg-red-500 hover:bg-red-600 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onDelete(shoot)
+                      }}
+                      title="Delete"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
               </div>
             );
           })()}
-
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
-            <span className="flex items-center gap-1.5">
-              <User className="h-4 w-4 text-muted-foreground" />
-              <span className="font-medium">{shoot.client.name}</span>
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Camera className="h-4 w-4 text-muted-foreground" />
-              <span className="font-medium">{shoot.photographer?.name ?? 'Unassigned'}</span>
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Image className="h-4 w-4 text-muted-foreground" />
-              <span className="font-medium">{photoCount} photos</span>
-            </span>
-            {hasTour && (
-              <Badge variant="secondary" className="text-xs font-medium">
-                Tour Available
-              </Badge>
-            )}
-          </div>
         </div>
-
-        <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
       </div>
     </Card>
   )
@@ -1055,9 +1401,19 @@ const CompletedShootListRow = ({
 const HoldOnShootCard = ({
   shoot,
   onSelect,
+  isSuperAdmin = false,
+  isAdmin = false,
+  onDelete,
+  onViewInvoice,
+  shouldHideClientDetails = false,
 }: {
   shoot: ShootData
   onSelect: (shoot: ShootData) => void
+  isSuperAdmin?: boolean
+  isAdmin?: boolean
+  onDelete?: (shoot: ShootData) => void
+  onViewInvoice?: (shoot: ShootData) => void
+  shouldHideClientDetails?: boolean
 }) => {
   const { formatTime, formatDate: formatDatePref } = useUserPreferences()
   const formatDisplayDateLocal = (value?: string | null) => {
@@ -1077,7 +1433,7 @@ const HoldOnShootCard = ({
 
   return (
     <Card
-      className="cursor-pointer border border-border/70 hover:border-primary/50 hover:shadow-lg transition-all bg-card/50 backdrop-blur-sm"
+      className="cursor-pointer border border-border/70 hover:border-primary/50 hover:shadow-lg transition-all bg-card/50 backdrop-blur-sm group"
       onClick={() => onSelect(shoot)}
     >
       <div className="p-5">
@@ -1091,6 +1447,35 @@ const HoldOnShootCard = ({
             </div>
             <h3 className="font-semibold leading-tight">{shoot.location.fullAddress}</h3>
           </div>
+          {/* Invoice button - Available for all roles */}
+          {onViewInvoice && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={(e) => {
+                e.stopPropagation()
+                onViewInvoice(shoot)
+              }}
+              title="View Invoice"
+            >
+              <FileText className="h-3.5 w-3.5" />
+            </Button>
+          )}
+          {/* Delete button - Only for admin/superadmin */}
+          {(isAdmin || isSuperAdmin) && onDelete && (
+            <Button
+              size="sm"
+              variant="destructive"
+              className="h-8 gap-1.5 bg-red-500 hover:bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={(e) => {
+                e.stopPropagation()
+                onDelete(shoot)
+              }}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          )}
         </div>
 
         <div className="space-y-3 text-sm">
@@ -1106,10 +1491,12 @@ const HoldOnShootCard = ({
           </div>
 
           <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2">
-              <User className="h-4 w-4 text-muted-foreground" />
-              <span>{shoot.client.name}</span>
-            </div>
+            {!shouldHideClientDetails && (
+              <div className="flex items-center gap-2">
+                <User className="h-4 w-4 text-muted-foreground" />
+                <span>{shoot.client.name}</span>
+              </div>
+            )}
             {shoot.photographer?.name && shoot.photographer.name !== 'Unassigned' && (
               <div className="flex items-center gap-2">
                 <Camera className="h-4 w-4 text-muted-foreground" />
@@ -1162,10 +1549,12 @@ const ShootListRow = ({
   shoot,
   onSelect,
   isSuperAdmin = false,
+  shouldHideClientDetails = false,
 }: {
   shoot: ShootData
   onSelect: (shoot: ShootData) => void
   isSuperAdmin?: boolean
+  shouldHideClientDetails?: boolean
 }) => {
   const { formatTime, formatDate: formatDatePref } = useUserPreferences()
   const formatDisplayDateLocal = (value?: string | null) => {
@@ -1235,16 +1624,18 @@ const ShootListRow = ({
         )}
         
         <div className="grid gap-4 md:grid-cols-3 text-sm">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              <User className="h-3.5 w-3.5" />
-              <span>Client</span>
+          {!shouldHideClientDetails && (
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                <User className="h-3.5 w-3.5" />
+                <span>Client</span>
+              </div>
+              <p className="font-semibold">{shoot.client.name}</p>
+              {shoot.client.email && (
+                <p className="text-xs text-muted-foreground truncate">{shoot.client.email}</p>
+              )}
             </div>
-            <p className="font-semibold">{shoot.client.name}</p>
-            {shoot.client.email && (
-              <p className="text-xs text-muted-foreground truncate">{shoot.client.email}</p>
-            )}
-          </div>
+          )}
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
               <Camera className="h-3.5 w-3.5" />
@@ -1274,18 +1665,26 @@ const ShootListRow = ({
 }
 
 // Enhanced History Row with expandable details - matches spec 3.3
-const HistoryRow = ({
+const HistoryRow = memo(({
   record,
   onViewRecord,
   isBusy,
   onPublishMls,
   isSuperAdmin = false,
+  isAdmin = false,
+  onDelete,
+  onViewInvoice,
+  shouldHideClientDetails = false,
 }: {
   record: ShootHistoryRecord
   onViewRecord?: (record: ShootHistoryRecord) => void
   isBusy?: boolean
   onPublishMls?: (record: ShootHistoryRecord) => void
   isSuperAdmin?: boolean
+  isAdmin?: boolean
+  onDelete?: (record: ShootHistoryRecord) => void
+  onViewInvoice?: (shoot: ShootData | { id: string | number }) => void
+  shouldHideClientDetails?: boolean
 }) => {
   const { formatDate: formatDatePref } = useUserPreferences()
   const formatDisplayDatePref = (value?: string | null) => {
@@ -1320,12 +1719,12 @@ const HistoryRow = ({
     <Card className="overflow-hidden border hover:border-primary/40 transition-colors">
       {/* Collapsed Row - Line 1 & 2 as per spec 3.3.1 */}
       <div
-        className="cursor-pointer p-4 hover:bg-muted/30 transition-colors"
+        className="cursor-pointer p-3 sm:p-4 hover:bg-muted/30 transition-colors"
         onClick={() => setOpen((prev) => !prev)}
       >
         {/* Line 1: High-level info */}
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-3">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-2">
               <CalendarIcon className="h-4 w-4 text-muted-foreground" />
               <span className="font-medium">{formatDisplayDatePref(record.scheduledDate)}</span>
@@ -1339,14 +1738,21 @@ const HistoryRow = ({
             >
               {statusLabel}
             </Badge>
+            {record.id && (
+              <Badge variant="secondary" className="text-[11px] font-semibold">
+                ID #{record.id}
+              </Badge>
+            )}
           </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <span className="font-medium">{record.client?.name ?? 'Unknown'}</span>
-              {record.client?.company && (
-                <span className="text-muted-foreground text-sm">({record.client.company})</span>
-              )}
-            </div>
+          <div className="flex items-center gap-3 flex-wrap">
+            {!shouldHideClientDetails && (
+              <div className="flex items-center gap-2">
+                <span className="font-medium">{record.client?.name ?? 'Unknown'}</span>
+                {record.client?.company && (
+                  <span className="text-muted-foreground text-sm">({record.client.company})</span>
+                )}
+              </div>
+            )}
             {isSuperAdmin && (
               <div className="flex items-center gap-2 font-medium">
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
@@ -1392,6 +1798,34 @@ const HistoryRow = ({
                   {isBusy ? 'Loading…' : 'View shoot'}
                 </Button>
               )}
+              {/* Invoice button - Available for all roles */}
+              {onViewInvoice && record.id && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onViewInvoice({ id: record.id })
+                  }}
+                  title="View Invoice"
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                </Button>
+              )}
+              {/* Delete button - Only for admin/superadmin */}
+              {(isAdmin || isSuperAdmin) && onDelete && record.id && (
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  className="h-8 gap-1.5 bg-red-500 hover:bg-red-600"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onDelete(record)
+                  }}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -1428,40 +1862,45 @@ const HistoryRow = ({
               ) : 'Not Published'}
             </span>
           )}
+          {record.id && (
+            <span className="text-muted-foreground font-medium">ID #{record.id}</span>
+          )}
           <ChevronDown className={cn('h-4 w-4 text-muted-foreground ml-auto transition-transform', open && 'rotate-180')} />
         </div>
       </div>
 
       {/* Expanded Details - spec 3.3.2 */}
       {open && (
-        <div className="border-t bg-muted/20 p-5">
-          <div className="grid gap-6 md:grid-cols-2">
+        <div className="border-t bg-muted/20 p-3 sm:p-5">
+          <div className="grid gap-4 sm:gap-6 md:grid-cols-2">
             {/* Column 1: Client & Shoot Meta */}
             <div className="space-y-4">
-              <div>
-                <h4 className="font-medium text-sm text-muted-foreground mb-3 flex items-center gap-2">
-                  <User className="h-4 w-4" />
-                  Client Details
-                </h4>
-                <div className="grid gap-2 text-sm pl-6">
-                  <div className="flex items-center gap-2">
-                    <Mail className="h-4 w-4 text-muted-foreground" />
-                    <span>{record.client?.email ?? '—'}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Phone className="h-4 w-4 text-muted-foreground" />
-                    <span>{record.client?.phone ?? '—'}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Building2 className="h-4 w-4 text-muted-foreground" />
-                    <span>{record.client?.company ?? '—'}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Layers className="h-4 w-4" />
-                    <span>Total shoots: {record.client?.totalShoots ?? 0}</span>
+              {!shouldHideClientDetails && (
+                <div>
+                  <h4 className="font-medium text-sm text-muted-foreground mb-3 flex items-center gap-2">
+                    <User className="h-4 w-4" />
+                    Client Details
+                  </h4>
+                  <div className="grid gap-2 text-sm pl-6">
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-4 w-4 text-muted-foreground" />
+                      <span>{record.client?.email ?? '—'}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-4 w-4 text-muted-foreground" />
+                      <span>{record.client?.phone ?? '—'}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4 text-muted-foreground" />
+                      <span>{record.client?.company ?? '—'}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Layers className="h-4 w-4" />
+                      <span>Total shoots: {record.client?.totalShoots ?? 0}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
               <div>
                 <h4 className="font-medium text-sm text-muted-foreground mb-3 flex items-center gap-2">
@@ -1576,9 +2015,11 @@ const HistoryRow = ({
       )}
     </Card>
   )
-}
+})
 
-const HistoryAggregateCard = ({ aggregate, isSuperAdmin = false }: { aggregate: ShootHistoryServiceAggregate; isSuperAdmin?: boolean }) => (
+HistoryRow.displayName = 'HistoryRow'
+
+const HistoryAggregateCard = memo(({ aggregate, isSuperAdmin = false }: { aggregate: ShootHistoryServiceAggregate; isSuperAdmin?: boolean }) => (
   <Card>
     <CardHeader>
       <div className="flex items-center justify-between">
@@ -1613,57 +2054,46 @@ const HistoryAggregateCard = ({ aggregate, isSuperAdmin = false }: { aggregate: 
       )}
     </CardContent>
   </Card>
-)
+))
 
-const ShootMapView = ({ markers }: { markers: MapMarker[] }) => {
-  if (typeof window === 'undefined') {
+HistoryAggregateCard.displayName = 'HistoryAggregateCard'
+
+const ShootMapView = memo(({ markers }: { markers: MapMarker[] }) => {
+  const { theme } = useTheme()
+  const [mounted, setMounted] = React.useState(false)
+
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (typeof window === 'undefined' || !mounted) {
     return (
-      <div className="rounded-lg border p-6 text-center text-muted-foreground">
-        Map view is unavailable in this environment.
+      <div className="h-[520px] rounded-xl border flex items-center justify-center">
+        <div className="text-center text-muted-foreground">
+          <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
+          <p>Loading map...</p>
+        </div>
       </div>
     )
   }
-
-  if (!markers.length) {
-    return (
-      <div className="rounded-lg border p-6 text-center text-muted-foreground">
-        No geocoded addresses yet. Open shoots in the list view to ensure addresses are valid.
-      </div>
-    )
-  }
-
-  const center = markers[0]?.coords ?? DEFAULT_GEO_CENTER
-
-  const MapContainerAny = MapContainer as unknown as React.ComponentType<any>
 
   return (
-    <div className="h-[520px] overflow-hidden rounded-xl border">
-      <MapContainerAny
-        center={[center.lat, center.lng] as [number, number]}
-        zoom={markers.length > 1 ? 6 : 12}
-        className="h-full w-full"
-        scrollWheelZoom={true}
-      >
-        <TileLayer 
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        {markers.map((marker) => (
-          <Marker key={marker.id} position={[marker.coords.lat, marker.coords.lng]}>
-            <Popup>
-              <div className="space-y-1">
-                <p className="font-semibold">{marker.title}</p>
-                {marker.subtitle && (
-                  <p className="text-sm text-muted-foreground">{marker.subtitle}</p>
-                )}
-                <p className="text-sm">{marker.address}</p>
-              </div>
-            </Popup>
-          </Marker>
-        ))}
-      </MapContainerAny>
-    </div>
+    <Suspense
+      fallback={
+        <div className="h-[520px] rounded-xl border flex items-center justify-center">
+          <div className="text-center text-muted-foreground">
+            <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
+            <p>Loading map...</p>
+          </div>
+        </div>
+      }
+    >
+      <LazyMapView markers={markers} theme={theme} />
+    </Suspense>
   )
-}
+})
+
+ShootMapView.displayName = 'ShootMapView'
 
 // MLS Queue View Component (embedded in history tab)
 const MlsQueueView: React.FC = () => {
@@ -1928,8 +2358,12 @@ const ShootHistory: React.FC = () => {
   
   const isSuperAdmin = role === 'superadmin'
   const isAdmin = role === 'admin'
+  const isPhotographer = role === 'photographer'
+  const isEditor = role === 'editor'
+  const shouldHideClientDetails = isEditor
   const canViewAllShoots = isSuperAdmin || isAdmin // Super Admin and Admin can see all shoots
   const canViewHistory = HISTORY_ALLOWED_ROLES.has((role as string) ?? '')
+  const canViewInvoice = !isPhotographer && !isEditor // Hide invoice for photographers and editors
   
   // Linked accounts should only be available for non-super admin users
   const canViewLinkedAccounts = !isSuperAdmin && !isAdmin // Only clients can have linked accounts
@@ -1938,33 +2372,77 @@ const ShootHistory: React.FC = () => {
   const [linkedAccounts, setLinkedAccounts] = useState<any[]>([])
   const [sharedData, setSharedData] = useState<any>(null)
   const [linkedLoading, setLinkedLoading] = useState(false)
+  const [linkedAccountsLoaded, setLinkedAccountsLoaded] = useState(false)
   
   // Check if user has linked accounts
   const hasLinkedAccounts = linkedAccounts.length > 0
   
-    const tabList: AvailableTab[] = useMemo(
+  const tabList: AvailableTab[] = useMemo(
     () => {
+      if (isEditor) {
+        return canViewHistory ? ['editing', 'edited', 'history'] : ['editing', 'edited']
+      }
       const tabs: AvailableTab[] = canViewHistory
         ? ['scheduled', 'completed', 'delivered', 'hold', 'history']
         : ['scheduled', 'completed', 'delivered', 'hold']
-      // Add linked tab only if user can view linked accounts AND has linked accounts
-      if (canViewLinkedAccounts && hasLinkedAccounts) {
+      // Add linked tab for eligible users; load data lazily when the tab is opened.
+      if (canViewLinkedAccounts) {
         return [...tabs, 'linked']
       }
       return tabs
     },
-    [canViewHistory, canViewLinkedAccounts, hasLinkedAccounts]
+    [canViewHistory, canViewLinkedAccounts, isEditor]
   )
 
   const [activeTab, setActiveTab] = useState<AvailableTab>(tabList[0])
-  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'map'>('grid')
+  const [inProgressSubTab, setInProgressSubTab] = useState<'all' | 'uploaded' | 'editing'>('all')
+  // For client, editor, photographer - default to 'delivered' and hide subtabs
+  const hideDeliveredSubTabs = ['client', 'editor', 'photographer'].includes(role || '')
+  const [deliveredSubTab, setDeliveredSubTab] = useState<'all' | 'delivered' | 'ready'>(hideDeliveredSubTabs ? 'delivered' : 'all')
+  const [holdSubTab, setHoldSubTab] = useState<'all' | 'on_hold' | 'cancelled'>('all')
+  const [historySubTab, setHistorySubTab] = useState<'all' | 'mls-queue'>('all')
+  const [scheduledSubTab, setScheduledSubTab] = useState<'all' | 'requested' | 'scheduled'>('all')
+  // Load viewMode from localStorage or default to 'list'
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'map'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('shootHistory_viewMode')
+      if (saved && ['grid', 'list', 'map'].includes(saved)) {
+        return saved as 'grid' | 'list' | 'map'
+      }
+    }
+    return 'list'
+  })
+  // Load pinned tabs from localStorage
+  const [pinnedTabs, setPinnedTabs] = useState<Set<string>>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('shootHistory_pinnedTabs')
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved)
+          return new Set(Array.isArray(parsed) ? parsed : [])
+        } catch {
+          return new Set<string>()
+        }
+      }
+    }
+    return new Set<string>()
+  })
   const [operationalFilters, setOperationalFilters] = useState<OperationalFiltersState>(DEFAULT_OPERATIONAL_FILTERS)
-  const [historyFilters, setHistoryFilters] = useState<HistoryFiltersState>(DEFAULT_HISTORY_FILTERS)
+  const defaultHistoryDateRange = isEditor ? 'all' : DEFAULT_HISTORY_FILTERS.dateRange
+  const defaultHistoryFilters = useMemo(
+    () => ({ ...DEFAULT_HISTORY_FILTERS, dateRange: defaultHistoryDateRange }),
+    [defaultHistoryDateRange],
+  )
+  const [historyFilters, setHistoryFilters] = useState<HistoryFiltersState>(defaultHistoryFilters)
+  const [deleteShootId, setDeleteShootId] = useState<string | number | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [operationalData, setOperationalData] = useState<ShootData[]>([])
   const [historyRecords, setHistoryRecords] = useState<ShootHistoryRecord[]>([])
   const [historyAggregates, setHistoryAggregates] = useState<ShootHistoryServiceAggregate[]>([])
   const [historyMeta, setHistoryMeta] = useState<HistoryMeta | null>(null)
   const [historyPage, setHistoryPage] = useState(1)
+  const [operationalPage, setOperationalPage] = useState(1)
+  const [operationalMeta, setOperationalMeta] = useState<{ current_page: number; per_page: number; total: number } | null>(null)
   const [loading, setLoading] = useState(false)
   const [detailLoading, setDetailLoading] = useState(false)
   const [operationalFiltersOpen, setOperationalFiltersOpen] = useState(false)
@@ -1975,16 +2453,139 @@ const ShootHistory: React.FC = () => {
   const [selectedShoot, setSelectedShoot] = useState<ShootData | null>(null)
   const [isDetailOpen, setIsDetailOpen] = useState(false)
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
-  const [isPayMultipleOpen, setIsPayMultipleOpen] = useState(false)
+  const [isBulkActionsOpen, setIsBulkActionsOpen] = useState(false)
+  const [bulkShoots, setBulkShoots] = useState<ShootData[]>([])
+  const [bulkShootsLoading, setBulkShootsLoading] = useState(false)
+  const [approvalModalShoot, setApprovalModalShoot] = useState<ShootData | null>(null)
+  const [declineModalShoot, setDeclineModalShoot] = useState<ShootData | null>(null)
+  const [editModalShoot, setEditModalShoot] = useState<ShootData | null>(null)
+  const [photographers, setPhotographers] = useState<Array<{ id: string | number; name: string; avatar?: string }>>([]);
+  const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false)
+  const [selectedInvoice, setSelectedInvoice] = useState<any>(null)
+  const [invoiceLoading, setInvoiceLoading] = useState(false)
+
+  useEffect(() => {
+    if (!shouldHideClientDetails) return
+    if (operationalFilters.clientId) {
+      setOperationalFilters((prev) => ({ ...prev, clientId: '' }))
+    }
+    if (historyFilters.clientId) {
+      setHistoryFilters((prev) => ({ ...prev, clientId: '' }))
+    }
+  }, [shouldHideClientDetails, operationalFilters.clientId, historyFilters.clientId])
 
   const operationalFetchAbortRef = useRef<AbortController | null>(null)
   const historyFetchAbortRef = useRef<AbortController | null>(null)
 
+  // Track if we've applied pinned tab on initial mount
+  const hasAppliedPinnedTab = useRef(false)
+
+  // Ensure activeTab is valid when tabList changes, and prioritize pinned tabs on mount
   useEffect(() => {
+    // On initial mount or when tabList changes, check for pinned tab
+    const pinnedArray = Array.from(pinnedTabs)
+    if (pinnedArray.length > 0 && !hasAppliedPinnedTab.current) {
+      const pinnedTab = pinnedArray.find((tab) => tabList.includes(tab as AvailableTab))
+      if (pinnedTab) {
+        // Switch to pinned tab if it's available (only on initial mount)
+        setActiveTab(pinnedTab as AvailableTab)
+        hasAppliedPinnedTab.current = true
+        return
+      }
+    }
+    
+    // If no pinned tab or pinned tab is not available, ensure activeTab is valid
     if (!tabList.includes(activeTab)) {
       setActiveTab(tabList[0])
     }
-  }, [tabList, activeTab])
+    
+    // Mark as applied after first check
+    if (!hasAppliedPinnedTab.current) {
+      hasAppliedPinnedTab.current = true
+    }
+  }, [tabList, activeTab, pinnedTabs])
+
+  // Save viewMode to localStorage whenever it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('shootHistory_viewMode', viewMode)
+    }
+  }, [viewMode])
+
+  // Save pinned tabs to localStorage whenever they change
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('shootHistory_pinnedTabs', JSON.stringify(Array.from(pinnedTabs)))
+    }
+  }, [pinnedTabs])
+
+  // Set default viewMode to 'list' when scheduled tab is active (but respect saved preference)
+  useEffect(() => {
+    if (activeTab === 'scheduled' && viewMode !== 'list') {
+      // Only override if user hasn't explicitly set a preference for scheduled tab
+      const saved = localStorage.getItem('shootHistory_viewMode')
+      if (!saved || saved === 'list') {
+        setViewMode('list')
+      }
+    }
+  }, [activeTab, viewMode]) // Only depend on activeTab to avoid infinite loop
+
+  // Toggle pin for a tab
+  const togglePinTab = useCallback((tabValue: string) => {
+    setPinnedTabs(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(tabValue)) {
+        // Unpin the tab
+        newSet.delete(tabValue)
+      } else {
+        // Pin the tab (only one tab can be pinned at a time)
+        newSet.clear()
+        newSet.add(tabValue)
+        // Automatically switch to the pinned tab
+        setActiveTab(tabValue as AvailableTab)
+      }
+      return newSet
+    })
+  }, [])
+
+  // Reset sub-tabs when switching tabs
+  useEffect(() => {
+    if (activeTab !== 'scheduled') {
+      setScheduledSubTab('all')
+    }
+    if (activeTab !== 'completed') {
+      setInProgressSubTab('all')
+    }
+    if (activeTab !== 'delivered') {
+      // For client/editor/photographer, always use 'delivered'; others use 'all'
+      setDeliveredSubTab(hideDeliveredSubTabs ? 'delivered' : 'all')
+    }
+    if (activeTab !== 'hold') {
+      setHoldSubTab('all')
+    }
+  }, [activeTab, hideDeliveredSubTabs])
+
+  // Fetch photographers only when approval modal is used
+  useEffect(() => {
+    if (!(isAdmin || isSuperAdmin)) return
+    if (!approvalModalShoot) return
+    if (photographers.length) return
+
+    const fetchPhotographers = async () => {
+      try {
+        const token = localStorage.getItem('authToken') || localStorage.getItem('token')
+        const response = await axios.get(`${API_BASE_URL}/api/admin/photographers`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        const data = response.data?.data || response.data || []
+        setPhotographers(data.map((p: any) => ({ id: p.id, name: p.name, avatar: p.avatar })))
+      } catch (error) {
+        console.error('Error fetching photographers:', error)
+      }
+    }
+
+    fetchPhotographers()
+  }, [approvalModalShoot, isAdmin, isSuperAdmin, photographers.length])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -2007,18 +2608,25 @@ const ShootHistory: React.FC = () => {
     }
   }, [geoCache])
 
-  // Fetch linked accounts data
   useEffect(() => {
-    // Only fetch linked accounts for non-admin users
+    setLinkedAccountsLoaded(false)
+    setLinkedAccounts([])
+    setSharedData(null)
+  }, [user?.id])
+
+  // Fetch linked accounts data when the linked tab is opened
+  useEffect(() => {
     if (!canViewLinkedAccounts) return
-    
+    if (activeTab !== 'linked') return
+    if (linkedAccountsLoaded) return
+
     const fetchLinkedAccounts = async () => {
       try {
         const token = localStorage.getItem('authToken')
         if (!token) return
 
         setLinkedLoading(true)
-        
+
         // Fetch linked accounts
         const linksResponse = await fetch(`${API_BASE_URL}/api/admin/account-links`, {
           headers: {
@@ -2029,7 +2637,7 @@ const ShootHistory: React.FC = () => {
         if (linksResponse.ok) {
           const linksData = await linksResponse.json()
           setLinkedAccounts(linksData.links || [])
-          
+
           // Fetch shared data for the user
           if (user?.id) {
             const sharedResponse = await fetch(`${API_BASE_URL}/api/admin/account-links/shared-data/${user.id}`, {
@@ -2048,11 +2656,12 @@ const ShootHistory: React.FC = () => {
         console.error('Failed to fetch linked accounts:', error)
       } finally {
         setLinkedLoading(false)
+        setLinkedAccountsLoaded(true)
       }
     }
 
     fetchLinkedAccounts()
-  }, [canViewLinkedAccounts, user?.id])
+  }, [activeTab, canViewLinkedAccounts, linkedAccountsLoaded, user?.id])
 
   const handleDetailDialogToggle = useCallback(
     (open: boolean) => {
@@ -2130,6 +2739,44 @@ const ShootHistory: React.FC = () => {
     [loadShootById, toast],
   )
 
+  const handleDeleteShoot = useCallback((shoot: ShootData) => {
+    setDeleteShootId(shoot.id)
+  }, [])
+
+  const handleDeleteHistoryRecord = useCallback((record: ShootHistoryRecord) => {
+    if (record.id) {
+      setDeleteShootId(record.id)
+    }
+  }, [])
+
+  const handleViewInvoice = useCallback(async (shoot: ShootData | { id: string | number }) => {
+    setInvoiceLoading(true)
+    try {
+      const shootId = 'id' in shoot ? shoot.id : (shoot as ShootData).id
+      const response = await apiClient.get(`/shoots/${shootId}/invoice`)
+      const invoiceData = response.data?.data || response.data
+      if (invoiceData) {
+        setSelectedInvoice(invoiceData)
+        setInvoiceDialogOpen(true)
+      } else {
+        toast({
+          title: 'Invoice not found',
+          description: 'Unable to load invoice for this shoot.',
+          variant: 'destructive',
+        })
+      }
+    } catch (error: any) {
+      console.error('Error fetching invoice:', error)
+      toast({
+        title: 'Error loading invoice',
+        description: error.response?.data?.message || 'Unable to load invoice. Please try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      setInvoiceLoading(false)
+    }
+  }, [toast])
+
   const handlePrimaryAction = useCallback(
     (action: ShootAction | undefined, shoot: ShootData) => {
       if (!action) {
@@ -2168,13 +2815,23 @@ const ShootHistory: React.FC = () => {
 
     setLoading(true)
     try {
-      const backendTab = (['scheduled', 'completed', 'delivered', 'hold'] as const).includes(activeTab as any)
-        ? (activeTab as 'scheduled' | 'completed' | 'delivered' | 'hold')
+      let backendTab = (['scheduled', 'completed', 'delivered', 'hold', 'editing', 'edited'] as const).includes(activeTab as any)
+        ? (activeTab as ActiveOperationalTab)
         : 'scheduled'
 
-      const params: Record<string, unknown> = { tab: backendTab }
+      if (isEditor) {
+        if (backendTab === 'editing') {
+          backendTab = 'completed'
+        } else if (backendTab === 'edited') {
+          backendTab = 'delivered'
+        } else if (backendTab === 'scheduled') {
+          backendTab = 'completed'
+        }
+      }
+
+      const params: Record<string, unknown> = { tab: backendTab, page: operationalPage, per_page: 9, include_files: 'false' }
       if (operationalFilters.search) params.search = operationalFilters.search
-      if (operationalFilters.clientId) params.client_id = operationalFilters.clientId
+      if (!shouldHideClientDetails && operationalFilters.clientId) params.client_id = operationalFilters.clientId
       if (operationalFilters.photographerId) params.photographer_id = operationalFilters.photographerId
       if (operationalFilters.address) params.address = operationalFilters.address
       if (operationalFilters.services.length) params.services = operationalFilters.services
@@ -2197,43 +2854,86 @@ const ShootHistory: React.FC = () => {
       
       // Filter shoots based on role: Super Admin/Admin see all, others see only their own
       // Apply role visibility
-      const roleFilteredShoots = canViewAllShoots 
-        ? mappedShoots 
+      const roleFilteredShoots = canViewAllShoots
+        ? mappedShoots
         : mappedShoots.filter((shoot) => {
             if (role === 'client') {
-              // Client sees only their own shoots
+              const userId = user?.id ? String(user.id) : ''
+              const clientId = shoot.client?.id ? String(shoot.client.id) : ''
+              if (userId && clientId) return userId === clientId
+
               const userEmail = user?.email?.toLowerCase() || ''
               const userName = user?.name?.toLowerCase() || ''
               const shootClientEmail = shoot.client?.email?.toLowerCase() || ''
               const shootClientName = shoot.client?.name?.toLowerCase() || ''
+
+              if (!userId && !userEmail && !userName) return true
               return shootClientEmail === userEmail || shootClientName === userName
-            } else if (role === 'photographer') {
-              // Photographer sees only assigned shoots
+            }
+
+            if (role === 'photographer') {
+              const userId = user?.id ? String(user.id) : ''
+              const photographerId = shoot.photographer?.id ? String(shoot.photographer.id) : ''
+              if (userId && photographerId) return userId === photographerId
+
               const userName = user?.name?.toLowerCase() || ''
               const photographerName = shoot.photographer?.name?.toLowerCase() || ''
+              if (!userId && !userName) return true
               return photographerName === userName
-            } else if (role === 'editor') {
-              // Editor sees only assigned shoots
+            }
+
+            if (role === 'editor') {
+              const userId = user?.id ? String(user.id) : ''
+              const editorId = shoot.editor?.id ? String(shoot.editor.id) : ''
+              if (userId && editorId) return userId === editorId
+
               const userName = user?.name?.toLowerCase() || ''
               const editorName = shoot.editor?.name?.toLowerCase() || ''
+              if (!editorId && !editorName) return true
+              if (!userId && !userName) return true
               return editorName === userName
             }
-            return false
+
+            return true
           })
 
+      // Hide private-exclusive listings from default views
+      const visibleShoots = roleFilteredShoots.filter((shoot) => !shoot.isPrivateListing)
+
       // Apply status filter per active tab (using status or workflowStatus)
-      const allowedStatuses = STATUS_FILTERS_BY_TAB[activeTab] ?? STATUS_FILTERS_BY_TAB.scheduled
-      const filteredByStatus = roleFilteredShoots.filter((shoot) => {
+      const filterTab = (['scheduled', 'completed', 'delivered', 'hold', 'editing', 'edited'] as const).includes(activeTab as any)
+        ? (activeTab as ActiveOperationalTab)
+        : backendTab
+      const allowedStatuses = STATUS_FILTERS_BY_TAB[filterTab] ?? STATUS_FILTERS_BY_TAB.scheduled
+      const filteredByStatus = visibleShoots.filter((shoot) => {
         const status = (shoot.workflowStatus || shoot.status || '').toLowerCase()
-        return allowedStatuses.includes(status)
+        return allowedStatuses.some((allowed) => status.includes(allowed))
       })
 
       setOperationalData(filteredByStatus)
 
+      // Set pagination meta if available
+      const meta = payload.meta as any
+      if (meta && (meta.current_page !== undefined || meta.total !== undefined || meta.count !== undefined)) {
+        setOperationalMeta({
+          current_page: meta.current_page ?? operationalPage,
+          per_page: 9, // Always use 9 for display consistency
+          total: meta.total ?? meta.count ?? 0, // Backend returns 'count', but we use 'total' for consistency
+        })
+      } else {
+        // Fallback: create meta from current data - but this shouldn't happen if backend returns proper meta
+        setOperationalMeta({
+          current_page: operationalPage,
+          per_page: 9,
+          total: 0, // Don't use filteredByStatus.length as it's only current page items
+        })
+      }
+
       const filtersMeta: FilterCollections = payload.meta?.filters ?? deriveFilterOptionsFromShoots(mappedShoots)
-      setOperationalOptions(filtersMeta)
+      setOperationalOptions(shouldHideClientDetails ? { ...filtersMeta, clients: [] } : filtersMeta)
     } catch (error) {
       if (axios.isAxiosError(error) && (error.code === 'ERR_CANCELED' || error.name === 'CanceledError')) {
+        // Request was aborted, loading will be cleared in finally block
         return
       }
       console.error('Error fetching operational data:', error)
@@ -2273,15 +2973,73 @@ const ShootHistory: React.FC = () => {
         ms: Math.round(end - start),
       })
 
+      // Always clear loading state if this is still the current request
+      // This prevents loading from getting stuck if a new request starts
       if (operationalFetchAbortRef.current === controller) {
         operationalFetchAbortRef.current = null
         setLoading(false)
+      } else if (!operationalFetchAbortRef.current) {
+        // If no current request, make sure loading is cleared
+        setLoading(false)
       }
     }
-  }, [activeTab, operationalFilters, toast, canViewAllShoots, role, user])
+  }, [activeTab, operationalFilters, operationalPage, toast, canViewAllShoots, role, user])
+
+  const fetchBulkShoots = useCallback(async () => {
+    if (!(isSuperAdmin || isAdmin)) return
+    setBulkShootsLoading(true)
+
+    try {
+      const tabs: Array<'scheduled' | 'completed' | 'delivered' | 'hold'> = [
+        'scheduled',
+        'completed',
+        'delivered',
+        'hold',
+      ]
+
+      const responses = await Promise.all(
+        tabs.map((tab) =>
+          apiClient.get('/shoots', {
+            params: {
+              tab,
+              page: 1,
+              per_page: 200,
+              include_files: 'false',
+            },
+          }),
+        ),
+      )
+
+      const combined = responses.flatMap((response) => {
+        const payload = response.data?.data ?? response.data
+        return Array.isArray(payload) ? payload : []
+      })
+
+      const mapped = combined.map(mapShootApiToShootData)
+      const unique = Array.from(new Map(mapped.map((shoot) => [shoot.id, shoot])).values())
+      setBulkShoots(unique)
+    } catch (error: any) {
+      console.error('Error fetching bulk shoots:', error)
+      toast({
+        title: 'Unable to load bulk shoots',
+        description: error?.response?.data?.message || 'Please try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      setBulkShootsLoading(false)
+    }
+  }, [isAdmin, isSuperAdmin, toast])
+
+  useEffect(() => {
+    if (!isBulkActionsOpen) return
+    fetchBulkShoots()
+  }, [isBulkActionsOpen, fetchBulkShoots])
 
   const fetchHistoryData = useCallback(async () => {
-    if (!canViewHistory) return
+    if (!canViewHistory) {
+      setLoading(false)
+      return
+    }
     historyFetchAbortRef.current?.abort()
     const controller = new AbortController()
     historyFetchAbortRef.current = controller
@@ -2292,13 +3050,14 @@ const ShootHistory: React.FC = () => {
       const params: Record<string, unknown> = {
         group_by: historyFilters.groupBy,
         page: historyPage,
+        per_page: 9,
       }
       if (historyFilters.search) params.search = historyFilters.search
-      if (historyFilters.clientId) params.client_id = historyFilters.clientId
+      if (!shouldHideClientDetails && historyFilters.clientId) params.client_id = historyFilters.clientId
       if (historyFilters.photographerId) params.photographer_id = historyFilters.photographerId
       if (historyFilters.services.length) params.services = historyFilters.services
-      if (historyFilters.dateRange) {
-      if (historyFilters.dateRange === 'custom') {
+      if (historyFilters.dateRange && historyFilters.dateRange !== 'all') {
+        if (historyFilters.dateRange === 'custom') {
           if (historyFilters.scheduledStart) params.custom_start = historyFilters.scheduledStart
           if (historyFilters.scheduledEnd) params.custom_end = historyFilters.scheduledEnd
           params.date_range = 'custom'
@@ -2323,30 +3082,36 @@ const ShootHistory: React.FC = () => {
       const isServiceGrouping = historyFilters.groupBy === 'services'
 
       const rows = Array.isArray(payload.data) ? payload.data : []
+      const visibleRows = rows.filter((record) => {
+        const recordAny = record as any
+        return !(recordAny?.is_private_listing || recordAny?.isPrivateListing)
+      })
 
       if (isServiceGrouping) {
-        setHistoryAggregates(rows as ShootHistoryServiceAggregate[])
+        setHistoryAggregates(visibleRows as ShootHistoryServiceAggregate[])
         setHistoryRecords([])
         setHistoryMeta(null)
       } else {
-        setHistoryRecords(rows as ShootHistoryRecord[])
+        setHistoryRecords(visibleRows as ShootHistoryRecord[])
         setHistoryAggregates([])
         setHistoryMeta(
           payload.meta
             ? {
                 current_page: payload.meta.current_page ?? 1,
-                per_page: payload.meta.per_page ?? rows.length,
-                total: payload.meta.total ?? rows.length,
+                per_page: 9, // Always use 9 for display consistency
+                total: payload.meta.total ?? 0, // Only use backend total, don't fallback to rows.length
               }
             : null,
         )
       }
 
       if (payload.meta?.filters) {
-        setHistoryOptions(payload.meta.filters)
+        const metaFilters = payload.meta.filters
+        setHistoryOptions(shouldHideClientDetails ? { ...metaFilters, clients: [] } : metaFilters)
       }
     } catch (error) {
       if (axios.isAxiosError(error) && (error.code === 'ERR_CANCELED' || error.name === 'CanceledError')) {
+        // Request was aborted, loading will be cleared in finally block
         return
       }
       console.error('History fetch error:', error)
@@ -2387,8 +3152,13 @@ const ShootHistory: React.FC = () => {
         groupBy: historyFilters.groupBy,
       })
 
+      // Always clear loading state if this is still the current request
+      // This prevents loading from getting stuck if a new request starts
       if (historyFetchAbortRef.current === controller) {
         historyFetchAbortRef.current = null
+        setLoading(false)
+      } else if (!historyFetchAbortRef.current) {
+        // If no current request, make sure loading is cleared
         setLoading(false)
       }
     }
@@ -2417,6 +3187,7 @@ const ShootHistory: React.FC = () => {
           .filter((f: any) => f.path || f.url)
           .slice(0, 20)
           .map((f: any) => ({
+            id: f.id,
             url: f.path || f.url || '',
             filename: f.filename || `photo-${f.id}`,
             selected: true,
@@ -2457,23 +3228,50 @@ const ShootHistory: React.FC = () => {
     [loadShootById, toast, fetchHistoryData],
   )
 
+  // Safety timeout to prevent loading from getting stuck
   useEffect(() => {
-    if (activeTab === 'history') {
-      fetchHistoryData()
-    } else {
-      fetchOperationalData()
-    }
-  }, [activeTab, fetchOperationalData, fetchHistoryData])
+    const timeoutId = setTimeout(() => {
+      if (loading) {
+        console.warn('[ShootHistory] Loading timeout - clearing loading state after 30s')
+        setLoading(false)
+      }
+    }, 30000) // 30 second timeout
 
-  // Ensure history data loads on mount if history tab is active
+    return () => clearTimeout(timeoutId)
+  }, [loading])
+
+  // Track last active tab to detect tab changes
+  const lastActiveTabRef = useRef(activeTab)
+
   useEffect(() => {
-    if (activeTab === 'history' && canViewHistory && !loading) {
-      // Double-check that data is loaded
-      if (historyRecords.length === 0 && historyAggregates.length === 0) {
-        fetchHistoryData()
+    // Reset page when tab changes
+    const tabChanged = lastActiveTabRef.current !== activeTab
+    lastActiveTabRef.current = activeTab
+    
+    if (tabChanged) {
+      if (activeTab === 'history') {
+        setHistoryPage(1)
+      } else {
+        setOperationalPage(1)
       }
     }
-  }, [activeTab, canViewHistory])
+  }, [activeTab])
+
+  // Fetch history data when page changes or tab changes to history
+  useEffect(() => {
+    if (activeTab === 'history' && canViewHistory) {
+      // Always fetch when page changes
+      fetchHistoryData()
+    }
+  }, [historyPage, activeTab, canViewHistory, fetchHistoryData])
+
+  // Fetch operational data when page changes or tab changes away from history
+  useEffect(() => {
+    if (activeTab !== 'history') {
+      // Always fetch when page changes
+      fetchOperationalData()
+    }
+  }, [operationalPage, activeTab, fetchOperationalData])
 
   const refreshActiveTabData = useCallback(async () => {
     if (activeTab === 'history') {
@@ -2482,6 +3280,52 @@ const ShootHistory: React.FC = () => {
       await fetchOperationalData()
     }
   }, [activeTab, fetchHistoryData, fetchOperationalData])
+
+  useEffect(() => registerShootHistoryRefresh(refreshActiveTabData), [refreshActiveTabData])
+
+  const confirmDeleteShoot = useCallback(async () => {
+    if (!deleteShootId) return
+
+    setIsDeleting(true)
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token')
+      const response = await fetch(`${API_BASE_URL}/api/shoots/${deleteShootId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to delete shoot' }))
+        throw new Error(errorData.message || 'Failed to delete shoot')
+      }
+
+      toast({
+        title: 'Success',
+        description: 'Shoot deleted successfully',
+      })
+
+      // Refresh the data
+      if (selectedShoot?.id && String(selectedShoot.id) === String(deleteShootId)) {
+        setSelectedShoot(null)
+        setIsDetailOpen(false)
+      }
+      
+      // Trigger refresh
+      await refreshActiveTabData()
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to delete shoot',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsDeleting(false)
+      setDeleteShootId(null)
+    }
+  }, [deleteShootId, toast, selectedShoot, refreshActiveTabData])
 
   const handleUploadComplete = useCallback(async () => {
     setIsUploadDialogOpen(false)
@@ -2501,6 +3345,7 @@ const ShootHistory: React.FC = () => {
     } else {
     setOperationalFilters((prev) => ({ ...prev, [key]: value }))
     }
+    setOperationalPage(1)
   }
 
   const onHistoryFilterChange = <K extends keyof HistoryFiltersState>(
@@ -2523,16 +3368,95 @@ const ShootHistory: React.FC = () => {
 
   const resetOperationalFilters = () => {
     setOperationalFilters(DEFAULT_OPERATIONAL_FILTERS)
+    setOperationalPage(1)
   }
 
   const resetHistoryFilters = () => {
-    setHistoryFilters(DEFAULT_HISTORY_FILTERS)
+    setHistoryFilters(defaultHistoryFilters)
     setHistoryPage(1)
   }
 
-  const operationalMarkers: MapMarker[] = useMemo(() => {
-    if (viewMode !== 'map') return []
+  // Filter operational data based on sub-tabs
+  const filteredOperationalData = useMemo(() => {
+    // Scheduled tab filtering
+    if (activeTab === 'scheduled') {
+      if (scheduledSubTab === 'all') return operationalData
+      if (scheduledSubTab === 'requested') {
+        return operationalData.filter(s => {
+          const status = (s.workflowStatus || s.status || '').toLowerCase()
+          return status === 'requested'
+        })
+      }
+      if (scheduledSubTab === 'scheduled') {
+        return operationalData.filter(s => {
+          const status = (s.workflowStatus || s.status || '').toLowerCase()
+          return status === 'scheduled' || status === 'booked'
+        })
+      }
+      return operationalData
+    }
+    
+    // In-Progress tab filtering
+    if (activeTab === 'completed') {
+      if (inProgressSubTab === 'all') return operationalData
+      if (inProgressSubTab === 'uploaded') {
+        return operationalData.filter(s => {
+          const status = (s.workflowStatus || s.status || '').toLowerCase()
+          return status.includes('uploaded') || status === 'photos_uploaded' || status === 'raw_uploaded'
+        })
+      }
+      if (inProgressSubTab === 'editing') {
+        return operationalData.filter(s => {
+          const status = (s.workflowStatus || s.status || '').toLowerCase()
+          return status.includes('editing') || status === 'start_editing'
+        })
+      }
+      return operationalData
+    }
+    
+    // Delivered tab filtering
+    if (activeTab === 'delivered') {
+      if (deliveredSubTab === 'all') return operationalData
+      if (deliveredSubTab === 'delivered') {
+        return operationalData.filter(s => {
+          const status = (s.workflowStatus || s.status || '').toLowerCase()
+          return status === 'delivered' || status === 'admin_verified'
+        })
+      }
+      if (deliveredSubTab === 'ready') {
+        return operationalData.filter(s => {
+          const status = (s.workflowStatus || s.status || '').toLowerCase()
+          return status === 'ready_for_client' || status === 'ready'
+        })
+      }
+      return operationalData
+    }
+    
+    // Hold tab filtering
+    if (activeTab === 'hold') {
+      if (holdSubTab === 'all') return operationalData
+      if (holdSubTab === 'on_hold') {
+        return operationalData.filter(s => {
+          const status = (s.workflowStatus || s.status || '').toLowerCase()
+          return status === 'on_hold' || status === 'hold_on'
+        })
+      }
+      if (holdSubTab === 'cancelled') {
+        return operationalData.filter(s => {
+          const status = (s.workflowStatus || s.status || '').toLowerCase()
+          return status === 'cancelled' || status === 'canceled'
+        })
+      }
+      return operationalData
+    }
+    
     return operationalData
+  }, [activeTab, scheduledSubTab, inProgressSubTab, deliveredSubTab, holdSubTab, operationalData])
+
+  const operationalMarkers: MapMarker[] = useMemo(() => {
+    // Always generate markers for map view, use filtered data for all tabs
+    const dataToUse = filteredOperationalData
+    return dataToUse
       .map((shoot) => {
         const address = shoot.location.fullAddress
         if (!address) return null
@@ -2540,14 +3464,14 @@ const ShootHistory: React.FC = () => {
         if (!coords) return null
         return {
           id: shoot.id,
-          title: shoot.client.name,
+          title: shouldHideClientDetails ? address : shoot.client.name,
           subtitle: `${formatDisplayDatePref(shoot.scheduledDate)}${shoot.time ? ` · ${formatTime(shoot.time)}` : ''}`,
           address,
           coords,
         }
       })
       .filter(Boolean) as MapMarker[]
-  }, [viewMode, operationalData, geoCache])
+  }, [filteredOperationalData, geoCache, shouldHideClientDetails])
 
   const historyMarkers: MapMarker[] = useMemo(() => {
     if (activeTab !== 'history' || historyFilters.viewAs !== 'map' || historyFilters.groupBy === 'services') {
@@ -2562,14 +3486,14 @@ const ShootHistory: React.FC = () => {
         if (!coords) return null
         return {
           id: String(record.id),
-          title: record.client?.name ?? 'Unknown Client',
+          title: shouldHideClientDetails ? address : (record.client?.name ?? 'Unknown Client'),
           subtitle: `${formatDisplayDatePref(record.scheduledDate)}${record.completedDate ? ` · Completed ${formatDisplayDatePref(record.completedDate)}` : ''}`,
           address,
           coords,
         }
       })
       .filter(Boolean) as MapMarker[]
-  }, [activeTab, historyFilters.viewAs, historyFilters.groupBy, historyRecords, geoCache])
+  }, [activeTab, historyFilters.viewAs, historyFilters.groupBy, historyRecords, geoCache, shouldHideClientDetails])
 
   const mapAddresses = useMemo(() => {
     if (activeTab === 'history') {
@@ -2580,10 +3504,10 @@ const ShootHistory: React.FC = () => {
     }
 
     if (viewMode !== 'map') return []
-    return operationalData
+    return filteredOperationalData
       .map((shoot) => shoot.location.fullAddress)
       .filter((addr): addr is string => Boolean(addr))
-  }, [activeTab, historyFilters.viewAs, historyFilters.groupBy, historyRecords, viewMode, operationalData])
+  }, [activeTab, historyFilters.viewAs, historyFilters.groupBy, historyRecords, viewMode, filteredOperationalData])
 
   useEffect(() => {
     if (!mapAddresses.length) return
@@ -2630,13 +3554,39 @@ const ShootHistory: React.FC = () => {
 
   const handleHistoryPageChange = (direction: 'prev' | 'next') => {
     if (!historyMeta) return
-    if (direction === 'prev' && historyMeta.current_page > 1) {
-      setHistoryPage(historyMeta.current_page - 1)
+    const currentPage = historyPage // Use state directly instead of metadata
+    let newPage = currentPage
+    if (direction === 'prev' && currentPage > 1) {
+      newPage = currentPage - 1
     } else if (direction === 'next') {
       const totalPages = Math.ceil(historyMeta.total / historyMeta.per_page)
-      if (historyMeta.current_page < totalPages) {
-        setHistoryPage(historyMeta.current_page + 1)
+      if (currentPage < totalPages) {
+        newPage = currentPage + 1
       }
+    }
+    
+    if (newPage !== currentPage) {
+      setHistoryPage(newPage)
+      // Fetch will be triggered by useEffect when historyPage changes
+    }
+  }
+
+  const handleOperationalPageChange = (direction: 'prev' | 'next') => {
+    if (!operationalMeta) return
+    const currentPage = operationalPage // Use state directly instead of metadata
+    let newPage = currentPage
+    if (direction === 'prev' && currentPage > 1) {
+      newPage = currentPage - 1
+    } else if (direction === 'next') {
+      const totalPages = Math.ceil(operationalMeta.total / operationalMeta.per_page)
+      if (currentPage < totalPages) {
+        newPage = currentPage + 1
+      }
+    }
+    
+    if (newPage !== currentPage) {
+      setOperationalPage(newPage)
+      // Fetch will be triggered by useEffect when operationalPage changes
     }
   }
 
@@ -2644,9 +3594,10 @@ const ShootHistory: React.FC = () => {
     const params: Record<string, unknown> = {
       group_by: historyFilters.groupBy,
       page: historyPage,
+      per_page: 9,
     }
     if (historyFilters.search) params.search = historyFilters.search
-    if (historyFilters.clientId) params.client_id = historyFilters.clientId
+    if (!shouldHideClientDetails && historyFilters.clientId) params.client_id = historyFilters.clientId
     if (historyFilters.photographerId) params.photographer_id = historyFilters.photographerId
     if (historyFilters.services.length) params.services = historyFilters.services
     if (historyFilters.dateRange) {
@@ -2692,16 +3643,23 @@ const ShootHistory: React.FC = () => {
         toast({ title: 'Nothing to copy', description: 'Run a history search first.' })
         return
       }
-      const headers = isSuperAdmin 
-        ? ['Scheduled Date', 'Completed Date', 'Client', 'Address', 'Total Paid']
-        : ['Scheduled Date', 'Completed Date', 'Client', 'Address']
+      const includeClientDetails = !shouldHideClientDetails
+      const headers = isSuperAdmin
+        ? includeClientDetails
+          ? ['Scheduled Date', 'Completed Date', 'Client', 'Address', 'Total Paid']
+          : ['Scheduled Date', 'Completed Date', 'Address', 'Total Paid']
+        : includeClientDetails
+          ? ['Scheduled Date', 'Completed Date', 'Client', 'Address']
+          : ['Scheduled Date', 'Completed Date', 'Address']
       const rows = historyRecords.map((record) => {
         const baseRow = [
           formatDisplayDatePref(record.scheduledDate),
           formatDisplayDatePref(record.completedDate),
-          record.client?.name ?? '—',
-          record.address?.full ?? '—',
         ]
+        if (includeClientDetails) {
+          baseRow.push(record.client?.name ?? '—')
+        }
+        baseRow.push(record.address?.full ?? '—')
         if (isSuperAdmin) {
           baseRow.push(formatCurrency(record.financials?.totalPaid ?? 0))
         }
@@ -2719,19 +3677,36 @@ const ShootHistory: React.FC = () => {
   const handleDownloadShoot = useCallback(async (shoot: ShootData, type: 'full' | 'web') => {
     try {
       toast({ title: 'Preparing download...', description: `Generating ${type === 'full' ? 'full size' : 'web size'} archive.` })
+      
+      // First try to get the download URL (JSON response)
       const response = await apiClient.get(`/shoots/${shoot.id}/media/download-zip`, {
         params: { type: type === 'full' ? 'raw' : 'edited' },
-        responseType: 'blob',
       })
-      const url = window.URL.createObjectURL(new Blob([response.data]))
-      const link = document.createElement('a')
-      link.href = url
-      link.setAttribute('download', `${shoot.location.address.replace(/[^a-zA-Z0-9]/g, '_')}_${type}.zip`)
-      document.body.appendChild(link)
-      link.click()
-      link.parentNode?.removeChild(link)
-      window.URL.revokeObjectURL(url)
-      toast({ title: 'Download started', description: 'Your download should begin shortly.' })
+      
+      // Check if backend returned a redirect URL
+      if (response.data?.type === 'redirect' && response.data?.url) {
+        // Open the Dropbox download link in new tab
+        window.open(response.data.url, '_blank')
+        toast({ title: 'Download started', description: 'Your download should begin shortly.' })
+        return
+      }
+      
+      // If backend returned a blob directly (fallback case)
+      if (response.data instanceof Blob) {
+        const url = window.URL.createObjectURL(response.data)
+        const link = document.createElement('a')
+        link.href = url
+        link.setAttribute('download', `${shoot.location.address.replace(/[^a-zA-Z0-9]/g, '_')}_${type}.zip`)
+        document.body.appendChild(link)
+        link.click()
+        link.parentNode?.removeChild(link)
+        window.URL.revokeObjectURL(url)
+        toast({ title: 'Download started', description: 'Your download should begin shortly.' })
+        return
+      }
+      
+      // If we get here, something unexpected happened
+      toast({ title: 'Download failed', description: 'Unexpected response from server.', variant: 'destructive' })
     } catch (error) {
       console.error('Download error:', error)
       toast({ title: 'Download failed', description: 'Please try again.', variant: 'destructive' })
@@ -2750,20 +3725,39 @@ const ShootHistory: React.FC = () => {
       )
     }
 
-    if (!operationalData.length) {
+    if (!filteredOperationalData.length) {
+      // Determine the message based on sub-tab
+      let message = 'No scheduled shoots found'
+      let description = 'Try adjusting your filters or book a new shoot.'
+      
+      if (scheduledSubTab === 'requested') {
+        message = 'No requested shoots'
+        description = 'Shoots awaiting approval will appear here.'
+      } else if (scheduledSubTab === 'scheduled') {
+        message = 'No scheduled shoots'
+        description = 'Approved and scheduled shoots will appear here.'
+      }
+      
       return (
-        <div className="rounded-xl border border-dashed p-10 text-center text-muted-foreground">
-          <CalendarIcon className="h-10 w-10 mx-auto mb-3 opacity-50" />
-          <p className="font-medium">No scheduled shoots found</p>
-          <p className="text-sm">Try adjusting your filters or book a new shoot.</p>
+        <div className="rounded-xl border border-dashed p-16 text-center text-muted-foreground min-h-[300px] flex flex-col items-center justify-center">
+          <CalendarIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
+          <p className="font-medium text-lg">{message}</p>
+          <p className="text-sm mt-1">{description}</p>
         </div>
       )
     }
 
+    // Apply client-side pagination - always show 9 items per page
+    const perPage = 9
+    const currentPage = operationalMeta?.current_page ?? 1
+    const startIndex = (currentPage - 1) * perPage
+    const endIndex = startIndex + perPage
+    const paginatedData = filteredOperationalData.slice(startIndex, endIndex)
+
     if (viewMode === 'grid') {
       return (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {operationalData.map((shoot) => (
+          {paginatedData.map((shoot) => (
             <SharedShootCard
               key={shoot.id}
               shoot={shoot}
@@ -2771,6 +3765,11 @@ const ShootHistory: React.FC = () => {
               onSelect={handleShootSelect}
               onPrimaryAction={(action) => handlePrimaryAction(action, shoot)}
               onOpenWorkflow={(selected) => navigate(`/shoots/${selected.id}#workflow`)}
+              onApprove={(s) => setApprovalModalShoot(s)}
+              onDecline={(s) => setDeclineModalShoot(s)}
+              onModify={(s) => setEditModalShoot(s)}
+              onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
+              onViewInvoice={canViewInvoice ? handleViewInvoice : undefined}
             />
           ))}
         </div>
@@ -2783,19 +3782,38 @@ const ShootHistory: React.FC = () => {
 
     return (
       <div className="space-y-3">
-        {operationalData.map((shoot) => (
-          <ScheduledShootListRow key={shoot.id} shoot={shoot} onSelect={handleShootSelect} isSuperAdmin={isSuperAdmin} />
+        {paginatedData.map((shoot) => (
+          <ScheduledShootListRow 
+            key={shoot.id} 
+            shoot={shoot} 
+            onSelect={handleShootSelect} 
+            isSuperAdmin={isSuperAdmin}
+            isAdmin={isAdmin}
+            onViewInvoice={canViewInvoice ? handleViewInvoice : undefined}
+            onApprove={(s) => setApprovalModalShoot(s)}
+            onDecline={(s) => setDeclineModalShoot(s)}
+            onModify={(s) => setEditModalShoot(s)}
+            shouldHideClientDetails={shouldHideClientDetails}
+          />
         ))}
       </div>
     )
-  }, [loading, activeTab, operationalData, viewMode, role, operationalMarkers, handleShootSelect, handlePrimaryAction, navigate, isSuperAdmin])
+  }, [loading, activeTab, filteredOperationalData, operationalMeta, viewMode, role, operationalMarkers, handleShootSelect, handlePrimaryAction, navigate, isSuperAdmin, scheduledSubTab, isAdmin, canViewInvoice, handleViewInvoice, shouldHideClientDetails])
 
-  // Completed shoots content
+    // Completed shoots content
   const completedContent = useMemo(() => {
+    const isEditedTab = activeTab === 'edited'
     const isDeliveredTab = activeTab === 'delivered'
-    const label = isDeliveredTab ? 'delivered' : 'completed'
-
-    if (loading && (activeTab === 'completed' || activeTab === 'delivered')) {
+    const isEditingTab = activeTab === 'editing'
+    const label = isDeliveredTab
+      ? 'delivered'
+      : isEditedTab
+        ? 'edited'
+        : isEditingTab
+          ? 'editing'
+          : 'completed'
+    
+    if (loading && (activeTab === 'completed' || activeTab === 'delivered' || activeTab === 'editing' || activeTab === 'edited')) {
       return (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {[1, 2, 3, 4, 5, 6].map((item) => (
@@ -2805,28 +3823,65 @@ const ShootHistory: React.FC = () => {
       )
     }
 
-    if (!operationalData.length) {
+    if (!filteredOperationalData.length) {
+      // Determine the message based on tab and sub-tab
+      let message = `No ${label} shoots found`
+      let description = isDeliveredTab ? 'Delivered shoots will appear here once they are sent.' : 'Completed shoots will appear here once they are finished.'
+      
+      if (activeTab === 'editing') {
+        message = 'No editing shoots'
+        description = 'Shoots currently being edited will appear here.'
+      } else if (activeTab === 'edited') {
+        message = 'No edited shoots'
+        description = 'Finalised shoots will appear here once delivered.'
+      } else if (activeTab === 'completed') {
+        if (inProgressSubTab === 'uploaded') {
+          message = 'No uploaded shoots'
+          description = 'Shoots with uploaded photos will appear here.'
+        } else if (inProgressSubTab === 'editing') {
+          message = 'No editing shoots'
+          description = 'Shoots currently being edited will appear here.'
+        }
+      } else if (activeTab === 'delivered') {
+        if (deliveredSubTab === 'delivered') {
+          message = 'No delivered shoots'
+          description = 'Shoots that have been delivered will appear here.'
+        } else if (deliveredSubTab === 'ready') {
+          message = 'No ready shoots'
+          description = 'Shoots ready for client will appear here.'
+        }
+      }
+      
       return (
-        <div className="rounded-xl border border-dashed p-10 text-center text-muted-foreground">
-          <CheckCircle2 className="h-10 w-10 mx-auto mb-3 opacity-50" />
-          <p className="font-medium">No {label} shoots found</p>
-          <p className="text-sm">
-            {isDeliveredTab ? 'Delivered shoots will appear here once they are sent.' : 'Completed shoots will appear here once they are finished.'}
-          </p>
+        <div className="rounded-xl border border-dashed p-16 text-center text-muted-foreground min-h-[300px] flex flex-col items-center justify-center">
+          <CheckCircle2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
+          <p className="font-medium text-lg">{message}</p>
+          <p className="text-sm mt-1">{description}</p>
         </div>
       )
     }
 
+    // Apply client-side pagination - always show 9 items per page
+    const perPage = 9
+    const currentPage = operationalMeta?.current_page ?? 1
+    const startIndex = (currentPage - 1) * perPage
+    const endIndex = startIndex + perPage
+    const displayData = filteredOperationalData.slice(startIndex, endIndex)
+
     if (viewMode === 'grid') {
       return (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {operationalData.map((shoot) => (
+          {displayData.map((shoot) => (
             <CompletedAlbumCard
               key={shoot.id}
               shoot={shoot}
               onSelect={handleShootSelect}
               onDownload={handleDownloadShoot}
               isSuperAdmin={isSuperAdmin}
+              isAdmin={isAdmin}
+              onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
+              onViewInvoice={canViewInvoice ? handleViewInvoice : undefined}
+              shouldHideClientDetails={shouldHideClientDetails}
             />
           ))}
         </div>
@@ -2839,18 +3894,22 @@ const ShootHistory: React.FC = () => {
 
     return (
       <div className="space-y-3">
-        {operationalData.map((shoot) => (
+        {displayData.map((shoot) => (
           <CompletedShootListRow
             key={shoot.id}
             shoot={shoot}
             onSelect={handleShootSelect}
             onDownload={handleDownloadShoot}
             isSuperAdmin={isSuperAdmin}
+            isAdmin={isAdmin}
+            onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
+            onViewInvoice={canViewInvoice ? handleViewInvoice : undefined}
+            shouldHideClientDetails={shouldHideClientDetails}
           />
         ))}
       </div>
     )
-  }, [loading, activeTab, operationalData, viewMode, operationalMarkers, handleShootSelect, handleDownloadShoot, isSuperAdmin])
+  }, [loading, activeTab, filteredOperationalData, operationalMeta, viewMode, operationalMarkers, handleShootSelect, handleDownloadShoot, isSuperAdmin, isAdmin, handleDeleteShoot, handleViewInvoice, inProgressSubTab, deliveredSubTab, canViewInvoice, shouldHideClientDetails])
 
   // Hold-on shoots content
   const holdOnContent = useMemo(() => {
@@ -2864,12 +3923,31 @@ const ShootHistory: React.FC = () => {
       )
     }
 
-    if (!operationalData.length) {
+    // Apply client-side pagination - always show 9 items per page
+    const perPage = 9
+    const currentPage = operationalMeta?.current_page ?? 1
+    const startIndex = (currentPage - 1) * perPage
+    const endIndex = startIndex + perPage
+    const paginatedData = filteredOperationalData.slice(startIndex, endIndex)
+
+    if (!filteredOperationalData.length) {
+      // Determine the message based on sub-tab
+      let message = 'No hold-on shoots'
+      let description = 'Shoots awaiting scheduling or payment will appear here.'
+      
+      if (holdSubTab === 'on_hold') {
+        message = 'No on-hold shoots'
+        description = 'Shoots that are on hold will appear here.'
+      } else if (holdSubTab === 'cancelled') {
+        message = 'No cancelled shoots'
+        description = 'Cancelled shoots will appear here.'
+      }
+      
       return (
-        <div className="rounded-xl border border-dashed p-10 text-center text-muted-foreground">
-          <PauseCircle className="h-10 w-10 mx-auto mb-3 opacity-50" />
-          <p className="font-medium">No hold-on shoots</p>
-          <p className="text-sm">Shoots awaiting scheduling or payment will appear here.</p>
+        <div className="rounded-xl border border-dashed p-16 text-center text-muted-foreground min-h-[300px] flex flex-col items-center justify-center">
+          <PauseCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
+          <p className="font-medium text-lg">{message}</p>
+          <p className="text-sm mt-1">{description}</p>
         </div>
       )
     }
@@ -2877,8 +3955,17 @@ const ShootHistory: React.FC = () => {
     if (viewMode === 'grid') {
       return (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {operationalData.map((shoot) => (
-            <HoldOnShootCard key={shoot.id} shoot={shoot} onSelect={handleShootSelect} />
+          {paginatedData.map((shoot) => (
+            <HoldOnShootCard 
+              key={shoot.id} 
+              shoot={shoot} 
+              onSelect={handleShootSelect}
+              isSuperAdmin={isSuperAdmin}
+              isAdmin={isAdmin}
+              onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
+              onViewInvoice={canViewInvoice ? handleViewInvoice : undefined}
+              shouldHideClientDetails={shouldHideClientDetails}
+            />
           ))}
         </div>
       )
@@ -2890,12 +3977,21 @@ const ShootHistory: React.FC = () => {
 
     return (
       <div className="space-y-3">
-        {operationalData.map((shoot) => (
-          <HoldOnShootCard key={shoot.id} shoot={shoot} onSelect={handleShootSelect} />
+        {paginatedData.map((shoot) => (
+          <HoldOnShootCard 
+            key={shoot.id} 
+            shoot={shoot} 
+            onSelect={handleShootSelect}
+            isSuperAdmin={isSuperAdmin}
+            isAdmin={isAdmin}
+            onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
+            onViewInvoice={canViewInvoice ? handleViewInvoice : undefined}
+            shouldHideClientDetails={shouldHideClientDetails}
+          />
         ))}
       </div>
     )
-  }, [loading, activeTab, operationalData, viewMode, operationalMarkers, handleShootSelect])
+  }, [loading, activeTab, filteredOperationalData, operationalMeta, viewMode, operationalMarkers, handleShootSelect, isSuperAdmin, isAdmin, handleDeleteShoot, handleViewInvoice, canViewInvoice, shouldHideClientDetails])
 
   // Legacy operationalContent for backward compatibility
   const operationalContent = useMemo(() => {
@@ -2953,9 +4049,57 @@ const ShootHistory: React.FC = () => {
       )
     }
 
+    // Backend already paginates, so render the returned page as-is
+    const paginatedRecords = historyRecords
+
+    if (historyFilters.viewAs === 'grid') {
+      return (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {paginatedRecords.map((record) => (
+            <Card key={record.id} className="overflow-hidden border hover:border-primary/40 transition-colors cursor-pointer" onClick={() => handleHistoryRecordSelect(record)}>
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="space-y-1">
+                    <CardTitle className="text-lg">
+                      {shouldHideClientDetails ? 'Shoot' : (record.client?.name ?? 'Unknown Client')}
+                    </CardTitle>
+                    <CardDescription>
+                      {record.address?.full || 'No address'}
+                    </CardDescription>
+                  </div>
+                  <Badge variant="outline" className="capitalize">
+                    {record.status}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                <div className="flex items-center gap-2">
+                  <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                  <span>{formatDisplayDatePref(record.scheduledDate)}</span>
+                </div>
+                {record.completedDate && (
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+                    <span>Completed: {formatDisplayDatePref(record.completedDate)}</span>
+                  </div>
+                )}
+                {isSuperAdmin && record.financials && (
+                  <div className="flex items-center justify-between pt-2 border-t">
+                    <span className="text-muted-foreground">Total:</span>
+                    <span className="font-semibold">{formatCurrency(record.financials.totalQuote)}</span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )
+    }
+
+    // List view (default)
     return (
       <div className="space-y-4">
-        {historyRecords.map((record) => (
+        {paginatedRecords.map((record) => (
           <HistoryRow 
             key={record.id} 
             record={record} 
@@ -2963,37 +4107,88 @@ const ShootHistory: React.FC = () => {
             onPublishMls={handlePublishMls}
             isBusy={detailLoading}
             isSuperAdmin={isSuperAdmin}
+            isAdmin={isAdmin}
+            onDelete={isAdmin || isSuperAdmin ? handleDeleteHistoryRecord : undefined}
+            onViewInvoice={canViewInvoice ? handleViewInvoice : undefined}
+            shouldHideClientDetails={shouldHideClientDetails}
           />
         ))}
       </div>
     )
-  }, [canViewHistory, loading, activeTab, historyFilters, historyAggregates, historyRecords, historyMarkers, handleHistoryRecordSelect, handlePublishMls, detailLoading, isSuperAdmin])
+  }, [canViewHistory, loading, activeTab, historyFilters, historyAggregates, historyRecords, historyMarkers, historyMeta, handleHistoryRecordSelect, handlePublishMls, detailLoading, isSuperAdmin, isAdmin, handleDeleteHistoryRecord, handleViewInvoice, canViewInvoice, shouldHideClientDetails])
 
   const operationalServicesSelected = operationalFilters.services.length > 0
   const historyServicesSelected = historyFilters.services.length > 0
 
-  // Auto-expanding tabs configuration
+  // Auto-expanding tabs configuration with counts
   const tabsConfig: AutoExpandingTab[] = useMemo(() => {
+    const statusKey = (shoot: ShootData) => (shoot.workflowStatus || shoot.status || '').toLowerCase()
+    const matchesTab = (shoot: ShootData, tab: ActiveOperationalTab) =>
+      (STATUS_FILTERS_BY_TAB[tab] ?? []).some((allowed) => statusKey(shoot).includes(allowed))
+
+    // Count shoots by status
+    const scheduledCount = operationalData.filter((shoot) => matchesTab(shoot, 'scheduled')).length
+    const completedCount = operationalData.filter((shoot) => matchesTab(shoot, 'completed')).length
+    const deliveredCount = operationalData.filter((shoot) => matchesTab(shoot, 'delivered')).length
+    const holdCount = operationalData.filter((shoot) => matchesTab(shoot, 'hold')).length
+    const editingCount = operationalData.filter((shoot) => matchesTab(shoot, 'editing')).length
+    const editedCount = operationalData.filter((shoot) => matchesTab(shoot, 'edited')).length
+
+    if (isEditor) {
+      const editorTabs: AutoExpandingTab[] = [
+        {
+          value: 'editing',
+          icon: Image,
+          label: 'Editing',
+          badge: editingCount > 0 ? editingCount : undefined,
+        },
+        {
+          value: 'edited',
+          icon: CheckCircle2,
+          label: 'Edited',
+          badge: editedCount > 0 ? editedCount : undefined,
+        },
+      ]
+
+      if (canViewHistory) {
+        editorTabs.push({
+          value: 'history',
+          icon: Clock,
+          label: 'History',
+          badge: historyMeta?.total ? historyMeta.total : undefined,
+        })
+      }
+
+      return editorTabs
+    }
+
+    // Hide In-Progress tab for client and editor roles
+    const canViewInProgress = !['client', 'editor'].includes(role || '')
+
     const baseTabs: AutoExpandingTab[] = [
       {
         value: 'scheduled',
         icon: CalendarIcon,
-        label: 'Scheduled Shoots',
+        label: 'Scheduled',
+        badge: scheduledCount > 0 ? scheduledCount : undefined,
       },
-      {
-        value: 'completed',
-        icon: Camera,
-        label: 'Completed Shoots',
-      },
+      ...(canViewInProgress ? [{
+        value: 'completed' as const,
+        icon: Loader2,
+        label: 'In-Progress',
+        badge: completedCount > 0 ? completedCount : undefined,
+      }] : []),
       {
         value: 'delivered',
         icon: CheckCircle2,
-        label: 'Delivered Shoots',
+        label: 'Delivered',
+        badge: deliveredCount > 0 ? deliveredCount : undefined,
       },
       {
         value: 'hold',
         icon: PauseCircle,
-        label: 'On-Hold Shoots',
+        label: 'On-Hold',
+        badge: holdCount > 0 ? holdCount : undefined,
       },
     ]
     
@@ -3003,11 +4198,12 @@ const ShootHistory: React.FC = () => {
         value: 'history',
         icon: Clock,
         label: 'History',
+        badge: historyMeta?.total ? historyMeta.total : undefined,
       })
     }
 
     // Add linked view tab if user can view linked accounts AND has linked accounts
-    if (canViewLinkedAccounts && hasLinkedAccounts) {
+    if (canViewLinkedAccounts) {
       baseTabs.push({
         value: 'linked',
         icon: Link2,
@@ -3016,7 +4212,7 @@ const ShootHistory: React.FC = () => {
     }
 
     return baseTabs
-  }, [canViewHistory, canViewLinkedAccounts, hasLinkedAccounts])
+  }, [canViewHistory, canViewLinkedAccounts, operationalData, historyMeta, role, isEditor])
 
   return (
     <>
@@ -3031,68 +4227,252 @@ const ShootHistory: React.FC = () => {
               </p>
             </div>
             <div className="flex items-center gap-2 md:justify-end">
-              {isSuperAdmin && (activeTab === 'scheduled' || activeTab === 'completed') && (
+              {(isSuperAdmin || isAdmin) && (
                 <Button
-                  onClick={() => setIsPayMultipleOpen(true)}
+                  onClick={() => setIsBulkActionsOpen(true)}
                   variant="outline"
                   className="gap-2"
                 >
-                  <DollarSign className="h-4 w-4" />
-                  Pay Multiple Shoots
+                  <Layers className="h-4 w-4" />
+                  Bulk Actions
                 </Button>
               )}
             </div>
           </div>
 
-        {/* Tab bar - matches spec 1 */}
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as AvailableTab)} className="space-y-6">
-          <AutoExpandingTabsList 
-            tabs={tabsConfig} 
-            value={activeTab}
-            className="mb-6"
-          />
-
-          <TabsContent value="scheduled" className="space-y-6">
-            {/* View controls bar */}
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <p className="text-sm font-medium text-muted-foreground">
-                  {operationalData.length} scheduled shoot{operationalData.length !== 1 ? 's' : ''}
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <ToggleGroup type="single" value={viewMode} onValueChange={(value) => value && setViewMode(value as typeof viewMode)}>
-                  <ToggleGroupItem value="grid" aria-label="Grid view">
-                    <Grid3X3 className="h-4 w-4" />
-                  </ToggleGroupItem>
-                  <ToggleGroupItem value="list" aria-label="List view">
-                    <List className="h-4 w-4" />
-                  </ToggleGroupItem>
-                  <ToggleGroupItem value="map" aria-label="Map view">
-                    <Map className="h-4 w-4" />
-                  </ToggleGroupItem>
-                </ToggleGroup>
-                <Button variant="ghost" size="icon" onClick={fetchOperationalData} title="Refresh">
-                  <RefreshCw className="h-4 w-4" />
-                </Button>
-              </div>
+        {/* Tab bar with view controls */}
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as AvailableTab)} className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <AutoExpandingTabsList 
+                tabs={tabsConfig} 
+                value={activeTab}
+              />
+              {/* Pin button for current tab */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => togglePinTab(activeTab)}
+                title={pinnedTabs.has(activeTab) ? 'Unpin tab' : 'Pin tab'}
+              >
+                <Pin className={`h-4 w-4 ${pinnedTabs.has(activeTab) ? 'fill-current' : ''}`} />
+              </Button>
             </div>
+            <div className="flex items-center gap-2">
+              <ToggleGroup 
+                type="single" 
+                value={activeTab === 'history' ? historyFilters.viewAs : viewMode} 
+                onValueChange={(value) => {
+                  if (!value) return
+                  if (activeTab === 'history') {
+                    setHistoryFilters(prev => ({ ...prev, viewAs: value as 'grid' | 'list' | 'map' }))
+                  } else {
+                    setViewMode(value as typeof viewMode)
+                  }
+                }}
+              >
+                <ToggleGroupItem value="grid" aria-label="Grid view">
+                  <Grid3X3 className="h-4 w-4" />
+                </ToggleGroupItem>
+                <ToggleGroupItem value="list" aria-label="List view">
+                  <List className="h-4 w-4" />
+                </ToggleGroupItem>
+                <ToggleGroupItem value="map" aria-label="Map view">
+                  <MapIcon className="h-4 w-4" />
+                </ToggleGroupItem>
+              </ToggleGroup>
+              {activeTab !== 'history' && (
+                <Collapsible open={operationalFiltersOpen} onOpenChange={setOperationalFiltersOpen}>
+                  <CollapsibleTrigger asChild>
+                    <Button
+                      variant={operationalFiltersOpen ? 'outline' : 'ghost'}
+                      size={operationalFiltersOpen ? 'sm' : 'icon'}
+                      className={operationalFiltersOpen ? 'gap-2' : 'h-8 w-8'}
+                      title={operationalFiltersOpen ? 'Hide filters' : 'Show filters'}
+                    >
+                      <Filter className="h-4 w-4" />
+                      {operationalFiltersOpen && <span>Hide filters</span>}
+                    </Button>
+                  </CollapsibleTrigger>
+                </Collapsible>
+              )}
+              <Button variant="ghost" size="icon" onClick={fetchOperationalData} title="Refresh">
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
 
-            <Collapsible open={operationalFiltersOpen} onOpenChange={setOperationalFiltersOpen} className="rounded-2xl border bg-card p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Filters</p>
-                  <p className="text-sm text-muted-foreground">Combine search, people, services and deliverable filters.</p>
-                </div>
-                <CollapsibleTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    <Filter className="mr-2 h-4 w-4" />
-                    {operationalFiltersOpen ? 'Hide' : 'Show'} filters
-                  </Button>
-                </CollapsibleTrigger>
+          {/* Sub-tabs and Filter button row */}
+          <div className="flex items-center justify-between gap-4 border-b border-border/50 pb-2 -mt-3">
+            {/* Sub-tabs based on active tab */}
+            {activeTab === 'history' ? (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setHistorySubTab('all')}
+                  className={`px-4 py-2 text-sm font-medium transition-colors rounded-md ${
+                    historySubTab === 'all'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  }`}
+                >
+                  All Shoots
+                </button>
+                <button
+                  onClick={() => setHistorySubTab('mls-queue')}
+                  className={`px-4 py-2 text-sm font-medium transition-colors rounded-md ${
+                    historySubTab === 'mls-queue'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  }`}
+                >
+                  MLS Queue
+                </button>
               </div>
-              <CollapsibleContent className="mt-4 space-y-4">
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            ) : activeTab === 'completed' ? (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setInProgressSubTab('all')}
+                  className={`px-4 py-2 text-sm font-medium transition-colors rounded-md ${
+                    inProgressSubTab === 'all'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  }`}
+                >
+                  All
+                </button>
+                <button
+                  onClick={() => setInProgressSubTab('uploaded')}
+                  className={`px-4 py-2 text-sm font-medium transition-colors rounded-md ${
+                    inProgressSubTab === 'uploaded'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  }`}
+                >
+                  Uploaded
+                </button>
+                <button
+                  onClick={() => setInProgressSubTab('editing')}
+                  className={`px-4 py-2 text-sm font-medium transition-colors rounded-md ${
+                    inProgressSubTab === 'editing'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  }`}
+                >
+                  Editing
+                </button>
+              </div>
+            ) : activeTab === 'delivered' && !hideDeliveredSubTabs ? (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setDeliveredSubTab('all')}
+                  className={`px-4 py-2 text-sm font-medium transition-colors rounded-md ${
+                    deliveredSubTab === 'all'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  }`}
+                >
+                  All
+                </button>
+                <button
+                  onClick={() => setDeliveredSubTab('delivered')}
+                  className={`px-4 py-2 text-sm font-medium transition-colors rounded-md ${
+                    deliveredSubTab === 'delivered'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  }`}
+                >
+                  Delivered
+                </button>
+                <button
+                  onClick={() => setDeliveredSubTab('ready')}
+                  className={`px-4 py-2 text-sm font-medium transition-colors rounded-md ${
+                    deliveredSubTab === 'ready'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  }`}
+                >
+                  Ready
+                </button>
+              </div>
+            ) : activeTab === 'hold' ? (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setHoldSubTab('all')}
+                  className={`px-4 py-2 text-sm font-medium transition-colors rounded-md ${
+                    holdSubTab === 'all'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  }`}
+                >
+                  All
+                </button>
+                <button
+                  onClick={() => setHoldSubTab('on_hold')}
+                  className={`px-4 py-2 text-sm font-medium transition-colors rounded-md ${
+                    holdSubTab === 'on_hold'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  }`}
+                >
+                  On Hold
+                </button>
+                <button
+                  onClick={() => setHoldSubTab('cancelled')}
+                  className={`px-4 py-2 text-sm font-medium transition-colors rounded-md ${
+                    holdSubTab === 'cancelled'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  }`}
+                >
+                  Cancelled
+                </button>
+              </div>
+            ) : activeTab === 'scheduled' ? (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setScheduledSubTab('all')}
+                  className={`px-4 py-2 text-sm font-medium transition-colors rounded-md ${
+                    scheduledSubTab === 'all'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  }`}
+                >
+                  All
+                </button>
+                <button
+                  onClick={() => setScheduledSubTab('requested')}
+                  className={`px-4 py-2 text-sm font-medium transition-colors rounded-md ${
+                    scheduledSubTab === 'requested'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  }`}
+                >
+                  Requested
+                </button>
+                <button
+                  onClick={() => setScheduledSubTab('scheduled')}
+                  className={`px-4 py-2 text-sm font-medium transition-colors rounded-md ${
+                    scheduledSubTab === 'scheduled'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  }`}
+                >
+                  Scheduled
+                </button>
+              </div>
+            ) : (
+              <div></div>
+            )}
+            
+          </div>
+
+          {/* Filter content - expands below */}
+          <Collapsible open={operationalFiltersOpen} onOpenChange={setOperationalFiltersOpen}>
+            <CollapsibleContent>
+              <div className="rounded-2xl border bg-card p-4 mt-2">
+                <div className="space-y-4">
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                   <div className="space-y-2">
                     <span className="text-sm font-medium text-muted-foreground">Search</span>
                     <Input
@@ -3112,7 +4492,9 @@ const ShootHistory: React.FC = () => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All clients</SelectItem>
-                        {operationalOptions.clients.map((client) => (
+                        {operationalOptions.clients
+                          .filter((client) => client.id || client.name)
+                          .map((client) => (
                           <SelectItem key={client.id ?? client.name ?? ''} value={String(client.id ?? client.name ?? '')}>
                             {client.name ?? 'Unknown'}
                           </SelectItem>
@@ -3131,7 +4513,9 @@ const ShootHistory: React.FC = () => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All photographers</SelectItem>
-                        {operationalOptions.photographers.map((photographer) => (
+                        {operationalOptions.photographers
+                          .filter((photographer) => photographer.id || photographer.name)
+                          .map((photographer) => (
                           <SelectItem key={photographer.id ?? photographer.name ?? ''} value={String(photographer.id ?? photographer.name ?? '')}>
                             {photographer.name ?? 'Unknown'}
                           </SelectItem>
@@ -3192,517 +4576,216 @@ const ShootHistory: React.FC = () => {
                 </div>
                   )}
                 </div>
-                {(operationalServicesSelected || operationalFilters.search || operationalFilters.clientId || operationalFilters.photographerId || operationalFilters.address || operationalFilters.dateRange !== 'all') && (
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Filters applied.</span>
-                    <Button variant="ghost" size="sm" onClick={resetOperationalFilters}>
-                      Clear filters
-                    </Button>
-                  </div>
-                )}
-              </CollapsibleContent>
-            </Collapsible>
+                  {(operationalServicesSelected || operationalFilters.search || operationalFilters.clientId || operationalFilters.photographerId || operationalFilters.address || operationalFilters.dateRange !== 'all') && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Filters applied.</span>
+                      <Button variant="ghost" size="sm" onClick={resetOperationalFilters}>
+                        Clear filters
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
 
+          <TabsContent value="scheduled" className="space-y-6">
             {scheduledContent}
+
+            {filteredOperationalData.length > 9 && activeTab === 'scheduled' && (
+              <div className="flex items-center justify-between rounded-xl border bg-card p-4 text-sm">
+                <div>
+                  Page {Math.floor((operationalMeta?.current_page ?? 1) - 1) + 1} of {Math.ceil(filteredOperationalData.length / 9)} · {filteredOperationalData.length} records
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleOperationalPageChange('prev')}
+                    disabled={(operationalMeta?.current_page ?? 1) === 1}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleOperationalPageChange('next')}
+                    disabled={(operationalMeta?.current_page ?? 1) >= Math.ceil(filteredOperationalData.length / 9)}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="editing" className="space-y-6">
+            {completedContent}
+
+            {filteredOperationalData.length > 9 && activeTab === 'editing' && (
+              <div className="flex items-center justify-between rounded-xl border bg-card p-4 text-sm">
+                <div>
+                  Page {Math.floor((operationalMeta?.current_page ?? 1) - 1) + 1} of {Math.ceil(filteredOperationalData.length / 9)} · {filteredOperationalData.length} records
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleOperationalPageChange('prev')}
+                    disabled={(operationalMeta?.current_page ?? 1) === 1}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleOperationalPageChange('next')}
+                    disabled={(operationalMeta?.current_page ?? 1) >= Math.ceil(filteredOperationalData.length / 9)}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="edited" className="space-y-6">
+            {completedContent}
+
+            {filteredOperationalData.length > 9 && activeTab === 'edited' && (
+              <div className="flex items-center justify-between rounded-xl border bg-card p-4 text-sm">
+                <div>
+                  Page {Math.floor((operationalMeta?.current_page ?? 1) - 1) + 1} of {Math.ceil(filteredOperationalData.length / 9)} · {filteredOperationalData.length} records
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleOperationalPageChange('prev')}
+                    disabled={(operationalMeta?.current_page ?? 1) === 1}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleOperationalPageChange('next')}
+                    disabled={(operationalMeta?.current_page ?? 1) >= Math.ceil(filteredOperationalData.length / 9)}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
           </TabsContent>
 
           {/* Delivered Shoots Tab */}
           <TabsContent value="delivered" className="space-y-6">
-            {/* View controls bar */}
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <p className="text-sm font-medium text-muted-foreground">
-                  {operationalData.length} delivered album{operationalData.length !== 1 ? 's' : ''}
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <ToggleGroup type="single" value={viewMode} onValueChange={(value) => value && setViewMode(value as typeof viewMode)}>
-                  <ToggleGroupItem value="grid" aria-label="Grid view">
-                    <Grid3X3 className="h-4 w-4" />
-                  </ToggleGroupItem>
-                  <ToggleGroupItem value="list" aria-label="List view">
-                    <List className="h-4 w-4" />
-                  </ToggleGroupItem>
-                  <ToggleGroupItem value="map" aria-label="Map view">
-                    <Map className="h-4 w-4" />
-                  </ToggleGroupItem>
-                </ToggleGroup>
-                <Button variant="ghost" size="icon" onClick={fetchOperationalData} title="Refresh">
-                  <RefreshCw className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-
-            {/* Filters */}
-            <Collapsible open={operationalFiltersOpen} onOpenChange={setOperationalFiltersOpen} className="rounded-2xl border bg-card p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Filters</p>
-                  <p className="text-sm text-muted-foreground">Filter by client, photographer, address, or services.</p>
-                </div>
-                <CollapsibleTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    <Filter className="mr-2 h-4 w-4" />
-                    {operationalFiltersOpen ? 'Hide' : 'Show'} filters
-                  </Button>
-                </CollapsibleTrigger>
-              </div>
-              <CollapsibleContent className="mt-4 space-y-4">
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                  <div className="space-y-2">
-                    <span className="text-sm font-medium text-muted-foreground">Search</span>
-                    <Input
-                      placeholder="Search by address, client, photographer"
-                      value={operationalFilters.search}
-                      onChange={(event) => onOperationalFilterChange('search', event.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <span className="text-sm font-medium text-muted-foreground">Client</span>
-                    <Select
-                      value={operationalFilters.clientId || 'all'}
-                      onValueChange={(value) => onOperationalFilterChange('clientId', value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="All clients" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All clients</SelectItem>
-                        {operationalOptions.clients.map((client) => (
-                          <SelectItem key={client.id ?? client.name ?? ''} value={String(client.id ?? client.name ?? '')}>
-                            {client.name ?? 'Unknown'}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <span className="text-sm font-medium text-muted-foreground">Photographer</span>
-                    <Select
-                      value={operationalFilters.photographerId || 'all'}
-                      onValueChange={(value) => onOperationalFilterChange('photographerId', value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="All photographers" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All photographers</SelectItem>
-                        {operationalOptions.photographers.map((photographer) => (
-                          <SelectItem key={photographer.id ?? photographer.name ?? ''} value={String(photographer.id ?? photographer.name ?? '')}>
-                            {photographer.name ?? 'Unknown'}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <MultiSelectFilter
-                    label="Services"
-                    options={operationalOptions.services}
-                    values={operationalFilters.services}
-                    onChange={(values) => onOperationalFilterChange('services', values)}
-                  />
-                  <div className="space-y-2">
-                    <span className="text-sm font-medium text-muted-foreground">Date range</span>
-                    <Select
-                      value={operationalFilters.dateRange}
-                      onValueChange={(value) => onOperationalFilterChange('dateRange', value as OperationalFiltersState['dateRange'])}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="All dates" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All dates</SelectItem>
-                        <SelectItem value="this_week">This week</SelectItem>
-                        <SelectItem value="this_month">This month</SelectItem>
-                        <SelectItem value="this_quarter">This quarter</SelectItem>
-                        <SelectItem value="custom">Custom</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {operationalFilters.dateRange === 'custom' && (
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <span className="text-sm font-medium text-muted-foreground">Start date</span>
-                        <Input
-                          type="date"
-                          value={operationalFilters.scheduledStart}
-                          onChange={(event) => onOperationalFilterChange('scheduledStart', event.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <span className="text-sm font-medium text-muted-foreground">End date</span>
-                        <Input
-                          type="date"
-                          value={operationalFilters.scheduledEnd}
-                          onChange={(event) => onOperationalFilterChange('scheduledEnd', event.target.value)}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-                {(operationalServicesSelected || operationalFilters.search || operationalFilters.clientId || operationalFilters.photographerId || operationalFilters.address || operationalFilters.dateRange !== 'all') && (
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Filters applied.</span>
-                    <Button variant="ghost" size="sm" onClick={resetOperationalFilters}>
-                      Clear filters
-                    </Button>
-                  </div>
-                )}
-              </CollapsibleContent>
-            </Collapsible>
-
             {completedContent}
+
+            {filteredOperationalData.length > 9 && activeTab === 'delivered' && (
+              <div className="flex items-center justify-between rounded-xl border bg-card p-4 text-sm">
+                <div>
+                  Page {Math.floor((operationalMeta?.current_page ?? 1) - 1) + 1} of {Math.ceil(filteredOperationalData.length / 9)} · {filteredOperationalData.length} records
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleOperationalPageChange('prev')}
+                    disabled={(operationalMeta?.current_page ?? 1) === 1}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleOperationalPageChange('next')}
+                    disabled={(operationalMeta?.current_page ?? 1) >= Math.ceil(filteredOperationalData.length / 9)}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
           </TabsContent>
 
           {/* Completed Shoots Tab - spec 2.2 */}
           <TabsContent value="completed" className="space-y-6">
-            {/* View controls bar */}
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <p className="text-sm font-medium text-muted-foreground">
-                  {operationalData.length} completed album{operationalData.length !== 1 ? 's' : ''}
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <ToggleGroup type="single" value={viewMode} onValueChange={(value) => value && setViewMode(value as typeof viewMode)}>
-                  <ToggleGroupItem value="grid" aria-label="Grid view">
-                    <Grid3X3 className="h-4 w-4" />
-                  </ToggleGroupItem>
-                  <ToggleGroupItem value="list" aria-label="List view">
-                    <List className="h-4 w-4" />
-                  </ToggleGroupItem>
-                  <ToggleGroupItem value="map" aria-label="Map view">
-                    <Map className="h-4 w-4" />
-                  </ToggleGroupItem>
-                </ToggleGroup>
-                <Button variant="ghost" size="icon" onClick={fetchOperationalData} title="Refresh">
-                  <RefreshCw className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-
-            {/* Filters */}
-            <Collapsible open={operationalFiltersOpen} onOpenChange={setOperationalFiltersOpen} className="rounded-2xl border bg-card p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Filters</p>
-                  <p className="text-sm text-muted-foreground">Filter by client, photographer, address, or services.</p>
-                </div>
-                <CollapsibleTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    <Filter className="mr-2 h-4 w-4" />
-                    {operationalFiltersOpen ? 'Hide' : 'Show'} filters
-                  </Button>
-                </CollapsibleTrigger>
-              </div>
-              <CollapsibleContent className="mt-4 space-y-4">
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                  <div className="space-y-2">
-                    <span className="text-sm font-medium text-muted-foreground">Search</span>
-                    <Input
-                      placeholder="Search by address, client, photographer"
-                      value={operationalFilters.search}
-                      onChange={(event) => onOperationalFilterChange('search', event.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <span className="text-sm font-medium text-muted-foreground">Client</span>
-                    <Select
-                      value={operationalFilters.clientId || 'all'}
-                      onValueChange={(value) => onOperationalFilterChange('clientId', value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="All clients" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All clients</SelectItem>
-                        {operationalOptions.clients.map((client) => (
-                          <SelectItem key={client.id ?? client.name ?? ''} value={String(client.id ?? client.name ?? '')}>
-                            {client.name ?? 'Unknown'}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <span className="text-sm font-medium text-muted-foreground">Photographer</span>
-                    <Select
-                      value={operationalFilters.photographerId || 'all'}
-                      onValueChange={(value) => onOperationalFilterChange('photographerId', value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="All photographers" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All photographers</SelectItem>
-                        {operationalOptions.photographers.map((photographer) => (
-                          <SelectItem key={photographer.id ?? photographer.name ?? ''} value={String(photographer.id ?? photographer.name ?? '')}>
-                            {photographer.name ?? 'Unknown'}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <MultiSelectFilter
-                    label="Services"
-                    options={operationalOptions.services}
-                    values={operationalFilters.services}
-                    onChange={(values) => onOperationalFilterChange('services', values)}
-                  />
-                  <div className="space-y-2">
-                    <span className="text-sm font-medium text-muted-foreground">Date range</span>
-                    <Select
-                      value={operationalFilters.dateRange}
-                      onValueChange={(value) => onOperationalFilterChange('dateRange', value as OperationalFiltersState['dateRange'])}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="All dates" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All dates</SelectItem>
-                        <SelectItem value="this_week">This week</SelectItem>
-                        <SelectItem value="this_month">This month</SelectItem>
-                        <SelectItem value="this_quarter">This quarter</SelectItem>
-                        <SelectItem value="custom">Custom</SelectItem>
-                      </SelectContent>
-                    </Select>
-                </div>
-                  {operationalFilters.dateRange === 'custom' && (
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <span className="text-sm font-medium text-muted-foreground">Start date</span>
-                        <Input
-                          type="date"
-                          value={operationalFilters.scheduledStart}
-                          onChange={(event) => onOperationalFilterChange('scheduledStart', event.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <span className="text-sm font-medium text-muted-foreground">End date</span>
-                        <Input
-                          type="date"
-                          value={operationalFilters.scheduledEnd}
-                          onChange={(event) => onOperationalFilterChange('scheduledEnd', event.target.value)}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-                {(operationalServicesSelected || operationalFilters.search || operationalFilters.clientId || operationalFilters.photographerId || operationalFilters.dateRange !== 'all') && (
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Filters applied.</span>
-                    <Button variant="ghost" size="sm" onClick={resetOperationalFilters}>
-                      Clear filters
-                    </Button>
-                  </div>
-                )}
-              </CollapsibleContent>
-            </Collapsible>
-
             {completedContent}
+
+            {filteredOperationalData.length > 9 && activeTab === 'completed' && (
+              <div className="flex items-center justify-between rounded-xl border bg-card p-4 text-sm">
+                <div>
+                  Page {Math.floor((operationalMeta?.current_page ?? 1) - 1) + 1} of {Math.ceil(filteredOperationalData.length / 9)} · {filteredOperationalData.length} records
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleOperationalPageChange('prev')}
+                    disabled={(operationalMeta?.current_page ?? 1) === 1}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleOperationalPageChange('next')}
+                    disabled={(operationalMeta?.current_page ?? 1) >= Math.ceil(filteredOperationalData.length / 9)}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
           </TabsContent>
 
           {/* Hold-On Shoots Tab - spec 2.3 */}
           <TabsContent value="hold" className="space-y-6">
-            {/* View controls bar */}
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <p className="text-sm font-medium text-muted-foreground">
-                  {operationalData.length} hold-on shoot{operationalData.length !== 1 ? 's' : ''}
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <ToggleGroup type="single" value={viewMode} onValueChange={(value) => value && setViewMode(value as typeof viewMode)}>
-                  <ToggleGroupItem value="grid" aria-label="Grid view">
-                    <Grid3X3 className="h-4 w-4" />
-                  </ToggleGroupItem>
-                  <ToggleGroupItem value="list" aria-label="List view">
-                    <List className="h-4 w-4" />
-                  </ToggleGroupItem>
-                </ToggleGroup>
-                <Button variant="ghost" size="icon" onClick={fetchOperationalData} title="Refresh">
-                  <RefreshCw className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-
-            {/* Filters */}
-            <Collapsible open={operationalFiltersOpen} onOpenChange={setOperationalFiltersOpen} className="rounded-2xl border bg-card p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Filters</p>
-                  <p className="text-sm text-muted-foreground">Filter by client, photographer, or address.</p>
-                </div>
-                <CollapsibleTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    <Filter className="mr-2 h-4 w-4" />
-                    {operationalFiltersOpen ? 'Hide' : 'Show'} filters
-                  </Button>
-                </CollapsibleTrigger>
-              </div>
-              <CollapsibleContent className="mt-4 space-y-4">
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  <div className="space-y-2">
-                    <span className="text-sm font-medium text-muted-foreground">Client</span>
-                    <Select
-                      value={operationalFilters.clientId || 'all'}
-                      onValueChange={(value) => onOperationalFilterChange('clientId', value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="All clients" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All clients</SelectItem>
-                        {operationalOptions.clients.map((client) => (
-                          <SelectItem key={client.id ?? client.name ?? ''} value={String(client.id ?? client.name ?? '')}>
-                            {client.name ?? 'Unknown'}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <span className="text-sm font-medium text-muted-foreground">Photographer</span>
-                    <Select
-                      value={operationalFilters.photographerId || 'all'}
-                      onValueChange={(value) => onOperationalFilterChange('photographerId', value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="All photographers" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All photographers</SelectItem>
-                        {operationalOptions.photographers.map((photographer) => (
-                          <SelectItem key={photographer.id ?? photographer.name ?? ''} value={String(photographer.id ?? photographer.name ?? '')}>
-                            {photographer.name ?? 'Unknown'}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <span className="text-sm font-medium text-muted-foreground">Address</span>
-                    <Input
-                      placeholder="Filter by address"
-                      value={operationalFilters.address}
-                      onChange={(event) => onOperationalFilterChange('address', event.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <span className="text-sm font-medium text-muted-foreground">Date range</span>
-                    <Select
-                      value={operationalFilters.dateRange}
-                      onValueChange={(value) => onOperationalFilterChange('dateRange', value as OperationalFiltersState['dateRange'])}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="All dates" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All dates</SelectItem>
-                        <SelectItem value="this_week">This week</SelectItem>
-                        <SelectItem value="this_month">This month</SelectItem>
-                        <SelectItem value="this_quarter">This quarter</SelectItem>
-                        <SelectItem value="custom">Custom</SelectItem>
-                      </SelectContent>
-                    </Select>
-                </div>
-                  {operationalFilters.dateRange === 'custom' && (
-                    <div className="grid grid-cols-2 gap-4 col-span-full">
-                      <div className="space-y-2">
-                        <span className="text-sm font-medium text-muted-foreground">Start date</span>
-                        <Input
-                          type="date"
-                          value={operationalFilters.scheduledStart}
-                          onChange={(event) => onOperationalFilterChange('scheduledStart', event.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <span className="text-sm font-medium text-muted-foreground">End date</span>
-                        <Input
-                          type="date"
-                          value={operationalFilters.scheduledEnd}
-                          onChange={(event) => onOperationalFilterChange('scheduledEnd', event.target.value)}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-                {(operationalFilters.clientId || operationalFilters.photographerId || operationalFilters.address || operationalFilters.dateRange !== 'all') && (
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Filters applied.</span>
-                    <Button variant="ghost" size="sm" onClick={resetOperationalFilters}>
-                      Clear filters
-                    </Button>
-                  </div>
-                )}
-              </CollapsibleContent>
-            </Collapsible>
-
             {holdOnContent}
+
+            {filteredOperationalData.length > 9 && activeTab === 'hold' && (
+              <div className="flex items-center justify-between rounded-xl border bg-card p-4 text-sm">
+                <div>
+                  Page {Math.floor((operationalMeta?.current_page ?? 1) - 1) + 1} of {Math.ceil(filteredOperationalData.length / 9)} · {filteredOperationalData.length} records
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleOperationalPageChange('prev')}
+                    disabled={(operationalMeta?.current_page ?? 1) === 1}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleOperationalPageChange('next')}
+                    disabled={(operationalMeta?.current_page ?? 1) >= Math.ceil(filteredOperationalData.length / 9)}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
           </TabsContent>
 
           {/* History Tab - spec 3 */}
           {canViewHistory && (
             <TabsContent value="history" className="space-y-6">
-              <Tabs defaultValue="all" className="w-full">
-                <div className="flex items-center justify-between mb-4">
-                  <TabsList>
-                    <TabsTrigger value="all">All Shoots</TabsTrigger>
-                    <TabsTrigger value="mls-queue">MLS Queue</TabsTrigger>
-                  </TabsList>
-                </div>
-                
-                <TabsContent value="all" className="space-y-6">
-              {/* View controls bar - spec 3.1, 3.2 */}
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <p className="text-sm font-medium text-muted-foreground">
-                    {historyFilters.groupBy === 'services' 
-                      ? `${historyAggregates.length} service group${historyAggregates.length !== 1 ? 's' : ''}`
-                      : `${historyRecords.length} record${historyRecords.length !== 1 ? 's' : ''}`
-                    }
-                    {historyMeta && historyFilters.groupBy === 'shoot' && ` of ${historyMeta.total}`}
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <ToggleGroup
-                    type="single"
-                    value={historyFilters.viewAs}
-                    onValueChange={(value) => value && onHistoryFilterChange('viewAs', value as HistoryFiltersState['viewAs'])}
-                    disabled={historyFilters.groupBy === 'services'}
-                  >
-                    <ToggleGroupItem value="list" aria-label="List view">
-                      <List className="h-4 w-4" />
-                    </ToggleGroupItem>
-                    <ToggleGroupItem value="map" aria-label="Map view">
-                      <Map className="h-4 w-4" />
-                    </ToggleGroupItem>
-                  </ToggleGroup>
-                  <div className="h-6 w-px bg-border" />
-                  <Button variant="outline" size="sm" onClick={handleCopyHistory}>
-                    <Copy className="mr-2 h-4 w-4" /> Copy rows
-                  </Button>
-                  <Button variant="default" size="sm" onClick={handleExportHistory}>
-                    <Download className="mr-2 h-4 w-4" /> Export CSV
-                  </Button>
-                </div>
-              </div>
-
-              <Collapsible open={historyFiltersOpen} onOpenChange={setHistoryFiltersOpen} className="rounded-2xl border bg-card p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Reporting filters</p>
-                    <p className="text-sm text-muted-foreground">Date ranges, grouping and drill-down controls.</p>
-                  </div>
-                  <CollapsibleTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      <Filter className="mr-2 h-4 w-4" />
-                      {historyFiltersOpen ? 'Hide' : 'Show'} filters
-                    </Button>
-                  </CollapsibleTrigger>
-                </div>
-                <CollapsibleContent className="mt-4 space-y-4">
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <Tabs value={historySubTab} onValueChange={(value) => setHistorySubTab(value as 'all' | 'mls-queue')} className="w-full">
+                {/* Reporting filters - expands below */}
+                <Collapsible open={historyFiltersOpen} onOpenChange={setHistoryFiltersOpen}>
+                  <CollapsibleContent>
+                    <div className="rounded-2xl border bg-card p-4 mt-2">
+                      <div className="space-y-4">
+                        <div>
+                          <p className="font-medium">Reporting filters</p>
+                          <p className="text-sm text-muted-foreground">Date ranges, grouping and drill-down controls.</p>
+                        </div>
+                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     <div className="space-y-2">
                       <span className="text-sm font-medium text-muted-foreground">Search</span>
                       <Input
@@ -3722,7 +4805,9 @@ const ShootHistory: React.FC = () => {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">All clients</SelectItem>
-                          {historyOptions.clients.map((client) => (
+                          {historyOptions.clients
+                            .filter((client) => client.id || client.name)
+                            .map((client) => (
                             <SelectItem key={client.id ?? client.name ?? ''} value={String(client.id ?? client.name ?? '')}>
                               {client.name ?? 'Unknown'}
                             </SelectItem>
@@ -3741,7 +4826,9 @@ const ShootHistory: React.FC = () => {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">All photographers</SelectItem>
-                          {historyOptions.photographers.map((photographer) => (
+                          {historyOptions.photographers
+                            .filter((photographer) => photographer.id || photographer.name)
+                            .map((photographer) => (
                             <SelectItem key={photographer.id ?? photographer.name ?? ''} value={String(photographer.id ?? photographer.name ?? '')}>
                               {photographer.name ?? 'Unknown'}
                             </SelectItem>
@@ -3765,6 +4852,7 @@ const ShootHistory: React.FC = () => {
                           <SelectValue placeholder="Select range" />
                         </SelectTrigger>
                         <SelectContent>
+                          <SelectItem value="all">All time</SelectItem>
                           <SelectItem value="this_quarter">This quarter</SelectItem>
                           <SelectItem value="this_month">This month</SelectItem>
                           <SelectItem value="q1">Q1</SelectItem>
@@ -3828,8 +4916,8 @@ const ShootHistory: React.FC = () => {
                         </SelectContent>
                       </Select>
                     </div>
-                  </div>
-                  {(historyServicesSelected || historyFilters.search || historyFilters.clientId || historyFilters.photographerId || historyFilters.dateRange !== 'this_quarter' || historyFilters.groupBy !== 'shoot') && (
+                        </div>
+                  {(historyServicesSelected || historyFilters.search || historyFilters.clientId || historyFilters.photographerId || historyFilters.dateRange !== defaultHistoryFilters.dateRange || historyFilters.groupBy !== 'shoot') && (
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">Filters applied.</span>
                       <Button variant="ghost" size="sm" onClick={resetHistoryFilters}>
@@ -3837,36 +4925,39 @@ const ShootHistory: React.FC = () => {
                       </Button>
                     </div>
                   )}
-                </CollapsibleContent>
-              </Collapsible>
+                      </div>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
 
-              {historyContent}
+                <TabsContent value="all" className="space-y-6">
+                  {historyContent}
 
-              {historyMeta && historyFilters.groupBy === 'shoot' && (
-                <div className="flex items-center justify-between rounded-xl border bg-card p-4 text-sm">
-                  <div>
-                    Page {historyMeta.current_page} of {Math.ceil(historyMeta.total / historyMeta.per_page)} · {historyMeta.total} records
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleHistoryPageChange('prev')}
-                      disabled={historyMeta.current_page === 1}
-                    >
-                      Previous
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleHistoryPageChange('next')}
-                      disabled={historyMeta.current_page >= Math.ceil(historyMeta.total / historyMeta.per_page)}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </div>
-              )}
+                  {historyMeta && historyFilters.groupBy === 'shoot' && (
+                    <div className="flex items-center justify-between rounded-xl border bg-card p-4 text-sm">
+                      <div>
+                        Page {historyMeta.current_page} of {Math.ceil(historyMeta.total / historyMeta.per_page)} · {historyMeta.total} records
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleHistoryPageChange('prev')}
+                          disabled={historyMeta.current_page === 1}
+                        >
+                          Previous
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleHistoryPageChange('next')}
+                          disabled={historyMeta.current_page >= Math.ceil(historyMeta.total / historyMeta.per_page)}
+                        >
+                          Next
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </TabsContent>
                 
                 <TabsContent value="mls-queue" className="space-y-6">
@@ -3877,7 +4968,7 @@ const ShootHistory: React.FC = () => {
           )}
 
           {/* Linked View Tab - Shows combined data from all linked accounts */}
-          {hasLinkedAccounts && (
+          {canViewLinkedAccounts && (
             <TabsContent value="linked" className="space-y-6">
               <div className="space-y-6">
                 {/* Header with linked accounts info */}
@@ -3903,6 +4994,11 @@ const ShootHistory: React.FC = () => {
                     </div>
                   ) : (
                     <>
+                    {linkedAccountsLoaded && linkedAccounts.length === 0 && (
+                      <div className="rounded-lg border border-dashed border-muted-foreground/30 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+                        No linked accounts yet. Invite another account to collaborate here.
+                      </div>
+                    )}
                     {/* Summary Stats */}
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                       <div className="text-center p-4 bg-blue-50 rounded-lg">
@@ -4063,21 +5159,109 @@ const ShootHistory: React.FC = () => {
             setSelectedShoot(null)
           }}
           onShootUpdate={refreshActiveTabData}
+          shouldHideClientDetails={shouldHideClientDetails}
         />
       )}
-      {isSuperAdmin && (
-        <PayMultipleShootsDialog
-          isOpen={isPayMultipleOpen}
-          onClose={() => setIsPayMultipleOpen(false)}
-          shoots={operationalData}
-          onPaymentComplete={async () => {
-            await refreshActiveTabData()
-            setIsPayMultipleOpen(false)
+      {(isSuperAdmin || isAdmin) && (
+        <BulkActionsDialog
+          isOpen={isBulkActionsOpen}
+          onClose={() => setIsBulkActionsOpen(false)}
+          shoots={bulkShoots}
+          isLoading={bulkShootsLoading}
+          onComplete={refreshActiveTabData}
+        />
+      )}
+      
+      {/* Approval Modal for requested shoots */}
+      {approvalModalShoot && (
+        <ShootApprovalModal
+          isOpen={!!approvalModalShoot}
+          onClose={() => setApprovalModalShoot(null)}
+          shootId={approvalModalShoot.id}
+          shootAddress={approvalModalShoot.location?.address || ''}
+          currentScheduledAt={approvalModalShoot.scheduledDate}
+          onApproved={() => {
+            setApprovalModalShoot(null)
+            refreshActiveTabData()
           }}
+          photographers={photographers}
+        />
+      )}
+
+      {/* Decline Modal for requested shoots */}
+      {declineModalShoot && (
+        <ShootDeclineModal
+          isOpen={!!declineModalShoot}
+          onClose={() => setDeclineModalShoot(null)}
+          shootId={declineModalShoot.id}
+          shootAddress={declineModalShoot.location?.address || ''}
+          onDeclined={() => {
+            setDeclineModalShoot(null)
+            refreshActiveTabData()
+          }}
+        />
+      )}
+
+      {/* Edit Modal for modifying shoot requests */}
+      {editModalShoot && (
+        <ShootEditModal
+          isOpen={!!editModalShoot}
+          onClose={() => setEditModalShoot(null)}
+          shootId={editModalShoot.id}
+          onSaved={() => {
+            setEditModalShoot(null)
+            refreshActiveTabData()
+          }}
+        />
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteShootId !== null} onOpenChange={(open) => !open && setDeleteShootId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Shoot</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this shoot? This action cannot be undone and will permanently delete all associated files and data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteShoot}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Invoice View Dialog */}
+      {selectedInvoice && (
+        <InvoiceViewDialog
+          isOpen={invoiceDialogOpen}
+          onClose={() => {
+            setInvoiceDialogOpen(false)
+            setSelectedInvoice(null)
+          }}
+          invoice={selectedInvoice}
         />
       )}
     </>
   )
 }
 
-export default ShootHistory
+const ShootHistoryWithBoundary = withErrorBoundary(ShootHistory)
+
+export default ShootHistoryWithBoundary

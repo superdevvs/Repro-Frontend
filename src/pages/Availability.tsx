@@ -229,8 +229,7 @@ export default function Availability() {
   const [weeklyScheduleNote, setWeeklyScheduleNote] = useState("");
   const [editingAvailability, setEditingAvailability] = useState<string | null>(null);
   const [editedAvailability, setEditedAvailability] = useState<Partial<Availability>>({});
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [isWeeklyScheduleDialogOpen, setIsWeeklyScheduleDialogOpen] = useState(false);
+    const [isWeeklyScheduleDialogOpen, setIsWeeklyScheduleDialogOpen] = useState(false);
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
   const [expandedBookingDetails, setExpandedBookingDetails] = useState<Set<string>>(new Set());
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -1244,7 +1243,7 @@ export default function Availability() {
                         });
                         return;
                       }
-                      setIsAddDialogOpen(true);
+                      setIsWeeklyScheduleDialogOpen(true);
                     }}
                   >
                     <CalendarIcon className="h-4 w-4 mr-2" />
@@ -1824,7 +1823,7 @@ export default function Availability() {
                                                     toast({ title: "Select a photographer", description: "Please select a specific photographer before scheduling.", variant: "destructive" });
                                                     return;
                                                   }
-                                                  setIsAddDialogOpen(true);
+                                                  setIsWeeklyScheduleDialogOpen(true);
                                                 }}>
                                                   <CalendarIcon className="h-4 w-4 mr-2" />
                                                   Schedule for {format(day, 'MMM d')}
@@ -1966,7 +1965,7 @@ export default function Availability() {
                                           </div>
                                         </ContextMenuTrigger>
                                         <ContextMenuContent>
-                                          <ContextMenuItem onClick={() => { setDate(day); setRightClickedDate(day); setRightClickedTime(null); if (selectedPhotographer === "all") { toast({ title: "Select a photographer", description: "Please select a specific photographer before scheduling.", variant: "destructive" }); return; } setIsAddDialogOpen(true); }}>
+                                          <ContextMenuItem onClick={() => { setDate(day); setRightClickedDate(day); setRightClickedTime(null); if (selectedPhotographer === "all") { toast({ title: "Select a photographer", description: "Please select a specific photographer before scheduling.", variant: "destructive" }); return; } setIsWeeklyScheduleDialogOpen(true); }}>
                                             <CalendarIcon className="h-4 w-4 mr-2" />
                                             Schedule for {format(day, 'MMM d')}
                                           </ContextMenuItem>
@@ -2093,7 +2092,7 @@ export default function Availability() {
                                               setRightClickedDate(date);
                                               setRightClickedTime(timeStr);
                                               if (selectedPhotographer === "all") { toast({ title: "Select a photographer", description: "Please select a specific photographer before scheduling.", variant: "destructive" }); return; }
-                                              setIsAddDialogOpen(true);
+                                              setIsWeeklyScheduleDialogOpen(true);
                                             }}>
                                               <Clock className="h-4 w-4 mr-2" />
                                               Schedule at {timeStr}
@@ -2180,7 +2179,7 @@ export default function Availability() {
                               {canEditAvailability && (
                                 <Button variant="outline" size="sm" onClick={() => setIsWeeklyScheduleDialogOpen(true)} className="h-8 rounded-md">
                                   <Plus className="h-3.5 w-3.5 mr-1.5" />
-                                  Add Slot
+                                  Add Schedule
                                 </Button>
                               )}
                             </div>
@@ -2197,12 +2196,6 @@ export default function Availability() {
                                       <CalendarIcon className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
                                       <p className="text-sm font-medium text-muted-foreground mb-1">No schedules</p>
                                       <p className="text-xs text-muted-foreground">No availability scheduled for this {viewMode === "day" ? "day" : viewMode === "week" ? "week" : "month"}</p>
-                                      {canEditAvailability && (
-                                        <Button variant="outline" size="sm" onClick={() => setIsAddDialogOpen(true)} className="mt-4">
-                                          <Plus className="h-4 w-4 mr-2" />
-                                          Add Schedule
-                                        </Button>
-                                      )}
                                     </div>
                                   );
                                 }
@@ -2636,7 +2629,7 @@ export default function Availability() {
                                                   });
                                                   return;
                                                 }
-                                                setIsAddDialogOpen(true);
+                                                setIsWeeklyScheduleDialogOpen(true);
                                               }}
                                             >
                                               <CalendarIcon className="h-4 w-4 mr-2" />
@@ -3038,7 +3031,7 @@ export default function Availability() {
                                             });
                                             return;
                                           }
-                                          setIsAddDialogOpen(true);
+                                          setIsWeeklyScheduleDialogOpen(true);
                                         }}
                                       >
                                         <CalendarIcon className="h-4 w-4 mr-2" />
@@ -3276,7 +3269,7 @@ export default function Availability() {
                                               });
                                               return;
                                             }
-                                            setIsAddDialogOpen(true);
+                                            setIsWeeklyScheduleDialogOpen(true);
                                           }}
                                         >
                                           <Clock className="h-4 w-4 mr-2" />
@@ -3477,7 +3470,7 @@ export default function Availability() {
                                 className="h-8 rounded-md"
                               >
                                 <Plus className="h-3.5 w-3.5 mr-1.5" />
-                                Add Slot
+                                Add Schedule
                               </Button>
                             )}
                           </div>
@@ -3503,16 +3496,6 @@ export default function Availability() {
                                     <p className="text-xs text-muted-foreground mb-4">
                                       Add availability slots to manage this day
                                     </p>
-                                    {canEditAvailability && (
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => setIsAddDialogOpen(true)}
-                                      >
-                                        <Plus className="h-4 w-4 mr-2" />
-                                        Add Schedule
-                                      </Button>
-                                    )}
                                   </div>
                                 );
                               }
@@ -4154,227 +4137,6 @@ export default function Availability() {
                 });
               }
             }}>Save Changes</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Add Availability Dialog */}
-      <Dialog open={isAddDialogOpen} onOpenChange={(open) => {
-        setIsAddDialogOpen(open);
-        if (open && rightClickedDate) {
-          setDate(rightClickedDate);
-        }
-        if (!open) {
-          setRightClickedDate(null);
-          setRightClickedTime(null);
-          // Reset form when closing
-          setNewAvailability({
-            status: "available",
-            startTime: "09:00",
-            endTime: "17:00"
-          });
-        }
-      }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add Availability</DialogTitle>
-            <DialogDescription>
-              Set availability for {getPhotographerName(selectedPhotographer)} on {(rightClickedDate || date) ? format((rightClickedDate || date)!, "MMMM d, yyyy") : "the selected date"}.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Select
-                value={newAvailability.status}
-                onValueChange={(value) =>
-                  setNewAvailability({
-                    ...newAvailability,
-                    status: value as AvailabilityStatus
-                  })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="available">Available</SelectItem>
-                  <SelectItem value="booked">Booked</SelectItem>
-                  <SelectItem value="unavailable">Unavailable</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Start Time</Label>
-                <TimeSelect
-                  value={rightClickedTime || newAvailability.startTime || ""}
-                  onChange={(time) => {
-                    setNewAvailability({ ...newAvailability, startTime: time });
-                    setRightClickedTime(null); // Clear right-clicked time once user changes it
-                  }}
-                  placeholder="Select start time"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>End Time</Label>
-                <TimeSelect
-                  value={newAvailability.endTime || ""}
-                  onChange={(time) => setNewAvailability({ ...newAvailability, endTime: time })}
-                  placeholder="Select end time"
-                />
-              </div>
-            </div>
-
-            {newAvailability.status === "booked" && (
-              <div className="space-y-2">
-                <Label>Shoot Title</Label>
-                <Input
-                  placeholder="Enter shoot title or client name"
-                  value={newAvailability.shootTitle || ""}
-                  onChange={e => setNewAvailability({ ...newAvailability, shootTitle: e.target.value })}
-                />
-              </div>
-            )}
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
-            <Button onClick={async () => {
-              const targetDate = rightClickedDate || date;
-              if (!targetDate || selectedPhotographer === "all") {
-                toast({
-                  title: "Missing information",
-                  description: "Please select a specific photographer and date before adding availability.",
-                  variant: "destructive"
-                });
-                return;
-              }
-
-              // Use right-clicked time if available, otherwise use the form value
-              const defaultStartTime = rightClickedTime || newAvailability.startTime || "09:00";
-              const startTime = uiTimeToHhmm(defaultStartTime);
-              // Helper to add one hour to a time string
-              const addOneHour = (timeStr: string): string => {
-                const [h, m] = timeStr.split(':').map(Number);
-                const newHour = (h + 1) % 24;
-                return `${newHour.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-              };
-
-              const endTime = uiTimeToHhmm(newAvailability.endTime || (rightClickedTime ? addOneHour(rightClickedTime) : "17:00"));
-
-              if (startTime >= endTime) {
-                toast({
-                  title: "Invalid time range",
-                  description: "End time must be after start time.",
-                  variant: "destructive"
-                });
-                return;
-              }
-
-              // Check for overlaps with existing slots for this date
-              const dateStr = format(targetDate, "yyyy-MM-dd");
-              const dayOfWeekForDate = targetDate.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-
-              // Find which slot is causing the overlap for better error message
-              const overlappingSlot = (() => {
-                const rows = selectedPhotographer === 'all'
-                  ? allBackendSlots
-                  : backendSlots.filter(s => Number(s.photographer_id) === Number(selectedPhotographer));
-
-                const relevantSlots = rows.filter(slot => {
-                  if (slot.date === dateStr) return true;
-                  if (!slot.date && slot.day_of_week && dayOfWeekForDate) {
-                    return slot.day_of_week.toLowerCase() === dayOfWeekForDate.toLowerCase();
-                  }
-                  return false;
-                });
-
-                const start = uiTimeToHhmm(defaultStartTime);
-                const end = uiTimeToHhmm(newAvailability.endTime || (rightClickedTime ? addOneHour(rightClickedTime) : "17:00"));
-                if (!start || !end) return null;
-
-                const [startH, startM] = start.split(':').map(Number);
-                const [endH, endM] = end.split(':').map(Number);
-                const startMinutes = startH * 60 + startM;
-                const endMinutes = endH * 60 + endM;
-
-                for (const slot of relevantSlots) {
-                  const slotStart = uiTimeToHhmm(slot.start_time);
-                  const slotEnd = uiTimeToHhmm(slot.end_time);
-                  if (!slotStart || !slotEnd) continue;
-
-                  const [slotStartH, slotStartM] = slotStart.split(':').map(Number);
-                  const [slotEndH, slotEndM] = slotEnd.split(':').map(Number);
-                  const slotStartMinutes = slotStartH * 60 + slotStartM;
-                  const slotEndMinutes = slotEndH * 60 + slotEndM;
-
-                  const hasOverlap = startMinutes < slotEndMinutes && slotStartMinutes < endMinutes;
-                  const isAdjacent = (startMinutes === slotEndMinutes) || (slotStartMinutes === endMinutes);
-
-                  if (hasOverlap && !isAdjacent) {
-                    return slot;
-                  }
-                }
-                return null;
-              })();
-
-              if (overlappingSlot) {
-                const slotStart = toHhMm(overlappingSlot.start_time);
-                const slotEnd = toHhMm(overlappingSlot.end_time);
-                toast({
-                  title: "Time slot overlap",
-                  description: `This time slot overlaps with an existing availability (${slotStart} - ${slotEnd}). Please choose a different time that doesn't overlap.`,
-                  variant: "destructive"
-                });
-                return;
-              }
-
-              try {
-                const payload = {
-                  photographer_id: Number(selectedPhotographer),
-                  date: dateStr,
-                  start_time: startTime,
-                  end_time: endTime,
-                  status: newAvailability.status === 'unavailable' ? 'unavailable' : (newAvailability.status === 'booked' ? 'booked' : 'available'),
-                };
-                const res = await fetch(API_ROUTES.photographerAvailability.create, {
-                  method: 'POST',
-                  headers: authHeaders(),
-                  body: JSON.stringify(payload),
-                });
-                if (res.ok) {
-                  await refreshPhotographerSlots();
-                  setIsAddDialogOpen(false);
-                  setRightClickedDate(null);
-                  setRightClickedTime(null);
-                  setNewAvailability({
-                    status: "available",
-                    startTime: "09:00",
-                    endTime: "17:00"
-                  });
-                  toast({
-                    title: "Availability added",
-                    description: `Added availability for ${format(targetDate, "MMMM d, yyyy")}`,
-                  });
-                } else {
-                  const errorData = await res.json().catch(() => ({}));
-                  toast({
-                    title: "Error",
-                    description: errorData.message || "Failed to add availability. Please try again.",
-                    variant: "destructive"
-                  });
-                }
-              } catch (error) {
-                toast({
-                  title: "Error",
-                  description: "Failed to add availability. Please try again.",
-                  variant: "destructive"
-                });
-              }
-            }}>Add Availability</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

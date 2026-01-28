@@ -30,35 +30,56 @@ export type EditingRequestPayload = {
   targetTeam: 'editor' | 'admin' | 'hybrid';
 };
 
+export type EditingRequestUpdatePayload = {
+  status?: 'open' | 'in_progress' | 'completed';
+  priority?: 'low' | 'normal' | 'high';
+  details?: string;
+};
+
 const getToken = () => localStorage.getItem('authToken') || localStorage.getItem('token');
 
-export async function submitEditingRequest(payload: EditingRequestPayload) {
+export async function submitEditingRequest(payload: EditingRequestPayload): Promise<EditingRequest> {
   const token = getToken();
   if (!token) {
     throw new Error('Missing auth token');
   }
 
-  const response = await fetch(`${API_BASE_URL}/api/editing-requests`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({
-      shoot_id: payload.shootId,
-      summary: payload.summary,
-      details: payload.details,
-      priority: payload.priority,
-      target_team: payload.targetTeam,
-    }),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error?.message || 'Unable to submit editing request');
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/editing-requests`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        shoot_id: payload.shootId,
+        summary: payload.summary,
+        details: payload.details,
+        priority: payload.priority,
+        target_team: payload.targetTeam,
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error?.message || 'Unable to submit editing request');
+    }
+
+    const json = await response.json();
+    return json.data || json;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Request timed out. Please try again.');
+    }
+    throw error;
   }
-
-  return response.json();
 }
 
 export async function fetchEditingRequests(): Promise<EditingRequest[]> {
@@ -67,7 +88,72 @@ export async function fetchEditingRequests(): Promise<EditingRequest[]> {
     throw new Error('Missing auth token');
   }
 
-  const response = await fetch(`${API_BASE_URL}/api/editing-requests`, {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/editing-requests`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error?.message || 'Unable to load requests');
+    }
+
+    const json = await response.json();
+    if (Array.isArray(json)) return json;
+    if (Array.isArray(json?.data)) return json.data;
+    return [];
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Request timed out');
+    }
+    throw error;
+  }
+}
+
+export async function updateEditingRequest(
+  id: number,
+  payload: EditingRequestUpdatePayload
+): Promise<EditingRequest> {
+  const token = getToken();
+  if (!token) {
+    throw new Error('Missing auth token');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/editing-requests/${id}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error?.message || 'Unable to update request');
+  }
+
+  const json = await response.json();
+  return json.data || json;
+}
+
+export async function deleteEditingRequest(id: number): Promise<void> {
+  const token = getToken();
+  if (!token) {
+    throw new Error('Missing auth token');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/editing-requests/${id}`, {
+    method: 'DELETE',
     headers: {
       Authorization: `Bearer ${token}`,
     },
@@ -75,12 +161,6 @@ export async function fetchEditingRequests(): Promise<EditingRequest[]> {
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    throw new Error(error?.message || 'Unable to load requests');
+    throw new Error(error?.message || 'Unable to delete request');
   }
-
-  const json = await response.json();
-  if (Array.isArray(json)) return json;
-  if (Array.isArray(json?.data)) return json.data;
-  return [];
 }
-

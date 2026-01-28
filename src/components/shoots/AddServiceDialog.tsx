@@ -180,11 +180,15 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
                   {availableServices.length === 0 ? (
                     <SelectItem value="no-services" disabled>No services available</SelectItem>
                   ) : (
-                    availableServices.map((service) => (
-                      <SelectItem key={service.id} value={String(service.id)}>
-                        {service.name} - ${service.price.toFixed(2)}
-                      </SelectItem>
-                    ))
+                    availableServices.map((service) => {
+                      const price = typeof service.price === 'number' ? service.price : (typeof service.price === 'string' ? parseFloat(service.price) : 0);
+                      const priceDisplay = isNaN(price) ? '0.00' : price.toFixed(2);
+                      return (
+                        <SelectItem key={service.id} value={String(service.id)}>
+                          {service.name} - ${priceDisplay}
+                        </SelectItem>
+                      );
+                    })
                   )}
                 </SelectContent>
               </Select>

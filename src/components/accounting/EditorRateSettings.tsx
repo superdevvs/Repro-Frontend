@@ -16,7 +16,7 @@ interface EditorRateSettings {
 }
 
 export function EditorRateSettings() {
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
   const { toast } = useToast();
   const [rates, setRates] = useState<EditorRateSettings>({
     photoEditRate: 0,
@@ -50,14 +50,25 @@ export function EditorRateSettings() {
         });
 
         if (response.ok) {
-          const data = await response.json();
-          if (data.data) {
-            setRates({
+          const data = await response.json().catch(() => null);
+          if (data?.data) {
+            const updatedRates = {
               photoEditRate: data.data.photo_edit_rate || 0,
               videoEditRate: data.data.video_edit_rate || 0,
               floorplanRate: data.data.floorplan_rate || 0,
               otherRate: data.data.other_rate || 0,
-            });
+            };
+            setRates(updatedRates);
+            if (user) {
+              const updatedMetadata = {
+                ...(user.metadata || {}),
+                photo_edit_rate: updatedRates.photoEditRate,
+                video_edit_rate: updatedRates.videoEditRate,
+                floorplan_rate: updatedRates.floorplanRate,
+                other_rate: updatedRates.otherRate,
+              };
+              setUser({ ...user, metadata: updatedMetadata });
+            }
           }
         } else if (response.status !== 404) {
           // 404 is expected if rates don't exist yet
@@ -116,8 +127,10 @@ export function EditorRateSettings() {
         }),
       });
 
+      const responseData = await response.json().catch(() => null);
+
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+        const errorData = responseData || {};
         
         // Handle 404 specifically - endpoint doesn't exist
         if (response.status === 404) {
@@ -130,6 +143,26 @@ export function EditorRateSettings() {
            response.status === 500 ? 'Server error. Please try again later.' :
            'Failed to save rates. Please try again.');
         throw new Error(errorMessage);
+      }
+
+      if (responseData?.data) {
+        const updatedRates = {
+          photoEditRate: responseData.data.photo_edit_rate || 0,
+          videoEditRate: responseData.data.video_edit_rate || 0,
+          floorplanRate: responseData.data.floorplan_rate || 0,
+          otherRate: responseData.data.other_rate || 0,
+        };
+        setRates(updatedRates);
+        if (user) {
+          const updatedMetadata = {
+            ...(user.metadata || {}),
+            photo_edit_rate: updatedRates.photoEditRate,
+            video_edit_rate: updatedRates.videoEditRate,
+            floorplan_rate: updatedRates.floorplanRate,
+            other_rate: updatedRates.otherRate,
+          };
+          setUser({ ...user, metadata: updatedMetadata });
+        }
       }
 
       toast({

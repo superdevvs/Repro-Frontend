@@ -15,16 +15,10 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
 import type { UserData } from '@/types/auth';
 import { API_BASE_URL } from '@/config/env';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const registerSchema = z
   .object({
@@ -39,9 +33,6 @@ const registerSchema = z
     password: z.string().min(6, 'Password must be at least 6 characters'),
     confirmPassword: z.string().min(6, 'Please confirm your password'),
     terms: z.boolean().optional(),
-    role: z.enum(['client', 'photographer', 'editor', 'admin', 'salesRep'], {
-      required_error: 'Please select a role',
-    }),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: 'Passwords do not match',
@@ -63,6 +54,17 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isMobile = useIsMobile();
+
+  const mobileInputClass =
+    'bg-slate-900/70 border border-white/10 rounded-2xl px-4 py-3 text-white placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-0 focus:border-transparent';
+  const desktopInputClass =
+    'border-0 border-b border-border rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 focus:border-primary text-base placeholder:text-muted-foreground dark:bg-white/5 dark:border dark:border-white/10 dark:rounded-xl dark:px-4 dark:py-3 dark:text-white dark:placeholder:text-slate-400 dark:focus:border-cyan-400/40 dark:focus:ring-1 dark:focus:ring-cyan-400/20';
+  const inputClass = isMobile ? mobileInputClass : desktopInputClass;
+
+  const toggleButtonClass = isMobile
+    ? 'absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-md text-slate-300 hover:text-white hover:bg-white/5'
+    : 'absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:text-foreground dark:text-slate-300 dark:hover:text-white dark:hover:bg-white/5';
 
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
@@ -77,7 +79,6 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
       country: '',
       password: '',
       confirmPassword: '',
-      role: 'client',
       terms: false,
     },
   });
@@ -96,7 +97,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
         state: values.state,
         zip: values.zip,
         country: values.country,
-        role: values.role,
+        role: 'client',
         avatar: 'https://example.com/avatar.jpg',
         bio: 'No bio provided',
       });
@@ -115,10 +116,10 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
         role: normalizedRole,
         company: apiUser.company_name,
         phone: apiUser.phonenumber,
+        avatar: apiUser.avatar,
+        bio: apiUser.bio,
         isActive: apiUser.account_status === 'active',
         metadata: {
-          avatar: apiUser.avatar,
-          bio: apiUser.bio,
           city: apiUser.city,
           state: apiUser.state,
           zip: apiUser.zip,
@@ -142,7 +143,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleRegister)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(handleRegister)} className="space-y-6 pb-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <FormField
             control={form.control}
@@ -153,7 +154,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
                   <Input
                     placeholder="Full Name"
                     {...field}
-                    className="border-0 border-b border-border rounded-none focus-visible:ring-0 focus:border-primary text-base placeholder:text-muted-foreground"
+                    className={inputClass}
                   />
                 </FormControl>
                 <FormMessage />
@@ -169,7 +170,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
                   <Input
                     placeholder="Company (Optional)"
                     {...field}
-                    className="border-0 border-b border-border rounded-none focus-visible:ring-0 focus:border-primary text-base placeholder:text-muted-foreground"
+                    className={inputClass}
                   />
                 </FormControl>
                 <FormMessage />
@@ -188,7 +189,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
                   <Input
                     placeholder="+1 (555) 123-4567"
                     {...field}
-                    className="border-0 border-b border-border rounded-none focus-visible:ring-0 focus:border-primary text-base placeholder:text-muted-foreground"
+                    className={inputClass}
                   />
                 </FormControl>
                 <FormMessage />
@@ -204,7 +205,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
                   <Input
                     placeholder="you@company.com"
                     {...field}
-                    className="border-0 border-b border-border rounded-none focus-visible:ring-0 focus:border-primary text-base placeholder:text-muted-foreground"
+                    className={inputClass}
                   />
                 </FormControl>
                 <FormMessage />
@@ -223,7 +224,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
                   <Input
                     placeholder="San Francisco"
                     {...field}
-                    className="border-0 border-b border-border rounded-none focus-visible:ring-0 focus:border-primary text-base placeholder:text-muted-foreground"
+                    className={inputClass}
                   />
                 </FormControl>
                 <FormMessage />
@@ -239,7 +240,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
                   <Input
                     placeholder="CA"
                     {...field}
-                    className="border-0 border-b border-border rounded-none focus-visible:ring-0 focus:border-primary text-base placeholder:text-muted-foreground"
+                    className={inputClass}
                   />
                 </FormControl>
                 <FormMessage />
@@ -255,7 +256,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
                   <Input
                     placeholder="94107"
                     {...field}
-                    className="border-0 border-b border-border rounded-none focus-visible:ring-0 focus:border-primary text-base placeholder:text-muted-foreground"
+                    className={inputClass}
                   />
                 </FormControl>
                 <FormMessage />
@@ -273,7 +274,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
                 <Input
                   placeholder="United States"
                   {...field}
-                  className="border-0 border-b border-border rounded-none focus-visible:ring-0 focus:border-primary text-base placeholder:text-muted-foreground"
+                  className={inputClass}
                 />
               </FormControl>
               <FormMessage />
@@ -286,23 +287,25 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
             control={form.control}
             name="password"
             render={({ field }) => (
-              <FormItem className="relative">
-                <FormControl>
-                  <Input
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="Password"
-                    {...field}
-                    className="border-0 border-b border-border rounded-none focus-visible:ring-0 focus:border-primary text-base placeholder:text-muted-foreground pr-10"
-                  />
-                </FormControl>
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((s) => !s)}
-                  className="absolute right-0 top-1/2 -translate-y-1/2 p-2 text-muted-foreground hover:text-foreground"
-                  aria-label="Toggle password visibility"
-                >
-                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                </button>
+              <FormItem>
+                <div className="relative">
+                  <FormControl>
+                    <Input
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="Password"
+                      {...field}
+                      className={`${inputClass} pr-10`}
+                    />
+                  </FormControl>
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((s) => !s)}
+                    className={toggleButtonClass}
+                    aria-label="Toggle password visibility"
+                  >
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                </div>
                 <FormMessage />
               </FormItem>
             )}
@@ -312,51 +315,30 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
             control={form.control}
             name="confirmPassword"
             render={({ field }) => (
-              <FormItem className="relative">
-                <FormControl>
-                  <Input
-                    type={showConfirm ? 'text' : 'password'}
-                    placeholder="Confirm Password"
-                    {...field}
-                    className="border-0 border-b border-border rounded-none focus-visible:ring-0 focus:border-primary text-base placeholder:text-muted-foreground pr-10"
-                  />
-                </FormControl>
-                <button
-                  type="button"
-                  onClick={() => setShowConfirm((s) => !s)}
-                  className="absolute right-0 top-1/2 -translate-y-1/2 p-2 text-muted-foreground hover:text-foreground"
-                  aria-label="Toggle confirm password visibility"
-                >
-                  {showConfirm ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                </button>
+              <FormItem>
+                <div className="relative">
+                  <FormControl>
+                    <Input
+                      type={showConfirm ? 'text' : 'password'}
+                      placeholder="Confirm Password"
+                      {...field}
+                      className={`${inputClass} pr-10`}
+                    />
+                  </FormControl>
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirm((s) => !s)}
+                    className={toggleButtonClass}
+                    aria-label="Toggle confirm password visibility"
+                  >
+                    {showConfirm ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                </div>
                 <FormMessage />
               </FormItem>
             )}
           />
         </div>
-
-        <FormField
-          control={form.control}
-          name="role"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Register as</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select role" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value="client">Client</SelectItem>
-                  <SelectItem value="photographer">Photographer</SelectItem>
-                  <SelectItem value="editor">Editor</SelectItem>
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
 
         <FormField
           control={form.control}
@@ -369,9 +351,12 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
                   type="checkbox"
                   checked={field.value ?? false}
                   onChange={(e) => field.onChange(e.target.checked)}
-                  className="h-4 w-4 rounded border border-border"
+                  className={`h-4 w-4 rounded border ${isMobile ? 'border-white/30 bg-slate-900/60' : 'border-border dark:border-white/30 dark:bg-transparent'}`}
                 />
-                <label htmlFor="terms" className="text-sm text-muted-foreground select-none">
+                <label
+                  htmlFor="terms"
+                  className={`text-sm select-none ${isMobile ? 'text-slate-300' : 'text-muted-foreground dark:text-slate-300'}`}
+                >
                   I agree to the Terms
                 </label>
               </div>
@@ -380,7 +365,15 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
           )}
         />
 
-        <Button type="submit" className="w-full h-12 rounded-full text-base font-semibold" disabled={isSubmitting}>
+        <Button
+          type="submit"
+          className={`w-full h-12 rounded-full text-base font-semibold mb-4 ${
+            isMobile
+              ? 'bg-gradient-to-r from-blue-500 to-cyan-400 text-white shadow-lg shadow-blue-500/30 hover:opacity-90'
+              : 'dark:bg-gradient-to-r dark:from-blue-600 dark:to-cyan-500 dark:text-white dark:shadow-lg dark:shadow-blue-600/25 dark:hover:opacity-90'
+          }`}
+          disabled={isSubmitting}
+        >
           {isSubmitting ? (
             <div className="flex items-center justify-center gap-2">
               <div className="animate-spin h-4 w-4 border-2 border-t-transparent rounded-full" />

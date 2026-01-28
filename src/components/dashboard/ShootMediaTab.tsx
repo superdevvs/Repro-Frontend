@@ -5,6 +5,8 @@ import { ShootData } from '@/types/shoots';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
 import { API_BASE_URL } from '@/config/env';
+import { RawImagePreview } from '@/components/media/RawImagePreview';
+import { isRawFile } from '@/services/rawPreviewService';
 
 interface ShootMediaTabProps {
   shoot: ShootData;
@@ -77,12 +79,20 @@ export function ShootMediaTab({ shoot, isPhotographer: _isPhotographer }: ShootM
   const renderFile = (f:any) => {
     const isImg = isImageFile(f);
     const displayUrl = buildDisplayUrl(f);
+    const filename = f.filename || f.storedFilename || '';
+    const isRaw = isRawFile(filename);
     return (
       <div key={f.id} className="border rounded-md p-2 flex items-center gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          {isImg && displayUrl ? (
+          {(isImg || isRaw) && displayUrl ? (
             <a href={displayUrl} target="_blank" rel="noreferrer" className="flex-shrink-0">
-              <img src={displayUrl} alt={f.filename || 'Preview'} className="h-36 w-48 object-cover rounded" />
+              <RawImagePreview
+                src={displayUrl}
+                filename={filename}
+                filePath={f.path || displayUrl}
+                containerClassName="h-36 w-48 rounded overflow-hidden"
+                className="h-full w-full object-cover"
+              />
             </a>
           ) : (
             <div className="h-12 w-12 flex items-center justify-center bg-muted rounded">

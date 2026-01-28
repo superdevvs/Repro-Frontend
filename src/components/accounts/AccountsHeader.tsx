@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
@@ -15,6 +15,7 @@ interface AccountsHeaderProps {
   onExport: (format?: 'csv' | 'print' | 'copy') => void;
   onImport: (file: File) => void;
   onSearch: (query: string) => void;
+  searchQuery: string;
   onFilterChange: (role: Role | 'all') => void;
   selectedFilter: Role | 'all';
   viewMode: 'grid' | 'list';
@@ -28,6 +29,7 @@ export function AccountsHeader({
   onExport,
   onImport,
   onSearch,
+  searchQuery,
   onFilterChange,
   selectedFilter,
   viewMode,
@@ -36,12 +38,10 @@ export function AccountsHeader({
   onRepFilterChange,
   repOptions,
 }: AccountsHeaderProps) {
-  const [searchQuery, setSearchQuery] = useState('');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const query = e.target.value;
-    setSearchQuery(query);
     onSearch(query);
   };
 

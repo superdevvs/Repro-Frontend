@@ -1,3 +1,14 @@
+  const heroCopy = {
+    login: {
+      title: 'Log in to your dashboard',
+      subtitle: 'Centralize shoots, assets, and approvals',
+    },
+    register: {
+      title: 'Create your account',
+      subtitle: 'Manage shoots and approvals in one place',
+    },
+  } as const;
+
 import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -39,6 +50,28 @@ export function LoginForm() {
   const isMobile = useIsMobile();
   const [loginShowPassword, setLoginShowPassword] = useState(false);
 
+  const mobileInputClass =
+    'bg-slate-900/70 border border-white/10 rounded-2xl px-4 py-3 text-white placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-0 focus:border-transparent';
+  const desktopInputClass =
+    'border-0 border-b border-border rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 focus:border-primary text-base placeholder:text-muted-foreground dark:bg-white/5 dark:border dark:border-white/10 dark:rounded-xl dark:px-4 dark:py-3 dark:text-white dark:placeholder:text-slate-400 dark:focus:border-cyan-400/40 dark:focus:ring-1 dark:focus:ring-cyan-400/20';
+  const inputClass = isMobile ? mobileInputClass : desktopInputClass;
+
+  const mobileTabsListClass = 'flex w-full border-b border-white/15 mb-6 bg-transparent px-0 rounded-none text-white/50';
+  const desktopTabsListClass = 'grid grid-cols-2 w-full !bg-transparent border-b border-border dark:border-white/15 mb-4 p-0 h-auto';
+  const tabsListClass = isMobile ? mobileTabsListClass : desktopTabsListClass;
+
+  const getTabsTriggerClass = (tab: 'login' | 'register') => {
+    if (isMobile) {
+      return `relative flex-1 text-center pb-3 text-base font-medium tracking-wide rounded-none px-0 text-white/60 transition-colors data-[state=active]:text-white data-[state=active]:bg-transparent after:absolute after:left-0 after:-bottom-[1px] after:h-0.5 after:w-full after:bg-transparent data-[state=active]:after:bg-gradient-to-r data-[state=active]:after:from-cyan-400 data-[state=active]:after:to-blue-500`;
+    }
+
+    return `rounded-none border-b-2 relative bg-transparent data-[state=active]:bg-transparent data-[state=active]:shadow-none ${
+      activeTab === tab 
+        ? 'border-primary text-primary font-medium dark:border-transparent dark:text-white dark:after:absolute dark:after:left-0 dark:after:-bottom-[2px] dark:after:h-0.5 dark:after:w-full dark:after:bg-gradient-to-r dark:after:from-cyan-400 dark:after:to-blue-500' 
+        : 'border-transparent text-muted-foreground dark:text-white/50'
+    }`;
+  };
+
 
   const loginForm = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -62,10 +95,10 @@ export function LoginForm() {
         : apiUser?.role || 'client',
     company: apiUser?.company_name,
     phone: apiUser?.phonenumber,
+    avatar: apiUser?.avatar,
+    bio: apiUser?.bio,
     isActive: apiUser?.account_status === 'active',
     metadata: {
-      avatar: apiUser?.avatar,
-      bio: apiUser?.bio,
       city: apiUser?.city,
       state: apiUser?.state,
       zip: apiUser?.zip,
@@ -125,44 +158,62 @@ export function LoginForm() {
     clearErrors();
   }, [activeTab]);
 
+  const registerContentClass = isMobile
+    ? 'space-y-6 h-[32vh] overflow-y-auto pb-8 -mt-1'
+    : 'space-y-6';
+
   return (
     <motion.div
-      className={`w-full max-w-md mx-auto ${isMobile ? 'px-4 pb-8' : ''}`}
+      className={`w-full max-w-md mx-auto ${
+        isMobile
+          ? 'rounded-b-[28px] rounded-t-none shadow-[0_24px_60px_rgba(1,3,9,0.68)] bg-gradient-to-b from-[#04070f] via-[#030c19] to-[#081226]'
+          : ''
+      }`}
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
     >
-      <Card className="border-none shadow-none bg-transparent">
-        <CardContent className={`${isMobile ? 'p-0' : 'p-0'}`}>
+      <Card
+        className={`shadow-none ${
+          isMobile
+            ? "relative rounded-b-[26px] rounded-t-none border-none bg-gradient-to-b from-[#050915] via-[#050f20] to-[#0b1a36] backdrop-blur-2xl before:content-[''] before:absolute before:inset-x-0 before:top-0 before:h-14 before:bg-gradient-to-b before:from-[#050915] before:via-[#050915dd] before:to-transparent before:pointer-events-none after:content-[''] after:absolute after:inset-x-0 after:bottom-0 after:h-16 after:bg-gradient-to-b after:from-transparent after:via-[#08359f66] after:to-[#1664c8a6] after:blur-[48px] after:pointer-events-none"
+            : 'border-none bg-transparent'
+        }`}
+      >
+        <CardContent className={`${isMobile ? 'p-4 sm:p-6 relative z-10' : 'p-0'}`}>
           {/* Top header (logo + heading + subtext) */}
-          <div className="text-center mb-8">
-            <div className="h-[52px] mx-auto mb-4 flex items-center justify-center">
-              <Logo className="h-[52px] w-auto" />
+          <div className={`${isMobile ? 'text-left mb-5 space-y-2.5' : 'text-center mb-8'}`}>
+            <div className={`h-[34px] mb-4 flex items-center ${isMobile ? 'justify-start mt-[10px]' : 'justify-center'}`}>
+              <Logo
+                className="h-[34px] w-auto"
+                variant={isMobile ? 'light' : 'auto'}
+              />
             </div>
-            <h1 className="text-2xl font-semibold">Log in to your dashboard</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Centralize shoots, assets, and approvals
+            <h1 className={`text-2xl font-semibold ${isMobile ? 'text-white' : ''}`}>
+              {heroCopy[activeTab as 'login' | 'register'].title}
+            </h1>
+            <p className={`text-sm mt-1 ${isMobile ? 'text-slate-300' : 'text-muted-foreground'}`}>
+              {heroCopy[activeTab as 'login' | 'register'].subtitle}
             </p>
           </div>
 
           {/* Tabs styled like design 1 */}
-          <Tabs defaultValue="login" value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="grid grid-cols-2 w-full bg-transparent border-b border-border mb-4">
+          <Tabs
+            defaultValue="login"
+            value={activeTab}
+            onValueChange={setActiveTab}
+            className={isMobile ? 'flex flex-col space-y-0' : 'space-y-6'}
+          >
+            <TabsList className={tabsListClass}>
               <TabsTrigger
                 value="login"
-                className={`rounded-none border-b-2 ${activeTab === 'login'
-                  ? 'border-primary text-primary font-medium'
-                  : 'border-transparent text-muted-foreground'
-                  }`}
+                className={getTabsTriggerClass('login')}
               >
                 Log In
               </TabsTrigger>
               <TabsTrigger
                 value="register"
-                className={`rounded-none border-b-2 ${activeTab === 'register'
-                  ? 'border-primary text-primary font-medium'
-                  : 'border-transparent text-muted-foreground'
-                  }`}
+                className={getTabsTriggerClass('register')}
               >
                 Register
               </TabsTrigger>
@@ -189,16 +240,7 @@ export function LoginForm() {
                           <Input
                             placeholder="Email"
                             {...field}
-                            className="
-                  border-0 
-                  border-b 
-                  border-border 
-                  rounded-none 
-                  focus-visible:ring-0 
-                  focus:border-primary 
-                  text-base 
-                  placeholder:text-muted-foreground
-                "
+                            className={inputClass}
                           />
                         </FormControl>
                         <FormMessage />
@@ -211,34 +253,30 @@ export function LoginForm() {
                     control={loginForm.control}
                     name="password"
                     render={({ field }) => (
-                      <FormItem className="relative">
-                        <FormControl>
-                          <Input
-                            type={loginShowPassword ? 'text' : 'password'}
-                            placeholder="Password"
-                            {...field}
-                            className="
-                              border-0 
-                              border-b 
-                              border-border 
-                              rounded-none 
-                              focus-visible:ring-0 
-                              focus:border-primary 
-                              text-base 
-                              placeholder:text-muted-foreground
-                              pr-10
-                            "
-                          />
-                        </FormControl>
+                      <FormItem>
+                        <div className="relative">
+                          <FormControl>
+                            <Input
+                              type={loginShowPassword ? 'text' : 'password'}
+                              placeholder="Password"
+                              {...field}
+                              className={`${inputClass} pr-10`}
+                            />
+                          </FormControl>
 
-                        <button
-                          type="button"
-                          onClick={() => setLoginShowPassword((s) => !s)}
-                          aria-label={loginShowPassword ? 'Hide password' : 'Show password'}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center justify-center p-2 rounded-md text-muted-foreground hover:text-primary hover:bg-gray-50 dark:hover:bg-slate-800 transition"
-                        >
-                          {loginShowPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                        </button>
+                          <button
+                            type="button"
+                            onClick={() => setLoginShowPassword((s) => !s)}
+                            aria-label={loginShowPassword ? 'Hide password' : 'Show password'}
+                            className={`absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-md transition ${
+                              isMobile
+                                ? 'text-slate-300 hover:text-white hover:bg-white/5'
+                                : 'text-muted-foreground hover:text-primary hover:bg-gray-50 dark:hover:bg-slate-800'
+                            }`}
+                          >
+                            {loginShowPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                          </button>
+                        </div>
 
                         <FormMessage />
                       </FormItem>
@@ -249,7 +287,11 @@ export function LoginForm() {
                   {/* Submit Button */}
                   <Button
                     type="submit"
-                    className="w-full h-12 rounded-full text-base font-semibold mt-2"
+                    className={`w-full h-12 rounded-full text-base font-semibold mt-2 ${
+                      isMobile
+                        ? 'bg-gradient-to-r from-blue-500 to-cyan-400 text-white shadow-lg shadow-blue-500/30 hover:opacity-90'
+                        : 'dark:bg-gradient-to-r dark:from-blue-600 dark:to-cyan-500 dark:text-white dark:shadow-lg dark:shadow-blue-600/25 dark:hover:opacity-90'
+                    }`}
                     disabled={isLoginLoading}
                   >
                     {isLoginLoading ? (
@@ -263,11 +305,11 @@ export function LoginForm() {
                   </Button>
 
                   {/* Register Redirect Text */}
-                  <p className="text-center text-sm text-muted-foreground mt-4">
+                  <p className={`text-center text-sm mt-4 mb-2 ${isMobile ? 'text-slate-400' : 'text-muted-foreground dark:text-slate-400'}`}>
                     No account yet?{' '}
                     <span
                       onClick={() => setActiveTab('register')}
-                      className="text-primary font-medium cursor-pointer hover:underline"
+                      className={`font-medium cursor-pointer hover:underline ${isMobile ? 'text-cyan-300' : 'text-primary dark:text-cyan-400'}`}
                     >
                       Register now
                     </span>
@@ -278,7 +320,7 @@ export function LoginForm() {
 
 
             {/* Register Form */}
-            <TabsContent value="register" className="space-y-6">
+            <TabsContent value="register" className={registerContentClass}>
               <Suspense
                 fallback={
                   <div className="py-8 text-center text-sm text-muted-foreground">

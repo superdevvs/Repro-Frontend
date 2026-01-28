@@ -12,9 +12,11 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogClose,
 } from "@/components/ui/dialog";
 import {
   Popover,
@@ -89,6 +91,7 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
   const [photographerDialogOpen, setPhotographerDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'distance' | 'name'>('distance');
+  const [showAllPhotographers, setShowAllPhotographers] = useState(false);
   const [photographersWithDistance, setPhotographersWithDistance] = useState<Array<{
     id: string;
     name: string;
@@ -365,30 +368,39 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
 
   // Filter and sort photographers
   const filteredAndSortedPhotographers = useMemo(() => {
-    let filtered = photographersWithDistance;
+    // When showAllPhotographers is true, use original photographers list (bypasses availability)
+    let filtered = showAllPhotographers 
+      ? photographers.map(p => {
+          // Try to find enriched data from photographersWithDistance
+          const enriched = photographersWithDistance.find(pwd => pwd.id === p.id);
+          return enriched || { ...p };
+        })
+      : photographersWithDistance;
 
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(p =>
         p.name.toLowerCase().includes(query) ||
-        p.city?.toLowerCase().includes(query) ||
-        p.state?.toLowerCase().includes(query)
+        (p as any).city?.toLowerCase().includes(query) ||
+        (p as any).state?.toLowerCase().includes(query)
       );
     }
 
     const sorted = [...filtered].sort((a, b) => {
       if (sortBy === 'distance') {
-        if (a.distance === undefined && b.distance === undefined) return 0;
-        if (a.distance === undefined) return 1;
-        if (b.distance === undefined) return -1;
-        return a.distance - b.distance;
+        const aDistance = (a as any).distance;
+        const bDistance = (b as any).distance;
+        if (aDistance === undefined && bDistance === undefined) return 0;
+        if (aDistance === undefined) return 1;
+        if (bDistance === undefined) return -1;
+        return aDistance - bDistance;
       } else {
         return a.name.localeCompare(b.name);
       }
     });
 
     return sorted;
-  }, [photographersWithDistance, searchQuery, sortBy]);
+  }, [photographersWithDistance, photographers, searchQuery, sortBy, showAllPhotographers]);
 
   // NOTE: Removed redundant fetchAvailability useEffect that was calling a separate API
   // which didn't account for booked slots. The fetchPhotographerData above already 
@@ -490,6 +502,14 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
                   className="w-full"
                 />
               </div>
+
+              <DialogFooter className="mt-4">
+                <DialogClose asChild>
+                  <Button type="button" className="w-full">
+                    OK
+                  </Button>
+                </DialogClose>
+              </DialogFooter>
             </DialogContent>
           </Dialog>
 
@@ -553,15 +573,26 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
 
                 {/* Search and Sort Controls */}
                 <div className="space-y-3 mb-4">
-                  {/* Search Field */}
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Search photographers..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-9"
-                    />
+                  {/* Search Field with Show All Button */}
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search photographers..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-9"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant={showAllPhotographers ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setShowAllPhotographers(!showAllPhotographers)}
+                      className="whitespace-nowrap"
+                    >
+                      {showAllPhotographers ? "Available" : "Show All"}
+                    </Button>
                   </div>
 
                   {/* Sort Selector */}
@@ -771,7 +802,25 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
                       </div>
                     ) : (
                       <div className="text-sm text-slate-500 dark:text-slate-400 text-center py-8">
-                        {searchQuery ? 'No photographers found matching your search.' : 'No photographers available for the selected date and time.'}
+                        {searchQuery 
+                          ? 'No photographers found matching your search.' 
+                          : showAllPhotographers 
+                            ? 'No photographers found in the system.'
+                            : (
+                              <div className="space-y-2">
+                                <p>No photographers available for the selected date and time.</p>
+                                <Button
+                                  type="button"
+                                  variant="link"
+                                  size="sm"
+                                  onClick={() => setShowAllPhotographers(true)}
+                                  className="text-blue-600"
+                                >
+                                  Show all photographers
+                                </Button>
+                              </div>
+                            )
+                        }
                       </div>
                     )}
                   </div>
