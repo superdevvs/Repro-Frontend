@@ -40,6 +40,7 @@ import { API_BASE_URL } from "@/config/env";
 import type { RepDetails } from "@/types/auth";
 import { STATE_OPTIONS } from "@/utils/stateUtils";
 import { Upload, FileText, X, Camera } from "lucide-react";
+import { PhoneInput } from "@/components/ui/phone-input";
 import {
   Popover,
   PopoverContent,
@@ -905,7 +906,10 @@ export function AccountForm({
                       <FormItem>
                         <FormLabel>Phone Number</FormLabel>
                         <FormControl>
-                          <Input placeholder="+1 (123) 456-7890" {...field} />
+                          <PhoneInput
+                            value={field.value}
+                            onChange={field.onChange}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

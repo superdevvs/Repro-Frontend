@@ -10,14 +10,16 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { CheckCircle2, AlertTriangle, Clock, Activity, Settings, Thermometer } from "lucide-react";
+import { CheckCircle2, AlertTriangle, Clock, Activity, Settings, Thermometer, Loader2 } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 import { useUserPreferences } from "@/contexts/UserPreferencesContext";
+import { API_BASE_URL } from "@/config/env";
 
 export function AdminProfile() {
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
   const { theme, setTheme } = useTheme();
   const { preferences, setTemperatureUnit, setTimeFormat } = useUserPreferences();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [formData, setFormData] = useState({
     name: user?.name || "",
@@ -57,10 +59,48 @@ export function AdminProfile() {
     setFormData(prev => ({ ...prev, avatar: url }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real app, save to database
-    toast.success("Profile updated successfully");
+    setIsSubmitting(true);
+    
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        toast.error("Not authenticated");
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/profile`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          avatar: formData.avatar || undefined,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to update profile');
+      }
+
+      // Update local user state
+      if (data.user && user) {
+        setUser({ ...user, ...data.user });
+      }
+
+      toast.success("Profile updated successfully");
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      toast.error(error instanceof Error ? error.message : "Failed to update profile");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const toggleTheme = () => {
@@ -256,7 +296,10 @@ export function AdminProfile() {
                 </div>
               </CardContent>
               <CardFooter>
-                <Button type="submit">Update Profile</Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {isSubmitting ? "Updating..." : "Update Profile"}
+                </Button>
               </CardFooter>
             </Card>
           </form>

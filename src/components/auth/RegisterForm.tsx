@@ -7,6 +7,7 @@ import { Eye, EyeOff } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PhoneInput } from '@/components/ui/phone-input';
 import {
   Form,
   FormControl,
@@ -186,9 +187,9 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
             render={({ field }) => (
               <FormItem className="relative">
                 <FormControl>
-                  <Input
-                    placeholder="+1 (555) 123-4567"
-                    {...field}
+                  <PhoneInput
+                    value={field.value}
+                    onChange={field.onChange}
                     className={inputClass}
                   />
                 </FormControl>

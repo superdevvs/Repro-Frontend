@@ -27,6 +27,7 @@ interface AddressSuggestion {
 interface AddressDetails {
   formatted_address: string;
   address: string;
+  apt_suite?: string;
   city: string;
   state: string;
   zip: string;

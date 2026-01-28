@@ -2021,8 +2021,8 @@ export function ShootDetailsModal({
                     <span>{isLoadingInvoice ? 'Loading…' : 'Invoice'}</span>
                   </Button>
                 )}
-                {/* Publish to Bright MLS button - before View full page */}
-                {isDelivered && (
+                {/* Publish to Bright MLS button - before View full page (hidden from editors) */}
+                {isDelivered && !isEditor && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -2163,7 +2163,7 @@ export function ShootDetailsModal({
               <Edit className="h-3 w-3" />
             </Button>
           )}
-          {(isAdmin || isClient) && isDelivered && !isEditMode && (
+          {(isAdmin || isClient) && isDelivered && !isEditMode && !isEditor && (
             <Button
               variant="outline"
               size="sm"

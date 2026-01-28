@@ -34,6 +34,7 @@ interface ShootDetailsQuickActionsProps {
   isEditor: boolean;
   isClient: boolean;
   role: string;
+  isEditMode?: boolean;
   onShootUpdate: () => void;
   onProcessPayment?: () => void;
   onViewInvoice?: () => void;
@@ -47,6 +48,7 @@ export function ShootDetailsQuickActions({
   isEditor,
   isClient,
   role,
+  isEditMode = false,
   onShootUpdate,
   onProcessPayment,
   onViewInvoice,
@@ -364,7 +366,7 @@ export function ShootDetailsQuickActions({
             <span className="hidden sm:inline">Open iGUIDE</span>
           </Button>
         )}
-        {canSyncIguide && (
+        {canSyncIguide && !isEditMode && (
           <Button
             variant="outline"
             size="sm"

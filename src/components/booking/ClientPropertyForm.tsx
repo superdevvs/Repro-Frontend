@@ -158,6 +158,7 @@ const getPackageCategoryName = (pkg?: PackageOption | null) =>
 
 const clientAccountPropertyFormSchema = z.object({
   propertyAddress: z.string().min(1, "Address is required"),
+  aptSuite: z.string().optional(),
   propertyCity: z.string().min(1, "City is required"),
   propertyState: z.string()
     .min(1, "State is required")
@@ -184,6 +185,7 @@ const clientAccountPropertyFormSchema = z.object({
 const adminPropertyFormSchema = z.object({
   clientId: z.string().min(1, "Please select a client"),
   propertyAddress: z.string().min(1, "Address is required"),
+  aptSuite: z.string().optional(),
   propertyCity: z.string().min(1, "City is required"),
   propertyState: z.string()
     .min(1, "State is required")
@@ -265,6 +267,7 @@ export const ClientPropertyForm = ({
 }: ClientPropertyFormProps) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddingClient, setIsAddingClient] = useState(false);
+  const [newlyAddedClients, setNewlyAddedClients] = useState<Client[]>([]);
 
   // AccountForm control state
   const [isAccountFormOpen, setIsAccountFormOpen] = useState<boolean>(false);
@@ -500,18 +503,27 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
   }, [effectiveSqft]); // Only run when sqft changes
 
   const isSearching = searchQuery.trim().length > 0;
+  
+  // Combine passed-in clients with newly added clients (newly added first)
+  const allClients = React.useMemo(() => {
+    const existingIds = new Set(clients.map(c => c.id));
+    const uniqueNewClients = newlyAddedClients.filter(c => !existingIds.has(c.id));
+    return [...uniqueNewClients, ...clients];
+  }, [clients, newlyAddedClients]);
+  
   const filteredClients = React.useMemo(() => {
-    if (!isSearching) return clients;
-    return clients.filter(client =>
+    if (!isSearching) return allClients;
+    return allClients.filter(client =>
       client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (client.company && client.company.toLowerCase().includes(searchQuery.toLowerCase()))
     );
-  }, [clients, searchQuery, isSearching]);
+  }, [allClients, searchQuery, isSearching]);
 
-  const visibleClients = isSearching ? filteredClients : [];
+  // Show newly added clients even without search, plus filtered results when searching
+  const visibleClients = isSearching ? filteredClients : newlyAddedClients.slice(0, 4);
 
   const selectedClientId = !isClientAccount ? (form.getValues() as AdminFormValues).clientId : '';
-  const selectedClient = selectedClientId ? clients.find(client => client.id === selectedClientId) : null;
+  const selectedClient = selectedClientId ? allClients.find(client => client.id === selectedClientId) : null;
 
   const handleSubmit = (data: FormValues) => {
     const normalizedComplete =
@@ -565,9 +577,33 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
 
 
   const handleAccountFormSubmit = (data: AccountFormValues) => {
-    // data: create payload from account form
-    console.log("AccountForm submitted:", data);
-    // close modal
+    // Create a client object from the returned account form data
+    // The AccountForm already created the user via API, so we just need to add to local list
+    if (data.id) {
+      const newClient: Client = {
+        id: String(data.id),
+        name: data.name || `${data.firstName} ${data.lastName}`.trim(),
+        email: data.email,
+        phone: data.phone || '',
+        company: data.company || '',
+      };
+      
+      // Add to local newly added clients list
+      setNewlyAddedClients(prev => [newClient, ...prev]);
+      
+      // Select the new client in the form
+      form.setValue('clientId' as any, newClient.id);
+      
+      // Clear search so the new client is visible
+      setSearchQuery('');
+      
+      toast({
+        title: "Client created",
+        description: `${newClient.name} has been added and selected.`,
+      });
+    }
+    
+    // Close modal
     setIsAccountFormOpen(false);
   };
 
@@ -839,18 +875,33 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
               />
 
               {/* Editable Street Address Field - always visible */}
-              <div className="space-y-2">
-                <Label htmlFor="completeAddress">Street Address</Label>
-                <Input
-                  id="completeAddress"
-                  value={completeAddress}
-                  onChange={(e) => setCompleteAddress(e.target.value)}
-                  placeholder="Street address"
-                  className="font-medium"
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="completeAddress">Street Address</Label>
+                  <Input
+                    id="completeAddress"
+                    value={completeAddress}
+                    onChange={(e) => setCompleteAddress(e.target.value)}
+                    placeholder="Street address"
+                    className="font-medium"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    You can manually edit this street address if needed.
+                  </p>
+                </div>
+                <FormField
+                  control={form.control}
+                  name="aptSuite"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Apt/Suite</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Unit #" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-                <p className="text-xs text-muted-foreground">
-                  You can manually edit this street address if needed. It is prefilled when you select an address.
-                </p>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">

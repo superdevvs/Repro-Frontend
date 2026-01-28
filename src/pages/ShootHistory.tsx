@@ -1676,6 +1676,7 @@ const HistoryRow = memo(({
   onDelete,
   onViewInvoice,
   shouldHideClientDetails = false,
+  isEditor = false,
 }: {
   record: ShootHistoryRecord
   onViewRecord?: (record: ShootHistoryRecord) => void
@@ -1686,6 +1687,7 @@ const HistoryRow = memo(({
   onDelete?: (record: ShootHistoryRecord) => void
   onViewInvoice?: (shoot: ShootData | { id: string | number }) => void
   shouldHideClientDetails?: boolean
+  isEditor?: boolean
 }) => {
   const { formatDate: formatDatePref } = useUserPreferences()
   const formatDisplayDatePref = (value?: string | null) => {
@@ -1765,7 +1767,7 @@ const HistoryRow = memo(({
               </div>
             )}
             <div className="flex items-center gap-2">
-              {(record as any).mls_id && onPublishMls && (
+              {(record as any).mls_id && onPublishMls && !isEditor && (
                 <Button
                   size="sm"
                   variant="default"
@@ -1854,7 +1856,7 @@ const HistoryRow = memo(({
           <span className="text-muted-foreground">
             Tour: {record.tourPurchased ? 'Yes' : 'No'}
           </span>
-          {(record as any).mls_id && (
+          {(record as any).mls_id && !isEditor && (
             <span className="text-muted-foreground">
               MLS: {(record as any).mls_id} · {(record as any).bright_mls_publish_status ? (
                 <Badge variant={(record as any).bright_mls_publish_status === 'published' ? 'default' : (record as any).bright_mls_publish_status === 'error' ? 'destructive' : 'secondary'} className="ml-1">
@@ -4113,6 +4115,7 @@ const ShootHistory: React.FC = () => {
             onDelete={isAdmin || isSuperAdmin ? handleDeleteHistoryRecord : undefined}
             onViewInvoice={canViewInvoice ? handleViewInvoice : undefined}
             shouldHideClientDetails={shouldHideClientDetails}
+            isEditor={isEditor}
           />
         ))}
       </div>
