@@ -27,5 +27,6 @@ dist-ssr
 *.sw?
 .env
 
-# Storage files (do not track)
-public/shoots/
+# Storage files (do not track images)
+public/shoots/**
+!public/shoots/**/.gitkeep
