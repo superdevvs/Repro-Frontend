@@ -4,7 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./components/auth";
 import { PermissionsProvider } from './context/PermissionsContext';
 import { UserPreferencesProvider } from './contexts/UserPreferencesContext';
@@ -89,6 +89,21 @@ const FullScreenSpinner = () => (
     <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
   </div>
 );
+
+const RobbieRouteTracker = () => {
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.pathname === '/chat-with-reproai') return;
+    try {
+      sessionStorage.setItem('robbie_last_route', location.pathname);
+    } catch (error) {
+      // Ignore storage errors (private mode, blocked storage, etc.)
+    }
+  }, [location.pathname]);
+
+  return null;
+};
 
 // Protected route component
 const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
@@ -572,6 +587,7 @@ function App() {
           <Toaster />
           <Sonner position="top-right" closeButton richColors />
           <BrowserRouter>
+            <RobbieRouteTracker />
             <AuthProvider>
               <UserPreferencesProvider>
                 <PermissionsProvider>

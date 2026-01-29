@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { ReproAiIcon } from '@/components/icons/ReproAiIcon';
 import { Link } from 'react-router-dom';
 import { getAccountingMode, accountingConfigs } from '@/config/accountingConfig';
+import { LayoutGroup } from 'framer-motion';
 import {
   HomeIcon,
   ClipboardIcon,
@@ -43,6 +44,7 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
   const isChatActive = pathname === '/chat-with-reproai';
 
   return (
+    <LayoutGroup>
     <div className="flex flex-1 flex-col gap-2 p-2">
       {/* Dashboard link - everyone with dashboard view permission can see this */}
       {dashboardPermission.canView() && (
@@ -218,5 +220,6 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
         </Link>
       )}
     </div>
+    </LayoutGroup>
   );
 }

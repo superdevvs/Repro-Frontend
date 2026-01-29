@@ -13,11 +13,13 @@ import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, AlertCircle } from "lucide-react";
+import { CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 import { useUserPreferences } from "@/contexts/UserPreferencesContext";
+import { API_BASE_URL } from "@/config/env";
 
 export function ClientProfile() {
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
   const { preferences, setTemperatureUnit, setTimeFormat } = useUserPreferences();
   
@@ -53,10 +55,53 @@ export function ClientProfile() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real app, save to database
-    toast.success("Profile updated successfully");
+    setIsSubmitting(true);
+    
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        toast.error("Not authenticated");
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/profile`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          phone_number: formData.phone || undefined,
+          company_name: formData.company || undefined,
+          avatar: formData.avatar || undefined,
+          address: formData.billingAddress || undefined,
+          city: formData.billingCity || undefined,
+          state: formData.billingState || undefined,
+          zip: formData.billingZip || undefined,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to update profile');
+      }
+
+      if (data.user && user) {
+        setUser({ ...user, ...data.user });
+      }
+
+      toast.success("Profile updated successfully");
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      toast.error(error instanceof Error ? error.message : "Failed to update profile");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const mockPhotographers = [
@@ -296,7 +341,10 @@ export function ClientProfile() {
                 </div>
               </Badge>
             </div>
-            <Button type="submit">Update My Info</Button>
+            <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {isSubmitting ? "Updating..." : "Update My Info"}
+                </Button>
           </CardFooter>
         </Card>
       </form>

@@ -7,6 +7,11 @@ export interface AiChatRequest {
     listingId?: string;
     intent?: string; // 'book_shoot' | 'manage_booking' | 'availability' | 'client_stats' | 'accounting'
     source?: string;
+    page?: string;
+    route?: string;
+    tab?: string;
+    entityId?: string;
+    entityType?: string;
     insightId?: string;
     insightType?: string;
     entity?: string;

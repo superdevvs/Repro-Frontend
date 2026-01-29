@@ -1,10 +1,9 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { ReproAiIcon } from "@/components/icons/ReproAiIcon";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@/types/auth";
 import type { AiChatRequest } from "@/types/ai";
@@ -28,8 +27,7 @@ interface RobbieInsightStripProps {
   className?: string;
 }
 
-const ROTATION_MIN_MS = 3000;
-const ROTATION_MAX_MS = 5000;
+const ROTATION_INTERVAL_MS = 5000;
 
 const priorityMeta: Record<InsightPriority, { label: string; badgeClass: string; dotClass: string }> = {
   blocking: {
@@ -63,22 +61,37 @@ const allowedRoles: UserRole[] = ["admin", "superadmin", "salesRep", "client", "
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const REFRESH_INTERVAL_MS = 60000; // Auto-refresh every 60 seconds
 
-const getRotationDelay = () =>
-  ROTATION_MIN_MS + Math.floor(Math.random() * (ROTATION_MAX_MS - ROTATION_MIN_MS + 1));
+const getRotationDelay = () => ROTATION_INTERVAL_MS;
 
 export const RobbieInsightStrip: React.FC<RobbieInsightStripProps> = ({ role, className }) => {
   const { role: authRole, session } = useAuth();
   const token = session?.accessToken;
   const navigate = useNavigate();
+  const location = useLocation();
   const activeRole = role ?? authRole;
   const isAllowedRole = Boolean(activeRole && allowedRoles.includes(activeRole));
   const roleKey = (activeRole === "superadmin" ? "admin" : activeRole) ?? "admin";
+  const currentRoute = location.pathname;
+  const currentPage = useMemo(() => {
+    if (currentRoute.startsWith("/dashboard")) return "dashboard";
+    if (currentRoute.startsWith("/shoot-history")) return "shoot_history";
+    if (currentRoute.startsWith("/shoots/")) return "shoot_details";
+    if (currentRoute.startsWith("/book-shoot")) return "book_shoot";
+    if (currentRoute.startsWith("/availability")) return "availability";
+    if (currentRoute.startsWith("/accounting")) return "accounting";
+    if (currentRoute.startsWith("/invoices")) return "invoices";
+    if (currentRoute.startsWith("/ai-editing")) return "ai_editing";
+    if (currentRoute.startsWith("/reports")) return "reports";
+    if (currentRoute.startsWith("/settings")) return "settings";
+    return undefined;
+  }, [currentRoute]);
 
   const [apiInsights, setApiInsights] = useState<RobbieInsight[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  const [displayedText, setDisplayedText] = useState("");
 
   // Fetch insights from API
   const fetchInsights = useCallback(async () => {
@@ -124,30 +137,28 @@ export const RobbieInsightStrip: React.FC<RobbieInsightStripProps> = ({ role, cl
     return () => clearInterval(interval);
   }, [fetchInsights]);
 
-  // Use API insights only (no static fallback)
+  // Use API insights - prioritize blocking but include all for rotation
   const insights = useMemo(() => {
     if (!isAllowedRole) return [];
-    const blockingInsights = apiInsights.filter((insight) => insight.priority === "blocking");
-    return (blockingInsights.length ? blockingInsights : apiInsights).slice(0, 5);
+    // Sort by priority: blocking first, then attention, then insight, then assistive
+    const priorityOrder: Record<InsightPriority, number> = {
+      blocking: 0,
+      attention: 1,
+      insight: 2,
+      assistive: 3,
+    };
+    const sorted = [...apiInsights].sort(
+      (a, b) => (priorityOrder[a.priority] ?? 99) - (priorityOrder[b.priority] ?? 99)
+    );
+    return sorted.slice(0, 5);
   }, [isAllowedRole, roleKey, apiInsights]);
 
   useEffect(() => {
     setActiveIndex(0);
-  }, [roleKey, insights.length]);
-
-  useEffect(() => {
-    if (isPaused || insights.length <= 1) return;
-
-    const timeout = window.setTimeout(() => {
-      setActiveIndex((prev) => (prev + 1) % insights.length);
-    }, getRotationDelay());
-
-    return () => window.clearTimeout(timeout);
-  }, [activeIndex, insights.length, isPaused]);
+  }, [roleKey, apiInsights]);
 
   const activeInsight = insights[activeIndex];
-  if (!isAllowedRole) return null;
-
+  
   const placeholderMessage = isLoading
     ? "Loading Robbie insights..."
     : error
@@ -161,6 +172,39 @@ export const RobbieInsightStrip: React.FC<RobbieInsightStripProps> = ({ role, cl
     prompt: "",
     action: "",
   };
+
+  // Typing effect
+  useEffect(() => {
+    const fullText = displayInsight.message;
+    setDisplayedText("");
+    let index = 0;
+    
+    const typeInterval = setInterval(() => {
+      if (index < fullText.length) {
+        setDisplayedText(fullText.slice(0, index + 1));
+        index++;
+      } else {
+        clearInterval(typeInterval);
+      }
+    }, 25); // 25ms per character
+
+    return () => clearInterval(typeInterval);
+  }, [displayInsight.id, displayInsight.message]);
+
+  // Rotation after typing completes
+  useEffect(() => {
+    if (isPaused || insights.length <= 1) return;
+    if (displayedText !== displayInsight.message) return; // Wait for typing to finish
+
+    const delay = getRotationDelay();
+    const timeout = window.setTimeout(() => {
+      setActiveIndex((prev) => (prev + 1) % insights.length);
+    }, delay);
+
+    return () => window.clearTimeout(timeout);
+  }, [activeIndex, insights, isPaused, displayedText, displayInsight.message]);
+
+  if (!isAllowedRole) return null;
 
   const meta = priorityMeta[displayInsight.priority];
   const isInteractive = Boolean(activeInsight && activeInsight.prompt);
@@ -176,6 +220,8 @@ export const RobbieInsightStrip: React.FC<RobbieInsightStripProps> = ({ role, cl
       mode: "insight",
       intent: activeInsight.intent,
       source: "robbie_insight_strip",
+      page: currentPage,
+      route: currentRoute,
       insightId: activeInsight.id,
       insightType: activeInsight.insightType,
       entity: activeInsight.entity,
@@ -211,7 +257,7 @@ export const RobbieInsightStrip: React.FC<RobbieInsightStripProps> = ({ role, cl
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
       className={cn(
-        "group relative flex w-full cursor-pointer items-center gap-4 overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-r from-background via-muted/20 to-background px-4 py-3 shadow-sm transition hover:border-border/80",
+        "group relative flex max-w-3xl cursor-pointer items-center gap-4 overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-r from-background via-muted/20 to-background px-4 py-3 shadow-sm transition hover:border-border/80",
         className,
       )}
     >
@@ -227,13 +273,15 @@ export const RobbieInsightStrip: React.FC<RobbieInsightStripProps> = ({ role, cl
       </div>
 
       <div className="min-w-0 flex-1 flex items-center gap-2">
-        <Badge
-          className={cn("shrink-0 border px-1.5 py-0.5", meta.badgeClass)}
+        <span
+          className={cn(
+            "shrink-0 inline-block h-2 w-2 rounded-full",
+            meta.dotClass,
+            isLoading && "animate-pulse"
+          )}
           title={meta.label}
           aria-label={meta.label}
-        >
-          <span className={cn("inline-block h-1.5 w-1.5 rounded-full", meta.dotClass)} />
-        </Badge>
+        />
         <AnimatePresence mode="wait">
           <motion.div
             key={displayInsight.id}
@@ -241,10 +289,13 @@ export const RobbieInsightStrip: React.FC<RobbieInsightStripProps> = ({ role, cl
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.35 }}
-            className="min-w-0 text-sm font-medium text-foreground/90 truncate"
+            className={cn(
+              "min-w-0 text-sm font-medium text-foreground/90 truncate",
+              isLoading && "animate-pulse"
+            )}
             title={displayInsight.message}
           >
-            {displayInsight.message}
+            {displayedText}
           </motion.div>
         </AnimatePresence>
       </div>

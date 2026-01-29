@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -49,6 +49,14 @@ type InsightNavigationState = {
   source?: string;
 };
 
+type PageContext = {
+  page?: string;
+  route?: string;
+  tab?: string;
+  entityId?: string;
+  entityType?: string;
+};
+
 const ChatWithReproAi = () => {
   const { user } = useAuth();
   const location = useLocation();
@@ -73,6 +81,45 @@ const ChatWithReproAi = () => {
   const [activeCardIndex, setActiveCardIndex] = useState(0);
   
   const userName = user?.name || user?.email?.split('@')[0] || 'there';
+
+  const mapRouteToPage = useCallback((route: string): string | undefined => {
+    if (route.startsWith('/dashboard')) return 'dashboard';
+    if (route.startsWith('/shoot-history')) return 'shoot_history';
+    if (route.startsWith('/shoots/')) return 'shoot_details';
+    if (route.startsWith('/book-shoot')) return 'book_shoot';
+    if (route.startsWith('/availability')) return 'availability';
+    if (route.startsWith('/accounting')) return 'accounting';
+    if (route.startsWith('/invoices')) return 'invoices';
+    if (route.startsWith('/ai-editing')) return 'ai_editing';
+    if (route.startsWith('/reports')) return 'reports';
+    if (route.startsWith('/settings')) return 'settings';
+    if (route.startsWith('/chat-with-reproai')) return 'chat';
+    return undefined;
+  }, []);
+
+  const pageContext = useMemo<PageContext>(() => {
+    const navState = location.state as InsightNavigationState | null;
+    const contextRoute = navState?.context?.route;
+    let lastRoute: string | null = null;
+    if (!contextRoute && location.pathname === '/chat-with-reproai') {
+      try {
+        lastRoute = sessionStorage.getItem('robbie_last_route');
+      } catch (error) {
+        lastRoute = null;
+      }
+    }
+    const route = contextRoute || lastRoute || location.pathname;
+    const page = navState?.context?.page || mapRouteToPage(route);
+    const shootMatch = route.match(/^\/shoots\/([^/]+)/);
+    const entityId = shootMatch?.[1];
+    return {
+      page,
+      route,
+      tab: tabMode,
+      entityId,
+      entityType: entityId ? 'shoot' : undefined,
+    };
+  }, [location.pathname, location.state, mapRouteToPage, tabMode]);
 
   // Auto-rotate stacked cards every 3 seconds
   useEffect(() => {
@@ -161,15 +208,14 @@ const ChatWithReproAi = () => {
     setMessages(prev => [...prev, userMessage]);
     setMessage('');
 
-    // Transition to chat view on first message
-    if (viewMode === 'home') {
-      setViewMode('chat');
-      setTabMode('chat');
-    }
-
     // Auto-detect intent from message if not provided
     const intent = context?.intent || getIntentFromSuggestion(messageToSend);
-    const finalContext = intent ? { ...context, intent } : context;
+    const finalContext = {
+      ...pageContext,
+      ...context,
+      intent,
+      role: user?.role,
+    };
 
     try {
       const response = await sendAiMessage({
@@ -178,16 +224,25 @@ const ChatWithReproAi = () => {
         context: finalContext,
       });
 
+      // Batch all state updates together to ensure suggestions render with messages
+      // Transition to chat view if coming from home (do this with other updates)
+      const isFirstMessage = viewMode === 'home';
+      
       setSessionId(response.sessionId);
       setMessages(response.messages);
-      // Update suggestions from the response
-      if (response.meta?.suggestions && Array.isArray(response.meta.suggestions) && response.meta.suggestions.length > 0) {
-        setCurrentSuggestions(response.meta.suggestions);
+      
+      // Always update suggestions from response
+      const newSuggestions = response.meta?.suggestions;
+      if (Array.isArray(newSuggestions) && newSuggestions.length > 0) {
+        setCurrentSuggestions(newSuggestions);
       } else {
-        // Keep previous suggestions if new ones aren't provided, or clear if explicitly empty
-        if (response.meta?.suggestions === null || (Array.isArray(response.meta?.suggestions) && response.meta.suggestions.length === 0)) {
-          setCurrentSuggestions([]);
-        }
+        setCurrentSuggestions([]);
+      }
+      
+      // Transition to chat view AFTER setting suggestions to ensure they render
+      if (isFirstMessage) {
+        setViewMode('chat');
+        setTabMode('chat');
       }
     } catch (error: any) {
       console.error('Failed to send message:', error);
@@ -233,7 +288,7 @@ const ChatWithReproAi = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [message, sessionId, viewMode]);
+  }, [message, sessionId, viewMode, pageContext, user?.role, getIntentFromSuggestion]);
 
   useEffect(() => {
     const state = location.state as InsightNavigationState | null;
@@ -429,7 +484,7 @@ const ChatWithReproAi = () => {
     },
   ];
 
-  const suggestedPrompts = [
+  const defaultPrompts = [
     'Book a new shoot',  // First and most prominent suggestion
     'Rewrite the listing description for 19 Ocean Drive in a more premium tone.',
     'Which of my listings most need new media?',
@@ -437,6 +492,85 @@ const ChatWithReproAi = () => {
     'Draft an Instagram carousel caption for my latest listing.',
     'What should I do this week to improve my active listings?',
   ];
+
+  const pagePrompts = useMemo(() => {
+    switch (pageContext.page) {
+      case 'dashboard':
+        return [
+          'Show issues needing attention',
+          "Today's shoots",
+          'Pending approvals',
+          'Late RAW uploads',
+        ];
+      case 'shoot_history':
+        return [
+          'Show pending approvals',
+          'Review cancellations',
+          'Flagged shoots',
+          'Search by address',
+        ];
+      case 'shoot_details':
+        return [
+          'Reschedule this shoot',
+          'Assign photographer',
+          'Mark RAWs uploaded',
+          'Check delivery status',
+        ];
+      case 'book_shoot':
+        return [
+          'Book a new shoot',
+          'Tomorrow',
+          'This week',
+          'Next week',
+        ];
+      case 'availability':
+        return [
+          'Check availability',
+          'Block tomorrow morning',
+          'Set holiday',
+          'View photographer schedule',
+        ];
+      case 'accounting':
+        return [
+          'View outstanding invoices',
+          'Accounting summary',
+          'Create invoice',
+          'Payment status',
+        ];
+      case 'invoices':
+        return [
+          'Create invoice',
+          'Send invoice',
+          'View outstanding invoices',
+          'Apply discount',
+        ];
+      case 'ai_editing':
+        return [
+          'Rewrite listing description',
+          'Suggest upgrades',
+          'Which listings need new media?',
+          'Generate captions',
+        ];
+      case 'reports':
+        return [
+          'Revenue this month',
+          'Top clients',
+          'Photographer performance',
+          'Shoots completed',
+        ];
+      case 'settings':
+        return [
+          'Update scheduling settings',
+          'Manage integrations',
+          'Tour branding',
+          'Help & FAQ',
+        ];
+      default:
+        return undefined;
+    }
+  }, [pageContext.page]);
+
+  const suggestionFallbacks = pagePrompts ?? defaultPrompts;
 
   return (
     <DashboardLayout className="!p-0">
@@ -956,7 +1090,7 @@ const ChatWithReproAi = () => {
               {/* AI Suggestions - Show ONLY in conversation screen */}
               {viewMode === 'chat' && (
                 <div className="flex items-center gap-1.5 md:gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] mb-3 md:mb-4">
-                  {(currentSuggestions.length > 0 ? currentSuggestions : suggestedPrompts.slice(0, 4)).map((suggestion, index) => {
+                  {(currentSuggestions.length > 0 ? currentSuggestions : suggestionFallbacks.slice(0, 4)).map((suggestion, index) => {
                     const intent = getIntentFromSuggestion(suggestion);
                     return (
                       <button

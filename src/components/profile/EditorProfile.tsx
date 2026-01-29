@@ -10,11 +10,13 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { FileEdit, ClipboardList } from "lucide-react";
+import { FileEdit, ClipboardList, Loader2 } from "lucide-react";
 import { useUserPreferences } from "@/contexts/UserPreferencesContext";
+import { API_BASE_URL } from "@/config/env";
 
 export function EditorProfile() {
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { preferences, setTemperatureUnit, setTimeFormat } = useUserPreferences();
   
   const [formData, setFormData] = useState({
@@ -39,10 +41,48 @@ export function EditorProfile() {
     setFormData(prev => ({ ...prev, avatar: url }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real app, save to database
-    toast.success("Profile updated successfully");
+    setIsSubmitting(true);
+    
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        toast.error("Not authenticated");
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/profile`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          phone_number: formData.phone || undefined,
+          avatar: formData.avatar || undefined,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to update profile');
+      }
+
+      if (data.user && user) {
+        setUser({ ...user, ...data.user });
+      }
+
+      toast.success("Profile updated successfully");
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      toast.error(error instanceof Error ? error.message : "Failed to update profile");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Mock data for editor stats
@@ -181,7 +221,10 @@ export function EditorProfile() {
                 </div>
               </CardContent>
               <CardFooter className="border-t pt-6">
-                <Button type="submit">Update Info</Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {isSubmitting ? "Updating..." : "Update Info"}
+                </Button>
               </CardFooter>
             </Card>
           </form>

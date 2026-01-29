@@ -4597,17 +4597,17 @@ const ShootHistory: React.FC = () => {
           <TabsContent value="scheduled" className="space-y-6">
             {scheduledContent}
 
-            {filteredOperationalData.length > 9 && activeTab === 'scheduled' && (
+            {operationalMeta && operationalMeta.total > 0 && (
               <div className="flex items-center justify-between rounded-xl border bg-card p-4 text-sm">
                 <div>
-                  Page {Math.floor((operationalMeta?.current_page ?? 1) - 1) + 1} of {Math.ceil(filteredOperationalData.length / 9)} · {filteredOperationalData.length} records
+                  Page {operationalPage} of {Math.max(1, Math.ceil(operationalMeta.total / operationalMeta.per_page))} · {operationalMeta.total} records
                 </div>
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => handleOperationalPageChange('prev')}
-                    disabled={(operationalMeta?.current_page ?? 1) === 1}
+                    disabled={operationalPage === 1}
                   >
                     Previous
                   </Button>
@@ -4615,7 +4615,7 @@ const ShootHistory: React.FC = () => {
                     variant="outline"
                     size="sm"
                     onClick={() => handleOperationalPageChange('next')}
-                    disabled={(operationalMeta?.current_page ?? 1) >= Math.ceil(filteredOperationalData.length / 9)}
+                    disabled={operationalPage >= Math.ceil(operationalMeta.total / operationalMeta.per_page)}
                   >
                     Next
                   </Button>
@@ -4627,17 +4627,17 @@ const ShootHistory: React.FC = () => {
           <TabsContent value="editing" className="space-y-6">
             {completedContent}
 
-            {filteredOperationalData.length > 9 && activeTab === 'editing' && (
+            {operationalMeta && operationalMeta.total > 0 && (
               <div className="flex items-center justify-between rounded-xl border bg-card p-4 text-sm">
                 <div>
-                  Page {Math.floor((operationalMeta?.current_page ?? 1) - 1) + 1} of {Math.ceil(filteredOperationalData.length / 9)} · {filteredOperationalData.length} records
+                  Page {operationalPage} of {Math.max(1, Math.ceil(operationalMeta.total / operationalMeta.per_page))} · {operationalMeta.total} records
                 </div>
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => handleOperationalPageChange('prev')}
-                    disabled={(operationalMeta?.current_page ?? 1) === 1}
+                    disabled={operationalPage === 1}
                   >
                     Previous
                   </Button>
@@ -4645,7 +4645,7 @@ const ShootHistory: React.FC = () => {
                     variant="outline"
                     size="sm"
                     onClick={() => handleOperationalPageChange('next')}
-                    disabled={(operationalMeta?.current_page ?? 1) >= Math.ceil(filteredOperationalData.length / 9)}
+                    disabled={operationalPage >= Math.ceil(operationalMeta.total / operationalMeta.per_page)}
                   >
                     Next
                   </Button>
@@ -4657,17 +4657,17 @@ const ShootHistory: React.FC = () => {
           <TabsContent value="edited" className="space-y-6">
             {completedContent}
 
-            {filteredOperationalData.length > 9 && activeTab === 'edited' && (
+            {operationalMeta && operationalMeta.total > 0 && (
               <div className="flex items-center justify-between rounded-xl border bg-card p-4 text-sm">
                 <div>
-                  Page {Math.floor((operationalMeta?.current_page ?? 1) - 1) + 1} of {Math.ceil(filteredOperationalData.length / 9)} · {filteredOperationalData.length} records
+                  Page {operationalPage} of {Math.max(1, Math.ceil(operationalMeta.total / operationalMeta.per_page))} · {operationalMeta.total} records
                 </div>
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => handleOperationalPageChange('prev')}
-                    disabled={(operationalMeta?.current_page ?? 1) === 1}
+                    disabled={operationalPage === 1}
                   >
                     Previous
                   </Button>
@@ -4675,7 +4675,7 @@ const ShootHistory: React.FC = () => {
                     variant="outline"
                     size="sm"
                     onClick={() => handleOperationalPageChange('next')}
-                    disabled={(operationalMeta?.current_page ?? 1) >= Math.ceil(filteredOperationalData.length / 9)}
+                    disabled={operationalPage >= Math.ceil(operationalMeta.total / operationalMeta.per_page)}
                   >
                     Next
                   </Button>
@@ -4688,17 +4688,17 @@ const ShootHistory: React.FC = () => {
           <TabsContent value="delivered" className="space-y-6">
             {completedContent}
 
-            {filteredOperationalData.length > 9 && activeTab === 'delivered' && (
+            {operationalMeta && operationalMeta.total > 0 && (
               <div className="flex items-center justify-between rounded-xl border bg-card p-4 text-sm">
                 <div>
-                  Page {Math.floor((operationalMeta?.current_page ?? 1) - 1) + 1} of {Math.ceil(filteredOperationalData.length / 9)} · {filteredOperationalData.length} records
+                  Page {operationalPage} of {Math.max(1, Math.ceil(operationalMeta.total / operationalMeta.per_page))} · {operationalMeta.total} records
                 </div>
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => handleOperationalPageChange('prev')}
-                    disabled={(operationalMeta?.current_page ?? 1) === 1}
+                    disabled={operationalPage === 1}
                   >
                     Previous
                   </Button>
@@ -4706,7 +4706,7 @@ const ShootHistory: React.FC = () => {
                     variant="outline"
                     size="sm"
                     onClick={() => handleOperationalPageChange('next')}
-                    disabled={(operationalMeta?.current_page ?? 1) >= Math.ceil(filteredOperationalData.length / 9)}
+                    disabled={operationalPage >= Math.ceil(operationalMeta.total / operationalMeta.per_page)}
                   >
                     Next
                   </Button>
@@ -4719,17 +4719,17 @@ const ShootHistory: React.FC = () => {
           <TabsContent value="completed" className="space-y-6">
             {completedContent}
 
-            {filteredOperationalData.length > 9 && activeTab === 'completed' && (
+            {operationalMeta && operationalMeta.total > 0 && (
               <div className="flex items-center justify-between rounded-xl border bg-card p-4 text-sm">
                 <div>
-                  Page {Math.floor((operationalMeta?.current_page ?? 1) - 1) + 1} of {Math.ceil(filteredOperationalData.length / 9)} · {filteredOperationalData.length} records
+                  Page {operationalPage} of {Math.max(1, Math.ceil(operationalMeta.total / operationalMeta.per_page))} · {operationalMeta.total} records
                 </div>
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => handleOperationalPageChange('prev')}
-                    disabled={(operationalMeta?.current_page ?? 1) === 1}
+                    disabled={operationalPage === 1}
                   >
                     Previous
                   </Button>
@@ -4737,7 +4737,7 @@ const ShootHistory: React.FC = () => {
                     variant="outline"
                     size="sm"
                     onClick={() => handleOperationalPageChange('next')}
-                    disabled={(operationalMeta?.current_page ?? 1) >= Math.ceil(filteredOperationalData.length / 9)}
+                    disabled={operationalPage >= Math.ceil(operationalMeta.total / operationalMeta.per_page)}
                   >
                     Next
                   </Button>
@@ -4750,17 +4750,17 @@ const ShootHistory: React.FC = () => {
           <TabsContent value="hold" className="space-y-6">
             {holdOnContent}
 
-            {filteredOperationalData.length > 9 && activeTab === 'hold' && (
+            {operationalMeta && operationalMeta.total > 0 && (
               <div className="flex items-center justify-between rounded-xl border bg-card p-4 text-sm">
                 <div>
-                  Page {Math.floor((operationalMeta?.current_page ?? 1) - 1) + 1} of {Math.ceil(filteredOperationalData.length / 9)} · {filteredOperationalData.length} records
+                  Page {operationalPage} of {Math.max(1, Math.ceil(operationalMeta.total / operationalMeta.per_page))} · {operationalMeta.total} records
                 </div>
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => handleOperationalPageChange('prev')}
-                    disabled={(operationalMeta?.current_page ?? 1) === 1}
+                    disabled={operationalPage === 1}
                   >
                     Previous
                   </Button>
@@ -4768,7 +4768,7 @@ const ShootHistory: React.FC = () => {
                     variant="outline"
                     size="sm"
                     onClick={() => handleOperationalPageChange('next')}
-                    disabled={(operationalMeta?.current_page ?? 1) >= Math.ceil(filteredOperationalData.length / 9)}
+                    disabled={operationalPage >= Math.ceil(operationalMeta.total / operationalMeta.per_page)}
                   >
                     Next
                   </Button>

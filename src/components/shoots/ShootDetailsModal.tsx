@@ -1957,17 +1957,6 @@ export function ShootDetailsModal({
                     <span>Mark as on hold</span>
                   </Button>
                 )}
-                {canCancelShoot && (
-                  <Button
-                    variant="default"
-                    size="sm"
-                    className="h-7 text-xs px-3 bg-red-50 hover:bg-red-100 text-red-700 border-red-200 dark:bg-red-950 dark:hover:bg-red-900 dark:text-red-300 dark:border-red-800"
-                    onClick={handleCancelShootClick}
-                  >
-                    <XCircle className="h-3 w-3 mr-1" />
-                    <span>Cancel Shoot</span>
-                  </Button>
-                )}
                 {canResumeFromHold && (
                   <Button
                     variant="default"
@@ -2004,22 +1993,6 @@ export function ShootDetailsModal({
                       </Button>
                     )}
                   </>
-                )}
-                {canShowInvoiceButton && !isPhotographer && !isEditor && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-xs px-3 bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950 dark:hover:bg-blue-900 dark:text-blue-300 dark:border-blue-800"
-                    onClick={handleShowInvoice}
-                    disabled={isLoadingInvoice}
-                  >
-                    {isLoadingInvoice ? (
-                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                    ) : (
-                      <FileText className="h-3 w-3 mr-1" />
-                    )}
-                    <span>{isLoadingInvoice ? 'Loading…' : 'Invoice'}</span>
-                  </Button>
                 )}
                 {/* Publish to Bright MLS button - before View full page (hidden from editors) */}
                 {isDelivered && !isEditor && (
@@ -2120,6 +2093,20 @@ export function ShootDetailsModal({
             )}
           </div>
         </div>
+
+        {canCancelShoot && (
+          <div className="hidden sm:flex absolute top-12 right-3 z-[85]">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs px-3 border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900 dark:text-red-300 dark:hover:bg-red-950"
+              onClick={handleCancelShootClick}
+            >
+              <XCircle className="h-3 w-3 mr-1" />
+              <span>Cancel Shoot</span>
+            </Button>
+          </div>
+        )}
         
         {/* Mobile: Edit button, Mark as on hold, Resume from hold, and View full page button - Top right before close button */}
         <div className="sm:hidden absolute top-3 right-12 z-[60] flex items-center gap-1.5">
@@ -2436,11 +2423,11 @@ export function ShootDetailsModal({
                       <span>Mark as Paid</span>
                     </Button>
                   )}
-                  {isAdmin && isPaid && (
+                  {(canShowInvoiceButton || (isAdmin && isPaid)) && !isPhotographer && !isEditor && (
                     <Button
                       variant="default"
                       size="sm"
-                      className="w-full h-8 text-xs px-3 bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950 dark:hover:bg-blue-900 dark:text-blue-300 dark:border-blue-800"
+                      className="flex-1 h-8 text-xs px-3 bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950 dark:hover:bg-blue-900 dark:text-blue-300 dark:border-blue-800"
                       onClick={handleShowInvoice}
                       disabled={isLoadingInvoice}
                     >
@@ -2449,7 +2436,7 @@ export function ShootDetailsModal({
                       ) : (
                         <FileText className="h-3.5 w-3.5 mr-1.5" />
                       )}
-                      <span>{isLoadingInvoice ? 'Loading...' : 'Show Invoice'}</span>
+                      <span>{isLoadingInvoice ? 'Loading...' : 'Invoice'}</span>
                     </Button>
                   )}
                   {(isAdmin || isRep) && !isPaid && (

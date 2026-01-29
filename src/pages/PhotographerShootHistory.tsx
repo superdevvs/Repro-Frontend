@@ -32,11 +32,16 @@ const statusColors = {
   booked: 'bg-orange-500',
 };
 
+const ITEMS_PER_PAGE = 9;
+
 const PhotographerShootHistory = () => {
   const [activeTab, setActiveTab] = useState('scheduled');
   const [isLoading, setIsLoading] = useState(true);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [filterAddress, setFilterAddress] = useState('');
+  const [scheduledPage, setScheduledPage] = useState(1);
+  const [completedPage, setCompletedPage] = useState(1);
+  const [deliveredPage, setDeliveredPage] = useState(1);
   const { toast } = useToast();
   const navigate = useNavigate();
   const { shoots } = useShoots();
@@ -74,6 +79,30 @@ const PhotographerShootHistory = () => {
     return !filterAddress || 
       shoot.location.fullAddress.toLowerCase().includes(filterAddress.toLowerCase());
   });
+
+  // Reset to page 1 when filter changes
+  useEffect(() => {
+    setScheduledPage(1);
+  }, [filterAddress]);
+
+  // Paginated data
+  const paginatedScheduledShoots = filteredScheduledShoots.slice(
+    (scheduledPage - 1) * ITEMS_PER_PAGE,
+    scheduledPage * ITEMS_PER_PAGE
+  );
+  const paginatedCompletedShoots = completedShoots.slice(
+    (completedPage - 1) * ITEMS_PER_PAGE,
+    completedPage * ITEMS_PER_PAGE
+  );
+  const paginatedDeliveredShoots = deliveredShoots.slice(
+    (deliveredPage - 1) * ITEMS_PER_PAGE,
+    deliveredPage * ITEMS_PER_PAGE
+  );
+
+  // Total pages calculations
+  const scheduledTotalPages = Math.ceil(filteredScheduledShoots.length / ITEMS_PER_PAGE);
+  const completedTotalPages = Math.ceil(completedShoots.length / ITEMS_PER_PAGE);
+  const deliveredTotalPages = Math.ceil(deliveredShoots.length / ITEMS_PER_PAGE);
 
   // Auto-expanding tabs configuration with badges
   const tabsConfig: AutoExpandingTab[] = useMemo(() => [
@@ -175,47 +204,74 @@ const PhotographerShootHistory = () => {
 
   // Render table for scheduled shoots
   const renderScheduledShootsTable = () => (
-    <div className="rounded-md border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Date</TableHead>
-            <TableHead>Time</TableHead>
-            <TableHead>Address</TableHead>
-            <TableHead>Client</TableHead>
-            <TableHead>Services</TableHead>
-            <TableHead>Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {filteredScheduledShoots.length > 0 ? (
-            filteredScheduledShoots.map((shoot) => (
-              <TableRow key={shoot.id}>
-                <TableCell>{formatShootDate(shoot.scheduledDate)}</TableCell>
-                <TableCell>{shoot.time || 'Not set'}</TableCell>
-                <TableCell className="max-w-xs truncate">{shoot.location.fullAddress}</TableCell>
-                <TableCell>{shoot.client.name}</TableCell>
-                <TableCell>{shoot.services.join(', ')}</TableCell>
-                <TableCell>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    onClick={() => navigate(`/shoots?id=${shoot.id}`)}
-                    className="flex items-center gap-1"
-                  >
-                    <Eye className="h-4 w-4" />
-                    <span>View</span>
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))
-          ) : (
+    <div className="space-y-4">
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
             <TableRow>
-              <TableCell colSpan={6} className="text-center p-4">No scheduled shoots found</TableCell>
+              <TableHead>Date</TableHead>
+              <TableHead>Time</TableHead>
+              <TableHead>Address</TableHead>
+              <TableHead>Client</TableHead>
+              <TableHead>Services</TableHead>
+              <TableHead>Actions</TableHead>
             </TableRow>
-          )}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {paginatedScheduledShoots.length > 0 ? (
+              paginatedScheduledShoots.map((shoot) => (
+                <TableRow key={shoot.id}>
+                  <TableCell>{formatShootDate(shoot.scheduledDate)}</TableCell>
+                  <TableCell>{shoot.time || 'Not set'}</TableCell>
+                  <TableCell className="max-w-xs truncate">{shoot.location.fullAddress}</TableCell>
+                  <TableCell>{shoot.client.name}</TableCell>
+                  <TableCell>{shoot.services.join(', ')}</TableCell>
+                  <TableCell>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => navigate(`/shoots?id=${shoot.id}`)}
+                      className="flex items-center gap-1"
+                    >
+                      <Eye className="h-4 w-4" />
+                      <span>View</span>
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center p-4">No scheduled shoots found</TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+      {scheduledTotalPages > 1 && (
+        <div className="flex items-center justify-between rounded-xl border bg-card p-4 text-sm">
+          <div>
+            Page {scheduledPage} of {scheduledTotalPages} · {filteredScheduledShoots.length} records
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setScheduledPage((p) => Math.max(1, p - 1))}
+              disabled={scheduledPage === 1}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setScheduledPage((p) => Math.min(scheduledTotalPages, p + 1))}
+              disabled={scheduledPage >= scheduledTotalPages}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 
@@ -332,11 +388,75 @@ const PhotographerShootHistory = () => {
               
               <TabsContent value="completed" className="mt-0">
                 {completedShoots.length > 0 ? (
-                  <div className="grid gap-4">
-                    {completedShoots.map(renderShootCard)}
+                  <div className="space-y-4">
+                    <div className="grid gap-4">
+                      {paginatedCompletedShoots.map(renderShootCard)}
+                    </div>
+                    {completedTotalPages > 1 && (
+                      <div className="flex items-center justify-between rounded-xl border bg-card p-4 text-sm">
+                        <div>
+                          Page {completedPage} of {completedTotalPages} · {completedShoots.length} records
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCompletedPage((p) => Math.max(1, p - 1))}
+                            disabled={completedPage === 1}
+                          >
+                            Previous
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCompletedPage((p) => Math.min(completedTotalPages, p + 1))}
+                            disabled={completedPage >= completedTotalPages}
+                          >
+                            Next
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   renderEmptyState("You don't have any completed shoots yet.")
+                )}
+              </TabsContent>
+
+              <TabsContent value="delivered" className="mt-0">
+                {deliveredShoots.length > 0 ? (
+                  <div className="space-y-4">
+                    <div className="grid gap-4">
+                      {paginatedDeliveredShoots.map(renderShootCard)}
+                    </div>
+                    {deliveredTotalPages > 1 && (
+                      <div className="flex items-center justify-between rounded-xl border bg-card p-4 text-sm">
+                        <div>
+                          Page {deliveredPage} of {deliveredTotalPages} · {deliveredShoots.length} records
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setDeliveredPage((p) => Math.max(1, p - 1))}
+                            disabled={deliveredPage === 1}
+                          >
+                            Previous
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setDeliveredPage((p) => Math.min(deliveredTotalPages, p + 1))}
+                            disabled={deliveredPage >= deliveredTotalPages}
+                          >
+                            Next
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  renderEmptyState("You don't have any delivered shoots yet.")
                 )}
               </TabsContent>
             </>

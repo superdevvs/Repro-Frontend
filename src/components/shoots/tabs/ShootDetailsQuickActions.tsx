@@ -20,7 +20,6 @@ import {
   DollarSignIcon,
   Download,
   Receipt,
-  RefreshCw,
   ExternalLink,
 } from 'lucide-react';
 import { ShootData } from '@/types/shoots';
@@ -61,8 +60,6 @@ export function ShootDetailsQuickActions({
   const [selectedEditorId, setSelectedEditorId] = useState<string>('');
   const [photographers, setPhotographers] = useState<Array<{ id: string; name: string; email: string }>>([]);
   const [editors, setEditors] = useState<Array<{ id: string; name: string; email: string }>>([]);
-  const [syncingIguide, setSyncingIguide] = useState(false);
-
   // Fetch photographers for assignment
   const fetchPhotographers = async () => {
     try {
@@ -79,37 +76,6 @@ export function ShootDetailsQuickActions({
       }
     } catch (error) {
       console.error('Error fetching photographers:', error);
-    }
-  };
-
-  const handleSyncIguide = async () => {
-    try {
-      setSyncingIguide(true);
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      const res = await fetch(`${API_BASE_URL}/api/integrations/shoots/${shoot.id}/iguide/sync`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-      });
-
-      if (!res.ok) throw new Error('Failed to sync iGUIDE');
-
-      toast({
-        title: 'iGUIDE synced',
-        description: 'Tour and floorplans updated from iGUIDE.',
-      });
-      onShootUpdate();
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to sync iGUIDE',
-        variant: 'destructive',
-      });
-    } finally {
-      setSyncingIguide(false);
     }
   };
 
@@ -340,7 +306,6 @@ export function ShootDetailsQuickActions({
     }
   };
 
-  const isSuperAdmin = role === 'superadmin';
   const isPaid = (shoot.payment?.totalPaid ?? 0) >= (shoot.payment?.totalQuote ?? 0);
   const iguideUrl =
     shoot.iguideTourUrl ||
@@ -349,7 +314,6 @@ export function ShootDetailsQuickActions({
     shoot.tourLinks?.iguide_mls ||
     (shoot as any).iguide_tour_url ||
     '';
-  const canSyncIguide = isAdmin || isSuperAdmin;
 
   return (
     <>
@@ -364,18 +328,6 @@ export function ShootDetailsQuickActions({
           >
             <ExternalLink className="h-3 w-3 sm:h-3.5 sm:w-3.5 sm:mr-1.5" />
             <span className="hidden sm:inline">Open iGUIDE</span>
-          </Button>
-        )}
-        {canSyncIguide && !isEditMode && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex-1 h-7 sm:h-8 text-[10px] sm:text-xs px-2 sm:px-3"
-            onClick={handleSyncIguide}
-            disabled={syncingIguide}
-          >
-            <RefreshCw className={`h-3 w-3 sm:h-3.5 sm:w-3.5 sm:mr-1.5 ${syncingIguide ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">Sync iGUIDE</span>
           </Button>
         )}
         {isClient && (

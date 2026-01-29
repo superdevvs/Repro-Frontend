@@ -34,7 +34,7 @@ export function Sidebar({ className }: SidebarProps) {
     <motion.div
       initial={false}
       animate={{
-        width: isCollapsed ? 80 : 200,
+        width: isCollapsed ? 80 : 210,
       }}
       transition={{ duration: 0.2, ease: 'easeInOut' }}
       className={cn(
