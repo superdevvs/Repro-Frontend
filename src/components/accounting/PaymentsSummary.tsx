@@ -41,7 +41,7 @@ export function PaymentsSummary({ invoices }: PaymentsSummaryProps) {
     .slice(0, 15);
 
   return (
-    <div className="flex flex-col gap-6 h-full">
+    <div className="flex flex-col gap-3 h-full">
   {/* 🧾 Payments Summary */}
   <Card className="overflow-hidden border flex-shrink-0 min-h-fit">
     <CardHeader className="pb-2">

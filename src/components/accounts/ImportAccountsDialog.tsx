@@ -2,20 +2,26 @@ import React, { useState, useRef } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { UploadIcon, FileTextIcon, CheckCircleIcon, AlertCircleIcon, DownloadIcon } from 'lucide-react';
-import { useShoots } from '@/context/ShootsContext';
 import { toast } from 'sonner';
 import { API_BASE_URL } from '@/config/env';
 
-interface ImportShootsDialogProps {
+interface ImportAccountsDialogProps {
   isOpen: boolean;
   onClose: () => void;
+  onImportComplete?: () => void;
 }
 
-export function ImportShootsDialog({ isOpen, onClose }: ImportShootsDialogProps) {
-  const { fetchShoots } = useShoots();
+interface ImportResult {
+  success: number;
+  updated: number;
+  failed: number;
+  errors?: string[];
+}
+
+export function ImportAccountsDialog({ isOpen, onClose, onImportComplete }: ImportAccountsDialogProps) {
   const [file, setFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
-  const [importResult, setImportResult] = useState<{ success: number; failed: number; errors?: string[] } | null>(null);
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [dryRun, setDryRun] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -46,7 +52,7 @@ export function ImportShootsDialog({ isOpen, onClose }: ImportShootsDialogProps)
   const downloadTemplate = async () => {
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/api/import/shoots/template`, {
+      const response = await fetch(`${API_BASE_URL}/api/import/accounts/template`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -58,7 +64,7 @@ export function ImportShootsDialog({ isOpen, onClose }: ImportShootsDialogProps)
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = 'shoots_template.csv';
+      link.download = 'accounts_template.csv';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -76,7 +82,7 @@ export function ImportShootsDialog({ isOpen, onClose }: ImportShootsDialogProps)
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       if (!token) {
-        toast.error('Please log in to import shoots');
+        toast.error('Please log in to import accounts');
         setImporting(false);
         return;
       }
@@ -85,7 +91,7 @@ export function ImportShootsDialog({ isOpen, onClose }: ImportShootsDialogProps)
       formData.append('file', file);
       formData.append('dry_run', dryRun ? '1' : '0');
 
-      const response = await fetch(`${API_BASE_URL}/api/import/shoots`, {
+      const response = await fetch(`${API_BASE_URL}/api/import/accounts`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -103,20 +109,21 @@ export function ImportShootsDialog({ isOpen, onClose }: ImportShootsDialogProps)
       
       setImportResult({
         success: result.summary?.imported || 0,
+        updated: result.summary?.updated || 0,
         failed: result.summary?.skipped || 0,
         errors: result.errors || [],
       });
       
-      if (result.summary?.imported > 0) {
-        toast.success(`Successfully ${dryRun ? 'validated' : 'imported'} ${result.summary.imported} shoots`);
-        if (!dryRun) {
-          // Refresh shoots list after successful import
-          fetchShoots();
+      const totalProcessed = (result.summary?.imported || 0) + (result.summary?.updated || 0);
+      if (totalProcessed > 0) {
+        toast.success(`Successfully ${dryRun ? 'validated' : 'processed'} ${totalProcessed} accounts`);
+        if (!dryRun && onImportComplete) {
+          onImportComplete();
         }
       }
       
       if (result.summary?.skipped > 0) {
-        toast.error(`${result.summary.skipped} shoots were skipped`);
+        toast.error(`${result.summary.skipped} accounts were skipped`);
       }
     } catch (error) {
       console.error('Import error:', error);
@@ -141,9 +148,9 @@ export function ImportShootsDialog({ isOpen, onClose }: ImportShootsDialogProps)
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Import Shoots</DialogTitle>
+          <DialogTitle>Import Accounts</DialogTitle>
           <DialogDescription>
-            Upload a CSV file with your shoot data to import it into the system.
+            Upload a CSV file with account data to import users into the system.
           </DialogDescription>
         </DialogHeader>
 
@@ -199,7 +206,16 @@ export function ImportShootsDialog({ isOpen, onClose }: ImportShootsDialogProps)
                 <div className="flex items-center gap-2">
                   <CheckCircleIcon className="h-5 w-5 text-green-500" />
                   <p className="text-sm">
-                    {dryRun ? 'Validated' : 'Imported'} {importResult.success} shoots
+                    {dryRun ? 'Would create' : 'Created'} {importResult.success} accounts
+                  </p>
+                </div>
+              )}
+
+              {importResult.updated > 0 && (
+                <div className="flex items-center gap-2">
+                  <CheckCircleIcon className="h-5 w-5 text-blue-500" />
+                  <p className="text-sm">
+                    {dryRun ? 'Would update' : 'Updated'} {importResult.updated} accounts
                   </p>
                 </div>
               )}
@@ -207,7 +223,7 @@ export function ImportShootsDialog({ isOpen, onClose }: ImportShootsDialogProps)
               {importResult.failed > 0 && (
                 <div className="flex items-center gap-2">
                   <AlertCircleIcon className="h-5 w-5 text-destructive" />
-                  <p className="text-sm">Skipped {importResult.failed} shoots</p>
+                  <p className="text-sm">Skipped {importResult.failed} accounts</p>
                 </div>
               )}
 
@@ -230,12 +246,12 @@ export function ImportShootsDialog({ isOpen, onClose }: ImportShootsDialogProps)
           <div className="flex items-center gap-2">
             <input
               type="checkbox"
-              id="dryRun"
+              id="dryRunAccounts"
               checked={dryRun}
               onChange={(e) => setDryRun(e.target.checked)}
               className="h-4 w-4 rounded border-gray-300"
             />
-            <label htmlFor="dryRun" className="text-sm text-muted-foreground">
+            <label htmlFor="dryRunAccounts" className="text-sm text-muted-foreground">
               Dry run (validate without importing)
             </label>
           </div>
@@ -261,7 +277,7 @@ export function ImportShootsDialog({ isOpen, onClose }: ImportShootsDialogProps)
             
             {file && !importResult && (
               <Button onClick={processImport} disabled={importing}>
-                {importing ? "Processing..." : dryRun ? "Validate" : "Import Shoots"}
+                {importing ? "Processing..." : dryRun ? "Validate" : "Import Accounts"}
               </Button>
             )}
           </div>

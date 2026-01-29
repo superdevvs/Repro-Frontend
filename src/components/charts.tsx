@@ -125,6 +125,24 @@ export function LineChart({
   );
 }
 
+const useBarColors = (themeMode: ChartProps['themeMode']) => {
+  const { theme } = useTheme();
+  const mode = themeMode === 'auto' ? theme : themeMode || 'light';
+  return {
+    mode,
+    // Vibrant gradient colors for bars
+    revenue: mode === 'dark' 
+      ? ['#3b82f6', '#60a5fa'] // blue gradient for dark
+      : ['#2563eb', '#3b82f6'], // slightly darker blue for light
+    expenses: mode === 'dark'
+      ? ['#f43f5e', '#fb7185'] // rose gradient for dark
+      : ['#e11d48', '#f43f5e'], // darker rose for light
+    profit: mode === 'dark'
+      ? ['#10b981', '#34d399'] // emerald gradient for dark
+      : ['#059669', '#10b981'], // darker emerald for light
+  };
+};
+
 export function BarChart({
   data,
   index,
@@ -141,47 +159,96 @@ export function BarChart({
   themeMode = 'auto',
 }: ChartProps) {
   const palette = useGridColors(themeMode);
+  const barColors = useBarColors(themeMode);
+  
+  // Enhanced colors based on category names
+  const getBarColor = (category: string, idx: number) => {
+    const cat = category.toLowerCase();
+    if (cat.includes('revenue')) return barColors.revenue[0];
+    if (cat.includes('expense')) return barColors.expenses[0];
+    if (cat.includes('profit')) return barColors.profit[0];
+    return colors[idx % colors.length];
+  };
+
   return (
     <div className={`w-full h-full ${className}`}>
       <ResponsiveContainer width="100%" height="100%">
-        <RechartsBarChart data={data} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+        <RechartsBarChart 
+          data={data} 
+          margin={{ top: 10, right: 10, left: 0, bottom: 5 }}
+          barCategoryGap="20%"
+        >
+          <defs>
+            {categories.map((category, idx) => {
+              const cat = category.toLowerCase();
+              let gradientColors = [colors[idx % colors.length], colors[idx % colors.length]];
+              if (cat.includes('revenue')) gradientColors = barColors.revenue;
+              else if (cat.includes('expense')) gradientColors = barColors.expenses;
+              else if (cat.includes('profit')) gradientColors = barColors.profit;
+              
+              return (
+                <linearGradient key={`gradient-${category}`} id={`gradient-${category}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={gradientColors[1]} stopOpacity={1} />
+                  <stop offset="100%" stopColor={gradientColors[0]} stopOpacity={0.85} />
+                </linearGradient>
+              );
+            })}
+          </defs>
           {showGrid && (
-            <CartesianGrid strokeDasharray="2 6" vertical={false} stroke={palette.grid} strokeWidth={0.75} />
+            <CartesianGrid 
+              strokeDasharray="3 3" 
+              vertical={false} 
+              stroke={palette.grid} 
+              strokeWidth={1}
+            />
           )}
           {showXAxis && (
             <XAxis
               dataKey={index}
-              tick={{ fontSize: 12, fill: palette.axis }}
+              tick={{ fontSize: 11, fill: palette.axis, fontWeight: 500 }}
               tickLine={false}
-              axisLine={false}
+              axisLine={{ stroke: palette.grid, strokeWidth: 1 }}
+              dy={8}
             />
           )}
           {showYAxis && (
             <YAxis
               width={yAxisWidth}
-              tick={{ fontSize: 12, fill: palette.axis }}
+              tick={{ fontSize: 11, fill: palette.axis }}
               tickLine={false}
               axisLine={false}
               tickFormatter={valueFormatter}
             />
           )}
           <Tooltip
-            formatter={(value: number) => [valueFormatter(value)]}
+            formatter={(value: number, name: string) => [valueFormatter(value), name]}
             labelFormatter={(value) => `${value}`}
             contentStyle={{
-              border: `1px solid ${palette.tooltipBorder}`,
+              border: 'none',
               backgroundColor: palette.tooltipBg,
-              borderRadius: '8px',
+              borderRadius: '12px',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+              padding: '12px 16px',
             }}
+            itemStyle={{ color: palette.axis, fontWeight: 500 }}
+            labelStyle={{ color: palette.axis, fontWeight: 600, marginBottom: 4 }}
+            cursor={{ fill: palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }}
           />
-          {showLegend && <Legend wrapperStyle={{ color: palette.legendText, fontSize: 12 }} />}
-          {categories.map((category, index) => (
+          {showLegend && (
+            <Legend 
+              wrapperStyle={{ color: palette.legendText, fontSize: 12, paddingTop: 16 }}
+              iconType="circle"
+              iconSize={8}
+            />
+          )}
+          {categories.map((category, idx) => (
             <Bar
               key={category}
               dataKey={category}
-              fill={colors[index % colors.length]}
-              radius={[4, 4, 0, 0]}
+              fill={`url(#gradient-${category})`}
+              radius={[6, 6, 0, 0]}
               stackId={stack ? "stack" : undefined}
+              maxBarSize={50}
             />
           ))}
         </RechartsBarChart>

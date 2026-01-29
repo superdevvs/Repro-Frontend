@@ -67,10 +67,21 @@ const AccountingPage = () => {
   const loadInvoices = useCallback(async (): Promise<void> => {
     try {
       setLoading(true);
-      const response = await fetchInvoices({
-        per_page: 100, // Fetch more invoices for accounting view
-      });
-      setInvoices(response.data);
+      const collected: InvoiceData[] = [];
+      let page = 1;
+      let lastPage = 1;
+
+      do {
+        const response = await fetchInvoices({
+          page,
+          per_page: 100,
+        });
+        collected.push(...response.data);
+        lastPage = response.last_page || 1;
+        page += 1;
+      } while (page <= lastPage);
+
+      setInvoices(collected);
     } catch (error) {
       console.error('Failed to load invoices:', error);
       toast({
@@ -321,7 +332,7 @@ const AccountingPage = () => {
   return (
     <DashboardLayout>
       <PageTransition>
-        <div className="space-y-6 p-6">
+        <div className="space-y-3 p-6">
           <AccountingHeader
             onCreateInvoice={() => canCreateInvoice && setCreateDialogOpen(true)}
             onCreateBatch={() => canCreateInvoice && setBatchDialogOpen(true)}
@@ -352,13 +363,14 @@ const AccountingPage = () => {
           )}
 
           {config.showRevenueChart && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 items-stretch">
               <div className="lg:col-span-2">
                 {accountingMode === 'admin' ? (
                   <RevenueCharts
                     invoices={filteredInvoices}
                     timeFilter={timeFilter}
                     onTimeFilterChange={setTimeFilter}
+                    role={role}
                   />
                 ) : (
                   <RoleBasedCharts
@@ -372,7 +384,7 @@ const AccountingPage = () => {
                 )}
               </div>
               {(config.showPaymentsSummary || config.showLatestTransactions || accountingMode === 'editor') && (
-                <div className="lg:col-span-1 flex flex-col gap-6">
+                <div className="lg:col-span-1 flex flex-col gap-3 h-full">
                   {accountingMode === 'admin' ? (
                     <PaymentsSummary invoices={filteredInvoices} />
                   ) : accountingMode === 'editor' ? (

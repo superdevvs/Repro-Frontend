@@ -12,6 +12,7 @@ import { NotificationSettingsDialog } from '@/components/accounts/NotificationSe
 import { LinkClientBrandingDialog } from '@/components/accounts/LinkClientBrandingDialog';
 import { PermissionsManager } from '@/components/accounts/PermissionsManager';
 import { AccountLinkingManager } from '@/components/accounts/AccountLinkingManager';
+import { ImportAccountsDialog } from '@/components/accounts/ImportAccountsDialog';
 import { AccountsStatsCards } from '@/components/accounts/AccountsStatsCards';
 import { AccountsPagination } from '@/components/accounts/AccountsPagination';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -179,6 +180,7 @@ export default function Accounts() {
   const [userPendingDelete, setUserPendingDelete] = useState<UserType | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeletingUser, setIsDeletingUser] = useState(false);
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
 
   const {
     clientsData,
@@ -1105,58 +1107,30 @@ export default function Accounts() {
     ? getRecentShootsForUser(selectedUser, 'completed')
     : [];
 
-  const handleImportAccounts = async (file: File) => {
+  const handleImportAccounts = (_file?: File) => {
+    // File parameter ignored - dialog handles file selection
+    setIsImportDialogOpen(true);
+  };
+
+  const handleImportComplete = async () => {
+    // Refresh users list after successful import
     try {
-      const text = await file.text();
-      let imported: any[] = [];
-
-      if (file.name.endsWith(".json")) {
-        imported = JSON.parse(text);
-      } else {
-        // CSV parsing
-        const [headerLine, ...rows] = text.split(/\r?\n/).filter(Boolean);
-        const headers = headerLine.split(",").map((h) => h.trim());
-        imported = rows.map((row) => {
-          const cells = row.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || [];
-          const obj: Record<string, string> = {};
-          headers.forEach((header, i) => {
-            obj[header] = cells[i]?.replace(/^"|"$/g, "") || "";
-          });
-          return {
-            id: obj.ID || crypto.randomUUID(),
-            name: obj.Name || "",
-            email: obj.Email || "",
-            role: (obj.Role || "client") as Role,
-            phone: obj.Phone || "",
-            company: obj.Company || "",
-            lastLogin: obj["Last Login"] || "",
-            active: obj.Active ? obj.Active.toLowerCase() === "yes" : true,
-            avatar: "/placeholder.svg",
-          } as UserType;
-        });
-      }
-
-      if (!imported.length) {
-        toast({
-          title: "Import failed",
-          description: "No records found in the selected file.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      setUsers((prev) => [...imported, ...prev]);
-      toast({
-        title: "Accounts imported",
-        description: `${imported.length} account(s) added from file.`,
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      if (!token) return;
+      
+      const res = await fetch(`${API_BASE_URL}/api/admin/users?light=1`, {
+        headers: {
+          Accept: 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
       });
-    } catch (error: any) {
-      console.error("Import failed:", error);
-      toast({
-        title: "Import failed",
-        description: error?.message || "Unable to process the selected file.",
-        variant: "destructive",
-      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        setUsers(data.users || []);
+      }
+    } catch (err) {
+      console.error('Failed to refresh users after import:', err);
     }
   };
 
@@ -1461,6 +1435,12 @@ export default function Accounts() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ImportAccountsDialog
+        isOpen={isImportDialogOpen}
+        onClose={() => setIsImportDialogOpen(false)}
+        onImportComplete={handleImportComplete}
+      />
     </DashboardLayout>
   );
 };

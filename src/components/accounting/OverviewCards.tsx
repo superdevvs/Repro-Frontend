@@ -112,7 +112,7 @@ export function OverviewCards({ invoices, timeFilter }: OverviewCardsProps) {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       {/* Segmented control row — aligned to Outstanding Invoices visually */}
       <div className="flex items-center justify-end gap-4">
         {/* <div className="text-sm text-muted-foreground">Outstanding window:</div> */}
@@ -120,7 +120,7 @@ export function OverviewCards({ invoices, timeFilter }: OverviewCardsProps) {
         <div className="ml-3 text-sm text-slate-600 dark:text-slate-400">Showing last {daysWindow} days</div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         <OverviewCard
           title="Total Revenue"
           value={`$${totalRevenue.toLocaleString()}`}
