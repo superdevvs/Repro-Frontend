@@ -2,6 +2,7 @@
 logs
 *.log
 .env
+.env.production
 
 /.env
 npm-debug.log*
