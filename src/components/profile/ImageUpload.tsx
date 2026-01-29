@@ -49,7 +49,7 @@ export function ImageUpload({ onChange, initialImage, className }: ImageUploadPr
     try {
       setUploading(true);
       
-      const token = localStorage.getItem('authToken');
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       if (!token) {
         throw new Error('Authentication required to upload images');
       }
@@ -76,17 +76,12 @@ export function ImageUpload({ onChange, initialImage, className }: ImageUploadPr
         title: "Image uploaded",
         description: "Your profile photo has been updated",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error uploading image:', error);
       
-      // Fallback to object URL if upload fails
-      const objectUrl = URL.createObjectURL(file);
-      setPreview(objectUrl);
-      onChange(objectUrl);
-      
       toast({
-        title: "Cloud upload failed",
-        description: "Image saved locally only",
+        title: "Upload failed",
+        description: error?.response?.data?.message || error?.message || "Failed to upload image. Please try again.",
         variant: "destructive",
       });
     } finally {
