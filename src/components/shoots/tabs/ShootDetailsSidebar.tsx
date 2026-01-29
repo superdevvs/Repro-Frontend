@@ -320,6 +320,11 @@ export function ShootDetailsSidebar({
         amount: invoiceData.total || invoiceData.amount || 0,
         status: invoiceData.status === 'paid' ? 'paid' : invoiceData.status === 'sent' ? 'pending' : 'pending',
         services: invoiceData.items?.map((item: any) => item.description) || invoiceData.services || [],
+        items: invoiceData.items || [],
+        subtotal: invoiceData.subtotal || invoiceData.total || invoiceData.amount || 0,
+        tax: invoiceData.tax || 0,
+        total: invoiceData.total || invoiceData.amount || 0,
+        shoot: invoiceData.shoot,
         paymentMethod: invoiceData.paymentMethod || 'N/A',
       };
 

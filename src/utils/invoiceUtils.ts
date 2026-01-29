@@ -24,6 +24,9 @@ export interface InvoiceData {
   sales_rep_id?: number;
   amountPaid?: number;
   balance?: number;
+  subtotal?: number;
+  tax?: number;
+  total?: number;
   issueDate?: string;
   billingPeriodStart?: string;
   billingPeriodEnd?: string;
