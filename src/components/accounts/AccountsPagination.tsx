@@ -109,22 +109,21 @@ export const AccountsPagination: React.FC<AccountsPaginationProps> = ({
         </Button>
 
         <div className="flex items-center gap-0.5 sm:gap-1 mx-1">
-          {getPageNumbers().map((page, index) => (
-            <React.Fragment key={index}>
-              {page === '...' ? (
-                <span className="px-1 text-muted-foreground">...</span>
-              ) : (
-                <Button
-                  variant={currentPage === page ? 'default' : 'outline'}
-                  size="icon"
-                  className="h-7 w-7 sm:h-8 sm:w-8 text-xs sm:text-sm"
-                  onClick={() => onPageChange(page as number)}
-                >
-                  {page}
-                </Button>
-              )}
-            </React.Fragment>
-          ))}
+          {getPageNumbers().map((page, index) =>
+            page === '...' ? (
+              <span key={`ellipsis-${index}`} className="px-1 text-muted-foreground">...</span>
+            ) : (
+              <Button
+                key={`page-${page}`}
+                variant={currentPage === page ? 'default' : 'outline'}
+                size="icon"
+                className="h-7 w-7 sm:h-8 sm:w-8 text-xs sm:text-sm"
+                onClick={() => onPageChange(page as number)}
+              >
+                {page}
+              </Button>
+            )
+          )}
         </div>
 
         <Button

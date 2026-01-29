@@ -167,6 +167,7 @@ export default function Accounts() {
   const [activeInsightsRole, setActiveInsightsRole] = useState<InsightRole>('client');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(16);
+  const [activeTab, setActiveTab] = useState('accounts');
 
   const [editUserDialogOpen, setEditUserDialogOpen] = useState(false);
   const [roleChangeDialogOpen, setRoleChangeDialogOpen] = useState(false);
@@ -266,7 +267,7 @@ export default function Accounts() {
           setLoading(false);
           return;
         }
-        const res = await fetch(`${API_BASE_URL}/api/admin/users`, {
+        const res = await fetch(`${API_BASE_URL}/api/admin/users?light=1`, {
           headers: {
             Accept: 'application/json',
             Authorization: `Bearer ${token}`, // If needed
@@ -282,7 +283,6 @@ export default function Accounts() {
         if (!res.ok) throw new Error('Failed to fetch users');
 
         const data = await res.json();
-        console.log('Fetched users:', data);
         setUsers(data.users || []);
       } catch (err) {
         if (sessionExpiredRef.current) {
@@ -303,7 +303,7 @@ export default function Accounts() {
     fetchUsers();
   }, [handleSessionExpired, toast]);
 
-  function getAccountRepInfo(user: UserType) {
+  const getAccountRepInfo = useCallback((user: UserType) => {
     const metadata = user.metadata || {};
     const rawRepId = metadata.accountRepId || (user as any).account_rep_id || (user as any).rep_id || (user as any).created_by_id;
     const repUser = rawRepId ? users.find((candidate) => String(candidate.id) === String(rawRepId)) : undefined;
@@ -341,9 +341,12 @@ export default function Accounts() {
       id: rawRepId ? String(rawRepId) : createdById ? String(createdById) : repUser ? String(repUser.id) : undefined,
       name: inferredName,
     };
-  }
+  }, [users]);
 
-  const getAccountRep = (user: UserType) => getAccountRepInfo(user)?.name;
+  const getAccountRep = useCallback(
+    (user: UserType) => getAccountRepInfo(user)?.name,
+    [getAccountRepInfo],
+  );
 
   // Build rep options from recorded account reps / creators (e.g. "User Account Created By")
   // so that the Rep filter reflects whoever actually owns or created the account.
@@ -398,29 +401,34 @@ export default function Accounts() {
     return stats;
   }, [users]);
 
-  const filteredUsers = users.filter((user) => {
-    const roleMatch = filterRole === "all" || user.role === filterRole;
-    const searchMatch = searchQuery === "" ||
-      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (user.company && user.company.toLowerCase().includes(searchQuery.toLowerCase()));
-    const repInfo = getAccountRepInfo(user);
-    const repKey = repInfo?.name ? repInfo.name.trim().toLowerCase() : undefined;
-    const repMatch =
-      repFilter === 'all'
-        ? true
-        : repFilter === 'unassigned'
-          ? !repInfo
-          : repKey === repFilter;
-    return roleMatch && searchMatch && repMatch;
-  });
+  const filteredUsers = React.useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+    return users.filter((user) => {
+      const roleMatch = filterRole === "all" || user.role === filterRole;
+      const searchMatch = normalizedQuery === "" ||
+        user.name.toLowerCase().includes(normalizedQuery) ||
+        user.email.toLowerCase().includes(normalizedQuery) ||
+        (user.company && user.company.toLowerCase().includes(normalizedQuery));
+      const repInfo = getAccountRepInfo(user);
+      const repKey = repInfo?.name ? repInfo.name.trim().toLowerCase() : undefined;
+      const repMatch =
+        repFilter === 'all'
+          ? true
+          : repFilter === 'unassigned'
+            ? !repInfo
+            : repKey === repFilter;
+      return roleMatch && searchMatch && repMatch;
+    });
+  }, [filterRole, searchQuery, repFilter, users, getAccountRepInfo]);
 
   // Pagination
   const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
-  const paginatedUsers = filteredUsers.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  const paginatedUsers = React.useMemo(() => (
+    filteredUsers.slice(
+      (currentPage - 1) * itemsPerPage,
+      currentPage * itemsPerPage
+    )
+  ), [currentPage, filteredUsers, itemsPerPage]);
 
   // Reset to page 1 when filters change
   React.useEffect(() => {
@@ -434,7 +442,13 @@ export default function Accounts() {
     return Boolean(shoot.completedDate) || status === 'completed' || status === 'delivered' || status === 'finalized';
   };
 
+  const shouldComputeShootSummaries =
+    activeTab === 'insights' || Boolean(selectedUser) || userProfileDialogOpen;
+
   const userShootSummaryById = React.useMemo(() => {
+    if (!shouldComputeShootSummaries || users.length === 0 || shoots.length === 0) {
+      return new Map();
+    }
     const clientShootsByKey = new Map<string, ShootData[]>();
     const photographerShootsByKey = new Map<string, ShootData[]>();
     const editorShootsByKey = new Map<string, ShootData[]>();
@@ -537,7 +551,7 @@ export default function Accounts() {
     });
 
     return summaryById;
-  }, [users, shoots]);
+  }, [users, shoots, shouldComputeShootSummaries]);
 
   const getShootSummaryForUser = useCallback(
     (user: UserType) => userShootSummaryById.get(String(user.id)),
@@ -568,11 +582,13 @@ export default function Accounts() {
     [getShootSummaryForUser],
   );
 
-  const accountListUsers = paginatedUsers.map((user) => ({
-    ...user,
-    accountRep: getAccountRep(user) || 'Unassigned',
-    lastShootDate: getLastShootDateForUser(user),
-  }));
+  const accountListUsers = React.useMemo(() => (
+    paginatedUsers.map((user) => ({
+      ...user,
+      accountRep: getAccountRep(user) || 'Unassigned',
+      lastShootDate: getLastShootDateForUser(user),
+    }))
+  ), [paginatedUsers, getAccountRep, getLastShootDateForUser]);
 
   const insightAccountsByRole = React.useMemo<Record<InsightRole, InteractionCloudAccount[]>>(() => {
     const buckets: Record<InsightRole, InteractionCloudAccount[]> = {
@@ -582,7 +598,7 @@ export default function Accounts() {
       salesRep: [],
     };
 
-    if (!users.length) return buckets;
+    if (!users.length || !shouldComputeShootSummaries) return buckets;
 
     const monthWindow = {
       start: startOfMonth(new Date()),
@@ -1175,7 +1191,7 @@ export default function Accounts() {
           }
         />
 
-        <Tabs defaultValue="accounts" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           {/* Tabs row with inline controls */}
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-3">
             <TabsList className={`grid w-fit ${gridCols}`}>
