@@ -581,29 +581,31 @@ const AppRoutes = () => {
 
 function App() {
   return (
-    <React.StrictMode>
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner position="top-right" closeButton richColors />
-          <BrowserRouter>
-            <RobbieRouteTracker />
-            <AuthProvider>
-              <UserPreferencesProvider>
-                <PermissionsProvider>
-                  <ShootsProvider>
-                    <RealtimeBridge />
-                    <ErrorBoundary>
-                      <AppRoutes />
-                    </ErrorBoundary>
-                  </ShootsProvider>
-                </PermissionsProvider>
-              </UserPreferencesProvider>
-            </AuthProvider>
-          </BrowserRouter>
-        </TooltipProvider>
-      </QueryClientProvider>
-    </React.StrictMode>
+    <div className="app-root">
+      <React.StrictMode>
+        <QueryClientProvider client={queryClient}>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner position="top-right" closeButton richColors />
+            <BrowserRouter>
+              <RobbieRouteTracker />
+              <AuthProvider>
+                <UserPreferencesProvider>
+                  <PermissionsProvider>
+                    <ShootsProvider>
+                      <RealtimeBridge />
+                      <ErrorBoundary>
+                        <AppRoutes />
+                      </ErrorBoundary>
+                    </ShootsProvider>
+                  </PermissionsProvider>
+                </UserPreferencesProvider>
+              </AuthProvider>
+            </BrowserRouter>
+          </TooltipProvider>
+        </QueryClientProvider>
+      </React.StrictMode>
+    </div>
   );
 }
 
