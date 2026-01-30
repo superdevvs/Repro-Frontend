@@ -61,7 +61,7 @@ const Index = () => {
       <div 
         className={isLogin ? '' : 'mobile-login-scrollable'} 
         style={{ 
-          background: '#060a0e', 
+          background: '#03060B', 
           minHeight: '100dvh',
           height: isLogin ? '100dvh' : 'auto',
           overflow: isLogin ? 'hidden' : 'auto',
@@ -69,7 +69,7 @@ const Index = () => {
           flexDirection: 'column',
           padding: isLogin ? '16px' : undefined,
           paddingTop: isLogin ? 'calc(16px + env(safe-area-inset-top))' : undefined,
-          paddingBottom: isLogin ? 'calc(16px + env(safe-area-inset-bottom))' : undefined,
+          paddingBottom: isLogin ? 'calc(6px + env(safe-area-inset-bottom))' : undefined,
         }}
       >
         {/* Image Section - flex grows to fill available space on login */}
@@ -110,7 +110,7 @@ const Index = () => {
           style={{
             flex: isLogin ? '0 0 auto' : undefined,
             minHeight: isLogin ? undefined : 'calc(100dvh - 50vh)',
-            paddingBottom: isLogin ? undefined : 'calc(20px + env(safe-area-inset-bottom))',
+            paddingBottom: isLogin ? undefined : 'calc(10px + env(safe-area-inset-bottom))',
           }}
         >
           {/* Gradient at top of content */}
@@ -119,10 +119,10 @@ const Index = () => {
             style={{
               height: isLogin ? '35px' : '25px',
               marginTop: isLogin ? '-35px' : '-25px',
-              background: 'linear-gradient(to bottom, transparent 0%, rgba(6,10,14,0.4) 25%, rgba(6,10,14,0.75) 65%, #060a0e 100%)',
+              background: 'linear-gradient(to bottom, transparent 0%, rgba(3,6,11,0.45) 30%, rgba(3,6,11,0.78) 65%, #03060B 100%)',
             }}
           />
-          <div style={{ background: '#060a0e' }}>
+          <div style={{ background: '#03060B' }}>
             <motion.div
               className={`relative z-10 w-full text-white ${isLogin ? '' : 'px-4'}`}
               initial={{ opacity: 0, y: 20 }}
@@ -164,9 +164,6 @@ const Index = () => {
               className="absolute inset-0 w-full h-full object-cover"
             />
           </AnimatePresence>
-
-          {/* Gradient overlay for legibility */}
-          <div className="absolute inset-0 rounded-3xl bg-gradient-to-t from-black/40 via-black/10 to-transparent pointer-events-none" />
 
           {/* Text content */}
           <div className="absolute text-white drop-shadow-lg z-10 pointer-events-none bottom-10 left-10 right-10 text-left">

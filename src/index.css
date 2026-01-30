@@ -12,28 +12,28 @@ body {
   margin: 0;
   padding: 0;
   /* Match Android Chrome/iOS Safari theme-color for seamless chrome + overscroll */
-  background-color: #060a0e;
+  background-color: #03060B;
   min-height: 100%;
 }
 
 #root {
   min-height: 100vh;
   min-height: 100svh;
-  background-color: #060a0e;
+  background-color: #03060B;
 }
 
 .app-root {
   min-height: 100vh;
   min-height: 100svh;
   width: 100%;
-  background-color: #060a0e;
+  background-color: #03060B;
   padding-top: env(safe-area-inset-top, 0px);
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .app-shell {
   min-height: 100%;
-  background-color: #060a0e;
+  background-color: #03060B;
 }
 
 @layer base {

@@ -9,7 +9,7 @@
     },
   } as const;
 
-import React, { Suspense, lazy, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,10 +28,8 @@ import { AlertCircle } from 'lucide-react';
 import axios from 'axios';
 import { Logo } from '@/components/layout/Logo';
 import { Eye, EyeOff } from 'lucide-react';
-import type { RegisterSuccessPayload } from './RegisterForm';
+import RegisterForm, { type RegisterSuccessPayload } from './RegisterForm';
 import { API_BASE_URL } from '@/config/env';
-
-const RegisterForm = lazy(() => import('./RegisterForm'));
 
 
 const loginSchema = z.object({
@@ -174,7 +172,7 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
     <motion.div
       className={`w-full max-w-md mx-auto ${
         isMobile
-          ? 'rounded-b-[28px] rounded-t-none shadow-[0_24px_60px_rgba(1,3,9,0.68)] bg-[#060a0e]'
+          ? 'rounded-b-[28px] rounded-t-none shadow-[0_24px_60px_rgba(1,3,9,0.68)] bg-[#03060B]'
           : ''
       }`}
       initial={{ opacity: 0, y: 10 }}
@@ -184,7 +182,7 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
       <Card
         className={`shadow-none ${
           isMobile
-            ? "relative rounded-b-[26px] rounded-t-none border-none bg-gradient-to-b from-[#050915] via-[#050f20] to-[#0b1a36] backdrop-blur-2xl before:content-[''] before:absolute before:inset-x-0 before:top-0 before:h-14 before:bg-gradient-to-b before:from-[#050915] before:via-[#050915dd] before:to-transparent before:pointer-events-none"
+            ? "relative rounded-b-[26px] rounded-t-none border-none bg-gradient-to-b from-[#050815]/85 via-[#050f20]/55 to-[#0b1a36] backdrop-blur-2xl before:content-[''] before:absolute before:inset-x-0 before:top-0 before:h-[46px] before:bg-gradient-to-b before:from-[#050815]/85 before:via-[#050815]/35 before:to-transparent before:pointer-events-none"
             : 'border-none bg-transparent'
         }`}
       >
@@ -329,15 +327,7 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
 
             {/* Register Form */}
             <TabsContent value="register" className={registerContentClass}>
-              <Suspense
-                fallback={
-                  <div className="py-8 text-center text-sm text-muted-foreground">
-                    Loading registration form...
-                  </div>
-                }
-              >
-                <RegisterForm onSuccess={handleRegisterSuccess} />
-              </Suspense>
+              <RegisterForm onSuccess={handleRegisterSuccess} />
             </TabsContent>
           </Tabs>
         </CardContent>
