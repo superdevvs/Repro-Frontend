@@ -174,7 +174,7 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
     <motion.div
       className={`w-full max-w-md mx-auto ${
         isMobile
-          ? 'rounded-b-[28px] rounded-t-none shadow-[0_24px_60px_rgba(1,3,9,0.68)] bg-gradient-to-b from-[#04070f] via-[#030c19] to-[#081226]'
+          ? 'rounded-b-[28px] rounded-t-none shadow-[0_24px_60px_rgba(1,3,9,0.68)] bg-[#060a0e]'
           : ''
       }`}
       initial={{ opacity: 0, y: 10 }}
