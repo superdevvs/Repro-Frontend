@@ -68,7 +68,7 @@ const Index = () => {
           display: 'flex',
           flexDirection: 'column',
           padding: isLogin ? '16px' : undefined,
-          paddingTop: isLogin ? 'calc(16px + env(safe-area-inset-top))' : undefined,
+          paddingTop: isLogin ? 'calc(6px + env(safe-area-inset-top))' : undefined,
           paddingBottom: isLogin ? 'calc(6px + env(safe-area-inset-bottom))' : undefined,
         }}
       >
