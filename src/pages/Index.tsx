@@ -12,12 +12,17 @@ const Index = () => {
   const navigate = useNavigate();
   const { theme } = useTheme();
   const isDarkDesktop = !isMobile && theme === 'dark';
+  const [activeTab, setActiveTab] = useState<string>('login');
 
   useEffect(() => {
     if (isAuthenticated) {
       navigate('/dashboard');
     }
   }, [isAuthenticated, navigate]);
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+  };
 
 
   const images = [
@@ -48,33 +53,105 @@ const Index = () => {
     return () => clearInterval(iv);
   }, [images.length]);
 
+  // Mobile layout: Login = no scroll, responsive height; Register = scrollable
+  if (isMobile) {
+    const isLogin = activeTab === 'login';
+    
+    return (
+      <div 
+        className={isLogin ? '' : 'mobile-login-scrollable'} 
+        style={{ 
+          background: '#020617', 
+          minHeight: '100dvh',
+          height: isLogin ? '100dvh' : 'auto',
+          overflow: isLogin ? 'hidden' : 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+          padding: isLogin ? '16px' : undefined,
+          paddingTop: isLogin ? 'calc(16px + env(safe-area-inset-top))' : undefined,
+          paddingBottom: isLogin ? 'calc(16px + env(safe-area-inset-bottom))' : undefined,
+        }}
+      >
+        {/* Image Section - flex grows to fill available space on login */}
+        <div
+          className={`${isLogin ? 'relative' : 'fixed top-0 left-0 right-0 z-0 px-4 pt-[calc(env(safe-area-inset-top)+16px)]'}`}
+          style={{ 
+            height: isLogin ? 'auto' : '50vh',
+            flex: isLogin ? '1 1 auto' : undefined,
+            minHeight: isLogin ? '150px' : '320px', 
+            maxHeight: isLogin ? undefined : '450px',
+          }}
+        >
+          <div 
+            className="relative w-full overflow-hidden rounded-t-[30px]"
+            style={{ 
+              height: '100%',
+              minHeight: isLogin ? '150px' : undefined,
+            }}
+          >
+            <AnimatePresence mode="sync">
+              <motion.img
+                key={images[index]}
+                src={images[index]}
+                alt=""
+                initial={{ opacity: 0, scale: 1.03 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.98 }}
+                transition={{ duration: 1.6, ease: 'easeInOut' }}
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+            </AnimatePresence>
+          </div>
+        </div>
+
+        {/* Page Content */}
+        <div
+          className="relative z-10 w-full"
+          style={{
+            flex: isLogin ? '0 0 auto' : undefined,
+            minHeight: isLogin ? undefined : 'calc(100dvh - 50vh)',
+            paddingBottom: isLogin ? undefined : 'calc(20px + env(safe-area-inset-bottom))',
+          }}
+        >
+          {/* Gradient at top of content */}
+          <div 
+            className="w-full pointer-events-none"
+            style={{
+              height: isLogin ? '35px' : '25px',
+              marginTop: isLogin ? '-35px' : '-25px',
+              background: 'linear-gradient(to bottom, transparent 0%, rgba(2,6,23,0.3) 30%, rgba(2,6,23,0.6) 50%, rgba(2,6,23,0.85) 70%, #020617 100%)',
+            }}
+          />
+          <div style={{ background: '#020617' }}>
+            <motion.div
+              className={`relative z-10 w-full text-white ${isLogin ? '' : 'px-4'}`}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.05 }}
+            >
+              <div className={`w-full max-w-md mx-auto space-y-6 text-[15px] ${isLogin ? '' : 'pb-2'}`}>
+                <LoginForm onTabChange={handleTabChange} />
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Desktop layout
   return (
     <div
-      className="min-h-dvh w-full flex flex-col md:flex-row overflow-y-auto md:overflow-hidden relative pt-[env(safe-area-inset-top)] pb-[max(2rem,env(safe-area-inset-bottom))] md:pb-[env(safe-area-inset-bottom)]"
+      className="min-h-dvh w-full flex flex-row md:overflow-hidden relative pb-[env(safe-area-inset-bottom)]"
       style={{ 
-        background: isMobile 
-          ? '#020617' 
-          : isDarkDesktop 
-            ? 'linear-gradient(to bottom, #020617 0%, #0a1628 35%, #0d1f3c 60%, #133557 85%, #1a4a6e 100%)' 
-            : 'white',
-        ...(isMobile ? { overflowY: 'auto', WebkitOverflowScrolling: 'touch' } : {})
+        background: isDarkDesktop 
+          ? 'linear-gradient(to bottom, #020617 0%, #0a1628 35%, #0d1f3c 60%, #133557 85%, #1a4a6e 100%)' 
+          : 'white'
       }}
     >
       {/* Left Side - Slideshow */}
-      <div
-        className={`
-          w-full md:w-1/2 relative
-          ${isMobile ? 'px-4 pt-4 pb-4' : 'p-4'}
-          flex items-center justify-center
-        `}
-      >
-        <div
-          className={`relative w-full overflow-hidden ${
-            isMobile
-              ? 'rounded-t-[30px] rounded-b-none shadow-[0_36px_80px_rgba(5,9,20,0.75)] h-[50vh] min-h-[340px] max-h-[520px]'
-              : 'h-[40vh] sm:h-64 md:h-full md:rounded-3xl'
-          }`}
-        >
+      <div className="w-1/2 relative p-4 flex items-center justify-center">
+        <div className="relative w-full h-full overflow-hidden rounded-3xl">
           <AnimatePresence mode="sync">
             <motion.img
               key={images[index]}
@@ -89,44 +166,27 @@ const Index = () => {
           </AnimatePresence>
 
           {/* Gradient overlay for legibility */}
-          <div className="absolute inset-0 md:rounded-3xl bg-gradient-to-t from-black/40 via-black/10 to-transparent pointer-events-none" />
+          <div className="absolute inset-0 rounded-3xl bg-gradient-to-t from-black/40 via-black/10 to-transparent pointer-events-none" />
 
           {/* Text content */}
-          {!isMobile && (
-            <div className="absolute text-white drop-shadow-lg z-10 pointer-events-none bottom-10 left-10 right-10 text-left">
-              <p className="text-3xl md:text-4xl font-semibold leading-tight whitespace-normal">
-                Elevating your
-                <br />
-                <span className="lowercase">status quo!</span>
-              </p>
-            </div>
-          )}
-          {isMobile && (
-            <div className="absolute inset-0 rounded-t-[30px] rounded-b-none pointer-events-none">
-              <div className="absolute inset-x-0 bottom-0 h-[160px] rounded-b-none bg-gradient-to-b from-transparent via-[#040b18f2] to-[#030813]" />
-            </div>
-          )}
+          <div className="absolute text-white drop-shadow-lg z-10 pointer-events-none bottom-10 left-10 right-10 text-left">
+            <p className="text-3xl md:text-4xl font-semibold leading-tight whitespace-normal">
+              Elevating your
+              <br />
+              <span className="lowercase">status quo!</span>
+            </p>
+          </div>
         </div>
       </div>
 
       {/* Right Side - Login Section */}
       <motion.div
-        className={`
-          w-full md:w-1/2 flex items-start md:items-center justify-center
-          px-4 sm:px-6 md:p-8
-          py-8 sm:py-10
-          ${
-            isMobile
-              ? 'text-white relative z-10 w-full px-4 flex-1 flex-col justify-end'
-              : 'relative'
-          }
-        `}
-        style={isMobile ? { marginTop: 'calc(-8rem + 10px)' } : undefined}
+        className="w-1/2 flex items-center justify-center p-8 relative"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.05 }}
       >
-        <div className={`${isMobile ? 'w-full max-w-md space-y-6 text-[15px] pb-16' : 'w-full max-w-md'}`}>
+        <div className="w-full max-w-md">
           <LoginForm />
         </div>
       </motion.div>

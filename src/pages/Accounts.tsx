@@ -246,6 +246,8 @@ export default function Accounts() {
   const handleSessionExpired = useCallback(
     (description?: string) => {
       if (sessionExpiredRef.current) return;
+      // Don't show session expired if user is not authenticated (first visit)
+      if (!currentUser) return;
       sessionExpiredRef.current = true;
       toast({
         title: "Session expired",
@@ -255,7 +257,7 @@ export default function Accounts() {
       logout();
       navigate('/login', { replace: true });
     },
-    [logout, navigate, toast],
+    [logout, navigate, toast, currentUser],
   );
 
 

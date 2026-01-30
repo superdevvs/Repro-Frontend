@@ -41,7 +41,11 @@ const loginSchema = z.object({
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
-export function LoginForm() {
+interface LoginFormProps {
+  onTabChange?: (tab: string) => void;
+}
+
+export function LoginForm({ onTabChange }: LoginFormProps = {}) {
   const { login } = useAuth();
   const navigate = useNavigate();
   const [isLoginLoading, setIsLoginLoading] = useState(false);
@@ -49,6 +53,10 @@ export function LoginForm() {
   const [activeTab, setActiveTab] = useState<string>('login');
   const isMobile = useIsMobile();
   const [loginShowPassword, setLoginShowPassword] = useState(false);
+
+  useEffect(() => {
+    onTabChange?.(activeTab);
+  }, [activeTab, onTabChange]);
 
   const mobileInputClass =
     'bg-slate-900/70 border border-white/10 rounded-2xl px-4 py-3 text-white placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-0 focus:border-transparent';

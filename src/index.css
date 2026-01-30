@@ -426,6 +426,13 @@ body {
     @apply pt-4 pb-8 px-4;
   }
 
+  /* Override overflow-hidden for login page on mobile */
+  html:has(.mobile-login-scrollable),
+  body:has(.mobile-login-scrollable) {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+
   .login-card-mobile {
     @apply shadow-lg border border-border/30;
   }
