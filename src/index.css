@@ -11,28 +11,28 @@ html,
 body {
   margin: 0;
   padding: 0;
-  background-color: #040E2A;
+  background-color: #030619;
   min-height: 100%;
 }
 
 #root {
   min-height: 100vh;
   min-height: 100svh;
-  background-color: #040E2A;
+  background-color: #030619;
 }
 
 .app-root {
   min-height: 100vh;
   min-height: 100svh;
   width: 100%;
-  background-color: #040E2A;
+  background-color: #030619;
   padding-top: env(safe-area-inset-top, 0px);
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .app-shell {
   min-height: 100%;
-  background: linear-gradient(180deg, #040E2A 0%, #0f1b35 100%);
+  background: linear-gradient(180deg, #030619 0%, #0f1b35 100%);
 }
 
 @layer base {
