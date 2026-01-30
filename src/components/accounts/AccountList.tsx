@@ -15,7 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { User, Role } from "@/components/auth/AuthProvider";
 import { useAuth } from "@/components/auth";
 import { Camera, ExternalLink, Trash2, LogIn } from "lucide-react";
-import { format } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
 
 interface AccountListProps {
   users: Array<User & { active?: boolean; accountRep?: string; lastShootDate?: string }>;
@@ -85,7 +85,7 @@ export function AccountList({
     if (!dateString) return "—";
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return "—";
-    return format(date, "MMM d, yyyy");
+    return formatDistanceToNow(date, { addSuffix: true });
   };
 
   return (

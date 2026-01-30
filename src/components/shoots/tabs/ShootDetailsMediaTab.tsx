@@ -2267,7 +2267,7 @@ export function ShootDetailsMediaTab({
       )}
 
       {/* Content - Compact Overview-style layout */}
-      <div className="flex-1 min-h-0 flex flex-col bg-background pb-4">
+      <div className="flex-1 min-h-0 flex flex-col bg-background">
         {activeSubTab === 'upload' ? (
           /* Upload Tab Content */
           <div className="flex-1 flex flex-col min-h-0 p-2.5">
@@ -2339,7 +2339,7 @@ export function ShootDetailsMediaTab({
             </div>
           </div>
         ) : (
-          <div className="flex-1 flex flex-col min-h-0 w-full h-full bg-background py-3 sm:py-4" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+          <div className="flex-1 flex flex-col min-h-0 w-full h-full bg-background" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             {/* Media/Uploaded Tab - shows when uploaded tab is active and user is client viewing media */}
             {displayTab === 'uploaded' && isClient && (
               <div className="flex-1" style={{ minHeight: 0, position: 'relative', height: '100%', width: '100%' }}>

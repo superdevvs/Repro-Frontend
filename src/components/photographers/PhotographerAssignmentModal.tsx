@@ -13,6 +13,7 @@ import { usePhotographerAssignment } from '@/context/PhotographerAssignmentConte
 import { DashboardPhotographerSummary, DashboardShootSummary } from '@/types/dashboard';
 import { API_ROUTES } from '@/lib/api';
 import { API_BASE_URL } from '@/config/env';
+import { fetchDashboardOverview } from '@/services/dashboardService';
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO, isToday, isTomorrow, addDays, startOfDay, isPast, isFuture } from 'date-fns';
 import { Phone, Mail, Calendar, Clock, CheckCircle2, AlertTriangle, MapPin, ExternalLink, ChevronRight, Info, ChevronLeft } from 'lucide-react';
@@ -94,57 +95,21 @@ export const PhotographerAssignmentModal: React.FC = () => {
           console.error('Failed to fetch availability:', availabilityRes.status, availabilityRes.statusText);
         }
 
-        // Fetch dashboard overview for shoots
-        const shootsRes = await fetch(`${API_BASE_URL}/api/dashboard/overview`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json',
-          },
-        });
-        if (shootsRes.ok) {
-          const dashboardData = await shootsRes.json();
-          // Try both snake_case and camelCase
-          const rawShoots = dashboardData?.data?.upcoming_shoots || dashboardData?.data?.upcomingShoots || [];
-          
-          console.log('Fetched shoots:', rawShoots.length, rawShoots);
-          
-          // Get photographer's assigned shoots (all, not just today)
-          const assignedShoots = rawShoots.filter((shoot: any) => {
-            const shootPhotographerId = shoot.photographer?.id || shoot.photographer_id;
-            return shootPhotographerId && Number(shootPhotographerId) === photographer.id;
-          }).map((shoot: any) => ({
-            id: shoot.id,
-            addressLine: shoot.address_line || shoot.addressLine || 'Address TBD',
-            clientName: shoot.client_name || shoot.clientName || 'Client TBD',
-            dayLabel: shoot.day_label || shoot.dayLabel || 'Date TBD',
-            timeLabel: shoot.time_label || shoot.timeLabel || shoot.scheduled_time || 'Time TBD',
-            startTime: shoot.start_time || shoot.startTime || null,
-            photographer: shoot.photographer,
-          }));
-          setPhotographerSchedule(assignedShoots);
-          console.log('Assigned shoots:', assignedShoots.length);
+        // Fetch dashboard overview for shoots (normalized, includes workflow shoots)
+        const dashboardData = await fetchDashboardOverview(token || undefined);
+        const rawShoots = dashboardData?.upcomingShoots ?? [];
 
-          // Filter shoots that don't have a photographer or can be reassigned
-          const mappedShoots = rawShoots
-            .filter((shoot: any) => {
-              const shootPhotographerId = shoot.photographer?.id || shoot.photographer_id;
-              // Include shoots with no photographer OR shoots assigned to a different photographer
-              return !shootPhotographerId || Number(shootPhotographerId) !== photographer.id;
-            })
-            .map((shoot: any) => ({
-              id: shoot.id,
-              addressLine: shoot.address_line || shoot.addressLine || 'Address TBD',
-              clientName: shoot.client_name || shoot.clientName || 'Client TBD',
-              dayLabel: shoot.day_label || shoot.dayLabel || 'Date TBD',
-              timeLabel: shoot.time_label || shoot.timeLabel || shoot.scheduled_time || 'Time TBD',
-              startTime: shoot.start_time || shoot.startTime || null,
-              photographer: shoot.photographer,
-            }));
-          setUpcomingShoots(mappedShoots);
-          console.log('Assignable shoots:', mappedShoots.length);
-        } else {
-          console.error('Failed to fetch shoots:', shootsRes.status, shootsRes.statusText);
-        }
+        console.log('Fetched shoots:', rawShoots.length, rawShoots);
+
+        // Get photographer's assigned shoots (all, not just today)
+        const assignedShoots = rawShoots.filter((shoot) => shoot.photographer?.id === photographer.id);
+        setPhotographerSchedule(assignedShoots);
+        console.log('Assigned shoots:', assignedShoots.length);
+
+        // Filter shoots that don't have a photographer or can be reassigned
+        const mappedShoots = rawShoots.filter((shoot) => !shoot.photographer?.id || shoot.photographer.id !== photographer.id);
+        setUpcomingShoots(mappedShoots);
+        console.log('Assignable shoots:', mappedShoots.length);
       } catch (error) {
         console.error('Error fetching data:', error);
         toast({
@@ -218,51 +183,16 @@ export const PhotographerAssignmentModal: React.FC = () => {
 
       // Refresh shoots
       try {
-        const shootsRes = await fetch(`${API_BASE_URL}/api/dashboard/overview`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json',
-          },
-        });
-        if (shootsRes.ok) {
-          const dashboardData = await shootsRes.json();
-          // Try both snake_case and camelCase
-          const rawShoots = dashboardData?.data?.upcoming_shoots || dashboardData?.data?.upcomingShoots || [];
-          
-          // Update photographer's assigned shoots
-          const assignedShoots = rawShoots.filter((s: any) => {
-            const shootPhotographerId = s.photographer?.id || s.photographer_id;
-            return shootPhotographerId && Number(shootPhotographerId) === photographer.id;
-          }).map((s: any) => ({
-            id: s.id,
-            addressLine: s.address_line || s.addressLine || 'Address TBD',
-            clientName: s.client_name || s.clientName || 'Client TBD',
-            dayLabel: s.day_label || s.dayLabel || 'Date TBD',
-            timeLabel: s.time_label || s.timeLabel || s.scheduled_time || 'Time TBD',
-            startTime: s.start_time || s.startTime || null,
-            photographer: s.photographer,
-          }));
-          setPhotographerSchedule(assignedShoots);
-          console.log('Refreshed - Assigned shoots:', assignedShoots.length);
+        const dashboardData = await fetchDashboardOverview(token || undefined);
+        const rawShoots = dashboardData?.upcomingShoots ?? [];
 
-          // Update assignable shoots
-          const mappedShoots = rawShoots
-            .filter((s: any) => {
-              const shootPhotographerId = s.photographer?.id || s.photographer_id;
-              return !shootPhotographerId || Number(shootPhotographerId) !== photographer.id;
-            })
-            .map((s: any) => ({
-              id: s.id,
-              addressLine: s.address_line || s.addressLine || 'Address TBD',
-              clientName: s.client_name || s.clientName || 'Client TBD',
-              dayLabel: s.day_label || s.dayLabel || 'Date TBD',
-              timeLabel: s.time_label || s.timeLabel || s.scheduled_time || 'Time TBD',
-              startTime: s.start_time || s.startTime || null,
-              photographer: s.photographer,
-            }));
-          setUpcomingShoots(mappedShoots);
-          console.log('Refreshed - Assignable shoots:', mappedShoots.length);
-        }
+        const assignedShoots = rawShoots.filter((s) => s.photographer?.id === photographer.id);
+        setPhotographerSchedule(assignedShoots);
+        console.log('Refreshed - Assigned shoots:', assignedShoots.length);
+
+        const mappedShoots = rawShoots.filter((s) => !s.photographer?.id || s.photographer.id !== photographer.id);
+        setUpcomingShoots(mappedShoots);
+        console.log('Refreshed - Assignable shoots:', mappedShoots.length);
       } catch (err) {
         console.error('Error refreshing shoots:', err);
       }

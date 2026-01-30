@@ -540,6 +540,11 @@ export function ShootDetailsModal({
         status: invoiceData.status === 'paid' ? 'paid' : invoiceData.status === 'sent' ? 'pending' : 'pending',
         services: invoiceData.items?.map((item: any) => item.description) || invoiceData.services || [],
         paymentMethod: invoiceData.paymentMethod || 'N/A',
+        // Include full items array for InvoiceViewDialog table rendering
+        items: invoiceData.items || [],
+        subtotal: invoiceData.subtotal || invoiceData.total || invoiceData.amount || 0,
+        tax: invoiceData.tax || 0,
+        total: invoiceData.total || invoiceData.amount || 0,
       };
 
       setSelectedInvoice(invoice);
@@ -1859,6 +1864,57 @@ export function ShootDetailsModal({
           <div className="flex items-center justify-center p-8">
             <div className="text-muted-foreground">Loading shoot details...</div>
           </div>
+
+        {!isEditMode && !isRequestedStatus && (canUserPutOnHold || canResumeFromHold || canSendToEditing || canFinalise) && (
+          <div className="hidden sm:flex sticky bottom-0 w-full border-t bg-background/95 backdrop-blur z-40 px-4 py-3">
+            <div className="flex flex-wrap items-center justify-end gap-2 w-full">
+              {canUserPutOnHold && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="h-8 text-xs px-3 bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950 dark:hover:bg-amber-900 dark:text-amber-300 dark:border-amber-800"
+                  onClick={handleMarkOnHoldClick}
+                >
+                  <PauseCircle className="h-3.5 w-3.5 mr-1.5" />
+                  <span>Mark as on hold</span>
+                </Button>
+              )}
+              {canResumeFromHold && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="h-8 text-xs px-3 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 dark:bg-green-950 dark:hover:bg-green-900 dark:text-green-300 dark:border-green-800"
+                  onClick={handleResumeFromHold}
+                >
+                  <PlayCircle className="h-3.5 w-3.5 mr-1.5" />
+                  <span>Resume from hold</span>
+                </Button>
+              )}
+              {isAdmin && canSendToEditing && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="h-8 text-xs px-3 bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-950 dark:hover:bg-purple-900 dark:text-purple-300 dark:border-purple-800"
+                  onClick={handleSendToEditing}
+                >
+                  <Send className="h-3.5 w-3.5 mr-1.5" />
+                  <span>Send to Editing</span>
+                </Button>
+              )}
+              {canFinalise && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="h-8 text-xs px-3 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 dark:bg-green-950 dark:hover:bg-green-900 dark:text-green-300 dark:border-green-800"
+                  onClick={handleFinalise}
+                >
+                  <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
+                  <span>Finalize</span>
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
         </DialogContent>
       </Dialog>
     );
@@ -1963,9 +2019,10 @@ export function ShootDetailsModal({
                     <span>Edit</span>
                   </Button>
                 )}
-                {canUserPutOnHold && (
+                {/* Mark as on hold - moved to header */}
+                {!isEditMode && !isRequestedStatus && canUserPutOnHold && (
                   <Button
-                    variant="default"
+                    variant="outline"
                     size="sm"
                     className="h-7 text-xs px-3 bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950 dark:hover:bg-amber-900 dark:text-amber-300 dark:border-amber-800"
                     onClick={handleMarkOnHoldClick}
@@ -1974,42 +2031,16 @@ export function ShootDetailsModal({
                     <span>Mark as on hold</span>
                   </Button>
                 )}
-                {canResumeFromHold && (
+                {canCancelShoot && (
                   <Button
-                    variant="default"
+                    variant="outline"
                     size="sm"
-                    className="h-7 text-xs px-3 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 dark:bg-green-950 dark:hover:bg-green-900 dark:text-green-300 dark:border-green-800"
-                    onClick={handleResumeFromHold}
+                    className="h-7 text-xs px-3 border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900 dark:text-red-300 dark:hover:bg-red-950"
+                    onClick={handleCancelShootClick}
                   >
-                    <PlayCircle className="h-3 w-3 mr-1" />
-                    <span>Resume from hold</span>
+                    <XCircle className="h-3 w-3 mr-1" />
+                    <span>Cancel Shoot</span>
                   </Button>
-                )}
-                {isAdmin && (
-                  <>
-                    {canSendToEditing && (
-                      <Button
-                        variant="default"
-                        size="sm"
-                        className="h-7 text-xs px-3 bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-950 dark:hover:bg-purple-900 dark:text-purple-300 dark:border-purple-800"
-                        onClick={handleSendToEditing}
-                      >
-                        <Send className="h-3 w-3 mr-1" />
-                        <span>Send to Editing</span>
-                      </Button>
-                    )}
-                    {canFinalise && (
-                      <Button
-                        variant="default"
-                        size="sm"
-                        className="h-7 text-xs px-3 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 dark:bg-green-950 dark:hover:bg-green-900 dark:text-green-300 dark:border-green-800"
-                        onClick={handleFinalise}
-                      >
-                        <CheckCircle className="h-3 w-3 mr-1" />
-                        <span>Finalize</span>
-                      </Button>
-                    )}
-                  </>
                 )}
                 {/* Publish to Bright MLS button - before View full page (hidden from editors) */}
                 {isDelivered && !isEditor && (
@@ -2110,20 +2141,6 @@ export function ShootDetailsModal({
             )}
           </div>
         </div>
-
-        {canCancelShoot && (
-          <div className="hidden sm:flex absolute top-12 right-3 z-[85]">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs px-3 border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900 dark:text-red-300 dark:hover:bg-red-950"
-              onClick={handleCancelShootClick}
-            >
-              <XCircle className="h-3 w-3 mr-1" />
-              <span>Cancel Shoot</span>
-            </Button>
-          </div>
-        )}
         
         {/* Mobile: Edit button, Mark as on hold, Resume from hold, and View full page button - Top right before close button */}
         <div className="sm:hidden absolute top-3 right-12 z-[60] flex items-center gap-1.5">
@@ -2378,29 +2395,18 @@ export function ShootDetailsModal({
               </Tabs>
             </div>
 
-            {/* Buttons Section at Bottom */}
-            <div className="px-2 sm:px-4 py-1.5 sm:py-2 border-t bg-background flex-shrink-0 space-y-2">
-              {/* Publish to Bright MLS moved to top right header */}
-              <ShootDetailsQuickActions
-                shoot={shoot}
-                isAdmin={isAdmin}
-                isPhotographer={isPhotographer}
-                isEditor={isEditor}
-                isClient={isClient}
-                role={currentUserRole}
-                onShootUpdate={refreshShoot}
-                onProcessPayment={handleProcessPayment}
-                onViewInvoice={handleShowInvoice}
-                onDownloadAll={isEditor ? handleEditorDownloadRaw : () => setIsDownloadDialogOpen(true)}
-              />
-              {/* Payment Buttons - Mark as Paid and Process Payment (50/50 split) */}
-              {(isAdmin || isClient || isRep) && (
+            {/* Payment Buttons Section at Bottom of Left Pane - only show if at least one button visible */}
+            {(isAdmin || isRep) && !isPhotographer && !isEditor && (
+              ((currentUserRole === 'superadmin' || currentUserRole === 'admin') && !((shoot.payment?.totalPaid ?? 0) >= (shoot.payment?.totalQuote ?? 0))) || 
+              ((isAdmin || isRep) && !isPaid)
+            ) && (
+              <div className="px-2 sm:px-4 py-2 border-t bg-background flex-shrink-0">
                 <div className="hidden sm:flex gap-2 w-full">
                   {(currentUserRole === 'superadmin' || currentUserRole === 'admin') && !((shoot.payment?.totalPaid ?? 0) >= (shoot.payment?.totalQuote ?? 0)) && (
                     <Button
                       variant="default"
                       size="sm"
-                      className="flex-1 h-8 text-xs px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:hover:bg-emerald-900 dark:text-emerald-300 dark:border-emerald-800"
+                      className="flex-1 h-[36px] text-xs px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:hover:bg-emerald-900 dark:text-emerald-300 dark:border-emerald-800"
                       onClick={async () => {
                         try {
                           const token = localStorage.getItem('authToken') || localStorage.getItem('token');
@@ -2440,27 +2446,11 @@ export function ShootDetailsModal({
                       <span>Mark as Paid</span>
                     </Button>
                   )}
-                  {(canShowInvoiceButton || (isAdmin && isPaid)) && !isPhotographer && !isEditor && (
-                    <Button
-                      variant="default"
-                      size="sm"
-                      className="flex-1 h-8 text-xs px-3 bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950 dark:hover:bg-blue-900 dark:text-blue-300 dark:border-blue-800"
-                      onClick={handleShowInvoice}
-                      disabled={isLoadingInvoice}
-                    >
-                      {isLoadingInvoice ? (
-                        <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                      ) : (
-                        <FileText className="h-3.5 w-3.5 mr-1.5" />
-                      )}
-                      <span>{isLoadingInvoice ? 'Loading...' : 'Invoice'}</span>
-                    </Button>
-                  )}
                   {(isAdmin || isRep) && !isPaid && (
                     <Button
                       variant="default"
                       size="sm"
-                      className={`${currentUserRole === 'superadmin' && !((shoot.payment?.totalPaid ?? 0) >= (shoot.payment?.totalQuote ?? 0)) ? 'flex-1' : 'w-full'} h-8 text-xs px-3 bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-950 dark:hover:bg-orange-900 dark:text-orange-300 dark:border-orange-800`}
+                      className="flex-1 h-[36px] text-xs px-3 bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-950 dark:hover:bg-orange-900 dark:text-orange-300 dark:border-orange-800"
                       onClick={handleProcessPayment}
                     >
                       <DollarSignIcon className="h-3.5 w-3.5 mr-1.5" />
@@ -2468,8 +2458,8 @@ export function ShootDetailsModal({
                     </Button>
                   )}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
           {/* Right Pane - Full width on mobile, 62.5% on desktop - Media Tab Always Visible, Expandable */}
@@ -2488,24 +2478,116 @@ export function ShootDetailsModal({
                 onToggleExpand={() => setIsMediaExpanded(!isMediaExpanded)}
               />
             </div>
+            {/* Bottom Action Buttons - Desktop only, inside right pane */}
+            {!isEditMode && !isRequestedStatus && (canResumeFromHold || canSendToEditing || canFinalise || (canShowInvoiceButton && !isPhotographer && !isEditor)) && (
+              <div className="hidden sm:flex border-t bg-background/95 backdrop-blur px-3 py-2.5">
+                <div className="flex flex-wrap items-center justify-end gap-2 w-full">
+                  {canResumeFromHold && (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="h-8 text-xs px-3 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 dark:bg-green-950 dark:hover:bg-green-900 dark:text-green-300 dark:border-green-800"
+                      onClick={handleResumeFromHold}
+                    >
+                      <PlayCircle className="h-3.5 w-3.5 mr-1.5" />
+                      <span>Resume from hold</span>
+                    </Button>
+                  )}
+                  {(canShowInvoiceButton || (isAdmin && isPaid)) && !isPhotographer && !isEditor && (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="h-8 text-xs px-3 bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950 dark:hover:bg-blue-900 dark:text-blue-300 dark:border-blue-800"
+                      onClick={handleShowInvoice}
+                      disabled={isLoadingInvoice}
+                    >
+                      {isLoadingInvoice ? (
+                        <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                      ) : (
+                        <FileText className="h-3.5 w-3.5 mr-1.5" />
+                      )}
+                      <span>{isLoadingInvoice ? '...' : 'Invoice'}</span>
+                    </Button>
+                  )}
+                  {isAdmin && canSendToEditing && (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="h-8 text-xs px-3 bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-950 dark:hover:bg-purple-900 dark:text-purple-300 dark:border-purple-800"
+                      onClick={handleSendToEditing}
+                    >
+                      <Send className="h-3.5 w-3.5 mr-1.5" />
+                      <span>Send to Editing</span>
+                    </Button>
+                  )}
+                  {canFinalise && (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="h-8 text-xs px-3 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 dark:bg-green-950 dark:hover:bg-green-900 dark:text-green-300 dark:border-green-800"
+                      onClick={handleFinalise}
+                    >
+                      <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
+                      <span>Finalize</span>
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
         
         {/* Bottom Overlay Buttons - Mobile only */}
         {(isAdmin || isClient || isRep) && (
           <div className="fixed sm:hidden bottom-0 left-0 right-0 bg-background border-t shadow-lg z-50 px-3 py-2 space-y-2">
-            {/* Admin-only actions */}
-            {canFinalise && (
-              <div className="flex items-center justify-between gap-2">
-                <Button
-                  variant="default"
-                  size="sm"
-                  className="flex-1 h-8 text-xs px-3 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 dark:bg-green-950 dark:hover:bg-green-900 dark:text-green-300 dark:border-green-800"
-                  onClick={handleFinalise}
-                >
-                  <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
-                  <span>Finalize</span>
-                </Button>
+            {/* Workflow action buttons */}
+            {!isEditMode && !isRequestedStatus && (canResumeFromHold || canSendToEditing || canFinalise || (canShowInvoiceButton && !isPhotographer && !isEditor)) && (
+              <div className="flex flex-wrap items-center gap-2">
+                {canResumeFromHold && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="flex-1 h-8 text-xs px-3 bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
+                    onClick={handleResumeFromHold}
+                  >
+                    <PlayCircle className="h-3.5 w-3.5 mr-1.5" />
+                    <span>Resume</span>
+                  </Button>
+                )}
+                {(canShowInvoiceButton || (isAdmin && isPaid)) && !isPhotographer && !isEditor && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="h-8 text-xs px-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
+                    onClick={handleShowInvoice}
+                    disabled={isLoadingInvoice}
+                  >
+                    <FileText className="h-3.5 w-3.5 mr-1" />
+                    <span>Invoice</span>
+                  </Button>
+                )}
+                {isAdmin && canSendToEditing && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="flex-1 h-8 text-xs px-3 bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200"
+                    onClick={handleSendToEditing}
+                  >
+                    <Send className="h-3.5 w-3.5 mr-1.5" />
+                    <span>Send to Editing</span>
+                  </Button>
+                )}
+                {canFinalise && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="flex-1 h-8 text-xs px-3 bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
+                    onClick={handleFinalise}
+                  >
+                    <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
+                    <span>Finalize</span>
+                  </Button>
+                )}
               </div>
             )}
 

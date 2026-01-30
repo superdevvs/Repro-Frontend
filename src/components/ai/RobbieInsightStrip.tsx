@@ -65,7 +65,10 @@ const getRotationDelay = () => ROTATION_INTERVAL_MS;
 
 export const RobbieInsightStrip: React.FC<RobbieInsightStripProps> = ({ role, className }) => {
   const { role: authRole, session } = useAuth();
-  const token = session?.accessToken;
+  const token = session?.accessToken
+    || (typeof window !== 'undefined'
+      ? (localStorage.getItem('authToken') || localStorage.getItem('token'))
+      : null);
   const navigate = useNavigate();
   const location = useLocation();
   const activeRole = role ?? authRole;
@@ -92,6 +95,7 @@ export const RobbieInsightStrip: React.FC<RobbieInsightStripProps> = ({ role, cl
   const [activeIndex, setActiveIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [displayedText, setDisplayedText] = useState("");
+  const [thinkingDots, setThinkingDots] = useState("");
 
   // Fetch insights from API
   const fetchInsights = useCallback(async () => {
@@ -103,9 +107,11 @@ export const RobbieInsightStrip: React.FC<RobbieInsightStripProps> = ({ role, cl
     try {
       setError(null);
       const response = await fetch(`${API_BASE_URL}/api/robbie/insights`, {
+        cache: 'no-store',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Accept': 'application/json',
+          'Cache-Control': 'no-cache',
         },
       });
 
@@ -137,7 +143,7 @@ export const RobbieInsightStrip: React.FC<RobbieInsightStripProps> = ({ role, cl
     return () => clearInterval(interval);
   }, [fetchInsights]);
 
-  // Use API insights - prioritize blocking but include all for rotation
+  // Use API insights - prioritize blocking and rotate through the top insights
   const insights = useMemo(() => {
     if (!isAllowedRole) return [];
     // Sort by priority: blocking first, then attention, then insight, then assistive
@@ -160,7 +166,7 @@ export const RobbieInsightStrip: React.FC<RobbieInsightStripProps> = ({ role, cl
   const activeInsight = insights[activeIndex];
   
   const placeholderMessage = isLoading
-    ? "Loading Robbie insights..."
+    ? "Thinking"
     : error
     ? error
     : "No insights yet — ask me anything.";
@@ -172,6 +178,26 @@ export const RobbieInsightStrip: React.FC<RobbieInsightStripProps> = ({ role, cl
     prompt: "",
     action: "",
   };
+
+  const isThinking = isLoading && !activeInsight;
+  const displayText = isThinking ? `Thinking${thinkingDots}` : displayedText;
+
+  useEffect(() => {
+    if (!isThinking) {
+      setThinkingDots("");
+      return;
+    }
+
+    const frames = ["", ".", "..", "..."];
+    let index = 0;
+    setThinkingDots(frames[index]);
+    const interval = window.setInterval(() => {
+      index = (index + 1) % frames.length;
+      setThinkingDots(frames[index]);
+    }, 450);
+
+    return () => window.clearInterval(interval);
+  }, [isThinking]);
 
   // Typing effect
   useEffect(() => {
@@ -291,11 +317,12 @@ export const RobbieInsightStrip: React.FC<RobbieInsightStripProps> = ({ role, cl
             transition={{ duration: 0.35 }}
             className={cn(
               "min-w-0 text-sm font-medium text-foreground/90 truncate",
+              isThinking && "text-primary drop-shadow-[0_0_10px_rgba(59,130,246,0.65)]",
               isLoading && "animate-pulse"
             )}
             title={displayInsight.message}
           >
-            {displayedText}
+            {displayText}
           </motion.div>
         </AnimatePresence>
       </div>

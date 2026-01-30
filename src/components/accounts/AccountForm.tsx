@@ -41,6 +41,7 @@ import type { RepDetails } from "@/types/auth";
 import { STATE_OPTIONS } from "@/utils/stateUtils";
 import { Upload, FileText, X, Camera } from "lucide-react";
 import { PhoneInput } from "@/components/ui/phone-input";
+import { usePermission } from "@/hooks/usePermission";
 import {
   Popover,
   PopoverContent,
@@ -168,6 +169,8 @@ export function AccountForm({
   const [insuranceModalOpen, setInsuranceModalOpen] = useState(false);
   const { toast } = useToast();
   const { role: viewerRole, user: currentUser } = useAuth();
+  const permission = usePermission();
+  const clientsPermission = permission.forResource('clients');
   const canEditSensitiveRepFields = viewerRole === 'superadmin';
   
   const form = useForm<AccountFormValues>({
@@ -222,6 +225,12 @@ export function AccountForm({
         const repDetails = (initialData.metadata?.repDetails as RepDetails | undefined) || {};
         const repAddress = repDetails?.homeAddress || {};
 
+        const repMetadata = (initialData.metadata as Record<string, any> | undefined) || {};
+        const repMetaId = repMetadata.accountRepId || repMetadata.account_rep_id || repMetadata.repId || repMetadata.rep_id;
+        const repMetaName = repMetadata.accountRep || repMetadata.account_rep || repMetadata.rep;
+        const createdById = (initialData as any).created_by_id || repMetaId || "";
+        const createdByName = (initialData as any).created_by_name || (initialData as any).createdBy || repMetaName || "";
+
         form.reset({
           firstName,
           lastName,
@@ -254,8 +263,8 @@ export function AccountForm({
           repAutoApprovePayouts: repDetails?.autoApprovePayouts ?? false,
           repCanTextClients: repDetails?.smsEnabled ?? true,
           repNotes: repDetails?.notes || "",
-          created_by_name: (initialData as any).created_by_name || (initialData as any).createdBy || "",
-          created_by_id: (initialData as any).created_by_id || "",
+          created_by_name: createdByName,
+          created_by_id: createdById,
         });
         setAvatarUrl(initialData.avatar || "");
       } else {
@@ -300,9 +309,19 @@ export function AccountForm({
     }
   }, [initialData, form, open]);
 
-  // Fetch admins and reps for "Created by" dropdown (only for superadmin)
+  const repMetadata = (initialData?.metadata as Record<string, any> | undefined) || {};
+  const repMetaId = repMetadata.accountRepId || repMetadata.account_rep_id || repMetadata.repId || repMetadata.rep_id;
+  const repMetaName = repMetadata.accountRep || repMetadata.account_rep || repMetadata.rep;
+  const createdById = (initialData as any)?.created_by_id || repMetaId || "";
+  const createdByName = (initialData as any)?.created_by_name || (initialData as any)?.createdBy || repMetaName || "";
+  const currentRole = form.watch("role");
+  const isClientRole = currentRole === "client";
+  const repAssigned = Boolean(createdById || createdByName);
+  const canAssignClientRep = viewerRole === 'superadmin' || (viewerRole === 'admin' && clientsPermission.canAssign());
+
+  // Fetch admins and reps for account rep dropdown
   useEffect(() => {
-    const shouldFetch = viewerRole === 'superadmin' && open;
+    const shouldFetch = open && (viewerRole === 'superadmin' || canAssignClientRep);
     
     if (shouldFetch) {
       const fetchAdminsAndReps = async () => {
@@ -329,7 +348,7 @@ export function AccountForm({
       };
       fetchAdminsAndReps();
     }
-  }, [viewerRole, open]);
+  }, [viewerRole, open, canAssignClientRep]);
 
   const buildRepDetails = (values: AccountFormValues): RepDetails | undefined => {
     const existingDetails = (initialData?.metadata?.repDetails as RepDetails | undefined) || undefined;
@@ -467,8 +486,10 @@ export function AccountForm({
       payload.metadata = metadataPayload;
     }
 
-    // If editing, include created_by fields if superadmin is editing
-    if (initialData && canEditCreatedBy) {
+    const canAssignRepForPayload = canEditCreatedBy || (canAssignClientRep && values.role === 'client');
+
+    // If editing, include created_by fields if superadmin or permitted admin is assigning a rep
+    if (initialData && canAssignRepForPayload) {
       if (values.created_by_name) {
         payload.created_by_name = values.created_by_name;
       }
@@ -517,7 +538,7 @@ export function AccountForm({
           formData.append('metadata', JSON.stringify(payload.metadata));
         }
 
-        if (canEditCreatedBy) {
+        if (canAssignRepForPayload) {
           if (values.created_by_name) {
             formData.append('created_by_name', values.created_by_name);
           }
@@ -603,7 +624,7 @@ export function AccountForm({
       
       // Set created_by fields
       // If superadmin selected a creator, use that; otherwise use current user
-      if (canEditCreatedBy && values.created_by_id && values.created_by_name) {
+      if (canAssignRepForPayload && values.created_by_id && values.created_by_name) {
         formData.append('created_by_name', values.created_by_name);
         formData.append('created_by_id', String(values.created_by_id));
       } else if (currentUser) {
@@ -690,7 +711,6 @@ export function AccountForm({
   ];
 
   // watch role to toggle specialties UI
-  const currentRole = form.watch("role");
   const isSalesRep = currentRole === "salesRep";
   const roleSelectionDisabled = viewerRole === 'salesRep';
   const canManageRoles = viewerRole === 'admin' || viewerRole === 'superadmin';
@@ -706,6 +726,9 @@ export function AccountForm({
       initialData.role === 'superadmin'
     ))
   );
+  const canEditClientRep = isClientRole && canAssignClientRep && (viewerRole === 'superadmin' || !repAssigned);
+  const showRepSelector = isClientRole ? canEditClientRep : canEditCreatedBy;
+  const repLabel = isClientRole ? 'Account Rep' : 'Created by';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -719,14 +742,14 @@ export function AccountForm({
                   ? "Update user account details"
                   : "Create a new user account"}
               </DialogTitle>
-              {canEditCreatedBy && (
+              {showRepSelector && (
                 <FormField
                   control={form.control}
                   name="created_by_id"
                   render={({ field }) => (
                     <FormItem className="mt-1">
                       <div className="flex items-center gap-1">
-                        <span className="text-xs text-muted-foreground">Created by:</span>
+                        <span className="text-xs text-muted-foreground">{repLabel}:</span>
                         <Select
                           onValueChange={(value) => {
                             field.onChange(value);
@@ -735,11 +758,11 @@ export function AccountForm({
                               form.setValue('created_by_name', selected.name);
                             }
                           }}
-                          value={field.value || ((initialData as any)?.created_by_id ? String((initialData as any).created_by_id) : (currentUser?.id ? String(currentUser.id) : ""))}
+                          value={field.value || (currentUser?.id ? String(currentUser.id) : "")}
                         >
                           <FormControl>
                             <SelectTrigger className="border-0 bg-transparent shadow-none h-auto p-0 gap-1 text-xs font-medium text-foreground hover:bg-transparent focus:ring-0 focus:ring-offset-0 w-auto">
-                              <SelectValue placeholder="Select creator" />
+                              <SelectValue placeholder={`Select ${repLabel.toLowerCase()}`} />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -756,10 +779,10 @@ export function AccountForm({
                   )}
                 />
               )}
-              {!canEditCreatedBy && (initialData?.role === 'client' || (!initialData && currentRole === 'client')) && (
+              {!showRepSelector && isClientRole && (
                 <div className="text-xs text-muted-foreground mt-1">
-                  Created by: <span className="font-medium text-foreground">
-                    {(initialData as any)?.created_by_name || (initialData as any)?.createdBy || (!initialData && currentUser?.name ? currentUser.name : 'Unknown')}
+                  {repLabel}: <span className="font-medium text-foreground">
+                    {createdByName || 'Unassigned'}
                   </span>
                 </div>
               )}

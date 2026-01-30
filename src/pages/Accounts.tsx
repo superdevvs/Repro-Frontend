@@ -447,7 +447,7 @@ export default function Accounts() {
   };
 
   const shouldComputeShootSummaries =
-    activeTab === 'insights' || Boolean(selectedUser) || userProfileDialogOpen;
+    activeTab === 'accounts' || activeTab === 'insights' || Boolean(selectedUser) || userProfileDialogOpen;
 
   const userShootSummaryById = React.useMemo(() => {
     if (!shouldComputeShootSummaries || users.length === 0 || shoots.length === 0) {

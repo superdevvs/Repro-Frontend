@@ -829,8 +829,17 @@ export function ShootDetailsOverviewTab({
         }
       }
       
-      // Get sqft from shoot for variable pricing
-      const sqft = (shoot as any).sqft || (shoot as any).livingArea || (shoot as any).living_area || null;
+      const sqftForPricing =
+        sqftValue ??
+        basePropertyDetails.sqft ??
+        (basePropertyDetails as any).squareFeet ??
+        (basePropertyDetails as any).square_feet ??
+        (shoot as any).sqft ??
+        (shoot as any).squareFeet ??
+        (shoot as any).square_feet ??
+        (shoot as any).livingArea ??
+        (shoot as any).living_area ??
+        null;
       
       // Include selected services with prices and photographer pays
       if (selectedServiceIds.length > 0) {
@@ -839,9 +848,9 @@ export function ShootDetailsOverviewTab({
           
           // Calculate price based on sqft for variable pricing services
           let calculatedPrice = service?.price || 0;
-          if (service?.pricing_type === 'variable' && sqft && service.sqft_ranges?.length) {
+          if (service?.pricing_type === 'variable' && sqftForPricing && service.sqft_ranges?.length) {
             const matchingRange = service.sqft_ranges.find(
-              range => sqft >= range.sqft_from && sqft <= range.sqft_to
+              range => sqftForPricing >= range.sqft_from && sqftForPricing <= range.sqft_to
             );
             if (matchingRange) {
               calculatedPrice = matchingRange.price;
@@ -944,9 +953,20 @@ export function ShootDetailsOverviewTab({
 
   // Get sqft for variable pricing
   const effectiveSqft = useMemo(() => {
-    const sqft = (shoot as any).sqft || (shoot as any).livingArea || (shoot as any).living_area || null;
-    return sqft ? Number(sqft) : null;
-  }, [shoot]);
+    const rawSqft = isEditMode
+      ? propertyMetricsEdit.sqft
+      : (shoot as any).propertyDetails?.sqft ??
+        (shoot as any).property_details?.sqft ??
+        (shoot as any).sqft ??
+        (shoot as any).squareFeet ??
+        (shoot as any).square_feet ??
+        (shoot as any).livingArea ??
+        (shoot as any).living_area ??
+        null;
+    if (rawSqft === '' || rawSqft === null || rawSqft === undefined) return null;
+    const parsed = Number(rawSqft);
+    return Number.isFinite(parsed) ? parsed : null;
+  }, [isEditMode, propertyMetricsEdit.sqft, shoot]);
 
   const [assignPhotographerOpen, setAssignPhotographerOpen] = useState(false);
   const [selectedPhotographerId, setSelectedPhotographerId] = useState<string>('');

@@ -26,6 +26,7 @@ import {
   Eye,
   Loader2,
   Sparkles,
+  Trash2,
 } from 'lucide-react';
 import { ShootDetailsModal } from '@/components/shoots/ShootDetailsModal';
 import { SquarePaymentDialog } from '@/components/payments/SquarePaymentDialog';
@@ -38,7 +39,7 @@ interface BulkActionsDialogProps {
   isLoading?: boolean;
 }
 
-type BulkAction = 'pay' | 'editing' | 'finalize';
+type BulkAction = 'pay' | 'editing' | 'finalize' | 'delete';
 
 type FilterMode = 'all' | 'eligible' | 'unpaid' | 'uploaded' | 'editing';
 
@@ -71,6 +72,7 @@ const isEditing = (shoot: ShootData) => {
 };
 
 const isEligibleForAction = (shoot: ShootData, action: BulkAction) => {
+  if (action === 'delete') return true;
   if (action === 'pay') return isUnpaid(shoot);
   if (action === 'editing') return isUploaded(shoot);
   return isEditing(shoot);
@@ -198,6 +200,15 @@ export function BulkActionsDialog({
       return;
     }
 
+    if (activeAction === 'delete') {
+      const confirmed = window.confirm(
+        `Delete ${eligibleShoots.length} shoot(s)? This action cannot be undone.`
+      );
+      if (!confirmed) {
+        return;
+      }
+    }
+
     if (activeAction === 'pay' && paymentMethod === 'square') {
       setSquarePaymentOpen(true);
       return;
@@ -206,7 +217,15 @@ export function BulkActionsDialog({
     setProcessing(true);
 
     try {
-      if (activeAction === 'editing') {
+      if (activeAction === 'delete') {
+        await Promise.all(
+          eligibleShoots.map((shoot) => apiClient.delete(`/shoots/${shoot.id}`)),
+        );
+        toast({
+          title: 'Shoots deleted',
+          description: `${eligibleShoots.length} shoot(s) deleted successfully.`,
+        });
+      } else if (activeAction === 'editing') {
         await Promise.all(
           eligibleShoots.map((shoot) => apiClient.post(`/shoots/${shoot.id}/start-editing`)),
         );
@@ -440,6 +459,14 @@ export function BulkActionsDialog({
                 Send to Editing
               </Button>
               <Button
+                variant={activeAction === 'delete' ? 'destructive' : 'outline'}
+                className="justify-start gap-2"
+                onClick={() => setActiveAction('delete')}
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete Shoots
+              </Button>
+              <Button
                 variant={activeAction === 'finalize' ? 'default' : 'outline'}
                 className="justify-start gap-2"
                 onClick={() => setActiveAction('finalize')}
@@ -516,6 +543,16 @@ export function BulkActionsDialog({
               </div>
             )}
 
+            {activeAction === 'delete' && (
+              <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-3 text-red-900">
+                <AlertCircle className="h-4 w-4 mt-0.5" />
+                <div className="text-xs">
+                  <p className="font-medium">Deleting shoots is permanent.</p>
+                  <p>All media, invoices, and history for selected shoots will be removed.</p>
+                </div>
+              </div>
+            )}
+
             {eligibleShoots.length === 0 && selectedShootsData.length > 0 && (
               <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900">
                 <AlertCircle className="h-4 w-4 mt-0.5" />
@@ -533,6 +570,7 @@ export function BulkActionsDialog({
               <Button
                 onClick={handleAction}
                 disabled={processing || isLoading || eligibleShoots.length === 0}
+                variant={activeAction === 'delete' ? 'destructive' : 'default'}
                 className="flex-1"
               >
                 {processing ? (
@@ -542,6 +580,8 @@ export function BulkActionsDialog({
                   </>
                 ) : activeAction === 'editing' ? (
                   'Send to Editing'
+                ) : activeAction === 'delete' ? (
+                  'Delete Shoots'
                 ) : activeAction === 'finalize' ? (
                   'Finalize Shoots'
                 ) : paymentMethod === 'square' ? (

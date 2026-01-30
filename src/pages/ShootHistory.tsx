@@ -1056,6 +1056,7 @@ const CompletedAlbumCard = ({
             alt={shoot.location.address} 
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             loading="lazy"
+            onError={(e) => { e.currentTarget.src = '/no-image-placeholder.svg' }}
           />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
@@ -1263,6 +1264,7 @@ const CompletedShootListRow = ({
             alt={shoot.location.address} 
             className="w-full h-full object-cover"
             loading="lazy"
+            onError={(e) => { e.currentTarget.src = '/no-image-placeholder.svg' }}
           />
         </div>
 
@@ -2833,7 +2835,7 @@ const ShootHistory: React.FC = () => {
         }
       }
 
-      const params: Record<string, unknown> = { tab: backendTab, page: operationalPage, per_page: 9, include_files: 'false' }
+      const params: Record<string, unknown> = { tab: backendTab, page: operationalPage, per_page: 9, include_files: 'true' }
       if (operationalFilters.search) params.search = operationalFilters.search
       if (!shouldHideClientDetails && operationalFilters.clientId) params.client_id = operationalFilters.clientId
       if (operationalFilters.photographerId) params.photographer_id = operationalFilters.photographerId
@@ -3008,7 +3010,7 @@ const ShootHistory: React.FC = () => {
               tab,
               page: 1,
               per_page: 200,
-              include_files: 'false',
+              include_files: 'true',
             },
           }),
         ),
@@ -3797,12 +3799,13 @@ const ShootHistory: React.FC = () => {
             onApprove={(s) => setApprovalModalShoot(s)}
             onDecline={(s) => setDeclineModalShoot(s)}
             onModify={(s) => setEditModalShoot(s)}
+            onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
             shouldHideClientDetails={shouldHideClientDetails}
           />
         ))}
       </div>
     )
-  }, [loading, activeTab, filteredOperationalData, operationalMeta, viewMode, role, operationalMarkers, handleShootSelect, handlePrimaryAction, navigate, isSuperAdmin, scheduledSubTab, isAdmin, canViewInvoice, handleViewInvoice, shouldHideClientDetails])
+  }, [loading, activeTab, filteredOperationalData, operationalMeta, viewMode, role, operationalMarkers, handleShootSelect, handlePrimaryAction, navigate, isSuperAdmin, scheduledSubTab, isAdmin, canViewInvoice, handleViewInvoice, handleDeleteShoot, shouldHideClientDetails])
 
     // Completed shoots content
   const completedContent = useMemo(() => {
@@ -4071,9 +4074,25 @@ const ShootHistory: React.FC = () => {
                       {record.address?.full || 'No address'}
                     </CardDescription>
                   </div>
-                  <Badge variant="outline" className="capitalize">
-                    {record.status}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="capitalize">
+                      {record.status}
+                    </Badge>
+                    {(isAdmin || isSuperAdmin) && record.id && (
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="h-7 w-7 p-0 bg-red-500 hover:bg-red-600"
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          handleDeleteHistoryRecord(record)
+                        }}
+                        title="Delete"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
