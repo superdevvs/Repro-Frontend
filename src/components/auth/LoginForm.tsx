@@ -159,7 +159,7 @@ export function LoginForm() {
   }, [activeTab]);
 
   const registerContentClass = isMobile
-    ? 'space-y-6 h-[32vh] overflow-y-auto pb-8 -mt-1'
+    ? 'space-y-6 pb-8 -mt-1'
     : 'space-y-6';
 
   return (

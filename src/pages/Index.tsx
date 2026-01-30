@@ -126,7 +126,7 @@ const Index = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.05 }}
       >
-        <div className={`${isMobile ? 'w-full max-w-md space-y-6 text-[15px] pb-8' : 'w-full max-w-md'}`}>
+        <div className={`${isMobile ? 'w-full max-w-md space-y-6 text-[15px] pb-16' : 'w-full max-w-md'}`}>
           <LoginForm />
         </div>
       </motion.div>
