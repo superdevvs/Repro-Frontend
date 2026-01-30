@@ -185,6 +185,7 @@ export function AccountForm({
       company: "",
       licenseNumber: "",
       avatar: "",
+      bio: "",
           companyNotes: "",
           isActive: true,
           specialties: [],
@@ -205,6 +206,8 @@ export function AccountForm({
       repAutoApprovePayouts: false,
       repCanTextClients: true,
       repNotes: "",
+      created_by_name: "",
+      created_by_id: "",
     },
   });
 
@@ -268,6 +271,7 @@ export function AccountForm({
           zipcode: "",
           company: "",
           avatar: "",
+          bio: "",
           companyNotes: "",
           isActive: true,
           specialties: [],
@@ -288,6 +292,8 @@ export function AccountForm({
           repAutoApprovePayouts: false,
           repCanTextClients: true,
           repNotes: "",
+          created_by_name: "",
+          created_by_id: "",
         });
         setAvatarUrl("");
       }
@@ -573,14 +579,9 @@ export function AccountForm({
         throw new Error('Not authenticated');
       }
 
-      const username =
-        values.email?.split('@')[0] ||
-        `${values.firstName}${values.lastName}`.replace(/\s+/g, '').toLowerCase();
-
       const formData = new FormData();
       formData.append('name', fullName || '');
       formData.append('email', values.email || '');
-      formData.append('username', username);
       if (values.phone) formData.append('phone_number', values.phone);
       if (values.company) formData.append('company_name', values.company);
       if (values.address) formData.append('address', values.address);

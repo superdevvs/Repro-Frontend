@@ -1257,7 +1257,7 @@ const BookShoot = () => {
   const getCurrentStepContent = () => {
     const stepContent = {
       1: {
-        title: "Client & Property Details",
+        title: "Book a new shoot",
         description: "Select a client and enter the property information"
       },
       2: {

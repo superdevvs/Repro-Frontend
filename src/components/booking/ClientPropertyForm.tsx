@@ -103,6 +103,35 @@ type CategoryDisplay = {
 
 type PresenceOption = 'self' | 'other' | 'lockbox';
 
+const extractAptSuite = (rawAddress: string) => {
+  if (!rawAddress) {
+    return { streetAddress: rawAddress, aptSuite: '' };
+  }
+
+  const patterns = [
+    /\s*(?:#|Apt\.?|Apartment|Unit|Suite|Ste\.?)\s*([A-Za-z0-9-]+)/i,
+  ];
+
+  let streetAddress = rawAddress;
+  let aptSuite = '';
+
+  for (const pattern of patterns) {
+    const match = streetAddress.match(pattern);
+    if (match) {
+      aptSuite = match[1].trim();
+      streetAddress = streetAddress.replace(match[0], '');
+      break;
+    }
+  }
+
+  streetAddress = streetAddress
+    .replace(/\s{2,}/g, ' ')
+    .replace(/^[,\s]+|[,\s]+$/g, '')
+    .trim();
+
+  return { streetAddress, aptSuite };
+};
+
 const CATEGORY_STYLE_PRESETS = [
   { gradientClass: 'from-sky-400 via-blue-500 to-indigo-600', shadowClass: 'shadow-lg shadow-blue-500/40' },
   { gradientClass: 'from-fuchsia-500 via-pink-500 to-rose-500', shadowClass: 'shadow-lg shadow-rose-500/40' },
@@ -825,14 +854,18 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                             // Clean up trailing/leading commas and spaces
                             streetAddress = streetAddress.replace(/^[,\s]+|[,\s]+$/g, '').trim();
                           }
-                          
-                          form.setValue('propertyAddress', streetAddress, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
+
+                          const { streetAddress: normalizedStreet, aptSuite } = extractAptSuite(streetAddress);
+                          const resolvedAptSuite = (address.apt_suite || aptSuite || '').trim();
+
+                          form.setValue('propertyAddress', normalizedStreet, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
+                          form.setValue('aptSuite', resolvedAptSuite, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
                           
                           // Set only street address (not full address with city/state/zip)
-                          setCompleteAddress(streetAddress);
+                          setCompleteAddress(normalizedStreet);
 
                           onAddressFieldsChange?.({
-                            address: streetAddress,
+                            address: normalizedStreet,
                             city,
                             state: normalizedState,
                             zip,

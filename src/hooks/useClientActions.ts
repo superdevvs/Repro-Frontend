@@ -108,7 +108,6 @@ export const useClientActions = ({ clientsData, setClientsData }: UseClientActio
         const body = new FormData();
         body.append('name', clientFormData.name || '');
         body.append('email', clientFormData.email || '');
-        body.append('username', (clientFormData.email?.split('@')[0] || clientFormData.name.replace(/\s+/g,'').toLowerCase()));
         if (clientFormData.phone) body.append('phone_number', clientFormData.phone);
         if (clientFormData.company) body.append('company_name', clientFormData.company);
         body.append('role', 'client');
