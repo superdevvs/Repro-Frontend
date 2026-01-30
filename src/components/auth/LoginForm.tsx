@@ -184,7 +184,7 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
       <Card
         className={`shadow-none ${
           isMobile
-            ? "relative rounded-b-[26px] rounded-t-none border-none bg-gradient-to-b from-[#050915] via-[#050f20] to-[#0b1a36] backdrop-blur-2xl before:content-[''] before:absolute before:inset-x-0 before:top-0 before:h-14 before:bg-gradient-to-b before:from-[#050915] before:via-[#050915dd] before:to-transparent before:pointer-events-none after:content-[''] after:absolute after:inset-x-0 after:bottom-0 after:h-16 after:bg-gradient-to-b after:from-transparent after:via-[#08359f66] after:to-[#1664c8a6] after:blur-[48px] after:pointer-events-none"
+            ? "relative rounded-b-[26px] rounded-t-none border-none bg-gradient-to-b from-[#050915] via-[#050f20] to-[#0b1a36] backdrop-blur-2xl before:content-[''] before:absolute before:inset-x-0 before:top-0 before:h-14 before:bg-gradient-to-b before:from-[#050915] before:via-[#050915dd] before:to-transparent before:pointer-events-none"
             : 'border-none bg-transparent'
         }`}
       >
