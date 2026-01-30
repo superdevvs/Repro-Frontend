@@ -68,8 +68,8 @@ const Index = () => {
           display: 'flex',
           flexDirection: 'column',
           padding: isLogin ? '16px' : undefined,
-          paddingTop: isLogin ? 'calc(6px + env(safe-area-inset-top))' : undefined,
-          paddingBottom: isLogin ? 'calc(6px + env(safe-area-inset-bottom))' : undefined,
+          paddingTop: isLogin ? 'calc(11px + env(safe-area-inset-top))' : undefined,
+          paddingBottom: isLogin ? 'calc(11px + env(safe-area-inset-bottom))' : undefined,
         }}
       >
         {/* Image Section - flex grows to fill available space on login */}
