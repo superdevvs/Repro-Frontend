@@ -61,7 +61,7 @@ const Index = () => {
       <div 
         className={isLogin ? '' : 'mobile-login-scrollable'} 
         style={{ 
-          background: '#030619', 
+          background: '#060a0e', 
           minHeight: '100dvh',
           height: isLogin ? '100dvh' : 'auto',
           overflow: isLogin ? 'hidden' : 'auto',
@@ -119,10 +119,10 @@ const Index = () => {
             style={{
               height: isLogin ? '35px' : '25px',
               marginTop: isLogin ? '-35px' : '-25px',
-              background: 'linear-gradient(to bottom, transparent 0%, rgba(3,6,25,0.35) 25%, rgba(3,6,25,0.65) 55%, rgba(3,6,25,0.85) 75%, #030619 100%)',
+              background: 'linear-gradient(to bottom, transparent 0%, rgba(6,10,14,0.4) 25%, rgba(6,10,14,0.75) 65%, #060a0e 100%)',
             }}
           />
-          <div style={{ background: '#030619' }}>
+          <div style={{ background: '#060a0e' }}>
             <motion.div
               className={`relative z-10 w-full text-white ${isLogin ? '' : 'px-4'}`}
               initial={{ opacity: 0, y: 20 }}
@@ -145,7 +145,7 @@ const Index = () => {
       className="min-h-dvh w-full flex flex-row md:overflow-hidden relative pb-[env(safe-area-inset-bottom)]"
       style={{ 
         background: isDarkDesktop 
-          ? '#030619'
+          ? 'linear-gradient(180deg, rgba(6,10,14,1) 0%, rgba(9,16,28,1) 35%, rgba(11,24,42,1) 60%, rgba(14,35,63,1) 85%, rgba(18,55,92,1) 100%)'
           : 'white'
       }}
     >
