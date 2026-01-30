@@ -1,6 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&display=swap');
 
+/* stylelint-disable at-rule-no-unknown */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -24,9 +25,14 @@ body {
   min-height: 100vh;
   min-height: 100svh;
   width: 100%;
-  background: linear-gradient(180deg, #0b1220 0%, #0f1b35 100%);
+  background-color: #0b1220;
   padding-top: env(safe-area-inset-top, 0px);
   padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.app-shell {
+  min-height: 100%;
+  background: linear-gradient(180deg, #0b1220 0%, #0f1b35 100%);
 }
 
 @layer base {
