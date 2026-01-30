@@ -451,9 +451,9 @@ export function ShootSettingsTab({
               </div>
             </div>
 
-            {/* VS Naming */}
+            {/* RE Naming */}
             <div className="border rounded-lg p-3.5 space-y-3">
-              <div className="text-sm font-medium">VS Naming</div>
+              <div className="text-sm font-medium">RE Naming</div>
               <div className="space-y-2">
                 <Label htmlFor="vs_naming" className="text-xs">Naming Convention</Label>
                 <Input

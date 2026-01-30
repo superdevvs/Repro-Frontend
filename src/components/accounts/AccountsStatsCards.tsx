@@ -55,7 +55,7 @@ export const AccountsStatsCards: React.FC<AccountsStatsCardsProps> = ({
   });
 
   return (
-    <div className="overflow-x-auto pb-1 -mx-1 px-1 touch-manipulation">
+    <div className="overflow-x-auto pb-1 -mx-1 px-1 touch-manipulation scrollbar-hide [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
       <div className="flex gap-1.5 sm:gap-2 min-w-max">
         {visibleRoles.map((role) => {
           const Icon = role.icon;

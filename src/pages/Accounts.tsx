@@ -899,7 +899,8 @@ export default function Accounts() {
   };
 
   const handleUpdateRoles = async (userId: string, roles: Role[]) => {
-    const newRole = roles[0];
+    const primaryRole = roles[0];
+    const secondaryRoles = roles.slice(1);
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       if (!token) {
@@ -913,7 +914,10 @@ export default function Accounts() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ role: newRole })
+        body: JSON.stringify({ 
+          role: primaryRole,
+          secondary_roles: secondaryRoles 
+        })
       });
       if (res.status === 401 || res.status === 419) {
         handleSessionExpired();
@@ -921,21 +925,24 @@ export default function Accounts() {
       }
       if (!res.ok) {
         const t = await res.text();
-        throw new Error(t || 'Failed to change role');
+        throw new Error(t || 'Failed to change roles');
       }
       const data = await res.json();
       if (!data.changed) {
-        toast({ title: 'No change', description: 'Role was not changed. Try again.', variant: 'destructive' });
+        toast({ title: 'No change', description: 'Roles were not changed. Try again.', variant: 'destructive' });
         return;
       }
-      setUsers(users.map(u => (u.id === userId ? { ...u, role: newRole } : u)));
-      toast({ title: 'Role updated', description: `User role updated to ${newRole}.` });
+      setUsers(users.map(u => (u.id === userId ? { ...u, role: primaryRole, secondaryRoles } : u)));
+      const roleText = secondaryRoles.length > 0 
+        ? `${primaryRole} + ${secondaryRoles.join(', ')}`
+        : primaryRole;
+      toast({ title: 'Roles updated', description: `User roles updated to ${roleText}.` });
     } catch (e: any) {
       console.error('Role change failed', e);
       if (sessionExpiredRef.current) {
         return;
       }
-      toast({ title: 'Failed to change role', description: e?.message || 'Try again.', variant: 'destructive' });
+      toast({ title: 'Failed to change roles', description: e?.message || 'Try again.', variant: 'destructive' });
     }
   };
 

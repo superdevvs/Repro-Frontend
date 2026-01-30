@@ -29,7 +29,7 @@ const PhotographerAvailability = () => {
   const [isSpecificDate, setIsSpecificDate] = useState(false);
 
   // UI grid hours for quick toggle (1-hour blocks)
-  const gridTimes = useMemo(() => ['09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00'], []);
+  const gridTimes = useMemo(() => ['09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00'], []);
 
   const dayOfWeek = useMemo(() => selectedDate ? selectedDate.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase() : undefined, [selectedDate]);
   const dateStr = useMemo(() => selectedDate ? formatDate(selectedDate) : undefined, [selectedDate]);

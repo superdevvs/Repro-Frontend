@@ -242,11 +242,11 @@ export default function Availability() {
   const [newAvailability, setNewAvailability] = useState<Partial<Availability>>({
     status: "available",
     startTime: "09:00",
-    endTime: "17:00"
+    endTime: "21:00"
   });
   const [newWeeklySchedule, setNewWeeklySchedule] = useState({
     startTime: "09:00",
-    endTime: "17:00",
+    endTime: "21:00",
     status: "available" as AvailabilityStatus,
     days: [true, true, true, true, true, false, false] as boolean[], // Mon-Fri by default
     recurring: true,
