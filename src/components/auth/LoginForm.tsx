@@ -164,6 +164,8 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
     clearErrors();
   }, [activeTab]);
 
+  const isRegister = activeTab === 'register';
+
   const registerContentClass = isMobile
     ? 'space-y-6 pb-8 -mt-1'
     : 'space-y-6';
@@ -172,7 +174,7 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
     <motion.div
       className={`w-full max-w-md mx-auto ${
         isMobile
-          ? 'rounded-b-[28px] rounded-t-none shadow-[0_24px_60px_rgba(1,3,9,0.68)] bg-[#03060B]'
+          ? `${isRegister ? 'rounded-[28px]' : 'rounded-b-[28px] rounded-t-none'} shadow-[0_24px_60px_rgba(1,3,9,0.68)] bg-[#03060B]`
           : ''
       }`}
       initial={{ opacity: 0, y: 10 }}
@@ -182,7 +184,7 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
       <Card
         className={`shadow-none ${
           isMobile
-            ? "relative rounded-b-[26px] rounded-t-none border-none bg-gradient-to-b from-[#050815]/85 via-[#050f20]/55 to-[#0b1a36] backdrop-blur-2xl before:content-[''] before:absolute before:inset-x-0 before:top-0 before:h-[46px] before:bg-gradient-to-b before:from-[#050815]/85 before:via-[#050815]/35 before:to-transparent before:pointer-events-none"
+            ? `relative ${isRegister ? 'rounded-[26px]' : 'rounded-b-[26px] rounded-t-none'} border-none bg-gradient-to-b from-[#050815]/85 via-[#050f20]/55 to-[#0b1a36] backdrop-blur-2xl before:content-[''] before:absolute before:inset-x-0 before:top-0 before:h-[46px] before:bg-gradient-to-b before:from-[#050815]/85 before:via-[#050815]/35 before:to-transparent before:pointer-events-none`
             : 'border-none bg-transparent'
         }`}
       >
@@ -328,6 +330,22 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
             {/* Register Form */}
             <TabsContent value="register" className={registerContentClass}>
               <RegisterForm onSuccess={handleRegisterSuccess} />
+              <p
+                className={`text-center text-sm ${isMobile ? 'text-slate-400' : 'text-muted-foreground dark:text-slate-400'}`}
+                style={{ marginTop: '15px', marginBottom: '-25px' }}
+              >
+                <span
+                  onClick={() => setActiveTab('login')}
+                  className="text-muted-foreground/70 dark:text-slate-400 font-medium cursor-pointer hover:underline inline-flex items-center"
+                >
+                  <span>
+                    Go back to{' '}
+                    <span className={`${isMobile ? 'text-cyan-300' : 'text-primary dark:text-cyan-400'} font-semibold`}>
+                      Login
+                    </span>
+                  </span>
+                </span>
+              </p>
             </TabsContent>
           </Tabs>
         </CardContent>
