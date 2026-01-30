@@ -59,6 +59,12 @@ export function AccountList({
     }
   };
 
+  const formatRoleLabel = (value: string) =>
+    value
+      .replace(/_/g, ' ')
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .replace(/^./, (char) => char.toUpperCase());
+
   const { role: viewerRole } = useAuth();
   const isSuperAdmin = viewerRole === 'superadmin';
   const isAdmin = viewerRole === 'admin';
@@ -99,6 +105,14 @@ export function AccountList({
         <TableBody>
           {users.map((user) => {
             const canEditRow = canManageAccounts || (viewerRole === 'salesRep' && user.role === 'client');
+            const secondaryRoles = Array.isArray((user as any).secondaryRoles)
+              ? (user as any).secondaryRoles
+              : Array.isArray((user as any).secondary_roles)
+                ? (user as any).secondary_roles
+                : [];
+            const secondaryRoleList = secondaryRoles
+              .filter((role: Role) => role && role !== user.role)
+              .filter((role: Role, index: number, list: Role[]) => list.indexOf(role) === index);
             return (
               <TableRow key={user.id} className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50">
               <TableCell onClick={() => onViewProfile(user)}>
@@ -114,9 +128,20 @@ export function AccountList({
                 </div>
               </TableCell>
               <TableCell>
-                <Badge variant="outline" className={`${getRoleBadgeColor(user.role)} border`}>
-                  {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
-                </Badge>
+                <div className="flex flex-wrap gap-1">
+                  <Badge variant="outline" className={`${getRoleBadgeColor(user.role)} border`}>
+                    {formatRoleLabel(user.role)}
+                  </Badge>
+                  {secondaryRoleList.map((role: Role) => (
+                    <Badge
+                      key={`${user.id}-${role}`}
+                      variant="outline"
+                      className={`${getRoleBadgeColor(role)} border text-xs px-2 py-0.5 opacity-80`}
+                    >
+                      {formatRoleLabel(role)}
+                    </Badge>
+                  ))}
+                </div>
               </TableCell>
               <TableCell>{user.accountRep || "Unassigned"}</TableCell>
               <TableCell>{user.phone || "—"}</TableCell>

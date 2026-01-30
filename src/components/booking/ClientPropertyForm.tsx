@@ -17,6 +17,7 @@ import {
   SelectValue
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -37,6 +38,7 @@ import {
   PenTool,
   PlusCircle,
   Search,
+  Check,
   Sparkles,
   Video,
   Info,
@@ -72,6 +74,7 @@ import API_ROUTES from '@/lib/api';
 import { Loader2 } from 'lucide-react';
 import type { ServiceWithPricing, SqftRange } from '@/utils/servicePricing';
 import { formatPrice, getServicePricingForSqft } from '@/utils/servicePricing';
+import { getAvatarUrl } from '@/utils/defaultAvatars';
 
 
 interface PackageCategory {
@@ -179,11 +182,27 @@ const getCategoryIcon = (name: string, index: number): LucideIcon => {
 
 const getCategoryStyle = (index: number) => CATEGORY_STYLE_PRESETS[index % CATEGORY_STYLE_PRESETS.length];
 
-const getPackageCategoryId = (pkg?: PackageOption | null) =>
-  pkg?.category?.id ? pkg.category.id.toString() : 'uncategorized';
+const normalizeCategoryName = (name?: string) => {
+  const normalized = (name || '').trim().toLowerCase();
+  if (normalized === 'photo' || normalized === 'photos') return 'photos';
+  return normalized;
+};
 
-const getPackageCategoryName = (pkg?: PackageOption | null) =>
-  pkg?.category?.name ?? FALLBACK_CATEGORY_NAME;
+const getPackageCategoryId = (pkg?: PackageOption | null) => {
+  const normalizedName = normalizeCategoryName(pkg?.category?.name);
+  if (normalizedName === 'photos') return 'photos';
+  if (pkg?.category?.id) return pkg.category.id.toString();
+  return normalizedName || 'uncategorized';
+};
+
+const getPackageCategoryName = (pkg?: PackageOption | null) => {
+  const normalizedName = normalizeCategoryName(pkg?.category?.name);
+  if (normalizedName === 'photos') return 'Photos';
+  return pkg?.category?.name ?? FALLBACK_CATEGORY_NAME;
+};
+
+const getServiceSqftRanges = (service?: ServiceWithPricing | null) =>
+  (service?.sqft_ranges || (service as any)?.sqftRanges || []) as SqftRange[];
 
 const clientAccountPropertyFormSchema = z.object({
   propertyAddress: z.string().min(1, "Address is required"),
@@ -269,6 +288,7 @@ type ClientPropertyFormProps = {
     editorNotes?: string;
     selectedPackage?: string;
     completeAddress?: string;
+    aptSuite?: string;
   };
   isClientAccount?: boolean;
   packages: PackageOption[];
@@ -317,6 +337,7 @@ export const ClientPropertyForm = ({
     defaultValues: React.useMemo(() => (
       isClientAccount ? {
         propertyAddress: initialData.propertyAddress || '',
+        aptSuite: initialData.aptSuite || '',
         propertyCity: initialData.propertyCity || '',
         propertyState: initialData.propertyState || '',
         propertyZip: initialData.propertyZip || '',
@@ -338,6 +359,7 @@ export const ClientPropertyForm = ({
       } : {
         clientId: initialData.clientId || '',
         propertyAddress: initialData.propertyAddress || '',
+        aptSuite: initialData.aptSuite || '',
         propertyCity: initialData.propertyCity || '',
         propertyState: initialData.propertyState || '',
         propertyZip: initialData.propertyZip || '',
@@ -512,10 +534,11 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
   // Recalculate selected services prices when sqft changes
   React.useEffect(() => {
     if (selectedServices.length === 0) return;
-    
+
     const updatedServices = selectedServices.map(service => {
-      if (service.pricing_type === 'variable' && service.sqft_ranges?.length) {
-        const pricingInfo = getServicePricingForSqft(service, effectiveSqft);
+      const sqftRanges = getServiceSqftRanges(service);
+      if (service.pricing_type === 'variable' && sqftRanges.length) {
+        const pricingInfo = getServicePricingForSqft({ ...service, sqft_ranges: sqftRanges }, effectiveSqft);
         return { ...service, price: pricingInfo.price };
       }
       return service;
@@ -654,8 +677,9 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
     } else {
       // Add service with sqft-adjusted price if applicable
       let adjustedService = { ...service };
-      if (service.pricing_type === 'variable' && effectiveSqft && service.sqft_ranges?.length) {
-        const pricingInfo = getServicePricingForSqft(service, effectiveSqft);
+      const sqftRanges = getServiceSqftRanges(service);
+      if (service.pricing_type === 'variable' && effectiveSqft && sqftRanges.length) {
+        const pricingInfo = getServicePricingForSqft({ ...service, sqft_ranges: sqftRanges }, effectiveSqft);
         adjustedService = { ...service, price: pricingInfo.price };
       }
       onSelectedServicesChange([...selectedServices, adjustedService]);
@@ -714,20 +738,37 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                         visibleClients.map((client) => (
                           <div
                             key={client.id}
-                            className={`p-3 border rounded-md cursor-pointer transition-colors ${field.value === client.id
+                            className={`relative p-3 border rounded-md cursor-pointer transition-colors ${field.value === client.id
                               ? "bg-primary/10 border-primary"
                               : "bg-card hover:bg-accent/50"
                               }`}
                             onClick={() => form.setValue("clientId" as any, client.id)}
                           >
+                            {field.value === client.id && (
+                              <span className="absolute right-3 top-3 inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground shadow">
+                                <Check className="h-4 w-4" />
+                              </span>
+                            )}
                             <div className="flex items-start gap-3">
-                              <div
-                                className={`h-8 w-8 rounded-full flex items-center justify-center ${field.value === client.id
-                                  ? "bg-primary text-primary-foreground"
-                                  : "bg-muted text-muted-foreground"
-                                  }`}
-                              >
-                              </div>
+                              <Avatar className="h-8 w-8">
+                                <AvatarImage
+                                  src={getAvatarUrl(client.avatar, 'client', undefined, client.id)}
+                                  alt={client.name}
+                                />
+                                <AvatarFallback
+                                  className={field.value === client.id
+                                    ? 'bg-primary text-primary-foreground'
+                                    : 'bg-muted text-muted-foreground'
+                                  }
+                                >
+                                  {client.name
+                                    .split(' ')
+                                    .map((part) => part[0])
+                                    .join('')
+                                    .slice(0, 2)
+                                    .toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
                               <div>
                                 <div className="font-medium leading-none">
                                   {client.name}
@@ -1003,7 +1044,11 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                           type="number"
                           placeholder="Bedrooms"
                           {...field}
-                          onChange={(e) => field.onChange(e.target.valueAsNumber)}
+                          value={field.value ?? ''}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            field.onChange(value === '' ? 0 : Number(value));
+                          }}
                         />
 
 
@@ -1023,7 +1068,11 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                           type="number"
                           placeholder="Bathroom"
                           {...field}
-                          onChange={(e) => field.onChange(e.target.valueAsNumber)} />
+                          value={field.value ?? ''}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            field.onChange(value === '' ? 0 : Number(value));
+                          }} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -1040,7 +1089,11 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                           type="number"
                           placeholder="sqft"
                           {...field}
-                          onChange={(e) => field.onChange(e.target.valueAsNumber)} />
+                          value={field.value ?? ''}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            field.onChange(value === '' ? 0 : Number(value));
+                          }} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -1170,15 +1223,15 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                         <div className="grid gap-3 sm:gap-4 sm:grid-cols-2">
                           {panelServices.map(service => {
                             const isSelected = isServiceSelected(service.id);
+                            const sqftRanges = getServiceSqftRanges(service);
                             const supportsVariablePricing =
                               !!(
                                 effectiveSqft &&
                                 service.pricing_type === 'variable' &&
-                                service.sqft_ranges &&
-                                service.sqft_ranges.length
+                                sqftRanges.length
                               );
                             const pricingInfo = supportsVariablePricing
-                              ? getServicePricingForSqft(service, effectiveSqft)
+                              ? getServicePricingForSqft({ ...service, sqft_ranges: sqftRanges }, effectiveSqft)
                               : null;
                             const displayPrice = pricingInfo
                               ? formatPrice(pricingInfo.price)

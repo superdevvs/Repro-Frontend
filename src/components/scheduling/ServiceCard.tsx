@@ -54,7 +54,7 @@ export function ServiceCard({ service, onUpdate }: ServiceProps) {
   const [sqftRanges, setSqftRanges] = useState<SqftRange[]>(service.sqft_ranges || []);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
-  const isPhotoCategory = (service.category || '').toLowerCase() === 'photo';
+  const isPhotoCategory = (service.category || '').toLowerCase().includes('photo');
 
   // Sync sqftRanges when service changes or dialog opens
   useEffect(() => {

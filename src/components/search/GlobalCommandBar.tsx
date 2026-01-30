@@ -432,7 +432,7 @@ export const GlobalCommandBar: React.FC<GlobalCommandBarProps> = ({ open, onOpen
                       <div className="mr-2 text-muted-foreground">
                         <Sparkles className="h-4 w-4" />
                       </div>
-                      <span className="text-sm">Send to editing · Shoot #{shoot.id}</span>
+                      <span className="text-sm">Send to Editing · Shoot #{shoot.id}</span>
                     </CommandItem>
                     <CommandItem
                       value={`finalize shoot ${shootSearchValue(shoot)}`}

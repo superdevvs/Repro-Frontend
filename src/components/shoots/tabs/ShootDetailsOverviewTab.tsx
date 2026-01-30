@@ -590,7 +590,7 @@ export function ShootDetailsOverviewTab({
               price: s.price || 0,
               pricing_type: s.pricing_type || 'fixed',
               allow_multiple: s.allow_multiple ?? false,
-              sqft_ranges: s.sqft_ranges || [],
+              sqft_ranges: s.sqft_ranges || s.sqftRanges || [],
               category: s.category || s.service_category || null,
               description: s.description || '',
               photographer_pay: s.photographer_pay || null,

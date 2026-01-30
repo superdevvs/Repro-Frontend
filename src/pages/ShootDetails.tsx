@@ -209,6 +209,20 @@ const ShootDetails: React.FC = () => {
   const [isGeneratingShareLink, setIsGeneratingShareLink] = useState(false);
   const [rawFileCount, setRawFileCount] = useState(0);
 
+  const rawMediaCount = Number(
+    shoot?.rawPhotoCount ??
+      (shoot as any)?.raw_photo_count ??
+      shoot?.mediaSummary?.rawUploaded ??
+      0
+  );
+  const editedMediaCount = Number(
+    shoot?.editedPhotoCount ??
+      (shoot as any)?.edited_photo_count ??
+      shoot?.mediaSummary?.editedUploaded ??
+      0
+  );
+  const hasEditedWithoutRaw = editedMediaCount > 0 && rawMediaCount === 0;
+
   const loadShoot = useCallback(async () => {
     if (!id) return;
     try {
@@ -508,19 +522,19 @@ const ShootDetails: React.FC = () => {
       });
       
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ message: 'Failed to finalise shoot' }));
-        throw new Error(errorData.message || 'Failed to finalise shoot');
+        const errorData = await res.json().catch(() => ({ message: 'Failed to finalize shoot' }));
+        throw new Error(errorData.message || 'Failed to finalize shoot');
       }
       
       toast({
         title: 'Success',
-        description: 'Shoot finalised and delivered',
+        description: 'Shoot finalized and delivered',
       });
       loadShoot();
     } catch (error: any) {
       toast({
         title: 'Error',
-        description: error?.message || 'Failed to finalise shoot',
+        description: error?.message || 'Failed to finalize shoot',
         variant: 'destructive',
       });
     }
@@ -764,7 +778,7 @@ const ShootDetails: React.FC = () => {
                       <span className="sm:hidden">On Hold</span>
                     </Button>
                   )}
-                  {isAdmin && (
+                  {isAdmin && !hasEditedWithoutRaw && (
                     <>
                       <Button
                         variant="default"
@@ -783,8 +797,8 @@ const ShootDetails: React.FC = () => {
                         onClick={handleFinalise}
                       >
                         <CheckCircle className="h-3 w-3 mr-1.5" />
-                        <span className="hidden sm:inline">Finalise & Deliver</span>
-                        <span className="sm:hidden">Finalise</span>
+                        <span className="hidden sm:inline">Finalize & Deliver</span>
+                        <span className="sm:hidden">Finalize</span>
                       </Button>
                     </>
                   )}

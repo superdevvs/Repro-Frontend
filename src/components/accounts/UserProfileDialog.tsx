@@ -94,6 +94,12 @@ export function UserProfileDialog({
       .substring(0, 2);
   };
 
+  const formatRoleLabel = (value: string) =>
+    value
+      .replace(/_/g, ' ')
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .replace(/^./, (char) => char.toUpperCase());
+
   const formatDate = (dateString?: string) => {
     if (!dateString) return '—';
     const date = new Date(dateString);
@@ -115,6 +121,15 @@ export function UserProfileDialog({
     lastShootDate,
   };
 
+  const secondaryRoles = Array.isArray((user as any).secondaryRoles)
+    ? (user as any).secondaryRoles
+    : Array.isArray((user as any).secondary_roles)
+      ? (user as any).secondary_roles
+      : [];
+  const secondaryRoleList = secondaryRoles
+    .filter((role: string) => role && role !== user.role)
+    .filter((role: string, index: number, list: string[]) => list.indexOf(role) === index);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto">
@@ -131,7 +146,14 @@ export function UserProfileDialog({
             <div className="text-center">
               <h2 className="text-xl font-bold">{user.name}</h2>
               <p className="text-sm text-muted-foreground">{user.email}</p>
-              <Badge className="mt-2">{user.role.charAt(0).toUpperCase() + user.role.slice(1)}</Badge>
+              <div className="mt-2 flex flex-wrap justify-center gap-1">
+                <Badge>{formatRoleLabel(user.role)}</Badge>
+                {secondaryRoleList.map((role: string) => (
+                  <Badge key={`${user.id}-${role}`} variant="outline" className="text-xs px-2 py-0.5 opacity-80">
+                    {formatRoleLabel(role)}
+                  </Badge>
+                ))}
+              </div>
             </div>
           </div>
 

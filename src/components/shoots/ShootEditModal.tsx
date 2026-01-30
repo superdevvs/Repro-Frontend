@@ -176,7 +176,7 @@ export function ShootEditModal({
           name: s.name,
           price: Number(s.price || 0),
           pricing_type: s.pricing_type || 'fixed',
-          sqft_ranges: s.sqft_ranges || []
+          sqft_ranges: s.sqft_ranges || s.sqftRanges || []
         })));
         
         // Process photographers

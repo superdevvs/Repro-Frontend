@@ -457,20 +457,20 @@ export function ShootDetailsModal({
       });
       
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ message: 'Failed to finalise shoot' }));
-        throw new Error(errorData.message || 'Failed to finalise shoot');
+        const errorData = await res.json().catch(() => ({ message: 'Failed to finalize shoot' }));
+        throw new Error(errorData.message || 'Failed to finalize shoot');
       }
       
       toast({
         title: 'Success',
-        description: 'Shoot finalised successfully',
+        description: 'Shoot finalized successfully',
       });
       refreshShoot();
     } catch (error: any) {
       console.error('Finalize error:', error);
       toast({
         title: 'Error',
-        description: error?.message || 'Failed to finalise shoot',
+        description: error?.message || 'Failed to finalize shoot',
         variant: 'destructive',
       });
     }
@@ -582,12 +582,29 @@ export function ShootDetailsModal({
   };
 
   const normalizedStatus = normalizeStatus(shoot?.workflowStatus || shoot?.status);
+  const rawMediaCount = Number(
+    shoot?.rawPhotoCount ??
+      (shoot as any)?.raw_photo_count ??
+      shoot?.mediaSummary?.rawUploaded ??
+      0
+  );
+  const editedMediaCount = Number(
+    shoot?.editedPhotoCount ??
+      (shoot as any)?.edited_photo_count ??
+      shoot?.mediaSummary?.editedUploaded ??
+      0
+  );
+  const hasEditedWithoutRaw = editedMediaCount > 0 && rawMediaCount === 0;
   const isDelivered = normalizedStatus === 'delivered';
   const isUploadedStatus = normalizedStatus === 'uploaded';
   const isEditingStatus = normalizedStatus === 'editing';
   const canShowInvoiceButton = isUploadedStatus || isEditingStatus;
   const canFinalise = isAdmin && !isDelivered && ['uploaded', 'editing'].includes(normalizedStatus);
-  const canSendToEditing = isAdmin && !isDelivered && (normalizedStatus === 'uploaded' || normalizedStatus === 'scheduled');
+  const canSendToEditing =
+    isAdmin &&
+    !isDelivered &&
+    !hasEditedWithoutRaw &&
+    (normalizedStatus === 'uploaded' || normalizedStatus === 'scheduled');
   const mmmRedirectUrl =
     shoot?.mmmRedirectUrl || (shoot as any)?.mmm_redirect_url || undefined;
   const canStartMmmPunchout = [
@@ -1978,7 +1995,7 @@ export function ShootDetailsModal({
                         onClick={handleSendToEditing}
                       >
                         <Send className="h-3 w-3 mr-1" />
-                        <span>Send to editing</span>
+                        <span>Send to Editing</span>
                       </Button>
                     )}
                     {canFinalise && (
@@ -1989,7 +2006,7 @@ export function ShootDetailsModal({
                         onClick={handleFinalise}
                       >
                         <CheckCircle className="h-3 w-3 mr-1" />
-                        <span>Finalise</span>
+                        <span>Finalize</span>
                       </Button>
                     )}
                   </>
@@ -2487,7 +2504,7 @@ export function ShootDetailsModal({
                   onClick={handleFinalise}
                 >
                   <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
-                  <span>Finalise</span>
+                  <span>Finalize</span>
                 </Button>
               </div>
             )}

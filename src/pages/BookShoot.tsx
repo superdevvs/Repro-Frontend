@@ -404,7 +404,7 @@ const BookShoot = () => {
           price: Number(pkg.price ?? 0),
           pricing_type: pkg.pricing_type || 'fixed',
           allow_multiple: pkg.allow_multiple ?? false,
-          sqft_ranges: pkg.sqft_ranges || [],
+          sqft_ranges: pkg.sqft_ranges || pkg.sqftRanges || [],
           category: pkg.category
             ? {
                 id: pkg.category.id?.toString?.() ?? String(pkg.category.id),

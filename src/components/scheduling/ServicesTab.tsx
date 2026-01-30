@@ -43,6 +43,11 @@ type Service = {
   sqft_ranges?: SqftRange[];
 };
 
+const extractPhotoCount = (name: string) => {
+  const match = name.match(/(\d+)\s*photo/i);
+  return match ? Number(match[1]) : 0;
+};
+
 export function ServicesTab() {
   const [isLoading, setIsLoading] = useState(true);
   const [services, setServices] = useState<Service[]>([]);
@@ -64,15 +69,40 @@ export function ServicesTab() {
   });
   const [newSqftRanges, setNewSqftRanges] = useState<SqftRange[]>([]);
   const { toast } = useToast();
-  // const { data: categories, isLoading: categoriesLoading } = useServiceCategories();
   const { data: categories, isLoading: categoriesLoading, refetch: refetchCategories } = useServiceCategories();
+
+  const normalizeCategoryName = (name?: string) => {
+    const normalized = (name || '').trim().toLowerCase();
+    if (normalized === 'photo' || normalized === 'photos') return 'photos';
+    return normalized;
+  };
+
+  const mergedCategories = React.useMemo(() => {
+    if (!categories) return [];
+    const byKey = new Map<string, (typeof categories)[number]>();
+    categories.forEach((category) => {
+      const key = normalizeCategoryName(category.name);
+      const existing = byKey.get(key);
+      if (!existing) {
+        byKey.set(key, category);
+        return;
+      }
+      if (key === 'photos') {
+        const existingName = (existing.name || '').toLowerCase();
+        const nextName = (category.name || '').toLowerCase();
+        if (existingName === 'photo' && nextName === 'photos') {
+          byKey.set(key, category);
+        }
+      }
+    });
+    return Array.from(byKey.values());
+  }, [categories]);
 
   const [isAddCategoryOpen, setIsAddCategoryOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryIcon, setNewCategoryIcon] = useState('');
   const [isCreatingCategory, setIsCreatingCategory] = useState(false);
-  
-  // Edit category state
+
   const [isEditCategoryOpen, setIsEditCategoryOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<any>(null);
   const [editCategoryName, setEditCategoryName] = useState('');
@@ -82,12 +112,310 @@ export function ServicesTab() {
 
   useEffect(() => {
     fetchServices();
-
-    // Set default selected category when categories are loaded
-    if (categories && categories.length > 0 && !selectedCategory) {
-      setSelectedCategory(categories[0].id);
-    }
   }, [categories]);
+
+  useEffect(() => {
+    if (!mergedCategories.length) return;
+    const hasSelection = selectedCategory && mergedCategories.some(cat => cat.id === selectedCategory);
+    if (!hasSelection) {
+      const photoCategory = mergedCategories.find(cat => normalizeCategoryName(cat.name) === 'photos');
+      setSelectedCategory(photoCategory?.id ?? mergedCategories[0].id);
+    }
+  }, [mergedCategories, selectedCategory]);
+
+  const getCategoryNameById = (categoryId?: string) => {
+    if (!categoryId) return '';
+    const category = mergedCategories.find(cat => String(cat.id) === String(categoryId))
+      ?? categories?.find(cat => String(cat.id) === String(categoryId));
+    return category?.name || '';
+  };
+
+  const isNewServicePhotoCategory =
+    normalizeCategoryName(getCategoryNameById(newService.category)) === 'photos';
+
+  const handleCategoryChange = (categoryId: string) => {
+    setSelectedCategory(categoryId);
+  };
+
+  const handleOpenAddService = () => {
+    const defaultCategoryId = selectedCategory ?? mergedCategories[0]?.id ?? '';
+    setNewService({
+      name: '',
+      description: '',
+      price: '',
+      pricing_type: 'fixed',
+      allow_multiple: false,
+      delivery_time: '',
+      category: defaultCategoryId ? String(defaultCategoryId) : '',
+      icon: '',
+      photographer_required: false,
+      photographer_pay: '',
+      photo_count: undefined,
+      quantity: undefined,
+    });
+    setNewSqftRanges([]);
+    setIsAddDialogOpen(true);
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type, checked } = e.target;
+    setNewService(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value,
+    }));
+  };
+
+  const addNewSqftRange = () => {
+    const lastRange = newSqftRanges[newSqftRanges.length - 1];
+    const newFrom = lastRange ? lastRange.sqft_to + 1 : 1;
+    setNewSqftRanges([
+      ...newSqftRanges,
+      {
+        sqft_from: newFrom,
+        sqft_to: newFrom + 1499,
+        duration: 60,
+        price: 0,
+        photographer_pay: null,
+        photo_count: null,
+      },
+    ]);
+  };
+
+  const updateNewSqftRange = (index: number, field: keyof SqftRange, value: number | null) => {
+    setNewSqftRanges(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  };
+
+  const removeNewSqftRange = (index: number) => {
+    setNewSqftRanges(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSaveService = async () => {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      toast({
+        title: 'Auth Error',
+        description: 'Please login as an admin to add services.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!newService.name?.trim() || !newService.category) {
+      toast({
+        title: 'Missing details',
+        description: 'Please provide a service name and category.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const parsedPrice = parseFloat(newService.price);
+    const parsedDeliveryTime = parseInt(newService.delivery_time, 10);
+
+    const payload = {
+      name: newService.name.trim(),
+      description: newService.description?.trim() || undefined,
+      price: Number.isFinite(parsedPrice) ? parsedPrice : 0,
+      pricing_type: newService.pricing_type || 'fixed',
+      allow_multiple: newService.allow_multiple || false,
+      delivery_time: Number.isFinite(parsedDeliveryTime) ? parsedDeliveryTime : 0,
+      category_id: Number(newService.category),
+      icon: newService.icon || null,
+      photographer_required: newService.photographer_required || false,
+      photographer_pay: newService.photographer_pay
+        ? parseFloat(String(newService.photographer_pay))
+        : null,
+      photo_count: isNewServicePhotoCategory && newService.photo_count != null
+        ? newService.photo_count
+        : null,
+      quantity: !isNewServicePhotoCategory && newService.quantity != null
+        ? newService.quantity
+        : null,
+      sqft_ranges: newService.pricing_type === 'variable'
+        ? newSqftRanges.map((range) => ({
+            sqft_from: range.sqft_from,
+            sqft_to: range.sqft_to,
+            duration: range.duration,
+            price: range.price,
+            photographer_pay: range.photographer_pay,
+            photo_count: range.photo_count ?? null,
+          }))
+        : [],
+    };
+
+    try {
+      const response = await fetch(API_ROUTES.services.create, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to create service');
+      }
+
+      toast({
+        title: 'Service Added',
+        description: 'Service created successfully.',
+      });
+      setIsAddDialogOpen(false);
+      setNewSqftRanges([]);
+      fetchServices();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error?.message || 'Failed to create service.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleCreateCategory = async () => {
+    const name = newCategoryName.trim();
+    if (!name) {
+      toast({
+        title: 'Category name required',
+        description: 'Please enter a category name.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsCreatingCategory(true);
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(API_ROUTES.categories.create, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ name, icon: newCategoryIcon || null }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to create category');
+      }
+
+      toast({
+        title: 'Category Created',
+        description: `${name} added successfully.`,
+      });
+      setIsAddCategoryOpen(false);
+      setNewCategoryName('');
+      setNewCategoryIcon('');
+      await refetchCategories();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error?.message || 'Failed to create category.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsCreatingCategory(false);
+    }
+  };
+
+  const handleEditCategory = (category: any) => {
+    setEditingCategory(category);
+    setEditCategoryName(category?.name || '');
+    setEditCategoryIcon(category?.icon || '');
+    setIsEditCategoryOpen(true);
+  };
+
+  const handleUpdateCategory = async () => {
+    if (!editingCategory?.id) return;
+    const name = editCategoryName.trim();
+    if (!name) {
+      toast({
+        title: 'Category name required',
+        description: 'Please enter a category name.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsUpdatingCategory(true);
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(API_ROUTES.categories.update(editingCategory.id), {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ name, icon: editCategoryIcon || null }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to update category');
+      }
+
+      toast({
+        title: 'Category Updated',
+        description: `${name} updated successfully.`,
+      });
+      setIsEditCategoryOpen(false);
+      setEditingCategory(null);
+      await refetchCategories();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error?.message || 'Failed to update category.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsUpdatingCategory(false);
+    }
+  };
+
+  const handleDeleteCategory = async (category: any) => {
+    if (!category?.id) return;
+    const shouldDelete = window.confirm(`Delete category "${category.name}"? This cannot be undone.`);
+    if (!shouldDelete) return;
+
+    setIsDeletingCategory(true);
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(API_ROUTES.categories.delete(category.id), {
+        method: 'DELETE',
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to delete category');
+      }
+
+      toast({
+        title: 'Category Deleted',
+        description: `${category.name} removed successfully.`,
+      });
+      if (selectedCategory === String(category.id)) {
+        setSelectedCategory(null);
+      }
+      await refetchCategories();
+      fetchServices();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error?.message || 'Failed to delete category.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDeletingCategory(false);
+    }
+  };
 
   const fetchServices = async () => {
     setIsLoading(true);
@@ -97,23 +425,16 @@ export function ServicesTab() {
         throw new Error('Failed to fetch services');
       }
       const data = await response.json();
-      
-      // Helper to extract photo count from service name (e.g., "25 Photos" -> 25)
-      const extractPhotoCount = (name: string): number | undefined => {
-        const match = name.match(/(\d+)\s*photo/i);
-        return match ? parseInt(match[1], 10) : undefined;
-      };
-      
+
       const mappedServices: Service[] = data.data.map((item) => {
         const categoryName = item.category?.name || '';
         const isPhotoCategory = categoryName.toLowerCase().includes('photo');
-        
-        // Use photo_count from backend if available, otherwise extract from name for Photo category
+
         let photoCount = item.photo_count;
         if (photoCount == null && isPhotoCategory) {
           photoCount = extractPhotoCount(item.name);
         }
-        
+
         return {
           id: item.id,
           name: item.name,
@@ -127,7 +448,7 @@ export function ServicesTab() {
           photo_count: photoCount,
           quantity: item.quantity,
           icon: item.icon,
-          sqft_ranges: item.sqft_ranges || [],
+          sqft_ranges: item.sqft_ranges || item.sqftRanges || [],
           active: true,
         };
       });
@@ -145,315 +466,15 @@ export function ServicesTab() {
     }
   };
 
+  const selectedCategoryName = mergedCategories.find(cat => cat.id === selectedCategory)?.name;
+  const normalizedSelectedCategory = selectedCategoryName
+    ? normalizeCategoryName(selectedCategoryName)
+    : null;
 
-  // const handleCategoryChange = (categoryId: string) => {
-  //   console.log('Selected category:', categoryId);
-  //   setSelectedCategory(categoryId);
-  // };
-
-  const handleCategoryChange = (value: string) => {
-    setSelectedCategory(value);
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setNewService(prev => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  // SQFT Range helpers for Add Service
-  const addNewSqftRange = () => {
-    const lastRange = newSqftRanges[newSqftRanges.length - 1];
-    const newFrom = lastRange ? lastRange.sqft_to + 1 : 1;
-    setNewSqftRanges([
-      ...newSqftRanges,
-      { sqft_from: newFrom, sqft_to: newFrom + 1499, duration: 60, price: 0, photographer_pay: null }
-    ]);
-  };
-
-  const updateNewSqftRange = (index: number, field: keyof SqftRange, value: number | null) => {
-    const updated = [...newSqftRanges];
-    updated[index] = { ...updated[index], [field]: value };
-    setNewSqftRanges(updated);
-  };
-
-  const removeNewSqftRange = (index: number) => {
-    setNewSqftRanges(newSqftRanges.filter((_, i) => i !== index));
-  };
-
-  // Open Add Service dialog with current category pre-selected
-  const handleOpenAddService = () => {
-    // Pre-select the currently selected category tab
-    if (selectedCategory) {
-      setNewService(prev => ({ ...prev, category: selectedCategory }));
-    }
-    setIsAddDialogOpen(true);
-  };
-
-  // Check if selected category is Photo
-  const isNewServicePhotoCategory = React.useMemo(() => {
-    const cat = categories?.find(c => c.id === newService.category);
-    return (cat?.name || '').toLowerCase().includes('photo');
-  }, [categories, newService.category]);
-
-  const handleSaveService = async () => {
-    try {
-      const selectedCategoryData = categories?.find(cat => cat.id == newService.category);
-      if (!selectedCategoryData) {
-        toast({
-          title: 'Error',
-          description: 'Please select a category',
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      const token = localStorage.getItem('authToken');
-
-      if (!token) {
-        throw new Error("No auth token found in localStorage");
-      }
-
-      const response = await fetch(API_ROUTES.services.create, {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          name: newService.name,
-          description: newService.description,
-          price: parseFloat(newService.price) || 0,
-          pricing_type: newService.pricing_type || 'fixed',
-          allow_multiple: newService.allow_multiple || false,
-          delivery_time: parseInt(newService.delivery_time) || 24,
-          category_id: newService.category,
-          icon: newService.icon,
-          photographer_required: newService.photographer_required || false,
-          photographer_pay: newService.photographer_pay ? parseFloat(newService.photographer_pay) : null,
-          photo_count: newService.photo_count || null,
-          quantity: newService.quantity || null,
-          sqft_ranges: newService.pricing_type === 'variable' ? newSqftRanges.map(range => ({
-            sqft_from: range.sqft_from,
-            sqft_to: range.sqft_to,
-            duration: range.duration,
-            price: range.price,
-            photographer_pay: range.photographer_pay,
-          })) : [],
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to save service');
-      }
-
-      const result = await response.json();
-
-      toast({
-        title: 'Success',
-        description: result.message || 'Service saved successfully',
-      });
-
-      setIsAddDialogOpen(false);
-      setNewService({
-        name: '',
-        description: '',
-        price: '',
-        pricing_type: 'fixed',
-        allow_multiple: false,
-        delivery_time: '',
-        category: '',
-        icon: '',
-        photographer_required: false,
-        photographer_pay: '',
-        photo_count: undefined,
-        quantity: undefined,
-      });
-      setNewSqftRanges([]);
-      fetchServices(); // Make sure fetchServices is also updated to use your custom API
-    } catch (error) {
-      console.error('Error saving service:', error);
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to save service',
-        variant: 'destructive',
-      });
-    }
-  };
-
-
-  const handleCreateCategory = async () => {
-    if (!newCategoryName.trim()) {
-      toast({ title: 'Name required', description: 'Please enter a category name.', variant: 'destructive' });
-      return;
-    }
-
-    try {
-      setIsCreatingCategory(true);
-
-      const token = localStorage.getItem('authToken');
-      if (!token) throw new Error('No auth token found');
-
-      const res = await fetch(API_ROUTES.categories.create, {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ 
-          name: newCategoryName.trim(),
-          icon: newCategoryIcon 
-        }),
-      });
-
-      if (!res.ok) {
-        const e = await res.json().catch(() => ({}));
-        throw new Error(e.message || 'Failed to create category');
-      }
-
-      const data = await res.json(); // assume returns { data: { id, name, ... }, message? }
-
-      // refetch list so new category appears
-      await refetchCategories?.();
-
-      // Select the newly created category if id available
-      const newId = data?.data?.id;
-      if (newId) setSelectedCategory(newId);
-
-      toast({ title: 'Category created', description: data.message || 'New category has been added.' });
-      setNewCategoryName('');
-      setNewCategoryIcon('');
-      setIsAddCategoryOpen(false);
-    } catch (err: any) {
-      toast({ title: 'Error', description: err.message || 'Could not create category.', variant: 'destructive' });
-    } finally {
-      setIsCreatingCategory(false);
-    }
-  };
-
-  const handleEditCategory = (category: any) => {
-    setEditingCategory(category);
-    setEditCategoryName(category.name);
-    setEditCategoryIcon(category.icon || '');
-    setIsEditCategoryOpen(true);
-  };
-
-  const handleUpdateCategory = async () => {
-    if (!editCategoryName.trim()) {
-      toast({ title: 'Name required', description: 'Please enter a category name.', variant: 'destructive' });
-      return;
-    }
-
-    if (!editingCategory) return;
-
-    try {
-      setIsUpdatingCategory(true);
-      const token = localStorage.getItem('authToken');
-      if (!token) throw new Error('No auth token found');
-
-      const res = await fetch(API_ROUTES.categories.update(editingCategory.id), {
-        method: 'PUT',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ 
-          name: editCategoryName.trim(),
-          icon: editCategoryIcon 
-        }),
-      });
-
-      if (!res.ok) {
-        const e = await res.json().catch(() => ({}));
-        throw new Error(e.message || 'Failed to update category');
-      }
-
-      const data = await res.json();
-      await refetchCategories?.();
-      
-      // If the edited category was selected, keep it selected
-      if (selectedCategory === editingCategory.id) {
-        setSelectedCategory(editingCategory.id);
-      }
-
-      toast({ title: 'Category updated', description: data.message || 'Category has been updated.' });
-      setIsEditCategoryOpen(false);
-      setEditingCategory(null);
-      setEditCategoryName('');
-      setEditCategoryIcon('');
-    } catch (err: any) {
-      toast({ title: 'Error', description: err.message || 'Could not update category.', variant: 'destructive' });
-    } finally {
-      setIsUpdatingCategory(false);
-    }
-  };
-
-  const handleDeleteCategory = async (category: any) => {
-    if (!confirm(`Are you sure you want to delete "${category.name}"? All services in this category will be moved to "Unassigned" category.`)) {
-      return;
-    }
-
-    try {
-      setIsDeletingCategory(true);
-      const token = localStorage.getItem('authToken');
-      if (!token) throw new Error('No auth token found');
-
-      const res = await fetch(API_ROUTES.categories.delete(category.id), {
-        method: 'DELETE',
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!res.ok) {
-        const e = await res.json().catch(() => ({}));
-        throw new Error(e.message || 'Failed to delete category');
-      }
-
-      const data = await res.json();
-      await refetchCategories?.();
-      
-      // If the deleted category was selected, select the first available category
-      if (selectedCategory === category.id) {
-        const remainingCategories = categories?.filter(c => c.id !== category.id);
-        if (remainingCategories && remainingCategories.length > 0) {
-          setSelectedCategory(remainingCategories[0].id);
-        } else {
-          setSelectedCategory(null);
-        }
-      }
-
-      // Refetch services to update their categories
-      await fetchServices();
-
-      const servicesMoved = data.services_moved || 0;
-      toast({ 
-        title: 'Category deleted', 
-        description: servicesMoved > 0 
-          ? `${servicesMoved} service(s) moved to "Unassigned" category.`
-          : 'Category has been deleted.' 
-      });
-    } catch (err: any) {
-      toast({ title: 'Error', description: err.message || 'Could not delete category.', variant: 'destructive' });
-    } finally {
-      setIsDeletingCategory(false);
-    }
-  };
-
-
-
-  const filteredServices = selectedCategory
-    ? services.filter(service => service.category === categories?.find(cat => cat.id === selectedCategory)?.name)
+  const filteredServices = selectedCategory && normalizedSelectedCategory
+    ? services.filter(service => normalizeCategoryName(service.category || '') === normalizedSelectedCategory)
     : services;
 
-  // Sort categories in specific order: Photo, Video, Drone, 3D, Floor Plans, Virtual Staging, etc.
   const CATEGORY_ORDER = [
     'photo',
     'video',
@@ -470,14 +491,15 @@ export function ServicesTab() {
   ];
 
   const sortedCategories = React.useMemo(() => {
-    if (!categories) return [];
-    
-    return [...categories].sort((a, b) => {
+    if (!mergedCategories.length) return [];
+
+    return [...mergedCategories].sort((a, b) => {
       const aName = (a.name || '').toLowerCase();
       const bName = (b.name || '').toLowerCase();
-      
+
       const aIndex = CATEGORY_ORDER.findIndex(cat => aName.includes(cat) || cat.includes(aName));
       const bIndex = CATEGORY_ORDER.findIndex(cat => bName.includes(cat) || cat.includes(bName));
+
       
       // If both found in order, sort by order
       if (aIndex !== -1 && bIndex !== -1) {
@@ -490,7 +512,7 @@ export function ServicesTab() {
       // Otherwise sort alphabetically
       return aName.localeCompare(bName);
     });
-  }, [categories]);
+  }, [mergedCategories]);
 
   return (
   <div className="space-y-6">
@@ -511,6 +533,9 @@ export function ServicesTab() {
         <div className="flex flex-wrap items-center gap-2">
           {sortedCategories.map(category => {
             const Icon = category.icon ? getIconComponent(category.icon) : null;
+            const displayName = normalizeCategoryName(category.name) === 'photos'
+              ? 'Photos'
+              : category.name;
             return (
               <div key={category.id} className="relative group">
                 <Button
@@ -519,7 +544,7 @@ export function ServicesTab() {
                   className="rounded-full transition-all gap-2 pr-8"
                 >
                   {Icon && <Icon className="h-4 w-4" />}
-                  {category.name}
+                  {displayName}
                 </Button>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>

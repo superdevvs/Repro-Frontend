@@ -13,6 +13,33 @@ interface CategorySelectProps {
 export function CategorySelect({ value, onChange }: CategorySelectProps) {
   const { data: categories, isLoading } = useServiceCategories();
 
+  const normalizeCategoryName = (name?: string) => {
+    const normalized = (name || '').trim().toLowerCase();
+    if (normalized === 'photo' || normalized === 'photos') return 'photos';
+    return normalized;
+  };
+
+  const mergedCategories = React.useMemo(() => {
+    if (!categories) return [];
+    const byKey = new Map<string, (typeof categories)[number]>();
+    categories.forEach((category) => {
+      const key = normalizeCategoryName(category.name);
+      const existing = byKey.get(key);
+      if (!existing) {
+        byKey.set(key, category);
+        return;
+      }
+      if (key === 'photos') {
+        const existingName = (existing.name || '').toLowerCase();
+        const nextName = (category.name || '').toLowerCase();
+        if (existingName === 'photo' && nextName === 'photos') {
+          byKey.set(key, category);
+        }
+      }
+    });
+    return Array.from(byKey.values());
+  }, [categories]);
+
   if (isLoading) {
     return (
       <div className="grid gap-2">
@@ -32,12 +59,17 @@ export function CategorySelect({ value, onChange }: CategorySelectProps) {
           <SelectValue placeholder="Select a category" />
         </SelectTrigger>
         <SelectContent>
-          {categories && categories.length > 0 ? (
-            categories.map((category) => (
-              <SelectItem key={category.id} value={String(category.id)}>
-              {category.name}
-            </SelectItem>
-            ))
+          {mergedCategories.length > 0 ? (
+            mergedCategories.map((category) => {
+              const displayName = normalizeCategoryName(category.name) === 'photos'
+                ? 'Photos'
+                : category.name;
+              return (
+                <SelectItem key={category.id} value={String(category.id)}>
+                  {displayName}
+                </SelectItem>
+              );
+            })
           ) : (
             <SelectItem value="no-categories" disabled>
               No categories available

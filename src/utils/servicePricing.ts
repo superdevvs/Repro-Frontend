@@ -28,8 +28,8 @@ export type ServiceWithPricing = {
  */
 export function findSqftRange(sqftRanges: SqftRange[], sqft: number): SqftRange | null {
   if (!sqftRanges || sqftRanges.length === 0) return null;
-  
-  return sqftRanges.find(range => 
+
+  return sqftRanges.find(range =>
     sqft >= range.sqft_from && sqft <= range.sqft_to
   ) || null;
 }
@@ -40,12 +40,13 @@ export function findSqftRange(sqftRanges: SqftRange[], sqft: number): SqftRange 
  */
 export function calculateServicePrice(service: ServiceWithPricing, sqft: number | null | undefined): number {
   const basePrice = typeof service.price === 'string' ? parseFloat(service.price) : service.price;
-  
-  if (!sqft || service.pricing_type !== 'variable' || !service.sqft_ranges?.length) {
+  const sqftRanges = (service.sqft_ranges || (service as any).sqftRanges || []) as SqftRange[];
+
+  if (!sqft || service.pricing_type !== 'variable' || !sqftRanges.length) {
     return basePrice || 0;
   }
-  
-  const range = findSqftRange(service.sqft_ranges, sqft);
+
+  const range = findSqftRange(sqftRanges, sqft);
   return range ? range.price : basePrice || 0;
 }
 
@@ -56,12 +57,13 @@ export function calculatePhotographerPay(service: ServiceWithPricing, sqft: numb
   const basePay = service.photographer_pay 
     ? (typeof service.photographer_pay === 'string' ? parseFloat(service.photographer_pay) : service.photographer_pay)
     : null;
-  
-  if (!sqft || service.pricing_type !== 'variable' || !service.sqft_ranges?.length) {
+  const sqftRanges = (service.sqft_ranges || (service as any).sqftRanges || []) as SqftRange[];
+
+  if (!sqft || service.pricing_type !== 'variable' || !sqftRanges.length) {
     return basePay;
   }
-  
-  const range = findSqftRange(service.sqft_ranges, sqft);
+
+  const range = findSqftRange(sqftRanges, sqft);
   return range?.photographer_pay ?? basePay;
 }
 
@@ -72,12 +74,13 @@ export function calculateServiceDuration(service: ServiceWithPricing, sqft: numb
   const baseTime = service.delivery_time 
     ? (typeof service.delivery_time === 'string' ? parseInt(service.delivery_time) : service.delivery_time)
     : null;
-  
-  if (!sqft || service.pricing_type !== 'variable' || !service.sqft_ranges?.length) {
+  const sqftRanges = (service.sqft_ranges || (service as any).sqftRanges || []) as SqftRange[];
+
+  if (!sqft || service.pricing_type !== 'variable' || !sqftRanges.length) {
     return baseTime;
   }
-  
-  const range = findSqftRange(service.sqft_ranges, sqft);
+
+  const range = findSqftRange(sqftRanges, sqft);
   return range?.duration ?? baseTime;
 }
 
@@ -96,8 +99,9 @@ export function getServicePricingForSqft(
   matchedRange: SqftRange | null;
 } {
   const isVariable = service.pricing_type === 'variable';
-  const matchedRange = sqft && isVariable && service.sqft_ranges?.length 
-    ? findSqftRange(service.sqft_ranges, sqft) 
+  const sqftRanges = (service.sqft_ranges || (service as any).sqftRanges || []) as SqftRange[];
+  const matchedRange = sqft && isVariable && sqftRanges.length
+    ? findSqftRange(sqftRanges, sqft) 
     : null;
   
   return {
