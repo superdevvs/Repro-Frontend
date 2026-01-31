@@ -932,7 +932,7 @@ export default function Availability() {
   };
 
   // Handle delete availability
-  const handleDeleteAvailability = async (slotId: string) => {
+  const handleDeleteAvailability = async (slotId: string, specificDate?: string) => {
     try {
       const slotToDelete = backendSlots.find(s => String(s.id) === slotId) ||
         allBackendSlots.find(s => String(s.id) === slotId);
@@ -941,6 +941,49 @@ export default function Availability() {
         return;
       }
       if (slotToDelete && slotToDelete.id) {
+        // Check if this is a recurring slot (no specific date, only day_of_week)
+        const isRecurringSlot = !slotToDelete.date && slotToDelete.day_of_week;
+        
+        // If it's a recurring slot and we have a specific date context,
+        // create an unavailability override for that date instead of deleting the recurring rule
+        if (isRecurringSlot && (specificDate || date)) {
+          const overrideDate = specificDate || (date ? format(date, 'yyyy-MM-dd') : null);
+          if (overrideDate) {
+            // Create a specific date unavailability override
+            const res = await fetch(API_ROUTES.photographerAvailability.create, {
+              method: 'POST',
+              headers: authHeaders(),
+              body: JSON.stringify({
+                photographer_id: slotToDelete.photographer_id,
+                date: overrideDate,
+                day_of_week: slotToDelete.day_of_week,
+                start_time: slotToDelete.start_time,
+                end_time: slotToDelete.end_time,
+                status: 'unavailable',
+              }),
+            });
+            if (res.ok) {
+              await refreshPhotographerSlots();
+              toast({
+                title: "Unavailable for this date",
+                description: `Marked as unavailable for ${overrideDate}. Recurring schedule remains for other weeks.`,
+              });
+              if (selectedSlotId === slotId) {
+                setSelectedSlotId(null);
+              }
+            } else {
+              const errorData = await res.json().catch(() => ({}));
+              toast({
+                title: "Error",
+                description: errorData.message || "Failed to create unavailability override.",
+                variant: "destructive"
+              });
+            }
+            return;
+          }
+        }
+        
+        // For non-recurring slots or when no date context, delete normally
         const res = await fetch(API_ROUTES.photographerAvailability.delete(slotToDelete.id), {
           method: 'DELETE',
           headers: authHeaders(),
@@ -2235,7 +2278,7 @@ export default function Availability() {
                                               >
                                                 <Edit className="h-3.5 w-3.5" />
                                               </Button>
-                                              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); handleDeleteAvailability(slot.id); }}>
+                                              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); handleDeleteAvailability(slot.id, slot.date); }}>
                                                 <X className="h-3.5 w-3.5" />
                                               </Button>
                                             </div>
@@ -3669,7 +3712,7 @@ export default function Availability() {
                                                     className="h-7 w-7 text-destructive hover:text-destructive"
                                                     onClick={(e) => {
                                                       e.stopPropagation();
-                                                      handleDeleteAvailability(slot.id);
+                                                      handleDeleteAvailability(slot.id, slot.date);
                                                     }}
                                                   >
                                                     <X className="h-3.5 w-3.5" />

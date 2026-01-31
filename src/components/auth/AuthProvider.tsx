@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import type { UserData, UserRole, AuthSession } from '@/types/auth';
+import { API_BASE_URL } from '@/config/env';
 
 // Define the Role type via shared types
 export type Role = UserRole;
@@ -101,6 +102,31 @@ const normalizeRole = (role?: string | null): Role => {
   return role as Role;
 };
 
+const normalizeApiUser = (apiUser: any, base?: UserData | null): UserData => {
+  const role = normalizeRole(apiUser?.role ?? base?.role);
+  return {
+    ...(base ?? {}),
+    ...(apiUser ?? {}),
+    id: String(apiUser?.id ?? base?.id ?? ''),
+    name: apiUser?.name ?? base?.name ?? '',
+    email: apiUser?.email ?? base?.email ?? '',
+    role,
+    avatar: apiUser?.avatar ?? base?.avatar,
+    phone: apiUser?.phone ?? apiUser?.phonenumber ?? apiUser?.phone_number ?? base?.phone,
+    address: apiUser?.address ?? base?.address,
+    city: apiUser?.city ?? base?.city,
+    state: apiUser?.state ?? base?.state,
+    zipcode: apiUser?.zipcode ?? apiUser?.zip ?? base?.zipcode,
+    company: apiUser?.company ?? apiUser?.company_name ?? base?.company,
+    companyNotes: apiUser?.companyNotes ?? apiUser?.company_notes ?? base?.companyNotes,
+    bio: apiUser?.bio ?? base?.bio,
+    username: apiUser?.username ?? base?.username,
+    createdAt: apiUser?.created_at ?? apiUser?.createdAt ?? base?.createdAt,
+    isActive: apiUser?.account_status ? apiUser?.account_status === 'active' : base?.isActive,
+    metadata: apiUser?.metadata ?? base?.metadata ?? {},
+  };
+};
+
 
 
 export const AuthProvider = ({ children }: AuthProviderProps) => {
@@ -135,15 +161,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     const storedUser = localStorage.getItem('user');
     const storedToken = getStoredToken();
 
+    let initialUser: UserData | null = null;
+
     if (storedUser && storedToken) {
       try {
         const parsedUser = JSON.parse(storedUser);
-        const normalizedRole = normalizeRole(parsedUser.role);
-        const normalizedUser = {
-          ...parsedUser,
-          role: normalizedRole,
-          metadata: parsedUser.metadata || {},
-        };
+        const normalizedUser = normalizeApiUser(parsedUser);
+        const normalizedRole = normalizeRole(normalizedUser.role);
+        initialUser = normalizedUser;
         setUser(normalizedUser);
         setIsAuthenticated(true);
         setRole(normalizedRole);
@@ -163,6 +188,45 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       setRole('client');
       setSession(null);
     }
+
+    const refreshUser = async () => {
+      if (!storedToken) return;
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/user`, {
+          headers: {
+            Accept: 'application/json',
+            Authorization: `Bearer ${storedToken}`,
+          },
+        });
+
+        if (response.status === 401 || response.status === 419) {
+          clearStoredAuth();
+          setUser(null);
+          setIsAuthenticated(false);
+          setRole('client');
+          setSession(null);
+          return;
+        }
+
+        if (!response.ok) {
+          return;
+        }
+
+        const apiUser = await response.json();
+        const normalizedUser = normalizeApiUser(apiUser, initialUser);
+        const normalizedRole = normalizeRole(normalizedUser.role);
+
+        localStorage.setItem('user', JSON.stringify(normalizedUser));
+        setUser(normalizedUser);
+        setIsAuthenticated(true);
+        setRole(normalizedRole);
+        setSession(buildSession(storedToken, normalizedUser, normalizedRole));
+      } catch (error) {
+        console.warn('Failed to refresh user data', error);
+      }
+    };
+
+    refreshUser();
     setIsLoading(false);
   }, []);
 
@@ -293,15 +357,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   // Update user data function
   const updateUser = (userData: UserData) => {
     if (user) {
-      const updatedUser = { ...user, ...userData };
+      const normalizedUser = normalizeApiUser(userData, user);
       // Keep the role if not provided in userData
       if (!userData.role) {
-        updatedUser.role = user.role;
+        normalizedUser.role = user.role;
       }
       
       // Store updated user data in localStorage
-      localStorage.setItem('user', JSON.stringify(updatedUser));
-      setUser(updatedUser);
+      localStorage.setItem('user', JSON.stringify(normalizedUser));
+      setUser(normalizedUser);
       
       // Update role state if it changed
       if (userData.role && userData.role !== role) {
@@ -310,17 +374,17 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       
       // Update session if it exists
       if (session) {
-        const mockToken = generateMockJWT(updatedUser.id, updatedUser.role || role);
+        const mockToken = generateMockJWT(normalizedUser.id, normalizedUser.role || role);
         
         setSession({
           ...session,
           accessToken: mockToken,
           user: {
             ...session.user,
-            role: updatedUser.role,
+            role: normalizedUser.role,
             metadata: {
               ...(session.user.metadata || {}),
-              role: updatedUser.role,
+              role: normalizedUser.role,
             },
           },
         });

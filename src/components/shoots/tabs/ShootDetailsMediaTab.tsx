@@ -110,6 +110,15 @@ export function ShootDetailsMediaTab({
   const [requestManagerOpen, setRequestManagerOpen] = useState(false);
 
   useEffect(() => {
+    if (isClient) {
+      setActiveSubTab('edited');
+      setDisplayTab('edited');
+      setRawFiles([]);
+      setSelectedFiles(new Set());
+    }
+  }, [isClient]);
+
+  useEffect(() => {
     if (onSelectionChange) {
       onSelectionChange(Array.from(selectedFiles));
     }
@@ -136,8 +145,9 @@ export function ShootDetailsMediaTab({
   }, [canAccessFotello]);
 
   // Load files using React Query hooks for deduplication and caching
+  const rawFilesEnabled = Boolean(shoot.id) && !isClient;
   const { data: rawFilesData = [], isLoading: rawLoading } = useShootFiles(shoot.id, 'raw', {
-    enabled: Boolean(shoot.id),
+    enabled: rawFilesEnabled,
   });
   const { data: editedFilesData = [], isLoading: editedLoading } = useShootFiles(shoot.id, 'edited', {
     enabled: Boolean(shoot.id),
@@ -2342,75 +2352,7 @@ export function ShootDetailsMediaTab({
           </div>
         ) : (
           <div className="flex-1 flex flex-col min-h-0 w-full h-full bg-background" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            {/* Media/Uploaded Tab - shows when uploaded tab is active and user is client viewing media */}
-            {displayTab === 'uploaded' && isClient && (
-              <div className="flex-1" style={{ minHeight: 0, position: 'relative', height: '100%', width: '100%' }}>
-              {!hasAnyMedia && isScheduledShoot ? (
-                <div className="border rounded-lg bg-card p-2.5 m-2.5">
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <FileIcon className="h-4 w-4" />
-                    <span>Scheduled shoot — photos are not available yet.</span>
-                  </div>
-                  <div className="mt-2 space-y-1 text-xs">
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">RAW Uploaded</span>
-                      <span className="font-medium">{rawFiles.length}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Edited Uploaded</span>
-                      <span className="font-medium">{editedFiles.length}</span>
-                    </div>
-                  </div>
-                </div>
-              ) : rawFiles.length === 0 ? (
-                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'hsl(var(--background))' }}>
-                  <div className="flex flex-col items-center justify-center text-center" style={{ margin: 0, padding: 0 }}>
-                    <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                      <ImageIcon className="h-10 w-10 text-primary/60" />
-                    </div>
-                    <h3 className="text-lg font-semibold mb-2 text-center">No media uploaded yet</h3>
-                    <p className="text-sm text-muted-foreground text-center mb-6 max-w-md mx-auto">
-                      Upload photos and videos to get started. You can drag and drop files or use the upload button.
-                    </p>
-                    {showUploadTab && (
-                      <Button
-                        variant="default"
-                        size="lg"
-                        className="bg-primary hover:bg-primary/90 mx-auto"
-                        onClick={() => setActiveSubTab('upload')}
-                      >
-                        <Upload className="h-4 w-4 mr-2" />
-                        Upload Files
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className="flex-1 m-2.5 border rounded-lg bg-card overflow-y-auto p-2.5 min-h-0">
-                  <MediaGrid
-                    files={rawFiles}
-                    onFileClick={(index) => openViewer(index, rawFiles)}
-                    selectedFiles={selectedFiles}
-                    onSelectionChange={toggleSelection}
-                    onSelectAll={() => {
-                      if (selectedFiles.size === rawFiles.length) {
-                        setSelectedFiles(new Set());
-                      } else {
-                        setSelectedFiles(new Set(rawFiles.map(f => f.id)));
-                      }
-                    }}
-                    canSelect={canDownload}
-                    sortOrder={sortOrder}
-                    manualOrder={manualOrder}
-                    onManualOrderChange={setManualOrder}
-                    getImageUrl={getImageUrl}
-                    getSrcSet={getSrcSet}
-                    isImage={isPreviewableImage}
-                  />
-                </div>
-              )}
-              </div>
-            )}
+            {/* Clients should only see edited media; raw uploads are hidden */}
             
             {/* Uploaded Media Tab - Hidden for clients */}
             {!isClient && displayTab === 'uploaded' && (
