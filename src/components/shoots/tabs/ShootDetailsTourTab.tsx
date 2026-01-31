@@ -169,18 +169,35 @@ export function ShootDetailsTourTab({
     try {
       const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
       const shootId = shoot?.id || '';
-      
-      if (!shootId) {
+      const address = shoot.location?.address || '';
+      const city = shoot.location?.city || '';
+      const state = shoot.location?.state || '';
+      const zip = shoot.location?.zip || '';
+      const params = new URLSearchParams();
+
+      if (address && city && state) {
+        params.set('address', address);
+        params.set('city', city);
+        params.set('state', state);
+        if (zip) {
+          params.set('zip', zip);
+        }
+      } else if (shootId) {
+        params.set('shootId', shootId);
+      }
+
+      const query = params.toString();
+      if (!query) {
         return '';
       }
-      
+
       switch (type) {
         case 'branded':
-          return `${baseUrl}/tour/branded?shootId=${shootId}`;
+          return `${baseUrl}/tour/branded?${query}`;
         case 'mls':
-          return `${baseUrl}/tour/mls?shootId=${shootId}`;
+          return `${baseUrl}/tour/mls?${query}`;
         case 'genericMls':
-          return `${baseUrl}/tour/g-mls?shootId=${shootId}`;
+          return `${baseUrl}/tour/g-mls?${query}`;
         default:
           return tourLinks[type] || '';
       }

@@ -60,11 +60,32 @@ export function MlsCompliant() {
       try {
         const params = new URLSearchParams(window.location.search);
         const shootId = params.get('shootId');
-        if (!shootId) { setLoading(false); return; }
+        const address = params.get('address');
+        const city = params.get('city');
+        const state = params.get('state');
+        const zip = params.get('zip');
+
+        const hasAddressParams = Boolean(address && city && state);
+        if (!shootId && !hasAddressParams) { setLoading(false); return; }
+
+        const query = new URLSearchParams();
+        if (hasAddressParams) {
+          query.set('address', address as string);
+          query.set('city', city as string);
+          query.set('state', state as string);
+          if (zip) {
+            query.set('zip', zip);
+          }
+        }
+
+        const endpoint = query.toString()
+          ? `${API_BASE_URL}/api/public/shoots/mls?${query.toString()}`
+          : `${API_BASE_URL}/api/public/shoots/${shootId}/mls`;
         
         // Add cache-busting parameter to ensure fresh data
         const cacheBuster = new Date().getTime();
-        const res = await fetch(`${API_BASE_URL}/api/public/shoots/${shootId}/mls?t=${cacheBuster}`);
+        const separator = endpoint.includes('?') ? '&' : '?';
+        const res = await fetch(`${endpoint}${separator}t=${cacheBuster}`);
         const data = await res.json();
         
         setPhotos(Array.isArray(data?.photos) ? data.photos : []);
@@ -84,8 +105,9 @@ export function MlsCompliant() {
         console.log('Tour style detected:', style, 'from data:', { tour_style: data?.tour_style, tour_links: data?.tour_links });
 
         const rawEmbeds = Array.isArray(data?.tour_links?.embeds) ? data.tour_links.embeds : [];
+        const embedKey = shootId || [address, city, state, zip].filter(Boolean).join('-');
         const normalizedEmbeds = rawEmbeds.map((embed: any, index: number) => ({
-          id: embed?.id || `embed-${shootId}-${index}`,
+          id: embed?.id || `embed-${embedKey}-${index}`,
           title: embed?.title || `Embed ${index + 1}`,
           branded: embed?.branded || embed?.branded_embed || embed?.url || '',
           mls: embed?.mls || embed?.mls_embed || '',
