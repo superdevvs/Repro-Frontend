@@ -1366,6 +1366,7 @@ export function ShootDetailsOverviewTab({
   const toggleServiceSelection = (serviceId: string) => {
     setSelectedServiceIds((prev) => {
       if (prev.includes(serviceId)) {
+        // Remove service
         const updated = prev.filter((id) => id !== serviceId);
         const newPrices = { ...servicePrices };
         const newPays = { ...servicePhotographerPays };
@@ -1375,12 +1376,22 @@ export function ShootDetailsOverviewTab({
         setServicePhotographerPays(newPays);
         return updated;
       }
+      // Add service - also set its price in servicePrices for proper calculation
+      const service = servicesList.find((s) => s.id === serviceId);
+      if (service) {
+        const sqft = effectiveSqft;
+        const pricingInfo = sqft && service.pricing_type === 'variable' && service.sqft_ranges?.length
+          ? getServicePricingForSqft({ ...service, price: service.price ?? 0 }, sqft)
+          : null;
+        const price = pricingInfo?.price ?? Number(service.price ?? 0);
+        setServicePrices(prev => ({ ...prev, [serviceId]: String(price) }));
+      }
       return [...prev, serviceId];
     });
   };
   
   useEffect(() => {
-    if (!selectedServiceIds.length) return;
+    // Calculate total from selected services
     const sqft = effectiveSqft;
     const total = selectedServiceIds.reduce((sum, id) => {
       const service = servicesList.find((s) => s.id === id);
@@ -1389,7 +1400,8 @@ export function ShootDetailsOverviewTab({
       const pricingInfo = sqft && service.pricing_type === 'variable' && service.sqft_ranges?.length
         ? getServicePricingForSqft(serviceWithPrice, sqft)
         : null;
-      const calculatedPrice = servicePrices[id]
+      // Use custom price from servicePrices if set, otherwise use calculated/base price
+      const calculatedPrice = servicePrices[id] !== undefined && servicePrices[id] !== ''
         ? parseFloat(servicePrices[id])
         : pricingInfo?.price ?? Number(service.price ?? 0);
       return sum + (Number.isNaN(calculatedPrice) ? 0 : calculatedPrice);
