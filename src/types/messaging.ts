@@ -4,7 +4,7 @@ export type MessageStatus = 'QUEUED' | 'SCHEDULED' | 'SENT' | 'DELIVERED' | 'FAI
 export type SendSource = 'MANUAL' | 'AUTOMATION' | 'SYSTEM';
 export type TemplateScope = 'SYSTEM' | 'GLOBAL' | 'ACCOUNT' | 'USER';
 export type TemplateCategory = 'BOOKING' | 'REMINDER' | 'PAYMENT' | 'INVOICE' | 'ACCOUNT' | 'GENERAL';
-export type EmailProviderType = 'GOOGLE_OAUTH' | 'GENERIC_SMTP' | 'MAILCHIMP' | 'CAKEMAIL';
+export type EmailProviderType = 'CAKEMAIL';
 export type ChannelScope = 'GLOBAL' | 'ACCOUNT' | 'USER';
 
 export type AutomationTriggerType =

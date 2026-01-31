@@ -141,7 +141,7 @@ const MessagingSettingsPage = () => {
                   ...prev,
                   {
                     display_name: 'New channel',
-                    provider: 'LOCAL_SMTP',
+                    provider: 'CAKEMAIL',
                     from_email: '',
                     is_default: false,
                   },
@@ -172,8 +172,7 @@ const MessagingSettingsPage = () => {
                         <SelectValue placeholder="Select provider" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="LOCAL_SMTP">Local SMTP</SelectItem>
-                        <SelectItem value="MAILCHIMP">Mailchimp</SelectItem>
+                        <SelectItem value="CAKEMAIL">Cakemail</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

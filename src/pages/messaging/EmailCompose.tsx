@@ -208,6 +208,14 @@ export default function EmailCompose() {
     }));
   }, [recentMessagesData]);
 
+  useEffect(() => {
+    if (!isAdmin || channels.length === 0 || formData.channel_id) return;
+    const defaultChannel = channels.find((channel) => channel.is_default) ?? channels[0];
+    if (defaultChannel?.id) {
+      setFormData((prev) => ({ ...prev, channel_id: defaultChannel.id.toString() }));
+    }
+  }, [channels, formData.channel_id, isAdmin]);
+
   const recipientOptions = isAdmin ? recipients : recentRecipients;
   const recipientLabel = isAdmin ? 'Select' : 'Recent Recipients';
   const recipientPlaceholder = isAdmin ? 'Search contacts...' : 'Search recent recipients...';

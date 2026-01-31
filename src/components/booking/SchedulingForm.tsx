@@ -142,6 +142,15 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
   };
 
   const handleTimeDialogOpen = (open: boolean) => {
+    // Prevent opening if date is not selected
+    if (open && !date) {
+      toast({
+        title: "Select date first",
+        description: "Please choose a date before selecting time.",
+        variant: "destructive",
+      });
+      return;
+    }
     if (open) {
       // Initialize temp time with current time when opening
       setTempTime(time || '');
@@ -158,6 +167,19 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
       }
     }
     setTimeDialogOpen(false);
+  };
+
+  const handlePhotographerDialogOpen = (open: boolean) => {
+    // Prevent opening if time is not selected
+    if (open && !time) {
+      toast({
+        title: "Select time first",
+        description: "Please choose a time before selecting a photographer.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setPhotographerDialogOpen(open);
   };
 
   const handleGetCurrentLocation = () => {
@@ -531,7 +553,7 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
         <div className="bg-white dark:bg-slate-900 rounded-lg p-6 space-y-2 border border-gray-100 dark:border-slate-800">
           <h2 className="text-xl font-semibold text-slate-900 dark:text-white mb-4">Photographer</h2>
 
-          <Dialog open={photographerDialogOpen} onOpenChange={setPhotographerDialogOpen}>
+          <Dialog open={photographerDialogOpen} onOpenChange={handlePhotographerDialogOpen}>
             <DialogTrigger asChild>
               <div
                 className={cn(

@@ -55,7 +55,7 @@ export default function MessagingSettings() {
   const [showAddChannel, setShowAddChannel] = useState(false);
   const [showAddNumber, setShowAddNumber] = useState(false);
   const emptyChannelState: ChannelFormState = {
-    provider: 'GENERIC_SMTP',
+    provider: 'CAKEMAIL',
     display_name: '',
     from_email: '',
     reply_to_email: '',
@@ -260,7 +260,7 @@ export default function MessagingSettings() {
 
     setEditingChannelId(channel.id ?? null);
     setNewChannel({
-      provider: (channel.provider as EmailProviderType) ?? 'GENERIC_SMTP',
+      provider: (channel.provider as EmailProviderType) ?? 'CAKEMAIL',
       display_name: channel.display_name ?? '',
       from_email: channel.from_email ?? '',
       reply_to_email: channel.reply_to_email ?? '',
@@ -412,9 +412,6 @@ export default function MessagingSettings() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="GENERIC_SMTP">SMTP</SelectItem>
-                          <SelectItem value="GOOGLE_OAUTH">Google (OAuth)</SelectItem>
-                          <SelectItem value="MAILCHIMP">Mailchimp</SelectItem>
                           <SelectItem value="CAKEMAIL">Cakemail</SelectItem>
                         </SelectContent>
                       </Select>
