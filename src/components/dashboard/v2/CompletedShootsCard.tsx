@@ -13,24 +13,11 @@ interface CompletedShootsCardProps {
   onViewInvoice?: (shoot: DashboardShootSummary) => void;
 }
 
-const COMPLETED_SHOOT_IMAGE_COUNT = 10;
-const COMPLETED_SHOOT_FALLBACKS = Array.from({ length: COMPLETED_SHOOT_IMAGE_COUNT }, (_, index) => {
-  const idNumber = (index + 11).toString().padStart(2, '0');
-  return `/shoots/1300-potomac/potomac-${idNumber}.jpg`;
-});
-
-const getShootImages = (shoot: DashboardShootSummary, index: number): string[] => {
-  // Generate multiple images for slideshow - use different fallbacks based on shoot index
-  const baseIndex = index % COMPLETED_SHOOT_FALLBACKS.length;
-  const images: string[] = [];
-  
-  // Get 4-5 images for the slideshow
-  for (let i = 0; i < 5; i++) {
-    const imgIndex = (baseIndex + i) % COMPLETED_SHOOT_FALLBACKS.length;
-    images.push(COMPLETED_SHOOT_FALLBACKS[imgIndex]);
-  }
-  
-  return images;
+const getShootImages = (shoot: DashboardShootSummary): string[] => {
+  // Use shoot's hero image or thumbnail if available, otherwise use placeholder
+  // The DashboardShootSummary doesn't include image URLs, so we use placeholder
+  // This will be replaced with actual thumbnails once the API includes them
+  return ['/no-image-placeholder.svg'];
 };
 
 interface SlideshowProps {
@@ -137,7 +124,7 @@ export const CompletedShootsCard: React.FC<CompletedShootsCardProps> = ({
       ) : (
         <div className="space-y-3 flex-1 overflow-y-auto custom-scrollbar pr-1">
           {safeShoots.slice(0, 3).map((shoot, index) => {
-            const images = getShootImages(shoot, index);
+            const images = getShootImages(shoot);
             return (
               <div
                 key={shoot.id}

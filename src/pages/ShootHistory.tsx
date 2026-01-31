@@ -127,7 +127,14 @@ const resolvePreviewUrl = (value: string | null | undefined): string | null => {
   const base = String(API_BASE_URL || '').replace(/\/+$/, '')
 
   const isAbsolute = /^https?:\/\//i.test(trimmed)
-  const withBase = isAbsolute ? trimmed : `${base}${trimmed.startsWith('/') ? '' : '/'}${trimmed}`
+  
+  // Add /storage/ prefix for paths that look like storage paths (e.g., shoots/64/thumbnails/...)
+  let path = trimmed
+  if (!isAbsolute && !path.startsWith('/storage') && (path.startsWith('shoots/') || path.startsWith('avatars/') || path.startsWith('branding/'))) {
+    path = `/storage/${path}`
+  }
+  
+  const withBase = isAbsolute ? trimmed : `${base}${path.startsWith('/') ? '' : '/'}${path}`
 
   try {
     return encodeURI(withBase)
