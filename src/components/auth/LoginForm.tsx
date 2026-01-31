@@ -24,10 +24,17 @@ import { toast } from '@/components/ui/use-toast';
 import { motion } from 'framer-motion';
 import { UserData } from '@/types/auth';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Loader2 } from 'lucide-react';
 import axios from 'axios';
 import { Logo } from '@/components/layout/Logo';
 import { Eye, EyeOff } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import RegisterForm, { type RegisterSuccessPayload } from './RegisterForm';
 import { API_BASE_URL } from '@/config/env';
 
@@ -51,6 +58,10 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
   const [activeTab, setActiveTab] = useState<string>('login');
   const isMobile = useIsMobile();
   const [loginShowPassword, setLoginShowPassword] = useState(false);
+  const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
+  const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
+  const [forgotPasswordSent, setForgotPasswordSent] = useState(false);
 
   useEffect(() => {
     onTabChange?.(activeTab);
@@ -312,8 +323,22 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
                     )}
                   </Button>
 
+                  {/* Forgot Password Link */}
+                  <p className={`text-center text-sm mt-3 ${isMobile ? 'text-slate-400' : 'text-muted-foreground dark:text-slate-400'}`}>
+                    <span
+                      onClick={() => {
+                        setForgotPasswordOpen(true);
+                        setForgotPasswordSent(false);
+                        setForgotPasswordEmail('');
+                      }}
+                      className={`font-medium cursor-pointer hover:underline ${isMobile ? 'text-cyan-300' : 'text-primary dark:text-cyan-400'}`}
+                    >
+                      Forgot Password? Reset
+                    </span>
+                  </p>
+
                   {/* Register Redirect Text */}
-                  <p className={`text-center text-sm mt-4 mb-2 ${isMobile ? 'text-slate-400' : 'text-muted-foreground dark:text-slate-400'}`}>
+                  <p className={`text-center text-sm mt-2 mb-2 ${isMobile ? 'text-slate-400' : 'text-muted-foreground dark:text-slate-400'}`}>
                     No account yet?{' '}
                     <span
                       onClick={() => setActiveTab('register')}
@@ -350,6 +375,86 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
           </Tabs>
         </CardContent>
       </Card>
+
+      {/* Forgot Password Dialog */}
+      <Dialog open={forgotPasswordOpen} onOpenChange={setForgotPasswordOpen}>
+        <DialogContent className="sm:max-w-md bg-slate-900 border-slate-800">
+          <DialogHeader>
+            <DialogTitle className="text-white">Reset Password</DialogTitle>
+            <DialogDescription className="text-slate-400">
+              Enter your email address and we'll send you a link to reset your password.
+            </DialogDescription>
+          </DialogHeader>
+
+          {forgotPasswordSent ? (
+            <div className="space-y-4 py-4">
+              <div className="p-4 rounded-lg bg-green-500/20 border border-green-500/30">
+                <p className="text-green-400 text-sm">
+                  If your email is registered with us, you will receive a password reset link in your inbox shortly.
+                </p>
+              </div>
+              <Button
+                onClick={() => setForgotPasswordOpen(false)}
+                className="w-full"
+              >
+                Close
+              </Button>
+            </div>
+          ) : (
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!forgotPasswordEmail.trim()) return;
+
+                setForgotPasswordLoading(true);
+                try {
+                  const response = await fetch(`${API_BASE_URL}/api/password/forgot`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email: forgotPasswordEmail }),
+                  });
+
+                  // Always show success message for security (don't reveal if email exists)
+                  setForgotPasswordSent(true);
+                } catch (error) {
+                  // Still show success for security
+                  setForgotPasswordSent(true);
+                } finally {
+                  setForgotPasswordLoading(false);
+                }
+              }}
+              className="space-y-4 py-4"
+            >
+              <div className="space-y-2">
+                <Input
+                  type="email"
+                  placeholder="Enter your email address"
+                  value={forgotPasswordEmail}
+                  onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                  className="bg-slate-800 border-slate-700 text-white"
+                  required
+                />
+              </div>
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={forgotPasswordLoading || !forgotPasswordEmail.trim()}
+              >
+                {forgotPasswordLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  'Send Reset Link'
+                )}
+              </Button>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </motion.div >
 
   );

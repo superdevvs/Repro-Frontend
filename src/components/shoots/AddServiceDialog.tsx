@@ -105,7 +105,19 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
 
       const updatedServices = [...currentServices, newService];
 
-      // Update shoot with new services
+      // Calculate new base quote from all services
+      const newBaseQuote = updatedServices.reduce((sum, s) => {
+        const price = typeof s.price === 'number' ? s.price : parseFloat(s.price) || 0;
+        const qty = s.quantity || 1;
+        return sum + (price * qty);
+      }, 0);
+
+      // Calculate tax (use existing tax rate from shoot or default to 0)
+      const currentTaxRate = shoot.payment?.taxRate || 0;
+      const newTaxAmount = newBaseQuote * (currentTaxRate / 100);
+      const newTotalQuote = newBaseQuote + newTaxAmount;
+
+      // Update shoot with new services and recalculated quote
       const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
         method: 'PATCH',
         headers: {
@@ -115,6 +127,9 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
         },
         body: JSON.stringify({
           services: updatedServices,
+          base_quote: parseFloat(newBaseQuote.toFixed(2)),
+          tax_amount: parseFloat(newTaxAmount.toFixed(2)),
+          total_quote: parseFloat(newTotalQuote.toFixed(2)),
         }),
       });
 

@@ -2153,8 +2153,8 @@ export function ShootDetailsOverviewTab({
               <Input
                 type="number"
                 step="0.01"
-                value={editedShoot.payment?.baseQuote ?? shoot.payment?.baseQuote ?? 0}
-                onChange={(e) => updateField('payment.baseQuote', parseFloat(e.target.value) || 0)}
+                value={parseFloat(String(editedShoot.payment?.baseQuote ?? shoot.payment?.baseQuote ?? 0)).toFixed(2)}
+                onChange={(e) => updateField('payment.baseQuote', parseFloat(parseFloat(e.target.value).toFixed(2)) || 0)}
                 className="h-7 text-xs"
               />
             </div>
@@ -2163,8 +2163,8 @@ export function ShootDetailsOverviewTab({
               <Input
                 type="number"
                 step="0.01"
-                value={editedShoot.payment?.taxAmount ?? shoot.payment?.taxAmount ?? 0}
-                onChange={(e) => updateField('payment.taxAmount', parseFloat(e.target.value) || 0)}
+                value={parseFloat(String(editedShoot.payment?.taxAmount ?? shoot.payment?.taxAmount ?? 0)).toFixed(2)}
+                onChange={(e) => updateField('payment.taxAmount', parseFloat(parseFloat(e.target.value).toFixed(2)) || 0)}
                 className="h-7 text-xs"
               />
             </div>
@@ -2173,8 +2173,8 @@ export function ShootDetailsOverviewTab({
               <Input
                 type="number"
                 step="0.01"
-                value={editedShoot.payment?.totalQuote ?? shoot.payment?.totalQuote ?? 0}
-                onChange={(e) => updateField('payment.totalQuote', parseFloat(e.target.value) || 0)}
+                value={parseFloat(String(editedShoot.payment?.totalQuote ?? shoot.payment?.totalQuote ?? 0)).toFixed(2)}
+                onChange={(e) => updateField('payment.totalQuote', parseFloat(parseFloat(e.target.value).toFixed(2)) || 0)}
                 className="h-7 text-xs"
               />
             </div>

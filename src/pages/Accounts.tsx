@@ -960,11 +960,44 @@ export default function Accounts() {
     });
   };
 
-  const handleSendResetLink = (userId: string, email: string) => {
-    toast({
-      title: "Reset link sent",
-      description: `Password reset link has been sent to ${email}.`,
-    });
+  const handleSendResetLink = async (userId: string, email: string) => {
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      if (!token) {
+        handleSessionExpired();
+        return;
+      }
+
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/users/${userId}/send-reset-link`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.status === 401) {
+        handleSessionExpired();
+        return;
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to send reset link');
+      }
+
+      toast({
+        title: "Reset link sent",
+        description: `Password reset link has been sent to ${email}.`,
+      });
+    } catch (error) {
+      console.error('Error sending reset link:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to send reset link",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleUpdatePassword = async (userId: string, password: string) => {
