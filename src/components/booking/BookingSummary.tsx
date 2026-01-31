@@ -64,25 +64,27 @@ export function BookingSummary({
       <p className="text-sm mb-6 text-slate-500 dark:text-slate-300">Complete all steps to schedule your shoot</p>
 
       <div className="space-y-6">
-        <div className="space-y-1.5">
-          <div className="text-sm text-blue-600 dark:text-blue-400">Client</div>
-          {summaryInfo.client ? (
-            <div className="flex flex-col gap-1 text-slate-900 dark:text-white">
-              {showRepName && (
-                <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 mb-1">
-                  <span className="text-xs font-medium">Rep:</span>
-                  <span>{summaryInfo.clientRep || 'Not assigned'}</span>
+        {!isClientRole && (
+          <div className="space-y-1.5">
+            <div className="text-sm text-blue-600 dark:text-blue-400">Client</div>
+            {summaryInfo.client ? (
+              <div className="flex flex-col gap-1 text-slate-900 dark:text-white">
+                {showRepName && (
+                  <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 mb-1">
+                    <span className="text-xs font-medium">Rep:</span>
+                    <span>{summaryInfo.clientRep || 'Not assigned'}</span>
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <User className="h-4 w-4 text-blue-500" />
+                  <span>{summaryInfo.client}</span>
                 </div>
-              )}
-              <div className="flex items-center gap-2">
-                <User className="h-4 w-4 text-blue-500" />
-                <span>{summaryInfo.client}</span>
               </div>
-            </div>
-          ) : (
-            <Skeleton className="h-6 w-2/3" />
-          )}
-        </div>
+            ) : (
+              <Skeleton className="h-6 w-2/3" />
+            )}
+          </div>
+        )}
 
         <div className="space-y-1.5">
           <div className="text-sm text-blue-600 dark:text-blue-400">Property</div>

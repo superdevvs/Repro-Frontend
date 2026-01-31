@@ -7,6 +7,7 @@ import { format } from 'date-fns';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import { getStateFullName } from '@/utils/stateUtils';
+import { useAuth } from '@/components/auth/AuthProvider';
 
 interface ReviewFormProps {
   client: string; // Client ID
@@ -71,6 +72,8 @@ export function ReviewForm({
   onBack,
   isLastStep = false
 }: ReviewFormProps) {
+  const { user } = useAuth();
+  const isClientRole = user?.role === 'client';
 
   /* ---------------- TAX LOGIC ---------------- */
   const TAXABLE_STATES = ['MD', 'DC', 'VA'];
@@ -151,10 +154,12 @@ export function ReviewForm({
         <h3 className="font-medium text-slate-900 dark:text-slate-100">Booking Summary</h3>
 
         <div className="space-y-2">
-          <div className="flex justify-between">
-            <span className="text-sm text-slate-500 dark:text-slate-400">Client:</span>
-            <span className="text-sm font-medium text-slate-900 dark:text-slate-100">{clientName || client || "No client selected"}</span>
-          </div>
+          {!isClientRole && (
+            <div className="flex justify-between">
+              <span className="text-sm text-slate-500 dark:text-slate-400">Client:</span>
+              <span className="text-sm font-medium text-slate-900 dark:text-slate-100">{clientName || client || "No client selected"}</span>
+            </div>
+          )}
 
           <div className="flex justify-between">
             <span className="text-sm text-slate-500 dark:text-slate-400">Property:</span>
