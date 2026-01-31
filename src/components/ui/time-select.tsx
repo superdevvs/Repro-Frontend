@@ -306,24 +306,19 @@ export function TimeSelect({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // Auto-confirm when all fields are selected AND user has interacted with all fields
+  // Call onChange whenever we have a complete valid time (hour + minute + ampm for 12h mode)
   React.useEffect(() => {
-    // For 24-hour mode, only need hour and minute
-    // For 12-hour mode, need hour, minute, AND ampm interaction
     const allFieldsSet = hour && minute && (hour24 || ampm);
-    const allInteractionsDone = hour24 
-      ? (userInteractions.hour && userInteractions.minute)
-      : (userInteractions.hour && userInteractions.minute && userInteractions.ampm);
     
-    if (allFieldsSet && allInteractionsDone) {
+    if (allFieldsSet) {
       const timeStr = hour24 ? `${pad(Number(hour))}:${minute}` : `${pad(Number(hour))}:${minute} ${ampm}`;
-      if (timeStr !== confirmed && timeStr !== value) {
+      if (timeStr !== confirmed) {
         setConfirmed(timeStr);
         onChange?.(timeStr);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hour, minute, ampm, hour24, confirmed, userInteractions]);
+  }, [hour, minute, ampm, hour24]);
 
   const isComboAvailable = React.useCallback(
     (h: string, m: string, ap?: string) => {
