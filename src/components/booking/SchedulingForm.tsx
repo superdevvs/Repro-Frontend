@@ -88,6 +88,7 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
   const [isLocationLoading, setIsLocationLoading] = useState(false);
   const [dateDialogOpen, setDateDialogOpen] = useState(false);
   const [timeDialogOpen, setTimeDialogOpen] = useState(false);
+  const [tempTime, setTempTime] = useState('');
   const [photographerDialogOpen, setPhotographerDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'distance' | 'name'>('distance');
@@ -136,17 +137,27 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
   };
 
   const onTimeChange = (newTime: string) => {
-    // Only close dialog if time is complete (has AM/PM)
-    const isComplete = newTime && /AM|PM/i.test(newTime);
-    setTime(newTime);
-    if (newTime && formErrors['time']) {
-      const { time, ...rest } = formErrors;
-      setFormErrors(rest);
+    // Store the time in temp state - will be saved when OK is clicked
+    setTempTime(newTime);
+  };
+
+  const handleTimeDialogOpen = (open: boolean) => {
+    if (open) {
+      // Initialize temp time with current time when opening
+      setTempTime(time || '');
     }
-    // Only close dialog if time is complete
-    if (isComplete) {
-      setTimeDialogOpen(false);
+    setTimeDialogOpen(open);
+  };
+
+  const handleTimeConfirm = () => {
+    if (tempTime) {
+      setTime(tempTime);
+      if (formErrors['time']) {
+        const { time: _, ...rest } = formErrors;
+        setFormErrors(rest);
+      }
     }
+    setTimeDialogOpen(false);
   };
 
   const handleGetCurrentLocation = () => {
@@ -457,7 +468,7 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
         <div className="bg-white dark:bg-slate-900 rounded-lg p-6 space-y-2 border border-gray-100 dark:border-slate-800">
           <h2 className="text-xl font-semibold text-slate-900 dark:text-white mb-4">Time</h2>
 
-          <Dialog open={timeDialogOpen} onOpenChange={setTimeDialogOpen}>
+          <Dialog open={timeDialogOpen} onOpenChange={handleTimeDialogOpen}>
             <DialogTrigger asChild>
               <div className={cn(
                 "bg-gray-50 dark:bg-slate-800 rounded-lg p-4 flex justify-between items-center transition-colors border border-gray-100 dark:border-slate-700",
@@ -504,11 +515,9 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
               </div>
 
               <DialogFooter className="mt-4">
-                <DialogClose asChild>
-                  <Button type="button" className="w-full">
-                    OK
-                  </Button>
-                </DialogClose>
+                <Button type="button" className="w-full" onClick={handleTimeConfirm}>
+                  OK
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
