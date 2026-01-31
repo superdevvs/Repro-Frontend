@@ -174,9 +174,11 @@ export function ShootDetailsMediaTab({
   const normalizedShootStatus = String(shoot?.workflowStatus || (shoot as any)?.status || '').toLowerCase();
   
   // Determine if delete is allowed (before delivered status - admin, photographer, editor can delete)
+  // Superadmin can always delete, even after delivery
   const DELIVERED_STATUSES = ['delivered', 'client_delivered', 'workflow_completed', 'finalized'];
   const isDelivered = DELIVERED_STATUSES.some(status => normalizedShootStatus.includes(status));
-  const canDelete = (isAdmin || isPhotographer || isEditor) && !isDelivered;
+  const isSuperAdmin = role === 'superadmin';
+  const canDelete = isSuperAdmin || ((isAdmin || isPhotographer || isEditor) && !isDelivered);
   const isScheduledShoot = normalizedShootStatus === 'scheduled' || normalizedShootStatus === 'booked';
   const hasAnyMedia = rawFiles.length > 0 || editedFiles.length > 0;
 
