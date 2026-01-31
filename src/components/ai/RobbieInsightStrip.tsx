@@ -5,6 +5,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { ReproAiIcon } from "@/components/icons/ReproAiIcon";
 import { cn } from "@/lib/utils";
+import { API_BASE_URL } from "@/config/env";
 import type { UserRole } from "@/types/auth";
 import type { AiChatRequest } from "@/types/ai";
 
@@ -58,7 +59,6 @@ const priorityMeta: Record<InsightPriority, { label: string; badgeClass: string;
 
 const allowedRoles: UserRole[] = ["admin", "superadmin", "salesRep", "client", "photographer", "editor"];
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const REFRESH_INTERVAL_MS = 60000; // Auto-refresh every 60 seconds
 
 const getRotationDelay = () => ROTATION_INTERVAL_MS;

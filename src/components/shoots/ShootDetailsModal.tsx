@@ -2039,7 +2039,7 @@ export function ShootDetailsModal({
                     onClick={handleCancelShootClick}
                   >
                     <XCircle className="h-3 w-3 mr-1" />
-                    <span>Cancel Shoot</span>
+                    <span>{isDelivered ? 'Delete Shoot' : 'Cancel Shoot'}</span>
                   </Button>
                 )}
                 {/* Publish to Bright MLS button - before View full page (hidden from editors) */}
@@ -2783,33 +2783,39 @@ export function ShootDetailsModal({
         </DialogContent>
       </Dialog>
 
-      {/* Cancel Shoot Dialog - Admin only */}
+      {/* Cancel/Delete Shoot Dialog - Admin only */}
       <Dialog open={isCancelShootDialogOpen} onOpenChange={setIsCancelShootDialogOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>Cancel Shoot</DialogTitle>
+            <DialogTitle>{isDelivered ? 'Delete Shoot' : 'Cancel Shoot'}</DialogTitle>
             <DialogDescription>
-              This will permanently cancel the shoot. The client will be notified of the cancellation.
+              {isDelivered 
+                ? 'This will permanently delete the shoot and all associated data.'
+                : 'This will permanently cancel the shoot. The client will be notified of the cancellation.'}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg p-4">
               <p className="text-sm text-red-800 dark:text-red-200">
-                <strong>Warning:</strong> This action cannot be undone. The shoot will be marked as cancelled and the client will be notified.
+                <strong>Warning:</strong> This action cannot be undone. {isDelivered 
+                  ? 'The shoot and all associated files will be permanently deleted.'
+                  : 'The shoot will be marked as cancelled and the client will be notified.'}
               </p>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="cancelShootReason">Reason (optional)</Label>
-              <Textarea
-                id="cancelShootReason"
-                placeholder="Enter the reason for cancelling this shoot..."
-                value={cancelShootReason}
-                onChange={(e) => setCancelShootReason(e.target.value)}
-                rows={4}
-                className="resize-none"
-              />
-            </div>
-            {isWithinCancellationFeeWindow && (
+            {!isDelivered && (
+              <div className="space-y-2">
+                <Label htmlFor="cancelShootReason">Reason (optional)</Label>
+                <Textarea
+                  id="cancelShootReason"
+                  placeholder="Enter the reason for cancelling this shoot..."
+                  value={cancelShootReason}
+                  onChange={(e) => setCancelShootReason(e.target.value)}
+                  rows={4}
+                  className="resize-none"
+                />
+              </div>
+            )}
+            {!isDelivered && isWithinCancellationFeeWindow && (
               <div className="space-y-2">
                 <Label htmlFor="addCancellationFeeCancelDialog">Add cancellation fee to invoice?</Label>
                 <div className="flex items-center space-x-2">
@@ -2847,12 +2853,12 @@ export function ShootDetailsModal({
               {isCancellingShoot ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Cancelling...
+                  {isDelivered ? 'Deleting...' : 'Cancelling...'}
                 </>
               ) : (
                 <>
                   <XCircle className="h-4 w-4 mr-2" />
-                  Cancel Shoot
+                  {isDelivered ? 'Delete Shoot' : 'Cancel Shoot'}
                 </>
               )}
             </Button>
