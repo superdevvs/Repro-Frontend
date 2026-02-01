@@ -33,7 +33,7 @@ export default function PaymentPage() {
     const fetchShootDetails = async () => {
       try {
         setLoading(true);
-        const response = await axios.get(`${API_BASE_URL}/shoots/${id}/payment-details`);
+        const response = await axios.get(`${API_BASE_URL}/api/shoots/${id}/payment-details`);
         setShoot(response.data.data || response.data);
       } catch (err: any) {
         console.error('Failed to fetch shoot details:', err);
