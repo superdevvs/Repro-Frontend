@@ -74,7 +74,7 @@ export default function ResetPassword() {
 
       // Redirect to login after 3 seconds
       setTimeout(() => {
-        navigate('/login');
+        navigate('/');
       }, 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to reset password. Please try again.');
