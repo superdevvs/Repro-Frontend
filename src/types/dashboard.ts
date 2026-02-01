@@ -70,6 +70,8 @@ export interface DashboardShootSummaryResponse {
   submitted_for_review_at?: string | null;
   admin_issue_notes?: string | null;
   created_by?: string | null;
+  hero_image?: string | null;
+  preview_images?: string[];
   // Notes fields
   shoot_notes?: string | null;
   company_notes?: string | null;
@@ -200,6 +202,8 @@ export interface DashboardShootSummary {
   submittedForReviewAt?: string | null;
   adminIssueNotes?: string | null;
   createdBy?: string | null;
+  heroImage?: string | null;
+  previewImages?: string[];
   // Payment status
   paymentStatus?: 'paid' | 'unpaid' | 'partial' | null;
   // Notes fields

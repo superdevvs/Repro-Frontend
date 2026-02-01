@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { DashboardShootSummary } from '@/types/dashboard';
-import { Card } from './SharedComponents';
 import { format } from 'date-fns';
+import { DashboardShootSummary } from '@/types/dashboard';
+import { withApiBase } from '@/config/env';
+import { Card } from './SharedComponents';
 
 interface CompletedShootsCardProps {
   shoots: DashboardShootSummary[];
@@ -13,10 +14,28 @@ interface CompletedShootsCardProps {
   onViewInvoice?: (shoot: DashboardShootSummary) => void;
 }
 
+const resolveImageUrl = (value?: string | null): string | null => {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return withApiBase(trimmed);
+};
+
 const getShootImages = (shoot: DashboardShootSummary): string[] => {
-  // Use shoot's hero image or thumbnail if available, otherwise use placeholder
-  // The DashboardShootSummary doesn't include image URLs, so we use placeholder
-  // This will be replaced with actual thumbnails once the API includes them
+  const candidates = [
+    ...(Array.isArray(shoot.previewImages) ? shoot.previewImages : []),
+    shoot.heroImage,
+  ];
+
+  const resolved = candidates
+    .map(resolveImageUrl)
+    .filter((image): image is string => Boolean(image));
+
+  const unique = Array.from(new Set(resolved));
+  if (unique.length > 0) {
+    return unique.slice(0, 6);
+  }
+
   return ['/no-image-placeholder.svg'];
 };
 

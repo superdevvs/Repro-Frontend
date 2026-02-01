@@ -52,6 +52,10 @@ const normalizeShoot = (shoot: DashboardShootSummaryResponse): DashboardShootSum
   submittedForReviewAt: shoot.submitted_for_review_at ?? null,
   adminIssueNotes: shoot.admin_issue_notes ?? null,
   createdBy: shoot.created_by ?? null,
+  heroImage: shoot.hero_image ?? null,
+  previewImages: Array.isArray(shoot.preview_images)
+    ? shoot.preview_images.filter((image): image is string => Boolean(image))
+    : [],
   // Notes fields
   shootNotes: shoot.shoot_notes ?? null,
   companyNotes: shoot.company_notes ?? null,
@@ -109,7 +113,7 @@ const normalizeWorkflowColumn = (
     : [],
 });
 
-const normalizeStats = (stats: DashboardOverviewResponse['stats']): DashboardStats => ({
+const normalizeStats = (stats?: DashboardOverviewResponse['stats'] | null): DashboardStats => ({
   totalShoots: stats?.total_shoots ?? 0,
   scheduledToday: stats?.scheduled_today ?? 0,
   flaggedShoots: stats?.flagged_shoots ?? 0,
@@ -156,7 +160,7 @@ export const transformDashboardOverview = (
     const upcomingShoots = dedupeShoots([...normalizedUpcoming, ...workflowShoots]);
 
     return {
-      stats: normalizeStats(response.stats || {}),
+      stats: normalizeStats(response.stats),
       upcomingShoots,
       photographers: Array.isArray(response.photographers) 
         ? response.photographers.map(normalizePhotographer)

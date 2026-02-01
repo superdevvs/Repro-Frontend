@@ -1444,8 +1444,8 @@ export function AccountForm({
                                 className={cn(
                                   "px-3 py-1.5 rounded-full text-sm border transition",
                                   active
-                                    ? "bg-blue-600 text-white border-blue-600 shadow-sm"
-                                    : "bg-transparent text-slate-200 dark:text-slate-300 border-slate-700 hover:bg-slate-800/40"
+                                    ? "bg-primary/10 text-primary border-primary/30 shadow-sm"
+                                    : "bg-background text-muted-foreground border-border/70 hover:bg-muted/60 hover:text-foreground"
                                 )}
                               >
                                 {opt}

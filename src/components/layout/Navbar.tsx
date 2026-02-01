@@ -13,7 +13,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/components/auth/AuthProvider';
-import { motion } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTheme } from '@/hooks/useTheme';
 import { getWeatherByCoordinates, WeatherInfo } from '@/services/weatherService';
@@ -232,12 +231,7 @@ export function Navbar() {
   ];
 
   return (
-    <motion.div 
-      className="w-full border-b border-border bg-background/95 backdrop-blur-md"
-      initial={{ y: -10, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={{ duration: 0.3, delay: 0.1 }}
-    >
+    <div className="w-full border-b border-border bg-card">
       <div className="h-16 flex items-center justify-between px-4">
         <div className="flex items-center gap-4 pl-4">
         {/* Logo for simplified layout (photographer/editor) */}
@@ -300,7 +294,7 @@ export function Navbar() {
               <Input 
                 type="search" 
                 placeholder="Search or run a command..." 
-                className="pl-9 bg-secondary/50 border-none focus-visible:ring-primary/20"
+                className="pl-9 bg-transparent border-0 shadow-none focus-visible:ring-primary/20"
                 readOnly
                 onClick={() => setCommandOpen(true)}
                 onFocus={() => setCommandOpen(true)}
@@ -315,7 +309,10 @@ export function Navbar() {
         {role !== 'photographer' && role !== 'editor' && (
           <div className="hidden xl:flex flex-1 min-w-0 px-4 items-center">
             <div className="h-8 w-px bg-border/60" />
-            <RobbieInsightStrip role={role} className="w-full border-0 bg-transparent shadow-none px-4 py-0 rounded-none" />
+            <RobbieInsightStrip
+              role={role}
+              className="w-full border-0 shadow-none px-4 py-1.5 rounded-xl"
+            />
             <div className="h-8 w-px bg-border/60" />
           </div>
         )}
@@ -398,7 +395,7 @@ export function Navbar() {
         </DropdownMenu>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }
 

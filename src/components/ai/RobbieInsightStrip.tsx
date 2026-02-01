@@ -283,13 +283,13 @@ export const RobbieInsightStrip: React.FC<RobbieInsightStripProps> = ({ role, cl
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
       className={cn(
-        "group relative flex max-w-3xl cursor-pointer items-center gap-4 overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-r from-background via-muted/20 to-background px-4 py-3 shadow-sm transition hover:border-border/80",
+        "group relative flex max-w-3xl cursor-pointer items-center gap-3 overflow-hidden rounded-2xl bg-transparent px-4 py-2 transition",
         className,
       )}
     >
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10">
-          <ReproAiIcon className="h-5 w-5" />
+      <div className="flex items-center gap-2.5">
+        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10">
+          <ReproAiIcon className="h-4 w-4" />
         </div>
         <div className="flex flex-col">
           <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
