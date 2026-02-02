@@ -2637,15 +2637,18 @@ const ClientShootTile: React.FC<ClientShootTileProps> = React.memo(({
               <Button size="sm" variant="outline" className="text-xs sm:text-sm" onClick={onContactSupport}>
                 Contact support
               </Button>
-              <Button 
-                size="sm" 
-                variant={record.data.cancellationRequestedAt ? "outline" : "destructive"}
-                className={`text-xs sm:text-sm ${record.data.cancellationRequestedAt ? 'opacity-50 cursor-not-allowed' : ''}`}
-                onClick={() => !record.data.cancellationRequestedAt && onCancel(record)}
-                disabled={!!record.data.cancellationRequestedAt}
-              >
-                {record.data.cancellationRequestedAt ? 'Requested cancellation' : 'Cancel shoot'}
-              </Button>
+              {/* Only show cancel button for requested shoots (not yet approved) */}
+              {(summary.workflowStatus || summary.status || '').toLowerCase() === 'requested' && (
+                <Button 
+                  size="sm" 
+                  variant={record.data.cancellationRequestedAt ? "outline" : "destructive"}
+                  className={`text-xs sm:text-sm ${record.data.cancellationRequestedAt ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  onClick={() => !record.data.cancellationRequestedAt && onCancel(record)}
+                  disabled={!!record.data.cancellationRequestedAt}
+                >
+                  {record.data.cancellationRequestedAt ? 'Requested cancellation' : 'Cancel shoot'}
+                </Button>
+              )}
             </>
           )}
           {variant === "hold" && (

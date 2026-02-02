@@ -1412,7 +1412,7 @@ export function ShootDetailsOverviewTab({
     const taxAmount = Number.isFinite(resolvedTaxAmount) ? resolvedTaxAmount : 0;
     updateField('payment.baseQuote', total);
     updateField('payment.totalQuote', total + taxAmount);
-  }, [selectedServiceIds, servicePrices, servicesList, effectiveSqft]);
+  }, [selectedServiceIds, servicePrices, servicesList, effectiveSqft, editedShoot.payment?.taxAmount, shoot.payment?.taxAmount]);
 
   const renderWeatherIcon = (icon?: string) => {
     switch (icon) {
