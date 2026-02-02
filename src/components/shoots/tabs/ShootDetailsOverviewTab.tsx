@@ -131,17 +131,33 @@ type AddressDetailsForLookup = {
 const slugify = (value: string) =>
   value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'uncategorized';
 
+const normalizeCategoryName = (value?: string) => {
+  const normalized = (value || '').trim().toLowerCase();
+  if (normalized === 'photo' || normalized === 'photos') return 'photos';
+  return normalized;
+};
+
 const deriveServiceCategoryId = (service: ServiceOption) => {
+  const categoryName = typeof service.category === 'string'
+    ? service.category
+    : service.category?.name;
+  const normalizedName = normalizeCategoryName(categoryName);
+  if (normalizedName === 'photos') return 'photos';
   if (!service.category) return 'uncategorized';
-  if (typeof service.category === 'string') return slugify(service.category);
+  if (typeof service.category === 'string') return slugify(normalizedName || service.category);
   if (typeof service.category === 'object') {
     if (service.category.id) return String(service.category.id);
-    if (service.category.name) return slugify(service.category.name);
+    if (service.category.name) return slugify(normalizedName || service.category.name);
   }
   return 'uncategorized';
 };
 
 const deriveServiceCategoryName = (service: ServiceOption) => {
+  const categoryName = typeof service.category === 'string'
+    ? service.category
+    : service.category?.name;
+  const normalizedName = normalizeCategoryName(categoryName);
+  if (normalizedName === 'photos') return 'Photos';
   if (!service.category) return 'Uncategorized';
   if (typeof service.category === 'string') return service.category;
   return service.category.name || 'Uncategorized';
