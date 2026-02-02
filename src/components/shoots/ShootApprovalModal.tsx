@@ -322,11 +322,27 @@ export function ShootApprovalModal({
           return sum + (Number.isFinite(price) ? price : 0);
         }, 0)
       : 0;
-  const totalQuote =
-    shootDetails?.totalQuote ??
+  const resolvedBaseQuote =
+    (shootDetails as any)?.payment?.baseQuote ??
+    shootDetails?.financials?.baseQuote ??
+    (shootDetails as any)?.baseQuote ??
+    (shootDetails as any)?.base_quote ??
+    servicePriceTotal;
+  const resolvedTaxAmount =
+    (shootDetails as any)?.payment?.taxAmount ??
+    shootDetails?.financials?.taxAmount ??
+    (shootDetails as any)?.taxAmount ??
+    (shootDetails as any)?.tax_amount ??
+    0;
+  const resolvedTotalQuote =
     (shootDetails as any)?.payment?.totalQuote ??
     shootDetails?.financials?.totalQuote ??
-    servicePriceTotal;
+    shootDetails?.totalQuote ??
+    (shootDetails as any)?.total_quote ??
+    Number(resolvedBaseQuote ?? 0) + Number(resolvedTaxAmount ?? 0);
+  const baseQuote = Number(resolvedBaseQuote ?? 0);
+  const taxAmount = Number(resolvedTaxAmount ?? 0);
+  const totalQuote = Number(resolvedTotalQuote ?? baseQuote + taxAmount);
   const shootNotes =
     shootDetails?.shootNotes ||
     (shootDetails as any)?.shoot_notes ||
@@ -401,6 +417,10 @@ export function ShootApprovalModal({
                       <p className="font-semibold text-emerald-600 mt-0.5">
                         ${typeof totalQuote === 'number' ? totalQuote.toFixed(2) : '0.00'}
                       </p>
+                      <div className="text-[11px] text-muted-foreground mt-1 space-y-0.5">
+                        <p>Base: ${baseQuote.toFixed(2)}</p>
+                        <p>Tax: ${taxAmount.toFixed(2)}</p>
+                      </div>
                     </div>
                   </div>
 

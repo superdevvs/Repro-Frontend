@@ -976,7 +976,7 @@ export function ShootDetailsModal({
       try {
         // Add timeout to prevent hanging requests
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+        const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
         
         res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
           method: 'PATCH',
@@ -1005,7 +1005,22 @@ export function ShootDetailsModal({
         
         if (fetchError instanceof Error) {
           if (fetchError.name === 'AbortError') {
-            errorMessage = 'Request timed out - please try again';
+            errorMessage = 'Request timed out - refreshing to confirm changes.';
+            const refreshedShoot = await refreshShoot();
+            if (refreshedShoot?.id) {
+              updateShoot(String(refreshedShoot.id), refreshedShoot, { skipApi: true }).catch((contextError) => {
+                console.log('💾 Context update after timeout failed (ignored):', contextError);
+              });
+              if (onShootUpdate) {
+                setTimeout(() => {
+                  try {
+                    onShootUpdate();
+                  } catch (error) {
+                    console.log('💾 onShootUpdate after timeout failed (ignored):', error);
+                  }
+                }, 0);
+              }
+            }
           } else if (fetchError.message.includes('Failed to fetch') || 
                      fetchError.message.includes('NetworkError') ||
                      fetchError.message.includes('Network request failed')) {

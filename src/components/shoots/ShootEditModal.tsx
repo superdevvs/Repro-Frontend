@@ -210,7 +210,16 @@ export function ShootEditModal({
           setPhotographerId(photoId ? photoId.toString() : '');
           
           // Set property details
-          const sqft = shoot.sqft || shoot.property_details?.sqft || null;
+          const sqft =
+            shoot.sqft ||
+            shoot.squareFeet ||
+            shoot.square_feet ||
+            shoot.property_details?.sqft ||
+            shoot.property_details?.squareFeet ||
+            shoot.property_details?.square_feet ||
+            shoot.property_details?.livingArea ||
+            shoot.property_details?.living_area ||
+            null;
           setPropertySqft(sqft ? Number(sqft) : null);
           setPropertyDetails({
             bedrooms: shoot.bedrooms || shoot.property_details?.bedrooms,
@@ -287,7 +296,15 @@ export function ShootEditModal({
       setZip(details.zip || '');
       
       // Update property details from lookup
-      const sqft = details.sqft || details.property_details?.sqft || details.property_details?.livingArea;
+      const sqft =
+        details.sqft ||
+        details.squareFeet ||
+        details.square_feet ||
+        details.property_details?.sqft ||
+        details.property_details?.squareFeet ||
+        details.property_details?.square_feet ||
+        details.property_details?.livingArea ||
+        details.property_details?.living_area;
       if (sqft) {
         setPropertySqft(Number(sqft));
       }
@@ -311,6 +328,14 @@ export function ShootEditModal({
     }
     return Number(service.price) || 0;
   };
+
+  const hasVariablePricingWithoutSqft = React.useMemo(() => {
+    if (!selectedServiceIds.size) return false;
+    return Array.from(selectedServiceIds).some((id) => {
+      const service = availableServices.find((s) => s.id?.toString() === id);
+      return Boolean(service?.pricing_type === 'variable' && service.sqft_ranges?.length && !propertySqft);
+    });
+  }, [selectedServiceIds, availableServices, propertySqft]);
 
   const handleSave = async () => {
     if (!address.trim()) {
@@ -833,6 +858,7 @@ export function ShootEditModal({
                     const isSelected = selectedServiceIds.has(serviceId);
                     const price = getServicePrice(service);
                     const isVariablePricing = service.pricing_type === 'variable' && service.sqft_ranges?.length;
+                    const showVariablePlaceholder = isVariablePricing && !propertySqft;
                     return (
                       <div
                         key={serviceId}
@@ -856,7 +882,7 @@ export function ShootEditModal({
                           "text-xs font-medium",
                           isVariablePricing && propertySqft ? "text-emerald-600" : "text-muted-foreground"
                         )}>
-                          ${price.toFixed(0)}
+                          {showVariablePlaceholder ? 'Varies' : `$${price.toFixed(0)}`}
                         </span>
                       </div>
                     );
@@ -871,14 +897,23 @@ export function ShootEditModal({
                     </div>
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-muted-foreground">Services total:</span>
-                      <span className="font-semibold">
-                        $
-                        {Array.from(selectedServiceIds).reduce((sum, id) => {
-                          const service = availableServices.find((s) => s.id?.toString() === id);
-                          return sum + (service ? getServicePrice(service) : 0);
-                        }, 0).toFixed(2)}
+                      <span className={cn(
+                        "font-semibold",
+                        hasVariablePricingWithoutSqft ? "text-amber-600" : ""
+                      )}>
+                        {hasVariablePricingWithoutSqft
+                          ? 'TBD'
+                          : `$${Array.from(selectedServiceIds).reduce((sum, id) => {
+                            const service = availableServices.find((s) => s.id?.toString() === id);
+                            return sum + (service ? getServicePrice(service) : 0);
+                          }, 0).toFixed(2)}`}
                       </span>
                     </div>
+                    {hasVariablePricingWithoutSqft && (
+                      <p className="text-[10px] text-muted-foreground">
+                        Sqft required for accurate variable pricing.
+                      </p>
+                    )}
                   </div>
                 )}
               </div>

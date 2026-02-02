@@ -1406,8 +1406,12 @@ export function ShootDetailsOverviewTab({
         : pricingInfo?.price ?? Number(service.price ?? 0);
       return sum + (Number.isNaN(calculatedPrice) ? 0 : calculatedPrice);
     }, 0);
+    const resolvedTaxAmount = Number(
+      editedShoot.payment?.taxAmount ?? shoot.payment?.taxAmount ?? 0
+    );
+    const taxAmount = Number.isFinite(resolvedTaxAmount) ? resolvedTaxAmount : 0;
     updateField('payment.baseQuote', total);
-    updateField('payment.totalQuote', total);
+    updateField('payment.totalQuote', total + taxAmount);
   }, [selectedServiceIds, servicePrices, servicesList, effectiveSqft]);
 
   const renderWeatherIcon = (icon?: string) => {
