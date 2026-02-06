@@ -324,25 +324,41 @@ export function ShootApprovalModal({
       : 0;
   const resolvedBaseQuote =
     (shootDetails as any)?.payment?.baseQuote ??
-    shootDetails?.financials?.baseQuote ??
+    (shootDetails?.financials as any)?.baseQuote ??
     (shootDetails as any)?.baseQuote ??
     (shootDetails as any)?.base_quote ??
     servicePriceTotal;
-  const resolvedTaxAmount =
+  const baseQuote = Number(resolvedBaseQuote ?? 0);
+
+  // Get stored tax amount
+  const storedTaxAmount = Number(
     (shootDetails as any)?.payment?.taxAmount ??
-    shootDetails?.financials?.taxAmount ??
+    (shootDetails?.financials as any)?.taxAmount ??
     (shootDetails as any)?.taxAmount ??
     (shootDetails as any)?.tax_amount ??
-    0;
-  const resolvedTotalQuote =
+    0
+  );
+
+  // If stored tax is 0 but we have a base quote and tax_percent, recalculate
+  const rawTaxPercent = Number(
+    (shootDetails as any)?.tax_percent ??
+    (shootDetails as any)?.taxPercent ??
+    (shootDetails as any)?.payment?.taxRate ??
+    0
+  );
+  const normalizedTaxRate = rawTaxPercent > 1 ? rawTaxPercent / 100 : rawTaxPercent;
+  const taxAmount = storedTaxAmount > 0
+    ? storedTaxAmount
+    : Number((baseQuote * normalizedTaxRate).toFixed(2));
+
+  const storedTotalQuote = Number(
     (shootDetails as any)?.payment?.totalQuote ??
     shootDetails?.financials?.totalQuote ??
     shootDetails?.totalQuote ??
     (shootDetails as any)?.total_quote ??
-    Number(resolvedBaseQuote ?? 0) + Number(resolvedTaxAmount ?? 0);
-  const baseQuote = Number(resolvedBaseQuote ?? 0);
-  const taxAmount = Number(resolvedTaxAmount ?? 0);
-  const totalQuote = Number(resolvedTotalQuote ?? baseQuote + taxAmount);
+    0
+  );
+  const totalQuote = storedTotalQuote > 0 ? storedTotalQuote : baseQuote + taxAmount;
   const shootNotes =
     shootDetails?.shootNotes ||
     (shootDetails as any)?.shoot_notes ||

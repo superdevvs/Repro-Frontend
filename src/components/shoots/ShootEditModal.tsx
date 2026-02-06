@@ -153,6 +153,7 @@ export function ShootEditModal({
   const [propertyDetails, setPropertyDetails] = useState<PropertyDetails | null>(null);
   const [propertySqft, setPropertySqft] = useState<number | null>(null);
   const [isLookingUpProperty, setIsLookingUpProperty] = useState(false);
+  const [taxPercent, setTaxPercent] = useState<number>(0);
 
   // Fetch shoot details, services, and photographers when modal opens
   useEffect(() => {
@@ -181,7 +182,13 @@ export function ShootEditModal({
           name: s.name,
           price: Number(s.price || 0),
           pricing_type: s.pricing_type || 'fixed',
-          sqft_ranges: s.sqft_ranges || s.sqftRanges || []
+          sqft_ranges: (s.sqft_ranges || s.sqftRanges || []).map((r: any) => ({
+            ...r,
+            sqft_from: Number(r.sqft_from) || 0,
+            sqft_to: Number(r.sqft_to) || 0,
+            price: Number(r.price) || 0,
+            photographer_pay: r.photographer_pay != null ? Number(r.photographer_pay) : null,
+          })),
         })));
         
         // Process photographers
@@ -266,6 +273,10 @@ export function ShootEditModal({
             setTimeOptions(buildTimeOptions(normalizedTime));
           }
           
+          // Set tax percent
+          const rawTaxPercent = shoot.tax_percent ?? shoot.taxPercent ?? shoot.payment?.taxRate ?? 0;
+          setTaxPercent(Number(rawTaxPercent) || 0);
+
           // Set selected services
           if (shoot.services && Array.isArray(shoot.services)) {
             const ids = new Set<string>(shoot.services.map((s: any) => 
@@ -382,6 +393,14 @@ export function ShootEditModal({
     const scheduledAt = new Date(scheduledDate);
     scheduledAt.setHours(hours, minutes, 0, 0);
 
+    // Calculate totals for the payload
+    const servicesTotal = Array.from(selectedServiceIds).reduce((sum, id) => {
+      const service = availableServices.find(s => s.id?.toString() === id);
+      return sum + (service ? getServicePrice(service) : 0);
+    }, 0);
+    const normalizedTaxRate = taxPercent > 1 ? taxPercent / 100 : taxPercent;
+    const calculatedTax = Number((servicesTotal * normalizedTaxRate).toFixed(2));
+
     const payload: Record<string, any> = {
       address: address.trim(),
       city: city.trim(),
@@ -397,6 +416,9 @@ export function ShootEditModal({
           price: service ? getServicePrice(service) : undefined
         };
       }),
+      base_quote: Number(servicesTotal.toFixed(2)),
+      tax_amount: calculatedTax,
+      total_quote: Number((servicesTotal + calculatedTax).toFixed(2)),
     };
 
     // Add photographer if selected (admin/rep only)
@@ -930,33 +952,53 @@ export function ShootEditModal({
                   })}
                 </div>
 
-                {selectedServiceIds.size > 0 && (
-                  <div className="pt-2 border-t mt-2 space-y-1">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">Selected:</span>
-                      <span className="font-semibold">{selectedServiceIds.size} service(s)</span>
+                {selectedServiceIds.size > 0 && (() => {
+                  const servicesTotal = hasVariablePricingWithoutSqft
+                    ? 0
+                    : Array.from(selectedServiceIds).reduce((sum, id) => {
+                        const service = availableServices.find((s) => s.id?.toString() === id);
+                        return sum + (service ? getServicePrice(service) : 0);
+                      }, 0);
+                  const normalizedTaxRate = taxPercent > 1 ? taxPercent / 100 : taxPercent;
+                  const calculatedTax = Number((servicesTotal * normalizedTaxRate).toFixed(2));
+                  const total = servicesTotal + calculatedTax;
+                  return (
+                    <div className="pt-2 border-t mt-2 space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">Selected:</span>
+                        <span className="font-semibold">{selectedServiceIds.size} service(s)</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">Base:</span>
+                        <span className={cn(
+                          "font-semibold",
+                          hasVariablePricingWithoutSqft ? "text-amber-600" : ""
+                        )}>
+                          {hasVariablePricingWithoutSqft ? 'TBD' : `$${servicesTotal.toFixed(2)}`}
+                        </span>
+                      </div>
+                      {!hasVariablePricingWithoutSqft && taxPercent > 0 && (
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-muted-foreground">Tax ({taxPercent > 1 ? taxPercent : (taxPercent * 100).toFixed(1)}%):</span>
+                          <span className="font-medium">${calculatedTax.toFixed(2)}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between text-xs font-semibold">
+                        <span className="text-muted-foreground">Total:</span>
+                        <span className={cn(
+                          hasVariablePricingWithoutSqft ? "text-amber-600" : "text-emerald-600"
+                        )}>
+                          {hasVariablePricingWithoutSqft ? 'TBD' : `$${total.toFixed(2)}`}
+                        </span>
+                      </div>
+                      {hasVariablePricingWithoutSqft && (
+                        <p className="text-[10px] text-muted-foreground">
+                          Sqft required for accurate variable pricing.
+                        </p>
+                      )}
                     </div>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">Services total:</span>
-                      <span className={cn(
-                        "font-semibold",
-                        hasVariablePricingWithoutSqft ? "text-amber-600" : ""
-                      )}>
-                        {hasVariablePricingWithoutSqft
-                          ? 'TBD'
-                          : `$${Array.from(selectedServiceIds).reduce((sum, id) => {
-                            const service = availableServices.find((s) => s.id?.toString() === id);
-                            return sum + (service ? getServicePrice(service) : 0);
-                          }, 0).toFixed(2)}`}
-                      </span>
-                    </div>
-                    {hasVariablePricingWithoutSqft && (
-                      <p className="text-[10px] text-muted-foreground">
-                        Sqft required for accurate variable pricing.
-                      </p>
-                    )}
-                  </div>
-                )}
+                  );
+                })()}
               </div>
             </div>
           </div>
