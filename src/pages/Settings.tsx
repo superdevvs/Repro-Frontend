@@ -2,7 +2,6 @@
 import React, { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { PageTransition } from '@/components/layout/PageTransition';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { AutoExpandingTabsList, type AutoExpandingTab } from '@/components/ui/auto-expanding-tabs';
@@ -23,14 +22,15 @@ import { IntegrationsGrid } from '@/components/integrations/IntegrationsGrid';
 import { IntegrationsHeader } from '@/components/integrations/IntegrationsHeader';
 import { CouponsList } from '@/components/coupons/CouponsList';
 import { CreateCouponDialog } from '@/components/coupons/CreateCouponDialog';
-import { User, Settings as SettingsIcon, Palette, Bell, Plug, MessageSquare, Droplets, Ticket, Plus } from 'lucide-react';
+import { User, Settings as SettingsIcon, Palette, Bell, Plug, MessageSquare, Droplets, Ticket, Plus, Bot } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { API_BASE_URL } from '@/config/env';
 import WatermarkEditor from '@/components/settings/WatermarkEditor';
+import { RobbieSettings } from '@/components/settings/RobbieSettings';
 
 const BASE_TABS = ['profile', 'account', 'branding', 'notifications'] as const;
-type TabValue = (typeof BASE_TABS)[number] | 'coupons' | 'integrations' | 'watermark';
+type TabValue = (typeof BASE_TABS)[number] | 'coupons' | 'integrations' | 'watermark' | 'robbie';
 
 const Settings = () => {
   const { user, role, setUser } = useAuth();
@@ -71,6 +71,7 @@ const Settings = () => {
     }
     if (isSuperAdmin) {
       tabs.push('watermark');
+      tabs.push('robbie');
     }
     return tabs;
   }, [canViewCoupons, canViewIntegrations, isSuperAdmin]);
@@ -269,7 +270,7 @@ const Settings = () => {
 
   // Auto-expanding tabs configuration
   const tabsConfig: AutoExpandingTab[] = useMemo(() => {
-    const tabMeta: Record<Exclude<TabValue, 'integrations' | 'watermark'>, { icon: typeof User; label: string }> = {
+    const tabMeta: Record<Exclude<TabValue, 'integrations' | 'watermark' | 'robbie'>, { icon: typeof User; label: string }> = {
       profile: { icon: User, label: 'Profile' },
       account: { icon: SettingsIcon, label: 'Account' },
       branding: { icon: Palette, label: 'Branding' },
@@ -278,11 +279,11 @@ const Settings = () => {
     };
 
     const mappedTabs: AutoExpandingTab[] = availableTabs
-      .filter((tab) => tab !== 'integrations' && tab !== 'watermark')
+      .filter((tab) => tab !== 'integrations' && tab !== 'watermark' && tab !== 'robbie')
       .map((tab) => ({
         value: tab,
-        icon: tabMeta[tab as Exclude<TabValue, 'integrations' | 'watermark'>].icon,
-        label: tabMeta[tab as Exclude<TabValue, 'integrations' | 'watermark'>].label,
+        icon: tabMeta[tab as Exclude<TabValue, 'integrations' | 'watermark' | 'robbie'>].icon,
+        label: tabMeta[tab as Exclude<TabValue, 'integrations' | 'watermark' | 'robbie'>].label,
       }));
 
     if (availableTabs.includes('integrations')) {
@@ -301,17 +302,24 @@ const Settings = () => {
       });
     }
 
+    if (availableTabs.includes('robbie')) {
+      mappedTabs.push({
+        value: 'robbie',
+        icon: Bot,
+        label: 'Robbie AI',
+      });
+    }
+
     return mappedTabs;
   }, [availableTabs]);
 
   return (
     <DashboardLayout>
-      <PageTransition>
-        <div className="space-y-6 p-6">
-          <PageHeader
-            title="Settings"
-            description="Manage your account settings and preferences"
-          />
+      <div className="space-y-6 p-6">
+        <PageHeader
+          title="Settings"
+          description="Manage your account settings and preferences"
+        />
 
           <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
             <AutoExpandingTabsList 
@@ -744,9 +752,14 @@ const Settings = () => {
                 <WatermarkEditor />
               </TabsContent>
             )}
+
+            {isSuperAdmin && (
+              <TabsContent value="robbie" className="space-y-6">
+                <RobbieSettings />
+              </TabsContent>
+            )}
           </Tabs>
-        </div>
-      </PageTransition>
+      </div>
     </DashboardLayout>
   );
 };

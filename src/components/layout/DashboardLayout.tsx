@@ -14,9 +14,10 @@ import { AlertCircle, LogOut } from 'lucide-react';
 interface DashboardLayoutProps {
   children?: React.ReactNode;
   className?: string;
+  hideNavbar?: boolean;
 }
 
-export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, className }) => {
+export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, className, hideNavbar = false }) => {
   const isMobile = useIsMobile();
   const { isImpersonating, user, stopImpersonating, role } = useAuth();
   const contentPadding = isMobile ? 'p-2 pb-20' : 'p-3 pb-10';
@@ -45,11 +46,13 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
             </Button>
           </div>
         )}
-        <Navbar />
+        {!hideNavbar && <Navbar />}
         {/* Main content area (single scrollbar) */}
         <ErrorBoundary>
           <main className={`flex-1 min-h-0 overflow-y-auto bg-background text-foreground ${contentPadding} ${className || ''}`}>
-            {children || <Outlet />}
+            <PageTransition className="flex flex-col min-h-0 h-full">
+              {children || <Outlet />}
+            </PageTransition>
           </main>
         </ErrorBoundary>
         {isMobile && <MobileMenu />}

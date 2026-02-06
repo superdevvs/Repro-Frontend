@@ -996,14 +996,6 @@ const AddressLookupField: React.FC<AddressLookupFieldProps> = ({
         </p>
       )}
 
-      {/* Address validation status */}
-      {selectedAddress && (
-        <div className="mt-1 text-xs text-green-600 flex items-center">
-          <CheckCircle className="w-3 h-3 mr-1" />
-          Address verified and auto-filled
-        </div>
-      )}
-
       {/* Suggestions dropdown */}
       {showSuggestions && suggestions.length > 0 && (
         <div

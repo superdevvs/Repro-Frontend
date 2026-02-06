@@ -1,3 +1,5 @@
+import { API_BASE_URL } from "@/config/env";
+
 // Default avatar system based on role and gender
 // Reserved avatars: 01 (superadmin), 11 (admin)
 // Female avatars: 03, 05, 06, 08, 09, 12
@@ -77,7 +79,24 @@ export function getAvatarUrl(
   userId?: string | number
 ): string {
   if (customAvatar && customAvatar.trim()) {
-    return customAvatar;
+    const trimmed = customAvatar.trim();
+    const isAbsolute = /^https?:\/\//i.test(trimmed) || trimmed.startsWith('data:') || trimmed.startsWith('blob:');
+    if (isAbsolute) {
+      return trimmed;
+    }
+
+    const base = String(API_BASE_URL || '').replace(/\/+$/, '');
+    let path = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+    const isDefaultAvatar = /\/avatars\/Avatars-\d+\.png$/i.test(path);
+    if (!isDefaultAvatar && !path.startsWith('/storage') && (path.startsWith('/avatars') || path.startsWith('/branding') || path.startsWith('/uploads'))) {
+      path = `/storage${path}`;
+    }
+    const resolved = isDefaultAvatar ? path : base ? `${base}${path}` : path;
+    try {
+      return encodeURI(resolved);
+    } catch {
+      return resolved;
+    }
   }
   return getDefaultAvatar(role, gender, userId);
 }

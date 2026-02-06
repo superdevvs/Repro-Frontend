@@ -18,6 +18,7 @@ import {
   Edit,
   Trash2,
   FileText,
+  Send,
 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import type { ShootAction, ShootData } from '@/types/shoots';
@@ -39,6 +40,7 @@ interface SharedShootCardProps {
   onModify?: (shoot: ShootData) => void;
   onDelete?: (shoot: ShootData) => void;
   onViewInvoice?: (shoot: ShootData) => void;
+  onSendToEditing?: (shoot: ShootData) => void;
   shouldHideClientDetails?: boolean;
 }
 
@@ -71,6 +73,7 @@ const roleDefaultActions: Record<Role, ShootAction> = {
   client: { label: 'View Media', action: 'view_media' },
   photographer: { label: 'Upload RAW', action: 'upload_raw' },
   editor: { label: 'Start Editing', action: 'upload_final' },
+  editing_manager: { label: 'Open Workflow', action: 'open_workflow' },
   admin: { label: 'Open Workflow', action: 'open_workflow' },
   superadmin: { label: 'Open Workflow', action: 'open_workflow' },
   salesRep: { label: 'View Details', action: 'open_workflow' },
@@ -87,6 +90,7 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
   onModify,
   onDelete,
   onViewInvoice,
+  onSendToEditing,
   shouldHideClientDetails = false,
 }) => {
   const { formatTemperature, formatTime, formatDate } = useUserPreferences();
@@ -103,8 +107,16 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
   const primaryAction = shoot.primaryAction || roleDefaultActions[role];
   const isSuperAdmin = role === 'superadmin';
   const isAdmin = role === 'admin';
+  const isEditingManager = role === 'editing_manager';
+  const isEditor = role === 'editor';
   const isClient = role === 'client';
   const canDelete = (isSuperAdmin || isAdmin) && onDelete;
+  const editingNotes = shoot.notes && typeof shoot.notes === 'object' && !Array.isArray(shoot.notes)
+    ? (shoot.notes as any)?.editingNotes
+    : undefined;
+  const canShowEditingNotes = Boolean(editingNotes) && (isSuperAdmin || isAdmin || isEditingManager || isEditor);
+  const shootStatus = String(shoot.workflowStatus || shoot.status || '').toLowerCase();
+  const canSendToEditing = Boolean(onSendToEditing) && shootStatus === 'uploaded';
 
   const handlePrimary = () => {
     const action = shoot.primaryAction || roleDefaultActions[role];
@@ -149,12 +161,17 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
           <img src={heroImage} alt={shoot.location.address} className="h-full w-full object-cover" loading="lazy" />
         
         {/* Status Badge - Left */}
-        <div className="absolute top-4 left-4">
+        <div className="absolute top-4 left-4 flex items-center gap-2">
           <Badge 
             className={cn('capitalize text-base font-medium px-6 py-2 rounded-full shadow-lg', statusClass)}
           >
             {formatWorkflowStatus(shoot.workflowStatus || shoot.status)}
           </Badge>
+          {canShowEditingNotes && (
+            <Badge className="bg-purple-500/90 text-white border-purple-400 text-xs px-3 py-1 rounded-full shadow-lg">
+              Editing Notes
+            </Badge>
+          )}
         </div>
 
         {/* Weather & Pay Button - Right */}
@@ -168,6 +185,22 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
                   : shoot.weather.temperature}
               </span>
             </div>
+          )}
+          
+          {/* Send to Editing Button */}
+          {canSendToEditing && (
+            <Button 
+              onClick={(e) => {
+                e.stopPropagation();
+                onSendToEditing?.(shoot);
+              }}
+              className="bg-purple-500 hover:bg-purple-600 text-white font-semibold px-3 py-1.5 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+              size="sm"
+              variant="outline"
+              title="Send to Editing"
+            >
+              <Send className="h-4 w-4" />
+            </Button>
           )}
           
           {/* Invoice Button - Available for all roles */}

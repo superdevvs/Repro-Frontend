@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useIsMobile } from '@/hooks/use-mobile';
 import {
   Form,
   FormControl,
@@ -17,6 +18,9 @@ import {
   SelectValue
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -29,6 +33,7 @@ import {
   Aperture,
   Building2,
   Camera,
+  ChevronsUpDown,
   Cuboid as Cube,
   Grid3x3,
   Home,
@@ -315,8 +320,10 @@ export const ClientPropertyForm = ({
   packagesLoading = false,
 }: ClientPropertyFormProps) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [clientSelectOpen, setClientSelectOpen] = useState(false);
   const [isAddingClient, setIsAddingClient] = useState(false);
   const [newlyAddedClients, setNewlyAddedClients] = useState<Client[]>([]);
+  const lastClientIdRef = React.useRef<string | null>(null);
 
   // AccountForm control state
   const [isAccountFormOpen, setIsAccountFormOpen] = useState<boolean>(false);
@@ -329,6 +336,14 @@ export const ClientPropertyForm = ({
   const { toast } = useToast();
 
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
+
+  const handleClientSelectOpenChange = (open: boolean) => {
+    setClientSelectOpen(open);
+    if (!open) {
+      setSearchQuery('');
+    }
+  };
 
   const formSchema = isClientAccount ? clientAccountPropertyFormSchema : adminPropertyFormSchema;
 
@@ -381,6 +396,8 @@ export const ClientPropertyForm = ({
       }
     ), [isClientAccount]), // ✅ only recompute when role type changes
   });
+
+  const watchedClientId = form.watch('clientId' as any);
 
   // Keep parent state (for summary) in sync with address fields as they change
   React.useEffect(() => {
@@ -565,14 +582,28 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
   
   const filteredClients = React.useMemo(() => {
     if (!isSearching) return allClients;
+    const query = searchQuery.toLowerCase();
     return allClients.filter(client =>
-      client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (client.company && client.company.toLowerCase().includes(searchQuery.toLowerCase()))
+      client.name.toLowerCase().includes(query) ||
+      client.email?.toLowerCase().includes(query) ||
+      (client.company && client.company.toLowerCase().includes(query))
     );
   }, [allClients, searchQuery, isSearching]);
 
   // Show newly added clients even without search, plus filtered results when searching
-  const visibleClients = isSearching ? filteredClients : newlyAddedClients.slice(0, 4);
+  const visibleClients = filteredClients;
+
+  React.useEffect(() => {
+    if (isClientAccount || !watchedClientId) return;
+    if (lastClientIdRef.current === watchedClientId) return;
+    const matchingClient = allClients.find(client => client.id === watchedClientId);
+    const nextCompanyNotes = matchingClient?.companyNotes || (matchingClient as any)?.company_notes || '';
+    form.setValue('companyNotes' as any, nextCompanyNotes, {
+      shouldDirty: false,
+      shouldValidate: false,
+    });
+    lastClientIdRef.current = watchedClientId;
+  }, [watchedClientId, allClients, isClientAccount, form]);
 
   const selectedClientId = !isClientAccount ? (form.getValues() as AdminFormValues).clientId : '';
   const selectedClient = selectedClientId ? allClients.find(client => client.id === selectedClientId) : null;
@@ -638,6 +669,10 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
         email: data.email,
         phone: data.phone || '',
         company: data.company || '',
+        status: 'active',
+        shootsCount: 0,
+        lastActivity: new Date().toISOString(),
+        companyNotes: data.companyNotes || '',
       };
       
       // Add to local newly added clients list
@@ -702,54 +737,40 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
         {!isClientAccount && (
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium">Client Information</h3>
+          <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 shadow-[0_1px_2px_rgba(15,23,42,0.08)] dark:border-muted/40 dark:bg-card/40 p-4 sm:p-5 space-y-4">
+            <h3 className="text-base font-semibold">Client Information</h3>
 
-            <div className="relative">
-              <div className="flex mb-3">
-                <div className="relative flex-1">
-                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    type="text"
-                    placeholder="Search clients..."
-                    className="pl-8"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="ml-2"
-                  onClick={navigateToNewClient}
-                >
-                  <PlusCircle className="h-4 w-4 mr-2" />
-                  New Client
-                </Button>
-              </div>
-
+            <div className="space-y-3">
               <FormField
                 control={form.control}
                 name="clientId"
-                render={({ field }) => (
-                  <FormItem>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2 max-h-[200px] overflow-y-auto">
-                      {visibleClients.length > 0 ? (
-                        visibleClients.map((client) => (
-                          <div
-                            key={client.id}
-                            className={`relative p-3 border rounded-md cursor-pointer transition-colors ${field.value === client.id
-                              ? "bg-primary/10 border-primary"
-                              : "bg-card hover:bg-accent/50"
-                              }`}
-                            onClick={() => form.setValue("clientId" as any, client.id)}
-                          >
-                            {field.value === client.id && (
-                              <span className="absolute right-3 top-3 inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground shadow">
-                                <Check className="h-4 w-4" />
-                              </span>
-                            )}
-                            <div className="flex items-start gap-3">
+                render={({ field }) => {
+                  const selectedClient = allClients.find((client) => client.id === field.value);
+                  const selectedLabel = selectedClient?.name || 'Choose client';
+                  const emptyLabel = isSearching ? 'No clients found for this search.' : 'No clients available.';
+                  const handleSelectClient = (clientId: string) => {
+                    field.onChange(clientId);
+                    handleClientSelectOpenChange(false);
+                  };
+
+                  const clientCommand = (
+                    <Command shouldFilter={false} className="rounded-lg">
+                      <CommandInput
+                        placeholder="Search clients..."
+                        value={searchQuery}
+                        onValueChange={setSearchQuery}
+                        className="h-10"
+                      />
+                      <CommandList className="max-h-[35vh] sm:max-h-[260px] overflow-y-auto">
+                        <CommandEmpty>{emptyLabel}</CommandEmpty>
+                        <CommandGroup>
+                          {visibleClients.map((client) => (
+                            <CommandItem
+                              key={client.id}
+                              value={`${client.name} ${client.email ?? ''} ${client.company ?? ''}`}
+                              onSelect={() => handleSelectClient(client.id)}
+                              className="flex items-start gap-3"
+                            >
                               <Avatar className="h-8 w-8">
                                 <AvatarImage
                                   src={getAvatarUrl(client.avatar, 'client', undefined, client.id)}
@@ -769,18 +790,19 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                                     .toUpperCase()}
                                 </AvatarFallback>
                               </Avatar>
-                              <div>
-                                <div className="font-medium leading-none">
-                                  {client.name}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="font-medium truncate">{client.name}</span>
+                                  {field.value === client.id && (
+                                    <Check className="h-4 w-4 text-primary" />
+                                  )}
                                 </div>
                                 {client.company && (
-                                  <div className="text-sm text-muted-foreground mt-1">
-                                    {client.company}
-                                  </div>
+                                  <div className="text-xs text-muted-foreground truncate">{client.company}</div>
                                 )}
-                                <div className="text-xs text-muted-foreground mt-1.5">
-                                  {client.email}
-                                </div>
+                                {client.email && (
+                                  <div className="text-xs text-muted-foreground truncate">{client.email}</div>
+                                )}
                                 {(() => {
                                   const repValue = (client as any).rep;
                                   const repLabel =
@@ -790,65 +812,168 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                                         ? repValue.name ?? ''
                                         : '';
                                   return repLabel ? (
-                                    <div className="text-xs text-primary mt-1 font-medium">
+                                    <div className="text-[10px] text-primary mt-1 font-medium">
                                       Rep: {repLabel}
                                     </div>
                                   ) : null;
                                 })()}
                               </div>
-                            </div>
-                          </div>
-                        ))
-                      ) : isSearching ? (
-                        <div className="col-span-2 p-6 text-center text-muted-foreground">
-                          No clients found for this search.
-                        </div>
-                      ) : null}
-                    </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  );
 
-                    {/* {!isSearching && filteredClients.length > 2 && (
-                      <p className="text-xs text-muted-foreground mt-2">
-                        Showing 2 clients. Type in the search box to see more.
-                      </p>
-                    )} */}
-                    <FormMessage />
-                  </FormItem>
-                )}
+                  return (
+                    <FormItem className="space-y-2">
+                      <div className="space-y-2">
+                        <FormLabel>Choose client</FormLabel>
+                        <div className="flex items-center gap-2 md:items-end md:gap-3 md:justify-start">
+                          <div className="w-full min-w-0 md:flex-1">
+                            {isMobile ? (
+                              <>
+                                <FormControl>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    role="combobox"
+                                    aria-expanded={clientSelectOpen}
+                                    className="w-full justify-between h-12 text-sm font-normal"
+                                    onClick={() => handleClientSelectOpenChange(true)}
+                                  >
+                                    <span className="flex items-center gap-2 min-w-0">
+                                      {selectedClient && (
+                                        <Avatar className="h-8 w-8">
+                                          <AvatarImage
+                                            src={getAvatarUrl(selectedClient.avatar, 'client', undefined, selectedClient.id)}
+                                            alt={selectedClient.name}
+                                          />
+                                          <AvatarFallback className="text-[10px]">
+                                            {selectedClient.name
+                                              .split(' ')
+                                              .map((part) => part[0])
+                                              .join('')
+                                              .slice(0, 2)
+                                              .toUpperCase()}
+                                          </AvatarFallback>
+                                        </Avatar>
+                                      )}
+                                      <span className="truncate">{selectedLabel}</span>
+                                    </span>
+                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                  </Button>
+                                </FormControl>
+                                <Drawer open={clientSelectOpen} onOpenChange={handleClientSelectOpenChange}>
+                                  <DrawerContent className="h-[63vh] max-h-[63vh]">
+                                    <DrawerHeader className="pb-2">
+                                      <DrawerTitle>Choose client</DrawerTitle>
+                                    </DrawerHeader>
+                                    <div className="px-4 pb-4">
+                                      {clientCommand}
+                                    </div>
+                                  </DrawerContent>
+                                </Drawer>
+                              </>
+                            ) : (
+                              <Popover open={clientSelectOpen} onOpenChange={handleClientSelectOpenChange}>
+                                <PopoverTrigger asChild>
+                                  <FormControl>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      role="combobox"
+                                      aria-expanded={clientSelectOpen}
+                                      className="w-full justify-between h-12 text-sm font-normal"
+                                    >
+                                      <span className="flex items-center gap-2 min-w-0">
+                                        {selectedClient && (
+                                          <Avatar className="h-8 w-8">
+                                            <AvatarImage
+                                              src={getAvatarUrl(selectedClient.avatar, 'client', undefined, selectedClient.id)}
+                                              alt={selectedClient.name}
+                                            />
+                                            <AvatarFallback className="text-[10px]">
+                                              {selectedClient.name
+                                                .split(' ')
+                                                .map((part) => part[0])
+                                                .join('')
+                                                .slice(0, 2)
+                                                .toUpperCase()}
+                                            </AvatarFallback>
+                                          </Avatar>
+                                        )}
+                                        <span className="truncate">{selectedLabel}</span>
+                                      </span>
+                                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
+                                  </FormControl>
+                                </PopoverTrigger>
+                                <PopoverContent
+                                  className="w-[var(--radix-popover-trigger-width)] p-0 shadow-lg"
+                                  align="start"
+                                  sideOffset={4}
+                                >
+                                  {clientCommand}
+                                </PopoverContent>
+                              </Popover>
+                            )}
+                          </div>
+                          <Button
+                            type="button"
+                            variant="default"
+                            size="sm"
+                            className="shrink-0 h-12 px-4 bg-blue-600 text-white hover:bg-blue-700"
+                            onClick={navigateToNewClient}
+                          >
+                            <PlusCircle className="h-4 w-4 mr-2" />
+                            New Client
+                          </Button>
+                        </div>
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
               />
             </div>
 
-            <Separator className="my-6" />
           </div>
         )}
 
-        <div className="pt-2">
-          {/* {!isClientAccount && <Separator className="my-6" />} */}
-          <h3 className="text-lg font-medium mb-4">Property Details</h3>
+        <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 shadow-[0_1px_2px_rgba(15,23,42,0.08)] dark:border-muted/40 dark:bg-card/40 p-4 sm:p-5 space-y-4">
+          <h3 className="text-base font-semibold">Property Details</h3>
 
           <div className="space-y-4">
             <FormField
               control={form.control}
               name="propertyType"
               render={({ field }) => (
-                <FormItem className="space-y-1">
+                <FormItem className="space-y-2">
                   <FormLabel>Property Type</FormLabel>
                   <FormControl>
                     <RadioGroup
                       onValueChange={field.onChange}
-                      defaultValue={field.value}
-                      className="flex gap-4"
+                      value={field.value}
+                      className="grid gap-3 sm:grid-cols-2"
                     >
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="residential" id="residential" />
-                        <Label htmlFor="residential" className="flex items-center cursor-pointer">
-                          <Home className="h-4 w-4 mr-2" />
+                      <div className="relative">
+                        <RadioGroupItem value="residential" id="residential" className="peer sr-only" />
+                        <Label
+                          htmlFor="residential"
+                          className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/20 px-4 py-3 text-sm font-medium transition hover:border-primary/60 hover:bg-primary/5 peer-data-[state=checked]:border-primary/70 peer-data-[state=checked]:bg-primary/10 peer-data-[state=checked]:text-primary"
+                        >
+                          <Home className="h-4 w-4" />
                           Residential
                         </Label>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="commercial" id="commercial" />
-                        <Label htmlFor="commercial" className="flex items-center cursor-pointer">
-                          <Building2 className="h-4 w-4 mr-2" />
+                      <div className="relative">
+                        <RadioGroupItem value="commercial" id="commercial" className="peer sr-only" />
+                        <Label
+                          htmlFor="commercial"
+                          className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/20 px-4 py-3 text-sm font-medium transition hover:border-primary/60 hover:bg-primary/5 peer-data-[state=checked]:border-primary/70 peer-data-[state=checked]:bg-primary/10 peer-data-[state=checked]:text-primary"
+                        >
+                          <Building2 className="h-4 w-4" />
                           Commercial
                         </Label>
                       </div>
@@ -1344,176 +1469,189 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
         <div className="pt-2">
           <Separator className="my-6" />
           <div className="space-y-6">
-            <div className="space-y-3">
-              <FormLabel>Who will be at the property?</FormLabel>
-              <RadioGroup
-                className="flex flex-wrap gap-4"
-                value={presenceOption}
-                onValueChange={(value) => setPresenceOption(value as PresenceOption)}
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem id="presence-self" value="self" />
-                  <Label htmlFor="presence-self">Self / client</Label>
+            <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 shadow-[0_1px_2px_rgba(15,23,42,0.08)] dark:border-muted/40 dark:bg-card/40 p-4 sm:p-5 space-y-4">
+              <div className="space-y-3">
+                <div>
+                  <h3 className="text-base font-semibold">Who will be at the property?</h3>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem id="presence-other" value="other" />
-                  <Label htmlFor="presence-other">Another contact</Label>
+                <RadioGroup
+                  className="flex flex-wrap gap-4"
+                  value={presenceOption}
+                  onValueChange={(value) => setPresenceOption(value as PresenceOption)}
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem id="presence-self" value="self" />
+                    <Label htmlFor="presence-self">Self / client</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem id="presence-other" value="other" />
+                    <Label htmlFor="presence-other">Another contact</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem id="presence-lockbox" value="lockbox" />
+                    <Label htmlFor="presence-lockbox">Lockbox</Label>
+                  </div>
+                </RadioGroup>
+              </div>
+
+              {presenceOption === 'other' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="accessContactName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>On-site contact name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Full name" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="accessContactPhone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>On-site contact phone</FormLabel>
+                        <FormControl>
+                          <Input placeholder="(555) 123-4567" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem id="presence-lockbox" value="lockbox" />
-                  <Label htmlFor="presence-lockbox">Lockbox</Label>
-                </div>
-              </RadioGroup>
+              )}
             </div>
 
-            {presenceOption === 'other' && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="accessContactName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>On-site contact name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Full name" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="accessContactPhone"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>On-site contact phone</FormLabel>
-                      <FormControl>
-                        <Input placeholder="(555) 123-4567" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            )}
-
             {presenceOption === 'lockbox' && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="lockboxCode"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Lockbox code</FormLabel>
-                      <FormControl>
-                        <Input placeholder="####" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="lockboxLocation"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Lockbox location / instructions</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g., on the front gate" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 shadow-[0_1px_2px_rgba(15,23,42,0.08)] dark:border-muted/40 dark:bg-card/40 p-4 sm:p-5 space-y-4">
+                <div>
+                  <h3 className="text-base font-semibold">Lockbox Details</h3>
+                  <p className="text-sm text-muted-foreground">Share access info for the shoot.</p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="lockboxCode"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Lockbox code</FormLabel>
+                        <FormControl>
+                          <Input placeholder="####" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="lockboxLocation"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Lockbox location / instructions</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g., on the front gate" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </div>
             )}
           </div>
         </div>
 
-        <div className="pt-2">
-          <Separator className="my-6" />
-          <div className="flex items-center gap-2 mb-4"></div>
-          <FormField
-            control={form.control}
-            name="shootNotes"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Shoot Notes</FormLabel>
-                <FormControl>
-                  <Textarea
-                    placeholder="Provide any additional information to attach to this shoot that will be visible to the client."
-                    className="resize-none"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
+        <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 shadow-[0_1px_2px_rgba(15,23,42,0.08)] dark:border-muted/40 dark:bg-card/40 p-4 sm:p-5 space-y-4">
+          <div>
+            <h3 className="text-base font-semibold">Notes</h3>
+            <p className="text-sm text-muted-foreground">Keep context for the client and internal teams.</p>
+          </div>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="shootNotes"
+              render={({ field }) => (
+                <FormItem className="lg:col-span-2">
+                  <FormLabel>Shoot Notes</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Provide any additional information to attach to this shoot that will be visible to the client."
+                      className="min-h-[120px] resize-none bg-white dark:bg-background/30 border-slate-200/80 dark:border-border/60 shadow-sm focus-visible:ring-primary/30"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Company Notes - Admin only (not for clients) */}
+            {!isClientAccount && (
+              <FormField
+                control={form.control}
+                name="companyNotes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Company Notes</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Provide any additional information to save for the selected client that will only be visible to company admins/photographer.."
+                        className="min-h-[120px] resize-none bg-white dark:bg-background/30 border-slate-200/80 dark:border-border/60 shadow-sm focus-visible:ring-primary/30"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             )}
-          />
 
+            {/* Photographer Notes - Admin/Rep only (not for clients) */}
+            {!isClientAccount && (
+              <FormField
+                control={form.control}
+                name="photographerNotes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Photographer Notes</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Notes for the photographer (visible to photographer and admins)."
+                        className="min-h-[120px] resize-none bg-white dark:bg-background/30 border-slate-200/80 dark:border-border/60 shadow-sm focus-visible:ring-primary/30"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
-          {/* Company Notes - Admin only (not for clients) */}
-          {!isClientAccount && (
-            <FormField
-              control={form.control}
-              name="companyNotes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Company Notes</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Provide any additional information to save for the selected client that will only be visible to company admins/photographer.."
-                      className="resize-none"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          )}
-
-          {/* Photographer Notes - Admin/Rep only (not for clients) */}
-          {!isClientAccount && (
-            <FormField
-              control={form.control}
-              name="photographerNotes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Photographer Notes</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Notes for the photographer (visible to photographer and admins)."
-                      className="resize-none"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          )}
-
-          {/* Editor Notes - Admin/Rep only (not for clients) */}
-          {!isClientAccount && (
-            <FormField
-              control={form.control}
-              name="editorNotes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Editor Notes</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Notes for the editor (visible to editor and admins)."
-                      className="resize-none"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          )}
+            {/* Editor Notes - Admin/Rep only (not for clients) */}
+            {!isClientAccount && (
+              <FormField
+                control={form.control}
+                name="editorNotes"
+                render={({ field }) => (
+                  <FormItem className="lg:col-span-2">
+                    <FormLabel>Editor Notes</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Notes for the editor (visible to editor and admins)."
+                        className="min-h-[180px] resize-none bg-white dark:bg-background/30 border-slate-200/80 dark:border-border/60 shadow-sm focus-visible:ring-primary/30"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+          </div>
         </div>
 
         <div className="mt-6 flex justify-end">

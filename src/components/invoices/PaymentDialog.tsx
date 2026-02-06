@@ -3,19 +3,28 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { CreditCard, CheckIcon, Banknote, MapPin, Package, Loader2 } from "lucide-react";
 import { InvoiceData } from '@/utils/invoiceUtils';
 import { useToast } from '@/hooks/use-toast';
 import { SquarePaymentForm } from '@/components/payments/SquarePaymentForm';
+import { MarkAsPaidDialog, MarkAsPaidPayload } from '@/components/payments/MarkAsPaidDialog';
+import { formatPaymentMethod } from '@/utils/paymentUtils';
+
+export interface InvoicePaymentCompletePayload {
+  invoiceId: string;
+  paymentMethod: string;
+  amount?: number;
+  paymentDetails?: Record<string, any> | null;
+  paymentDate?: string | null;
+}
 
 interface PaymentDialogProps {
   invoice: InvoiceData | null;
   isOpen: boolean;
   onClose: () => void;
-  onPaymentComplete?: (invoiceId: string, paymentMethod: string, amount?: number) => void;
+  onPaymentComplete?: (payload: InvoicePaymentCompletePayload) => Promise<void> | void;
   // Additional context for display
   shootAddress?: string;
   shootServices?: string[];
@@ -35,14 +44,13 @@ export function PaymentDialog({
 }: PaymentDialogProps) {
   const { toast } = useToast();
   const [paymentMethod, setPaymentMethod] = useState<string>("square");
-  const [manualPaymentType, setManualPaymentType] = useState<string>("cash");
   const [loading, setLoading] = useState(false);
+  const [isMarkPaidDialogOpen, setIsMarkPaidDialogOpen] = useState(false);
   
   // Partial payment state
   const [paymentAmount, setPaymentAmount] = useState(0);
   const [paymentAmountInput, setPaymentAmountInput] = useState('0.00');
   const [isPartialPaymentMode, setIsPartialPaymentMode] = useState(false);
-  const [showConfirmationDialog, setShowConfirmationDialog] = useState(false);
   const paymentAmountInputRef = useRef<HTMLInputElement>(null);
 
   // Reset state when invoice changes
@@ -51,6 +59,7 @@ export function PaymentDialog({
       setPaymentAmount(invoice.amount);
       setPaymentAmountInput(invoice.amount.toFixed(2));
       setIsPartialPaymentMode(false);
+      setIsMarkPaidDialogOpen(false);
     }
   }, [invoice]);
 
@@ -59,16 +68,28 @@ export function PaymentDialog({
   const outstandingAmount = invoice.amount;
   const remainingBalanceAfterPayment = outstandingAmount - paymentAmount;
 
-  const handleSquarePaymentSuccess = (payment: any) => {
-    if (onPaymentComplete) {
-      onPaymentComplete(invoice.id, 'Square Payment', paymentAmount);
+  const handleSquarePaymentSuccess = async (payment: any) => {
+    try {
+      if (onPaymentComplete) {
+        await onPaymentComplete({
+          invoiceId: invoice.id,
+          paymentMethod: 'square',
+          amount: invoice.amount,
+        });
+      }
+      toast({
+        title: "Payment Successful",
+        description: `Payment of $${invoice.amount.toFixed(2)} for invoice ${invoice.id} has been processed.`,
+        variant: "default",
+      });
+      onClose();
+    } catch (error) {
+      toast({
+        title: 'Payment Failed',
+        description: error instanceof Error ? error.message : 'Unable to record payment.',
+        variant: 'destructive',
+      });
     }
-    toast({
-      title: "Payment Successful",
-      description: `Payment of $${paymentAmount.toFixed(2)} for invoice ${invoice.id} has been processed.`,
-      variant: "default",
-    });
-    onClose();
   };
 
   const handleManualPaymentSubmit = (e: React.FormEvent) => {
@@ -84,34 +105,35 @@ export function PaymentDialog({
       return;
     }
     
-    // Show confirmation dialog
-    setShowConfirmationDialog(true);
+    setIsMarkPaidDialogOpen(true);
   };
 
-  const handleConfirmManualPayment = () => {
-    setShowConfirmationDialog(false);
+  const handleMarkPaidConfirm = async (payload: MarkAsPaidPayload) => {
     setLoading(true);
-    
-    // Get the display name for the payment method
-    const paymentMethodDisplay = 
-      manualPaymentType === "bank-transfer" ? "Bank Transfer" : 
-      manualPaymentType === "check" ? "Check" : "Cash";
-    
-    // Simulate payment processing
-    setTimeout(() => {
-      setLoading(false);
-      
+    try {
       if (onPaymentComplete) {
-        onPaymentComplete(invoice.id, paymentMethodDisplay, paymentAmount);
+        await onPaymentComplete({
+          invoiceId: invoice.id,
+          paymentMethod: payload.paymentMethod,
+          paymentDetails: payload.paymentDetails,
+          paymentDate: payload.paymentDate,
+          amount: paymentAmount,
+        });
       }
-      
+
+      const methodLabel = formatPaymentMethod(payload.paymentMethod, payload.paymentDetails);
       toast({
         title: "Payment Recorded",
-        description: `${paymentMethodDisplay} payment of $${paymentAmount.toFixed(2)} for invoice ${invoice.id} has been recorded.${remainingBalanceAfterPayment > 0 ? ` Remaining: $${remainingBalanceAfterPayment.toFixed(2)}` : ''}`,
+        description: `${methodLabel} payment of $${paymentAmount.toFixed(2)} for invoice ${invoice.id} has been recorded.${remainingBalanceAfterPayment > 0 ? ` Remaining: $${remainingBalanceAfterPayment.toFixed(2)}` : ''}`,
         variant: "default",
       });
       onClose();
-    }, 1000);
+    } catch (error: any) {
+      const message = error instanceof Error ? error.message : 'Unable to record payment.';
+      throw new Error(message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Check if we have context details to display
@@ -357,38 +379,6 @@ export function PaymentDialog({
                         </div>
                       </div>
 
-                      {/* Payment Method Selection */}
-                      <div className="space-y-2">
-                        <Label htmlFor="manual-payment-method">Payment Method</Label>
-                        <Select 
-                          value={manualPaymentType} 
-                          onValueChange={(value) => setManualPaymentType(value)}
-                        >
-                          <SelectTrigger id="manual-payment-method">
-                            <SelectValue placeholder="Select payment method" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="cash">Cash</SelectItem>
-                            <SelectItem value="bank-transfer">Bank Transfer</SelectItem>
-                            <SelectItem value="check">Check</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      {manualPaymentType === "bank-transfer" && (
-                        <div className="space-y-2">
-                          <Label htmlFor="reference">Reference Number</Label>
-                          <Input id="reference" placeholder="Enter reference number" required />
-                        </div>
-                      )}
-                      
-                      {manualPaymentType === "check" && (
-                        <div className="space-y-2">
-                          <Label htmlFor="checkNumber">Check Number</Label>
-                          <Input id="checkNumber" placeholder="Enter check number" required />
-                        </div>
-                      )}
-                      
                       <DialogFooter className="pt-4">
                         <Button variant="outline" type="button" onClick={onClose}>Cancel</Button>
                         <Button 
@@ -403,7 +393,7 @@ export function PaymentDialog({
                           ) : (
                             <>
                               <CheckIcon className="h-4 w-4 mr-2" />
-                              Record Payment (${paymentAmount.toFixed(2)})
+                              Select Payment Method
                             </>
                           )}
                         </Button>
@@ -416,82 +406,14 @@ export function PaymentDialog({
           </Tabs>
         </DialogContent>
       </Dialog>
-
-      {/* Manual Payment Confirmation Dialog */}
-      <Dialog open={showConfirmationDialog} onOpenChange={setShowConfirmationDialog}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Confirm Manual Payment</DialogTitle>
-            <DialogDescription>
-              Please review the payment details before confirming.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            <div className="space-y-3">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Payment Amount:</span>
-                <span className="font-semibold text-lg">${paymentAmount.toFixed(2)}</span>
-              </div>
-              
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Invoice Total:</span>
-                <span>${invoice.amount.toFixed(2)}</span>
-              </div>
-              
-              <Separator />
-              
-              {remainingBalanceAfterPayment > 0 ? (
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Remaining Balance:</span>
-                  <span className="font-medium text-orange-600">${remainingBalanceAfterPayment.toFixed(2)}</span>
-                </div>
-              ) : (
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Status:</span>
-                  <span className="font-medium text-green-600">Full Payment</span>
-                </div>
-              )}
-            </div>
-
-            <div className="pt-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Payment Method:</span>
-                <span className="font-medium capitalize">
-                  {manualPaymentType === "bank-transfer" ? "Bank Transfer" : 
-                   manualPaymentType === "check" ? "Check" : "Cash"}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setShowConfirmationDialog(false)}
-              disabled={loading}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              onClick={handleConfirmManualPayment}
-              disabled={loading}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                `Confirm Payment of $${paymentAmount.toFixed(2)}`
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <MarkAsPaidDialog
+        isOpen={isMarkPaidDialogOpen}
+        onClose={() => setIsMarkPaidDialogOpen(false)}
+        onConfirm={handleMarkPaidConfirm}
+        title="Record Manual Payment"
+        description="Select the payment method and provide any required details."
+        confirmLabel="Record Payment"
+      />
     </>
   );
 }

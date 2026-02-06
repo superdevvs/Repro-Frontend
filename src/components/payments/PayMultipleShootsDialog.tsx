@@ -19,6 +19,7 @@ import { DollarSign, FileText, CreditCard, Loader2, MapPin, Calendar, CheckCircl
 import { format } from 'date-fns';
 import { API_BASE_URL } from '@/config/env';
 import axios from 'axios';
+import { MarkAsPaidDialog, MarkAsPaidPayload } from '@/components/payments/MarkAsPaidDialog';
 
 interface PayMultipleShootsDialogProps {
   isOpen: boolean;
@@ -38,6 +39,7 @@ export function PayMultipleShootsDialog({
   const [processing, setProcessing] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'square' | 'mark-paid'>('square');
   const [showConfirmationDialog, setShowConfirmationDialog] = useState(false);
+  const [isMarkPaidDialogOpen, setIsMarkPaidDialogOpen] = useState(false);
 
   // Filter shoots with pending payments
   const unpaidShoots = shoots.filter(
@@ -49,6 +51,7 @@ export function PayMultipleShootsDialog({
     if (isOpen) {
       setSelectedShoots(new Set());
       setPaymentMethod('square');
+      setIsMarkPaidDialogOpen(false);
     }
   }, [isOpen]);
 
@@ -88,6 +91,10 @@ export function PayMultipleShootsDialog({
 
   const handleConfirmPayment = async () => {
     setShowConfirmationDialog(false);
+    if (paymentMethod === 'mark-paid') {
+      setIsMarkPaidDialogOpen(true);
+      return;
+    }
     setProcessing(true);
 
     try {
@@ -114,35 +121,6 @@ export function PayMultipleShootsDialog({
           });
           onClose();
         }
-      } else {
-        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-        const promises = selectedShootsData.map((shoot) =>
-          axios.post(
-            `${API_BASE_URL}/api/shoots/${shoot.id}/mark-paid`,
-            {
-              payment_type: 'manual',
-              amount: (shoot.payment?.totalQuote ?? 0) - (shoot.payment?.totalPaid ?? 0),
-            },
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-                'Content-Type': 'application/json',
-              },
-            }
-          )
-        );
-
-        await Promise.all(promises);
-
-        toast({
-          title: 'Success',
-          description: `${selectedShootsData.length} shoot(s) marked as paid. Total: $${totalAmount.toFixed(2)}`,
-        });
-
-        if (onPaymentComplete) {
-          onPaymentComplete();
-        }
-        onClose();
       }
     } catch (error: any) {
       toast({
@@ -152,6 +130,52 @@ export function PayMultipleShootsDialog({
           'Failed to process payment. Please try again.',
         variant: 'destructive',
       });
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleMarkPaidConfirm = async (payload: MarkAsPaidPayload) => {
+    setProcessing(true);
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const promises = selectedShootsData.map((shoot) => {
+        const body: Record<string, any> = {
+          payment_type: payload.paymentMethod,
+          amount: (shoot.payment?.totalQuote ?? 0) - (shoot.payment?.totalPaid ?? 0),
+        };
+
+        if (payload.paymentDetails) {
+          body.payment_details = payload.paymentDetails;
+        }
+        if (payload.paymentDate) {
+          body.payment_date = payload.paymentDate;
+        }
+
+        return axios.post(`${API_BASE_URL}/api/shoots/${shoot.id}/mark-paid`, body, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+      });
+
+      await Promise.all(promises);
+
+      toast({
+        title: 'Success',
+        description: `${selectedShootsData.length} shoot(s) marked as paid. Total: $${totalAmount.toFixed(2)}`,
+      });
+
+      if (onPaymentComplete) {
+        onPaymentComplete();
+      }
+      onClose();
+    } catch (error: any) {
+      const message =
+        error.response?.data?.message ||
+        'Failed to process payment. Please try again.';
+      throw new Error(message);
     } finally {
       setProcessing(false);
     }
@@ -479,6 +503,15 @@ export function PayMultipleShootsDialog({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <MarkAsPaidDialog
+        isOpen={isMarkPaidDialogOpen}
+        onClose={() => setIsMarkPaidDialogOpen(false)}
+        onConfirm={handleMarkPaidConfirm}
+        title="Mark Shoots as Paid"
+        description="Select the payment method and provide any required details."
+        confirmLabel="Mark as Paid"
+      />
     </>
   );
 }

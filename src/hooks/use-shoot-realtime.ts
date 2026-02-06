@@ -15,7 +15,14 @@ export interface ShootActivityEvent {
   timestamp: string;
 }
 
-export type UserRole = 'admin' | 'superadmin' | 'client' | 'photographer' | 'editor' | 'salesRep';
+export type UserRole =
+  | 'admin'
+  | 'superadmin'
+  | 'editing_manager'
+  | 'salesRep'
+  | 'client'
+  | 'photographer'
+  | 'editor';
 
 type ShootRealtimeOptions = {
   shootId?: number | null;
@@ -27,12 +34,20 @@ type ShootRealtimeOptions = {
 /**
  * Get the appropriate notification channel name based on user role
  */
-const getNotificationChannelForRole = (role: string | null | undefined, userId: string | number | null | undefined): string | null => {
+const getNotificationChannelForRole = (
+  role: string | null | undefined,
+  userId: string | number | null | undefined,
+): string | null => {
   if (!role || !userId) return null;
 
-  switch (role) {
+  const normalizedRole = role.toLowerCase();
+
+  switch (normalizedRole) {
     case 'admin':
     case 'superadmin':
+    case 'editing_manager':
+    case 'salesrep':
+    case 'sales_rep':
       return 'admin.notifications';
     case 'client':
       return `client.${userId}.notifications`;
@@ -41,7 +56,6 @@ const getNotificationChannelForRole = (role: string | null | undefined, userId: 
     case 'editor':
       return `editor.${userId}.notifications`;
     default:
-      // Sales reps and other roles don't have notification channels
       return null;
   }
 };

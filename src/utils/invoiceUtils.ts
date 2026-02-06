@@ -1,6 +1,7 @@
 
 import { jsPDF } from "jspdf";
 import { format } from "date-fns";
+import { formatPaymentMethod } from '@/utils/paymentUtils';
 
 // Invoice data type
 export interface InvoiceData {
@@ -14,6 +15,7 @@ export interface InvoiceData {
   status: 'paid' | 'pending' | 'overdue';
   services: string[];
   paymentMethod: string;
+  paymentDetails?: Record<string, any>;
 
   // Optional fields filled when data comes from the backend
   invoiceNumber?: string;
@@ -35,6 +37,7 @@ export interface InvoiceData {
   shootsCount?: number;
   shoot_id?: number;
   shoot?: any;
+  shoots?: any[];
   items?: Array<{
     id?: number | string;
     description?: string;
@@ -140,12 +143,23 @@ export const generateInvoicePDF = (invoice: InvoiceData): void => {
   yPos += 15;
   
   // Payment info
+  const paymentMethodLabel = formatPaymentMethod(invoice.paymentMethod, invoice.paymentDetails);
   doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
   doc.text("Payment Method:", 20, yPos);
   doc.setFont("helvetica", "normal");
-  doc.text(invoice.paymentMethod, 70, yPos);
+  doc.text(paymentMethodLabel, 70, yPos);
+
+  yPos += 8;
+  if (invoice.paidAt) {
+    doc.setFont("helvetica", "bold");
+    doc.text("Paid on:", 20, yPos);
+    doc.setFont("helvetica", "normal");
+    doc.text(format(new Date(invoice.paidAt), "MM/dd/yyyy"), 70, yPos);
+    yPos += 8;
+  }
   
-  yPos += 15;
+  yPos += 7;
   
   // Thank you message
   doc.setFontSize(10);

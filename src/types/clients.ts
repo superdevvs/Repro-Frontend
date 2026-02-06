@@ -14,6 +14,7 @@ export interface Client {
   lastActivity: string;
   avatar?: string;
   rep?: string;
+  companyNotes?: string;
 }
 
 /**

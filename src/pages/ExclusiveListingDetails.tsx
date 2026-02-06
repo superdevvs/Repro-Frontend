@@ -1,18 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { PageTransition } from '@/components/layout/PageTransition';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { API_BASE_URL } from '@/config/env';
@@ -20,7 +12,6 @@ import { ShootData } from '@/types/shoots';
 import {
   ArrowLeft,
   Lock,
-  MoreHorizontal,
 } from 'lucide-react';
 
 const resolvePreviewUrl = (value: string | null | undefined): string | null => {
@@ -250,7 +241,6 @@ export default function ExclusiveListingDetails() {
           'Content-Type': 'application/json',
           Accept: 'application/json',
         },
-        body: JSON.stringify({ expires_in_hours: 72 }),
       });
 
       if (!res.ok) {
@@ -260,7 +250,7 @@ export default function ExclusiveListingDetails() {
 
       const data = await res.json();
       await navigator.clipboard.writeText(data.share_link);
-      toast({ title: 'Share link generated!', description: `Link copied to clipboard. Valid for ${data.expires_in_hours} hours.` });
+      toast({ title: 'Share link generated!', description: 'Link copied to clipboard. Lifetime link.' });
     } catch (e: any) {
       toast({ title: 'Error', description: e?.message || 'Failed to generate share link', variant: 'destructive' });
     } finally {
@@ -271,18 +261,16 @@ export default function ExclusiveListingDetails() {
   if (loading) {
     return (
       <DashboardLayout>
-        <PageTransition>
-          <div className="space-y-6 p-6">
-            <PageHeader
-              badge="Exclusive"
-              title="Private Exclusive Listing"
-              description="Loading listing…"
-            />
-            <Card>
-              <CardContent className="py-12 text-center text-muted-foreground">Loading…</CardContent>
-            </Card>
-          </div>
-        </PageTransition>
+        <div className="space-y-6 p-6">
+          <PageHeader
+            badge="Exclusive"
+            title="Private Exclusive Listing"
+            description="Loading listing…"
+          />
+          <Card>
+            <CardContent className="py-12 text-center text-muted-foreground">Loading…</CardContent>
+          </Card>
+        </div>
       </DashboardLayout>
     );
   }
@@ -290,88 +278,35 @@ export default function ExclusiveListingDetails() {
   if (!shoot) {
     return (
       <DashboardLayout>
-        <PageTransition>
-          <div className="space-y-6 p-6">
-            <PageHeader
-              badge="Exclusive"
-              title="Private Exclusive Listing"
-              description="We couldn’t load this listing."
-            />
-            <Button variant="outline" onClick={() => navigate('/portal')}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Exclusive Listings
-            </Button>
-          </div>
-        </PageTransition>
+        <div className="space-y-6 p-6">
+          <PageHeader
+            badge="Exclusive"
+            title="Private Exclusive Listing"
+            description="We couldn’t load this listing."
+          />
+          <Button variant="outline" onClick={() => navigate('/portal')}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Exclusive Listings
+          </Button>
+        </div>
       </DashboardLayout>
     );
   }
 
   return (
     <DashboardLayout>
-      <PageTransition>
-        <div className="space-y-6 p-6">
-          <div className="flex items-start justify-between gap-4 flex-wrap">
-            <div className="space-y-2">
-              <div className="flex items-center gap-3">
-                <Button variant="outline" onClick={() => navigate('/portal')}>
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back
-                </Button>
-                <div>
-                  <div className="text-xs uppercase tracking-wider text-muted-foreground">Private Exclusive Listing</div>
-                  <div className="font-display text-2xl tracking-tight">Hidden from public discovery</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <Badge variant="outline" className="border-border/70 bg-background/50">
-                  <Lock className="h-3 w-3 mr-1" />
-                  Private Exclusive
-                </Badge>
-                <Badge variant={statusCfg.variant} className="capitalize">{statusCfg.label}</Badge>
-                {!isPaid && (
-                  <Badge variant="destructive" className="capitalize">Action Required</Badge>
-                )}
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 flex-wrap">
-              <Button onClick={handlePrimaryAction}>{primaryActionLabel}</Button>
-              <Button
-                variant="outline"
-                disabled={!canGoPublic}
-                title={goPublicHint}
-                onClick={handleGoPublic}
-              >
-                Go Public
+      <div className="space-y-6 p-6">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div className="space-y-2">
+            <div className="flex items-center gap-3">
+              <Button variant="outline" onClick={() => navigate('/portal')}>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back
               </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" aria-label="More actions">
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onSelect={() => navigate(`/shoots/${shoot.id}`)}>
-                    View Shoot Details
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => navigate('/portal')}>
-                    Back to Ledger
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    disabled={!isAdminOrSuperAdmin}
-                    onSelect={() => toast({ title: 'Not implemented', description: 'Download flow is not connected yet.' })}
-                  >
-                    Download Media
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onSelect={handleGenerateShareLink}
-                    disabled={isGeneratingShareLink}
-                  >
-                    {isGeneratingShareLink ? 'Generating Editor Share Link…' : 'Generate Editor Share Link'}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <div>
+                <div className="text-xs uppercase tracking-wider text-muted-foreground">Private Exclusive Listing</div>
+                <div className="font-display text-2xl tracking-tight">Hidden from public discovery</div>
+              </div>
             </div>
           </div>
 
@@ -387,7 +322,9 @@ export default function ExclusiveListingDetails() {
             </div>
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-12">
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-12">
             <Card className="lg:col-span-12 overflow-hidden border-border/70 bg-card/50 backdrop-blur-sm">
               <div className="relative h-[340px] w-full overflow-hidden bg-muted">
                 <img
@@ -469,8 +406,7 @@ export default function ExclusiveListingDetails() {
             </Card>
 
           </div>
-        </div>
-      </PageTransition>
+      </div>
     </DashboardLayout>
   );
 }

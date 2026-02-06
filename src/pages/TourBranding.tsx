@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { PageTransition } from '@/components/layout/PageTransition';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -192,34 +191,31 @@ export default function TourBranding() {
   if (!isAdmin) {
     return (
       <DashboardLayout>
-        <PageTransition>
-          <div className="p-6">
-            <Card>
-              <CardContent className="p-6 text-center">
-                <p className="text-muted-foreground">You don't have permission to access this page.</p>
-              </CardContent>
-            </Card>
-          </div>
-        </PageTransition>
+        <div className="p-6">
+          <Card>
+            <CardContent className="p-6 text-center">
+              <p className="text-muted-foreground">You don't have permission to access this page.</p>
+            </CardContent>
+          </Card>
+        </div>
       </DashboardLayout>
     );
   }
 
   return (
     <DashboardLayout>
-      <PageTransition>
-        <div className="space-y-6 p-6">
-          <PageHeader
-            badge="Settings"
-            title="Tour Branding Info"
-            description="Manage tour branding information for clients"
-            action={
-              <Button onClick={() => handleOpenDialog()} className="gap-2">
-                <Plus className="h-4 w-4" />
-                Create Branding
-              </Button>
-            }
-          />
+      <div className="space-y-6 p-6">
+        <PageHeader
+          badge="Settings"
+          title="Tour Branding Info"
+          description="Manage tour branding information for clients"
+          action={
+            <Button onClick={() => handleOpenDialog()} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Create Branding
+            </Button>
+          }
+        />
 
           {loading ? (
             <div className="text-center py-12">
@@ -420,8 +416,7 @@ export default function TourBranding() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
-        </div>
-      </PageTransition>
+      </div>
     </DashboardLayout>
   );
 }

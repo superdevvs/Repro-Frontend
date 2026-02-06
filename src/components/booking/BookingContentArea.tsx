@@ -93,7 +93,7 @@ export function BookingContentArea({
 }: BookingContentAreaProps) {
   
   return (
-    <Card className="p-4 md:p-6 border-[#1e2d4a] bg-gradient-to-b from-background to-background/90">
+    <Card className="p-4 md:p-6 border border-blue-100/70 shadow-none bg-background dark:border-slate-800/60 dark:bg-transparent">
       {step === 1 && clientPropertyFormData && (
         <ClientPropertyForm
           initialData={clientPropertyFormData.initialData}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/components/auth/AuthProvider';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { ReproAiIcon } from '@/components/icons/ReproAiIcon';
 import { AiMessageBubble } from '@/components/ai/AiMessageBubble';
 import { cn } from '@/lib/utils';
@@ -36,6 +37,7 @@ import {
   Loader2,
   Trash2,
   Archive,
+  ArrowLeft,
   X
 } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
@@ -59,9 +61,14 @@ type PageContext = {
 
 const ChatWithReproAi = () => {
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const location = useLocation();
   const navigate = useNavigate();
   const hasConsumedNavigation = useRef(false);
+  const contentScrollRef = useRef<HTMLDivElement | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const isSendingRef = useRef(false);
+  const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('home');
   const [tabMode, setTabMode] = useState<TabMode>('chat');
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -81,6 +88,19 @@ const ChatWithReproAi = () => {
   const [activeCardIndex, setActiveCardIndex] = useState(0);
   
   const userName = user?.name || user?.email?.split('@')[0] || 'there';
+
+  const visibleMessages = useMemo(() => {
+    return messages.filter((msg) => {
+      if (msg.sender === 'system') {
+        return false;
+      }
+      const content = (msg.content ?? '').trim();
+      const metadata = msg.metadata ?? {};
+      const hasActions = Boolean(metadata.action)
+        || (Array.isArray(metadata.actions) && metadata.actions.length > 0);
+      return content !== '' || hasActions;
+    });
+  }, [messages]);
 
   const mapRouteToPage = useCallback((route: string): string | undefined => {
     if (route.startsWith('/dashboard')) return 'dashboard';
@@ -137,12 +157,26 @@ const ChatWithReproAi = () => {
     }
   }, [tabMode, searchTerm]);
 
-  // Load session messages when sessionId changes
+  const resizeMessageInput = useCallback(() => {
+    const el = messageInputRef.current;
+    if (!el) return;
+    el.style.height = '0px';
+    const maxHeight = 72;
+    const nextHeight = Math.min(el.scrollHeight, maxHeight);
+    el.style.height = `${nextHeight}px`;
+    el.style.overflowY = el.scrollHeight > maxHeight ? 'auto' : 'hidden';
+  }, []);
+
   useEffect(() => {
-    if (sessionId && viewMode === 'chat') {
-      loadSessionMessages(sessionId);
+    resizeMessageInput();
+  }, [message, resizeMessageInput]);
+
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    if (messagesEndRef.current && visibleMessages.length > 0) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [sessionId, viewMode]);
+  }, [visibleMessages, isLoading]);
 
   const loadSessions = useCallback(async () => {
     setIsLoadingSessions(true);
@@ -168,7 +202,6 @@ const ChatWithReproAi = () => {
     try {
       const response = await fetchAiSessionMessages(id);
       setMessages(response.messages);
-      setSessionId(id);
       // Clear suggestions when loading a session (they'll come from next AI response)
       setCurrentSuggestions([]);
     } catch (error) {
@@ -187,15 +220,14 @@ const ChatWithReproAi = () => {
     if (s.includes('book') && (s.includes('shoot') || s.includes('new'))) return 'book_shoot';
     if (s.includes('manage') && s.includes('booking')) return 'manage_booking';
     if (s.includes('availability') || s.includes('available')) return 'availability';
-    if (s.includes('client') || s.includes('stats')) return 'client_stats';
-    if (s.includes('accounting') || s.includes('revenue') || s.includes('invoice')) return 'accounting';
     return undefined;
   }, []);
 
   const handleSendMessage = useCallback(async (msg?: string, context?: { mode?: 'booking' | 'listing' | 'insight' | 'general'; propertyId?: string; listingId?: string; intent?: string }) => {
     const messageToSend = msg || message.trim();
-    if (!messageToSend) return;
+    if (!messageToSend || isSendingRef.current) return;
 
+    isSendingRef.current = true;
     setIsLoading(true);
     const userMessage: AiMessage = {
       id: `temp-${Date.now()}`,
@@ -207,6 +239,11 @@ const ChatWithReproAi = () => {
     // Add user message optimistically
     setMessages(prev => [...prev, userMessage]);
     setMessage('');
+
+    if (viewMode === 'home') {
+      setViewMode('chat');
+      setTabMode('chat');
+    }
 
     // Auto-detect intent from message if not provided
     const intent = context?.intent || getIntentFromSuggestion(messageToSend);
@@ -287,6 +324,7 @@ const ChatWithReproAi = () => {
       setMessages(prev => prev.filter(m => m.id !== userMessage.id));
     } finally {
       setIsLoading(false);
+      isSendingRef.current = false;
     }
   }, [message, sessionId, viewMode, pageContext, user?.role, getIntentFromSuggestion]);
 
@@ -299,7 +337,13 @@ const ChatWithReproAi = () => {
     navigate(location.pathname, { replace: true, state: null });
   }, [handleSendMessage, location.pathname, location.state, navigate]);
 
-  const handleCardClick = (cardType: 'booking' | 'listing' | 'insight') => {
+  const handleCardClick = useCallback((cardType: 'booking' | 'listing' | 'insight') => {
+    if (isSendingRef.current || isLoading) return;
+    if (viewMode === 'home') {
+      setViewMode('chat');
+      setTabMode('chat');
+    }
+
     const prompts = {
       booking: { message: 'Book a new shoot', intent: 'book_shoot' },
       listing: { message: 'Rewrite the listing description for one of my properties in a more premium tone.', intent: undefined },
@@ -313,7 +357,7 @@ const ChatWithReproAi = () => {
       const input = document.querySelector('input[placeholder="Type your message..."]') as HTMLInputElement;
       input?.focus();
     }, 100);
-  };
+  }, [handleSendMessage, isLoading, viewMode]);
 
   const handleSessionClick = async (session: AiChatSession) => {
     setSessionId(session.id);
@@ -449,6 +493,19 @@ const ChatWithReproAi = () => {
     setCurrentSuggestions([]);
   }, []);
 
+  const handleNavigateBack = useCallback(() => {
+    try {
+      const lastRoute = sessionStorage.getItem('robbie_last_route');
+      if (lastRoute && lastRoute !== location.pathname) {
+        navigate(lastRoute);
+        return;
+      }
+    } catch (error) {
+      // ignore storage errors
+    }
+    navigate(-1);
+  }, [location.pathname, navigate]);
+
   const formatTimestamp = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -497,24 +554,24 @@ const ChatWithReproAi = () => {
     switch (pageContext.page) {
       case 'dashboard':
         return [
-          'Show issues needing attention',
-          "Today's shoots",
-          'Pending approvals',
-          'Late RAW uploads',
+          'Manage a booking',
+          'Book a new shoot',
+          'Check availability',
+          'Show upcoming shoots',
         ];
       case 'shoot_history':
         return [
-          'Show pending approvals',
-          'Review cancellations',
-          'Flagged shoots',
+          'Manage a booking',
+          'Reschedule a booking',
+          'Cancel a booking',
           'Search by address',
         ];
       case 'shoot_details':
         return [
           'Reschedule this shoot',
-          'Assign photographer',
-          'Mark RAWs uploaded',
-          'Check delivery status',
+          'Cancel this booking',
+          'Change services',
+          'Manage another booking',
         ];
       case 'book_shoot':
         return [
@@ -526,9 +583,9 @@ const ChatWithReproAi = () => {
       case 'availability':
         return [
           'Check availability',
-          'Block tomorrow morning',
-          'Set holiday',
-          'View photographer schedule',
+          'Today',
+          'Tomorrow',
+          'All photographers',
         ];
       case 'accounting':
         return [
@@ -571,123 +628,133 @@ const ChatWithReproAi = () => {
   }, [pageContext.page]);
 
   const suggestionFallbacks = pagePrompts ?? defaultPrompts;
+  const lastAssistantMessage = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const message = messages[i];
+      if (message.sender === 'assistant') {
+        return message;
+      }
+    }
+    return undefined;
+  }, [messages]);
+  const lastAssistantStep = (lastAssistantMessage?.metadata as any)?.step as string | undefined;
+  const shouldShowFallbackSuggestions = currentSuggestions.length === 0 && !lastAssistantStep;
 
   return (
-    <DashboardLayout className="!p-0">
+    <DashboardLayout className="!p-0 !pb-0 !overflow-hidden">
       {/* Single flex column - the ONLY container that cares about height */}
       <div className="flex flex-col h-[calc(100vh-64px)] md:h-[calc(100vh-64px)]">
-        {/* ── TOP AREA: scrollable content (tabs, hero, messages) ── */}
-        <div className={cn(
-          "flex-1 relative",
-          viewMode === 'home' ? "overflow-hidden" : "overflow-y-auto pb-32 md:pb-0"
-        )}>
-          {/* Tabs - Top Left - Sticky */}
-          <div className="sticky top-0 flex justify-start px-4 md:px-6 pt-3 md:pt-4 pb-2 z-40 bg-background dark:bg-slate-950 backdrop-blur-sm">
-            <Tabs value={tabMode} onValueChange={(v) => {
-              const newTab = v as TabMode;
-              const previousTab = tabMode;
-              setTabMode(newTab);
-              // Navigation logic:
-              // - If clicking "Ai Chat" tab while in chat view, go back to home (handled by onClick)
-              // - If clicking "Ai Chat" tab while in history tab, go to chat view (if there's a session)
-              if (newTab === 'chat') {
-                // Don't handle chat view -> home here, it's handled by onClick
-                if (previousTab === 'history' && viewMode !== 'chat') {
-                  // Coming from history tab, go to chat view if there's a session
-                  if (sessionId || messages.length > 0) {
-                    setViewMode('chat');
+        {/* ── TOP AREA: sticky controls without header bar ── */}
+        <div className="sticky top-0 z-40 h-0 pointer-events-none">
+          <div className="relative h-0">
+            <div className="absolute left-2 md:left-4 top-3 md:top-4 pointer-events-auto hidden md:block">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 px-2 text-muted-foreground hover:text-foreground"
+                onClick={handleNavigateBack}
+              >
+                <ArrowLeft className="h-4 w-4" />
+                <span className="ml-1">Back</span>
+              </Button>
+            </div>
+            <div className="absolute right-2 md:right-4 top-3 md:top-4 pointer-events-auto">
+              <Tabs value={tabMode} onValueChange={(v) => {
+                const newTab = v as TabMode;
+                const previousTab = tabMode;
+                setTabMode(newTab);
+                // Navigation logic:
+                // - If clicking "Ai Chat" tab while in chat view, go back to home (handled by onClick)
+                // - If clicking "Ai Chat" tab while in history tab, go to chat view (if there's a session)
+                if (newTab === 'chat') {
+                  // Don't handle chat view -> home here, it's handled by onClick
+                  if (previousTab === 'history' && viewMode !== 'chat') {
+                    // Coming from history tab, go to chat view if there's a session
+                    if (sessionId || messages.length > 0) {
+                      setViewMode('chat');
+                    }
                   }
                 }
-              }
-            }}>
-              <TabsList 
-                className={cn(
-                  "flex flex-row items-center p-1 md:p-[5px] gap-1 md:gap-4",
-                  "w-full max-w-[280px] md:w-auto md:min-w-[192px]",
-                  "h-10 md:h-[52px]",
-                  "rounded-lg md:rounded-[50px]",
-                  "bg-muted/30 dark:bg-slate-900/80",
-                  "border border-border/50 shadow-sm",
-                  "backdrop-blur-sm",
-                  "overflow-visible"
-                )}
-              >
-                <TabsTrigger 
-                  value="chat"
-                  onClick={(e) => {
-                    // Handle click explicitly for navigation
-                    if (viewMode === 'chat') {
-                      e.preventDefault();
-                      handleBackToHome();
-                    }
-                  }}
+              }}>
+                <TabsList 
                   className={cn(
-                    "h-full rounded-md md:rounded-[50px]",
-                    "text-xs md:text-sm font-semibold transition-all duration-300 ease-in-out",
-                    "data-[state=active]:bg-background data-[state=active]:shadow-md data-[state=active]:text-foreground",
-                    "data-[state=active]:border data-[state=active]:border-primary/20",
-                    "data-[state=inactive]:text-muted-foreground/80 data-[state=inactive]:hover:text-foreground",
-                    "data-[state=inactive]:hover:bg-muted/50",
-                    "group relative",
-                    // Only allow expansion in conversation screen
-                    viewMode === 'chat' ? "overflow-visible" : "overflow-hidden",
-                    // Padding: normal on main/history, expandable on chat
-                    viewMode === 'chat' ? "px-0 group-hover:pl-2 group-hover:pr-2" : "px-4 md:px-4",
-                    // Special styling when history tab is active
-                    tabMode === 'history' && '[&[data-state=inactive]]:bg-primary/10 [&[data-state=inactive]]:text-primary [&[data-state=inactive]]:font-semibold dark:[&[data-state=inactive]]:bg-primary/20 dark:[&[data-state=inactive]]:text-primary'
+                    "flex flex-row items-center p-1 md:p-[5px] gap-1 md:gap-4",
+                    "w-fit md:w-auto min-w-[160px]",
+                    "h-10 md:h-[52px]",
+                    "rounded-[50px]",
+                    "bg-muted/30 dark:bg-slate-900/80",
+                    "border border-border/50 shadow-sm",
+                    "backdrop-blur-sm",
+                    "overflow-visible"
                   )}
-                  style={viewMode === 'chat' ? {
-                    minWidth: 'fit-content',
-                    flex: '1 1 auto'
-                  } : {
-                    flex: '1 1 0%'
-                  }}
                 >
-                  <span className={cn(
-                    "flex items-center justify-center transition-all duration-200 whitespace-nowrap",
-                    viewMode === 'chat' ? "gap-0 group-hover:gap-1.5" : "gap-0"
-                  )}>
-                    {viewMode === 'chat' && (
-                      <svg 
-                        width="16" 
-                        height="16" 
-                        viewBox="0 0 16 16" 
-                        fill="none" 
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="opacity-0 group-hover:opacity-100 transition-all duration-200 w-0 group-hover:w-4 overflow-hidden flex-shrink-0"
-                      >
-                        <path 
-                          d="M10 12L6 8L10 4" 
-                          stroke="currentColor" 
-                          strokeWidth="2" 
-                          strokeLinecap="round" 
-                          strokeLinejoin="round"
-                        />
-                      </svg>
+                  <TabsTrigger 
+                    value="chat"
+                    onClick={(e) => {
+                      // Handle click explicitly for navigation
+                      if (viewMode === 'chat') {
+                        e.preventDefault();
+                        handleBackToHome();
+                      }
+                    }}
+                    className={cn(
+                      "h-full rounded-[50px]",
+                      "text-xs md:text-sm font-semibold transition-all duration-300 ease-in-out",
+                      "data-[state=active]:bg-background data-[state=active]:shadow-md data-[state=active]:text-foreground",
+                      "data-[state=active]:border data-[state=active]:border-primary/20",
+                      "data-[state=inactive]:text-muted-foreground/80 data-[state=inactive]:hover:text-foreground",
+                      "data-[state=inactive]:hover:bg-muted/50",
+                      "group relative",
+                      // Only allow expansion in conversation screen
+                      viewMode === 'chat' ? "overflow-visible" : "overflow-hidden",
+                      // Padding: consistent for all modes
+                      "px-4 md:px-4",
+                      // Special styling when history tab is active
+                      tabMode === 'history' && '[&[data-state=inactive]]:bg-primary/10 [&[data-state=inactive]]:text-primary [&[data-state=inactive]]:font-semibold dark:[&[data-state=inactive]]:bg-primary/20 dark:[&[data-state=inactive]]:text-primary'
                     )}
-                    <span className="text-center">Ai Chat</span>
-                  </span>
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="history"
-                  className={cn(
-                    "flex-1 h-full rounded-md md:rounded-[50px]",
-                    "text-xs md:text-sm font-semibold transition-all duration-300 ease-in-out",
-                    "data-[state=active]:bg-background data-[state=active]:shadow-md data-[state=active]:text-foreground",
-                    "data-[state=active]:border data-[state=active]:border-primary/20",
-                    "data-[state=inactive]:text-muted-foreground/80 data-[state=inactive]:hover:text-foreground",
-                    "data-[state=inactive]:hover:bg-muted/50",
-                    "px-4 md:px-4"
-                  )}
-                >
-                  History
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
+                    style={viewMode === 'chat' ? {
+                      minWidth: 'fit-content',
+                      flex: '1 1 auto'
+                    } : {
+                      flex: '1 1 0%'
+                    }}
+                  >
+                    <span className="flex items-center justify-center transition-all duration-200 whitespace-nowrap">
+                      <span className="text-center">Home</span>
+                    </span>
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="history"
+                    className={cn(
+                      "flex-1 h-full rounded-[50px]",
+                      "text-xs md:text-sm font-semibold transition-all duration-300 ease-in-out",
+                      "data-[state=active]:bg-background data-[state=active]:shadow-md data-[state=active]:text-foreground",
+                      "data-[state=active]:border data-[state=active]:border-primary/20",
+                      "data-[state=inactive]:text-muted-foreground/80 data-[state=inactive]:hover:text-foreground",
+                      "data-[state=inactive]:hover:bg-muted/50",
+                      "px-4 md:px-4"
+                    )}
+                  >
+                    History
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
           </div>
+        </div>
 
-          {/* Tabs Content */}
-          <Tabs value={tabMode} onValueChange={(v) => {
+        <div
+          ref={contentScrollRef}
+          className={cn(
+            "flex-1 relative flex flex-col",
+            viewMode === 'home' ? "overflow-hidden" : "overflow-y-auto pb-48 md:pb-0"
+          )}
+        >
+        {/* Tabs Content */}
+        <Tabs
+          value={tabMode}
+          className="flex-1 flex flex-col"
+          onValueChange={(v) => {
               const newTab = v as TabMode;
               const previousTab = tabMode;
               setTabMode(newTab);
@@ -706,16 +773,16 @@ const ChatWithReproAi = () => {
                 }
               }
             }}>
-            <TabsContent value="chat" className="mt-0">
-              <AnimatePresence mode="wait">
+            <TabsContent value="chat" className="mt-0 flex-1 flex flex-col">
+              <AnimatePresence mode="sync" initial={false}>
                 {viewMode === 'home' ? (
                   <motion.div
                     key="home"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.2 }}
-                    className="flex flex-col items-center justify-center space-y-4 md:space-y-6 px-4 pt-12 pb-4 md:py-6"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.08 }}
+                    className="flex flex-col items-center justify-center space-y-4 md:space-y-6 px-4 py-10 min-h-[calc(100vh-64px-200px)]"
                   >
                     {/* Welcome Section - Centered */}
                     <motion.div
@@ -724,7 +791,10 @@ const ChatWithReproAi = () => {
                       transition={{ delay: 0.1 }}
                       className="flex flex-col items-center justify-center space-y-2 md:space-y-4 text-center max-w-2xl px-2 mx-auto"
                     >
-                      <ReproAiIcon className="w-16 h-16 md:w-24 md:h-24 mx-auto" />
+                      <ReproAiIcon
+                        className={`w-16 h-16 md:w-24 md:h-24 mx-auto ${isMobile ? 'text-blue-600' : ''}`}
+                        useSolid={isMobile}
+                      />
                       <div className="w-full">
                         <h2 className="text-xl md:text-3xl font-semibold mb-1 md:mb-2 text-center">
                           Welcome, {userName}
@@ -822,24 +892,27 @@ const ChatWithReproAi = () => {
                 ) : (
                   <motion.div
                     key="chat"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.2 }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.08 }}
                     className="flex flex-col flex-1"
                   >
                     {/* Messages List */}
-                    <div className="px-4 space-y-4 pb-4 pt-4 md:pt-6 flex-1 flex flex-col">
-                    {messages.length === 0 ? (
-                      <div className="flex items-center justify-center flex-1 min-h-0">
-                        <div className="flex flex-col items-center justify-center text-center">
-                          <ReproAiIcon className="w-16 h-16 md:w-20 md:h-20 mb-4 opacity-50" />
+                    <div className="px-2 md:px-6 space-y-4 pb-4 pt-4 md:pt-6 flex-1 flex flex-col justify-end max-w-5xl mx-auto w-full">
+                    {visibleMessages.length === 0 ? (
+                      <div className="flex items-end justify-center flex-1 min-h-0">
+                        <div className="flex flex-col items-center justify-center text-center pb-6">
+                          <ReproAiIcon
+                            className={`w-16 h-16 md:w-20 md:h-20 mb-4 ${isMobile ? 'text-blue-500/70' : 'opacity-50'}`}
+                            useSolid={isMobile}
+                          />
                           <p className="text-muted-foreground text-sm md:text-base">Start a conversation with Robbie</p>
                         </div>
                       </div>
                     ) : (
                       <AnimatePresence>
-                        {messages.map((msg, index) => (
+                        {visibleMessages.map((msg, index) => (
                           <motion.div
                             key={msg.id}
                             initial={{ opacity: 0, y: 10 }}
@@ -857,12 +930,19 @@ const ChatWithReproAi = () => {
                         animate={{ opacity: 1 }}
                         className="flex justify-start"
                       >
-                        <div className="bg-secondary rounded-lg px-4 py-2 flex items-center gap-2">
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          <span className="text-sm text-muted-foreground">Thinking...</span>
+                        <div className="flex items-end gap-3">
+                          <div className="flex-shrink-0 flex h-8 w-8 md:h-9 md:w-9 items-center justify-center">
+                            <ReproAiIcon className="h-8 w-8 md:h-9 md:w-9" />
+                          </div>
+                          <div className="rounded-[999px] px-4 py-2 flex items-center gap-2 bg-blue-100 text-slate-900 dark:bg-blue-500/20 dark:text-blue-100">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span className="text-sm">Thinking...</span>
+                          </div>
                         </div>
                       </motion.div>
                     )}
+                    {/* Scroll anchor */}
+                    <div ref={messagesEndRef} />
                     </div>
                   </motion.div>
                 )}
@@ -870,7 +950,7 @@ const ChatWithReproAi = () => {
             </TabsContent>
 
             {/* History Tab Content */}
-            <TabsContent value="history" className="mt-0">
+            <TabsContent value="history" className="mt-0 flex-1 flex flex-col">
               <div className="flex flex-col max-w-5xl mx-auto w-full px-4 py-4">
                 {/* Header Section with Stats */}
               <div className="mb-8">
@@ -1082,13 +1162,13 @@ const ChatWithReproAi = () => {
 
         {/* ── BOTTOM AREA: fixed chat bar ── */}
         {tabMode === 'chat' && (
-          <div className="border-t bg-background dark:bg-slate-950 shadow-lg fixed bottom-0 md:bottom-auto left-0 right-0 md:relative pb-[max(4rem,calc(env(safe-area-inset-bottom)+4rem))] md:pb-5 z-50">
+          <div className="border-t border-border/10 bg-background fixed bottom-16 md:bottom-auto left-0 right-0 md:relative pb-[max(0.5rem,calc(env(safe-area-inset-bottom)+0.5rem))] md:pb-2 z-50">
             <div className={cn(
-              "max-w-4xl mx-auto px-4 pb-3 md:pb-5",
+              "max-w-5xl mx-auto px-4 pb-0",
               viewMode === 'chat' ? "pt-4 md:pt-6" : "pt-3"
             )}>
               {/* AI Suggestions - Show ONLY in conversation screen */}
-              {viewMode === 'chat' && (
+              {viewMode === 'chat' && (currentSuggestions.length > 0 || shouldShowFallbackSuggestions) && (
                 <div className="flex items-center gap-1.5 md:gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] mb-3 md:mb-4">
                   {(currentSuggestions.length > 0 ? currentSuggestions : suggestionFallbacks.slice(0, 4)).map((suggestion, index) => {
                     const intent = getIntentFromSuggestion(suggestion);
@@ -1118,12 +1198,14 @@ const ChatWithReproAi = () => {
                 "flex items-center gap-1.5 md:gap-2"
               )}>
                 <div className="flex-1 flex items-center gap-1 md:gap-2 border rounded-lg px-2 md:px-3 py-1.5 md:py-2 bg-background">
-                  <Input
-                    type="text"
+                  <textarea
+                    ref={messageInputRef}
+                    rows={1}
                     placeholder="Type your message..."
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
-                    className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0 flex-1 text-sm md:text-base"
+                    onInput={resizeMessageInput}
+                    className="flex-1 bg-transparent border-0 p-0 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 text-sm md:text-base leading-6 resize-none min-h-[40px] max-h-[72px]"
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey && !isLoading) {
                         e.preventDefault();
@@ -1163,7 +1245,7 @@ const ChatWithReproAi = () => {
               </div>
 
               {/* Disclaimer */}
-              <p className="text-[10px] md:text-xs text-center text-muted-foreground hidden md:block">
+              <p className="mt-2 text-[10px] md:text-xs text-center text-muted-foreground hidden md:block">
                 Robbie may make errors. Check important information.
               </p>
             </div>

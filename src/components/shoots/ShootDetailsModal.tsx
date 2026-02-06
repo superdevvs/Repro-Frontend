@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Dialog,
@@ -10,6 +10,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { X, ExternalLink, CalendarIcon, MapPinIcon, ClockIcon, Send, CheckCircle, DollarSign as DollarSignIcon, ChevronUp, ChevronDown, Edit, Save, XCircle, PauseCircle, PlayCircle, Upload, Download, UserIcon, Check, FileText, Loader2, Share2, Link2, Printer } from "lucide-react";
@@ -36,6 +37,7 @@ import { ShootDetailsSettingsTab } from './tabs/ShootDetailsSettingsTab';
 import { ShootDetailsTourTab } from './tabs/ShootDetailsTourTab';
 import { ShootDetailsQuickActions } from './tabs/ShootDetailsQuickActions';
 import { SquarePaymentDialog } from '@/components/payments/SquarePaymentDialog';
+import { MarkAsPaidDialog, MarkAsPaidPayload } from '@/components/payments/MarkAsPaidDialog';
 import { ShootApprovalModal } from './ShootApprovalModal';
 import { ShootDeclineModal } from './ShootDeclineModal';
 import { InvoiceViewDialog } from '@/components/invoices/InvoiceViewDialog';
@@ -81,6 +83,7 @@ export function ShootDetailsModal({
   const [providerVersion, setProviderVersion] = useState(0);
   const [isMediaExpanded, setIsMediaExpanded] = useState(false);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [isMarkPaidDialogOpen, setIsMarkPaidDialogOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [isOnHoldDialogOpen, setIsOnHoldDialogOpen] = useState(false);
   const [onHoldReason, setOnHoldReason] = useState('');
@@ -103,6 +106,12 @@ export function ShootDetailsModal({
   const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceData | null>(null);
   const [isLoadingInvoice, setIsLoadingInvoice] = useState(false);
+  const [isSavingChanges, setIsSavingChanges] = useState(false);
+  const saveChangesInFlight = useRef(false);
+  const [isSaveConfirmOpen, setIsSaveConfirmOpen] = useState(false);
+  const [pendingUpdates, setPendingUpdates] = useState<Partial<ShootData> | null>(null);
+  const [notifyClientOnSave, setNotifyClientOnSave] = useState(true);
+  const [notifyPhotographerOnSave, setNotifyPhotographerOnSave] = useState(true);
   
   // Use provided role or fallback to auth role
   const currentUserRole = currentRole || authRole;
@@ -119,7 +128,8 @@ export function ShootDetailsModal({
   }, [shoot]);
   
   // Role checks
-  const isAdmin = ['admin', 'superadmin'].includes(currentUserRole);
+  const isEditingManager = currentUserRole === 'editing_manager';
+  const isAdmin = ['admin', 'superadmin'].includes(currentUserRole) || isEditingManager;
   const isRep = currentUserRole === 'rep' || currentUserRole === 'representative';
   const isAdminOrRep = isAdmin || isRep;
   const isPhotographer = currentUserRole === 'photographer';
@@ -275,6 +285,10 @@ export function ShootDetailsModal({
     if (!isOpen) return;
     setActiveTab(initialTab);
   }, [isOpen, initialTab]);
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value as typeof activeTab);
+  };
 
   useEffect(() => {
     if (!isOpen || !openDownloadDialog) return;
@@ -494,6 +508,46 @@ export function ShootDetailsModal({
     setIsPaymentDialogOpen(true);
   };
 
+  const handleMarkPaidConfirm = async (payload: MarkAsPaidPayload) => {
+    if (!shoot) return;
+    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+    const outstandingAmount = (shoot.payment?.totalQuote ?? 0) - (shoot.payment?.totalPaid ?? 0);
+    const amount = outstandingAmount > 0 ? outstandingAmount : (shoot.payment?.totalQuote ?? 0);
+
+    const body: Record<string, any> = {
+      payment_type: payload.paymentMethod,
+      amount,
+    };
+
+    if (payload.paymentDetails) {
+      body.payment_details = payload.paymentDetails;
+    }
+    if (payload.paymentDate) {
+      body.payment_date = payload.paymentDate;
+    }
+
+    const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/mark-paid`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({ message: 'Failed to mark as paid' }));
+      throw new Error(errorData.message || errorData.error || 'Failed to mark as paid');
+    }
+
+    refreshShoot();
+    toast({
+      title: 'Success',
+      description: 'Shoot marked as paid successfully.',
+    });
+  };
+
   const handlePaymentSuccess = (payment: any) => {
     toast({
       title: 'Payment Successful',
@@ -539,7 +593,9 @@ export function ShootDetailsModal({
         amount: invoiceData.total || invoiceData.amount || 0,
         status: invoiceData.status === 'paid' ? 'paid' : invoiceData.status === 'sent' ? 'pending' : 'pending',
         services: invoiceData.items?.map((item: any) => item.description) || invoiceData.services || [],
-        paymentMethod: invoiceData.paymentMethod || 'N/A',
+        paymentMethod: invoiceData.payment_method || invoiceData.paymentMethod || 'N/A',
+        paymentDetails: invoiceData.payment_details || invoiceData.paymentDetails || undefined,
+        paidAt: invoiceData.paid_at || invoiceData.paidAt || undefined,
         // Include full items array for InvoiceViewDialog table rendering
         items: invoiceData.items || [],
         subtotal: invoiceData.subtotal || invoiceData.total || invoiceData.amount || 0,
@@ -622,6 +678,10 @@ export function ShootDetailsModal({
     'representative',
   ].includes(currentUserRole || '');
   const showMmmPunchoutButtons = isDelivered && (canStartMmmPunchout || mmmRedirectUrl);
+  const canNotifyClient = Boolean(shoot?.client?.email);
+  const canNotifyPhotographer = Boolean(
+    shoot?.photographer?.email && (!shoot?.client?.id || shoot?.photographer?.id !== shoot?.client?.id)
+  );
 
   // Check if shoot is scheduled or on hold - make it more lenient
   const isScheduledOrOnHold = shoot && (
@@ -652,10 +712,16 @@ export function ShootDetailsModal({
     normalizedStatus === 'uploaded'
   );
 
-  // Check if user can put shoot on hold
-  // For photographers: only allow until status reaches 'editing' (i.e., scheduled, booked, uploaded)
-  const photographerCanPutOnHold = isPhotographer && shoot?.photographer?.id === user?.id && canPutOnHold && normalizedStatus !== 'editing';
-  const canUserPutOnHold = (isAdminOrRep && canPutOnHold) || photographerCanPutOnHold;
+  const isHoldRequested = Boolean(shoot?.holdRequestedAt);
+  const canDirectHold = isAdminOrRep && canPutOnHold && !isHoldRequested;
+  const canRequestHold = isClient && canPutOnHold && !isHoldRequested;
+  const canUserPutOnHold = canDirectHold || canRequestHold;
+  const holdActionLabel = isClient ? 'Request hold' : 'Mark on hold';
+  const holdDialogTitle = isClient ? 'Request hold' : 'Mark on hold';
+  const holdDialogDescription = isClient
+    ? 'Tell us why you need to put this shoot on hold. Your request will be reviewed by an admin.'
+    : 'Please provide a reason for putting this shoot on hold. This will help track why the shoot was paused.';
+  const holdSubmitLabel = isClient ? 'Submit request' : 'Mark on hold';
 
   // Check if user can resume from hold (admin, rep, or assigned photographer)
   const canResumeFromHold = isOnHold && (isAdminOrRep || (isPhotographer && shoot?.photographer?.id === user?.id));
@@ -702,7 +768,10 @@ export function ShootDetailsModal({
   };
 
   // Handle save changes
-  const handleSaveChanges = async (updates: Partial<ShootData>) => {
+  const handleSaveChanges = async (
+    updates: Partial<ShootData>,
+    notifyOptions?: { notifyClient?: boolean; notifyPhotographer?: boolean },
+  ) => {
     if (!shoot) {
       console.error('💾 Cannot save: shoot is null');
       return;
@@ -717,19 +786,26 @@ export function ShootDetailsModal({
       });
       return;
     }
+
+    if (saveChangesInFlight.current) {
+      return;
+    }
+
+    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+    if (!token) {
+      console.error('💾 Cannot save: No authentication token');
+      toast({
+        title: 'Error',
+        description: 'Authentication required. Please refresh the page.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    saveChangesInFlight.current = true;
+    setIsSavingChanges(true);
     
     try {
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      if (!token) {
-        console.error('💾 Cannot save: No authentication token');
-        toast({
-          title: 'Error',
-          description: 'Authentication required. Please refresh the page.',
-          variant: 'destructive',
-        });
-        return;
-      }
-      
       const payload: Record<string, unknown> = {};
       
       // Map updates to API format (support snake_case from API)
@@ -750,6 +826,13 @@ export function ShootDetailsModal({
       if (updates.location?.city) payload.city = updates.location.city;
       if (updates.location?.state) payload.state = updates.location.state;
       if (updates.location?.zip) payload.zip = updates.location.zip;
+
+      if (notifyOptions?.notifyClient !== undefined) {
+        payload.notify_client = notifyOptions.notifyClient;
+      }
+      if (notifyOptions?.notifyPhotographer !== undefined) {
+        payload.notify_photographer = notifyOptions.notifyPhotographer;
+      }
       
       // Client and photographer - ensure IDs are numbers and valid
       if (updates.client?.id !== undefined && updates.client.id !== null) {
@@ -1226,7 +1309,33 @@ export function ShootDetailsModal({
         description: userMessage,
         variant: 'destructive',
       });
+    } finally {
+      saveChangesInFlight.current = false;
+      setIsSavingChanges(false);
+      setPendingUpdates(null);
     }
+  };
+
+  const handleSaveRequest = (updates: Partial<ShootData>) => {
+    if (!shoot || isSavingChanges || isSaveConfirmOpen) return;
+
+    setPendingUpdates(updates);
+    setNotifyClientOnSave(canNotifyClient);
+    setNotifyPhotographerOnSave(canNotifyPhotographer);
+    setIsSaveConfirmOpen(true);
+  };
+
+  const handleConfirmSave = () => {
+    if (!pendingUpdates) {
+      setIsSaveConfirmOpen(false);
+      return;
+    }
+
+    setIsSaveConfirmOpen(false);
+    handleSaveChanges(pendingUpdates, {
+      notifyClient: notifyClientOnSave,
+      notifyPhotographer: notifyPhotographerOnSave,
+    });
   };
 
   // Handle cancel edit
@@ -1255,16 +1364,28 @@ export function ShootDetailsModal({
       return;
     }
 
+    const isHoldRequest = isClient;
+    if (isHoldRequest && shoot.holdRequestedAt) {
+      toast({
+        title: 'Hold already requested',
+        description: 'Your hold request is already pending approval.',
+      });
+      return;
+    }
+
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       const payload: Record<string, unknown> = { reason: onHoldReason.trim() };
-      
-      // Add cancellation fee if within window and user selected it
-      if (isWithinCancellationFeeWindow && shouldAddCancellationFee) {
+      const shouldApplyCancellationFee =
+        !isHoldRequest && isWithinCancellationFeeWindow && shouldAddCancellationFee;
+
+      // Add cancellation fee only for direct holds (not client requests)
+      if (shouldApplyCancellationFee) {
         payload.cancellation_fee = 60;
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/put-on-hold`, {
+      const endpoint = isHoldRequest ? 'request-hold' : 'put-on-hold';
+      const response = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/${endpoint}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -1276,7 +1397,9 @@ export function ShootDetailsModal({
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || 'Failed to put shoot on hold');
+        throw new Error(
+          error.message || (isHoldRequest ? 'Failed to request hold' : 'Failed to put shoot on hold')
+        );
       }
 
       const result = await response.json();
@@ -1288,10 +1411,12 @@ export function ShootDetailsModal({
       }
 
       toast({
-        title: 'Shoot put on hold',
-        description: shouldAddCancellationFee 
-          ? 'The shoot has been marked as on hold. $60 cancellation fee has been added.'
-          : 'The shoot has been successfully marked as on hold.',
+        title: isHoldRequest ? 'Hold request submitted' : 'Shoot put on hold',
+        description: isHoldRequest
+          ? 'Your hold request is pending admin approval.'
+          : shouldApplyCancellationFee
+            ? 'The shoot has been marked on hold. $60 cancellation fee has been added.'
+            : 'The shoot has been successfully marked on hold.',
       });
 
       setIsOnHoldDialogOpen(false);
@@ -1305,10 +1430,14 @@ export function ShootDetailsModal({
         onShootUpdate();
       }
     } catch (error) {
-      console.error('Error putting shoot on hold:', error);
+      console.error('Error submitting hold request:', error);
       toast({
         title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to put shoot on hold. Please try again.',
+        description: error instanceof Error
+          ? error.message
+          : isHoldRequest
+            ? 'Failed to request hold. Please try again.'
+            : 'Failed to put shoot on hold. Please try again.',
         variant: 'destructive',
       });
     }
@@ -1712,7 +1841,6 @@ export function ShootDetailsModal({
         headers,
         body: JSON.stringify({
           file_ids: selectedFileIds,
-          expires_in_hours: 72,
         }),
       });
 
@@ -1728,7 +1856,7 @@ export function ShootDetailsModal({
       
       toast({
         title: 'Share link generated!',
-        description: `Link copied to clipboard. Valid for ${data.expires_in_hours} hours.`,
+        description: 'Link copied to clipboard. Lifetime link.',
       });
       
       // Refresh shoot to show new link in Media Links section
@@ -1891,7 +2019,7 @@ export function ShootDetailsModal({
                   onClick={handleMarkOnHoldClick}
                 >
                   <PauseCircle className="h-3.5 w-3.5 mr-1.5" />
-                  <span>Mark as on hold</span>
+                  <span>{holdActionLabel}</span>
                 </Button>
               )}
               {canResumeFromHold && (
@@ -1974,17 +2102,26 @@ export function ShootDetailsModal({
                   size="sm"
                   className="h-8 text-xs px-3"
                   onClick={() => editActions?.save()}
-                  disabled={!editActions}
+                  disabled={!editActions || isSavingChanges}
                 >
-                  <Save className="h-3.5 w-3.5 mr-1.5" />
-                  Save Changes
+                  {isSavingChanges ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-3.5 w-3.5 mr-1.5" />
+                      Save Changes
+                    </>
+                  )}
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
                   className="h-8 text-xs px-3"
                   onClick={() => editActions?.cancel()}
-                  disabled={!editActions}
+                  disabled={!editActions || isSavingChanges}
                 >
                   Cancel
                 </Button>
@@ -2034,7 +2171,7 @@ export function ShootDetailsModal({
                     <span>Edit</span>
                   </Button>
                 )}
-                {/* Mark as on hold - moved to header */}
+                {/* Mark on hold - moved to header */}
                 {!isEditMode && !isRequestedStatus && canUserPutOnHold && (
                   <Button
                     variant="outline"
@@ -2043,7 +2180,7 @@ export function ShootDetailsModal({
                     onClick={handleMarkOnHoldClick}
                   >
                     <PauseCircle className="h-3 w-3 mr-1" />
-                    <span>Mark as on hold</span>
+                    <span>{holdActionLabel}</span>
                   </Button>
                 )}
                 {canCancelShoot && (
@@ -2305,15 +2442,26 @@ export function ShootDetailsModal({
                     size="sm"
                     className="h-8 text-xs px-3"
                     onClick={() => editActions?.save()}
+                    disabled={!editActions || isSavingChanges}
                   >
-                    <Save className="h-3.5 w-3.5 mr-1.5" />
-                    Save Changes
+                    {isSavingChanges ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-3.5 w-3.5 mr-1.5" />
+                        Save Changes
+                      </>
+                    )}
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
                     className="h-8 text-xs px-3"
                     onClick={() => editActions?.cancel()}
+                    disabled={!editActions || isSavingChanges}
                   >
                     Cancel
                   </Button>
@@ -2329,7 +2477,7 @@ export function ShootDetailsModal({
           <div className={`relative w-full sm:w-[37.5%] border-r sm:border-r border-b sm:border-b-0 flex flex-col ${isMediaExpanded ? 'min-h-[35vh]' : 'flex-1'} sm:min-h-0 overflow-hidden bg-muted/30 flex-1 sm:flex-none`}>
             {/* Tab Navigation */}
             <div className="px-2 sm:px-4 py-1.5 sm:py-2 border-b bg-background flex-shrink-0 overflow-x-auto">
-              <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <Tabs value={activeTab} onValueChange={handleTabChange}>
                 <TabsList className="w-full justify-start h-7 sm:h-8 bg-transparent p-0 min-w-max sm:min-w-0">
                   {visibleTabs.filter(tab => tab.id !== 'media').map(tab => (
                     <TabsTrigger 
@@ -2346,7 +2494,7 @@ export function ShootDetailsModal({
 
             {/* Main Content Area - Independent scrolling */}
             <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-2 sm:px-4 py-2 sm:py-2.5">
-              <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <Tabs value={activeTab} onValueChange={handleTabChange}>
                 <TabsContent value="overview" className="mt-0">
                   <ShootDetailsOverviewTab
                     shoot={shoot}
@@ -2359,7 +2507,7 @@ export function ShootDetailsModal({
                     onShootUpdate={refreshShoot}
                     weather={weather || null}
                     isEditMode={isEditMode}
-                    onSave={handleSaveChanges}
+                    onSave={handleSaveRequest}
                     onCancel={handleCancelEdit}
                     onRegisterEditActions={(actions) => setEditActions(actions)}
                   />
@@ -2422,40 +2570,7 @@ export function ShootDetailsModal({
                       variant="default"
                       size="sm"
                       className="flex-1 h-[36px] text-xs px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:hover:bg-emerald-900 dark:text-emerald-300 dark:border-emerald-800"
-                      onClick={async () => {
-                        try {
-                          const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-                          const outstandingAmount = (shoot.payment?.totalQuote ?? 0) - (shoot.payment?.totalPaid ?? 0);
-                          const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/mark-paid`, {
-                            method: 'POST',
-                            headers: {
-                              'Authorization': `Bearer ${token}`,
-                              'Content-Type': 'application/json',
-                              'Accept': 'application/json',
-                            },
-                            body: JSON.stringify({
-                              payment_type: 'manual',
-                              amount: outstandingAmount > 0 ? outstandingAmount : shoot.payment?.totalQuote ?? 0,
-                            }),
-                          });
-                          if (!res.ok) {
-                            const errorData = await res.json().catch(() => ({ message: 'Failed to mark as paid' }));
-                            throw new Error(errorData.message || errorData.error || 'Failed to mark as paid');
-                          }
-                          refreshShoot();
-                          toast({
-                            title: 'Success',
-                            description: 'Shoot marked as paid successfully.',
-                          });
-                        } catch (error: any) {
-                          console.error('Mark as paid error:', error);
-                          toast({
-                            title: 'Error',
-                            description: error?.message || 'Failed to mark as paid',
-                            variant: 'destructive',
-                          });
-                        }
-                      }}
+                      onClick={() => setIsMarkPaidDialogOpen(true)}
                     >
                       <DollarSignIcon className="h-3.5 w-3.5 mr-1.5" />
                       <span>Mark as Paid</span>
@@ -2613,40 +2728,7 @@ export function ShootDetailsModal({
                   variant="default"
                   size="sm"
                   className="flex-1 h-9 text-xs px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:hover:bg-emerald-900 dark:text-emerald-300 dark:border-emerald-800"
-                  onClick={async () => {
-                    try {
-                      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-                      const outstandingAmount = (shoot.payment?.totalQuote ?? 0) - (shoot.payment?.totalPaid ?? 0);
-                      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/mark-paid`, {
-                        method: 'POST',
-                        headers: {
-                          'Authorization': `Bearer ${token}`,
-                          'Content-Type': 'application/json',
-                          'Accept': 'application/json',
-                        },
-                        body: JSON.stringify({
-                          payment_type: 'manual',
-                          amount: outstandingAmount > 0 ? outstandingAmount : shoot.payment?.totalQuote ?? 0,
-                        }),
-                      });
-                      if (!res.ok) {
-                        const errorData = await res.json().catch(() => ({ message: 'Failed to mark as paid' }));
-                        throw new Error(errorData.message || errorData.error || 'Failed to mark as paid');
-                      }
-                      refreshShoot();
-                      toast({
-                        title: 'Success',
-                        description: 'Shoot marked as paid successfully.',
-                      });
-                    } catch (error: any) {
-                      console.error('Mark as paid error:', error);
-                      toast({
-                        title: 'Error',
-                        description: error?.message || 'Failed to mark as paid',
-                        variant: 'destructive',
-                      });
-                    }
-                  }}
+                  onClick={() => setIsMarkPaidDialogOpen(true)}
                 >
                   <DollarSignIcon className="h-3.5 w-3.5 mr-1.5" />
                   <span>Mark as Paid</span>
@@ -2702,6 +2784,83 @@ export function ShootDetailsModal({
         />
       )}
 
+      <MarkAsPaidDialog
+        isOpen={isMarkPaidDialogOpen}
+        onClose={() => setIsMarkPaidDialogOpen(false)}
+        onConfirm={handleMarkPaidConfirm}
+        title="Mark Shoot as Paid"
+        description="Select the payment method and provide any required details."
+        confirmLabel="Mark as Paid"
+      />
+
+      <Dialog
+        open={isSaveConfirmOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setIsSaveConfirmOpen(false);
+            setPendingUpdates(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle>Confirm update</DialogTitle>
+            <DialogDescription>
+              Choose who should receive update notifications for this shoot.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-4">
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
+              <div>
+                <p className="text-sm font-medium">Client</p>
+                <p className="text-xs text-muted-foreground">
+                  {shoot?.client?.email || 'No client email on file'}
+                </p>
+              </div>
+              <Checkbox
+                checked={notifyClientOnSave}
+                onCheckedChange={(value) => setNotifyClientOnSave(Boolean(value))}
+                disabled={!canNotifyClient}
+              />
+            </div>
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
+              <div>
+                <p className="text-sm font-medium">Photographer</p>
+                <p className="text-xs text-muted-foreground">
+                  {shoot?.photographer?.email || 'No photographer email on file'}
+                </p>
+              </div>
+              <Checkbox
+                checked={notifyPhotographerOnSave}
+                onCheckedChange={(value) => setNotifyPhotographerOnSave(Boolean(value))}
+                disabled={!canNotifyPhotographer}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsSaveConfirmOpen(false);
+                setPendingUpdates(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmSave} disabled={isSavingChanges}>
+              {isSavingChanges ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save changes'
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Cancellation Fee Dialog */}
       <Dialog open={isCancellationFeeDialogOpen} onOpenChange={setIsCancellationFeeDialogOpen}>
         <DialogContent className="sm:max-w-[500px]">
@@ -2754,14 +2913,12 @@ export function ShootDetailsModal({
         </DialogContent>
       </Dialog>
 
-      {/* Mark as On Hold Dialog */}
+      {/* Mark on hold / Request hold Dialog */}
       <Dialog open={isOnHoldDialogOpen} onOpenChange={setIsOnHoldDialogOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>Mark Shoot as On Hold</DialogTitle>
-            <DialogDescription>
-              Please provide a reason for putting this shoot on hold. This will help track why the shoot was paused.
-            </DialogDescription>
+            <DialogTitle>{holdDialogTitle}</DialogTitle>
+            <DialogDescription>{holdDialogDescription}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -2792,7 +2949,7 @@ export function ShootDetailsModal({
               className="bg-amber-600 hover:bg-amber-700"
             >
               <PauseCircle className="h-4 w-4 mr-2" />
-              Mark as On Hold
+              {holdSubmitLabel}
             </Button>
           </div>
         </DialogContent>

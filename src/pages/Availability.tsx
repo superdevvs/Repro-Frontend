@@ -220,6 +220,7 @@ export default function Availability() {
   const randomAvailabilityCacheRef = React.useRef<Record<string, BackendSlot[]>>({});
   const bookedSlotsCacheRef = React.useRef<Map<string, BackendSlot[]>>(new Map());
   const bulkAvailabilityCacheRef = React.useRef<{ key: string; data: BackendSlot[]; timestamp: number } | null>(null);
+  const listAvailabilityCacheRef = React.useRef<{ key: string; data: BackendSlot[]; timestamp: number } | null>(null);
   const [selectedPhotographer, setSelectedPhotographer] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"day" | "week" | "month">("week");
@@ -258,6 +259,12 @@ export default function Availability() {
   const dayViewScrollTimeout = React.useRef<NodeJS.Timeout | null>(null);
   const dayViewLastChangeTime = React.useRef<number>(0);
   const dayViewIsProgrammaticScroll = React.useRef<boolean>(false);
+  const monthNavScrollRef = React.useRef<HTMLDivElement>(null);
+  const dateNavScrollRef = React.useRef<HTMLDivElement>(null);
+  const monthNavHasAutoScrolled = React.useRef(false);
+  const dateNavHasAutoScrolled = React.useRef(false);
+  const lastMonthNavScrollKey = React.useRef<string | null>(null);
+  const lastDateNavScrollKey = React.useRef<string | null>(null);
 
   const { toast } = useToast();
   const { user, role } = useAuth();
@@ -632,6 +639,85 @@ export default function Availability() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPhotographer, date, currentMonth, viewMode, loadingPhotographers]); // loadingPhotographers added to trigger after photographers load
 
+  // Keep list availability updated for admin view when a single photographer is selected
+  useEffect(() => {
+    if (!isAdmin || loadingPhotographers || selectedPhotographer === "all") return;
+    if (!date || photographers.length === 0) return;
+
+    const anchorDate = date || new Date();
+    const weekStart = startOfWeek(anchorDate);
+    const weekEnd = addDays(weekStart, 6);
+    const monthStart = startOfMonth(anchorDate);
+    const monthEnd = endOfMonth(anchorDate);
+
+    const fromDate = viewMode === "day"
+      ? format(anchorDate, "yyyy-MM-dd")
+      : viewMode === "week"
+        ? format(weekStart, "yyyy-MM-dd")
+        : format(monthStart, "yyyy-MM-dd");
+
+    const toDate = viewMode === "day"
+      ? format(anchorDate, "yyyy-MM-dd")
+      : viewMode === "week"
+        ? format(weekEnd, "yyyy-MM-dd")
+        : format(monthEnd, "yyyy-MM-dd");
+
+    const cacheKey = `list_${fromDate}_${toDate}`;
+    const CACHE_TTL = 60 * 1000;
+    const cached = listAvailabilityCacheRef.current;
+    if (cached && cached.key === cacheKey && (Date.now() - cached.timestamp) < CACHE_TTL) {
+      const map: Record<string, BackendSlot[]> = {};
+      cached.data.forEach((slot) => {
+        const pid = String(slot.photographer_id);
+        if (!map[pid]) map[pid] = [];
+        map[pid].push(slot);
+      });
+      setPhotographerAvailabilityMap(map);
+      return;
+    }
+
+    let cancelled = false;
+    const loadListAvailability = async () => {
+      try {
+        const photographerIds = photographers.map((p) => Number(p.id));
+        const response = await fetch(API_ROUTES.photographerAvailability.bulkIndex, {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({
+            photographer_ids: photographerIds,
+            from_date: fromDate,
+            to_date: toDate,
+          }),
+        });
+
+        if (!response.ok) return;
+
+        const bulkJson = await response.json();
+        const groupedData = bulkJson?.data || {};
+        const map: Record<string, BackendSlot[]> = {};
+        const allSlots: BackendSlot[] = [];
+
+        for (const [photographerId, slots] of Object.entries(groupedData)) {
+          const mappedSlots = mapBackendSlots(slots as any[], photographerId);
+          map[String(photographerId)] = mappedSlots;
+          allSlots.push(...mappedSlots);
+        }
+
+        if (!cancelled) {
+          listAvailabilityCacheRef.current = { key: cacheKey, data: allSlots, timestamp: Date.now() };
+          setPhotographerAvailabilityMap(map);
+        }
+      } catch {
+        // ignore list availability errors
+      }
+    };
+
+    loadListAvailability();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdmin, selectedPhotographer, date, viewMode, photographers, loadingPhotographers]);
+
   const dateStr = useMemo(() => date ? format(date, 'yyyy-MM-dd') : undefined, [date]);
   const dayOfWeek = useMemo(() => date ? date.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase() : undefined, [date]);
   // Get time in 24-hour format (HH:MM) for calculations
@@ -658,6 +744,40 @@ export default function Availability() {
     // Use the user preference formatter
     return formatTimePreference(t);
   };
+
+  const [photographerWeeklySchedules, setPhotographerWeeklySchedules] = useState<Record<string, WeeklyScheduleItem[]>>({});
+  const [photographerAvailabilityMap, setPhotographerAvailabilityMap] = useState<Record<string, BackendSlot[]>>({});
+
+  const getPhotographerAvailabilityLabel = React.useCallback((photographerId: string) => {
+    if (!date) return "Not available";
+
+    const selectedId = String(selectedPhotographer);
+    const slots = selectedId === String(photographerId) && backendSlots.length > 0
+      ? backendSlots
+      : (photographerAvailabilityMap[photographerId] || []);
+
+    const dayStr = format(date, 'yyyy-MM-dd');
+    const dow = date.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+    const specific = slots.filter((s) => s.date === dayStr);
+    const weekly = slots.filter((s) => !s.date && s.day_of_week?.toLowerCase() === dow);
+    const relevantSlots = specific.length > 0 ? specific : weekly;
+
+    const availableSlot = relevantSlots.find((s) => (s.status ?? "available") !== "unavailable");
+    if (availableSlot) {
+      return `Available (${toHhMm(availableSlot.start_time)} - ${toHhMm(availableSlot.end_time)})`;
+    }
+
+    const schedule = photographerWeeklySchedules[photographerId];
+    if (schedule && schedule.length > 0) {
+      const selectedDay = format(date, 'EEE');
+      const activeDay = schedule.find((d) => d.active && d.day === selectedDay);
+      if (activeDay) {
+        return `Available (${activeDay.startTime} - ${activeDay.endTime})`;
+      }
+    }
+
+    return "Not available";
+  }, [backendSlots, date, photographerAvailabilityMap, photographerWeeklySchedules, selectedPhotographer, toHhMm]);
 
   // Check if a time slot overlaps with existing slots
   const checkTimeOverlap = (startTime: string, endTime: string, dateStr?: string, dayOfWeek?: string, excludeSlotId?: string): boolean => {
@@ -723,9 +843,6 @@ export default function Availability() {
       return startMinutes < slotEndMinutes && slotStartMinutes < endMinutes;
     });
   };
-
-  const [photographerWeeklySchedules, setPhotographerWeeklySchedules] = useState<Record<string, WeeklyScheduleItem[]>>({});
-  const [photographerAvailabilityMap, setPhotographerAvailabilityMap] = useState<Record<string, BackendSlot[]>>({});
 
   // Populate photographerAvailabilityMap from allBackendSlots when it changes
   useEffect(() => {
@@ -1088,10 +1205,13 @@ export default function Availability() {
 
   // Generate months for horizontal navigation - centered around currentMonth
   const months = useMemo(() => {
-    const monthsList = [];
+    const monthsList: Date[] = [];
     const start = subMonths(currentMonth, 3);
-    for (let i = 0; i < 12; i++) {
-      monthsList.push(addMonths(start, i));
+    const end = addMonths(currentMonth, 12);
+    let cursor = start;
+    while (cursor <= end) {
+      monthsList.push(cursor);
+      cursor = addMonths(cursor, 1);
     }
     return monthsList;
   }, [currentMonth]);
@@ -1113,6 +1233,56 @@ export default function Availability() {
 
     return datesList;
   }, [currentMonth]);
+
+  useEffect(() => {
+    if (!date || !monthNavScrollRef.current) return;
+    const selectedMonth = format(date, 'yyyy-MM');
+    const scrollKey = `${format(currentMonth, 'yyyy-MM')}:${selectedMonth}`;
+    if (lastMonthNavScrollKey.current === scrollKey) return;
+    lastMonthNavScrollKey.current = scrollKey;
+    const container = monthNavScrollRef.current;
+    const target = container.querySelector(
+      `[data-month="${selectedMonth}"]`
+    ) as HTMLElement | null;
+    if (!target) return;
+    const targetCenter = target.offsetLeft + target.offsetWidth / 2;
+    const desiredLeft = targetCenter - container.clientWidth / 2;
+    const maxLeft = container.scrollWidth - container.clientWidth;
+    const clampedLeft = Math.max(0, Math.min(maxLeft, desiredLeft));
+    if (!monthNavHasAutoScrolled.current) {
+      const nudgeLeft = Math.max(0, Math.min(maxLeft, clampedLeft - 80));
+      container.scrollLeft = nudgeLeft;
+    }
+    requestAnimationFrame(() => {
+      container.scrollTo({ left: clampedLeft, behavior: 'smooth' });
+      monthNavHasAutoScrolled.current = true;
+    });
+  }, [date, currentMonth]);
+
+  useEffect(() => {
+    if (!date || !dateNavScrollRef.current) return;
+    const selectedDate = format(date, 'yyyy-MM-dd');
+    const scrollKey = `${format(currentMonth, 'yyyy-MM')}:${selectedDate}`;
+    if (lastDateNavScrollKey.current === scrollKey) return;
+    lastDateNavScrollKey.current = scrollKey;
+    const container = dateNavScrollRef.current;
+    const target = container.querySelector(
+      `[data-date="${selectedDate}"]`
+    ) as HTMLElement | null;
+    if (!target) return;
+    const targetCenter = target.offsetLeft + target.offsetWidth / 2;
+    const desiredLeft = targetCenter - container.clientWidth / 2;
+    const maxLeft = container.scrollWidth - container.clientWidth;
+    const clampedLeft = Math.max(0, Math.min(maxLeft, desiredLeft));
+    if (!dateNavHasAutoScrolled.current) {
+      const nudgeLeft = Math.max(0, Math.min(maxLeft, clampedLeft - 80));
+      container.scrollLeft = nudgeLeft;
+    }
+    requestAnimationFrame(() => {
+      container.scrollTo({ left: clampedLeft, behavior: 'smooth' });
+      dateNavHasAutoScrolled.current = true;
+    });
+  }, [date, currentMonth]);
 
   // Handle edit availability click
   const handleEditAvailability = () => {
@@ -1200,8 +1370,6 @@ export default function Availability() {
   };
 
   const isDesktop = !isMobile;
-  const calendarMinHeight = isDesktop ? 500 : undefined;
-  const calendarBodyHeight = isDesktop ? 460 : undefined;
   const [hasInitializedMobileSelection, setHasInitializedMobileSelection] = useState(false);
 
   const renderViewModeButtons = (variant: "header" | "compact") => (
@@ -1266,6 +1434,19 @@ export default function Availability() {
             description="Manage and schedule photographer availability"
             action={
               <div className="flex items-center gap-2 self-end sm:self-auto">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-md whitespace-nowrap h-9 px-3 text-sm"
+                  onClick={() => {
+                    const today = new Date();
+                    setDate(today);
+                    setCurrentMonth(startOfMonth(today));
+                    setSelectedSlotId(null);
+                  }}
+                >
+                  Today
+                </Button>
                 {!isMobile && renderViewModeButtons("header")}
                 {canEditAvailability && (
                   <Button
@@ -1308,9 +1489,11 @@ export default function Availability() {
           />
           {/* Loading Indicator */}
           {loadingPhotographers && (
-            <div className="flex items-center justify-center py-8">
-              <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground mr-2" />
-              <span className="text-muted-foreground">Loading photographers...</span>
+            <div className="py-3">
+              <div className="h-1 w-full overflow-hidden rounded-full bg-muted/60">
+                <div className="h-full w-1/3 rounded-full bg-primary/80 animate-pulse" />
+              </div>
+              <div className="mt-2 text-xs text-muted-foreground">Loading photographers...</div>
             </div>
           )}
 
@@ -1322,21 +1505,15 @@ export default function Availability() {
               <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-background via-background/90 via-background/70 to-transparent z-10 pointer-events-none" />
               <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-background via-background/90 via-background/70 to-transparent z-10 pointer-events-none" />
               <div
-                ref={(el) => {
-                  if (el && date) {
-                    // Scroll to selected month
-                    const selectedMonth = format(date, 'yyyy-MM');
-                    const selectedButton = el.querySelector(`[data-month="${selectedMonth}"]`) as HTMLElement;
-                    if (selectedButton) {
-                      selectedButton.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-                    }
-                  }
-                }}
-                className="flex items-center gap-2 overflow-x-auto pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] px-8 scroll-smooth"
+                ref={monthNavScrollRef}
+                className="flex items-center gap-2 overflow-x-auto pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] px-8"
               >
                 {months.map((month, idx) => {
                   const monthName = format(month, 'MMMM');
                   const monthYear = format(month, 'yyyy');
+                  const monthKey = format(month, 'yyyy-MM');
+                  const isCurrentMonth = monthKey === format(new Date(), 'yyyy-MM');
+                  const isSelectedMonth = date && format(date, 'yyyy-MM') === monthKey;
                   const prevMonth = idx > 0 ? months[idx - 1] : null;
                   const prevYear = prevMonth ? format(prevMonth, 'yyyy') : null;
                   const showYear = !prevMonth || (prevYear !== monthYear);
@@ -1358,11 +1535,11 @@ export default function Availability() {
                         }}
                         className={cn(
                           "px-3 py-1.5 rounded-md whitespace-nowrap font-medium transition-colors text-sm flex-shrink-0",
-                          format(month, 'yyyy-MM') === format(new Date(), 'yyyy-MM')
-                            ? "border-2 border-primary font-semibold"
-                            : date && format(date, 'yyyy-MM') === format(month, 'yyyy-MM')
+                          isCurrentMonth
+                            ? "border-2 border-primary font-semibold text-foreground"
+                            : isSelectedMonth
                               ? "bg-primary text-primary-foreground font-semibold"
-                              : "bg-transparent hover:bg-muted text-foreground"
+                              : "bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted"
                         )}
                       >
                         {monthName}
@@ -1378,16 +1555,8 @@ export default function Availability() {
               <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-background via-background/90 via-background/70 to-transparent z-10 pointer-events-none" />
               <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-background via-background/90 via-background/70 to-transparent z-10 pointer-events-none" />
               <div
-                ref={(el) => {
-                  if (el && date) {
-                    // Scroll to selected date
-                    const selectedButton = el.querySelector(`[data-date="${format(date, 'yyyy-MM-dd')}"]`) as HTMLElement;
-                    if (selectedButton) {
-                      selectedButton.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-                    }
-                  }
-                }}
-                className="flex items-center gap-2 overflow-x-auto pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] px-8 scroll-smooth"
+                ref={dateNavScrollRef}
+                className="flex items-center gap-2 overflow-x-auto pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] px-8"
               >
                 {monthDates.map((day, idx) => {
                   // Show month indicator when month changes
@@ -1470,7 +1639,7 @@ export default function Availability() {
                             >
                               <span className={cn(
                                 "text-sm font-medium",
-                                isTodayDate ? "text-primary" : isSelected ? "text-primary-foreground" : ""
+                                isTodayDate ? "text-primary" : isSelected ? "text-primary-foreground" : "text-muted-foreground"
                               )}>{dayNum}</span>
                               <span className={cn(
                                 "text-xs mt-0.5",
@@ -1498,7 +1667,7 @@ export default function Availability() {
             <Tabs
               value={mobileTab}
               onValueChange={(v) => setMobileTab(v as "calendar" | "details")}
-              className="flex flex-col gap-3"
+              className="flex flex-col gap-3 flex-1 min-h-0"
             >
               <TabsList className="grid w-full grid-cols-2 rounded-xl bg-muted p-1 mb-3 flex-shrink-0">
                 <TabsTrigger value="calendar" className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow">
@@ -1509,9 +1678,9 @@ export default function Availability() {
                 </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="calendar" className="flex flex-col gap-3">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
+              <TabsContent value="calendar" className="flex flex-col gap-3 flex-1 min-h-0">
+                <div className="flex flex-col gap-2 flex-1 min-h-0">
+                  <div className="flex items-center gap-2 flex-shrink-0">
                     <Select
                       value={selectedPhotographer}
                       onValueChange={(value) => {
@@ -1543,14 +1712,28 @@ export default function Availability() {
                             <SheetTitle>Select Photographer</SheetTitle>
                           </SheetHeader>
                           <div className="mt-4 space-y-3">
-                            <div className="relative">
-                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                              <Input
-                                placeholder="Search team..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="pl-9"
-                              />
+                            <div className="flex items-center gap-2">
+                              <div className="relative flex-1">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                <Input
+                                  placeholder="Search team..."
+                                  value={searchQuery}
+                                  onChange={(e) => setSearchQuery(e.target.value)}
+                                  className="pl-9"
+                                />
+                              </div>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-9 px-3"
+                                onClick={() => {
+                                  setSelectedPhotographer("all");
+                                  setEditingWeeklySchedule(false);
+                                  setSearchQuery("");
+                                }}
+                              >
+                                All
+                              </Button>
                             </div>
                             <div className="overflow-y-auto space-y-3 max-h-[calc(100vh-200px)]">
                               {filteredPhotographers.length === 0 && (
@@ -1598,41 +1781,7 @@ export default function Availability() {
                                             isSelected ? "text-primary-foreground/80" : "text-muted-foreground"
                                           )}
                                         >
-                                          {(() => {
-                                            let photographerSlots: BackendSlot[] = [];
-                                            if (selectedPhotographer === "all") {
-                                              photographerSlots = photographerAvailabilityMap[photographer.id] || [];
-                                            } else {
-                                              photographerSlots = backendSlots.filter(
-                                                (s) => Number(s.photographer_id) === Number(photographer.id)
-                                              );
-                                            }
-                                            if (photographerSlots.length > 0) {
-                                              const weeklySlots = photographerSlots.filter(
-                                                (s) => !s.date && s.day_of_week && (s.status ?? "available") !== "unavailable"
-                                              );
-                                              if (weeklySlots.length > 0) {
-                                                const firstSlot = weeklySlots[0];
-                                                return `Available (${toHhMm(firstSlot.start_time)} - ${toHhMm(firstSlot.end_time)})`;
-                                              }
-                                              const availableSlots = photographerSlots.filter(
-                                                (s) => (s.status ?? "available") !== "unavailable"
-                                              );
-                                              if (availableSlots.length > 0) {
-                                                const firstSlot = availableSlots[0];
-                                                return `Available (${toHhMm(firstSlot.start_time)} - ${toHhMm(firstSlot.end_time)})`;
-                                              }
-                                            }
-                                            const schedule = photographerWeeklySchedules[photographer.id];
-                                            if (schedule && schedule.length > 0) {
-                                              const activeDays = schedule.filter((d) => d.active);
-                                              if (activeDays.length > 0) {
-                                                const firstActive = activeDays[0];
-                                                return `Available (${firstActive.startTime} - ${firstActive.endTime})`;
-                                              }
-                                            }
-                                            return "Not available";
-                                          })()}
+                                          {getPhotographerAvailabilityLabel(photographer.id)}
                                         </p>
                                       </div>
                                       {isSelected && (
@@ -1764,12 +1913,9 @@ export default function Availability() {
                     }
 
                     return (
-                      <div
-                        className="flex-1 overflow-y-auto"
-                        style={calendarMinHeight ? { minHeight: `${calendarMinHeight}px` } : undefined}
-                      >
+                      <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
                         {viewMode === "month" ? (
-                          <div className="w-full flex flex-col min-h-0 pb-2">
+                          <div className="w-full flex flex-col flex-1 min-h-0 pb-2">
                             {/* Month Grid - same as desktop */}
                             {(() => {
                               const displayDate = date || new Date();
@@ -1784,7 +1930,7 @@ export default function Availability() {
                               }
                               const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
                               return (
-                                <div className="flex-1 flex flex-col min-h-0 overflow-hidden" style={{ minHeight: isMobile ? '300px' : '400px' }}>
+                                <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
                                   <div className="grid grid-cols-7 border-b flex-shrink-0 bg-muted/30">
                                     {weekDays.map((dayName) => (
                                       <div key={dayName} className="p-1.5 sm:p-2 text-center text-xs font-medium text-muted-foreground border-r last:border-r-0">
@@ -1792,9 +1938,9 @@ export default function Availability() {
                                       </div>
                                     ))}
                                   </div>
-                                  <div className="grid grid-rows-6 flex-1 min-h-0" style={{ minHeight: isMobile ? '250px' : '350px' }}>
+                                  <div className="flex flex-col flex-1 min-h-0">
                                     {weeks.map((week, weekIdx) => (
-                                      <div key={weekIdx} className="grid grid-cols-7 border-b last:border-b-0">
+                                      <div key={weekIdx} className="grid grid-cols-7 border-b last:border-b-0 flex-1 min-h-0">
                                         {week.map((day, dayIdx) => {
                                           const dayStr = format(day, 'yyyy-MM-dd');
                                           const dow = day.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
@@ -1809,14 +1955,6 @@ export default function Availability() {
                                           const hasAvailable = allSlots.some(s => (s.status ?? 'available') !== 'unavailable' && s.status !== 'booked');
                                           const hasUnavailable = allSlots.some(s => s.status === 'unavailable');
                                           const hasSlots = allSlots.length > 0;
-                                          let availabilityColor = '';
-                                          if (hasUnavailable && hasSlots) {
-                                            availabilityColor = 'bg-red-100 dark:bg-red-900/20 border-red-300 dark:border-red-700';
-                                          } else if (hasBooked && hasSlots) {
-                                            availabilityColor = 'bg-blue-100 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700';
-                                          } else if (hasAvailable && hasSlots) {
-                                            availabilityColor = 'bg-green-100 dark:bg-green-900/20 border-green-300 dark:border-green-700';
-                                          }
                                           return (
                                             <ContextMenu key={`${weekIdx}-${dayIdx}`}>
                                               <ContextMenuTrigger asChild>
@@ -1834,8 +1972,7 @@ export default function Availability() {
                                                     "relative p-1 sm:p-1.5 border-r last:border-r-0 flex flex-col items-start justify-start h-full transition-colors hover:bg-muted/50",
                                                     !isCurrentMonth && "opacity-40",
                                                     isSelected && "bg-primary text-primary-foreground",
-                                                    isTodayDate && !isSelected && "border-2 border-primary bg-primary/5",
-                                                    !isSelected && !isTodayDate && availabilityColor && `${availabilityColor} border`
+                                                    isTodayDate && !isSelected && "border-2 border-primary bg-primary/5"
                                                   )}
                                                 >
                                                   <span className={cn(
@@ -1897,10 +2034,7 @@ export default function Availability() {
                             })()}
                           </div>
                         ) : viewMode === "week" ? (
-                          <div
-                            className="w-full flex flex-col border rounded-md overflow-hidden bg-background"
-                            style={calendarMinHeight ? { minHeight: `${calendarMinHeight}px` } : undefined}
-                          >
+                          <div className="w-full flex flex-col border rounded-md overflow-hidden bg-background flex-1 min-h-0">
                             <div className="flex-shrink-0 border-b bg-muted/30">
                               <div className="flex">
                                 <div className="w-14 sm:w-24 flex-shrink-0 border-r p-1.5 sm:p-2 text-[11px] sm:text-xs font-medium text-muted-foreground">Days</div>
@@ -1922,10 +2056,7 @@ export default function Availability() {
                                 </div>
                               </div>
                             </div>
-                            <div
-                              className="flex-1 flex flex-col overflow-y-auto"
-                              style={calendarBodyHeight ? { minHeight: `${calendarBodyHeight}px` } : undefined}
-                            >
+                            <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
                                 {(() => {
                                   const weekStart = startOfWeek(date || new Date());
                                   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
@@ -1973,10 +2104,10 @@ export default function Availability() {
                                     return (
                                       <ContextMenu key={dayIdx}>
                                         <ContextMenuTrigger asChild>
-                                          <div className={cn("flex border-b last:border-b-0 flex-1 min-h-[80px] relative cursor-context-menu", isTodayDate && "bg-primary/5")} style={{ minHeight: isMobile ? '80px' : '100px' }} onContextMenu={(e) => e.stopPropagation()}>
+                                          <div className={cn("flex border-b last:border-b-0 flex-1 min-h-[80px] relative cursor-context-menu", isTodayDate && "bg-primary/5")} style={{ minHeight: isMobile ? '80px' : '100px' }}>
                                             <div className={cn("w-14 sm:w-24 flex-shrink-0 border-r p-1.5 sm:p-2 flex flex-col items-center justify-center", isTodayDate && "bg-primary/10", isSelected && !isTodayDate && "bg-primary/5")}>
                                               <div className={cn("text-xs font-medium", isTodayDate && "text-primary font-semibold", isSelected && !isTodayDate && "text-primary")}>{format(day, 'EEE')}</div>
-                                              <button onClick={(e) => { e.stopPropagation(); setDate(day); if (isMobile) setMobileTab("details"); }} onContextMenu={(e) => e.stopPropagation()} className={cn("text-sm font-semibold mt-1", isTodayDate && "text-primary", isSelected && !isTodayDate && "text-primary")}>{format(day, 'd')}</button>
+                                              <button onClick={(e) => { e.stopPropagation(); setDate(day); if (isMobile) setMobileTab("details"); }} className={cn("text-sm font-semibold mt-1", isTodayDate && "text-primary", isSelected && !isTodayDate && "text-primary")}>{format(day, 'd')}</button>
                                             </div>
                                             <div className={cn("flex-1 relative overflow-hidden", !isMobile && "overflow-x-auto")} style={{ minHeight: isMobile ? '80px' : '100px' }}>
                                               {Array.from({ length: 7 }, (_, i) => {
@@ -1999,7 +2130,7 @@ export default function Availability() {
                                                 const topOffset = overlappingBefore.length * 18;
                                                 const heightReduction = overlappingBefore.length > 0 ? 2 : 0;
                                                 return (
-                                                  <div key={slot.id} onClick={(e) => { e.stopPropagation(); setSelectedSlotId(slot.id); setDate(day); if (slot.status === 'booked' && slot.shootDetails) { setExpandedBookingDetails(prev => new Set(prev).add(slot.id)); } if (isMobile) setMobileTab("details"); }} onContextMenu={(e) => e.stopPropagation()} className={cn("absolute rounded-md px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs flex flex-col justify-center border z-10 cursor-pointer hover:opacity-80 transition-opacity", selectedSlotId === slot.id && "ring-2 ring-primary ring-offset-1", slot.status === 'available' && "bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-700 text-green-700 dark:text-green-300", slot.status === 'booked' && "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300", slot.status === 'unavailable' && "bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-700 text-red-700 dark:text-red-300")} style={{ ...style, top: `${4 + topOffset}px`, bottom: `${4 + topOffset + heightReduction}px` }}>
+                                                  <div key={slot.id} onClick={(e) => { e.stopPropagation(); setSelectedSlotId(slot.id); setDate(day); if (slot.status === 'booked' && slot.shootDetails) { setExpandedBookingDetails(prev => new Set(prev).add(slot.id)); } if (isMobile) setMobileTab("details"); }} className={cn("absolute rounded-md px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs flex flex-col justify-center border z-10 cursor-pointer hover:opacity-80 transition-opacity", selectedSlotId === slot.id && "ring-2 ring-primary ring-offset-1", slot.status === 'available' && "bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-700 text-green-700 dark:text-green-300", slot.status === 'booked' && "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300", slot.status === 'unavailable' && "bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-700 text-red-700 dark:text-red-300")} style={{ ...style, top: `${4 + topOffset}px`, bottom: `${4 + topOffset + heightReduction}px` }}>
                                                     <div className="font-medium capitalize">{slot.status}</div>
                                                     <div className="text-[9px] sm:text-[10px] opacity-80">{formatTimeDisplay(slot.startTime)} - {formatTimeDisplay(slot.endTime)}</div>
                                                   </div>
@@ -2025,12 +2156,9 @@ export default function Availability() {
                               </div>
                             </div>
                         ) : (
-                          <div
-                            className="w-full flex flex-col"
-                            style={calendarMinHeight ? { minHeight: `${calendarMinHeight}px` } : undefined}
-                          >
+                          <div className="w-full flex flex-col flex-1 min-h-0">
                             {date && (
-                              <div className="flex-1 grid grid-cols-5 gap-px border rounded-md overflow-hidden" style={{ minHeight: isMobile ? '350px' : '450px' }}>
+                              <div className="flex-1 grid grid-cols-5 gap-px border rounded-md overflow-hidden min-h-0 h-full">
                                 <div className="bg-muted/50 border-r flex flex-col min-h-0">
                                   <div className="h-10 sm:h-12 border-b flex items-center justify-center text-[10px] sm:text-xs font-medium text-muted-foreground flex-shrink-0">
                                     <div>
@@ -2038,7 +2166,16 @@ export default function Availability() {
                                       <div className="text-[9px] sm:text-[10px]">{format(date, 'MMM d')}</div>
                                     </div>
                                   </div>
-                                  <div ref={dayViewTimeScrollRef} className="flex-1 overflow-hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                                  <div
+                                    ref={dayViewTimeScrollRef}
+                                    className="flex-1 min-h-0 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+                                    onScroll={(e) => {
+                                      if (!dayViewScrollRef.current) return;
+                                      const nextScrollTop = e.currentTarget.scrollTop;
+                                      if (dayViewScrollRef.current.scrollTop === nextScrollTop) return;
+                                      dayViewScrollRef.current.scrollTop = nextScrollTop;
+                                    }}
+                                  >
                                     {(() => {
                                       const daySlots = getSelectedDateAvailabilities();
                                       const hoursWithAvailability = new Set<number>();
@@ -2061,7 +2198,7 @@ export default function Availability() {
                                     Availability
                                     {date && isToday(date) && <span className="ml-1 sm:ml-2 px-1.5 sm:px-2 py-0.5 bg-primary/10 text-primary text-[9px] sm:text-[10px] rounded-md font-semibold">Today</span>}
                                   </div>
-                                  <div ref={dayViewScrollRef} className="flex-1 relative overflow-y-auto" onContextMenu={(e) => e.stopPropagation()} onScroll={(e) => {
+                                  <div ref={dayViewScrollRef} className="flex-1 min-h-0 relative overflow-y-auto" onScroll={(e) => {
                                     if (dayViewTimeScrollRef.current) dayViewTimeScrollRef.current.scrollTop = e.currentTarget.scrollTop;
                                     if (dayViewIsProgrammaticScroll.current) { dayViewIsProgrammaticScroll.current = false; return; }
                                     if (dayViewScrollChanging.current) return;
@@ -2314,20 +2451,34 @@ export default function Availability() {
             </Tabs>
           ) : (
             /* Desktop: Three Column Layout */
-            <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-0 overflow-hidden">
+            <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 grid-rows-1 gap-4 min-h-0 overflow-hidden">
               {/* Left Column: Search and Select Photographer (Admin only) */}
               {isAdmin && (
                 <div className="lg:col-span-3 flex flex-col min-h-0">
                   <Card className="p-4 flex flex-col h-full border shadow-sm rounded-md min-h-0 overflow-hidden">
                     <div className="mb-4">
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          placeholder="Search team..."
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          className="pl-9 border-muted"
-                        />
+                      <div className="flex items-center gap-2">
+                        <div className="relative flex-1">
+                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            placeholder="Search team..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="pl-9 border-muted"
+                          />
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-9 px-3"
+                          onClick={() => {
+                            setSelectedPhotographer("all");
+                            setEditingWeeklySchedule(false);
+                            setSearchQuery("");
+                          }}
+                        >
+                          All
+                        </Button>
                       </div>
                     </div>
                     <div className="flex-1 overflow-y-auto space-y-3">
@@ -2367,35 +2518,7 @@ export default function Availability() {
                                   "text-xs",
                                   isSelected ? "text-primary-foreground/80" : "text-muted-foreground"
                                 )}>
-                                  {(() => {
-                                    let photographerSlots: Array<{ start_time: string; end_time: string; status?: string; date?: string | null; day_of_week?: string | null }> = [];
-                                    if (selectedPhotographer === 'all') {
-                                      photographerSlots = photographerAvailabilityMap[photographer.id] || [];
-                                    } else {
-                                      photographerSlots = backendSlots.filter(s => Number(s.photographer_id) === Number(photographer.id));
-                                    }
-                                    if (photographerSlots.length > 0) {
-                                      const weeklySlots = photographerSlots.filter(s => !s.date && s.day_of_week && (s.status ?? 'available') !== 'unavailable');
-                                      if (weeklySlots.length > 0) {
-                                        const firstSlot = weeklySlots[0];
-                                        return `Available (${toHhMm(firstSlot.start_time)} - ${toHhMm(firstSlot.end_time)})`;
-                                      }
-                                      const availableSlots = photographerSlots.filter(s => (s.status ?? 'available') !== 'unavailable');
-                                      if (availableSlots.length > 0) {
-                                        const firstSlot = availableSlots[0];
-                                        return `Available (${toHhMm(firstSlot.start_time)} - ${toHhMm(firstSlot.end_time)})`;
-                                      }
-                                    }
-                                    const schedule = photographerWeeklySchedules[photographer.id];
-                                    if (schedule && schedule.length > 0) {
-                                      const activeDays = schedule.filter(d => d.active);
-                                      if (activeDays.length > 0) {
-                                        const firstActive = activeDays[0];
-                                        return `Available (${firstActive.startTime} - ${firstActive.endTime})`;
-                                      }
-                                    }
-                                    return 'Not available';
-                                  })()}
+                                  {getPhotographerAvailabilityLabel(photographer.id)}
                                 </p>
                               </div>
                               {isSelected && (
@@ -2494,9 +2617,9 @@ export default function Availability() {
                       </div>
                     )}
                   </div>
-                  <div className="flex-1 min-h-0 overflow-hidden">
+                  <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
                     {viewMode === "month" ? (
-                      <div className="h-full w-full flex flex-col min-h-0">
+                      <div className="h-full w-full flex flex-col flex-1 min-h-0">
                         {/* Month Grid */}
                         {(() => {
                           // Use date to determine which month to display
@@ -2530,9 +2653,9 @@ export default function Availability() {
                               </div>
 
                               {/* Calendar grid - 6 rows to fit all weeks */}
-                              <div className="grid grid-rows-6 flex-1 min-h-0">
+                              <div className="flex flex-col flex-1 min-h-0">
                                 {weeks.map((week, weekIdx) => (
-                                  <div key={weekIdx} className="grid grid-cols-7 border-b last:border-b-0">
+                                  <div key={weekIdx} className="grid grid-cols-7 border-b last:border-b-0 flex-1 min-h-0">
                                     {week.map((day, dayIdx) => {
                                       const dayStr = format(day, 'yyyy-MM-dd');
                                       const dow = day.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
@@ -2548,24 +2671,14 @@ export default function Availability() {
                                       const isTodayDate = isToday(day);
                                       const isCurrentMonth = isSameMonth(day, monthStart);
 
-                                      // Determine availability color
                                       const hasBooked = allSlots.some(s => s.status === 'booked');
                                       const hasAvailable = allSlots.some(s => (s.status ?? 'available') !== 'unavailable' && s.status !== 'booked');
                                       const hasUnavailable = allSlots.some(s => s.status === 'unavailable');
                                       const hasSlots = allSlots.length > 0;
 
-                                      let availabilityColor = '';
-                                      if (hasUnavailable && hasSlots) {
-                                        availabilityColor = 'bg-red-100 dark:bg-red-900/20 border-red-300 dark:border-red-700';
-                                      } else if (hasBooked && hasSlots) {
-                                        availabilityColor = 'bg-blue-100 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700';
-                                      } else if (hasAvailable && hasSlots) {
-                                        availabilityColor = 'bg-green-100 dark:bg-green-900/20 border-green-300 dark:border-green-700';
-                                      }
-
                                       return (
                                         <ContextMenu key={`${weekIdx}-${dayIdx}`}>
-                                          <ContextMenuTrigger asChild>
+                                          <ContextMenuTrigger className="block h-full w-full">
                                             <TooltipProvider>
                                               <Tooltip>
                                                 <TooltipTrigger asChild>
@@ -2582,8 +2695,7 @@ export default function Availability() {
                                                       "relative p-1.5 border-r last:border-r-0 flex flex-col items-start justify-start h-full transition-colors hover:bg-muted/50 w-full",
                                                       !isCurrentMonth && "opacity-40",
                                                       isSelected && "bg-primary text-primary-foreground",
-                                                      isTodayDate && !isSelected && "border-2 border-primary bg-primary/5",
-                                                      !isSelected && !isTodayDate && availabilityColor && `${availabilityColor} border`
+                                                      isTodayDate && !isSelected && "border-2 border-primary bg-primary/5"
                                                     )}
                                                   >
                                                     <span className={cn(
@@ -2811,10 +2923,6 @@ export default function Availability() {
                                           "flex border-b last:border-b-0 flex-1 min-h-0 relative cursor-context-menu",
                                           isTodayDate && "bg-primary/5"
                                         )}
-                                        onContextMenu={(e) => {
-                                          // Ensure context menu works
-                                          e.stopPropagation();
-                                        }}
                                       >
                                         {/* Day label */}
                                         <div className={cn(
@@ -2833,9 +2941,6 @@ export default function Availability() {
                                             onClick={(e) => {
                                               e.stopPropagation();
                                               setDate(day);
-                                            }}
-                                            onContextMenu={(e) => {
-                                              e.stopPropagation();
                                             }}
                                             className={cn(
                                               "text-sm font-semibold mt-1",
@@ -2949,9 +3054,6 @@ export default function Availability() {
                                                           // Switch to details tab on mobile
                                                           if (isMobile) setMobileTab("details");
                                                         }}
-                                                        onContextMenu={(e) => {
-                                                          e.stopPropagation();
-                                                        }}
                                                         className={cn(
                                                           "absolute rounded-md px-1 py-0.5 text-[10px] flex flex-col justify-center border z-20 cursor-pointer hover:opacity-80 transition-opacity shadow-sm",
                                                           selectedSlotId === slot.id && "ring-2 ring-primary ring-offset-1",
@@ -3036,9 +3138,6 @@ export default function Availability() {
                                                   setSelectedSlotId(slot.id);
                                                   setDate(day);
                                                 }}
-                                                onContextMenu={(e) => {
-                                                  e.stopPropagation();
-                                                }}
                                                 className={cn(
                                                   "absolute rounded-md px-2 py-1 text-xs flex flex-col justify-center border z-10 cursor-pointer hover:opacity-80 transition-opacity",
                                                   selectedSlotId === slot.id && "ring-2 ring-primary ring-offset-1",
@@ -3122,7 +3221,13 @@ export default function Availability() {
                               </div>
                               <div
                                 ref={dayViewTimeScrollRef}
-                                className="flex-1 overflow-hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+                                className="flex-1 min-h-0 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+                                onScroll={(e) => {
+                                  if (!dayViewScrollRef.current) return;
+                                  const nextScrollTop = e.currentTarget.scrollTop;
+                                  if (dayViewScrollRef.current.scrollTop === nextScrollTop) return;
+                                  dayViewScrollRef.current.scrollTop = nextScrollTop;
+                                }}
                               >
                                 {(() => {
                                   const daySlots = getSelectedDateAvailabilities();
@@ -3167,11 +3272,7 @@ export default function Availability() {
                               </div>
                               <div
                                 ref={dayViewScrollRef}
-                                className="flex-1 relative overflow-y-auto"
-                                onContextMenu={(e) => {
-                                  // Allow context menu to work in the scroll container
-                                  e.stopPropagation();
-                                }}
+                                className="flex-1 min-h-0 relative overflow-y-auto"
                                 onScroll={(e) => {
                                   // Sync time column scroll position (but don't show scrollbar on time column)
                                   if (dayViewTimeScrollRef.current) {
@@ -4123,8 +4224,9 @@ export default function Availability() {
                       ? date.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase()
                       : undefined;
 
+                const isUnavailable = editedAvailability.status === 'unavailable';
                 // Check for overlaps (excluding the current slot being edited)
-                if (checkTimeOverlap(
+                if (!isUnavailable && checkTimeOverlap(
                   editedAvailability.startTime || "09:00",
                   editedAvailability.endTime || "17:00",
                   originalSlot.date || undefined,
@@ -4433,7 +4535,7 @@ export default function Availability() {
                   const dateStr = format(date, "yyyy-MM-dd");
                   const dayOfWeekForDate = date.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
 
-                  if (checkTimeOverlap(
+                  if (newWeeklySchedule.status !== 'unavailable' && checkTimeOverlap(
                     newWeeklySchedule.startTime,
                     newWeeklySchedule.endTime,
                     dateStr,

@@ -4,9 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { TimeSelect } from "@/components/ui/time-select";
 import { format } from "date-fns";
-import { MapPin, Calendar as CalendarIcon, User, Package, ChevronRight, Loader2, Search, ArrowUpDown } from "lucide-react";
+import { MapPin, User, Package, ChevronRight, Loader2, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Dialog,
@@ -16,21 +15,15 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogClose,
 } from "@/components/ui/dialog";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { calculateDistance, getCoordinatesFromAddress } from '@/utils/distanceUtils';
-import { to12Hour } from '@/utils/availabilityUtils';
+import { to12Hour, to24Hour } from '@/utils/availabilityUtils';
 import API_ROUTES from '@/lib/api';
-import { CheckCircle2, XCircle, Clock } from "lucide-react";
-import { getStateFullName } from '@/utils/stateUtils';
+import { CheckCircle2, Check, Clock } from "lucide-react";
+import { getAvatarUrl } from '@/utils/defaultAvatars';
 
 interface SchedulingFormProps {
   date: Date | undefined;
@@ -84,14 +77,31 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
   const disabledDates = {
     before: new Date(),
   };
+  const today = React.useMemo(() => new Date(), []);
+  const quickTimes = React.useMemo(
+    () => [
+      '09:30 AM',
+      '10:00 AM',
+      '10:30 AM',
+      '11:00 AM',
+      '11:30 AM',
+      '12:00 PM',
+      '12:30 PM',
+      '01:00 PM',
+      '01:30 PM',
+      '02:00 PM',
+      '02:30 PM',
+      '03:00 PM',
+    ],
+    []
+  );
   const { toast } = useToast();
   const [isLocationLoading, setIsLocationLoading] = useState(false);
-  const [dateDialogOpen, setDateDialogOpen] = useState(false);
   const [timeDialogOpen, setTimeDialogOpen] = useState(false);
   const [tempTime, setTempTime] = useState('');
   const [photographerDialogOpen, setPhotographerDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<'distance' | 'name'>('distance');
+  const [sortBy, setSortBy] = useState<'distance' | 'availability'>('distance');
   const [showAllPhotographers, setShowAllPhotographers] = useState(false);
   const [photographersWithDistance, setPhotographersWithDistance] = useState<Array<{
     id: string;
@@ -118,6 +128,148 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
   }>>(new Map());
   const [isLoadingAvailability, setIsLoadingAvailability] = useState(false);
 
+  const formatLocationLabel = (location?: {
+    address?: string;
+    city?: string;
+    state?: string;
+    zip?: string;
+  }) => {
+    if (!location) return '';
+    const baseAddress = (location.address || '').trim();
+    const normalizedAddress = baseAddress.toLowerCase();
+    const parts: string[] = [];
+    const seen = new Set<string>();
+
+    const addPart = (value?: string, checkAddress = false) => {
+      const trimmed = (value || '').trim();
+      if (!trimmed) return;
+      const key = trimmed.toLowerCase();
+      if (seen.has(key)) return;
+      if (checkAddress && normalizedAddress) {
+        const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(`\\b${escaped}\\b`, 'i');
+        if (regex.test(normalizedAddress)) {
+          return;
+        }
+      }
+      parts.push(trimmed);
+      seen.add(key);
+    };
+
+    if (baseAddress) {
+      parts.push(baseAddress);
+      seen.add(baseAddress.toLowerCase());
+    }
+
+    addPart(location.city, true);
+    addPart(location.state, true);
+    addPart(location.zip, true);
+
+    return parts.join(', ');
+  };
+
+  const normalizeSlotTime = (value?: string) => {
+    if (!value) return '';
+    const trimmed = value.trim();
+    const converted = to24Hour(trimmed);
+    const [hours, minutes] = converted.split(':');
+    if (!hours || !minutes) return converted;
+    return `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}`;
+  };
+
+  const normalizeDayOfWeek = (value: any): string => {
+    if (value === null || value === undefined) return '';
+    const str = String(value).trim().toLowerCase();
+    const map: Record<string, string> = {
+      '0': 'sunday',
+      '1': 'monday',
+      '2': 'tuesday',
+      '3': 'wednesday',
+      '4': 'thursday',
+      '5': 'friday',
+      '6': 'saturday',
+      sun: 'sunday',
+      sunday: 'sunday',
+      mon: 'monday',
+      monday: 'monday',
+      tue: 'tuesday',
+      tues: 'tuesday',
+      tuesday: 'tuesday',
+      wed: 'wednesday',
+      weds: 'wednesday',
+      wednesday: 'wednesday',
+      thu: 'thursday',
+      thur: 'thursday',
+      thurs: 'thursday',
+      thursday: 'thursday',
+      fri: 'friday',
+      friday: 'friday',
+      sat: 'saturday',
+      saturday: 'saturday',
+    };
+    return map[str] ?? str;
+  };
+
+  const normalizeAddressKey = (value: { address?: string; city?: string; state?: string; zip?: string }) => {
+    const joined = [value.address, value.city, value.state, value.zip]
+      .filter(Boolean)
+      .map((part) => String(part).trim().toLowerCase())
+      .join(' ');
+    return joined.replace(/[^a-z0-9]+/gi, '');
+  };
+
+  const timeToMinutes = (value: string) => {
+    const normalized = normalizeSlotTime(value);
+    const [hours, minutes] = normalized.split(':').map(Number);
+    if (!Number.isFinite(hours)) return 0;
+    return hours * 60 + (Number.isFinite(minutes) ? minutes : 0);
+  };
+
+  const buildAvailabilitySegments = (
+    slots: Array<{ start_time: string; end_time: string }> = [],
+  ) => {
+    const startHour = 8;
+    const endHour = 20;
+    const segments: boolean[] = [];
+    for (let hour = startHour; hour < endHour; hour += 1) {
+      const segmentStart = hour * 60;
+      const segmentEnd = (hour + 1) * 60;
+      const hasSlot = slots.some((slot) => {
+        const slotStart = timeToMinutes(slot.start_time);
+        const slotEnd = timeToMinutes(slot.end_time);
+        return slotStart < segmentEnd && slotEnd > segmentStart;
+      });
+      segments.push(hasSlot);
+    }
+    return segments;
+  };
+
+  const availabilityStats = useMemo(() => {
+    const basePhotographers = photographersWithDistance.length > 0
+      ? photographersWithDistance
+      : photographers;
+    const availableCount = basePhotographers.reduce((count, photographerItem) => {
+      const availability = photographerAvailability.get(photographerItem.id)
+        || photographerAvailability.get(String(photographerItem.id))
+        || photographerAvailability.get(Number(photographerItem.id));
+      if (availability) {
+        return availability.isAvailable ? count + 1 : count;
+      }
+      const hasSlots = Array.isArray((photographerItem as any).netAvailableSlots)
+        ? (photographerItem as any).netAvailableSlots.length > 0
+        : false;
+      return hasSlots ? count + 1 : count;
+    }, 0);
+    const hasAvailabilityData = photographerAvailability.size > 0
+      || basePhotographers.some((photographerItem: any) => Array.isArray(photographerItem.netAvailableSlots));
+
+    return {
+      total: basePhotographers.length,
+      available: availableCount,
+      hasAvailabilityData,
+    };
+  }, [photographersWithDistance, photographers, photographerAvailability]);
+
   const onDateChange = (newDate: Date | undefined) => {
     if (newDate) {
       const year = newDate.getFullYear();
@@ -133,7 +285,6 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
       const { date, ...rest } = formErrors;
       setFormErrors(rest);
     }
-    setDateDialogOpen(false);
   };
 
   const onTimeChange = (newTime: string) => {
@@ -167,6 +318,25 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
       }
     }
     setTimeDialogOpen(false);
+  };
+
+  const handleQuickTimeSelect = (selectedTime: string) => {
+    if (!date) {
+      toast({
+        title: "Select date first",
+        description: "Please choose a date before selecting time.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setTime(selectedTime);
+    setTempTime(selectedTime);
+
+    if (formErrors['time']) {
+      const { time: _, ...rest } = formErrors;
+      setFormErrors(rest);
+    }
   };
 
   const handlePhotographerDialogOpen = (open: boolean) => {
@@ -263,16 +433,193 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
   };
 
   const selectedPhotographer = photographers.find(p => p.id === photographer);
+  const selectedPhotographerDetails = photographersWithDistance.find(
+    (photographerItem) => String(photographerItem.id) === String(photographer)
+  ) || selectedPhotographer;
   const fullAddress = address && city && state ? `${address}, ${city}, ${state}${zip ? ' ' + zip : ''}` : '';
 
   // Fetch comprehensive photographer data when booking location, photographers, date, or time change
   useEffect(() => {
     let isCancelled = false;
     const abortController = new AbortController();
+
+    const computeDistancesFromProfiles = async () => {
+      const hasBookingAddress = [address, city, state, zip].some(value => Boolean(value && String(value).trim()));
+      if (!hasBookingAddress || photographers.length === 0) return;
+
+      setIsCalculatingDistances(true);
+
+      const bookingKey = normalizeAddressKey({ address, city, state, zip });
+      let bookingCoords: { lat: number; lon: number } | null = null;
+      try {
+        bookingCoords = await getCoordinatesFromAddress(address, city, state, zip || '');
+      } catch {
+        bookingCoords = null;
+      }
+      if (isCancelled) return;
+
+      // Seed list with known 0-mile matches by normalized address
+      setPhotographersWithDistance(
+        photographers.map((p: any) => {
+          const pKey = normalizeAddressKey({ address: p.address, city: p.city, state: p.state, zip: p.zip });
+          const directMatch = Boolean(bookingKey && pKey && bookingKey === pKey);
+          return {
+            ...p,
+            distance: directMatch ? 0 : undefined,
+          };
+        })
+      );
+
+      if (!bookingCoords) {
+        setIsCalculatingDistances(false);
+        return;
+      }
+
+      for (const p of photographers as any[]) {
+        if (isCancelled) return;
+        const hasOriginAddress = [p.address, p.city, p.state, p.zip].some(value => Boolean(value && String(value).trim()));
+        if (!hasOriginAddress) continue;
+
+        const pKey = normalizeAddressKey({ address: p.address, city: p.city, state: p.state, zip: p.zip });
+        if (bookingKey && pKey && bookingKey === pKey) {
+          setPhotographersWithDistance((prev) => prev.map((ph: any) => (String(ph.id) === String(p.id) ? { ...ph, distance: 0 } : ph)));
+          continue;
+        }
+
+        try {
+          const originCoords = await getCoordinatesFromAddress(p.address, p.city, p.state, p.zip || '');
+          if (!originCoords || isCancelled) continue;
+          const distance = calculateDistance(
+            bookingCoords.lat,
+            bookingCoords.lon,
+            originCoords.lat,
+            originCoords.lon
+          );
+          if (!isCancelled && Number.isFinite(distance)) {
+            setPhotographersWithDistance((prev) =>
+              prev.map((ph: any) => (String(ph.id) === String(p.id) ? { ...ph, distance } : ph))
+            );
+          }
+        } catch {
+          // ignore individual geocode failures
+        }
+      }
+
+      if (!isCancelled) setIsCalculatingDistances(false);
+    };
     
     const fetchPhotographerData = async () => {
-      if (!address || !city || !state || photographers.length === 0 || !date) {
+      const hasBookingAddress = [address, city, state, zip].some(value => Boolean(value && String(value).trim()));
+      console.log('[SchedulingForm] fetchPhotographerData called:', {
+        hasBookingAddress,
+        address,
+        city,
+        state,
+        zip,
+        photographersCount: photographers.length,
+        date: date ? format(date, 'yyyy-MM-dd') : null,
+        time,
+      });
+      if (photographers.length === 0 || !date) {
         setPhotographersWithDistance(photographers.map(p => ({ ...p })));
+        setPhotographerAvailability(new Map());
+        setIsCalculatingDistances(false);
+        setIsLoadingAvailability(false);
+        return;
+      }
+
+      setIsLoadingAvailability(true);
+
+      if (!hasBookingAddress) {
+        setIsCalculatingDistances(false);
+        setPhotographerAvailability(new Map());
+        setPhotographersWithDistance(photographers.map(p => ({ ...p })));
+        try {
+          const token = localStorage.getItem('authToken');
+          const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+          if (token) headers['Authorization'] = `Bearer ${token}`;
+
+          // Fetch raw availability from bulkIndex (same as Availability page)
+          const bulkResponse = await fetch(API_ROUTES.photographerAvailability.bulkIndex, {
+            method: 'POST',
+            headers,
+            signal: abortController.signal,
+            body: JSON.stringify({
+              photographer_ids: photographers.map(p => Number(p.id)),
+              from_date: format(date, 'yyyy-MM-dd'),
+              to_date: format(date, 'yyyy-MM-dd'),
+            }),
+          });
+
+          if (!bulkResponse.ok) {
+            throw new Error('Failed to fetch availability');
+          }
+
+          const bulkJson = await bulkResponse.json();
+          const rawAvailabilityByPhotographer: Record<string, any[]> = bulkJson?.data || {};
+
+          console.log('[SchedulingForm] No-address bulkIndex response:', {
+            rawData: rawAvailabilityByPhotographer,
+            photographerIds: photographers.map(p => p.id),
+            date: format(date, 'yyyy-MM-dd'),
+          });
+
+          // Process raw availability to get slots for the selected date
+          const dateStr = format(date, 'yyyy-MM-dd');
+          const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+
+          const availabilityMap = new Map<string | number, { isAvailable: boolean; nextAvailableTimes: string[] }>();
+          const updatedPhotographers = photographers.map((p) => {
+            const rawSlots = rawAvailabilityByPhotographer[p.id] || rawAvailabilityByPhotographer[String(p.id)] || [];
+            
+            console.log('[SchedulingForm] No-address processing:', {
+              photographerId: p.id,
+              rawSlotsCount: rawSlots.length,
+              dayOfWeek,
+              dateStr,
+            });
+            
+            // Filter slots: specific date slots OR recurring weekly slots for this day
+            const specificDateSlots = rawSlots.filter((s: any) => s.date === dateStr);
+            const weeklySlots = rawSlots.filter((s: any) => 
+              !s.date && s.day_of_week?.toLowerCase() === dayOfWeek
+            );
+            
+            // Use specific date slots if available, otherwise fall back to weekly recurring
+            const relevantSlots = specificDateSlots.length > 0 ? specificDateSlots : weeklySlots;
+            
+            // Filter to available slots only (not unavailable)
+            const availableSlots = relevantSlots
+              .filter((s: any) => !s.status || s.status === 'available')
+              .map((s: any) => ({
+                start_time: s.start_time,
+                end_time: s.end_time,
+              }));
+
+            const nextTimes = availableSlots.slice(0, 3).map((slot: any) => to12Hour(slot.start_time));
+            const isAvailable = availableSlots.length > 0;
+
+            availabilityMap.set(p.id, { isAvailable, nextAvailableTimes: nextTimes });
+            availabilityMap.set(String(p.id), { isAvailable, nextAvailableTimes: nextTimes });
+            availabilityMap.set(Number(p.id), { isAvailable, nextAvailableTimes: nextTimes });
+
+            return {
+              ...p,
+              availabilitySlots: availableSlots,
+              netAvailableSlots: availableSlots,
+              hasAvailability: isAvailable,
+            };
+          });
+
+          setPhotographersWithDistance(updatedPhotographers);
+          setPhotographerAvailability(availabilityMap);
+        } catch (error: any) {
+          if (error.name === 'AbortError' || isCancelled) return;
+          console.error('Error fetching fallback availability:', error);
+          setPhotographersWithDistance(photographers.map(p => ({ ...p })));
+        } finally {
+          setIsLoadingAvailability(false);
+        }
         return;
       }
 
@@ -317,15 +664,24 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
         // First, show photographers immediately WITHOUT distance (fast)
         const initialPhotographers = photographerData.map((p: any) => {
           const photographer = photographers.find(ph => String(ph.id) === String(p.id));
+          const parsedDistance = typeof p.distance === 'number'
+            ? p.distance
+            : p.distance
+            ? Number.parseFloat(String(p.distance))
+            : undefined;
+          const originAddress = p.origin_address?.address || p.home_address?.address || '';
+          const originCity = p.origin_address?.city || p.home_address?.city || '';
+          const originState = p.origin_address?.state || p.home_address?.state || '';
+          const originZip = p.origin_address?.zip || p.home_address?.zip || '';
           return {
             id: String(p.id),
             name: p.name || photographer?.name || '',
-            avatar: photographer?.avatar,
-            distance: undefined, // Will be calculated async
-            address: p.origin_address?.address || '',
-            city: p.origin_address?.city || '',
-            state: p.origin_address?.state || '',
-            zip: p.origin_address?.zip || '',
+            avatar: p.avatar || p.profile_image || p.photo || photographer?.avatar,
+            distance: Number.isFinite(parsedDistance as number) ? parsedDistance : undefined,
+            address: originAddress,
+            city: originCity,
+            state: originState,
+            zip: originZip,
             distanceFrom: p.distance_from as 'home' | 'previous_shoot',
             previousShootId: p.previous_shoot_id,
             availabilitySlots: p.availability_slots,
@@ -337,36 +693,130 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
           };
         });
 
-        setPhotographersWithDistance(initialPhotographers);
+        // Also fetch raw availability slots from bulkIndex (same as Availability page)
+        // This ensures the bars show the same data as the Availability page
+        let rawAvailabilityByPhotographer: Record<string, any[]> = {};
+        try {
+          const bulkResponse = await fetch(API_ROUTES.photographerAvailability.bulkIndex, {
+            method: 'POST',
+            headers,
+            signal: abortController.signal,
+            body: JSON.stringify({
+              photographer_ids: photographers.map(p => Number(p.id)),
+              from_date: format(date, 'yyyy-MM-dd'),
+              to_date: format(date, 'yyyy-MM-dd'),
+            }),
+          });
+          if (bulkResponse.ok) {
+            const bulkJson = await bulkResponse.json();
+            rawAvailabilityByPhotographer = bulkJson?.data || {};
+            console.log('[SchedulingForm] bulkIndex response:', {
+              rawData: rawAvailabilityByPhotographer,
+              photographerIds: photographers.map(p => p.id),
+              date: format(date, 'yyyy-MM-dd'),
+            });
+          } else {
+            console.error('[SchedulingForm] bulkIndex failed:', bulkResponse.status, bulkResponse.statusText);
+          }
+        } catch (e) {
+          console.error('[SchedulingForm] Error fetching bulk availability:', e);
+        }
+
+        // Process raw availability to get slots for the selected date
+        const dateStr = format(date, 'yyyy-MM-dd');
+        const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+
+        const enrichedPhotographers = initialPhotographers.map((p: any) => {
+          const rawSlots = rawAvailabilityByPhotographer[p.id] || rawAvailabilityByPhotographer[String(p.id)] || [];
+          
+          // Log raw slot structure to debug day_of_week matching
+          if (rawSlots.length > 0) {
+            const daysInSlots = rawSlots.map((s: any) => s.day_of_week);
+            console.log('[SchedulingForm] Raw slots sample for', p.name, ':', {
+              firstSlot: JSON.stringify(rawSlots[0]),
+              allDaysOfWeek: JSON.stringify(daysInSlots),
+              lookingFor: dayOfWeek,
+              hasMatchingDay: daysInSlots.some((d: string) => d?.toLowerCase() === dayOfWeek),
+            });
+          }
+          
+          // Filter slots: specific date slots OR recurring weekly slots for this day
+          const specificDateSlots = rawSlots.filter((s: any) => {
+            const slotDate = s?.date ? String(s.date).slice(0, 10) : '';
+            return slotDate === dateStr;
+          });
+          const weeklySlots = rawSlots.filter((s: any) => {
+            const slotDate = s?.date ? String(s.date).trim() : '';
+            if (slotDate) return false;
+            return normalizeDayOfWeek(s?.day_of_week) === dayOfWeek;
+          });
+          
+          // Use specific date slots if available, otherwise fall back to weekly recurring
+          const relevantSlots = specificDateSlots.length > 0 ? specificDateSlots : weeklySlots;
+          
+          // Filter to available slots only (not unavailable)
+          const availableSlots = relevantSlots
+            .filter((s: any) => !s.status || s.status === 'available')
+            .map((s: any) => ({
+              start_time: s.start_time,
+              end_time: s.end_time,
+            }));
+
+          console.log('[SchedulingForm] Processing photographer:', {
+            id: p.id,
+            name: p.name,
+            rawSlotsCount: rawSlots.length,
+            dayOfWeek,
+            specificDateSlotsCount: specificDateSlots.length,
+            weeklySlotsCount: weeklySlots.length,
+            availableSlotsCount: availableSlots.length,
+            availableSlots,
+          });
+
+          return {
+            ...p,
+            availabilitySlots: availableSlots,
+            netAvailableSlots: availableSlots.length > 0 ? availableSlots : p.netAvailableSlots,
+          };
+        });
+
+        setPhotographersWithDistance(enrichedPhotographers);
         setIsCalculatingDistances(false); // Show list immediately
 
         // Update availability map
         const availabilityMap = new Map<string | number, { isAvailable: boolean; nextAvailableTimes: string[] }>();
-        initialPhotographers.forEach((p: any) => {
-          const nextTimes = (p.netAvailableSlots || [])
+        enrichedPhotographers.forEach((p: any) => {
+          const slots = p.availabilitySlots || p.netAvailableSlots || [];
+          const nextTimes = slots
             .slice(0, 3)
             .map((slot: any) => to12Hour(slot.start_time));
+          const isAvailable = slots.length > 0 || p.isAvailableAtTime;
           
-          availabilityMap.set(p.id, { isAvailable: p.isAvailableAtTime ?? false, nextAvailableTimes: nextTimes });
-          availabilityMap.set(String(p.id), { isAvailable: p.isAvailableAtTime ?? false, nextAvailableTimes: nextTimes });
-          availabilityMap.set(Number(p.id), { isAvailable: p.isAvailableAtTime ?? false, nextAvailableTimes: nextTimes });
+          availabilityMap.set(p.id, { isAvailable: isAvailable ?? false, nextAvailableTimes: nextTimes });
+          availabilityMap.set(String(p.id), { isAvailable: isAvailable ?? false, nextAvailableTimes: nextTimes });
+          availabilityMap.set(Number(p.id), { isAvailable: isAvailable ?? false, nextAvailableTimes: nextTimes });
         });
         setPhotographerAvailability(availabilityMap);
         setIsLoadingAvailability(false);
 
         // Then calculate distances asynchronously in background
-        const bookingCoords = await getCoordinatesFromAddress(address, city, state, zip);
+        const bookingCoords = await getCoordinatesFromAddress(address, city, state, zip || '');
         if (!bookingCoords || isCancelled) return;
 
         // Calculate distances one by one and update state progressively
         for (const p of photographerData) {
           if (isCancelled) return; // Stop if cancelled
-          if (p.origin_address?.address && p.origin_address?.city && p.origin_address?.state) {
+          const originAddress = p.origin_address?.address || p.home_address?.address || '';
+          const originCity = p.origin_address?.city || p.home_address?.city || '';
+          const originState = p.origin_address?.state || p.home_address?.state || '';
+          const originZip = p.origin_address?.zip || p.home_address?.zip || '';
+          const hasOriginAddress = [originAddress, originCity, originState, originZip].some(value => Boolean(value && String(value).trim()));
+          if (hasOriginAddress) {
             const originCoords = await getCoordinatesFromAddress(
-              p.origin_address.address,
-              p.origin_address.city,
-              p.origin_address.state,
-              p.origin_address.zip || ''
+              originAddress,
+              originCity,
+              originState,
+              originZip || ''
             );
             if (originCoords && !isCancelled) {
               const distance = calculateDistance(
@@ -388,6 +838,10 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
         console.error('Error fetching photographer data:', error);
         setPhotographersWithDistance(photographers.map(p => ({ ...p })));
         setIsCalculatingDistances(false);
+        setIsLoadingAvailability(false);
+
+        // Fallback: compute distance from photographers' saved profile address
+        computeDistancesFromProfiles();
       }
     };
 
@@ -420,20 +874,49 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
     }
 
     const sorted = [...filtered].sort((a, b) => {
-      if (sortBy === 'distance') {
-        const aDistance = (a as any).distance;
-        const bDistance = (b as any).distance;
+      const aDistance = (a as any).distance;
+      const bDistance = (b as any).distance;
+      const compareDistance = () => {
         if (aDistance === undefined && bDistance === undefined) return 0;
         if (aDistance === undefined) return 1;
         if (bDistance === undefined) return -1;
         return aDistance - bDistance;
-      } else {
-        return a.name.localeCompare(b.name);
+      };
+
+      // When sorting by distance and a time is selected, bubble available photographers first
+      if (sortBy === 'distance' && time) {
+        const aAvailability = photographerAvailability.get(a.id)
+          || photographerAvailability.get(String(a.id))
+          || photographerAvailability.get(Number(a.id));
+        const bAvailability = photographerAvailability.get(b.id)
+          || photographerAvailability.get(String(b.id))
+          || photographerAvailability.get(Number(b.id));
+        const aIsAvailable = Boolean(aAvailability?.isAvailable);
+        const bIsAvailable = Boolean(bAvailability?.isAvailable);
+        if (aIsAvailable !== bIsAvailable) return aIsAvailable ? -1 : 1;
       }
+
+      if (sortBy === 'availability') {
+        const aAvailability = photographerAvailability.get(a.id)
+          || photographerAvailability.get(String(a.id))
+          || photographerAvailability.get(Number(a.id));
+        const bAvailability = photographerAvailability.get(b.id)
+          || photographerAvailability.get(String(b.id))
+          || photographerAvailability.get(Number(b.id));
+        const aIsAvailable = Boolean(aAvailability?.isAvailable);
+        const bIsAvailable = Boolean(bAvailability?.isAvailable);
+
+        if (aIsAvailable !== bIsAvailable) return aIsAvailable ? -1 : 1;
+        const distanceCompare = compareDistance();
+        return distanceCompare !== 0 ? distanceCompare : a.name.localeCompare(b.name);
+      }
+
+      const distanceCompare = compareDistance();
+      return distanceCompare !== 0 ? distanceCompare : a.name.localeCompare(b.name);
     });
 
     return sorted;
-  }, [photographersWithDistance, photographers, searchQuery, sortBy, showAllPhotographers]);
+  }, [photographersWithDistance, photographers, searchQuery, sortBy, showAllPhotographers, photographerAvailability]);
 
   // NOTE: Removed redundant fetchAvailability useEffect that was calling a separate API
   // which didn't account for booked slots. The fetchPhotographerData above already 
@@ -443,43 +926,38 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
     <div className="space-y-6 text-slate-900 dark:text-slate-100">
       <div className="grid grid-cols-1 gap-6">
         {/* Date Selection Section */}
-        <div className="bg-white dark:bg-slate-900 rounded-lg p-6 space-y-2 border border-gray-100 dark:border-slate-800">
-          <h2 className="text-xl font-semibold text-slate-900 dark:text-white mb-4">Date</h2>
+        <div className="bg-white dark:bg-card/40 rounded-2xl p-6 space-y-4 border border-slate-200/80 dark:border-muted/40 shadow-[0_1px_2px_rgba(15,23,42,0.08)]">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Select Date</h2>
+            <span className="text-sm font-semibold text-slate-900 dark:text-white">
+              {date ? format(date, "MMMM d, yyyy") : "Choose a date"}
+            </span>
+          </div>
 
-          <Dialog open={dateDialogOpen} onOpenChange={setDateDialogOpen}>
-            <DialogTrigger asChild>
-              <div className={cn(
-                "bg-gray-50 dark:bg-slate-800 rounded-lg p-4 flex justify-between items-center cursor-pointer hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors border border-gray-100 dark:border-slate-700"
-              )}>
-                <div>
-                  <p className="text-xl font-semibold text-slate-900 dark:text-white">
-                    {date ? format(date, "MMMM d, yyyy") : "Select a date"}
-                  </p>
-                </div>
-                <Button
-                  variant="ghost"
-                  className="rounded-lg p-2 text-blue-600 hover:bg-blue-600/10"
-                >
-                  <CalendarIcon size={28} />
-                </Button>
-              </div>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>Select Date</DialogTitle>
-                <DialogDescription>
-                  Choose a date for the shoot
-                </DialogDescription>
-              </DialogHeader>
-              <Calendar
-                mode="single"
-                selected={date}
-                onSelect={onDateChange}
-                disabled={disabledDates}
-                className="border rounded-md bg-card p-3 pointer-events-auto"
-              />
-            </DialogContent>
-          </Dialog>
+          <div className="rounded-lg border border-gray-100 dark:border-muted/40 bg-gray-50 dark:bg-card/40 p-4">
+            <Calendar
+              mode="single"
+              selected={date}
+              onSelect={onDateChange}
+              disabled={disabledDates}
+              defaultMonth={date ?? today}
+              fromMonth={today}
+              className="border-none bg-transparent p-0 pointer-events-auto"
+              classNames={{
+                caption: "relative flex items-center justify-center",
+                caption_label: "text-base font-semibold",
+                nav: "absolute inset-y-0 w-full flex items-center justify-between",
+                nav_button: "h-7 w-7 bg-transparent p-0 opacity-70 hover:opacity-100",
+                nav_button_previous: "static",
+                nav_button_next: "static",
+                head_cell: "text-slate-500 rounded-md w-full font-medium text-xs sm:text-sm flex-1 text-center",
+                day: "h-8 w-8 sm:h-9 sm:w-9 p-0 rounded-full text-sm sm:text-base font-medium aria-selected:opacity-100",
+                day_selected: "bg-primary text-primary-foreground rounded-full",
+                day_today: "bg-accent text-accent-foreground rounded-full",
+                cell: "relative p-0 text-center text-sm sm:text-base focus-within:relative focus-within:z-20 [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-accent/50 first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md flex-1",
+              }}
+            />
+          </div>
 
           {formErrors['date'] && (
             <p className="text-sm font-medium text-destructive mt-1">{formErrors['date']}</p>
@@ -487,35 +965,46 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
         </div>
 
         {/* Time Selection Section */}
-        <div className="bg-white dark:bg-slate-900 rounded-lg p-6 space-y-2 border border-gray-100 dark:border-slate-800">
-          <h2 className="text-xl font-semibold text-slate-900 dark:text-white mb-4">Time</h2>
+        <div className="bg-white dark:bg-card/40 rounded-2xl p-6 space-y-4 border border-slate-200/80 dark:border-muted/40 shadow-[0_1px_2px_rgba(15,23,42,0.08)]">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Time</h2>
+            <span className="text-sm font-semibold text-slate-900 dark:text-white">
+              {time || "Select a time"}
+            </span>
+          </div>
+
+          <div className="grid gap-3 grid-cols-2 sm:grid-cols-4 lg:grid-cols-6">
+            {quickTimes.map((slot) => (
+              <Button
+                key={slot}
+                type="button"
+                variant={time === slot ? "default" : "outline"}
+                disabled={!date}
+                onClick={() => handleQuickTimeSelect(slot)}
+                className={cn(
+                  "h-11 text-sm font-semibold",
+                  time === slot
+                    ? "bg-blue-600 text-white hover:bg-blue-700"
+                    : "bg-gray-50 dark:bg-card/60 border-gray-200 dark:border-muted/40 text-slate-900 dark:text-slate-100 hover:bg-gray-100 dark:hover:bg-card/70"
+                )}
+              >
+                {slot}
+              </Button>
+            ))}
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            className="h-12 w-full justify-center gap-2 dark:border-muted/40 dark:bg-card/60 dark:text-slate-100 dark:hover:bg-card/70"
+            onClick={() => handleTimeDialogOpen(true)}
+            disabled={!date}
+          >
+            <Clock className="h-4 w-4" />
+            Choose manually
+          </Button>
 
           <Dialog open={timeDialogOpen} onOpenChange={handleTimeDialogOpen}>
-            <DialogTrigger asChild>
-              <div className={cn(
-                "bg-gray-50 dark:bg-slate-800 rounded-lg p-4 flex justify-between items-center transition-colors border border-gray-100 dark:border-slate-700",
-                date ? "cursor-pointer hover:bg-gray-100 dark:hover:bg-slate-700" : "opacity-60 cursor-not-allowed"
-              )} onClick={() => {
-                if (!date) {
-                  toast({
-                    title: "Select date first",
-                    description: "Please choose a date before selecting time.",
-                    variant: "destructive",
-                  });
-                  return;
-                }
-                setTimeDialogOpen(true);
-              }}>
-                <p className="text-xl font-semibold text-slate-900 dark:text-white">{time || "Select a time"}</p>
-                <Button
-                  variant="ghost"
-                  className="rounded-lg p-2 text-blue-600 hover:bg-blue-600/10"
-                >
-                  <Clock size={28} />
-                </Button>
-              </div>
-            </DialogTrigger>
-
             <DialogContent className="sm:max-w-md w-full">
               <DialogHeader>
                 <DialogTitle>Select Time</DialogTitle>
@@ -550,15 +1039,15 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
         </div>
 
         {/* Photographer Section */}
-        <div className="bg-white dark:bg-slate-900 rounded-lg p-6 space-y-2 border border-gray-100 dark:border-slate-800">
+        <div className="bg-white dark:bg-card/40 rounded-2xl p-6 space-y-2 border border-slate-200/80 dark:border-muted/40 shadow-[0_1px_2px_rgba(15,23,42,0.08)]">
           <h2 className="text-xl font-semibold text-slate-900 dark:text-white mb-4">Photographer</h2>
 
           <Dialog open={photographerDialogOpen} onOpenChange={handlePhotographerDialogOpen}>
             <DialogTrigger asChild>
               <div
                 className={cn(
-                  "bg-gray-50 dark:bg-slate-800 rounded-lg p-4 flex justify-between items-center transition-colors border border-gray-100 dark:border-slate-700",
-                  time ? "cursor-pointer hover:bg-gray-100 dark:hover:bg-slate-700" : "opacity-60 cursor-not-allowed"
+                  "bg-gray-50 dark:bg-card/60 rounded-lg p-4 flex justify-between items-center transition-colors border border-gray-100 dark:border-muted/40",
+                  time ? "cursor-pointer hover:bg-gray-100 dark:hover:bg-card/70" : "opacity-60 cursor-not-allowed"
                 )}
                 onClick={() => {
                   if (!time) {
@@ -576,7 +1065,10 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
                   {selectedPhotographer ? (
                     <>
                       <Avatar className="h-12 w-12 mr-4">
-                        <AvatarImage src={selectedPhotographer.avatar} alt={selectedPhotographer.name} />
+                        <AvatarImage
+                          src={getAvatarUrl(selectedPhotographer.avatar, 'photographer', undefined, selectedPhotographer.id)}
+                          alt={selectedPhotographer.name}
+                        />
                         <AvatarFallback>{selectedPhotographer.name.charAt(0)}</AvatarFallback>
                       </Avatar>
                       <span className="text-xl font-semibold text-slate-900 dark:text-white">{selectedPhotographer.name}</span>
@@ -589,296 +1081,282 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
               </div>
             </DialogTrigger>
 
-            <DialogContent className="sm:max-w-md w-full">
-              <div className="p-4 bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-gray-100 dark:border-slate-800">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <DialogHeader>
-                      <DialogTitle className="text-lg text-slate-900 dark:text-slate-100">Select Photographer</DialogTitle>
-                      <DialogDescription>
-                        Choose a photographer for this shoot
+            <DialogContent className="sm:max-w-2xl w-[92vw] max-h-[90vh] p-0 overflow-hidden">
+              <div className="flex flex-col h-full sm:h-[70vh]">
+                <div className="flex-1 flex flex-col p-4 sm:p-6 gap-4 min-h-0">
+                  <div className="flex items-start justify-between">
+                    <DialogHeader className="space-y-1">
+                      <DialogTitle className="text-xl text-slate-900 dark:text-slate-100">Select Photographer</DialogTitle>
+                      <DialogDescription className="text-[11px] uppercase tracking-[0.28em] text-blue-500/80">
+                        Curated network - {availabilityStats.hasAvailabilityData ? availabilityStats.available : availabilityStats.total} available
                       </DialogDescription>
                     </DialogHeader>
                   </div>
-                </div>
 
-                {/* Search and Sort Controls */}
-                <div className="space-y-3 mb-4">
-                  {/* Search Field with Show All Button */}
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        placeholder="Search photographers..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-9"
-                      />
+                  {/* Search and Sort Controls */}
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="relative flex-1 min-w-[220px]">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Search by name or area..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="pl-9 h-9 rounded-full bg-slate-50 dark:bg-slate-900/50"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setSortBy('distance')}
+                          className={cn(
+                            "px-3 py-1.5 rounded-full text-[11px] font-semibold border transition-colors",
+                            sortBy === 'distance'
+                              ? "bg-blue-600 text-white border-blue-500"
+                              : "bg-slate-100 text-slate-600 border-transparent hover:bg-slate-200 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-700/60"
+                          )}
+                        >
+                          Distance
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSortBy('availability')}
+                          className={cn(
+                            "px-3 py-1.5 rounded-full text-[11px] font-semibold border transition-colors",
+                            sortBy === 'availability'
+                              ? "bg-blue-600 text-white border-blue-500"
+                              : "bg-slate-100 text-slate-600 border-transparent hover:bg-slate-200 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-700/60"
+                          )}
+                        >
+                          Availability
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowAllPhotographers(!showAllPhotographers)}
+                          className={cn(
+                            "px-3 py-1.5 rounded-full text-[11px] font-semibold border transition-colors",
+                            showAllPhotographers
+                              ? "bg-blue-600 text-white border-blue-500"
+                              : "bg-slate-100 text-slate-600 border-transparent hover:bg-slate-200 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-700/60"
+                          )}
+                        >
+                          Show All
+                        </button>
+                      </div>
                     </div>
-                    <Button
-                      type="button"
-                      variant={showAllPhotographers ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setShowAllPhotographers(!showAllPhotographers)}
-                      className="whitespace-nowrap"
-                    >
-                      {showAllPhotographers ? "Available" : "Show All"}
-                    </Button>
                   </div>
 
-                  {/* Sort Selector */}
-                  <div className="flex items-center gap-2">
-                    <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-                    <Select value={sortBy} onValueChange={(value: 'distance' | 'name') => setSortBy(value)}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Sort by" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="distance">Sort by Distance</SelectItem>
-                        <SelectItem value="name">Sort by Name</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="divide-y divide-gray-100 dark:divide-slate-800">
-                  {/* Scrollable content area */}
-                  <div className="pt-3 max-h-[48vh] overflow-y-auto pr-2">
-                    {isCalculatingDistances ? (
-                      <div className="flex items-center justify-center py-8">
-                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                        <span className="ml-2 text-sm text-muted-foreground">Calculating distances...</span>
-                      </div>
-                    ) : isLoadingAvailability && date && time ? (
-                      <div className="flex items-center justify-center py-8">
-                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                        <span className="ml-2 text-sm text-muted-foreground">Checking availability...</span>
-                      </div>
-                    ) : filteredAndSortedPhotographers.length > 0 ? (
-                      <div className="grid gap-3">
-                        {filteredAndSortedPhotographers.map((photographerItem) => {
-                          // Try multiple key formats to ensure we find the availability
-                          const availability = 
-                            photographerAvailability.get(photographerItem.id) ||
-                            photographerAvailability.get(String(photographerItem.id)) ||
-                            photographerAvailability.get(Number(photographerItem.id));
-                          const isAvailable = availability?.isAvailable ?? false;
-                          const nextTimes = availability?.nextAvailableTimes ?? [];
-                          const showAvailability = date && time && !isLoadingAvailability;
-                          
-                          // Debug log for UI
-                          if (showAvailability) {
-                            console.debug('[UI Availability Display]', {
-                              photographerId: photographerItem.id,
-                              photographerIdType: typeof photographerItem.id,
-                              photographerName: photographerItem.name,
-                              selectedTime: time,
-                              isAvailable,
-                              nextTimes,
-                              availabilityData: availability,
-                              mapKeys: Array.from(photographerAvailability.keys()),
-                              foundByDirectKey: photographerAvailability.has(photographerItem.id),
-                              foundByStringKey: photographerAvailability.has(String(photographerItem.id)),
-                              foundByNumberKey: photographerAvailability.has(Number(photographerItem.id))
+                  <div className="flex-1 min-h-0 overflow-y-auto pr-2">
+                    {/* Scrollable content area */}
+                    <div className="pt-3">
+                      {isCalculatingDistances ? (
+                        <div className="flex items-center justify-center py-8">
+                          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                          <span className="ml-2 text-sm text-muted-foreground">Calculating distances...</span>
+                        </div>
+                      ) : isLoadingAvailability && date && time ? (
+                        <div className="flex items-center justify-center py-8">
+                          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                          <span className="ml-2 text-sm text-muted-foreground">Checking availability...</span>
+                        </div>
+                      ) : filteredAndSortedPhotographers.length > 0 ? (
+                        <div className="grid gap-3">
+                          {filteredAndSortedPhotographers.map((photographerItem) => {
+                            const isSelected = photographer === photographerItem.id;
+                            const locationLabel = formatLocationLabel({
+                              address: photographerItem.address,
+                              city: photographerItem.city,
+                              state: photographerItem.state,
+                              zip: photographerItem.zip,
                             });
-                          }
+                            const availabilitySource = (photographerItem.netAvailableSlots && photographerItem.netAvailableSlots.length > 0)
+                              ? photographerItem.netAvailableSlots
+                              : photographerItem.availabilitySlots || [];
+                            const normalizedAvailability = availabilitySource
+                              .map((slot) => ({
+                                start_time: normalizeSlotTime(slot.start_time),
+                                end_time: normalizeSlotTime(slot.end_time),
+                              }))
+                              .filter((slot) => slot.start_time && slot.end_time);
+                            const availabilitySlots = normalizedAvailability;
 
-                          return (
-                            <div
-                              key={photographerItem.id}
-                              className={cn(
-                                "p-3 bg-gray-50 dark:bg-slate-800 border rounded-xl transition-colors",
-                                isAvailable
-                                  ? "border-green-200 dark:border-green-800"
-                                  : showAvailability && !isAvailable
-                                  ? "border-orange-200 dark:border-orange-800"
-                                  : "border-gray-100 dark:border-slate-700",
-                                "hover:bg-gray-100 dark:hover:bg-slate-700"
-                              )}
-                            >
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="flex items-start gap-3 flex-1 min-w-0">
-                                  <Avatar className="h-10 w-10 flex-shrink-0">
-                                    <AvatarImage src={photographerItem.avatar} alt={photographerItem.name} />
+                            return (
+                              <button
+                                key={photographerItem.id}
+                                type="button"
+                                onClick={() => setPhotographer?.(photographerItem.id)}
+                                className={cn(
+                                  "w-full text-left rounded-2xl border px-4 py-3 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40",
+                                  isSelected
+                                    ? "border-blue-500/70 bg-blue-50/60 dark:border-blue-500/50 dark:bg-blue-950/30"
+                                    : "border-slate-200/70 bg-white/70 dark:border-slate-800/70 dark:bg-slate-900/40 hover:border-blue-400/50"
+                                )}
+                              >
+                                <div className="flex items-center gap-4">
+                                  <Avatar className={cn(
+                                    "h-11 w-11 flex-shrink-0",
+                                    isSelected && "ring-2 ring-blue-500 ring-offset-2 ring-offset-white dark:ring-offset-slate-950"
+                                  )}>
+                                    <AvatarImage
+                                      src={getAvatarUrl(photographerItem.avatar, 'photographer', undefined, photographerItem.id)}
+                                      alt={photographerItem.name}
+                                    />
                                     <AvatarFallback>{photographerItem.name?.charAt(0)}</AvatarFallback>
                                   </Avatar>
 
                                   <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 mb-1">
-                                      <div className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <div className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
                                         {photographerItem.name}
                                       </div>
-                                      {showAvailability && (
-                                        <div className="flex items-center gap-1 flex-shrink-0">
-                                          {isAvailable ? (
-                                            <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
-                                          ) : (
-                                            <XCircle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-                                          )}
-                                        </div>
+                                      {isSelected && (
+                                        <span className="text-[10px] uppercase tracking-[0.2em] text-blue-500/80">Selected</span>
                                       )}
                                     </div>
+                                    <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400 truncate">
+                                      {locationLabel || 'Location unavailable'}
+                                    </div>
+                                    <div className="mt-2 relative h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                                      {availabilitySlots.map((slot, index) => {
+                                        const slotStart = 8 * 60;
+                                        const slotEnd = 20 * 60;
+                                        const startMinutes = timeToMinutes(slot.start_time);
+                                        const endMinutes = timeToMinutes(slot.end_time);
+                                        const totalMinutes = slotEnd - slotStart;
+                                        const leftPercent = ((startMinutes - slotStart) / totalMinutes) * 100;
+                                        const widthPercent = ((endMinutes - startMinutes) / totalMinutes) * 100;
+                                        const clampedLeft = Math.max(0, Math.min(100, leftPercent));
+                                        const clampedWidth = Math.max(
+                                          2,
+                                          Math.min(100 - clampedLeft, widthPercent)
+                                        );
 
-                                    <div className="space-y-1.5">
-                                      {/* Distance Info */}
-                                      <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2 flex-wrap">
-                                        {photographerItem.distance !== undefined ? (
-                                          <span className="flex items-center gap-1">
-                                            <MapPin className="h-3 w-3" />
-                                            {photographerItem.distance.toFixed(1)} mi
-                                            {photographerItem.distanceFrom === 'previous_shoot' && (
-                                              <span className="text-blue-500 dark:text-blue-400">(from prev shoot)</span>
-                                            )}
-                                          </span>
-                                        ) : (
-                                          <span className="text-muted-foreground">Distance unavailable</span>
-                                        )}
-                                        {photographerItem.shootsCountToday !== undefined && photographerItem.shootsCountToday > 0 && (
-                                          <span className="text-blue-600 dark:text-blue-400">
-                                            • {photographerItem.shootsCountToday} shoot{photographerItem.shootsCountToday > 1 ? 's' : ''} today
-                                          </span>
-                                        )}
-                                      </div>
+                                        if (clampedWidth <= 0) return null;
 
-                                      {/* Booked Slots Info */}
-                                      {photographerItem.bookedSlots && photographerItem.bookedSlots.length > 0 && (
-                                        <div className="text-[10px] text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 rounded px-2 py-1">
-                                          <span className="font-medium">Booked:</span>{' '}
-                                          {photographerItem.bookedSlots.map((slot, idx) => (
-                                            <span key={idx}>
-                                              {to12Hour(slot.start_time)}-{to12Hour(slot.end_time)}
-                                              {idx < (photographerItem.bookedSlots?.length || 0) - 1 ? ', ' : ''}
-                                            </span>
-                                          ))}
-                                        </div>
-                                      )}
-
-                                      {/* Net Available Slots */}
-                                      {photographerItem.netAvailableSlots && photographerItem.netAvailableSlots.length > 0 && (
-                                        <div className="text-[10px] text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 rounded px-2 py-1">
-                                          <span className="font-medium">Available:</span>{' '}
-                                          {photographerItem.netAvailableSlots.slice(0, 3).map((slot, idx) => (
-                                            <span key={idx}>
-                                              {to12Hour(slot.start_time)}-{to12Hour(slot.end_time)}
-                                              {idx < Math.min((photographerItem.netAvailableSlots?.length || 0), 3) - 1 ? ', ' : ''}
-                                            </span>
-                                          ))}
-                                          {(photographerItem.netAvailableSlots?.length || 0) > 3 && (
-                                            <span className="text-muted-foreground"> +{(photographerItem.netAvailableSlots?.length || 0) - 3} more</span>
-                                          )}
-                                        </div>
-                                      )}
-
-                                      {/* Availability Status at Selected Time */}
-                                      {showAvailability && (
-                                        <div className="text-xs">
-                                          {isAvailable ? (
-                                            <div className="flex items-center gap-1 text-green-600 dark:text-green-400">
-                                              <CheckCircle2 className="h-3 w-3" />
-                                              <span>Available at {time}</span>
-                                            </div>
-                                          ) : (photographerItem.netAvailableSlots && photographerItem.netAvailableSlots.length > 0) ? (
-                                            <div className="space-y-1">
-                                              <div className="flex items-center gap-1 text-orange-600 dark:text-orange-400">
-                                                <XCircle className="h-3 w-3" />
-                                                <span>Not available at {time}</span>
-                                              </div>
-                                              <div className="flex items-center gap-1 text-slate-600 dark:text-slate-400 ml-4">
-                                                <Clock className="h-3 w-3" />
-                                                <span>Available: {photographerItem.netAvailableSlots.slice(0, 2).map(s => `${to12Hour(s.start_time)}-${to12Hour(s.end_time)}`).join(', ')}</span>
-                                              </div>
-                                            </div>
-                                          ) : !photographerItem.hasAvailability ? (
-                                            <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400">
-                                              <XCircle className="h-3 w-3" />
-                                              <span>No availability set</span>
-                                            </div>
-                                          ) : (
-                                            <div className="flex items-center gap-1 text-orange-600 dark:text-orange-400">
-                                              <XCircle className="h-3 w-3" />
-                                              <span>Fully booked</span>
-                                            </div>
-                                          )}
-                                        </div>
-                                      )}
+                                        return (
+                                          <span
+                                            key={`${photographerItem.id}-slot-${index}`}
+                                            className="absolute top-0 bottom-0 rounded-full bg-blue-500 dark:bg-blue-400"
+                                            style={{ left: `${clampedLeft}%`, width: `${clampedWidth}%` }}
+                                          />
+                                        );
+                                      })}
+                                    </div>
+                                    <div className="mt-1 grid grid-cols-7 text-[10px] leading-none text-slate-400 dark:text-slate-500">
+                                      <span className="text-left">8:00 AM</span>
+                                      <span className="text-center">10:00 AM</span>
+                                      <span className="text-center">12:00 PM</span>
+                                      <span className="text-center">2:00 PM</span>
+                                      <span className="text-center">4:00 PM</span>
+                                      <span className="text-center">6:00 PM</span>
+                                      <span className="text-right">8:00 PM</span>
                                     </div>
                                   </div>
-                                </div>
 
-                                <div className="flex items-center gap-2 flex-shrink-0">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      if (setPhotographer) {
-                                        setPhotographer(photographerItem.id);
-                                        setPhotographerDialogOpen(false);
-                                      }
-                                    }}
-                                    className={cn(
-                                      "px-3 py-1.5 rounded-md text-sm font-medium shadow-sm transition-colors",
-                                      photographer === photographerItem.id
-                                        ? "bg-blue-600 text-white hover:bg-blue-700"
-                                        : showAvailability && !isAvailable
-                                        ? "bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 border border-orange-200 dark:border-orange-800 hover:bg-orange-100 dark:hover:bg-orange-900/30"
-                                        : "bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 border border-gray-200 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-600"
+                                  <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                                    {isSelected ? (
+                                      <div className="h-9 w-9 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-sm">
+                                        <Check className="h-4 w-4" />
+                                      </div>
+                                    ) : (
+                                      <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                                        {photographerItem.distance !== undefined
+                                          ? `${photographerItem.distance.toFixed(1)} miles away`
+                                          : 'Distance unavailable'}
+                                      </span>
                                     )}
-                                  >
-                                    {photographer === photographerItem.id ? 'Selected' : 'Select'}
-                                  </button>
+                                  </div>
                                 </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="text-sm text-slate-500 dark:text-slate-400 text-center py-8">
-                        {searchQuery 
-                          ? 'No photographers found matching your search.' 
-                          : showAllPhotographers 
-                            ? 'No photographers found in the system.'
-                            : (
-                              <div className="space-y-2">
-                                <p>No photographers available for the selected date and time.</p>
-                                <Button
-                                  type="button"
-                                  variant="link"
-                                  size="sm"
-                                  onClick={() => setShowAllPhotographers(true)}
-                                  className="text-blue-600"
-                                >
-                                  Show all photographers
-                                </Button>
-                              </div>
-                            )
-                        }
-                      </div>
-                    )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="text-sm text-slate-500 dark:text-slate-400 text-center py-8">
+                          {searchQuery 
+                            ? 'No photographers found matching your search.' 
+                            : showAllPhotographers 
+                              ? 'No photographers found in the system.'
+                              : (
+                                <div className="space-y-2">
+                                  <p>No photographers available for the selected date and time.</p>
+                                  <Button
+                                    type="button"
+                                    variant="link"
+                                    size="sm"
+                                    onClick={() => setShowAllPhotographers(true)}
+                                    className="text-blue-600"
+                                  >
+                                    Show all photographers
+                                  </Button>
+                                </div>
+                              )
+                          }
+                        </div>
+                      )}
+                    </div>
                   </div>
 
-                  {/* footer actions */}
-                  <div className="pt-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <Button variant="ghost" onClick={() => setPhotographerDialogOpen(false)} className="w-full">
-                        Cancel
-                      </Button>
-                      <Button
-                        onClick={() => {
-                          // if photographer selected, close; else toast
-                          if (!photographer) {
-                            toast({
-                              title: "No photographer selected",
-                              description: "Please select a photographer before continuing.",
-                              variant: "destructive",
-                            });
-                            return;
-                          }
-                          setPhotographerDialogOpen(false);
-                        }}
-                        className="w-full"
-                      >
-                        Continue
-                      </Button>
+                  {/* footer actions - outside scrollable area */}
+                  <div className="pt-4 border-t border-slate-200/70 dark:border-slate-800/70 bg-white/80 dark:bg-slate-950/50 backdrop-blur flex-shrink-0">
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                      <div className="flex items-center gap-3 w-full sm:w-auto">
+                        <Avatar className={cn(
+                          "h-10 w-10",
+                          selectedPhotographerDetails
+                            ? "ring-2 ring-blue-500/70 ring-offset-2 ring-offset-white dark:ring-offset-slate-950"
+                            : "bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+                        )}>
+                          {selectedPhotographerDetails ? (
+                            <>
+                              <AvatarImage
+                                src={getAvatarUrl(selectedPhotographerDetails.avatar, 'photographer', undefined, selectedPhotographerDetails.id)}
+                                alt={selectedPhotographerDetails.name}
+                              />
+                              <AvatarFallback>{selectedPhotographerDetails.name?.charAt(0)}</AvatarFallback>
+                            </>
+                          ) : (
+                            <AvatarFallback>
+                              <User className="h-4 w-4" />
+                            </AvatarFallback>
+                          )}
+                        </Avatar>
+                        <div>
+                          <p className="text-[10px] uppercase tracking-[0.28em] text-blue-500/80">
+                            Selected specialist
+                          </p>
+                          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                            {selectedPhotographerDetails?.name || 'None selected'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex w-full sm:w-auto gap-2">
+                        <Button
+                          variant="ghost"
+                          onClick={() => setPhotographerDialogOpen(false)}
+                          className="w-full sm:w-auto"
+                        >
+                          Discard
+                        </Button>
+                        <Button
+                          onClick={() => {
+                            // if photographer selected, close; else toast
+                            if (!photographer) {
+                              toast({
+                                title: "No photographer selected",
+                                description: "Please select a photographer before continuing.",
+                                variant: "destructive",
+                              });
+                              return;
+                            }
+                            setPhotographerDialogOpen(false);
+                          }}
+                          className="w-full sm:w-auto"
+                          disabled={!photographer}
+                        >
+                          Confirm Assignment
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </div>

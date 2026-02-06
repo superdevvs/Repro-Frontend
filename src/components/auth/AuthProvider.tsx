@@ -94,7 +94,13 @@ const generateMockJWT = (userId: string, role: string): string => {
 };
 
 const getStoredToken = () =>
-  (typeof window !== 'undefined' && (localStorage.getItem('authToken') || localStorage.getItem('token'))) || null;
+  (typeof window !== 'undefined' &&
+    (localStorage.getItem('authToken') ||
+      localStorage.getItem('token') ||
+      localStorage.getItem('access_token'))) ||
+  null;
+
+const getSessionToken = (userId: string, role: Role) => getStoredToken() ?? generateMockJWT(userId, role);
 
 const normalizeRole = (role?: string | null): Role => {
   if (!role) return 'admin';
@@ -142,6 +148,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     if (typeof window === 'undefined') return;
     localStorage.removeItem('authToken');
     localStorage.removeItem('token');
+    localStorage.removeItem('access_token');
     localStorage.removeItem('user');
     localStorage.removeItem('originalUser');
   };
@@ -298,9 +305,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     setUser(updatedUserData);
     setRole(roleToUse);
 
-    // Create a mock session for the impersonated user
-    const mockToken = generateMockJWT(updatedUserData.id, roleToUse);
-    setSession(buildSession(mockToken, updatedUserData, roleToUse));
+    // Create a session for the impersonated user (keep real token if available)
+    const sessionToken = getSessionToken(updatedUserData.id, roleToUse);
+    setSession(buildSession(sessionToken, updatedUserData, roleToUse));
     
     console.log(`Impersonating user: ${targetUser.email}`);
   };
@@ -312,14 +319,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     localStorage.setItem('user', JSON.stringify(originalUser));
     localStorage.removeItem('originalUser');
     
+    const restoredRole = normalizeRole(originalUser.role);
     setUser(originalUser);
-    setRole(originalUser.role || 'client');
+    setRole(restoredRole);
     setIsImpersonating(false);
     setOriginalUser(null);
 
     // Restore session
-    const mockToken = generateMockJWT(originalUser.id, originalUser.role || 'client');
-    setSession(buildSession(mockToken, originalUser, originalUser.role || 'client'));
+    const sessionToken = getSessionToken(originalUser.id, restoredRole);
+    setSession(buildSession(sessionToken, originalUser, restoredRole));
     
     console.log('Stopped impersonating, restored original user');
   };

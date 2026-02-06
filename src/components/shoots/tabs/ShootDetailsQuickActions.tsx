@@ -25,6 +25,7 @@ import {
 import { ShootData } from '@/types/shoots';
 import { useToast } from '@/hooks/use-toast';
 import { API_BASE_URL } from '@/config/env';
+import { MarkAsPaidDialog, MarkAsPaidPayload } from '@/components/payments/MarkAsPaidDialog';
 
 interface ShootDetailsQuickActionsProps {
   shoot: ShootData;
@@ -56,6 +57,7 @@ export function ShootDetailsQuickActions({
   const { toast } = useToast();
   const [assignPhotographerOpen, setAssignPhotographerOpen] = useState(false);
   const [assignEditorOpen, setAssignEditorOpen] = useState(false);
+  const [isMarkPaidDialogOpen, setIsMarkPaidDialogOpen] = useState(false);
   const [selectedPhotographerId, setSelectedPhotographerId] = useState<string>('');
   const [selectedEditorId, setSelectedEditorId] = useState<string>('');
   const [photographers, setPhotographers] = useState<Array<{ id: string; name: string; email: string }>>([]);
@@ -264,7 +266,7 @@ export function ShootDetailsQuickActions({
   };
 
   // Mark as paid (Super Admin only)
-  const handleMarkAsPaid = async () => {
+  const handleMarkAsPaid = () => {
     if (!shoot) return;
     const isPaid = (shoot.payment?.totalPaid ?? 0) >= (shoot.payment?.totalQuote ?? 0);
     if (isPaid) {
@@ -274,36 +276,47 @@ export function ShootDetailsQuickActions({
       });
       return;
     }
+    setIsMarkPaidDialogOpen(true);
+  };
 
-    try {
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/mark-paid`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify({
-          payment_type: 'manual',
-          amount: shoot.payment?.totalQuote ?? 0,
-        }),
-      });
-      
-      if (!res.ok) throw new Error('Failed to mark as paid');
-      
-      toast({
-        title: 'Success',
-        description: 'Shoot marked as paid',
-      });
-      onShootUpdate();
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to mark as paid',
-        variant: 'destructive',
-      });
+  const handleMarkPaidConfirm = async (payload: MarkAsPaidPayload) => {
+    if (!shoot) return;
+    const outstandingAmount = (shoot.payment?.totalQuote ?? 0) - (shoot.payment?.totalPaid ?? 0);
+    const amount = outstandingAmount > 0 ? outstandingAmount : (shoot.payment?.totalQuote ?? 0);
+    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+
+    const body: Record<string, any> = {
+      payment_type: payload.paymentMethod,
+      amount,
+    };
+
+    if (payload.paymentDetails) {
+      body.payment_details = payload.paymentDetails;
     }
+    if (payload.paymentDate) {
+      body.payment_date = payload.paymentDate;
+    }
+
+    const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/mark-paid`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({ message: 'Failed to mark as paid' }));
+      throw new Error(errorData.message || 'Failed to mark as paid');
+    }
+
+    toast({
+      title: 'Success',
+      description: 'Shoot marked as paid',
+    });
+    onShootUpdate();
   };
 
   const isPaid = (shoot.payment?.totalPaid ?? 0) >= (shoot.payment?.totalQuote ?? 0);
@@ -328,6 +341,17 @@ export function ShootDetailsQuickActions({
           >
             <ExternalLink className="h-3 w-3 sm:h-3.5 sm:w-3.5 sm:mr-1.5" />
             <span className="hidden sm:inline">Open iGUIDE</span>
+          </Button>
+        )}
+        {role === 'superadmin' && !isPaid && (
+          <Button
+            variant="default"
+            size="sm"
+            className="flex-1 h-7 sm:h-8 text-[10px] sm:text-xs px-2 sm:px-3"
+            onClick={handleMarkAsPaid}
+          >
+            <DollarSignIcon className="h-3 w-3 sm:h-3.5 sm:w-3.5 sm:mr-1.5" />
+            <span className="hidden sm:inline">Mark as Paid</span>
           </Button>
         )}
         {isClient && (
@@ -443,6 +467,15 @@ export function ShootDetailsQuickActions({
           </div>
         </DialogContent>
       </Dialog>
+
+      <MarkAsPaidDialog
+        isOpen={isMarkPaidDialogOpen}
+        onClose={() => setIsMarkPaidDialogOpen(false)}
+        onConfirm={handleMarkPaidConfirm}
+        title="Mark Shoot as Paid"
+        description="Select the payment method and provide any required details."
+        confirmLabel="Mark as Paid"
+      />
     </>
   );
 }

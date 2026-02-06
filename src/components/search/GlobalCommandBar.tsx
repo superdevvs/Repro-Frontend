@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/command";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { useShoots } from "@/context/ShootsContext";
+import { useOptionalShoots } from "@/context/ShootsContext";
 import { useEditingRequests } from "@/hooks/useEditingRequests";
 import { useToast } from "@/hooks/use-toast";
 import { API_BASE_URL } from "@/config/env";
@@ -37,7 +37,9 @@ const MAX_RESULTS = 8;
 
 export const GlobalCommandBar: React.FC<GlobalCommandBarProps> = ({ open, onOpenChange }) => {
   const { role } = useAuth();
-  const { shoots, fetchShoots, getUniqueClients, getUniqueEditors, getUniquePhotographers } = useShoots();
+  const shootsContext = useOptionalShoots();
+  const shoots = shootsContext?.shoots ?? [];
+  const fetchShoots = shootsContext?.fetchShoots;
   const isAdminExperience = ["admin", "superadmin"].includes(role);
   const canViewAvailability = ["admin", "superadmin", "salesRep", "sales_rep", "photographer"].includes(role);
   const canLoadEditingRequests = isAdminExperience || role === "salesRep";
@@ -164,9 +166,18 @@ export const GlobalCommandBar: React.FC<GlobalCommandBarProps> = ({ open, onOpen
       .slice(0, MAX_RESULTS);
   }, [editingRequests, trimmedQuery, matchesQuery, shouldShowResults, canLoadEditingRequests]);
 
-  const clients = useMemo(() => getUniqueClients(), [getUniqueClients]);
-  const photographers = useMemo(() => getUniquePhotographers(), [getUniquePhotographers]);
-  const editors = useMemo(() => getUniqueEditors(), [getUniqueEditors]);
+  const clients = useMemo(
+    () => (shootsContext ? shootsContext.getUniqueClients() : []),
+    [shootsContext, shoots]
+  );
+  const photographers = useMemo(
+    () => (shootsContext ? shootsContext.getUniquePhotographers() : []),
+    [shootsContext, shoots]
+  );
+  const editors = useMemo(
+    () => (shootsContext ? shootsContext.getUniqueEditors() : []),
+    [shootsContext, shoots]
+  );
 
   const filteredClients = useMemo(() => {
     if (!shouldShowResults) return [];

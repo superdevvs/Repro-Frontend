@@ -1,7 +1,6 @@
 
 import React from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { PageTransition } from '@/components/layout/PageTransition';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { Navigate } from 'react-router-dom';
@@ -17,17 +16,15 @@ const SchedulingSettings = () => {
 
   return (
     <DashboardLayout>
-      <PageTransition>
-        <div className="space-y-6 p-6">
-          <PageHeader
-            badge="Settings"
-            title="Services"
-            description="Manage services, pricing, and details"
-          />
+      <div className="space-y-6 p-6">
+        <PageHeader
+          badge="Settings"
+          title="Services"
+          description="Manage services, pricing, and details"
+        />
 
-          <ServicesTab />
-        </div>
-      </PageTransition>
+        <ServicesTab />
+      </div>
     </DashboardLayout>
   );
 };

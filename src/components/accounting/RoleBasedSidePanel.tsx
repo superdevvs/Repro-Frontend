@@ -6,6 +6,7 @@ import { ArrowUpRight, CreditCard, Clock, TrendingUp, Calendar, Users } from 'lu
 import { cn } from '@/lib/utils';
 import { AccountingMode } from '@/config/accountingConfig';
 import { useAuth } from '@/components/auth/AuthProvider';
+import { formatPaymentMethod, getPaymentMethodLabel } from '@/utils/paymentUtils';
 
 interface RoleBasedSidePanelProps {
   invoices: InvoiceData[];
@@ -60,7 +61,8 @@ function AdminPaymentsSummary({ invoices }: { invoices: InvoiceData[] }) {
   const paymentMethods = invoices
     .filter(i => i.status === 'paid' && i.paymentMethod)
     .reduce((acc, i) => {
-      const method = i.paymentMethod || 'Unknown';
+      const label = getPaymentMethodLabel(i.paymentMethod);
+      const method = label === 'N/A' ? 'Unknown' : label;
       acc[method] = (acc[method] || 0) + i.amount;
       return acc;
     }, {} as Record<string, number>);
@@ -147,18 +149,24 @@ function AdminPaymentsSummary({ invoices }: { invoices: InvoiceData[] }) {
         <CardContent className="flex-1 flex flex-col min-h-0">
           {latestTransactions.length > 0 ? (
             <div className="flex-1 overflow-y-auto space-y-2 pr-2">
-              {latestTransactions.map((invoice) => (
-                <div
-                  key={invoice.id}
-                  className="flex justify-between items-center p-2 rounded-md bg-muted/50"
-                >
-                  <div>
-                    <p className="text-sm font-medium">{invoice.client}</p>
-                    <p className="text-xs text-muted-foreground">{invoice.date}</p>
+              {latestTransactions.map((invoice) => {
+                const methodLabel = formatPaymentMethod(invoice.paymentMethod, invoice.paymentDetails);
+                return (
+                  <div
+                    key={invoice.id}
+                    className="flex justify-between items-center p-2 rounded-md bg-muted/50"
+                  >
+                    <div>
+                      <p className="text-sm font-medium">{invoice.client}</p>
+                      <p className="text-xs text-muted-foreground">{invoice.date}</p>
+                      {methodLabel !== 'N/A' && (
+                        <p className="text-xs text-muted-foreground">Paid via {methodLabel}</p>
+                      )}
+                    </div>
+                    <p className="text-sm font-medium">${invoice.amount.toLocaleString()}</p>
                   </div>
-                  <p className="text-sm font-medium">${invoice.amount.toLocaleString()}</p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">No recent payments</p>
@@ -177,7 +185,8 @@ function ClientSidePanel({ invoices, user }: { invoices: InvoiceData[]; user: an
   const paymentMethods = paidInvoices
     .filter(i => i.paymentMethod)
     .reduce((acc, i) => {
-      const method = i.paymentMethod || 'Unknown';
+      const label = getPaymentMethodLabel(i.paymentMethod);
+      const method = label === 'N/A' ? 'Unknown' : label;
       acc[method] = (acc[method] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
@@ -226,18 +235,24 @@ function ClientSidePanel({ invoices, user }: { invoices: InvoiceData[]; user: an
         <CardContent className="flex-1 flex flex-col min-h-0">
           {recentPayments.length > 0 ? (
             <div className="flex-1 overflow-y-auto space-y-2 pr-2">
-              {recentPayments.map((invoice) => (
-                <div
-                  key={invoice.id}
-                  className="flex justify-between items-center p-2 rounded-md bg-muted/50"
-                >
-                  <div>
-                    <p className="text-sm font-medium">{invoice.property || invoice.client}</p>
-                    <p className="text-xs text-muted-foreground">{invoice.date}</p>
+              {recentPayments.map((invoice) => {
+                const methodLabel = formatPaymentMethod(invoice.paymentMethod, invoice.paymentDetails);
+                return (
+                  <div
+                    key={invoice.id}
+                    className="flex justify-between items-center p-2 rounded-md bg-muted/50"
+                  >
+                    <div>
+                      <p className="text-sm font-medium">{invoice.property || invoice.client}</p>
+                      <p className="text-xs text-muted-foreground">{invoice.date}</p>
+                      {methodLabel !== 'N/A' && (
+                        <p className="text-xs text-muted-foreground">Paid via {methodLabel}</p>
+                      )}
+                    </div>
+                    <p className="text-sm font-medium">${invoice.amount.toLocaleString()}</p>
                   </div>
-                  <p className="text-sm font-medium">${invoice.amount.toLocaleString()}</p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">No recent payments</p>

@@ -57,13 +57,14 @@ export function BookingSummary({
       transition={{ duration: 0.4 }}
       className={
         // light by default, dark when `dark:` is present in page
-        "bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:to-slate-800 rounded-lg border border-gray-200 dark:border-slate-800 shadow-sm p-6 sticky top-20 max-h-[calc(100vh-6rem)] overflow-auto"
+        "bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:to-slate-800 rounded-lg border border-gray-200 dark:border-slate-800 shadow-sm sticky top-20 max-h-[calc(100vh-6rem)] overflow-hidden flex flex-col"
       }
     >
-      <h2 className="text-xl font-bold mb-2 text-slate-900 dark:text-white">Booking Summary</h2>
-      <p className="text-sm mb-6 text-slate-500 dark:text-slate-300">Complete all steps to schedule your shoot</p>
+      <div className="flex-1 overflow-y-auto p-6 pr-4">
+        <h2 className="text-xl font-bold mb-2 text-slate-900 dark:text-white">Booking Summary</h2>
+        <p className="text-sm mb-6 text-slate-500 dark:text-slate-300">Complete all steps to schedule your shoot</p>
 
-      <div className="space-y-6">
+        <div className="space-y-6 pb-4">
         {!isClientRole && (
           <div className="space-y-1.5">
             <div className="text-sm text-blue-600 dark:text-blue-400">Client</div>
@@ -157,27 +158,29 @@ export function BookingSummary({
           </div>
         )}
 
-        <div className="pt-4 mt-4 border-t border-gray-200 dark:border-slate-700">
-          <Button
-            onClick={onSubmit}
-            disabled={isSubmitting}
-            className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-md transition-colors disabled:opacity-70"
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Requesting...
-              </>
-            ) : isClientRole ? (
-              <>
-                <Send className="mr-2 h-4 w-4" /> Request Shoot
-              </>
-            ) : (
-              <>
-                <Check className="mr-2 h-4 w-4" /> Book Shoot
-              </>
-            )}
-          </Button>
         </div>
+      </div>
+
+      <div className="border-t border-gray-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 backdrop-blur px-6 py-4">
+        <Button
+          onClick={onSubmit}
+          disabled={isSubmitting}
+          className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-md transition-colors disabled:opacity-70"
+        >
+          {isSubmitting ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Requesting...
+            </>
+          ) : isClientRole ? (
+            <>
+              <Send className="mr-2 h-4 w-4" /> Request Shoot
+            </>
+          ) : (
+            <>
+              <Check className="mr-2 h-4 w-4" /> Book Shoot
+            </>
+          )}
+        </Button>
       </div>
     </motion.div>
   );

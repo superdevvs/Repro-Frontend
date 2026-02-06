@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { PageTransition } from '@/components/layout/PageTransition';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { Navigate } from 'react-router-dom';
@@ -1156,16 +1155,14 @@ const IntegrationsSettings = () => {
 
   return (
     <DashboardLayout>
-      <PageTransition>
-        <div className="space-y-6 p-6">
-          <PageHeader
-            badge="Settings"
-            title="Integrations"
-            description="Configure API credentials and settings for external integrations"
-          />
-          <IntegrationsSettingsContent />
-        </div>
-      </PageTransition>
+      <div className="space-y-6 p-6">
+        <PageHeader
+          badge="Settings"
+          title="Integrations"
+          description="Configure API credentials and settings for external integrations"
+        />
+        <IntegrationsSettingsContent />
+      </div>
     </DashboardLayout>
   );
 };

@@ -857,24 +857,28 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
         </div>
         <div className="flex items-center gap-2">
           {/* Toggle button based on active tab */}
-          {activeTab === 'upcoming' && hasPastDays && (
+          {activeTab === 'upcoming' && (
             <Button
               variant="outline"
               size="sm"
               className="text-xs rounded-full border-dashed"
               onClick={() => setShowPastDays((prev) => !prev)}
+              disabled={!hasPastDays}
             >
-              {showPastDays ? 'Hide' : 'Previous shoots'}
+              {hasPastDays ? (showPastDays ? 'Hide' : 'Previous shoots') : 'Previous shoots'}
             </Button>
           )}
-          {activeTab === 'requested' && hasPastRequests && (
+          {activeTab === 'requested' && (
             <Button
               variant="outline"
               size="sm"
               className="text-xs rounded-full border-dashed"
               onClick={() => setShowPastRequests((prev) => !prev)}
+              disabled={!hasPastRequests}
             >
-              {showPastRequests ? 'Hide' : `Previous requests (${pastRequests.length})`}
+              {hasPastRequests
+                ? (showPastRequests ? 'Hide' : `Previous requests (${pastRequests.length})`)
+                : 'Previous requests'}
             </Button>
           )}
           {activeTab !== 'requested' && (

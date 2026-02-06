@@ -1,7 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { PageTransition } from '@/components/layout/PageTransition';
 import { AccountingHeader } from '@/components/accounting/AccountingHeader';
 import { OverviewCards } from '@/components/accounting/OverviewCards';
 import { RoleBasedOverviewCards } from '@/components/accounting/RoleBasedOverviewCards';
@@ -17,7 +16,7 @@ import { ShootData } from '@/types/shoots';
 import { UpcomingPayments } from '@/components/accounting/UpcomingPayments';
 import { CreateInvoiceDialog } from '@/components/invoices/CreateInvoiceDialog';
 import { InvoiceViewDialog } from '@/components/invoices/InvoiceViewDialog';
-import { PaymentDialog } from '@/components/invoices/PaymentDialog';
+import { PaymentDialog, type InvoicePaymentCompletePayload } from '@/components/invoices/PaymentDialog';
 import { BatchInvoiceDialog } from '@/components/accounting/BatchInvoiceDialog';
 import { InvoiceData } from '@/utils/invoiceUtils';
 import { useToast } from '@/hooks/use-toast';
@@ -261,22 +260,35 @@ const AccountingPage = () => {
     setPaymentDialogOpen(false);
   };
 
-  const handlePaymentComplete = async (invoiceId: string, paymentMethod: string) => {
+  const handlePaymentComplete = async (payload: InvoicePaymentCompletePayload) => {
+    const { invoiceId, paymentMethod, paymentDetails, paymentDate, amount } = payload;
     try {
-      const updatedInvoice = await markInvoiceAsPaid(invoiceId, {
-        amount_paid: undefined, // Use invoice total
-      });
+      const markPaidPayload = {
+        ...(amount !== undefined ? { amount_paid: amount } : {}),
+        ...(paymentDate ? { paid_at: paymentDate } : {}),
+        payment_method: paymentMethod,
+        payment_details: paymentDetails ?? null,
+      };
+      const updatedInvoice = await markInvoiceAsPaid(invoiceId, markPaidPayload);
+      const normalizedInvoice: InvoiceData = {
+        ...updatedInvoice,
+        paymentMethod: updatedInvoice.paymentMethod || paymentMethod,
+        paymentDetails: updatedInvoice.paymentDetails ?? paymentDetails ?? undefined,
+        paidAt: updatedInvoice.paidAt || paymentDate || updatedInvoice.paidAt,
+      };
       
       setInvoices(currentInvoices =>
         currentInvoices.map(invoice =>
           invoice.id === invoiceId
             ? {
-              ...updatedInvoice,
-              paymentMethod: paymentMethod
+              ...normalizedInvoice,
             }
             : invoice
         )
       );
+      if (selectedInvoice && String(selectedInvoice.id) === String(invoiceId)) {
+        setSelectedInvoice(normalizedInvoice);
+      }
 
       toast({
         title: "Payment Successful",
@@ -331,8 +343,7 @@ const AccountingPage = () => {
 
   return (
     <DashboardLayout>
-      <PageTransition>
-        <div className="space-y-3 p-6">
+      <div className="space-y-3 p-6">
           <AccountingHeader
             onCreateInvoice={() => canCreateInvoice && setCreateDialogOpen(true)}
             onCreateBatch={() => canCreateInvoice && setBatchDialogOpen(true)}
@@ -434,7 +445,6 @@ const AccountingPage = () => {
 
           {/* <UpcomingPayments invoices={invoices} /> */}
         </div>
-      </PageTransition>
 
       {selectedInvoice && (
         <InvoiceViewDialog

@@ -215,7 +215,7 @@ const Dashboard = () => {
   const { role, session, user } = useAuth();
   const { shoots, fetchShoots } = useShoots();
   const isMobile = useIsMobile();
-  const isAdminExperience = ["admin", "superadmin"].includes(role);
+  const isAdminExperience = ["admin", "superadmin", "editing_manager"].includes(role);
   const canLoadAvailability = isAdminExperience || role === "salesRep";
   const navigate = useNavigate();
   const location = useLocation();

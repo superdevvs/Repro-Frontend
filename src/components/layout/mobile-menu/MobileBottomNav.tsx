@@ -58,7 +58,7 @@ export const MobileBottomNav = ({ toggleMenu }: MobileBottomNavProps) => {
       case 'MessageSquare':
         return <MessageSquare className={iconClass} />;
       case 'Robbie':
-        return <ReproAiIcon className={iconClass} />;
+        return <ReproAiIcon className={iconClass} useSolid />;
       default:
         return <HomeIcon className={iconClass} />;
     }

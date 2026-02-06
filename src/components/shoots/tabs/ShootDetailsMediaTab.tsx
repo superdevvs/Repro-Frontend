@@ -46,6 +46,7 @@ import { Progress } from '@/components/ui/progress';
 import { ShootData } from '@/types/shoots';
 import { useToast } from '@/hooks/use-toast';
 import { API_BASE_URL } from '@/config/env';
+import { getApiHeaders } from '@/services/api';
 // FileUploader import removed - using RawUploadSection and EditedUploadSection instead
 import { useAuth } from '@/components/auth/AuthProvider';
 import { Textarea } from '@/components/ui/textarea';
@@ -487,17 +488,13 @@ export function ShootDetailsMediaTab({
 
     setDownloading(true);
     try {
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const headers = getApiHeaders();
       const fileIds = Array.from(selectedFiles);
       
       // Request download from backend
       const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/files/download`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           file_ids: fileIds,
           size: size === 'small' ? 'small' : 'original', // small = 1800x1200, original = full size
@@ -549,7 +546,9 @@ export function ShootDetailsMediaTab({
 
     setDownloading(true);
     try {
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const headers = getApiHeaders();
+      headers.Accept = 'application/json, application/zip';
+      delete headers['Content-Type'];
       
       const queryParams = new URLSearchParams();
       if (!downloadAll && fileIds.length > 0) {
@@ -558,10 +557,7 @@ export function ShootDetailsMediaTab({
       
       const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/editor-download-raw?${queryParams.toString()}`, {
         method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json, application/zip',
-        },
+        headers,
       });
 
       if (!res.ok) {
@@ -633,18 +629,13 @@ export function ShootDetailsMediaTab({
 
     setGeneratingShareLink(true);
     try {
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const headers = getApiHeaders();
       
       const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/generate-share-link`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           file_ids: shareAll ? [] : fileIds,
-          expires_in_hours: 72,
         }),
       });
 
@@ -661,7 +652,7 @@ export function ShootDetailsMediaTab({
       
       toast({
         title: 'Share link generated!',
-        description: `Link copied to clipboard. Valid for ${data.expires_in_hours} hours.`,
+        description: 'Link copied to clipboard. Lifetime link.',
       });
       
     } catch (error: any) {
@@ -692,16 +683,12 @@ export function ShootDetailsMediaTab({
     }
 
     try {
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const headers = getApiHeaders();
       const fileIds = Array.from(selectedFiles).map(id => parseInt(id));
       
       const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/media/bulk-delete`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           ids: fileIds,
         }),
@@ -829,7 +816,8 @@ export function ShootDetailsMediaTab({
     const uploadSingleEditedFile = (
       file: File, 
       fileIndex: number, 
-      token: string,
+      authorizationHeader: string | undefined,
+      impersonationHeader: string | undefined,
       isFirstFile: boolean
     ): Promise<{ success: boolean; error?: string }> => {
       return new Promise((resolve) => {
@@ -877,7 +865,12 @@ export function ShootDetailsMediaTab({
         });
         
         xhr.open('POST', `${API_BASE_URL}/api/shoots/${shoot.id}/upload`);
-        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+        if (authorizationHeader) {
+          xhr.setRequestHeader('Authorization', authorizationHeader);
+        }
+        if (impersonationHeader) {
+          xhr.setRequestHeader('X-Impersonate-User-Id', impersonationHeader);
+        }
         xhr.send(formData);
       });
     };
@@ -893,7 +886,9 @@ export function ShootDetailsMediaTab({
       });
       setFileProgress(initialProgress);
       
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const apiHeaders = getApiHeaders();
+      const authorizationHeader = apiHeaders.Authorization;
+      const impersonationHeader = apiHeaders['X-Impersonate-User-Id'];
       const CONCURRENT_UPLOADS = 3; // Upload 3 files concurrently
       const totalFiles = uploadedFiles.length;
       let completedFiles = 0;
@@ -905,7 +900,7 @@ export function ShootDetailsMediaTab({
           const batch = uploadedFiles.slice(i, Math.min(i + CONCURRENT_UPLOADS, totalFiles));
           const batchPromises = batch.map((file, batchIndex) => {
             const fileIndex = i + batchIndex;
-            return uploadSingleEditedFile(file, fileIndex, token || '', fileIndex === 0);
+            return uploadSingleEditedFile(file, fileIndex, authorizationHeader, impersonationHeader, fileIndex === 0);
           });
           
           const results = await Promise.all(batchPromises);
@@ -1484,7 +1479,8 @@ export function ShootDetailsMediaTab({
     const uploadSingleFile = (
       file: File, 
       fileIndex: number, 
-      token: string,
+      authorizationHeader: string | undefined,
+      impersonationHeader: string | undefined,
       isFirstFile: boolean
     ): Promise<{ success: boolean; error?: string }> => {
       return new Promise((resolve) => {
@@ -1546,7 +1542,12 @@ export function ShootDetailsMediaTab({
         });
         
         xhr.open('POST', `${API_BASE_URL}/api/shoots/${shoot.id}/upload`);
-        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+        if (authorizationHeader) {
+          xhr.setRequestHeader('Authorization', authorizationHeader);
+        }
+        if (impersonationHeader) {
+          xhr.setRequestHeader('X-Impersonate-User-Id', impersonationHeader);
+        }
         xhr.send(formData);
       });
     };
@@ -1562,7 +1563,9 @@ export function ShootDetailsMediaTab({
       });
       setFileProgress(initialProgress);
       
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const apiHeaders = getApiHeaders();
+      const authorizationHeader = apiHeaders.Authorization;
+      const impersonationHeader = apiHeaders['X-Impersonate-User-Id'];
       const CONCURRENT_UPLOADS = 3; // Upload 3 files concurrently
       const totalFiles = uploadedFiles.length;
       let completedFiles = 0;
@@ -1574,7 +1577,7 @@ export function ShootDetailsMediaTab({
           const batch = uploadedFiles.slice(i, Math.min(i + CONCURRENT_UPLOADS, totalFiles));
           const batchPromises = batch.map((file, batchIndex) => {
             const fileIndex = i + batchIndex;
-            return uploadSingleFile(file, fileIndex, token || '', fileIndex === 0);
+            return uploadSingleFile(file, fileIndex, authorizationHeader, impersonationHeader, fileIndex === 0);
           });
           
           const results = await Promise.all(batchPromises);
@@ -3358,16 +3361,12 @@ function MediaViewer({
     
     setFlagging(true);
     try {
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const headers = getApiHeaders();
       
       // Create an issue linked to this media file
       const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/issues`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           note: flagReason.trim(),
           mediaId: currentFile.id,
@@ -3381,11 +3380,7 @@ function MediaViewer({
       try {
         await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/files/${currentFile.id}/flag`, {
           method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-          },
+          headers,
           body: JSON.stringify({
             reason: flagReason.trim(),
             file_id: currentFile.id,
@@ -3544,14 +3539,10 @@ function MediaViewer({
                   className="h-7 text-xs text-white hover:bg-white/20"
                   onClick={async () => {
                     try {
-                      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+                      const headers = getApiHeaders();
                       const response = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/media/${currentFile.id}/cover`, {
                         method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json',
-                          'Authorization': `Bearer ${token}`,
-                          'Accept': 'application/json',
-                        },
+                        headers,
                       });
                       if (!response.ok) {
                         const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));

@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { PageTransition } from '@/components/layout/PageTransition';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { Card, CardContent } from '@/components/ui/card';
@@ -1926,8 +1925,7 @@ const AiEditing = () => {
 
   return (
     <DashboardLayout>
-      <PageTransition>
-        <div className="space-y-6 p-6">
+      <div className="space-y-6 p-6">
           {viewMode === 'list' && (
             <>
               <PageHeader
@@ -2074,7 +2072,6 @@ const AiEditing = () => {
             </DialogContent>
           </Dialog>
         </div>
-      </PageTransition>
     </DashboardLayout>
   );
 };

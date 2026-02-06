@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { PageTransition } from '@/components/layout/PageTransition';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { Navigate } from 'react-router-dom';
@@ -173,13 +172,12 @@ const MlsPublishingQueue = () => {
 
   return (
     <DashboardLayout>
-      <PageTransition>
-        <div className="space-y-6 p-6">
-          <PageHeader
-            badge="Admin"
-            title="MLS Publishing Queue"
-            description="Track and manage Bright MLS publishing status for all shoots"
-          />
+      <div className="space-y-6 p-6">
+        <PageHeader
+          badge="Admin"
+          title="MLS Publishing Queue"
+          description="Track and manage Bright MLS publishing status for all shoots"
+        />
 
           <Card>
             <CardContent className="p-0">
@@ -309,8 +307,7 @@ const MlsPublishingQueue = () => {
               Refresh
             </Button>
           </div>
-        </div>
-      </PageTransition>
+      </div>
     </DashboardLayout>
   );
 };

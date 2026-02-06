@@ -1,7 +1,6 @@
 
 import React from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { PageTransition } from '@/components/layout/PageTransition';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { CouponsList } from '@/components/coupons/CouponsList';
 import { useAuth } from '@/components/auth/AuthProvider';
@@ -22,29 +21,27 @@ const Coupons = () => {
   
   return (
     <DashboardLayout>
-      <PageTransition>
-        <div className="space-y-6 p-6">
-          <PageHeader
-            badge="Admin Settings"
-            title="Coupons & Discounts"
-            description="Manage promotional codes and discounts"
-            action={
-              canCreateCoupons ? (
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Create Coupon
-                    </Button>
-                  </DialogTrigger>
-                  <CreateCouponDialog />
-                </Dialog>
-              ) : undefined
-            }
-          />
-          <CouponsList />
-        </div>
-      </PageTransition>
+      <div className="space-y-6 p-6">
+        <PageHeader
+          badge="Admin Settings"
+          title="Coupons & Discounts"
+          description="Manage promotional codes and discounts"
+          action={
+            canCreateCoupons ? (
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Coupon
+                  </Button>
+                </DialogTrigger>
+                <CreateCouponDialog />
+              </Dialog>
+            ) : undefined
+          }
+        />
+        <CouponsList />
+      </div>
     </DashboardLayout>
   );
 };

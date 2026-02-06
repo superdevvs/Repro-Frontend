@@ -1,5 +1,6 @@
 
 import React, { Suspense, lazy, useEffect, useRef } from 'react'
+import { AnimatePresence } from 'framer-motion';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -10,6 +11,7 @@ import { PermissionsProvider } from './context/PermissionsContext';
 import { UserPreferencesProvider } from './contexts/UserPreferencesContext';
 import { IssueManagerProvider, useIssueManager } from './context/IssueManagerContext';
 import { PhotographerAssignmentProvider, usePhotographerAssignment } from './context/PhotographerAssignmentContext';
+import { PageTransition } from '@/components/layout/PageTransition';
 import Index from "./pages/Index";
 import { ShootsProvider } from './context/ShootsContext';
 import { toast } from "./components/ui/use-toast";
@@ -330,42 +332,90 @@ const RealtimeBridge = () => {
 
 // Routes wrapper with auth provider
 const AppRoutes = () => {
+  const location = useLocation();
 
   return (
     <Suspense fallback={<FullScreenSpinner />}>
-      <Routes>
-      <Route path="/" element={<Index />} />
+      <AnimatePresence mode="wait">
+      <Routes location={location} key={location.pathname}>
+      <Route path="/" element={
+        <PageTransition>
+          <Index />
+        </PageTransition>
+      } />
       
       {/* Public test routes for address lookup */}
-      <Route path="/test-address-lookup" element={<AddressLookupTest />} />
-      <Route path="/test-client-form" element={<TestClientPropertyForm />} />
+      <Route path="/test-address-lookup" element={
+        <PageTransition>
+          <AddressLookupTest />
+        </PageTransition>
+      } />
+      <Route path="/test-client-form" element={
+        <PageTransition>
+          <TestClientPropertyForm />
+        </PageTransition>
+      } />
 
-      <Route path="/dropbox-callback" element={<DropboxCallback />} />
+      <Route path="/dropbox-callback" element={
+        <PageTransition>
+          <DropboxCallback />
+        </PageTransition>
+      } />
       {/* Public client-facing tour pages (accept ?shootId=) */}
-      <Route path="/tour/branded" element={<BrandedPage />} />
-      <Route path="/tour/mls" element={<MlsCompliant />} />
-      <Route path="/tour/g-mls" element={<GenericMLS />} />
+      <Route path="/tour/branded" element={
+        <PageTransition>
+          <BrandedPage />
+        </PageTransition>
+      } />
+      <Route path="/tour/mls" element={
+        <PageTransition>
+          <MlsCompliant />
+        </PageTransition>
+      } />
+      <Route path="/tour/g-mls" element={
+        <PageTransition>
+          <GenericMLS />
+        </PageTransition>
+      } />
       {/* Public client portal so clients can share their link */}
-      <Route path="/client-portal" element={<ClientPortal />} />
+      <Route path="/client-portal" element={
+        <PageTransition>
+          <ClientPortal />
+        </PageTransition>
+      } />
       {/* Public password reset page */}
-      <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/reset-password" element={
+        <PageTransition>
+          <ResetPassword />
+        </PageTransition>
+      } />
       {/* Public payment page */}
-      <Route path="/payment/:id" element={<PaymentPage />} />
+      <Route path="/payment/:id" element={
+        <PageTransition>
+          <PaymentPage />
+        </PageTransition>
+      } />
        <Route path="/tours/branded" element={
         // <ProtectedRoute>
-          <BrandedPage />
+          <PageTransition>
+            <BrandedPage />
+          </PageTransition>
         // </ProtectedRoute>
       } />
 
        <Route path="/tours/mls" element={
         // <ProtectedRoute>
-          <MlsCompliant />
+          <PageTransition>
+            <MlsCompliant />
+          </PageTransition>
         // </ProtectedRoute>
       } />
 
        <Route path="/tours/g-mls" element={
         // <ProtectedRoute>
-          <GenericMLS />
+          <PageTransition>
+            <GenericMLS />
+          </PageTransition>
         // </ProtectedRoute>
        } />
 
@@ -570,17 +620,26 @@ const AppRoutes = () => {
       {/* Address lookup testing routes */}
       <Route path="/address-lookup-demo" element={
         <ProtectedRoute>
-          <AddressLookupDemo />
+          <PageTransition>
+            <AddressLookupDemo />
+          </PageTransition>
         </ProtectedRoute>
       } />
       <Route path="/book-shoot-enhanced" element={
         <ProtectedRoute>
-          <BookShootWithAddressLookup />
+          <PageTransition>
+            <BookShootWithAddressLookup />
+          </PageTransition>
         </ProtectedRoute>
       } />
-      <Route path="*" element={<NotFound />} />
+      <Route path="*" element={
+        <PageTransition>
+          <NotFound />
+        </PageTransition>
+      } />
 
     </Routes>
+    </AnimatePresence>
     </Suspense>
   );
 };

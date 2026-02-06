@@ -201,6 +201,9 @@ export interface DashboardShootSummary {
   deliveryDeadline?: string | null;
   submittedForReviewAt?: string | null;
   adminIssueNotes?: string | null;
+  holdRequestedAt?: string | null;
+  holdRequestedBy?: string | number | null;
+  holdReason?: string | null;
   createdBy?: string | null;
   heroImage?: string | null;
   previewImages?: string[];

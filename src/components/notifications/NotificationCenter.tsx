@@ -73,6 +73,9 @@ export function NotificationCenter() {
   const [cancellationDialogOpen, setCancellationDialogOpen] = useState(false);
   const [cancellationShootId, setCancellationShootId] = useState<number | null>(null);
   const [cancellationProcessing, setCancellationProcessing] = useState(false);
+  const [holdDialogOpen, setHoldDialogOpen] = useState(false);
+  const [holdShootId, setHoldShootId] = useState<number | null>(null);
+  const [holdProcessing, setHoldProcessing] = useState(false);
 
   // Handle cancellation approval
   const handleApproveCancellation = async () => {
@@ -112,6 +115,87 @@ export function NotificationCenter() {
       });
     } finally {
       setCancellationProcessing(false);
+    }
+  };
+
+  const handleApproveHold = async () => {
+    if (!holdShootId) return;
+    setHoldProcessing(true);
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/api/shoots/${holdShootId}/approve-hold`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      });
+      if (response.ok) {
+        toast({
+          title: 'Hold approved',
+          description: 'The shoot has been placed on hold.',
+        });
+        setHoldDialogOpen(false);
+        setHoldShootId(null);
+        refresh();
+      } else {
+        const data = await response.json();
+        toast({
+          title: 'Error',
+          description: data.message || 'Failed to approve hold request',
+          variant: 'destructive',
+        });
+      }
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: 'Failed to approve hold request',
+        variant: 'destructive',
+      });
+    } finally {
+      setHoldProcessing(false);
+    }
+  };
+
+  const handleRejectHold = async () => {
+    if (!holdShootId) return;
+    setHoldProcessing(true);
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/api/shoots/${holdShootId}/reject-hold`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({ reason: 'Hold request rejected' }),
+      });
+      if (response.ok) {
+        toast({
+          title: 'Hold request rejected',
+          description: 'The hold request has been rejected.',
+        });
+        setHoldDialogOpen(false);
+        setHoldShootId(null);
+        refresh();
+      } else {
+        const data = await response.json();
+        toast({
+          title: 'Error',
+          description: data.message || 'Failed to reject hold request',
+          variant: 'destructive',
+        });
+      }
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: 'Failed to reject hold request',
+        variant: 'destructive',
+      });
+    } finally {
+      setHoldProcessing(false);
     }
   };
 
@@ -162,14 +246,26 @@ export function NotificationCenter() {
     markAsRead(notification.id);
     
     // Check if this is a cancellation request notification
-    const isCancellation = 
-      notification.action?.toLowerCase().includes('cancellation') ||
-      notification.title.toLowerCase().includes('cancellation');
+    const notificationAction = notification.action?.toLowerCase() || '';
+    const notificationTitle = notification.title.toLowerCase();
+    const isCancellation =
+      notificationAction.includes('cancellation') || notificationTitle.includes('cancellation');
+    const isHoldRequest =
+      notificationAction.includes('hold_requested') ||
+      notificationAction.includes('hold-requested') ||
+      notificationTitle.includes('hold requested');
     
     if (isCancellation && notification.shootId) {
       // Open cancellation approval dialog
       setCancellationShootId(notification.shootId);
       setCancellationDialogOpen(true);
+      setIsOpen(false);
+      return;
+    }
+
+    if (isHoldRequest && notification.shootId) {
+      setHoldShootId(notification.shootId);
+      setHoldDialogOpen(true);
       setIsOpen(false);
       return;
     }
@@ -623,6 +719,45 @@ export function NotificationCenter() {
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
               ) : null}
               Approve Cancellation
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Hold Approval Dialog */}
+      <Dialog open={holdDialogOpen} onOpenChange={setHoldDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-600">
+              <PauseCircle className="h-5 w-5" />
+              Hold Request
+            </DialogTitle>
+            <DialogDescription>
+              A client has requested to put shoot #{holdShootId} on hold. Would you like to approve or reject this request?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setHoldDialogOpen(false);
+                setHoldShootId(null);
+              }}
+              disabled={holdProcessing}
+            >
+              Close
+            </Button>
+            <Button variant="outline" onClick={handleRejectHold} disabled={holdProcessing}>
+              {holdProcessing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Reject
+            </Button>
+            <Button
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+              onClick={handleApproveHold}
+              disabled={holdProcessing}
+            >
+              {holdProcessing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Approve Hold
             </Button>
           </DialogFooter>
         </DialogContent>

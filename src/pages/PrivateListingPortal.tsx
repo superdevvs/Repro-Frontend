@@ -1,7 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { PageTransition } from '@/components/layout/PageTransition';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -541,43 +540,40 @@ const PrivateListingPortal = () => {
   if (loading) {
     return (
       <DashboardLayout>
-        <PageTransition>
-          <div className="space-y-6 p-6">
-            <PageHeader
-              badge="Exclusive"
-              title="Exclusive Listings"
-              description="Private, pre-market properties — invitation only"
-            />
-            <div className="text-center py-12">
-              <p className="text-muted-foreground">Loading listings...</p>
-            </div>
+        <div className="space-y-6 p-6">
+          <PageHeader
+            badge="Exclusive"
+            title="Exclusive Listings"
+            description="Private, pre-market properties — invitation only"
+          />
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">Loading listings...</p>
           </div>
-        </PageTransition>
+        </div>
       </DashboardLayout>
     );
   }
 
   return (
     <DashboardLayout>
-      <PageTransition>
-        <div className="space-y-6 p-6">
-          <div className="flex items-start justify-between gap-4 flex-wrap">
-            <PageHeader
-              badge="Exclusive"
-              title="Exclusive Listings"
-              description="Private, pre-market properties — invitation only"
-            />
-            <div className="flex items-center gap-2">
-              <Button
-                variant="default"
-                size="sm"
-                onClick={() => setAddDialogOpen(true)}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Listing
-              </Button>
-            </div>
+      <div className="space-y-6 p-6">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <PageHeader
+            badge="Exclusive"
+            title="Exclusive Listings"
+            description="Private, pre-market properties — invitation only"
+          />
+          <div className="flex items-center gap-2">
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => setAddDialogOpen(true)}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Listing
+            </Button>
           </div>
+        </div>
 
           <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
             <DialogContent className="sm:max-w-[680px]">
@@ -951,8 +947,7 @@ const PrivateListingPortal = () => {
               </Card>
             </div>
           )}
-        </div>
-      </PageTransition>
+      </div>
     </DashboardLayout>
   );
 };

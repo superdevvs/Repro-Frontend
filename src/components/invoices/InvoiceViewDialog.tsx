@@ -1,10 +1,24 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Download } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Download, Plus, Trash2 } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { format } from "date-fns";
 import { Logo } from "@/components/layout/Logo";
+import { useToast } from '@/hooks/use-toast';
+import { usePermission } from '@/hooks/usePermission';
+import { addInvoiceMiscItem, removeInvoiceMiscItem } from '@/services/invoiceService';
+import { formatPaymentMethod } from '@/utils/paymentUtils';
+
+const COMPANY_NAME = 'REPRO Photos';
+const COMPANY_PHONE = '(202) 868-1663';
+const COMPANY_EMAIL = 'contact@reprophotos.com';
+const COMPANY_ADDRESS = import.meta.env.VITE_COMPANY_ADDRESS?.trim() || '';
+const COMPANY_ADDRESS_LINES = COMPANY_ADDRESS
+  ? COMPANY_ADDRESS.split('|').map((line) => line.trim()).filter(Boolean)
+  : [];
 
 interface InvoiceItem {
   id?: number | string;
@@ -12,9 +26,13 @@ interface InvoiceItem {
   quantity?: number;
   unit_amount?: number;
   total_amount?: number;
+  type?: string;
+  shoot_id?: number | string;
   meta?: {
     extra_description?: string;
     service_name?: string;
+    photographer_name?: string;
+    source?: string;
   };
 }
 
@@ -27,10 +45,15 @@ interface InvoiceViewDialogProps {
     number?: string;
     client?: string | { name?: string; email?: string; [key: string]: any };
     client_id?: number;
+    photographer?: string | { name?: string; [key: string]: any };
     shoot?: {
       client?: {
         name?: string;
         email?: string;
+        [key: string]: any;
+      };
+      photographer?: {
+        name?: string;
         [key: string]: any;
       };
       location?: {
@@ -39,12 +62,32 @@ interface InvoiceViewDialogProps {
         state?: string;
         zip?: string;
         fullAddress?: string;
+        full?: string;
       };
       address?: string;
       city?: string;
       state?: string;
       zip?: string;
     };
+    shoots?: Array<{
+      id?: number | string;
+      photographer?: {
+        name?: string;
+        [key: string]: any;
+      };
+      location?: {
+        address?: string;
+        city?: string;
+        state?: string;
+        zip?: string;
+        fullAddress?: string;
+        full?: string;
+      };
+      address?: string;
+      city?: string;
+      state?: string;
+      zip?: string;
+    }>;
     property?: string;
     issue_date?: string;
     date?: string;
@@ -58,59 +101,78 @@ interface InvoiceViewDialogProps {
     items?: InvoiceItem[];
     services?: string[];
     paymentMethod?: string;
+    payment_method?: string;
+    paymentDetails?: Record<string, any> | null;
+    payment_details?: Record<string, any> | null;
+    paidAt?: string | null;
+    paid_at?: string | null;
   };
 }
 
 export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialogProps) {
+  const { toast } = useToast();
+  const { can } = usePermission();
+  const canEditInvoice = can('invoices', 'update');
+  const [currentInvoice, setCurrentInvoice] = useState(invoice);
   const [isPdfGenerating, setIsPdfGenerating] = useState(false);
-  const invoiceNumberRaw = invoice.invoice_number || invoice.number || invoice.id;
+  const [isSavingMisc, setIsSavingMisc] = useState(false);
+  const [miscDescription, setMiscDescription] = useState('');
+  const [miscAmount, setMiscAmount] = useState('');
+  const [miscQuantity, setMiscQuantity] = useState('1');
+
+  useEffect(() => {
+    setCurrentInvoice(invoice);
+  }, [invoice]);
+
+  const invoiceData = currentInvoice;
+  const invoiceNumberRaw = invoiceData.invoice_number || invoiceData.number || invoiceData.id;
   const invoiceNumber = invoiceNumberRaw ? String(invoiceNumberRaw).trim() : '';
   const displayInvoiceNumber = invoiceNumber
     ? (invoiceNumber.startsWith('#') ? invoiceNumber : `#${invoiceNumber}`)
     : '';
-  const issueDate = invoice.issue_date || invoice.date;
+  const issueDate = invoiceData.issue_date || invoiceData.date;
   
   // Handle client name - can be string or object
   const getClientName = () => {
-    if (typeof invoice.client === 'string') {
-      return invoice.client;
+    if (typeof invoiceData.client === 'string') {
+      return invoiceData.client;
     }
-    if (invoice.client && typeof invoice.client === 'object' && 'name' in invoice.client) {
-      return invoice.client.name || 'N/A';
+    if (invoiceData.client && typeof invoiceData.client === 'object' && 'name' in invoiceData.client) {
+      return invoiceData.client.name || 'N/A';
     }
-    if (invoice.shoot?.client?.name) {
-      return invoice.shoot.client.name;
+    if (invoiceData.shoot?.client?.name) {
+      return invoiceData.shoot.client.name;
     }
     return 'N/A';
   };
   const clientName = getClientName();
-  const clientEmail = invoice.shoot?.client?.email || (typeof invoice.client === 'object' ? invoice.client?.email : undefined);
+  const clientEmail = invoiceData.shoot?.client?.email
+    || (typeof invoiceData.client === 'object' ? invoiceData.client?.email : undefined);
   
   // Handle property/shoot address
   const getPropertyAddress = () => {
-    if (invoice.property) {
-      return invoice.property;
+    if (invoiceData.property && invoiceData.property !== 'N/A') {
+      return invoiceData.property;
     }
-    if (invoice.shoot?.location) {
-      const loc = invoice.shoot.location;
-      if (loc.fullAddress) {
-        return loc.fullAddress;
+    if (invoiceData.shoot?.location) {
+      const loc = invoiceData.shoot.location;
+      const locFull = loc.fullAddress || loc.full;
+      if (locFull) {
+        return locFull;
       }
       const parts = [
         loc.address,
         loc.city,
-        loc.state,
-        loc.zip
+        [loc.state, loc.zip].filter(Boolean).join(' ')
       ].filter(Boolean);
       return parts.length > 0 ? parts.join(', ') : 'N/A';
     }
     // Fallback to shoot direct address fields
-    if (invoice.shoot) {
+    if (invoiceData.shoot) {
       const parts = [
-        invoice.shoot.address,
-        invoice.shoot.city,
-        invoice.shoot.state,
-        invoice.shoot.zip
+        invoiceData.shoot.address,
+        invoiceData.shoot.city,
+        [invoiceData.shoot.state, invoiceData.shoot.zip].filter(Boolean).join(' ')
       ].filter(Boolean);
       if (parts.length > 0) {
         return parts.join(', ');
@@ -120,13 +182,17 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
   };
   const propertyAddress = getPropertyAddress();
   
-  const subtotal = invoice.subtotal ?? 0;
-  const tax = invoice.tax ?? 0;
-  const total = invoice.total ?? invoice.amount ?? 0;
-  const status = invoice.status || 'pending';
+  const subtotal = invoiceData.subtotal ?? 0;
+  const tax = invoiceData.tax ?? 0;
+  const total = invoiceData.total ?? invoiceData.amount ?? 0;
+  const status = invoiceData.status || 'pending';
   const isPaid = status === 'paid' || status === 'Paid';
+  const paymentDetails = invoiceData.paymentDetails ?? invoiceData.payment_details ?? null;
+  const paidAt = invoiceData.paidAt || invoiceData.paid_at || null;
+  const paymentMethodValue = invoiceData.paymentMethod || invoiceData.payment_method;
+  const paymentMethodLabel = formatPaymentMethod(paymentMethodValue, paymentDetails);
 
-  const items: InvoiceItem[] = invoice.items || [];
+  const items: InvoiceItem[] = invoiceData.items || [];
   
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -141,6 +207,103 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
       return format(new Date(dateString), 'MM/dd/yyyy');
     } catch {
       return dateString;
+    }
+  };
+
+  const formatDateTime = (dateString?: string | null) => {
+    if (!dateString) return 'N/A';
+    try {
+      return format(new Date(dateString), 'MM/dd/yyyy h:mm a');
+    } catch {
+      return dateString;
+    }
+  };
+
+  const resolvePhotographerName = (item?: InvoiceItem) => {
+    const itemShootId = item?.shoot_id ? String(item.shoot_id) : null;
+    const relatedShoot = itemShootId && Array.isArray(invoiceData.shoots)
+      ? invoiceData.shoots.find((shoot) => String(shoot?.id) === itemShootId)
+      : null;
+    const fromInvoice = typeof invoiceData.photographer === 'string'
+      ? invoiceData.photographer
+      : invoiceData.photographer?.name;
+    return item?.meta?.photographer_name
+      || relatedShoot?.photographer?.name
+      || invoiceData.shoot?.photographer?.name
+      || fromInvoice
+      || '';
+  };
+
+  const isAdminMiscItem = (item?: InvoiceItem) =>
+    item?.type === 'expense' && item?.meta?.source === 'admin_misc';
+
+  const handleAddMiscItem = async () => {
+    if (!canEditInvoice) return;
+    if (!invoiceData.id) {
+      toast({
+        title: 'Missing invoice id',
+        description: 'This invoice cannot be updated yet.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const amountValue = Number(miscAmount);
+    const quantityValue = miscQuantity ? Number(miscQuantity) : 1;
+
+    if (!miscDescription.trim() || !Number.isFinite(amountValue)) {
+      toast({
+        title: 'Missing info',
+        description: 'Enter a description and amount for the misc item.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsSavingMisc(true);
+    try {
+      const updated = await addInvoiceMiscItem(invoiceData.id, {
+        description: miscDescription.trim(),
+        amount: amountValue,
+        quantity: Number.isFinite(quantityValue) && quantityValue > 0 ? quantityValue : 1,
+      });
+      setCurrentInvoice(updated);
+      setMiscDescription('');
+      setMiscAmount('');
+      setMiscQuantity('1');
+      toast({
+        title: 'Misc item added',
+        description: 'The invoice has been updated with the misc item.',
+      });
+    } catch (error) {
+      toast({
+        title: 'Failed to add misc item',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSavingMisc(false);
+    }
+  };
+
+  const handleRemoveMiscItem = async (itemId?: number | string) => {
+    if (!canEditInvoice || !invoiceData.id || !itemId) return;
+    setIsSavingMisc(true);
+    try {
+      const updated = await removeInvoiceMiscItem(invoiceData.id, itemId);
+      setCurrentInvoice(updated);
+      toast({
+        title: 'Misc item removed',
+        description: 'The invoice has been updated.',
+      });
+    } catch (error) {
+      toast({
+        title: 'Failed to remove misc item',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSavingMisc(false);
     }
   };
 
@@ -234,7 +397,7 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
       doc.setTextColor(100, 100, 100);
       doc.setFontSize(9);
       doc.setFont('helvetica', 'normal');
-      doc.text(formatDate(issueDate), headerRightX, headerTop + 18, { align: 'right' });
+      doc.text(`Issued: ${formatDateTime(issueDate)}`, headerRightX, headerTop + 18, { align: 'right' });
 
       yPos = headerTop + 30;
 
@@ -264,27 +427,9 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
       }
       
       // Client email
-      const clientEmail = invoice.shoot?.client?.email || (typeof invoice.client === 'object' && invoice.client?.email);
       if (clientEmail) {
         doc.text(clientEmail, margin + 8, yPos + 38);
       }
-
-      // Company info (right side of blue box)
-      const rightColX = pageWidth - margin;
-      doc.setTextColor(0, 0, 0);
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'bold');
-      doc.text('FROM', rightColX, yPos + 10, { align: 'right' });
-      
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'bold');
-      doc.text('REPRO PHOTOS', rightColX, yPos + 18, { align: 'right' });
-      
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(80, 80, 80);
-      doc.text('Phone: (202) 868-1663', rightColX, yPos + 25, { align: 'right' });
-      doc.text('Email: contact@reprophotos.com', rightColX, yPos + 32, { align: 'right' });
 
       yPos += blueBoxHeight + 10;
 
@@ -327,7 +472,15 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
       doc.setFont('helvetica', 'normal');
 
       items.forEach((item, index) => {
-        const descLines = doc.splitTextToSize(item.description, 70);
+        const description = item.description || item.meta?.service_name || 'Service';
+        const photographerName = resolvePhotographerName(item);
+        const descLines = doc.splitTextToSize(description, 70);
+        if (photographerName) {
+          descLines.push(`Photographer: ${photographerName}`);
+        }
+        const unitAmount = item.unit_amount ?? 0;
+        const quantity = item.quantity ?? 1;
+        const totalAmount = item.total_amount ?? unitAmount * quantity;
         const itemHeight = Math.max(descLines.length * 5, 8);
         
         // Row number
@@ -337,13 +490,13 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
         doc.text(descLines, colDesc, yPos);
         
         // Price
-        doc.text(formatCurrency(item.unit_amount), colPrice, yPos);
+        doc.text(formatCurrency(unitAmount), colPrice, yPos);
         
         // Quantity
-        doc.text(item.quantity.toString(), colQty + 10, yPos);
+        doc.text(String(quantity), colQty + 10, yPos);
         
         // Total
-        doc.text(formatCurrency(item.total_amount), colTotal, yPos, { align: 'right' });
+        doc.text(formatCurrency(totalAmount), colTotal, yPos, { align: 'right' });
         
         yPos += itemHeight;
         
@@ -384,6 +537,24 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
         yPos += 7;
       }
 
+      if (isPaid && paymentMethodLabel !== 'N/A') {
+        doc.setTextColor(60, 60, 60);
+        doc.setFont('helvetica', 'normal');
+        doc.text('PAYMENT METHOD:', summaryLabelX, yPos);
+        doc.setTextColor(0, 0, 0);
+        doc.text(paymentMethodLabel, summaryValueX, yPos, { align: 'right' });
+        yPos += 7;
+      }
+
+      if (isPaid && paidAt) {
+        doc.setTextColor(60, 60, 60);
+        doc.setFont('helvetica', 'normal');
+        doc.text('PAID ON:', summaryLabelX, yPos);
+        doc.setTextColor(0, 0, 0);
+        doc.text(formatDateTime(paidAt), summaryValueX, yPos, { align: 'right' });
+        yPos += 7;
+      }
+
       // Grand Total line
       doc.setDrawColor(180, 180, 180);
       doc.line(summaryLabelX - 5, yPos - 2, summaryValueX, yPos - 2);
@@ -410,15 +581,28 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
       doc.setTextColor(0, 0, 0);
 
       // ===== FOOTER =====
-      const footerY = pageHeight - 25;
+      const footerY = pageHeight - 30;
       doc.setDrawColor(220, 220, 220);
       doc.line(margin, footerY - 5, pageWidth - margin, footerY - 5);
       
       doc.setFontSize(8);
       doc.setFont('helvetica', 'bold');
-      doc.text('Questions?', margin, footerY);
+      doc.text(COMPANY_NAME, margin, footerY);
       doc.setFont('helvetica', 'normal');
-      doc.text('Email us at contact@reprophotos.com or call us at (202) 868-1663', margin, footerY + 5);
+      let footerLineY = footerY + 5;
+      if (COMPANY_ADDRESS_LINES.length > 0) {
+        COMPANY_ADDRESS_LINES.forEach((line) => {
+          doc.text(line, margin, footerLineY);
+          footerLineY += 4;
+        });
+      }
+      if (COMPANY_PHONE) {
+        doc.text(`Phone: ${COMPANY_PHONE}`, margin, footerLineY);
+        footerLineY += 4;
+      }
+      if (COMPANY_EMAIL) {
+        doc.text(`Email: ${COMPANY_EMAIL}`, margin, footerLineY);
+      }
 
       // Save PDF
       const invoiceFileNumber = (displayInvoiceNumber || invoiceNumber || 'invoice').replace('#', '');
@@ -426,7 +610,7 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
     } finally {
       setIsPdfGenerating(false);
     }
-  }, [clientName, formatDate, invoiceNumber, invoice, isPaid, issueDate, isPdfGenerating, items, loadLogoPngForPdf, propertyAddress, subtotal, tax, total, displayInvoiceNumber]);
+  }, [clientName, formatDate, formatDateTime, invoiceNumber, invoiceData, isPaid, issueDate, isPdfGenerating, items, loadLogoPngForPdf, propertyAddress, subtotal, tax, total, displayInvoiceNumber, resolvePhotographerName, paymentMethodLabel, paidAt]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -455,10 +639,10 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
                 <Logo className="h-9 w-auto" />
               </div>
               <div className="text-left">
-                <p className="font-semibold text-lg leading-tight">REPRO Photos</p>
+                <p className="font-semibold text-lg leading-tight">{COMPANY_NAME}</p>
                 <div className="text-sm text-muted-foreground leading-relaxed">
-                  <p>Phone: (202) 868-1663</p>
-                  <p>Email: contact@reprophotos.com</p>
+                  <p>Phone: {COMPANY_PHONE}</p>
+                  <p>Email: {COMPANY_EMAIL}</p>
                 </div>
               </div>
             </div>
@@ -491,6 +675,61 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
             </div>
           )}
 
+          {canEditInvoice && (
+            <div className="rounded-md border border-dashed border-border bg-muted/20 px-5 py-4 space-y-3">
+              <div>
+                <p className="text-sm font-semibold text-foreground">Add misc items</p>
+                <p className="text-xs text-muted-foreground">Admin-only extras that will appear on the PDF.</p>
+              </div>
+              <div className="grid gap-3 md:grid-cols-[2fr,1fr,1fr,auto]">
+                <div className="space-y-1">
+                  <Label htmlFor="misc-description" className="text-xs">Description</Label>
+                  <Input
+                    id="misc-description"
+                    value={miscDescription}
+                    onChange={(event) => setMiscDescription(event.target.value)}
+                    placeholder="Ex: Rush delivery"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="misc-amount" className="text-xs">Amount</Label>
+                  <Input
+                    id="misc-amount"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={miscAmount}
+                    onChange={(event) => setMiscAmount(event.target.value)}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="misc-quantity" className="text-xs">Qty</Label>
+                  <Input
+                    id="misc-quantity"
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={miscQuantity}
+                    onChange={(event) => setMiscQuantity(event.target.value)}
+                  />
+                </div>
+                <div className="flex items-end">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="gap-2"
+                    onClick={handleAddMiscItem}
+                    disabled={isSavingMisc}
+                  >
+                    <Plus className="h-4 w-4" />
+                    {isSavingMisc ? 'Saving...' : 'Add'}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Invoice Items Table */}
           <div className="border-t border-b border-border">
             <table className="w-full">
@@ -509,10 +748,31 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
                     const quantity = item.quantity ?? 1;
                     const unitAmount = item.unit_amount ?? 0;
                     const totalAmount = item.total_amount ?? unitAmount * quantity;
+                    const photographerName = resolvePhotographerName(item);
+                    const isAdminMisc = isAdminMiscItem(item);
                     return (
                     <tr key={item.id || index} className="border-b border-border last:border-b-0">
                       <td className="py-4">
                         <p className="text-sm font-medium text-foreground">{description}</p>
+                        {photographerName && (
+                          <p className="text-xs text-muted-foreground">Photographer: {photographerName}</p>
+                        )}
+                        {isAdminMisc && (
+                          <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Misc item</p>
+                        )}
+                        {isAdminMisc && canEditInvoice && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="mt-2 h-7 px-2 text-xs text-destructive"
+                            onClick={() => handleRemoveMiscItem(item.id)}
+                            disabled={isSavingMisc}
+                          >
+                            <Trash2 className="h-3.5 w-3.5 mr-1" />
+                            Remove
+                          </Button>
+                        )}
                       </td>
                       <td className="text-right py-4 text-sm text-muted-foreground">{formatCurrency(unitAmount)}</td>
                       <td className="text-center py-4 text-sm text-muted-foreground">{quantity}</td>
@@ -557,10 +817,15 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
           </div>
 
           {/* Payment Info if Paid */}
-          {isPaid && invoice.paymentMethod && (
-            <div className="pt-4 border-t">
+          {isPaid && (paymentMethodLabel !== 'N/A' || paidAt) && (
+            <div className="pt-4 border-t space-y-1">
               <p className="text-sm font-medium text-muted-foreground">Payment Method</p>
-              <p className="text-sm mt-1">{invoice.paymentMethod}</p>
+              {paymentMethodLabel !== 'N/A' && (
+                <p className="text-sm">{paymentMethodLabel}</p>
+              )}
+              {paidAt && (
+                <p className="text-xs text-muted-foreground">Paid on {formatDate(paidAt)}</p>
+              )}
             </div>
           )}
         </div>

@@ -28,6 +28,9 @@ const SHOOT_UPDATE_ACTIONS = new Set([
   'shoot_completed',
   'shoot_cancelled',
   'shoot_put_on_hold',
+  'hold_requested',
+  'hold_approved',
+  'hold_rejected',
   'shoot_editing_started',
   'shoot_submitted_for_review',
   'media_uploaded',
@@ -70,7 +73,13 @@ const getChannelsForRole = (role?: string | null, userId?: string | number | nul
 
   const normalized = role.toLowerCase();
 
-  if (normalized === 'admin' || normalized === 'superadmin') {
+  if (
+    normalized === 'admin' ||
+    normalized === 'superadmin' ||
+    normalized === 'editing_manager' ||
+    normalized === 'salesrep' ||
+    normalized === 'sales_rep'
+  ) {
     return ['admin.notifications'];
   }
 

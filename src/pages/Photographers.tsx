@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { PageTransition } from '@/components/layout/PageTransition';
 import { PhotographerForm } from '@/components/photographers/PhotographerForm';
 import { PhotographerProfile } from '@/components/photographers/PhotographerProfile';
 import { useToast } from '@/hooks/use-toast';
@@ -109,43 +108,41 @@ const Photographers = () => {
 
   return (
     <DashboardLayout>
-      <PageTransition>
-        <div className="space-y-6">
-          <PhotographersHeader 
-            onAddClick={() => setFormOpen(true)} 
-            activeTab={activeTab}
-          />
-          
-          <PhotographerFilter 
+      <div className="space-y-6">
+        <PhotographersHeader 
+          onAddClick={() => setFormOpen(true)} 
+          activeTab={activeTab}
+        />
+        
+        <PhotographerFilter 
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          activeFilter={activeFilter}
+          setActiveFilter={setActiveFilter}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+        />
+        
+        {filteredPhotographers.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {filteredPhotographers.map((photographer) => (
+              <PhotographerCard 
+                key={photographer.id}
+                photographer={photographer}
+                onEdit={handleEditDirectly}
+                onViewProfile={handleViewProfile}
+              />
+            ))}
+          </div>
+        ) : (
+          <EmptyPhotographerState 
             searchTerm={searchTerm}
-            setSearchTerm={setSearchTerm}
-            activeFilter={activeFilter}
-            setActiveFilter={setActiveFilter}
+            onClearFilters={handleClearFilters}
+            onAddPhotographer={() => setFormOpen(true)}
             activeTab={activeTab}
-            setActiveTab={setActiveTab}
           />
-          
-          {filteredPhotographers.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {filteredPhotographers.map((photographer) => (
-                <PhotographerCard 
-                  key={photographer.id}
-                  photographer={photographer}
-                  onEdit={handleEditDirectly}
-                  onViewProfile={handleViewProfile}
-                />
-              ))}
-            </div>
-          ) : (
-            <EmptyPhotographerState 
-              searchTerm={searchTerm}
-              onClearFilters={handleClearFilters}
-              onAddPhotographer={() => setFormOpen(true)}
-              activeTab={activeTab}
-            />
-          )}
-        </div>
-      </PageTransition>
+        )}
+      </div>
       
       <PhotographerForm 
         open={formOpen} 

@@ -322,6 +322,7 @@ const BookShoot = () => {
           return {
             ...client,
             id: client.id.toString(),
+            companyNotes: client.companyNotes ?? client.company_notes ?? '',
             // Store rep name for easy access
             rep: repName,
             // Also keep original rep object if needed
@@ -359,6 +360,7 @@ const BookShoot = () => {
           ...photographer,
           id: photographer.id?.toString() || '',
           name: photographer.name || 'Unknown',
+          avatar: photographer.avatar || photographer.profile_image || photographer.profile_photo_url,
         })) : [];
         
         if (formatted.length > 0) {
@@ -378,6 +380,7 @@ const BookShoot = () => {
           ...p, 
           id: p.id?.toString() || '',
           name: p.name || 'Unknown',
+          avatar: p.avatar || p.profile_image || p.profile_photo_url,
         })) : [];
         
         setPhotographersList(formatted2);
@@ -1108,6 +1111,44 @@ const BookShoot = () => {
     setClient(clientId);
   }, []);
 
+  const updateClientCompanyNotes = React.useCallback(
+    async (clientId: string, notesValue: string) => {
+      if (!clientId) return;
+      try {
+        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+        if (!token) return;
+        await axios.put(
+          `${API_BASE_URL}/api/admin/users/${clientId}`,
+          { company_notes: notesValue || '' },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: 'application/json',
+            },
+          }
+        );
+        setClients((prev) =>
+          prev.map((clientItem) =>
+            clientItem.id === clientId
+              ? {
+                  ...clientItem,
+                  companyNotes: notesValue,
+                }
+              : clientItem
+          )
+        );
+      } catch (error) {
+        console.error('Failed to update company notes for client:', error);
+        toast({
+          title: 'Company notes not saved',
+          description: 'We could not save the company notes for this client.',
+          variant: 'destructive',
+        });
+      }
+    },
+    [toast]
+  );
+
   // Clear cached form data
   const handleClearCache = () => {
     if (shouldCacheForm) {
@@ -1191,6 +1232,13 @@ const BookShoot = () => {
         data.property_details?.livingArea ||
         null;
       setPropertySqft(derivedSqft);
+      if (!isClientAccount && data.clientId) {
+        const existingNotes = clients.find((c) => c.id === data.clientId)?.companyNotes || '';
+        const nextNotes = data.companyNotes || '';
+        if (existingNotes !== nextNotes) {
+          updateClientCompanyNotes(data.clientId, nextNotes);
+        }
+      }
       setStep(2);
     },
     isClientAccount: isClientAccount,
@@ -1229,6 +1277,13 @@ const BookShoot = () => {
       }
     }
 
+    const addressParts = [
+      address,
+      city,
+      [state, zip].filter(Boolean).join(' ')
+    ].filter(Boolean);
+    const fullAddress = addressParts.length > 0 ? addressParts.join(', ') : '';
+
     // Summary info calculated
 
     return {
@@ -1237,7 +1292,7 @@ const BookShoot = () => {
       services: selectedServices,
       packageLabel: serviceNames,
       packagePrice: getPackagePrice(),
-      address: address || '',
+      address: fullAddress || address || '',
       bedrooms: 0,
       bathrooms: 0,
       sqft: 0,

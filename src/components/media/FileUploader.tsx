@@ -320,6 +320,7 @@ const getMimeType = (filename: string): string => {
     'png': 'image/png',
     'tiff': 'image/tiff',
     'tif': 'image/tiff',
+    'cr3': 'image/x-canon-cr3',
     'mp4': 'video/mp4',
     'mov': 'video/quicktime',
     'avi': 'video/x-msvideo',

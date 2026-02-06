@@ -319,6 +319,9 @@ export const shootDataToSummary = (shoot: ShootData): DashboardShootSummary => {
     deliveryDeadline: shoot.completedDate ?? null,
     submittedForReviewAt: shoot.submittedForReviewAt ?? null,
     adminIssueNotes: typeof shoot.adminIssueNotes === "string" ? shoot.adminIssueNotes : undefined,
+    holdRequestedAt: shoot.holdRequestedAt ?? null,
+    holdRequestedBy: shoot.holdRequestedBy ?? null,
+    holdReason: shoot.holdReason ?? null,
     paymentStatus,
   };
 

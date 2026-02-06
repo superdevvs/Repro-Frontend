@@ -88,6 +88,9 @@ const SHOOT_ACTIVITY_TITLES: Record<string, string> = {
   shoot_cancelled: 'Shoot Cancelled',
   shoot_declined: 'Shoot Declined',
   shoot_put_on_hold: 'Shoot On Hold',
+  hold_requested: 'Hold Requested',
+  hold_approved: 'Hold Approved',
+  hold_rejected: 'Hold Rejected',
   shoot_editing_started: 'Editing Started',
   shoot_submitted_for_review: 'Submitted for Review',
   payment_done: 'Payment Received',
@@ -209,6 +212,7 @@ const buildShootActivityNotification = (event: ShootActivityEvent, readIds: Set<
     actionUrl: event.shootId ? `/shoots/${event.shootId}` : undefined,
     actionLabel: 'View Shoot',
     shootId: event.shootId,
+    action: event.activityType,
   };
 };
 

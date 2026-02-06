@@ -63,6 +63,7 @@ interface Photographer {
   id: string | number;
   name: string;
   avatar?: string;
+  email?: string;
 }
 
 interface PropertyDetails {
@@ -89,7 +90,7 @@ interface ShootDetails {
   location?: { address?: string; city?: string; state?: string; zip?: string };
   payment?: { totalQuote?: number };
   photographer_id?: number | string;
-  photographer?: { id: number; name: string };
+  photographer?: { id: number; name: string; email?: string };
   sqft?: number;
   bedrooms?: number;
   bathrooms?: number;
@@ -116,6 +117,10 @@ export function ShootEditModal({
   const [shootDetails, setShootDetails] = useState<ShootDetails | null>(null);
   const [availableServices, setAvailableServices] = useState<Service[]>([]);
   const [photographers, setPhotographers] = useState<Photographer[]>([]);
+  const [isSaveConfirmOpen, setIsSaveConfirmOpen] = useState(false);
+  const [pendingPayload, setPendingPayload] = useState<Record<string, any> | null>(null);
+  const [notifyClientOnSave, setNotifyClientOnSave] = useState(true);
+  const [notifyPhotographerOnSave, setNotifyPhotographerOnSave] = useState(true);
   
   // Role checks
   const userRole = user?.role?.toLowerCase() || '';
@@ -184,7 +189,8 @@ export function ShootEditModal({
         setPhotographers(photographersData.map((p: any) => ({
           id: p.id,
           name: p.name,
-          avatar: p.avatar
+          avatar: p.avatar,
+          email: p.email,
         })));
         
         // Process shoot details
@@ -337,14 +343,21 @@ export function ShootEditModal({
     });
   }, [selectedServiceIds, availableServices, propertySqft]);
 
-  const handleSave = async () => {
+  const clientName = shootDetails?.client?.name || 'Unknown Client';
+  const clientEmail = shootDetails?.client?.email || '';
+  const photographerEmail =
+    shootDetails?.photographer?.email ||
+    photographers.find((photographer) => String(photographer.id) === String(photographerId || shootDetails?.photographer?.id))?.email ||
+    '';
+
+  const buildSavePayload = () => {
     if (!address.trim()) {
       toast({
         title: 'Address required',
         description: 'Please enter a property address.',
         variant: 'destructive',
       });
-      return;
+      return null;
     }
 
     if (!scheduledDate) {
@@ -353,7 +366,7 @@ export function ShootEditModal({
         description: 'Please select a scheduled date.',
         variant: 'destructive',
       });
-      return;
+      return null;
     }
 
     if (selectedServiceIds.size === 0) {
@@ -362,6 +375,75 @@ export function ShootEditModal({
         description: 'Please select at least one service.',
         variant: 'destructive',
       });
+      return null;
+    }
+    // Combine date and time
+    const [hours, minutes] = scheduledTime.split(':').map(Number);
+    const scheduledAt = new Date(scheduledDate);
+    scheduledAt.setHours(hours, minutes, 0, 0);
+
+    const payload: Record<string, any> = {
+      address: address.trim(),
+      city: city.trim(),
+      state: state.trim(),
+      zip: zip.trim(),
+      scheduled_at: scheduledAt.toISOString(),
+      shoot_notes: shootNotes.trim(),
+      services: Array.from(selectedServiceIds).map(id => {
+        const service = availableServices.find(s => s.id?.toString() === id);
+        return { 
+          id: Number(id), 
+          quantity: 1,
+          price: service ? getServicePrice(service) : undefined
+        };
+      }),
+    };
+
+    // Add photographer if selected (admin/rep only)
+    if (isAdminOrRep && photographerId && photographerId !== 'unassigned') {
+      payload.photographer_id = Number(photographerId);
+    }
+
+    // Add role-based notes
+    if (showInternalNotes) {
+      if (companyNotes.trim()) payload.company_notes = companyNotes.trim();
+      if (photographerNotes.trim()) payload.photographer_notes = photographerNotes.trim();
+      if (editorNotes.trim()) payload.editor_notes = editorNotes.trim();
+    }
+
+    // Add property details
+    if (propertySqft) {
+      payload.sqft = propertySqft;
+    }
+    if (propertyDetails?.bedrooms) {
+      payload.bedrooms = propertyDetails.bedrooms;
+    }
+    if (propertyDetails?.bathrooms) {
+      payload.bathrooms = propertyDetails.bathrooms;
+    }
+
+    return payload;
+  };
+
+  const canNotifyClient = Boolean(clientEmail);
+  const canNotifyPhotographer = Boolean(
+    photographerEmail && (!shootDetails?.client?.id || shootDetails?.photographer?.id !== shootDetails?.client?.id)
+  );
+
+  const handleSaveRequest = () => {
+    if (isSubmitting || isLoading || isSaveConfirmOpen) return;
+    const payload = buildSavePayload();
+    if (!payload) return;
+
+    setPendingPayload(payload);
+    setNotifyClientOnSave(canNotifyClient);
+    setNotifyPhotographerOnSave(canNotifyPhotographer);
+    setIsSaveConfirmOpen(true);
+  };
+
+  const handleConfirmSave = async () => {
+    if (!pendingPayload) {
+      setIsSaveConfirmOpen(false);
       return;
     }
 
@@ -369,51 +451,11 @@ export function ShootEditModal({
 
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      
-      // Combine date and time
-      const [hours, minutes] = scheduledTime.split(':').map(Number);
-      const scheduledAt = new Date(scheduledDate);
-      scheduledAt.setHours(hours, minutes, 0, 0);
-
-      const payload: Record<string, any> = {
-        address: address.trim(),
-        city: city.trim(),
-        state: state.trim(),
-        zip: zip.trim(),
-        scheduled_at: scheduledAt.toISOString(),
-        shoot_notes: shootNotes.trim(),
-        services: Array.from(selectedServiceIds).map(id => {
-          const service = availableServices.find(s => s.id?.toString() === id);
-          return { 
-            id: Number(id), 
-            quantity: 1,
-            price: service ? getServicePrice(service) : undefined
-          };
-        }),
+      const payload = {
+        ...pendingPayload,
+        notify_client: notifyClientOnSave,
+        notify_photographer: notifyPhotographerOnSave,
       };
-
-      // Add photographer if selected (admin/rep only)
-      if (isAdminOrRep && photographerId && photographerId !== 'unassigned') {
-        payload.photographer_id = Number(photographerId);
-      }
-
-      // Add role-based notes
-      if (showInternalNotes) {
-        if (companyNotes.trim()) payload.company_notes = companyNotes.trim();
-        if (photographerNotes.trim()) payload.photographer_notes = photographerNotes.trim();
-        if (editorNotes.trim()) payload.editor_notes = editorNotes.trim();
-      }
-
-      // Add property details
-      if (propertySqft) {
-        payload.sqft = propertySqft;
-      }
-      if (propertyDetails?.bedrooms) {
-        payload.bedrooms = propertyDetails.bedrooms;
-      }
-      if (propertyDetails?.bathrooms) {
-        payload.bathrooms = propertyDetails.bathrooms;
-      }
 
       const response = await fetch(`${API_BASE_URL}/api/shoots/${shootId}`, {
         method: 'PATCH',
@@ -446,6 +488,8 @@ export function ShootEditModal({
       });
     } finally {
       setIsSubmitting(false);
+      setIsSaveConfirmOpen(false);
+      setPendingPayload(null);
     }
   };
 
@@ -522,9 +566,6 @@ export function ShootEditModal({
   const [timeOptions, setTimeOptions] = useState<{ value: string; label: string }[]>(() =>
     buildTimeOptions(scheduledTime),
   );
-
-  const clientName = shootDetails?.client?.name || 'Unknown Client';
-  const clientEmail = shootDetails?.client?.email || '';
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -926,7 +967,7 @@ export function ShootEditModal({
             Cancel
           </Button>
           <Button 
-            onClick={handleSave} 
+            onClick={handleSaveRequest} 
             disabled={isSubmitting || isLoading} 
             className="bg-blue-600 hover:bg-blue-700 min-w-[140px]"
           >
@@ -944,6 +985,72 @@ export function ShootEditModal({
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      <Dialog
+        open={isSaveConfirmOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setIsSaveConfirmOpen(false);
+            setPendingPayload(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[460px]">
+          <DialogHeader>
+            <DialogTitle>Confirm update</DialogTitle>
+            <DialogDescription>
+              Choose who should receive update notifications for this shoot.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-4">
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
+              <div>
+                <p className="text-sm font-medium">Client</p>
+                <p className="text-xs text-muted-foreground">{clientEmail || 'No client email on file'}</p>
+              </div>
+              <Checkbox
+                checked={notifyClientOnSave}
+                onCheckedChange={(value) => setNotifyClientOnSave(Boolean(value))}
+                disabled={!canNotifyClient}
+              />
+            </div>
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
+              <div>
+                <p className="text-sm font-medium">Photographer</p>
+                <p className="text-xs text-muted-foreground">
+                  {photographerEmail || 'No photographer email on file'}
+                </p>
+              </div>
+              <Checkbox
+                checked={notifyPhotographerOnSave}
+                onCheckedChange={(value) => setNotifyPhotographerOnSave(Boolean(value))}
+                disabled={!canNotifyPhotographer}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsSaveConfirmOpen(false);
+                setPendingPayload(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmSave} disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save changes'
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }

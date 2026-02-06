@@ -1,7 +1,6 @@
 
 import { useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { PageTransition } from "@/components/layout/PageTransition";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -97,6 +96,7 @@ export default function Reports() {
   const { can } = usePermission();
   const canViewReports = can('reports', 'view');
   const isSuperAdmin = role === 'superadmin';
+  const isAdmin = role === 'admin' || role === 'superadmin';
   
   // Only Super Admin can access Reports
   if (!canViewReports || !isSuperAdmin) {
@@ -136,42 +136,41 @@ export default function Reports() {
 
   return (
     <DashboardLayout>
-      <PageTransition>
-        <div className="space-y-6 p-6">
-          <PageHeader
-            badge="Reports"
-            title="Reports"
-            description="Analytics and reporting for your photography business"
-            action={
-              <div className="flex flex-wrap gap-3">
-                <Select value={reportType} onValueChange={setReportType}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Report Type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="summary">Summary</SelectItem>
-                    <SelectItem value="photographer">By Photographer</SelectItem>
-                    <SelectItem value="service">By Service</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={timeframe} onValueChange={setTimeframe}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Select timeframe" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="monthly">Monthly</SelectItem>
-                    <SelectItem value="quarterly">Quarterly</SelectItem>
-                    <SelectItem value="yearly">Yearly</SelectItem>
-                  </SelectContent>
-                </Select>
-                {isAdmin && (
-                  <Button>
-                    Export Report
-                  </Button>
-                )}
-              </div>
-            }
-          />
+      <div className="space-y-6 p-6">
+        <PageHeader
+          badge="Reports"
+          title="Reports"
+          description="Analytics and reporting for your photography business"
+          action={
+            <div className="flex flex-wrap gap-3">
+              <Select value={reportType} onValueChange={setReportType}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Report Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="summary">Summary</SelectItem>
+                  <SelectItem value="photographer">By Photographer</SelectItem>
+                  <SelectItem value="service">By Service</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={timeframe} onValueChange={setTimeframe}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Select timeframe" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="monthly">Monthly</SelectItem>
+                  <SelectItem value="quarterly">Quarterly</SelectItem>
+                  <SelectItem value="yearly">Yearly</SelectItem>
+                </SelectContent>
+              </Select>
+              {isAdmin && (
+                <Button>
+                  Export Report
+                </Button>
+              )}
+            </div>
+          }
+        />
 
           {reportType === "summary" && (
             <Tabs defaultValue="revenue" className="w-full">
@@ -348,8 +347,7 @@ export default function Reports() {
               </Card>
             </div>
           )}
-        </div>
-      </PageTransition>
+      </div>
     </DashboardLayout>
   );
 }

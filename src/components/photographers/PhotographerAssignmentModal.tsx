@@ -549,39 +549,36 @@ export const PhotographerAssignmentModal: React.FC = () => {
                     ))}
                   </div>
                 ) : timelineSlots.length > 0 ? (
-                  <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
                     {timelineSlots.map((slot, idx) => (
                       <div
                         key={`${slot.start}-${idx}`}
                         className={cn(
-                          'p-3 rounded-lg border transition-all',
+                          'rounded-md border px-2 py-1.5 text-xs transition-all',
                           slot.status === 'available' && 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800',
                           slot.status === 'booked' && 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700',
                           slot.status === 'past' && 'bg-muted/50 border-border opacity-60',
                           slot.status === 'unavailable' && 'bg-muted/30 border-border',
                         )}
                       >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <span className="text-sm font-medium w-20">{slot.start} - {slot.end}</span>
-                            <Badge
-                              variant={slot.status === 'available' ? 'default' : 'secondary'}
-                              className={cn(
-                                'text-xs',
-                                slot.status === 'available' && 'bg-emerald-500 text-white',
-                                slot.status === 'booked' && 'bg-slate-600 text-white',
-                              )}
-                            >
-                              {slot.status === 'available' ? 'Available' : slot.status === 'booked' ? 'Booked' : 'Unavailable'}
-                            </Badge>
-                          </div>
-                          {slot.shoot && (
-                            <div className="text-right text-xs">
-                              <p className="font-medium">{slot.shoot.client}</p>
-                              <p className="text-muted-foreground truncate max-w-[120px]">{slot.shoot.address}</p>
-                            </div>
-                          )}
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-medium whitespace-nowrap">{slot.start} - {slot.end}</span>
+                          <Badge
+                            variant={slot.status === 'available' ? 'default' : 'secondary'}
+                            className={cn(
+                              'text-[10px] px-1.5 py-0.5 whitespace-nowrap',
+                              slot.status === 'available' && 'bg-emerald-500 text-white',
+                              slot.status === 'booked' && 'bg-slate-600 text-white',
+                            )}
+                          >
+                            {slot.status === 'available' ? 'Available' : slot.status === 'booked' ? 'Booked' : 'Unavailable'}
+                          </Badge>
                         </div>
+                        {slot.shoot && (
+                          <div className="mt-1 text-[10px] text-muted-foreground truncate">
+                            {slot.shoot.client} · {slot.shoot.address}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

@@ -139,6 +139,7 @@ type ApiShoot = {
   payments?: ApiShootPayment[];
   base_quote?: unknown;
   tax_rate?: unknown;
+  tax_percent?: unknown;
   tax_amount?: unknown;
   total_quote?: unknown;
   total_paid?: unknown;
@@ -280,6 +281,11 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
   const client = (shoot.client ?? {}) as NonNullable<ApiShoot['client']>;
   const photographer = (shoot.photographer ?? {}) as NonNullable<ApiShoot['photographer']>;
   const service = (shoot.service ?? {}) as NonNullable<ApiShoot['service']>;
+  const rawTaxRate =
+    (shoot as any).payment?.taxRate ??
+    shoot.tax_rate ??
+    (shoot as any).tax_percent ??
+    (shoot as any).taxPercent;
   const editorId = (() => {
     const editorObjId = (shoot.editor as any)?.id;
     if (editorObjId) return String(editorObjId);
@@ -359,6 +365,11 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
       id: photographer.id ? String(photographer.id) : undefined,
       name: photographer.name || 'Unassigned',
       avatar: photographer.avatar || undefined,
+      email:
+        photographer.email ||
+        (shoot as any).photographer_email ||
+        (shoot as any).photographerEmail ||
+        undefined,
     },
     editor: shoot.editor || editorId
       ? {
@@ -371,7 +382,7 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
     services: normalizedServices,
     payment: {
       baseQuote: toNumber(shoot.base_quote),
-      taxRate: toNumber(shoot.tax_rate),
+      taxRate: toNumber(rawTaxRate),
       taxAmount: toNumber(shoot.tax_amount),
       totalQuote: toNumber(shoot.total_quote),
       totalPaid:
@@ -407,6 +418,9 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
     propertyDetails: (shoot as any).property_details || undefined,
     cancellationRequestedAt: (shoot as any).cancellationRequestedAt || (shoot as any).cancellation_requested_at || undefined,
     cancellationReason: (shoot as any).cancellationReason || (shoot as any).cancellation_reason || undefined,
+    holdRequestedAt: (shoot as any).holdRequestedAt || (shoot as any).hold_requested_at || undefined,
+    holdRequestedBy: (shoot as any).holdRequestedBy || (shoot as any).hold_requested_by || undefined,
+    holdReason: (shoot as any).holdReason || (shoot as any).hold_reason || undefined,
     mmmStatus: (shoot as any).mmm_status || undefined,
     mmmOrderNumber: (shoot as any).mmm_order_number || undefined,
     mmmBuyerCookie: (shoot as any).mmm_buyer_cookie || undefined,
@@ -416,6 +430,9 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
     mmmLastError: (shoot as any).mmm_last_error || undefined,
   };
 };
+
+// eslint-disable-next-line react-refresh/only-export-components
+export const useOptionalShoots = () => useContext(ShootsContext);
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const useShoots = () => {

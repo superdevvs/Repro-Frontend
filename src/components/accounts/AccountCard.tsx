@@ -103,7 +103,7 @@ export function AccountCard({
       <div className="p-4 space-y-4">
         <div className="flex justify-between items-start">
           <div className="flex items-center gap-3">
-            <Avatar className="h-12 w-12 rounded-xl border-2 border-[#E5DEFF] dark:border-slate-700">
+            <Avatar className="h-12 w-12">
               <AvatarImage src={getAvatarUrl(user.avatar, user.role, (user as any).gender, user.id)} alt={user.name} />
               <AvatarFallback className="bg-[#F1F0FB] dark:bg-slate-800 text-[#6E59A5] dark:text-[#9b87f5] font-medium">
                 {getInitials(user.name)}

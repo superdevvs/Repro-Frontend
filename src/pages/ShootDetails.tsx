@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { apiClient } from '@/services/api';
+import { apiClient, getApiHeaders } from '@/services/api';
 import {
   ArrowLeft,
   Calendar,
@@ -45,7 +45,6 @@ import { toast } from '@/components/ui/use-toast';
 import { withErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { useAuth } from '@/components/auth';
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import { PageTransition } from '@/components/layout/PageTransition';
 import { ShootData } from '@/types/shoots';
 import { getStateFullName } from '@/utils/stateUtils';
 import { format } from 'date-fns';
@@ -64,6 +63,7 @@ import { ShootDetailsIssuesTab } from '@/components/shoots/tabs/ShootDetailsIssu
 import { ShootDetailsSidebar } from '@/components/shoots/tabs/ShootDetailsSidebar';
 import { AddServiceDialog } from '@/components/shoots/AddServiceDialog';
 import { SquarePaymentDialog } from '@/components/payments/SquarePaymentDialog';
+import { MarkAsPaidDialog, MarkAsPaidPayload } from '@/components/payments/MarkAsPaidDialog';
 import { RescheduleDialog } from '@/components/dashboard/RescheduleDialog';
 
 const statusBadgeMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
@@ -187,23 +187,27 @@ const ShootDetails: React.FC = () => {
   const { user } = useAuth();
   const { formatTemperature, formatTime, formatDate } = useUserPreferences();
   const role = user?.role || 'client';
-  const isSuperAdmin = role === 'superadmin';
-  const isEditingManager = role === 'editing_manager';
-  const isAdmin = role === 'admin' || isSuperAdmin || isEditingManager;
+  const normalizedRole = role.toLowerCase();
+  const isSuperAdmin = normalizedRole === 'superadmin';
+  const isEditingManager = normalizedRole === 'editing_manager';
+  const isAdmin = normalizedRole === 'admin' || isSuperAdmin || isEditingManager;
   const isAdminOrSuperAdmin = isAdmin; // Admin, superadmin, and editing_manager can access most features
-  const isRep = role === 'salesRep';
+  const isRep = ['salesrep', 'sales_rep', 'rep', 'representative'].includes(normalizedRole);
   const isAdminOrRep = isAdmin || isRep;
-  const isEditor = role === 'editor';
-  const isPhotographer = role === 'photographer';
-  const isClient = role === 'client';
+  const isEditor = normalizedRole === 'editor';
+  const isPhotographer = normalizedRole === 'photographer';
+  const isClient = normalizedRole === 'client';
   
   const [shoot, setShoot] = useState<ShootData | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('media');
   const [creatingPayment, setCreatingPayment] = useState(false);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [isMarkPaidDialogOpen, setIsMarkPaidDialogOpen] = useState(false);
   const [isOnHoldDialogOpen, setIsOnHoldDialogOpen] = useState(false);
   const [onHoldReason, setOnHoldReason] = useState('');
+  const [isHoldApprovalDialogOpen, setIsHoldApprovalDialogOpen] = useState(false);
+  const [holdProcessing, setHoldProcessing] = useState(false);
   const [isRescheduleDialogOpen, setIsRescheduleDialogOpen] = useState(false);
   const [isEditorDownloading, setIsEditorDownloading] = useState(false);
   const [isGeneratingShareLink, setIsGeneratingShareLink] = useState(false);
@@ -226,12 +230,9 @@ const ShootDetails: React.FC = () => {
   const loadShoot = useCallback(async () => {
     if (!id) return;
     try {
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const headers = getApiHeaders();
       const res = await fetch(`${API_BASE_URL}/api/shoots/${id}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-        },
+        headers,
       });
       
       if (!res.ok) throw new Error('Failed to fetch shoot');
@@ -362,12 +363,9 @@ const ShootDetails: React.FC = () => {
     const fetchRawFileCount = async () => {
       if (!id || !isEditor) return;
       try {
-        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+        const headers = getApiHeaders();
         const res = await fetch(`${API_BASE_URL}/api/shoots/${id}/files?type=raw`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json',
-          },
+          headers,
         });
         if (res.ok) {
           const data = await res.json();
@@ -386,12 +384,10 @@ const ShootDetails: React.FC = () => {
     if (!shoot) return;
     try {
       setIsEditorDownloading(true);
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const headers = getApiHeaders();
+      headers.Accept = 'application/json, application/zip';
       const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/editor-download-raw`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json, application/zip',
-        },
+        headers,
       });
 
       if (!res.ok) {
@@ -430,15 +426,10 @@ const ShootDetails: React.FC = () => {
     if (!shoot) return;
     try {
       setIsGeneratingShareLink(true);
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const headers = getApiHeaders();
       const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/generate-share-link`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify({ expires_in_hours: 72 }),
+        headers,
       });
 
       if (!res.ok) {
@@ -448,7 +439,7 @@ const ShootDetails: React.FC = () => {
 
       const data = await res.json();
       await navigator.clipboard.writeText(data.share_link);
-      toast({ title: 'Share link generated!', description: `Link copied to clipboard. Valid for ${data.expires_in_hours} hours.` });
+      toast({ title: 'Share link generated!', description: 'Link copied to clipboard. Lifetime link.' });
       loadShoot();
     } catch (error: any) {
       toast({ title: 'Error', description: error.message || 'Failed to generate share link.', variant: 'destructive' });
@@ -480,14 +471,10 @@ const ShootDetails: React.FC = () => {
   const handleSendToEditing = async () => {
     if (!shoot) return;
     try {
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const headers = getApiHeaders();
       const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/send-to-editing`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers,
         body: JSON.stringify({ editor_id: shoot.editor?.id }),
       });
       
@@ -510,14 +497,10 @@ const ShootDetails: React.FC = () => {
   const handleFinalise = async () => {
     if (!shoot) return;
     try {
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const headers = getApiHeaders();
       const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/finalize`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers,
         body: JSON.stringify({ final_status: 'admin_verified' }),
       });
       
@@ -559,8 +542,11 @@ const ShootDetails: React.FC = () => {
     shoot.workflowStatus !== 'on_hold'
   );
 
+  const isHoldRequested = Boolean(shoot?.holdRequestedAt);
   // Check if user can put shoot on hold
-  const canUserPutOnHold = (isAdminOrRep || (isPhotographer && shoot?.photographer?.id === user?.id)) && canPutOnHold;
+  const canDirectHold = isAdminOrRep && canPutOnHold && !isHoldRequested;
+  const canRequestHold = isClient && canPutOnHold && !isHoldRequested;
+  const canReviewHoldRequest = isAdminOrRep && isHoldRequested;
 
   const handleMarkOnHold = async () => {
     if (!shoot || !onHoldReason.trim()) {
@@ -572,42 +558,154 @@ const ShootDetails: React.FC = () => {
       return;
     }
 
+    const isHoldRequest = isClient;
+    if (isHoldRequest && shoot.holdRequestedAt) {
+      toast({
+        title: 'Hold already requested',
+        description: 'Your hold request is already pending approval.',
+      });
+      return;
+    }
+
     try {
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/put-on-hold`, {
+      const headers = getApiHeaders();
+      const endpoint = isHoldRequest ? 'request-hold' : 'put-on-hold';
+      const response = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/${endpoint}`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers,
         body: JSON.stringify({ reason: onHoldReason.trim() }),
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || 'Failed to put shoot on hold');
+        throw new Error(
+          error.message || (isHoldRequest ? 'Failed to request hold' : 'Failed to put shoot on hold')
+        );
       }
 
       toast({
-        title: 'Shoot put on hold',
-        description: 'The shoot has been successfully marked as on hold.',
+        title: isHoldRequest ? 'Hold request submitted' : 'Shoot put on hold',
+        description: isHoldRequest
+          ? 'Your hold request is pending admin approval.'
+          : 'The shoot has been successfully marked on hold.',
       });
 
       setIsOnHoldDialogOpen(false);
       setOnHoldReason('');
       loadShoot(); // Reload shoot data
     } catch (error) {
-      console.error('Error putting shoot on hold:', error);
+      console.error('Error submitting hold request:', error);
       toast({
         title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to put shoot on hold. Please try again.',
+        description: error instanceof Error
+          ? error.message
+          : isHoldRequest
+            ? 'Failed to request hold. Please try again.'
+            : 'Failed to put shoot on hold. Please try again.',
         variant: 'destructive',
       });
     }
   };
 
+  const handleApproveHold = async () => {
+    if (!shoot) return;
+    setHoldProcessing(true);
+    try {
+      const headers = getApiHeaders();
+      const response = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/approve-hold`, {
+        method: 'POST',
+        headers,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to approve hold request');
+      }
+
+      toast({
+        title: 'Hold approved',
+        description: 'The shoot has been placed on hold.',
+      });
+      setIsHoldApprovalDialogOpen(false);
+      loadShoot();
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to approve hold request.',
+        variant: 'destructive',
+      });
+    } finally {
+      setHoldProcessing(false);
+    }
+  };
+
+  const handleRejectHold = async () => {
+    if (!shoot) return;
+    setHoldProcessing(true);
+    try {
+      const headers = getApiHeaders();
+      const response = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/reject-hold`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ reason: 'Hold request rejected' }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to reject hold request');
+      }
+
+      toast({
+        title: 'Hold request rejected',
+        description: 'The hold request has been rejected.',
+      });
+      setIsHoldApprovalDialogOpen(false);
+      loadShoot();
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to reject hold request.',
+        variant: 'destructive',
+      });
+    } finally {
+      setHoldProcessing(false);
+    }
+  };
+
   const amountDue = shoot ? (shoot.payment?.totalQuote || 0) - (shoot.payment?.totalPaid || 0) : 0;
+
+  const handleMarkPaidConfirm = async (payload: MarkAsPaidPayload) => {
+    if (!shoot) return;
+    const outstandingAmount = (shoot.payment?.totalQuote ?? 0) - (shoot.payment?.totalPaid ?? 0);
+    const amount = outstandingAmount > 0 ? outstandingAmount : (shoot.payment?.totalQuote ?? 0);
+
+    const body: Record<string, any> = {
+      payment_type: payload.paymentMethod,
+      amount,
+    };
+
+    if (payload.paymentDetails) {
+      body.payment_details = payload.paymentDetails;
+    }
+    if (payload.paymentDate) {
+      body.payment_date = payload.paymentDate;
+    }
+
+    const headers = getApiHeaders();
+    const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/mark-paid`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({ message: 'Failed to mark as paid' }));
+      throw new Error(errorData.message || 'Failed to mark as paid');
+    }
+
+    toast({ title: 'Success', description: 'Shoot marked as paid successfully.' });
+    loadShoot();
+  };
 
   const copyAddress = () => {
     if (!shoot?.location?.fullAddress) return;
@@ -674,10 +772,9 @@ const ShootDetails: React.FC = () => {
 
   return (
     <DashboardLayout className="!p-0">
-      <PageTransition>
-        <div className="flex flex-col min-h-screen bg-background">
-          {/* Tiered Header - Multi-layer hierarchy */}
-          <div className="sticky top-0 z-50 bg-background border-b">
+      <div className="flex flex-col min-h-screen bg-background">
+        {/* Tiered Header - Multi-layer hierarchy */}
+        <div className="sticky top-0 z-50 bg-background border-b">
             {/* Top Bar - Breadcrumb & Navigation */}
             <div className="px-3 sm:px-6 py-1.5 border-b bg-muted/30">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
@@ -766,7 +863,7 @@ const ShootDetails: React.FC = () => {
 
                 {/* Action Bar - Stack on mobile */}
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-shrink-0 w-full sm:w-auto">
-                  {canUserPutOnHold && (
+                  {canDirectHold && (
                     <Button
                       variant="default"
                       size="sm"
@@ -774,8 +871,44 @@ const ShootDetails: React.FC = () => {
                       onClick={() => setIsOnHoldDialogOpen(true)}
                     >
                       <PauseCircle className="h-3 w-3 mr-1.5" />
-                      <span className="hidden sm:inline">Mark as On Hold</span>
-                      <span className="sm:hidden">On Hold</span>
+                      <span className="hidden sm:inline">Mark on hold</span>
+                      <span className="sm:hidden">Hold</span>
+                    </Button>
+                  )}
+                  {canRequestHold && (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="bg-amber-600 hover:bg-amber-700 text-white w-full sm:w-auto"
+                      onClick={() => setIsOnHoldDialogOpen(true)}
+                    >
+                      <PauseCircle className="h-3 w-3 mr-1.5" />
+                      <span className="hidden sm:inline">Request hold</span>
+                      <span className="sm:hidden">Hold</span>
+                    </Button>
+                  )}
+                  {isClient && isHoldRequested && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full sm:w-auto"
+                      disabled
+                    >
+                      <PauseCircle className="h-3 w-3 mr-1.5" />
+                      <span className="hidden sm:inline">Hold requested</span>
+                      <span className="sm:hidden">Requested</span>
+                    </Button>
+                  )}
+                  {canReviewHoldRequest && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-amber-200 text-amber-700 hover:bg-amber-50 w-full sm:w-auto"
+                      onClick={() => setIsHoldApprovalDialogOpen(true)}
+                    >
+                      <PauseCircle className="h-3 w-3 mr-1.5" />
+                      <span className="hidden sm:inline">Review hold request</span>
+                      <span className="sm:hidden">Review hold</span>
                     </Button>
                   )}
                   {isAdmin && !hasEditedWithoutRaw && (
@@ -1098,43 +1231,12 @@ const ShootDetails: React.FC = () => {
                 isPhotographer={isPhotographer}
                 isEditor={isEditor}
                 onShootUpdate={loadShoot}
-                onMarkPaid={async () => {
-                  try {
-                    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-                    const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/mark-paid`, {
-                      method: 'POST',
-                      headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                      },
-                      body: JSON.stringify({
-                        payment_type: 'manual',
-                        amount: shoot.payment?.totalQuote ?? 0,
-                      }),
-                    });
-                    
-                    if (!res.ok) {
-                      const errorData = await res.json().catch(() => ({ message: 'Failed to mark as paid' }));
-                      throw new Error(errorData.message || 'Failed to mark as paid');
-                    }
-                    
-                    toast({ title: 'Success', description: 'Shoot marked as paid successfully.' });
-                    loadShoot();
-                  } catch (error: any) {
-                    toast({ 
-                      title: 'Error', 
-                      description: error.message || 'Failed to mark as paid', 
-                      variant: 'destructive' 
-                    });
-                  }
-                }}
+                onMarkPaid={() => setIsMarkPaidDialogOpen(true)}
               />
             </div>
             )}
           </div>
         </div>
-      </PageTransition>
 
       {shoot && (
         <>
@@ -1154,6 +1256,15 @@ const ShootDetails: React.FC = () => {
             onPaymentSuccess={handlePaymentSuccess}
           />
 
+          <MarkAsPaidDialog
+            isOpen={isMarkPaidDialogOpen}
+            onClose={() => setIsMarkPaidDialogOpen(false)}
+            onConfirm={handleMarkPaidConfirm}
+            title="Mark Shoot as Paid"
+            description="Select the payment method and provide any required details."
+            confirmLabel="Mark as Paid"
+          />
+
           {/* Reschedule Dialog */}
           {shoot && (
             <RescheduleDialog
@@ -1166,13 +1277,15 @@ const ShootDetails: React.FC = () => {
             />
           )}
 
-          {/* Mark as On Hold Dialog */}
+          {/* Mark on hold / Request hold Dialog */}
           <Dialog open={isOnHoldDialogOpen} onOpenChange={setIsOnHoldDialogOpen}>
             <DialogContent className="sm:max-w-[500px]">
               <DialogHeader>
-                <DialogTitle>Mark Shoot as On Hold</DialogTitle>
+                <DialogTitle>{isClient ? 'Request hold' : 'Mark on hold'}</DialogTitle>
                 <DialogDescription>
-                  Please provide a reason for putting this shoot on hold. This will help track why the shoot was paused.
+                  {isClient
+                    ? 'Tell us why you need to put this shoot on hold. Your request will be reviewed by an admin.'
+                    : 'Please provide a reason for putting this shoot on hold. This will help track why the shoot was paused.'}
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
@@ -1180,7 +1293,9 @@ const ShootDetails: React.FC = () => {
                   <Label htmlFor="onHoldReason">Reason <span className="text-destructive">*</span></Label>
                   <Textarea
                     id="onHoldReason"
-                    placeholder="Enter the reason for putting this shoot on hold..."
+                    placeholder={isClient
+                      ? 'Enter the reason for requesting a hold...'
+                      : 'Enter the reason for putting this shoot on hold...'}
                     value={onHoldReason}
                     onChange={(e) => setOnHoldReason(e.target.value)}
                     rows={4}
@@ -1204,7 +1319,46 @@ const ShootDetails: React.FC = () => {
                   className="bg-amber-600 hover:bg-amber-700"
                 >
                   <PauseCircle className="h-4 w-4 mr-2" />
-                  Mark as On Hold
+                  {isClient ? 'Submit request' : 'Mark on hold'}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Hold Approval Dialog */}
+          <Dialog open={isHoldApprovalDialogOpen} onOpenChange={setIsHoldApprovalDialogOpen}>
+            <DialogContent className="sm:max-w-[500px]">
+              <DialogHeader>
+                <DialogTitle>Hold request</DialogTitle>
+                <DialogDescription>
+                  {shoot?.holdReason
+                    ? `Reason: ${shoot.holdReason}`
+                    : 'No reason was provided for this hold request.'}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsHoldApprovalDialogOpen(false)}
+                  disabled={holdProcessing}
+                >
+                  Close
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleRejectHold}
+                  disabled={holdProcessing}
+                >
+                  {holdProcessing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                  Reject
+                </Button>
+                <Button
+                  className="bg-amber-600 hover:bg-amber-700"
+                  onClick={handleApproveHold}
+                  disabled={holdProcessing}
+                >
+                  {holdProcessing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                  Approve hold
                 </Button>
               </div>
             </DialogContent>

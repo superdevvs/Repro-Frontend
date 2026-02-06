@@ -16,7 +16,8 @@ import { Switch } from "@/components/ui/switch";
 import { DollarSignIcon, Sparkles } from "lucide-react";
 import { API_BASE_URL } from '@/config/env';
 
-import { PaymentDialog } from "@/components/invoices/PaymentDialog";
+import { PaymentDialog, type InvoicePaymentCompletePayload } from "@/components/invoices/PaymentDialog";
+import { formatPaymentMethod } from '@/utils/paymentUtils';
 
 interface ShootSettingsTabProps {
   shoot: ShootData;
@@ -311,21 +312,30 @@ export function ShootSettingsTab({
     return;
   };
 
-  const handlePaymentComplete = (invoiceId: string, paymentMethod: string) => {
+  const handlePaymentComplete = (payload: InvoicePaymentCompletePayload) => {
+    const { invoiceId, paymentMethod, paymentDetails, paymentDate } = payload;
     // Close dialog
     setPaymentDialogOpen(false);
 
-    // Optionally update local invoice/payment flags
+    let updatedInvoice = localInvoice;
     if (localInvoice && String(localInvoice.id) === String(invoiceId)) {
-      setLocalInvoice({ ...localInvoice, status: "paid" as any, paymentMethod });
+      updatedInvoice = {
+        ...localInvoice,
+        status: 'paid' as InvoiceData['status'],
+        paymentMethod,
+        paymentDetails: paymentDetails ?? localInvoice.paymentDetails,
+        paidAt: paymentDate ?? localInvoice.paidAt,
+      };
+      setLocalInvoice(updatedInvoice);
     }
 
     // notify parent
-    if (onProcessPayment && localInvoice) {
-      try { onProcessPayment(localInvoice); } catch (e) { /* ignore */ }
+    if (onProcessPayment && updatedInvoice) {
+      try { onProcessPayment(updatedInvoice); } catch (e) { /* ignore */ }
     }
 
-    sonnerToast.success(`Payment processed (${paymentMethod}) for invoice ${invoiceId}`);
+    const methodLabel = formatPaymentMethod(paymentMethod, paymentDetails);
+    sonnerToast.success(`Payment processed (${methodLabel}) for invoice ${invoiceId}`);
   };
 
   // ---------- render ----------

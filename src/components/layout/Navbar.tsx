@@ -231,7 +231,7 @@ export function Navbar() {
   ];
 
   return (
-    <div className="w-full border-b border-border bg-card">
+    <div className="w-full border-b border-border bg-card dark:bg-background">
       <div className="h-16 flex items-center justify-between px-4">
         <div className="flex items-center gap-4 pl-4">
         {/* Logo for simplified layout (photographer/editor) */}
@@ -289,11 +289,11 @@ export function Navbar() {
               </Button>
             )}
           
-            <div className="flex w-full max-w-sm items-center gap-1.5 relative">
+            <div className="flex w-[160px] sm:w-[180px] items-center gap-1.5 relative">
               <SearchIcon className="h-4 w-4 text-muted-foreground absolute ml-3" />
               <Input 
                 type="search" 
-                placeholder="Search or run a command..." 
+                placeholder="Search..." 
                 className="pl-9 bg-transparent border-0 shadow-none focus-visible:ring-primary/20"
                 readOnly
                 onClick={() => setCommandOpen(true)}

@@ -84,6 +84,7 @@ import {
   Camera,
   Image,
   Upload,
+  Send,
   FileDown,
   AlertCircle,
   CheckCircle2,
@@ -452,6 +453,17 @@ function toArrayValue<T>(value: unknown): T[] {
   return Array.isArray(value) ? (value as T[]) : []
 }
 
+const toOptionalString = (value: unknown): string | undefined => {
+  if (typeof value !== 'string') return undefined
+  const trimmed = value.trim()
+  return trimmed ? trimmed : undefined
+}
+
+const getEditingNotes = (notes: ShootData['notes']): string | undefined => {
+  if (!notes || typeof notes === 'string') return undefined
+  return toOptionalString((notes as { editingNotes?: unknown }).editingNotes)
+}
+
 const deriveFilterOptionsFromShoots = (shoots: ShootData[]): FilterCollections => {
   const clientMap: Map<string, string> = {} as Map<string, string>
   const photographerMap: Map<string, string> = {} as Map<string, string>
@@ -557,6 +569,22 @@ const mapShootApiToShootData = (item: Record<string, unknown>): ShootData => {
     toObjectValue<Record<string, unknown>>(item.dropbox_paths) ??
     toObjectValue<Record<string, unknown>>(item.dropboxPaths)
   const primaryAction = toObjectValue<Record<string, unknown> & ShootAction>(item.primary_action)
+  const notesValue = item.notes
+  const noteObject = toObjectValue<Record<string, unknown>>(notesValue)
+  const normalizedNotes = {
+    shootNotes:
+      toOptionalString(item.shoot_notes) ??
+      toOptionalString(notesValue) ??
+      toOptionalString(noteObject?.['shootNotes']),
+    photographerNotes:
+      toOptionalString(item.photographer_notes) ?? toOptionalString(noteObject?.['photographerNotes']),
+    companyNotes: toOptionalString(item.company_notes) ?? toOptionalString(noteObject?.['companyNotes']),
+    editingNotes:
+      toOptionalString((item as { editor_notes?: unknown }).editor_notes) ??
+      toOptionalString(noteObject?.['editingNotes']),
+  }
+  const hasNotes = Object.values(normalizedNotes).some(Boolean)
+  const resolvedNotes = hasNotes ? normalizedNotes : notesValue
 
   const shootId = item.id ?? item.shoot_id ?? Math.random().toString(36).slice(2)
 
@@ -614,7 +642,7 @@ const mapShootApiToShootData = (item: Record<string, unknown>): ShootData => {
       lastPaymentType: paymentDetails?.lastPaymentType ?? toStringValue(item.payment_type),
     },
     isPrivateListing: toBooleanValue(item.is_private_listing ?? item.isPrivateListing),
-    notes: item.shoot_notes ?? item.notes,
+    notes: resolvedNotes,
     adminIssueNotes: item.admin_issue_notes as string | undefined,
     isFlagged: toBooleanValue(item.is_flagged),
     issuesResolvedAt: item.issues_resolved_at as string | undefined,
@@ -720,22 +748,28 @@ const ScheduledShootListRow = ({
   onSelect,
   isSuperAdmin = false,
   isAdmin = false,
+  isEditingManager = false,
+  isEditor = false,
   onDelete,
   onViewInvoice,
   onApprove,
   onDecline,
   onModify,
+  onSendToEditing,
   shouldHideClientDetails = false,
 }: {
   shoot: ShootData
   onSelect: (shoot: ShootData) => void
   isSuperAdmin?: boolean
   isAdmin?: boolean
+  isEditingManager?: boolean
+  isEditor?: boolean
   onDelete?: (shoot: ShootData) => void
   onViewInvoice?: (shoot: ShootData) => void
   onApprove?: (shoot: ShootData) => void
   onDecline?: (shoot: ShootData) => void
   onModify?: (shoot: ShootData) => void
+  onSendToEditing?: (shoot: ShootData) => void
   shouldHideClientDetails?: boolean
 }) => {
   const { formatTime, formatDate: formatDatePref } = useUserPreferences()
@@ -755,6 +789,10 @@ const ScheduledShootListRow = ({
       ? 'Paid'
       : 'Unpaid'
     : null
+  const editingNotes = getEditingNotes(shoot.notes)
+  const canShowEditingNotes = Boolean(editingNotes) && (isSuperAdmin || isAdmin || isEditingManager || isEditor)
+  const shootStatus = String(shoot.status ?? shoot.workflowStatus ?? '').toLowerCase()
+  const canSendToEditing = Boolean(onSendToEditing) && shootStatus === 'uploaded'
 
   return (
     <Card
@@ -789,6 +827,11 @@ const ScheduledShootListRow = ({
               {paymentStatus && (
                 <Badge variant={paymentStatus === 'Paid' ? 'secondary' : 'destructive'} className="text-xs">
                   {paymentStatus}
+                </Badge>
+              )}
+              {canShowEditingNotes && (
+                <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
+                  Editing Notes
                 </Badge>
               )}
             </div>
@@ -847,10 +890,29 @@ const ScheduledShootListRow = ({
                 {paymentStatus}
               </Badge>
             )}
+            {canShowEditingNotes && (
+              <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
+                Editing Notes
+              </Badge>
+            )}
             {isSuperAdmin && paymentStatus === 'Unpaid' && (
               <div className="relative" onClick={(e) => e.stopPropagation()}>
                 <PaymentButton shoot={shoot} />
               </div>
+            )}
+            {canSendToEditing && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 gap-1.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity border-purple-300 text-purple-700 hover:bg-purple-50"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onSendToEditing?.(shoot)
+                }}
+                title="Send to Editing"
+              >
+                <Send className="h-3.5 w-3.5" />
+              </Button>
             )}
             {/* Invoice button - Available for all roles */}
             {onViewInvoice && (
@@ -1010,8 +1072,11 @@ const CompletedAlbumCard = ({
   onDownload,
   isSuperAdmin = false,
   isAdmin = false,
+  isEditingManager = false,
+  isEditor = false,
   onDelete,
   onViewInvoice,
+  onSendToEditing,
   shouldHideClientDetails = false,
 }: {
   shoot: ShootData
@@ -1019,8 +1084,11 @@ const CompletedAlbumCard = ({
   onDownload?: (shoot: ShootData, type: 'full' | 'web') => void
   isSuperAdmin?: boolean
   isAdmin?: boolean
+  isEditingManager?: boolean
+  isEditor?: boolean
   onDelete?: (shoot: ShootData) => void
   onViewInvoice?: (shoot: ShootData) => void
+  onSendToEditing?: (shoot: ShootData) => void
   shouldHideClientDetails?: boolean
 }) => {
   const { formatTime, formatDate: formatDatePref } = useUserPreferences()
@@ -1043,6 +1111,10 @@ const CompletedAlbumCard = ({
   const isPaid = isSuperAdmin ? ((shoot.payment?.totalPaid ?? 0) >= (shoot.payment?.totalQuote ?? 0)) : false
   const statusValue = shoot.workflowStatus ?? shoot.status ?? ''
   const statusLabel = formatWorkflowStatus(statusValue)
+  const editingNotes = getEditingNotes(shoot.notes)
+  const canShowEditingNotes = Boolean(editingNotes) && (isSuperAdmin || isAdmin || isEditingManager || isEditor)
+  const shootStatus = String(shoot.status ?? shoot.workflowStatus ?? '').toLowerCase()
+  const canSendToEditing = Boolean(onSendToEditing) && shootStatus === 'uploaded'
 
   return (
     <Card
@@ -1092,10 +1164,34 @@ const CompletedAlbumCard = ({
               </Badge>
             );
           })()}
+          {canShowEditingNotes && (
+            <Badge variant="outline" className="ml-2 text-xs bg-purple-500/90 text-white border-purple-400">
+              Editing Notes
+            </Badge>
+          )}
         </div>
         
+        {/* Send to Editing button - Top right */}
+        {canSendToEditing && (
+          <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+            <Button
+              size="sm"
+              variant="secondary"
+              className="h-8 gap-1.5 bg-purple-500/90 hover:bg-purple-600 text-white shadow-md"
+              onClick={(e) => {
+                e.stopPropagation()
+                onSendToEditing?.(shoot)
+              }}
+              title="Send to Editing"
+            >
+              <Send className="h-4 w-4" />
+              Send to Editing
+            </Button>
+          </div>
+        )}
+        
         {/* Invoice button - Top right */}
-        {onViewInvoice && (
+        {!canSendToEditing && onViewInvoice && (
           <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
             <Button
               size="sm"
@@ -1222,8 +1318,11 @@ const CompletedShootListRow = ({
   onDownload,
   isSuperAdmin = false,
   isAdmin = false,
+  isEditingManager = false,
+  isEditor = false,
   onDelete,
   onViewInvoice,
+  onSendToEditing,
   shouldHideClientDetails = false,
 }: {
   shoot: ShootData
@@ -1231,8 +1330,11 @@ const CompletedShootListRow = ({
   onDownload?: (shoot: ShootData, type: 'full' | 'web') => void
   isSuperAdmin?: boolean
   isAdmin?: boolean
+  isEditingManager?: boolean
+  isEditor?: boolean
   onDelete?: (shoot: ShootData) => void
   onViewInvoice?: (shoot: ShootData) => void
+  onSendToEditing?: (shoot: ShootData) => void
   shouldHideClientDetails?: boolean
 }) => {
   const { formatDate: formatDatePref } = useUserPreferences()
@@ -1254,6 +1356,10 @@ const CompletedShootListRow = ({
   const isPaid = isSuperAdmin ? ((shoot.payment?.totalPaid ?? 0) >= (shoot.payment?.totalQuote ?? 0)) : false
   const statusValue = shoot.workflowStatus ?? shoot.status ?? ''
   const statusLabel = formatWorkflowStatus(statusValue)
+  const editingNotes = getEditingNotes(shoot.notes)
+  const canShowEditingNotes = Boolean(editingNotes) && (isSuperAdmin || isAdmin || isEditingManager || isEditor)
+  const shootStatus = String(shoot.status ?? shoot.workflowStatus ?? '').toLowerCase()
+  const canSendToEditing = Boolean(onSendToEditing) && shootStatus === 'uploaded'
 
   const hasNoImages = !heroImage || heroImage === '/placeholder.svg' || photoCount === 0
   const displayImage = hasNoImages ? '/no-image-placeholder.svg' : heroImage
@@ -1299,6 +1405,11 @@ const CompletedShootListRow = ({
                 <div onClick={(e) => e.stopPropagation()}>
                   <PaymentButton shoot={shoot} />
                 </div>
+              )}
+              {canShowEditingNotes && (
+                <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
+                  Editing Notes
+                </Badge>
               )}
             </div>
           </div>
@@ -1353,6 +1464,21 @@ const CompletedShootListRow = ({
                   )}
                 </div>
                 <div className="flex items-center gap-1.5 ml-auto">
+                  {canSendToEditing && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 gap-1 text-xs opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity border-purple-300 text-purple-700 hover:bg-purple-50"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onSendToEditing?.(shoot)
+                      }}
+                      title="Send to Editing"
+                    >
+                      <Send className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Send to Editing</span>
+                    </Button>
+                  )}
                   {onViewInvoice && (
                     <Button
                       size="sm"
@@ -1413,16 +1539,22 @@ const HoldOnShootCard = ({
   onSelect,
   isSuperAdmin = false,
   isAdmin = false,
+  isEditingManager = false,
+  isEditor = false,
   onDelete,
   onViewInvoice,
+  onSendToEditing,
   shouldHideClientDetails = false,
 }: {
   shoot: ShootData
   onSelect: (shoot: ShootData) => void
   isSuperAdmin?: boolean
   isAdmin?: boolean
+  isEditingManager?: boolean
+  isEditor?: boolean
   onDelete?: (shoot: ShootData) => void
   onViewInvoice?: (shoot: ShootData) => void
+  onSendToEditing?: (shoot: ShootData) => void
   shouldHideClientDetails?: boolean
 }) => {
   const { formatTime, formatDate: formatDatePref } = useUserPreferences()
@@ -1440,6 +1572,10 @@ const HoldOnShootCard = ({
   const holdReason = getHoldReason()
   const displayDate = shoot.scheduledDate ? formatDisplayDateLocal(shoot.scheduledDate) : 'Date not assigned'
   const displayTime = shoot.time && shoot.time !== 'TBD' ? formatTime(shoot.time) : 'Awaiting confirmation'
+  const editingNotes = getEditingNotes(shoot.notes)
+  const canShowEditingNotes = Boolean(editingNotes) && (isSuperAdmin || isAdmin || isEditingManager || isEditor)
+  const shootStatus = String(shoot.status ?? shoot.workflowStatus ?? '').toLowerCase()
+  const canSendToEditing = Boolean(onSendToEditing) && shootStatus === 'uploaded'
 
   return (
     <Card
@@ -1454,9 +1590,28 @@ const HoldOnShootCard = ({
                 <PauseCircle className="h-3.5 w-3.5 mr-1" />
                 {holdReason.label}
               </Badge>
+              {canShowEditingNotes && (
+                <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
+                  Editing Notes
+                </Badge>
+              )}
             </div>
             <h3 className="font-semibold leading-tight">{shoot.location.fullAddress}</h3>
           </div>
+          {canSendToEditing && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity border-purple-300 text-purple-700 hover:bg-purple-50"
+              onClick={(e) => {
+                e.stopPropagation()
+                onSendToEditing?.(shoot)
+              }}
+              title="Send to Editing"
+            >
+              <Send className="h-3.5 w-3.5" />
+            </Button>
+          )}
           {/* Invoice button - Available for all roles */}
           {onViewInvoice && (
             <Button
@@ -1682,10 +1837,12 @@ const HistoryRow = memo(({
   onPublishMls,
   isSuperAdmin = false,
   isAdmin = false,
+  isEditingManager = false,
+  isEditor = false,
   onDelete,
   onViewInvoice,
+  onSendToEditing,
   shouldHideClientDetails = false,
-  isEditor = false,
 }: {
   record: ShootHistoryRecord
   onViewRecord?: (record: ShootHistoryRecord) => void
@@ -1693,10 +1850,12 @@ const HistoryRow = memo(({
   onPublishMls?: (record: ShootHistoryRecord) => void
   isSuperAdmin?: boolean
   isAdmin?: boolean
+  isEditingManager?: boolean
+  isEditor?: boolean
   onDelete?: (record: ShootHistoryRecord) => void
   onViewInvoice?: (shoot: ShootData | { id: string | number }) => void
+  onSendToEditing?: (shoot: ShootData | { id: string | number }) => void
   shouldHideClientDetails?: boolean
-  isEditor?: boolean
 }) => {
   const { formatDate: formatDatePref } = useUserPreferences()
   const formatDisplayDatePref = (value?: string | null) => {
@@ -1715,6 +1874,10 @@ const HistoryRow = memo(({
   }
   const isPaid = isSuperAdmin ? (financials.totalPaid >= financials.totalQuote) : false
   const statusLabel = (record.status ?? 'scheduled').replace(/_/g, ' ')
+  const editingNotesValue = (record.notes as any)?.editingNotes || (record.notes as any)?.editing
+  const canShowEditingNotes = Boolean(editingNotesValue) && (isSuperAdmin || isAdmin || isEditingManager || isEditor)
+  const recordStatus = String(record.status ?? '').toLowerCase()
+  const canSendToEditing = Boolean(onSendToEditing) && recordStatus === 'uploaded'
   
   const handlePublishMls = async (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -1753,6 +1916,11 @@ const HistoryRow = memo(({
             {record.id && (
               <Badge variant="secondary" className="text-[11px] font-semibold">
                 ID #{record.id}
+              </Badge>
+            )}
+            {canShowEditingNotes && (
+              <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
+                Editing Notes
               </Badge>
             )}
           </div>
@@ -1808,6 +1976,20 @@ const HistoryRow = memo(({
                   disabled={isBusy}
                 >
                   {isBusy ? 'Loading…' : 'View shoot'}
+                </Button>
+              )}
+              {canSendToEditing && record.id && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1 border-purple-300 text-purple-700 hover:bg-purple-50"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onSendToEditing?.({ id: record.id })
+                  }}
+                  title="Send to Editing"
+                >
+                  <Send className="h-3.5 w-3.5" />
                 </Button>
               )}
               {/* Invoice button - Available for all roles */}
@@ -2370,16 +2552,16 @@ const ShootHistory: React.FC = () => {
   
   const isSuperAdmin = role === 'superadmin'
   const isEditingManager = role === 'editing_manager'
-  const isAdmin = role === 'admin' || isEditingManager
+  const isAdmin = role === 'admin'
   const isPhotographer = role === 'photographer'
   const isEditor = role === 'editor'
   const shouldHideClientDetails = isEditor
-  const canViewAllShoots = isSuperAdmin || isAdmin // Super Admin, Admin, and Editing Manager can see all shoots
+  const canViewAllShoots = isSuperAdmin || isAdmin || isEditingManager // Super Admin, Admin, and Editing Manager can see all shoots
   const canViewHistory = HISTORY_ALLOWED_ROLES.has((role as string) ?? '')
-  const canViewInvoice = !isPhotographer && !isEditor // Hide invoice for photographers and editors
+  const canViewInvoice = !isPhotographer && !isEditor && !isEditingManager // Hide invoice for photographers, editors, and editing managers
   
   // Linked accounts should only be available for non-super admin users
-  const canViewLinkedAccounts = !isSuperAdmin && !isAdmin // Only clients can have linked accounts
+  const canViewLinkedAccounts = !isSuperAdmin && !isAdmin && !isEditingManager // Only clients can have linked accounts
   
   // Linked accounts state
   const [linkedAccounts, setLinkedAccounts] = useState<any[]>([])
@@ -3296,6 +3478,39 @@ const ShootHistory: React.FC = () => {
 
   useEffect(() => registerShootHistoryRefresh(refreshActiveTabData), [refreshActiveTabData])
 
+  const handleSendToEditing = useCallback(
+    async (shoot: ShootData) => {
+      if (!shoot?.id) return
+      try {
+        const currentStatus = shoot.status || shoot.workflowStatus || 'booked'
+        if (String(currentStatus).toLowerCase() !== 'uploaded') {
+          throw new Error('Shoot must be in Uploaded status before sending to editing')
+        }
+
+        await apiClient.post(`/shoots/${shoot.id}/start-editing`)
+
+        toast({
+          title: 'Success',
+          description: 'Shoot sent to editing',
+        })
+
+        await refreshActiveTabData()
+
+        if (selectedShoot?.id && String(selectedShoot.id) === String(shoot.id)) {
+          await loadShootById(selectedShoot.id, { openDetail: isDetailOpen, quiet: true })
+        }
+      } catch (error: any) {
+        console.error('Send to editing error:', error)
+        toast({
+          title: 'Error',
+          description: error?.response?.data?.message || error?.message || 'Failed to send to editing',
+          variant: 'destructive',
+        })
+      }
+    },
+    [toast, refreshActiveTabData, selectedShoot, loadShootById, isDetailOpen],
+  )
+
   const confirmDeleteShoot = useCallback(async () => {
     if (!deleteShootId) return
 
@@ -3783,6 +3998,7 @@ const ShootHistory: React.FC = () => {
               onModify={(s) => setEditModalShoot(s)}
               onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
               onViewInvoice={canViewInvoice ? handleViewInvoice : undefined}
+              onSendToEditing={handleSendToEditing}
             />
           ))}
         </div>
@@ -3802,17 +4018,20 @@ const ShootHistory: React.FC = () => {
             onSelect={handleShootSelect} 
             isSuperAdmin={isSuperAdmin}
             isAdmin={isAdmin}
+            isEditingManager={isEditingManager}
+            isEditor={isEditor}
             onViewInvoice={canViewInvoice ? handleViewInvoice : undefined}
             onApprove={(s) => setApprovalModalShoot(s)}
             onDecline={(s) => setDeclineModalShoot(s)}
             onModify={(s) => setEditModalShoot(s)}
             onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
+            onSendToEditing={handleSendToEditing}
             shouldHideClientDetails={shouldHideClientDetails}
           />
         ))}
       </div>
     )
-  }, [loading, activeTab, filteredOperationalData, operationalMeta, viewMode, role, operationalMarkers, handleShootSelect, handlePrimaryAction, navigate, isSuperAdmin, scheduledSubTab, isAdmin, canViewInvoice, handleViewInvoice, handleDeleteShoot, shouldHideClientDetails])
+  }, [loading, activeTab, filteredOperationalData, operationalMeta, viewMode, role, operationalMarkers, handleShootSelect, handlePrimaryAction, navigate, isSuperAdmin, scheduledSubTab, isAdmin, isEditingManager, isEditor, canViewInvoice, handleViewInvoice, handleDeleteShoot, handleSendToEditing, shouldHideClientDetails])
 
     // Completed shoots content
   const completedContent = useMemo(() => {
@@ -3893,8 +4112,11 @@ const ShootHistory: React.FC = () => {
               onDownload={handleDownloadShoot}
               isSuperAdmin={isSuperAdmin}
               isAdmin={isAdmin}
+              isEditingManager={isEditingManager}
+              isEditor={isEditor}
               onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
               onViewInvoice={canViewInvoice ? handleViewInvoice : undefined}
+              onSendToEditing={handleSendToEditing}
               shouldHideClientDetails={shouldHideClientDetails}
             />
           ))}
@@ -3916,14 +4138,17 @@ const ShootHistory: React.FC = () => {
             onDownload={handleDownloadShoot}
             isSuperAdmin={isSuperAdmin}
             isAdmin={isAdmin}
+            isEditingManager={isEditingManager}
+            isEditor={isEditor}
             onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
             onViewInvoice={canViewInvoice ? handleViewInvoice : undefined}
+            onSendToEditing={handleSendToEditing}
             shouldHideClientDetails={shouldHideClientDetails}
           />
         ))}
       </div>
     )
-  }, [loading, activeTab, filteredOperationalData, operationalMeta, viewMode, operationalMarkers, handleShootSelect, handleDownloadShoot, isSuperAdmin, isAdmin, handleDeleteShoot, handleViewInvoice, inProgressSubTab, deliveredSubTab, canViewInvoice, shouldHideClientDetails])
+  }, [loading, activeTab, filteredOperationalData, operationalMeta, viewMode, operationalMarkers, handleShootSelect, handleDownloadShoot, isSuperAdmin, isAdmin, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleSendToEditing, inProgressSubTab, deliveredSubTab, canViewInvoice, shouldHideClientDetails])
 
   // Hold-on shoots content
   const holdOnContent = useMemo(() => {
@@ -3976,8 +4201,11 @@ const ShootHistory: React.FC = () => {
               onSelect={handleShootSelect}
               isSuperAdmin={isSuperAdmin}
               isAdmin={isAdmin}
+              isEditingManager={isEditingManager}
+              isEditor={isEditor}
               onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
               onViewInvoice={canViewInvoice ? handleViewInvoice : undefined}
+              onSendToEditing={handleSendToEditing}
               shouldHideClientDetails={shouldHideClientDetails}
             />
           ))}
@@ -3998,14 +4226,17 @@ const ShootHistory: React.FC = () => {
             onSelect={handleShootSelect}
             isSuperAdmin={isSuperAdmin}
             isAdmin={isAdmin}
+            isEditingManager={isEditingManager}
+            isEditor={isEditor}
             onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
             onViewInvoice={canViewInvoice ? handleViewInvoice : undefined}
+            onSendToEditing={handleSendToEditing}
             shouldHideClientDetails={shouldHideClientDetails}
           />
         ))}
       </div>
     )
-  }, [loading, activeTab, filteredOperationalData, operationalMeta, viewMode, operationalMarkers, handleShootSelect, isSuperAdmin, isAdmin, handleDeleteShoot, handleViewInvoice, canViewInvoice, shouldHideClientDetails])
+  }, [loading, activeTab, filteredOperationalData, operationalMeta, viewMode, operationalMarkers, handleShootSelect, isSuperAdmin, isAdmin, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleSendToEditing, canViewInvoice, shouldHideClientDetails])
 
   // Legacy operationalContent for backward compatibility
   const operationalContent = useMemo(() => {
@@ -4138,15 +4369,17 @@ const ShootHistory: React.FC = () => {
             isBusy={detailLoading}
             isSuperAdmin={isSuperAdmin}
             isAdmin={isAdmin}
+            isEditingManager={isEditingManager}
+            isEditor={isEditor}
             onDelete={isAdmin || isSuperAdmin ? handleDeleteHistoryRecord : undefined}
             onViewInvoice={canViewInvoice ? handleViewInvoice : undefined}
+            onSendToEditing={handleSendToEditing as any}
             shouldHideClientDetails={shouldHideClientDetails}
-            isEditor={isEditor}
           />
         ))}
       </div>
     )
-  }, [canViewHistory, loading, activeTab, historyFilters, historyAggregates, historyRecords, historyMarkers, historyMeta, handleHistoryRecordSelect, handlePublishMls, detailLoading, isSuperAdmin, isAdmin, handleDeleteHistoryRecord, handleViewInvoice, canViewInvoice, shouldHideClientDetails])
+  }, [canViewHistory, loading, activeTab, historyFilters, historyAggregates, historyRecords, historyMarkers, historyMeta, handleHistoryRecordSelect, handlePublishMls, detailLoading, isSuperAdmin, isAdmin, isEditingManager, isEditor, handleDeleteHistoryRecord, handleViewInvoice, handleSendToEditing, canViewInvoice, shouldHideClientDetails])
 
   const operationalServicesSelected = operationalFilters.services.length > 0
   const historyServicesSelected = historyFilters.services.length > 0

@@ -246,7 +246,7 @@ export const ProductionWorkflowBoard: React.FC<ProductionWorkflowBoardProps> = (
             );
             })}
             {filteredShoots.length === 0 && (
-              <div className="text-center text-xs text-slate-400 py-4 border border-dashed border-slate-200 rounded-2xl">
+              <div className="text-center text-xs text-slate-400 dark:text-slate-600/80 py-4 border border-dashed border-slate-200/60 dark:border-slate-800/30 rounded-2xl">
                 Empty
               </div>
             )}

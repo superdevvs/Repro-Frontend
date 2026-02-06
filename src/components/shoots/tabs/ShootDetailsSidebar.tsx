@@ -325,7 +325,9 @@ export function ShootDetailsSidebar({
         tax: invoiceData.tax || 0,
         total: invoiceData.total || invoiceData.amount || 0,
         shoot: invoiceData.shoot,
-        paymentMethod: invoiceData.paymentMethod || 'N/A',
+        paymentMethod: invoiceData.payment_method || invoiceData.paymentMethod || 'N/A',
+        paymentDetails: invoiceData.payment_details || invoiceData.paymentDetails || undefined,
+        paidAt: invoiceData.paid_at || invoiceData.paidAt || undefined,
       };
 
       setSelectedInvoice(invoice);

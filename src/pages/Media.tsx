@@ -7,7 +7,6 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { AutoExpandingTabsList, type AutoExpandingTab } from '@/components/ui/auto-expanding-tabs';
 import { Input } from '@/components/ui/input';
-import { PageTransition } from '@/components/layout/PageTransition';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { FileUploader } from '@/components/media/FileUploader';
 import { 
@@ -188,40 +187,39 @@ const MediaPage = () => {
 
   return (
     <DashboardLayout>
-      <PageTransition>
-        <div className="space-y-6">
-          <PageHeader
-            badge="Media"
-            title="Media Library"
-            description="Manage all your property photos, videos, and documents"
-            action={
-              <div className="flex gap-2">
-              <Button 
-                variant="outline" 
-                className="gap-2"
-                onClick={() => setNewFolderDialogOpen(true)}
-              >
-                <FolderIcon className="h-4 w-4" />
-                New Folder
-              </Button>
-              <Button 
-                className="gap-2"
-                onClick={() => setUploadDialogOpen(true)}
-              >
-                <UploadIcon className="h-4 w-4" />
-                Upload Media
-              </Button>
-              <Button
-                variant="secondary"
-                className="gap-2"
-                onClick={handleCreateSlideshow}
-              >
-                <PlusIcon className="h-4 w-4" />
-                New Slideshow
-              </Button>
-              </div>
-            }
-          />
+      <div className="space-y-6">
+        <PageHeader
+          badge="Media"
+          title="Media Library"
+          description="Manage all your property photos, videos, and documents"
+          action={
+            <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              className="gap-2"
+              onClick={() => setNewFolderDialogOpen(true)}
+            >
+              <FolderIcon className="h-4 w-4" />
+              New Folder
+            </Button>
+            <Button 
+              className="gap-2"
+              onClick={() => setUploadDialogOpen(true)}
+            >
+              <UploadIcon className="h-4 w-4" />
+              Upload Media
+            </Button>
+            <Button
+              variant="secondary"
+              className="gap-2"
+              onClick={handleCreateSlideshow}
+            >
+              <PlusIcon className="h-4 w-4" />
+              New Slideshow
+            </Button>
+            </div>
+          }
+        />
           
           {currentFolder !== 'root' && (
             <Button 
@@ -593,8 +591,7 @@ const MediaPage = () => {
               </DialogFooter>
             </DialogContent>
           </Dialog>
-        </div>
-      </PageTransition>
+      </div>
     </DashboardLayout>
   );
 };

@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { ShootDetailsModal } from '@/components/shoots/ShootDetailsModal';
 import { SquarePaymentDialog } from '@/components/payments/SquarePaymentDialog';
+import { MarkAsPaidDialog, MarkAsPaidPayload } from '@/components/payments/MarkAsPaidDialog';
 
 interface BulkActionsDialogProps {
   isOpen: boolean;
@@ -101,11 +102,13 @@ export function BulkActionsDialog({
   const [detailShootId, setDetailShootId] = useState<string | number | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [squarePaymentOpen, setSquarePaymentOpen] = useState(false);
+  const [isMarkPaidDialogOpen, setIsMarkPaidDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!isOpen) {
       setDetailShootId(null);
       setIsDetailOpen(false);
+      setIsMarkPaidDialogOpen(false);
       return;
     }
     setSelectedShoots(new Set());
@@ -113,6 +116,7 @@ export function BulkActionsDialog({
     setFilterMode('eligible');
     setActiveAction('pay');
     setPaymentMethod('square');
+    setIsMarkPaidDialogOpen(false);
   }, [isOpen]);
 
   const filteredShoots = useMemo(() => {
@@ -214,6 +218,11 @@ export function BulkActionsDialog({
       return;
     }
 
+    if (activeAction === 'pay' && paymentMethod === 'mark-paid') {
+      setIsMarkPaidDialogOpen(true);
+      return;
+    }
+
     setProcessing(true);
 
     try {
@@ -241,22 +250,6 @@ export function BulkActionsDialog({
           title: 'Finalized shoots',
           description: `${eligibleShoots.length} shoot(s) finalized successfully.`,
         });
-      } else {
-        await Promise.all(
-          eligibleShoots.map((shoot) => {
-            const quote = shoot.payment?.totalQuote ?? 0;
-            const paid = shoot.payment?.totalPaid ?? 0;
-            const amount = Math.max(quote - paid, 0);
-            return apiClient.post(`/shoots/${shoot.id}/mark-paid`, {
-              payment_type: 'manual',
-              amount,
-            });
-          }),
-        );
-        toast({
-          title: 'Marked as paid',
-          description: `${eligibleShoots.length} shoot(s) updated.`,
-        });
       }
 
       if (onComplete) {
@@ -271,6 +264,51 @@ export function BulkActionsDialog({
           'Something went wrong while processing the bulk action.',
         variant: 'destructive',
       });
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleMarkPaidConfirm = async (payload: MarkAsPaidPayload) => {
+    if (!eligibleShoots.length) return;
+    setProcessing(true);
+
+    try {
+      await Promise.all(
+        eligibleShoots.map((shoot) => {
+          const quote = shoot.payment?.totalQuote ?? 0;
+          const paid = shoot.payment?.totalPaid ?? 0;
+          const amount = Math.max(quote - paid, 0);
+          const body: Record<string, any> = {
+            payment_type: payload.paymentMethod,
+            amount,
+          };
+
+          if (payload.paymentDetails) {
+            body.payment_details = payload.paymentDetails;
+          }
+          if (payload.paymentDate) {
+            body.payment_date = payload.paymentDate;
+          }
+
+          return apiClient.post(`/shoots/${shoot.id}/mark-paid`, body);
+        }),
+      );
+
+      toast({
+        title: 'Marked as paid',
+        description: `${eligibleShoots.length} shoot(s) updated.`,
+      });
+
+      if (onComplete) {
+        await onComplete();
+      }
+      onClose();
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message ||
+        'Something went wrong while marking shoots as paid.';
+      throw new Error(message);
     } finally {
       setProcessing(false);
     }
@@ -613,6 +651,14 @@ export function BulkActionsDialog({
           totalQuote={eligibleShoots.reduce((sum, shoot) => sum + (shoot.payment?.totalQuote ?? 0), 0)}
           totalPaid={eligibleShoots.reduce((sum, shoot) => sum + (shoot.payment?.totalPaid ?? 0), 0)}
           onPaymentSuccess={handleSquarePaymentSuccess}
+        />
+        <MarkAsPaidDialog
+          isOpen={isMarkPaidDialogOpen}
+          onClose={() => setIsMarkPaidDialogOpen(false)}
+          onConfirm={handleMarkPaidConfirm}
+          title="Mark Shoots as Paid"
+          description="Select the payment method and provide any required details."
+          confirmLabel="Mark as Paid"
         />
       </DialogContent>
     </Dialog>

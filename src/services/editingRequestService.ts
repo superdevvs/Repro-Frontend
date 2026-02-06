@@ -1,4 +1,5 @@
 import { API_BASE_URL } from '@/config/env';
+import { getApiHeaders } from '@/services/api';
 
 export type EditingRequest = {
   id: number;
@@ -36,13 +37,16 @@ export type EditingRequestUpdatePayload = {
   details?: string;
 };
 
-const getToken = () => localStorage.getItem('authToken') || localStorage.getItem('token');
-
-export async function submitEditingRequest(payload: EditingRequestPayload): Promise<EditingRequest> {
-  const token = getToken();
-  if (!token) {
+const getHeaders = () => {
+  const headers = getApiHeaders();
+  if (!headers.Authorization) {
     throw new Error('Missing auth token');
   }
+  return headers;
+};
+
+export async function submitEditingRequest(payload: EditingRequestPayload): Promise<EditingRequest> {
+  const headers = getHeaders();
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
@@ -50,10 +54,7 @@ export async function submitEditingRequest(payload: EditingRequestPayload): Prom
   try {
     const response = await fetch(`${API_BASE_URL}/api/editing-requests`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
+      headers,
       body: JSON.stringify({
         shoot_id: payload.shootId,
         summary: payload.summary,
@@ -83,19 +84,14 @@ export async function submitEditingRequest(payload: EditingRequestPayload): Prom
 }
 
 export async function fetchEditingRequests(): Promise<EditingRequest[]> {
-  const token = getToken();
-  if (!token) {
-    throw new Error('Missing auth token');
-  }
+  const headers = getHeaders();
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10000);
 
   try {
     const response = await fetch(`${API_BASE_URL}/api/editing-requests`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+      headers,
       signal: controller.signal,
     });
 
@@ -123,17 +119,11 @@ export async function updateEditingRequest(
   id: number,
   payload: EditingRequestUpdatePayload
 ): Promise<EditingRequest> {
-  const token = getToken();
-  if (!token) {
-    throw new Error('Missing auth token');
-  }
+  const headers = getHeaders();
 
   const response = await fetch(`${API_BASE_URL}/api/editing-requests/${id}`, {
     method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
+    headers,
     body: JSON.stringify(payload),
   });
 
@@ -147,16 +137,11 @@ export async function updateEditingRequest(
 }
 
 export async function deleteEditingRequest(id: number): Promise<void> {
-  const token = getToken();
-  if (!token) {
-    throw new Error('Missing auth token');
-  }
+  const headers = getHeaders();
 
   const response = await fetch(`${API_BASE_URL}/api/editing-requests/${id}`, {
     method: 'DELETE',
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    headers,
   });
 
   if (!response.ok) {

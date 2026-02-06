@@ -2,9 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Dialog,
@@ -15,11 +13,10 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, CreditCard as CreditCardIcon, MapPin, Package, ChevronDown, ChevronUp, User, Calendar, Mail } from 'lucide-react';
+import { Loader2, CreditCard as CreditCardIcon, MapPin, Package, User, Calendar } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import { API_BASE_URL, SQUARE_APPLICATION_ID, SQUARE_LOCATION_ID } from '@/config/env';
 import axios from 'axios';
-import { getStateFullName } from '@/utils/stateUtils';
 
 // Declare Square types for TypeScript
 declare global {
@@ -38,6 +35,7 @@ declare global {
 
 interface SquarePaymentFormProps {
   amount: number;
+  paymentAmount?: number;
   currency?: string;
   shootId?: string;
   clientEmail?: string;
@@ -51,10 +49,16 @@ interface SquarePaymentFormProps {
   onPaymentSuccess?: (payment: any) => void;
   onPaymentError?: (error: any) => void;
   disabled?: boolean;
+  showShootDetails?: boolean;
+  showAmountControls?: boolean;
+  showPartialToggle?: boolean;
+  onTogglePartial?: () => void;
+  isPartialOpen?: boolean;
 }
 
 export function SquarePaymentForm({
   amount,
+  paymentAmount: paymentAmountOverride,
   currency = 'USD',
   shootId,
   clientEmail,
@@ -68,6 +72,11 @@ export function SquarePaymentForm({
   onPaymentSuccess,
   onPaymentError,
   disabled = false,
+  showShootDetails = true,
+  showAmountControls = true,
+  showPartialToggle = false,
+  onTogglePartial,
+  isPartialOpen = false,
 }: SquarePaymentFormProps) {
   const { toast } = useToast();
   const [isProcessing, setIsProcessing] = useState(false);
@@ -81,12 +90,6 @@ export function SquarePaymentForm({
   // Form state
   const [email, setEmail] = useState(clientEmail || '');
   const [cardholderName, setCardholderName] = useState(clientName || '');
-  const [showBillingAddress, setShowBillingAddress] = useState(false);
-  const [country, setCountry] = useState('US');
-  const [addressLine1, setAddressLine1] = useState('');
-  const [city, setCity] = useState('');
-  const [state, setState] = useState('');
-  const [postalCode, setPostalCode] = useState('');
   
   // Partial payment state
   const [paymentAmount, setPaymentAmount] = useState(amount);
@@ -96,6 +99,7 @@ export function SquarePaymentForm({
   const [cardError, setCardError] = useState<string | null>(null);
   const paymentAmountInputRef = useRef<HTMLInputElement>(null);
   const outstandingAmount = amount;
+  const effectivePaymentAmount = paymentAmountOverride ?? paymentAmount;
 
   // Detect dark mode - check class on html element
   const [isDarkMode, setIsDarkMode] = useState(() => {
@@ -126,11 +130,12 @@ export function SquarePaymentForm({
   useEffect(() => {
     if (clientEmail) setEmail(clientEmail);
     if (clientName) setCardholderName(clientName);
-    setPaymentAmount(amount);
-    setPaymentAmountInput(amount.toFixed(2));
-  }, [clientEmail, clientName, amount]);
+    const nextAmount = paymentAmountOverride ?? amount;
+    setPaymentAmount(nextAmount);
+    setPaymentAmountInput(nextAmount.toFixed(2));
+  }, [clientEmail, clientName, amount, paymentAmountOverride]);
   
-  const remainingBalanceAfterPayment = outstandingAmount - paymentAmount;
+  const remainingBalanceAfterPayment = outstandingAmount - effectivePaymentAmount;
 
   // Fetch Square configuration from backend
   useEffect(() => {
@@ -147,11 +152,14 @@ export function SquarePaymentForm({
 
       try {
         const authToken = localStorage.getItem('authToken') || localStorage.getItem('token');
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+        };
+        if (authToken) {
+          headers.Authorization = `Bearer ${authToken}`;
+        }
         const response = await axios.get(`${API_BASE_URL}/api/square/config`, {
-          headers: {
-            Authorization: `Bearer ${authToken}`,
-            'Content-Type': 'application/json',
-          },
+          headers,
         });
 
         if (response.data.success && response.data.config) {
@@ -328,14 +336,14 @@ export function SquarePaymentForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (paymentAmount <= 0 || paymentAmount > outstandingAmount) {
-      toast({
-        title: 'Invalid Payment Amount',
-        description: `Payment amount must be between $0.01 and $${outstandingAmount.toFixed(2)}`,
-        variant: 'destructive',
-      });
-      return;
-    }
+      if (effectivePaymentAmount <= 0 || effectivePaymentAmount > outstandingAmount) {
+        toast({
+          title: 'Invalid Payment Amount',
+          description: `Payment amount must be between $0.01 and $${outstandingAmount.toFixed(2)}`,
+          variant: 'destructive',
+        });
+        return;
+      }
     
     if (isProcessing || disabled) {
       return;
@@ -378,37 +386,23 @@ export function SquarePaymentForm({
       const familyName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : cardholderName;
       
       // Build billing contact
-      const hasAddressFields = showBillingAddress && (addressLine1?.trim() || city?.trim() || state?.trim() || postalCode?.trim());
-      let billingContact: any = null;
-      
-      if (hasAddressFields || email?.trim()) {
-        billingContact = {
-          givenName: givenName.trim(),
-          familyName: familyName.trim(),
-        };
-        
-        if (email && email.trim()) billingContact.email = email.trim();
-        if (country && country.trim()) billingContact.countryCode = country.trim();
-        
-        if (hasAddressFields) {
-          if (addressLine1?.trim()) billingContact.addressLines = [addressLine1.trim()];
-          if (city?.trim()) billingContact.city = city.trim();
-          if (state?.trim()) billingContact.state = state.trim();
-          if (postalCode?.trim()) billingContact.postalCode = postalCode.trim();
-        }
+      const billingContact: any = {
+        givenName: givenName.trim(),
+        familyName: familyName.trim(),
+      };
+      if (email && email.trim()) {
+        billingContact.email = email.trim();
       }
       
       const verificationDetails: any = {
-        amount: paymentAmount.toFixed(2),
+        amount: effectivePaymentAmount.toFixed(2),
         currencyCode: currency,
         intent: 'CHARGE',
         customerInitiated: true,
         sellerKeyedIn: false,
       };
       
-      if (billingContact) {
-        verificationDetails.billingContact = billingContact;
-      }
+      verificationDetails.billingContact = billingContact;
 
       let tokenResult;
       try {
@@ -423,7 +417,7 @@ export function SquarePaymentForm({
           `${API_BASE_URL}/api/payments/create`,
           {
             sourceId: tokenResult.token,
-            amount: paymentAmount,
+            amount: effectivePaymentAmount,
             currency: currency,
             shoot_id: shootId,
             payment_method: 'card',
@@ -440,7 +434,7 @@ export function SquarePaymentForm({
         if (response.data && (response.data.status === 'success' || response.data.payment)) {
           toast({
             title: 'Payment Successful',
-            description: `Payment of $${paymentAmount.toFixed(2)} has been processed.${remainingBalanceAfterPayment > 0 ? ` Remaining: $${remainingBalanceAfterPayment.toFixed(2)}` : ''}`,
+            description: `Payment of $${effectivePaymentAmount.toFixed(2)} has been processed.${remainingBalanceAfterPayment > 0 ? ` Remaining: $${remainingBalanceAfterPayment.toFixed(2)}` : ''}`,
           });
 
           if (onPaymentSuccess) {
@@ -510,16 +504,12 @@ export function SquarePaymentForm({
     );
   }
 
-  // US States list
-  const usStates = [
-    'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
-    'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
-    'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
-    'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
-    'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY', 'DC'
-  ].sort((a, b) => getStateFullName(a).localeCompare(getStateFullName(b)));
-
-  const hasShootDetails = shootAddress || (shootServices && shootServices.length > 0) || totalQuote !== undefined || clientName || shootDate;
+  const hasShootDetails = showShootDetails
+    && (shootAddress
+      || (shootServices && shootServices.length > 0)
+      || totalQuote !== undefined
+      || clientName
+      || shootDate);
 
   return (
     <div className={`grid gap-4 ${hasShootDetails ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'}`}>
@@ -638,87 +628,89 @@ export function SquarePaymentForm({
         <h3 className="text-base font-semibold">Payment Details</h3>
         <form onSubmit={handleSubmit} className="space-y-3">
           {/* Payment Amount - Compact */}
-          <div className="p-3 border rounded-lg bg-muted/30">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex-1">
-                <Label htmlFor="paymentAmount" className="text-xs text-muted-foreground">Amount</Label>
-                <div className="flex items-center gap-2">
-                  <span className="text-lg font-bold">$</span>
-                  <Input
-                    ref={paymentAmountInputRef}
-                    id="paymentAmount"
-                    type="text"
-                    inputMode="decimal"
-                    value={paymentAmountInput}
-                    onChange={(e) => {
-                      let inputValue = e.target.value.replace(/[^0-9.]/g, '');
-                      const parts = inputValue.split('.');
-                      if (parts.length > 2) inputValue = parts[0] + '.' + parts.slice(1).join('');
-                      if (parts.length === 2 && parts[1].length > 2) inputValue = parts[0] + '.' + parts[1].substring(0, 2);
-                      setPaymentAmountInput(inputValue);
-                      setIsPartialPaymentMode(true);
-                      const numericValue = parseFloat(inputValue);
-                      if (!isNaN(numericValue) && numericValue > 0) {
-                        setPaymentAmount(Math.min(numericValue, outstandingAmount));
-                      } else {
-                        setPaymentAmount(0);
-                      }
-                    }}
-                    onBlur={(e) => {
-                      const numericValue = parseFloat(e.target.value);
-                      if (isNaN(numericValue) || numericValue < 0.01) {
-                        setPaymentAmountInput(outstandingAmount.toFixed(2));
-                        setPaymentAmount(outstandingAmount);
-                      } else if (numericValue > outstandingAmount) {
-                        setPaymentAmountInput(outstandingAmount.toFixed(2));
-                        setPaymentAmount(outstandingAmount);
-                      } else {
-                        setPaymentAmountInput(numericValue.toFixed(2));
-                        setPaymentAmount(numericValue);
-                      }
+          {showAmountControls && (
+            <div className="p-3 border rounded-lg bg-muted/30">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex-1">
+                  <Label htmlFor="paymentAmount" className="text-xs text-muted-foreground">Amount</Label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg font-bold">$</span>
+                    <Input
+                      ref={paymentAmountInputRef}
+                      id="paymentAmount"
+                      type="text"
+                      inputMode="decimal"
+                      value={paymentAmountInput}
+                      onChange={(e) => {
+                        let inputValue = e.target.value.replace(/[^0-9.]/g, '');
+                        const parts = inputValue.split('.');
+                        if (parts.length > 2) inputValue = parts[0] + '.' + parts.slice(1).join('');
+                        if (parts.length === 2 && parts[1].length > 2) inputValue = parts[0] + '.' + parts[1].substring(0, 2);
+                        setPaymentAmountInput(inputValue);
+                        setIsPartialPaymentMode(true);
+                        const numericValue = parseFloat(inputValue);
+                        if (!isNaN(numericValue) && numericValue > 0) {
+                          setPaymentAmount(Math.min(numericValue, outstandingAmount));
+                        } else {
+                          setPaymentAmount(0);
+                        }
+                      }}
+                      onBlur={(e) => {
+                        const numericValue = parseFloat(e.target.value);
+                        if (isNaN(numericValue) || numericValue < 0.01) {
+                          setPaymentAmountInput(outstandingAmount.toFixed(2));
+                          setPaymentAmount(outstandingAmount);
+                        } else if (numericValue > outstandingAmount) {
+                          setPaymentAmountInput(outstandingAmount.toFixed(2));
+                          setPaymentAmount(outstandingAmount);
+                        } else {
+                          setPaymentAmountInput(numericValue.toFixed(2));
+                          setPaymentAmount(numericValue);
+                        }
+                        setIsPartialPaymentMode(false);
+                      }}
+                      className="text-lg font-bold h-9 w-28 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-1">
+                  <Button
+                    type="button"
+                    variant={!isPartialPaymentMode ? "default" : "outline"}
+                    size="sm"
+                    className="text-xs h-8"
+                    onClick={() => {
+                      setPaymentAmount(outstandingAmount);
+                      setPaymentAmountInput(outstandingAmount.toFixed(2));
                       setIsPartialPaymentMode(false);
                     }}
-                    className="text-lg font-bold h-9 w-28 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                  />
+                  >
+                    Full
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={isPartialPaymentMode ? "default" : "outline"}
+                    size="sm"
+                    className="text-xs h-8"
+                    onClick={() => {
+                      setIsPartialPaymentMode(true);
+                      const half = Math.ceil(outstandingAmount * 0.5 * 100) / 100;
+                      setPaymentAmount(half);
+                      setPaymentAmountInput(half.toFixed(2));
+                      paymentAmountInputRef.current?.focus();
+                    }}
+                  >
+                    Partial
+                  </Button>
                 </div>
               </div>
-              <div className="flex gap-1">
-                <Button
-                  type="button"
-                  variant={!isPartialPaymentMode ? "default" : "outline"}
-                  size="sm"
-                  className="text-xs h-8"
-                  onClick={() => {
-                    setPaymentAmount(outstandingAmount);
-                    setPaymentAmountInput(outstandingAmount.toFixed(2));
-                    setIsPartialPaymentMode(false);
-                  }}
-                >
-                  Full
-                </Button>
-                <Button
-                  type="button"
-                  variant={isPartialPaymentMode ? "default" : "outline"}
-                  size="sm"
-                  className="text-xs h-8"
-                  onClick={() => {
-                    setIsPartialPaymentMode(true);
-                    const half = Math.ceil(outstandingAmount * 0.5 * 100) / 100;
-                    setPaymentAmount(half);
-                    setPaymentAmountInput(half.toFixed(2));
-                    paymentAmountInputRef.current?.focus();
-                  }}
-                >
-                  Partial
-                </Button>
-              </div>
+              {remainingBalanceAfterPayment > 0 && effectivePaymentAmount > 0 && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  Remaining after payment: <span className="text-orange-600 font-medium">${remainingBalanceAfterPayment.toFixed(2)}</span>
+                </p>
+              )}
             </div>
-            {remainingBalanceAfterPayment > 0 && paymentAmount > 0 && (
-              <p className="text-xs text-muted-foreground mt-2">
-                Remaining after payment: <span className="text-orange-600 font-medium">${remainingBalanceAfterPayment.toFixed(2)}</span>
-              </p>
-            )}
-          </div>
+          )}
           
           {/* Email & Cardholder - Compact Row */}
           <div className="grid grid-cols-2 gap-2">
@@ -804,88 +796,23 @@ export function SquarePaymentForm({
             )}
           </div>
 
-          {/* Billing Address - Collapsible */}
-          <Collapsible open={showBillingAddress} onOpenChange={setShowBillingAddress}>
-            <CollapsibleTrigger asChild>
-              <Button type="button" variant="ghost" size="sm" className="w-full justify-between h-8 text-xs text-muted-foreground">
-                <span>Billing Address (Optional)</span>
-                {showBillingAddress ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="space-y-2 pt-2">
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label htmlFor="addressLine1" className="text-xs">Address</Label>
-                  <Input
-                    id="addressLine1"
-                    value={addressLine1}
-                    onChange={(e) => setAddressLine1(e.target.value)}
-                    placeholder="Street address"
-                    className="h-8 text-sm"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="city" className="text-xs">City</Label>
-                  <Input
-                    id="city"
-                    value={city}
-                    onChange={(e) => setCity(e.target.value)}
-                    placeholder="City"
-                    className="h-8 text-sm"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <Label htmlFor="state" className="text-xs">State</Label>
-                  {country === 'US' ? (
-                    <Select value={state} onValueChange={setState}>
-                      <SelectTrigger className="h-8 text-sm">
-                        <SelectValue placeholder="State" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {usStates.map((code) => (
-                          <SelectItem key={code} value={code}>{getStateFullName(code)}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <Input id="state" value={state} onChange={(e) => setState(e.target.value)} className="h-8 text-sm" />
-                  )}
-                </div>
-                <div>
-                  <Label htmlFor="postalCode" className="text-xs">Postal Code</Label>
-                  <Input
-                    id="postalCode"
-                    value={postalCode}
-                    onChange={(e) => setPostalCode(e.target.value)}
-                    placeholder="12345"
-                    className="h-8 text-sm"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="country" className="text-xs">Country</Label>
-                  <Select value={country} onValueChange={setCountry}>
-                    <SelectTrigger className="h-8 text-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="US">US</SelectItem>
-                      <SelectItem value="CA">CA</SelectItem>
-                      <SelectItem value="GB">UK</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
+          {showPartialToggle && onTogglePartial && (
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={onTogglePartial}
+            >
+              {isPartialOpen ? 'Pay Full Amount' : 'Pay Partial'}
+            </Button>
+          )}
 
           {/* Submit Button */}
           <Button
             type="submit"
             className="w-full"
             size="lg"
-            disabled={disabled || isProcessing || paymentAmount <= 0 || !email || !cardholderName || !card || !isSDKLoaded}
+            disabled={disabled || isProcessing || effectivePaymentAmount <= 0 || !email || !cardholderName || !card || !isSDKLoaded}
           >
             {isProcessing ? (
               <>
@@ -893,7 +820,7 @@ export function SquarePaymentForm({
                 Processing...
               </>
             ) : (
-              `Pay $${paymentAmount.toFixed(2)}`
+              `Pay $${effectivePaymentAmount.toFixed(2)}`
             )}
           </Button>
         </form>
@@ -910,7 +837,7 @@ export function SquarePaymentForm({
           <div className="space-y-3 py-3">
             <div className="flex justify-between items-center">
               <span className="text-muted-foreground">Amount:</span>
-              <span className="text-xl font-bold">${paymentAmount.toFixed(2)}</span>
+              <span className="text-xl font-bold">${effectivePaymentAmount.toFixed(2)}</span>
             </div>
             <Separator />
             {remainingBalanceAfterPayment > 0 ? (

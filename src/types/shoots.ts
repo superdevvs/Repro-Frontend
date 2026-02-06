@@ -231,6 +231,9 @@ export interface ShootData {
   };
   cancellationRequestedAt?: string;
   cancellationReason?: string;
+  holdRequestedAt?: string;
+  holdRequestedBy?: string | number;
+  holdReason?: string;
   mmmStatus?: string;
   mmmOrderNumber?: string;
   mmmBuyerCookie?: string;

@@ -58,6 +58,7 @@ import { cn } from '@/lib/utils';
 import { getStateFullName } from '@/utils/stateUtils';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import { getServicePricingForSqft } from '@/utils/servicePricing';
+import { to12Hour } from '@/utils/availabilityUtils';
 import AddressLookupField from '@/components/AddressLookupField';
 
 const serviceCurrencyFormatter = new Intl.NumberFormat('en-US', {
@@ -346,7 +347,7 @@ function MediaLinksSection({ shoot, isEditor, onShootUpdate }: MediaLinksSection
                   </div>
                 </div>
                 <div className="text-[10px] text-muted-foreground">
-                  Expires: {formatDate(link.expires_at)}
+                  {link.expires_at ? `Expires: ${formatDate(link.expires_at)}` : 'Lifetime link'}
                 </div>
               </div>
             ))}
@@ -419,6 +420,7 @@ export function ShootDetailsOverviewTab({
   
   // Edit mode state
   const [editedShoot, setEditedShoot] = useState<Partial<ShootData>>({});
+  const [taxAmountDirty, setTaxAmountDirty] = useState(false);
   
   // For edit mode - clients and services
   const [clients, setClients] = useState<Array<{ id: string; name: string; email: string; company?: string }>>(() => {
@@ -637,8 +639,24 @@ export function ShootDetailsOverviewTab({
                 if (s && typeof s === 'object') {
                   const serviceId = String(s.id || s.service_id || '');
                   if (serviceId && currentServiceIds.includes(serviceId)) {
-                    if (s.price !== undefined) {
-                      prices[serviceId] = String(s.price);
+                    const serviceRecord = servicesData.find((service) => service.id === serviceId);
+                    const basePrice = serviceRecord
+                      ? resolveServicePrice(serviceRecord, effectiveSqft).basePrice
+                      : Number(s.price ?? 0);
+                    const normalizedBasePrice = Number.isFinite(basePrice) ? basePrice : 0;
+                    const rawPrice = s.price;
+                    const parsedPrice =
+                      rawPrice === null || rawPrice === undefined || rawPrice === ''
+                        ? NaN
+                        : Number(rawPrice);
+                    const shouldUsePrice =
+                      Number.isFinite(parsedPrice)
+                      && (
+                        (normalizedBasePrice === 0 && parsedPrice > 0)
+                        || (normalizedBasePrice > 0 && Math.abs(parsedPrice - normalizedBasePrice) > 0.01)
+                      );
+                    if (shouldUsePrice) {
+                      prices[serviceId] = String(parsedPrice);
                     }
                     if (s.photographer_pay !== undefined && s.photographer_pay !== null) {
                       photographerPays[serviceId] = String(s.photographer_pay);
@@ -750,6 +768,7 @@ export function ShootDetailsOverviewTab({
       if (shoot.photographer) {
         setSelectedPhotographerIdEdit(String(shoot.photographer.id));
       }
+      setTaxAmountDirty(false);
     }
   }, [isEditMode, shoot]);
   
@@ -861,21 +880,12 @@ export function ShootDetailsOverviewTab({
       if (selectedServiceIds.length > 0) {
         updates.services = selectedServiceIds.map(id => {
           const service = servicesList.find(s => s.id === id);
-          
-          // Calculate price based on sqft for variable pricing services
-          let calculatedPrice = service?.price || 0;
-          if (service?.pricing_type === 'variable' && sqftForPricing && service.sqft_ranges?.length) {
-            const matchingRange = service.sqft_ranges.find(
-              range => sqftForPricing >= range.sqft_from && sqftForPricing <= range.sqft_to
-            );
-            if (matchingRange) {
-              calculatedPrice = matchingRange.price;
-            }
-          }
-          
+          const resolvedPrice = service
+            ? resolveServicePrice(service, sqftForPricing, servicePrices[id]).price
+            : 0;
           const serviceData: any = {
             id: Number(id),
-            price: servicePrices[id] ? parseFloat(servicePrices[id]) : calculatedPrice,
+            price: resolvedPrice,
             quantity: 1,
           };
           if (servicePhotographerPays[id]) {
@@ -984,6 +994,28 @@ export function ShootDetailsOverviewTab({
     return Number.isFinite(parsed) ? parsed : null;
   }, [isEditMode, propertyMetricsEdit.sqft, shoot]);
 
+  const resolveServicePrice = (
+    service: ServiceOption,
+    sqft: number | null,
+    overrideValue?: string,
+  ) => {
+    const serviceWithPrice = { ...service, price: service.price ?? 0 };
+    const pricingInfo = sqft && service.pricing_type === 'variable' && service.sqft_ranges?.length
+      ? getServicePricingForSqft(serviceWithPrice, sqft)
+      : null;
+    const rawBasePrice = pricingInfo?.price ?? Number(service.price ?? 0);
+    const basePrice = Number.isFinite(rawBasePrice) ? rawBasePrice : 0;
+    const parsedOverride = overrideValue !== undefined && overrideValue !== '' ? Number(overrideValue) : NaN;
+    const hasOverride = Number.isFinite(parsedOverride)
+      && ((basePrice === 0 && parsedOverride > 0) || (basePrice > 0 && Math.abs(parsedOverride - basePrice) > 0.01));
+
+    return {
+      price: hasOverride ? parsedOverride : basePrice,
+      basePrice,
+      hasOverride,
+    };
+  };
+
   const [assignPhotographerOpen, setAssignPhotographerOpen] = useState(false);
   const [selectedPhotographerId, setSelectedPhotographerId] = useState<string>('');
   const [photographers, setPhotographers] = useState<Array<{ 
@@ -996,10 +1028,23 @@ export function ShootDetailsOverviewTab({
     state?: string;
     zip?: string;
     distance?: number;
+    distanceFrom?: 'home' | 'previous_shoot';
+    previousShootId?: number;
+    originAddress?: {
+      address?: string;
+      city?: string;
+      state?: string;
+      zip?: string;
+    };
+    availabilitySlots?: Array<{ start_time: string; end_time: string }>;
+    netAvailableSlots?: Array<{ start_time: string; end_time: string }>;
+    hasAvailability?: boolean;
+    shootsCountToday?: number;
   }>>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'distance' | 'name'>('distance');
   const [isCalculatingDistances, setIsCalculatingDistances] = useState(false);
+  const [isLoadingAvailability, setIsLoadingAvailability] = useState(false);
   
   // Check if user is admin or rep
   const isAdminOrRep = isAdmin || role === 'rep' || role === 'representative';
@@ -1012,6 +1057,50 @@ export function ShootDetailsOverviewTab({
     const zip = shoot.location?.zip || (shoot as any).zip || '';
     return { address, city, state, zip };
   };
+
+  const formatLocationLabel = (location?: {
+    address?: string;
+    city?: string;
+    state?: string;
+    zip?: string;
+  }) => {
+    if (!location) return '';
+    const parts = [location.address, location.city, location.state, location.zip]
+      .filter((part) => part && String(part).trim().length > 0);
+    return parts.join(', ');
+  };
+
+  const timeToMinutes = (time: string) => {
+    const [hours, minutes] = time.split(':').map(Number);
+    if (!Number.isFinite(hours)) return 0;
+    return hours * 60 + (Number.isFinite(minutes) ? minutes : 0);
+  };
+
+  const buildAvailabilitySegments = (
+    slots: Array<{ start_time: string; end_time: string }> = [],
+  ) => {
+    const startHour = 8;
+    const endHour = 20;
+    const segments: boolean[] = [];
+    for (let hour = startHour; hour < endHour; hour += 1) {
+      const segmentStart = hour * 60;
+      const segmentEnd = (hour + 1) * 60;
+      const hasSlot = slots.some((slot) => {
+        const slotStart = timeToMinutes(slot.start_time);
+        const slotEnd = timeToMinutes(slot.end_time);
+        return slotStart < segmentEnd && slotEnd > segmentStart;
+      });
+      segments.push(hasSlot);
+    }
+    return segments;
+  };
+
+  const formatAvailabilitySummary = (
+    slots: Array<{ start_time: string; end_time: string }> = [],
+  ) => slots
+    .slice(0, 3)
+    .map((slot) => `${to12Hour(slot.start_time)}–${to12Hour(slot.end_time)}`)
+    .join(', ');
 
   // Fetch photographers for assignment
   useEffect(() => {
@@ -1076,15 +1165,24 @@ export function ShootDetailsOverviewTab({
         // Calculate distance for each photographer
         const photographersWithDist = await Promise.all(
           photographers.map(async (photographer) => {
-            if (!photographer.address || !photographer.city || !photographer.state) {
+            if (photographer.distance !== undefined && photographer.originAddress) {
+              return photographer;
+            }
+
+            const sourceAddress = photographer.originAddress?.address || photographer.address;
+            const sourceCity = photographer.originAddress?.city || photographer.city;
+            const sourceState = photographer.originAddress?.state || photographer.state;
+            const sourceZip = photographer.originAddress?.zip || photographer.zip;
+
+            if (!sourceAddress || !sourceCity || !sourceState) {
               return { ...photographer, distance: undefined };
             }
 
             const photographerCoords = await getCoordinatesFromAddress(
-              photographer.address,
-              photographer.city,
-              photographer.state,
-              photographer.zip
+              sourceAddress,
+              sourceCity,
+              sourceState,
+              sourceZip
             );
 
             if (!photographerCoords) {
@@ -1116,6 +1214,85 @@ export function ShootDetailsOverviewTab({
     calculateDistances();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assignPhotographerOpen, photographers.length]);
+
+  useEffect(() => {
+    if (!assignPhotographerOpen || !isAdminOrRep || photographers.length === 0) return;
+    const shootLocation = getShootLocation();
+    if (!shootLocation.address || !shootLocation.city || !shootLocation.state) return;
+
+    let isCancelled = false;
+    const controller = new AbortController();
+
+    const fetchAvailability = async () => {
+      setIsLoadingAvailability(true);
+      try {
+        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        };
+        if (token) headers.Authorization = `Bearer ${token}`;
+
+        const now = new Date();
+        const res = await fetch(`${API_BASE_URL}/api/photographer/availability/for-booking`, {
+          method: 'POST',
+          headers,
+          signal: controller.signal,
+          body: JSON.stringify({
+            date: format(now, 'yyyy-MM-dd'),
+            time: format(now, 'h:mm a'),
+            shoot_address: shootLocation.address,
+            shoot_city: shootLocation.city,
+            shoot_state: shootLocation.state,
+            shoot_zip: shootLocation.zip || '',
+            photographer_ids: photographers.map((p) => Number(p.id)),
+          }),
+        });
+
+        if (!res.ok) {
+          throw new Error('Failed to load availability');
+        }
+
+        const json = await res.json();
+        if (isCancelled) return;
+        const availabilityList = Array.isArray(json.data) ? json.data : [];
+
+        setPhotographers((prev) => prev.map((photographer) => {
+          const match = availabilityList.find((item: any) => String(item.id) === String(photographer.id));
+          if (!match) return photographer;
+          const parsedDistance = typeof match.distance === 'number'
+            ? match.distance
+            : match.distance
+            ? Number(match.distance)
+            : photographer.distance;
+          return {
+            ...photographer,
+            distance: Number.isFinite(parsedDistance) ? parsedDistance : photographer.distance,
+            distanceFrom: match.distance_from ?? photographer.distanceFrom,
+            previousShootId: match.previous_shoot_id ?? photographer.previousShootId,
+            originAddress: match.origin_address ?? photographer.originAddress,
+            availabilitySlots: match.availability_slots ?? photographer.availabilitySlots,
+            netAvailableSlots: match.net_available_slots ?? photographer.netAvailableSlots,
+            hasAvailability: match.has_availability ?? photographer.hasAvailability,
+            shootsCountToday: match.shoots_count_today ?? photographer.shootsCountToday,
+          };
+        }));
+      } catch (error) {
+        console.error('Error fetching photographer availability:', error);
+      } finally {
+        if (!isCancelled) {
+          setIsLoadingAvailability(false);
+        }
+      }
+    };
+
+    fetchAvailability();
+
+    return () => {
+      isCancelled = true;
+      controller.abort();
+    };
+  }, [assignPhotographerOpen, isAdminOrRep, photographers.length, shoot.location?.address, shoot.location?.city, shoot.location?.state, shoot.location?.zip]);
 
   // Filter and sort photographers
   const filteredAndSortedPhotographers = useMemo(() => {
@@ -1392,16 +1569,7 @@ export function ShootDetailsOverviewTab({
         setServicePhotographerPays(newPays);
         return updated;
       }
-      // Add service - also set its price in servicePrices for proper calculation
-      const service = servicesList.find((s) => s.id === serviceId);
-      if (service) {
-        const sqft = effectiveSqft;
-        const pricingInfo = sqft && service.pricing_type === 'variable' && service.sqft_ranges?.length
-          ? getServicePricingForSqft({ ...service, price: service.price ?? 0 }, sqft)
-          : null;
-        const price = pricingInfo?.price ?? Number(service.price ?? 0);
-        setServicePrices(prev => ({ ...prev, [serviceId]: String(price) }));
-      }
+      // Add service
       return [...prev, serviceId];
     });
   };
@@ -1412,23 +1580,29 @@ export function ShootDetailsOverviewTab({
     const total = selectedServiceIds.reduce((sum, id) => {
       const service = servicesList.find((s) => s.id === id);
       if (!service) return sum;
-      const serviceWithPrice = { ...service, price: service.price ?? 0 };
-      const pricingInfo = sqft && service.pricing_type === 'variable' && service.sqft_ranges?.length
-        ? getServicePricingForSqft(serviceWithPrice, sqft)
-        : null;
-      // Use custom price from servicePrices if set, otherwise use calculated/base price
-      const calculatedPrice = servicePrices[id] !== undefined && servicePrices[id] !== ''
-        ? parseFloat(servicePrices[id])
-        : pricingInfo?.price ?? Number(service.price ?? 0);
-      return sum + (Number.isNaN(calculatedPrice) ? 0 : calculatedPrice);
+      const resolvedPrice = resolveServicePrice(service, sqft, servicePrices[id]).price;
+      return sum + (Number.isNaN(resolvedPrice) ? 0 : resolvedPrice);
     }, 0);
-    const resolvedTaxAmount = Number(
-      editedShoot.payment?.taxAmount ?? shoot.payment?.taxAmount ?? 0
-    );
-    const taxAmount = Number.isFinite(resolvedTaxAmount) ? resolvedTaxAmount : 0;
+    const rawTaxRate = Number(editedShoot.payment?.taxRate ?? shoot.payment?.taxRate ?? 0);
+    const normalizedTaxRate = rawTaxRate > 1 ? rawTaxRate / 100 : rawTaxRate;
+    const autoTax = Number((total * normalizedTaxRate).toFixed(2));
+    const manualTax = Number(editedShoot.payment?.taxAmount ?? shoot.payment?.taxAmount ?? 0);
+    const resolvedManualTax = Number.isFinite(manualTax) ? manualTax : 0;
+    const finalTax = taxAmountDirty ? resolvedManualTax : autoTax;
     updateField('payment.baseQuote', total);
-    updateField('payment.totalQuote', total + taxAmount);
-  }, [selectedServiceIds, servicePrices, servicesList, effectiveSqft, editedShoot.payment?.taxAmount, shoot.payment?.taxAmount]);
+    updateField('payment.taxAmount', finalTax);
+    updateField('payment.totalQuote', total + finalTax);
+  }, [
+    selectedServiceIds,
+    servicePrices,
+    servicesList,
+    effectiveSqft,
+    editedShoot.payment?.taxRate,
+    shoot.payment?.taxRate,
+    editedShoot.payment?.taxAmount,
+    shoot.payment?.taxAmount,
+    taxAmountDirty,
+  ]);
 
   const renderWeatherIcon = (icon?: string) => {
     switch (icon) {
@@ -2196,7 +2370,11 @@ export function ShootDetailsOverviewTab({
                 type="number"
                 step="0.01"
                 value={parseFloat(String(editedShoot.payment?.taxAmount ?? shoot.payment?.taxAmount ?? 0)).toFixed(2)}
-                onChange={(e) => updateField('payment.taxAmount', parseFloat(parseFloat(e.target.value).toFixed(2)) || 0)}
+                onChange={(e) => {
+                  const nextValue = parseFloat(parseFloat(e.target.value).toFixed(2));
+                  setTaxAmountDirty(true);
+                  updateField('payment.taxAmount', Number.isFinite(nextValue) ? nextValue : 0);
+                }}
                 className="h-7 text-xs"
               />
             </div>
@@ -2283,7 +2461,7 @@ export function ShootDetailsOverviewTab({
           setSelectedPhotographerId('');
         }
       }}>
-        <DialogContent className="sm:max-w-md w-full">
+        <DialogContent className="sm:max-w-2xl w-full">
           <div className="p-4 bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-gray-100 dark:border-slate-800">
             <div className="flex items-start justify-between mb-4">
               <div className="flex-1">
@@ -2333,55 +2511,110 @@ export function ShootDetailsOverviewTab({
                     <span className="ml-2 text-sm text-muted-foreground">Calculating distances...</span>
                   </div>
                 ) : filteredAndSortedPhotographers.length > 0 ? (
-                  <div className="grid gap-3">
+                  <div className="grid gap-4">
                     {filteredAndSortedPhotographers.map((photographerItem) => (
                       <div
                         key={photographerItem.id}
-                        className="flex items-center justify-between p-3 bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-xl hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
+                        className={cn(
+                          "p-4 rounded-2xl border transition-all",
+                          selectedPhotographerId === photographerItem.id
+                            ? "border-blue-300 bg-blue-50/70 dark:border-blue-700 dark:bg-blue-950/40"
+                            : "border-gray-100 bg-gray-50 dark:border-slate-700 dark:bg-slate-800",
+                          "hover:border-blue-200 dark:hover:border-blue-800"
+                        )}
                       >
-                        <div className="flex items-center gap-3 flex-1">
-                          <Avatar className="h-10 w-10">
+                        <div className="flex items-start gap-4">
+                          <Avatar className="h-12 w-12">
                             <AvatarImage src={photographerItem.avatar} alt={photographerItem.name} />
                             <AvatarFallback>{photographerItem.name?.charAt(0)}</AvatarFallback>
                           </Avatar>
 
                           <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
-                              {photographerItem.name}
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <div className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
+                                  {photographerItem.name}
+                                </div>
+                                <div className="mt-1 text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                                  {photographerItem.distance !== undefined ? (
+                                    <span className="flex items-center gap-1">
+                                      <MapPin className="h-3 w-3" />
+                                      {photographerItem.distance} mi away
+                                    </span>
+                                  ) : (
+                                    <span className="text-muted-foreground">Distance unavailable</span>
+                                  )}
+                                  {photographerItem.city && photographerItem.state && (
+                                    <span className="text-muted-foreground">
+                                      • {photographerItem.city}, {getStateFullName(photographerItem.state)}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              {selectedPhotographerId === photographerItem.id && (
+                                <span className="text-[10px] uppercase tracking-widest text-blue-600 dark:text-blue-300">Selected</span>
+                              )}
                             </div>
-                            <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2">
-                              {photographerItem.distance !== undefined ? (
-                                <span className="flex items-center gap-1">
-                                  <MapPin className="h-3 w-3" />
-                                  {photographerItem.distance} mi away
-                                </span>
-                              ) : (
-                                <span className="text-muted-foreground">Distance unavailable</span>
-                              )}
-                              {photographerItem.city && photographerItem.state && (
-                                <span className="text-muted-foreground">
-                                  • {photographerItem.city}, {getStateFullName(photographerItem.state)}
-                                </span>
-                              )}
+
+                            <div className="mt-2 text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                              <MapPinIcon className="h-3.5 w-3.5" />
+                              <span className="font-medium">
+                                {photographerItem.distanceFrom === 'previous_shoot' ? 'Last shoot' : 'Home base'}:
+                              </span>
+                              <span className="truncate">
+                                {formatLocationLabel(photographerItem.originAddress || {
+                                  address: photographerItem.address,
+                                  city: photographerItem.city,
+                                  state: photographerItem.state,
+                                  zip: photographerItem.zip,
+                                }) || 'Location unavailable'}
+                              </span>
+                            </div>
+
+                            <div className="mt-3">
+                              <div className="flex items-center justify-between text-[10px] uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                                <span>Today’s availability</span>
+                                {typeof photographerItem.shootsCountToday === 'number' && (
+                                  <span>{photographerItem.shootsCountToday} shoots</span>
+                                )}
+                              </div>
+                              <div className="mt-2 flex gap-1">
+                                {buildAvailabilitySegments(photographerItem.netAvailableSlots).map((isAvailable, index) => (
+                                  <span
+                                    key={`${photographerItem.id}-slot-${index}`}
+                                    className={cn(
+                                      "h-1.5 flex-1 rounded-full",
+                                      isAvailable
+                                        ? "bg-blue-500 dark:bg-blue-400"
+                                        : "bg-slate-200 dark:bg-slate-700"
+                                    )}
+                                  />
+                                ))}
+                              </div>
+                              <div className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">
+                                {isLoadingAvailability
+                                  ? 'Checking today’s slots...'
+                                  : formatAvailabilitySummary(photographerItem.netAvailableSlots) || 'No open slots today'}
+                              </div>
                             </div>
                           </div>
-                        </div>
 
-                        <div className="flex items-center gap-2 ml-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedPhotographerId(photographerItem.id);
-                            }}
-                            className={cn(
-                              "px-3 py-1.5 rounded-md text-sm font-medium shadow-sm transition-colors",
-                              selectedPhotographerId === photographerItem.id
-                                ? "bg-blue-600 text-white hover:bg-blue-700"
-                                : "bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 border border-gray-200 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-600"
-                            )}
-                          >
-                            {selectedPhotographerId === photographerItem.id ? 'Selected' : 'Select'}
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedPhotographerId(photographerItem.id);
+                              }}
+                              className={cn(
+                                "px-3 py-1.5 rounded-md text-sm font-medium shadow-sm transition-colors",
+                                selectedPhotographerId === photographerItem.id
+                                  ? "bg-blue-600 text-white hover:bg-blue-700"
+                                  : "bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 border border-gray-200 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-600"
+                              )}
+                            >
+                              {selectedPhotographerId === photographerItem.id ? 'Selected' : 'Select'}
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ))}

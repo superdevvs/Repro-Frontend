@@ -84,6 +84,12 @@ export function ReviewForm({
 
   const tax = Number((subtotal * taxRate).toFixed(2));
   const total = Number((subtotal + tax).toFixed(2));
+  const addressParts = [
+    address,
+    city,
+    [state, zip].filter(Boolean).join(' ')
+  ].filter(Boolean);
+  const fullAddress = addressParts.length > 0 ? addressParts.join(', ') : '';
 
   return (
     <motion.div
@@ -163,7 +169,7 @@ export function ReviewForm({
 
           <div className="flex justify-between">
             <span className="text-sm text-slate-500 dark:text-slate-400">Property:</span>
-            <span className="text-sm font-medium text-slate-900 dark:text-slate-100">{address || "No address provided"}</span>
+            <span className="text-sm font-medium text-slate-900 dark:text-slate-100">{fullAddress || address || "No address provided"}</span>
           </div>
 
           <div className="flex justify-between">
