@@ -47,7 +47,7 @@ export function calculateServicePrice(service: ServiceWithPricing, sqft: number 
   }
 
   const range = findSqftRange(sqftRanges, sqft);
-  return range ? range.price : basePrice || 0;
+  return range ? Number(range.price) || basePrice || 0 : basePrice || 0;
 }
 
 /**
@@ -64,7 +64,8 @@ export function calculatePhotographerPay(service: ServiceWithPricing, sqft: numb
   }
 
   const range = findSqftRange(sqftRanges, sqft);
-  return range?.photographer_pay ?? basePay;
+  const rangePay = range?.photographer_pay != null ? Number(range.photographer_pay) : null;
+  return rangePay ?? basePay;
 }
 
 /**
@@ -81,7 +82,8 @@ export function calculateServiceDuration(service: ServiceWithPricing, sqft: numb
   }
 
   const range = findSqftRange(sqftRanges, sqft);
-  return range?.duration ?? baseTime;
+  const rangeDuration = range?.duration != null ? Number(range.duration) : null;
+  return rangeDuration ?? baseTime;
 }
 
 /**

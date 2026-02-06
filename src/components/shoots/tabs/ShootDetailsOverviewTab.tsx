@@ -605,14 +605,21 @@ export function ShootDetailsOverviewTab({
             const servicesData = (json.data || json || []).map((s: any) => ({
               id: String(s.id),
               name: s.name,
-              price: s.price || 0,
+              price: Number(s.price) || 0,
               pricing_type: s.pricing_type || 'fixed',
               allow_multiple: s.allow_multiple ?? false,
-              sqft_ranges: s.sqft_ranges || s.sqftRanges || [],
+              sqft_ranges: (s.sqft_ranges || s.sqftRanges || []).map((r: any) => ({
+                ...r,
+                sqft_from: Number(r.sqft_from) || 0,
+                sqft_to: Number(r.sqft_to) || 0,
+                price: Number(r.price) || 0,
+                photographer_pay: r.photographer_pay != null ? Number(r.photographer_pay) : null,
+                duration: r.duration != null ? Number(r.duration) : null,
+              })),
               category: s.category || s.service_category || null,
               description: s.description || '',
-              photographer_pay: s.photographer_pay || null,
-              duration: s.duration || null,
+              photographer_pay: s.photographer_pay != null ? Number(s.photographer_pay) : null,
+              duration: s.duration != null ? Number(s.duration) : null,
             }));
             setServicesList(servicesData);
             
@@ -1003,7 +1010,7 @@ export function ShootDetailsOverviewTab({
     const pricingInfo = sqft && service.pricing_type === 'variable' && service.sqft_ranges?.length
       ? getServicePricingForSqft(serviceWithPrice, sqft)
       : null;
-    const rawBasePrice = pricingInfo?.price ?? Number(service.price ?? 0);
+    const rawBasePrice = Number(pricingInfo?.price ?? service.price ?? 0);
     const basePrice = Number.isFinite(rawBasePrice) ? rawBasePrice : 0;
     const parsedOverride = overrideValue !== undefined && overrideValue !== '' ? Number(overrideValue) : NaN;
     const hasOverride = Number.isFinite(parsedOverride)
