@@ -77,7 +77,7 @@ export const useMobileMenu = () => {
       icon: "Search",
       label: "Exclusive Listings",
       isActive: pathname === '/portal' || pathname.startsWith('/exclusive-listings'),
-      roles: ['admin', 'superadmin', 'salesRep', 'sales_rep', 'client']
+      roles: ['admin', 'superadmin', 'editing_manager', 'salesRep', 'client']
     },
     {
       to: "/accounting",
@@ -98,7 +98,7 @@ export const useMobileMenu = () => {
       icon: "MessageSquare",
       label: "Messaging",
       isActive: pathname.startsWith('/messaging'),
-      roles: ['admin', 'superadmin', 'salesRep', 'sales_rep'],
+      roles: ['admin', 'superadmin', 'editing_manager', 'salesRep'],
       subItems: [
         { to: '/messaging/email/inbox', label: 'Emails' },
         { to: '/messaging/sms', label: 'SMS' },

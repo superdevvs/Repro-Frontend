@@ -27,6 +27,9 @@ import { getAccountingMode, accountingConfigs } from '@/config/accountingConfig'
 import { fetchInvoices, markInvoiceAsPaid } from '@/services/invoiceService';
 import { registerInvoicesRefresh } from '@/realtime/realtimeRefreshBus';
 import { useShoots } from '@/context/ShootsContext';
+import { WeeklyInvoiceReview } from '@/components/invoices/WeeklyInvoiceReview';
+import { PayoutReportPanel } from '@/components/accounting/PayoutReportPanel';
+import { PendingInvoiceApprovals } from '@/components/accounting/PendingInvoiceApprovals';
 
 const toNumber = (value: unknown) => {
   const num = Number(value);
@@ -421,6 +424,16 @@ const AccountingPage = () => {
             </div>
           )}
 
+          {/* Weekly Invoice Review for Photographers and Sales Reps */}
+          {(accountingMode === 'photographer' || accountingMode === 'rep') && (
+            <WeeklyInvoiceReview />
+          )}
+
+          {/* Pending Invoice Approvals for Admin/SuperAdmin */}
+          {accountingMode === 'admin' && (
+            <PendingInvoiceApprovals />
+          )}
+
           {config.showInvoiceTable && (
             <>
               {accountingMode === 'photographer' ? (
@@ -443,7 +456,10 @@ const AccountingPage = () => {
             </>
           )}
 
-          {/* <UpcomingPayments invoices={invoices} /> */}
+          {/* Payout Report for Admin/SuperAdmin */}
+          {accountingMode === 'admin' && (
+            <PayoutReportPanel />
+          )}
         </div>
 
       {selectedInvoice && (

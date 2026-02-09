@@ -15,7 +15,7 @@ export const ClientsHeader: React.FC<ClientsHeaderProps> = ({
   totalClients = 0
 }) => {
   // Keep add client button only for admin and superadmin users
-  const isAdmin = ['admin', 'superadmin'].includes(role);
+  const isAdmin = ['admin', 'superadmin', 'editing_manager'].includes(role);
   
   return (
     <PageHeader

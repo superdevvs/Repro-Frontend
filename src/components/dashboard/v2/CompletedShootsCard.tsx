@@ -12,6 +12,7 @@ interface CompletedShootsCardProps {
   ctaLabel?: string;
   onSelect?: (shoot: DashboardShootSummary) => void;
   onViewInvoice?: (shoot: DashboardShootSummary) => void;
+  onViewAll?: () => void;
 }
 
 const resolveImageUrl = (value?: string | null): string | null => {
@@ -124,6 +125,7 @@ export const CompletedShootsCard: React.FC<CompletedShootsCardProps> = ({
   ctaLabel = 'View all delivered shoots',
   onSelect,
   onViewInvoice,
+  onViewAll,
 }) => {
   const safeShoots = Array.isArray(shoots) ? shoots : [];
   
@@ -163,7 +165,10 @@ export const CompletedShootsCard: React.FC<CompletedShootsCardProps> = ({
           })}
         </div>
       )}
-      <button className="mt-4 w-full py-2.5 rounded-2xl border border-border hover:border-primary/40 text-xs font-semibold text-muted-foreground transition-colors">
+      <button
+        className="mt-4 w-full py-2.5 rounded-2xl border border-border hover:border-primary/40 text-xs font-semibold text-muted-foreground transition-colors"
+        onClick={onViewAll}
+      >
         {ctaLabel}
       </button>
     </Card>

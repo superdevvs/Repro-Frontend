@@ -10,7 +10,7 @@ const SchedulingSettings = () => {
   const { role } = useAuth();
 
   // Only allow admin and superadmin to access this page
-  if (!['admin', 'superadmin'].includes(role)) {
+  if (!['admin', 'superadmin', 'editing_manager'].includes(role)) {
     return <Navigate to="/dashboard" replace />;
   }
 

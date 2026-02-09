@@ -191,14 +191,14 @@ export function TaskManager({
 
   // Check if user can edit this task based on role
   const canEditTask = (task: Task) => {
-    if (['admin', 'superadmin'].includes(role)) return true;
+    if (['admin', 'superadmin', 'editing_manager'].includes(role)) return true;
     if (role === 'photographer' && task.createdBy.includes(user?.name || '')) return true;
     if (role === 'editor' && task.assignedTo === 'editor') return true;
     return false;
   };
 
   // Check if user can create tasks
-  const canCreateTasks = ['admin', 'superadmin', 'photographer', 'rep'].includes(role);
+  const canCreateTasks = ['admin', 'superadmin', 'editing_manager', 'photographer', 'rep'].includes(role);
 
   return (
     <div className={className}>

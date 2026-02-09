@@ -9,7 +9,7 @@ import { useAuth } from '@/components/auth/AuthProvider';
 
 export function CouponsHeader() {
   const { role } = useAuth();
-  const canCreateCoupons = ['admin', 'superadmin'].includes(role);
+  const canCreateCoupons = ['admin', 'superadmin', 'editing_manager'].includes(role);
 
   return (
     <div className="flex flex-col gap-6">

@@ -256,3 +256,331 @@ export const removeInvoiceMiscItem = async (
   const invoice = json.invoice || json.data || json;
   return mapInvoiceResponse(invoice, invoiceId);
 };
+
+// ---- Photographer / Sales Rep Invoice Management ----
+
+export interface WeeklyInvoice {
+  id: number;
+  photographer_id?: number;
+  sales_rep_id?: number;
+  billing_period_start: string;
+  billing_period_end: string;
+  total_amount: number;
+  amount_paid: number;
+  status: string;
+  approval_status: string;
+  rejection_reason?: string;
+  modification_notes?: string;
+  notes?: string;
+  approved_at?: string;
+  rejected_at?: string;
+  modified_at?: string;
+  created_at: string;
+  photographer?: { id: number; name: string; email: string };
+  salesRep?: { id: number; name: string; email: string };
+  items: WeeklyInvoiceItem[];
+  shoots: any[];
+}
+
+export interface WeeklyInvoiceItem {
+  id: number;
+  invoice_id: number;
+  shoot_id?: number;
+  type: 'charge' | 'expense' | 'payment';
+  description: string;
+  quantity: number;
+  unit_amount: number;
+  total_amount: number;
+  recorded_at?: string;
+  meta?: Record<string, any>;
+}
+
+/**
+ * Fetch weekly invoices for the authenticated photographer
+ */
+export const fetchPhotographerInvoices = async (params: { page?: number; per_page?: number } = {}): Promise<{
+  data: WeeklyInvoice[];
+  current_page: number;
+  last_page: number;
+  total: number;
+}> => {
+  const queryParams = new URLSearchParams();
+  if (params.page) queryParams.append('page', params.page.toString());
+  if (params.per_page) queryParams.append('per_page', params.per_page.toString());
+
+  const url = `${API_BASE_URL}/api/photographer/invoices${queryParams.toString() ? `?${queryParams}` : ''}`;
+  const response = await fetch(url, { headers: buildHeaders() });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.message || 'Failed to fetch photographer invoices');
+  }
+
+  return response.json();
+};
+
+/**
+ * Fetch weekly invoices for the authenticated sales rep
+ */
+export const fetchSalesRepInvoices = async (params: { page?: number; per_page?: number } = {}): Promise<{
+  data: WeeklyInvoice[];
+  current_page: number;
+  last_page: number;
+  total: number;
+}> => {
+  const queryParams = new URLSearchParams();
+  if (params.page) queryParams.append('page', params.page.toString());
+  if (params.per_page) queryParams.append('per_page', params.per_page.toString());
+
+  const url = `${API_BASE_URL}/api/salesrep/invoices${queryParams.toString() ? `?${queryParams}` : ''}`;
+  const response = await fetch(url, { headers: buildHeaders() });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.message || 'Failed to fetch sales rep invoices');
+  }
+
+  return response.json();
+};
+
+/**
+ * Get a single weekly invoice detail (photographer or sales rep)
+ */
+export const fetchWeeklyInvoiceDetail = async (invoiceId: number, role: 'photographer' | 'salesRep'): Promise<WeeklyInvoice> => {
+  const prefix = role === 'photographer' ? 'photographer' : 'salesrep';
+  const url = `${API_BASE_URL}/api/${prefix}/invoices/${invoiceId}`;
+  const response = await fetch(url, { headers: buildHeaders() });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.message || 'Failed to fetch invoice detail');
+  }
+
+  return response.json();
+};
+
+/**
+ * Add expense to a weekly invoice
+ */
+export const addWeeklyInvoiceExpense = async (
+  invoiceId: number,
+  role: 'photographer' | 'salesRep',
+  data: { description: string; amount: number; quantity?: number }
+): Promise<{ message: string; item: WeeklyInvoiceItem; invoice: WeeklyInvoice }> => {
+  const prefix = role === 'photographer' ? 'photographer' : 'salesrep';
+  const response = await fetch(`${API_BASE_URL}/api/${prefix}/invoices/${invoiceId}/expenses`, {
+    method: 'POST',
+    headers: buildHeaders(),
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.message || 'Failed to add expense');
+  }
+
+  return response.json();
+};
+
+/**
+ * Remove expense from a weekly invoice
+ */
+export const removeWeeklyInvoiceExpense = async (
+  invoiceId: number,
+  itemId: number,
+  role: 'photographer' | 'salesRep'
+): Promise<{ message: string; invoice: WeeklyInvoice }> => {
+  const prefix = role === 'photographer' ? 'photographer' : 'salesrep';
+  const response = await fetch(`${API_BASE_URL}/api/${prefix}/invoices/${invoiceId}/expenses/${itemId}`, {
+    method: 'DELETE',
+    headers: buildHeaders(),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.message || 'Failed to remove expense');
+  }
+
+  return response.json();
+};
+
+/**
+ * Reject a weekly invoice
+ */
+export const rejectWeeklyInvoice = async (
+  invoiceId: number,
+  role: 'photographer' | 'salesRep',
+  reason?: string
+): Promise<{ message: string; invoice: WeeklyInvoice }> => {
+  const prefix = role === 'photographer' ? 'photographer' : 'salesrep';
+  const response = await fetch(`${API_BASE_URL}/api/${prefix}/invoices/${invoiceId}/reject`, {
+    method: 'POST',
+    headers: buildHeaders(),
+    body: JSON.stringify({ reason }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.message || 'Failed to reject invoice');
+  }
+
+  return response.json();
+};
+
+/**
+ * Submit a weekly invoice for approval
+ */
+export const submitWeeklyInvoiceForApproval = async (
+  invoiceId: number,
+  role: 'photographer' | 'salesRep',
+  notes?: string
+): Promise<{ message: string; invoice: WeeklyInvoice }> => {
+  const prefix = role === 'photographer' ? 'photographer' : 'salesrep';
+  const response = await fetch(`${API_BASE_URL}/api/${prefix}/invoices/${invoiceId}/submit-for-approval`, {
+    method: 'POST',
+    headers: buildHeaders(),
+    body: JSON.stringify({ notes }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.message || 'Failed to submit invoice for approval');
+  }
+
+  return response.json();
+};
+
+// ---- Admin Invoice Approval ----
+
+/**
+ * Fetch invoices pending approval (admin)
+ */
+export const fetchPendingApprovalInvoices = async (params: { page?: number; per_page?: number } = {}): Promise<{
+  data: WeeklyInvoice[];
+  current_page: number;
+  last_page: number;
+  total: number;
+}> => {
+  const queryParams = new URLSearchParams();
+  if (params.page) queryParams.append('page', params.page.toString());
+  if (params.per_page) queryParams.append('per_page', params.per_page.toString());
+
+  const url = `${API_BASE_URL}/api/admin/invoices/pending-approval${queryParams.toString() ? `?${queryParams}` : ''}`;
+  const response = await fetch(url, { headers: buildHeaders() });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.message || 'Failed to fetch pending invoices');
+  }
+
+  return response.json();
+};
+
+/**
+ * Approve a weekly invoice (admin)
+ */
+export const approveWeeklyInvoice = async (invoiceId: number): Promise<{ message: string; invoice: WeeklyInvoice }> => {
+  const response = await fetch(`${API_BASE_URL}/api/admin/invoices/${invoiceId}/approve`, {
+    method: 'POST',
+    headers: buildHeaders(),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.message || 'Failed to approve invoice');
+  }
+
+  return response.json();
+};
+
+/**
+ * Reject a weekly invoice (admin)
+ */
+export const adminRejectWeeklyInvoice = async (
+  invoiceId: number,
+  reason: string
+): Promise<{ message: string; invoice: WeeklyInvoice }> => {
+  const response = await fetch(`${API_BASE_URL}/api/admin/invoices/${invoiceId}/reject`, {
+    method: 'POST',
+    headers: buildHeaders(),
+    body: JSON.stringify({ reason }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.message || 'Failed to reject invoice');
+  }
+
+  return response.json();
+};
+
+// ---- Payout Report ----
+
+export interface PayoutSummary {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  shoot_count: number;
+  gross_total: number;
+  average_value: number;
+  commission_rate?: number | null;
+  commission_total?: number | null;
+}
+
+export interface PayoutReport {
+  period: { start: string; end: string };
+  photographers: PayoutSummary[];
+  sales_reps: PayoutSummary[];
+  totals: {
+    photographer_count: number;
+    photographer_total: number;
+    sales_rep_count: number;
+    sales_rep_commission_total: number;
+  };
+}
+
+/**
+ * Fetch payout report data
+ */
+export const fetchPayoutReport = async (params: { start?: string; end?: string } = {}): Promise<PayoutReport> => {
+  const queryParams = new URLSearchParams();
+  if (params.start) queryParams.append('start', params.start);
+  if (params.end) queryParams.append('end', params.end);
+
+  const url = `${API_BASE_URL}/api/admin/payout-report${queryParams.toString() ? `?${queryParams}` : ''}`;
+  const response = await fetch(url, { headers: buildHeaders() });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.message || 'Failed to fetch payout report');
+  }
+
+  return response.json();
+};
+
+/**
+ * Download payout report as CSV
+ */
+export const downloadPayoutReport = async (params: { start?: string; end?: string } = {}): Promise<void> => {
+  const queryParams = new URLSearchParams();
+  if (params.start) queryParams.append('start', params.start);
+  if (params.end) queryParams.append('end', params.end);
+
+  const url = `${API_BASE_URL}/api/admin/payout-report/download${queryParams.toString() ? `?${queryParams}` : ''}`;
+  const response = await fetch(url, { headers: buildHeaders() });
+
+  if (!response.ok) {
+    throw new Error('Failed to download payout report');
+  }
+
+  const blob = await response.blob();
+  const downloadUrl = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = downloadUrl;
+  link.download = response.headers.get('content-disposition')?.split('filename=')[1]?.replace(/"/g, '') || 'payout-report.csv';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(downloadUrl);
+};

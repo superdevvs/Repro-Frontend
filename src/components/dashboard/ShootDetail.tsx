@@ -57,7 +57,7 @@ export function ShootDetail({ shoot, isOpen, onClose, onPay, invoice }: ShootDet
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const { toast } = useToast();
 
-  const isAdmin = ['admin', 'superadmin'].includes(role);
+  const isAdmin = ['admin', 'superadmin', 'editing_manager'].includes(role);
   const isSuperAdmin = role === 'superadmin'; // Only Super Admin can see payment status
   const isPhotographer = role === 'photographer';
   const isClient = role === 'client'; 
@@ -193,6 +193,18 @@ export function ShootDetail({ shoot, isOpen, onClose, onPay, invoice }: ShootDet
                 )}
                 {getStatusBadge(shoot.status)}
                 {isSuperAdmin && getPaymentStatus()}
+                {(isAdmin || isPhotographer) && (shoot as any).photographerPaidAt && (
+                  <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
+                    <CheckCircle className="w-3 h-3 mr-1" />
+                    Photographer Paid
+                  </Badge>
+                )}
+                {isAdmin && (shoot as any).salesRepPaidAt && (
+                  <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
+                    <CheckCircle className="w-3 h-3 mr-1" />
+                    Rep Paid
+                  </Badge>
+                )}
               </div>
             </div>
             <DialogDescription>

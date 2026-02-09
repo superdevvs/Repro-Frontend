@@ -183,7 +183,7 @@ export const ClientDetails: React.FC<ClientDetailsProps> = ({
             </div>
 
             <div className="flex gap-3 justify-end">
-              {['admin', 'superadmin'].includes(role) && (
+              {['admin', 'superadmin', 'editing_manager'].includes(role) && (
                 <>
                   <Button
                     variant="outline"

@@ -29,7 +29,7 @@ export const useDashboardOverview = (): UseDashboardOverviewResult => {
   } = useQuery({
     queryKey: ['dashboardOverview'],
     queryFn: () => fetchDashboardOverview(getToken(session?.accessToken)),
-    enabled: ['admin', 'superadmin'].includes(role),
+    enabled: ['admin', 'superadmin', 'editing_manager'].includes(role),
     staleTime: 60 * 1000, // 60 seconds - dashboard data can be slightly stale
     gcTime: 5 * 60 * 1000, // 5 minutes
     retry: 1,

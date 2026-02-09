@@ -9,6 +9,11 @@ export interface Client {
   email: string;
   phone?: string;
   address?: string;
+  city?: string;
+  state?: string;
+  zipcode?: string;
+  zip?: string;
+  licenseNumber?: string;
   status: 'active' | 'inactive';
   shootsCount: number;
   lastActivity: string;

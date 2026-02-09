@@ -934,6 +934,16 @@ const Dashboard = () => {
   const [declineModalShoot, setDeclineModalShoot] = useState<DashboardShootSummary | null>(null);
   const [editModalShoot, setEditModalShoot] = useState<DashboardShootSummary | null>(null);
 
+  // Client-specific state (must be declared unconditionally per React hooks rules)
+  const [rescheduleDialogOpen, setRescheduleDialogOpen] = useState(false);
+  const [shootToReschedule, setShootToReschedule] = useState<ShootData | null>(null);
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [shootToPay, setShootToPay] = useState<ClientShootRecord | null>(null);
+  const [squarePaymentOpen, setSquarePaymentOpen] = useState(false);
+  const [paymentSelectionOpen, setPaymentSelectionOpen] = useState(false);
+  const [selectedShootsForPayment, setSelectedShootsForPayment] = useState<ClientShootRecord[]>([]);
+  const [multiPaymentOpen, setMultiPaymentOpen] = useState(false);
+
   const renderUpcomingCard = () =>
     loading && !data ? (
       <UpcomingShootsCardSkeleton />
@@ -979,6 +989,7 @@ const Dashboard = () => {
         shoots={deliveredShoots} 
         onSelect={handleSelectShoot}
         onViewInvoice={handleViewInvoice}
+        onViewAll={() => navigate('/shoot-history?tab=delivered')}
       />
     </Suspense>
   );
@@ -1111,15 +1122,6 @@ const Dashboard = () => {
 
   if (!isAdminExperience) {
     if (role === "client") {
-      const [rescheduleDialogOpen, setRescheduleDialogOpen] = useState(false);
-      const [shootToReschedule, setShootToReschedule] = useState<ShootData | null>(null);
-      const [paymentModalOpen, setPaymentModalOpen] = useState(false);
-      const [shootToPay, setShootToPay] = useState<ClientShootRecord | null>(null);
-      const [squarePaymentOpen, setSquarePaymentOpen] = useState(false);
-      const [paymentSelectionOpen, setPaymentSelectionOpen] = useState(false);
-      const [selectedShootsForPayment, setSelectedShootsForPayment] = useState<ClientShootRecord[]>([]);
-      const [multiPaymentOpen, setMultiPaymentOpen] = useState(false);
-      
       const handleReschedule = (record: ClientShootRecord) => {
         setShootToReschedule(record.data);
         setRescheduleDialogOpen(true);
@@ -1567,6 +1569,7 @@ const Dashboard = () => {
                   title="Completed shoots"
                   subtitle="Ready for clients"
                   emptyStateText="No completed shoots yet."
+                  onViewAll={() => navigate('/shoot-history?tab=delivered')}
                 />
               </Suspense>,
             ]}
@@ -1656,6 +1659,7 @@ const Dashboard = () => {
                   title="Delivered shoots"
                   subtitle="Most recent handoffs"
                   emptyStateText="No delivered shoots yet."
+                  onViewAll={() => navigate('/shoot-history?tab=delivered')}
                 />
               </Suspense>,
               shouldLoadEditingRequests ? (
@@ -1767,6 +1771,7 @@ const Dashboard = () => {
                   title="Delivered edits"
                   subtitle="Recently published"
                   emptyStateText="No delivered edits yet."
+                  onViewAll={() => navigate('/shoot-history?tab=delivered')}
                 />
               </Suspense>,
               null,

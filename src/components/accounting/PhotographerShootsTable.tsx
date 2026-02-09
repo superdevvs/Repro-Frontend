@@ -42,7 +42,11 @@ export function PhotographerShootsTable({ shoots }: PhotographerShootsTableProps
   };
 
   const getPayoutDate = (shoot: ShootData): string | null => {
-    // Check if shoot is paid and has payout date
+    // Use photographerPaidAt from the new invoicing system
+    if ((shoot as any).photographerPaidAt) {
+      return (shoot as any).photographerPaidAt;
+    }
+    // Fallback: check legacy payment status
     const status = shoot.status?.toLowerCase() || '';
     if (status.includes('paid') && shoot.payment?.lastPaymentDate) {
       return shoot.payment.lastPaymentDate;
@@ -112,6 +116,11 @@ export function PhotographerShootsTable({ shoots }: PhotographerShootsTableProps
                           <span className={`px-2 py-0.5 rounded text-xs font-semibold ${getStatusColor(shoot.status || '')}`}>
                             {shoot.status || 'Unknown'}
                           </span>
+                          {(shoot as any).photographerPaidAt && (
+                            <span className="ml-1 px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-200">
+                              Paid
+                            </span>
+                          )}
                         </td>
                         <td className="py-1 px-2 text-xs font-medium">${fee.toLocaleString()}</td>
                         <td className="py-1 px-2 text-xs">
@@ -209,6 +218,11 @@ function ShootItem({
           <Badge className={getStatusColor(shoot.status || '')}>
             {shoot.status || 'Unknown'}
           </Badge>
+          {(shoot as any).photographerPaidAt && (
+            <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-200">
+              Paid
+            </Badge>
+          )}
           <div className="text-right">
             <div className="font-medium">${fee.toLocaleString()}</div>
             <div className="text-muted-foreground flex items-center gap-1">

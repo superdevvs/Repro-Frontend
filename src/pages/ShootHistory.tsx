@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState, memo, lazy, Suspense } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { format } from 'date-fns'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -2589,7 +2589,12 @@ const ShootHistory: React.FC = () => {
     [canViewHistory, canViewLinkedAccounts, isEditor]
   )
 
-  const [activeTab, setActiveTab] = useState<AvailableTab>(tabList[0])
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [activeTab, setActiveTab] = useState<AvailableTab>(() => {
+    const urlTab = searchParams.get('tab') as AvailableTab | null
+    if (urlTab && tabList.includes(urlTab)) return urlTab
+    return tabList[0]
+  })
   const [inProgressSubTab, setInProgressSubTab] = useState<'all' | 'uploaded' | 'editing'>('all')
   // For client, editor, photographer - default to 'delivered' and hide subtabs
   const hideDeliveredSubTabs = ['client', 'editor', 'photographer'].includes(role || '')
@@ -2675,8 +2680,18 @@ const ShootHistory: React.FC = () => {
   // Track if we've applied pinned tab on initial mount
   const hasAppliedPinnedTab = useRef(false)
 
-  // Ensure activeTab is valid when tabList changes, and prioritize pinned tabs on mount
+  // Ensure activeTab is valid when tabList changes, and prioritize URL tab param > pinned tabs on mount
   useEffect(() => {
+    // URL ?tab= param takes highest priority on initial mount
+    const urlTab = searchParams.get('tab') as AvailableTab | null
+    if (urlTab && tabList.includes(urlTab) && !hasAppliedPinnedTab.current) {
+      setActiveTab(urlTab)
+      // Clear the query param so it doesn't interfere with future tab switches
+      setSearchParams((prev) => { prev.delete('tab'); return prev }, { replace: true })
+      hasAppliedPinnedTab.current = true
+      return
+    }
+
     // On initial mount or when tabList changes, check for pinned tab
     const pinnedArray = Array.from(pinnedTabs)
     if (pinnedArray.length > 0 && !hasAppliedPinnedTab.current) {

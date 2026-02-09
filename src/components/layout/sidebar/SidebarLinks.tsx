@@ -100,7 +100,7 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
       )}
 
       {/* Exclusive Listings */}
-      {(role === 'admin' || role === 'superadmin' || role === 'editing_manager' || role === 'salesRep' || role === 'client' || role === 'sales_rep') && (
+      {(role === 'admin' || role === 'superadmin' || role === 'editing_manager' || role === 'salesRep' || role === 'client') && (
         <NavLink
           to="/portal"
           icon={<Search className="h-5 w-5" />}
@@ -136,7 +136,7 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
         />
       )}
       {/* Messaging - Expandable with Emails and SMS for admins */}
-      {(role === 'admin' || role === 'superadmin' || role === 'editing_manager' || role === 'sales_rep') && (
+      {(role === 'admin' || role === 'superadmin' || role === 'editing_manager' || role === 'salesRep') && (
         <ExpandableNavLink
           icon={<MessageSquare className="h-5 w-5" />}
           label="Messaging"

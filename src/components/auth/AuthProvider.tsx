@@ -198,6 +198,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
     const refreshUser = async () => {
       if (!storedToken) return;
+      // Skip server refresh when impersonating — the stored token belongs to the
+      // admin, so /api/user would return admin data and overwrite the impersonated
+      // user.  We already loaded the impersonated user from localStorage above.
+      const isCurrentlyImpersonating = !!localStorage.getItem('originalUser');
+      if (isCurrentlyImpersonating) return;
       try {
         const response = await fetch(`${API_BASE_URL}/api/user`, {
           headers: {
