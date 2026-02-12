@@ -126,6 +126,7 @@ export function ShootIntegrationsSection({ shoot, onRefresh }: ShootIntegrations
           documents: shoot.iguide_floorplans?.map((fp: any) => ({
             url: fp.url || fp,
             filename: fp.filename || 'floorplan.pdf',
+            type: 'floor_plan',
             visibility: 'private',
           })) || [],
         }
@@ -142,9 +143,15 @@ export function ShootIntegrationsSection({ shoot, onRefresh }: ShootIntegrations
         throw new Error(response.data.message || 'Publishing failed');
       }
     } catch (error: any) {
+      const errorData = error.response?.data;
+      let description = errorData?.message || "Failed to publish to Bright MLS.";
+      // Show detailed validation errors if available
+      if (errorData?.validation_errors?.length) {
+        description += '\n' + errorData.validation_errors.join('\n');
+      }
       toast({
-        title: "Error",
-        description: error.response?.data?.message || "Failed to publish to Bright MLS.",
+        title: "Bright MLS Error",
+        description,
         variant: "destructive",
       });
     } finally {
@@ -353,9 +360,19 @@ export function ShootIntegrationsSection({ shoot, onRefresh }: ShootIntegrations
                 )}
               </div>
               {shoot.bright_mls_manifest_id && (
-                <p className="text-xs text-muted-foreground">
-                  Manifest ID: {shoot.bright_mls_manifest_id}
-                </p>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">
+                    Manifest ID: {shoot.bright_mls_manifest_id}
+                  </p>
+                  <a
+                    href={API_ROUTES.integrations.brightMls.redirectUrl(shoot.bright_mls_manifest_id)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-primary hover:underline flex items-center gap-1"
+                  >
+                    View on Bright MLS <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
               )}
             </div>
           ) : (

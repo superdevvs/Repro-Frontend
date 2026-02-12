@@ -5,6 +5,7 @@ import { Logo } from '@/components/layout/Logo';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Loader2, CheckCircle, AlertCircle, MapPin, Calendar, Camera } from 'lucide-react';
+import { HorizontalLoader } from '@/components/ui/horizontal-loader';
 import axios from 'axios';
 import { API_BASE_URL } from '@/config/env';
 
@@ -123,9 +124,8 @@ export default function PaymentPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#030619] flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-12 w-12 animate-spin text-blue-500 mx-auto mb-4" />
-          <p className="text-gray-400">Loading payment details...</p>
+        <div className="w-full max-w-md">
+          <HorizontalLoader message="Loading payment details..." />
         </div>
       </div>
     );

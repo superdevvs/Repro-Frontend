@@ -4,6 +4,7 @@ import { format } from 'date-fns'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AutoExpandingTabsList, type AutoExpandingTab } from '@/components/ui/auto-expanding-tabs'
+import { HorizontalLoader } from '@/components/ui/horizontal-loader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -2408,9 +2409,7 @@ const MlsQueueView: React.FC = () => {
       <Card>
         <CardContent className="p-0">
           {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
+            <HorizontalLoader message="Loading shoots..." className="px-4" />
           ) : queueItems.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <AlertCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -2676,6 +2675,30 @@ const ShootHistory: React.FC = () => {
 
   const operationalFetchAbortRef = useRef<AbortController | null>(null)
   const historyFetchAbortRef = useRef<AbortController | null>(null)
+
+  // ── Stable refs so fetch callbacks don't depend on rapidly-changing state ──
+  const activeTabRef = useRef(activeTab)
+  activeTabRef.current = activeTab
+  const operationalFiltersRef = useRef(operationalFilters)
+  operationalFiltersRef.current = operationalFilters
+  const operationalPageRef = useRef(operationalPage)
+  operationalPageRef.current = operationalPage
+  const historyFiltersRef = useRef(historyFilters)
+  historyFiltersRef.current = historyFilters
+  const historyPageRef = useRef(historyPage)
+  historyPageRef.current = historyPage
+  const canViewAllShootsRef = useRef(canViewAllShoots)
+  canViewAllShootsRef.current = canViewAllShoots
+  const roleRef = useRef(role)
+  roleRef.current = role
+  const userRef = useRef(user)
+  userRef.current = user
+  const canViewHistoryRef = useRef(canViewHistory)
+  canViewHistoryRef.current = canViewHistory
+  const shouldHideClientDetailsRef = useRef(shouldHideClientDetails)
+  shouldHideClientDetailsRef.current = shouldHideClientDetails
+  const isEditorRef = useRef(isEditor)
+  isEditorRef.current = isEditor
 
   // Track if we've applied pinned tab on initial mount
   const hasAppliedPinnedTab = useRef(false)
@@ -3023,13 +3046,23 @@ const ShootHistory: React.FC = () => {
     operationalFetchAbortRef.current = controller
     const start = typeof performance !== 'undefined' ? performance.now() : Date.now()
 
+    // Read current values from refs to avoid dependency churn
+    const currentTab = activeTabRef.current
+    const currentFilters = operationalFiltersRef.current
+    const currentPage = operationalPageRef.current
+    const currentCanViewAll = canViewAllShootsRef.current
+    const currentRole = roleRef.current
+    const currentUser = userRef.current
+    const currentIsEditor = isEditorRef.current
+    const currentHideClient = shouldHideClientDetailsRef.current
+
     setLoading(true)
     try {
-      let backendTab = (['scheduled', 'completed', 'delivered', 'hold', 'editing', 'edited'] as const).includes(activeTab as any)
-        ? (activeTab as ActiveOperationalTab)
+      let backendTab = (['scheduled', 'completed', 'delivered', 'hold', 'editing', 'edited'] as const).includes(currentTab as any)
+        ? (currentTab as ActiveOperationalTab)
         : 'scheduled'
 
-      if (isEditor) {
+      if (currentIsEditor) {
         if (backendTab === 'editing') {
           backendTab = 'completed'
         } else if (backendTab === 'edited') {
@@ -3039,18 +3072,18 @@ const ShootHistory: React.FC = () => {
         }
       }
 
-      const params: Record<string, unknown> = { tab: backendTab, page: operationalPage, per_page: 9, include_files: 'true' }
-      if (operationalFilters.search) params.search = operationalFilters.search
-      if (!shouldHideClientDetails && operationalFilters.clientId) params.client_id = operationalFilters.clientId
-      if (operationalFilters.photographerId) params.photographer_id = operationalFilters.photographerId
-      if (operationalFilters.address) params.address = operationalFilters.address
-      if (operationalFilters.services.length) params.services = operationalFilters.services
-      if (operationalFilters.dateRange !== 'all') {
-        if (operationalFilters.dateRange === 'custom') {
-          if (operationalFilters.scheduledStart) params.scheduled_start = operationalFilters.scheduledStart
-          if (operationalFilters.scheduledEnd) params.scheduled_end = operationalFilters.scheduledEnd
+      const params: Record<string, unknown> = { tab: backendTab, page: currentPage, per_page: 9, include_files: 'true' }
+      if (currentFilters.search) params.search = currentFilters.search
+      if (!currentHideClient && currentFilters.clientId) params.client_id = currentFilters.clientId
+      if (currentFilters.photographerId) params.photographer_id = currentFilters.photographerId
+      if (currentFilters.address) params.address = currentFilters.address
+      if (currentFilters.services.length) params.services = currentFilters.services
+      if (currentFilters.dateRange !== 'all') {
+        if (currentFilters.dateRange === 'custom') {
+          if (currentFilters.scheduledStart) params.scheduled_start = currentFilters.scheduledStart
+          if (currentFilters.scheduledEnd) params.scheduled_end = currentFilters.scheduledEnd
         } else {
-          params.date_range = operationalFilters.dateRange
+          params.date_range = currentFilters.dateRange
         }
       }
 
@@ -3064,16 +3097,16 @@ const ShootHistory: React.FC = () => {
       
       // Filter shoots based on role: Super Admin/Admin see all, others see only their own
       // Apply role visibility
-      const roleFilteredShoots = canViewAllShoots
+      const roleFilteredShoots = currentCanViewAll
         ? mappedShoots
         : mappedShoots.filter((shoot) => {
-            if (role === 'client') {
-              const userId = user?.id ? String(user.id) : ''
+            if (currentRole === 'client') {
+              const userId = currentUser?.id ? String(currentUser.id) : ''
               const clientId = shoot.client?.id ? String(shoot.client.id) : ''
               if (userId && clientId) return userId === clientId
 
-              const userEmail = user?.email?.toLowerCase() || ''
-              const userName = user?.name?.toLowerCase() || ''
+              const userEmail = currentUser?.email?.toLowerCase() || ''
+              const userName = currentUser?.name?.toLowerCase() || ''
               const shootClientEmail = shoot.client?.email?.toLowerCase() || ''
               const shootClientName = shoot.client?.name?.toLowerCase() || ''
 
@@ -3081,23 +3114,23 @@ const ShootHistory: React.FC = () => {
               return shootClientEmail === userEmail || shootClientName === userName
             }
 
-            if (role === 'photographer') {
-              const userId = user?.id ? String(user.id) : ''
+            if (currentRole === 'photographer') {
+              const userId = currentUser?.id ? String(currentUser.id) : ''
               const photographerId = shoot.photographer?.id ? String(shoot.photographer.id) : ''
               if (userId && photographerId) return userId === photographerId
 
-              const userName = user?.name?.toLowerCase() || ''
+              const userName = currentUser?.name?.toLowerCase() || ''
               const photographerName = shoot.photographer?.name?.toLowerCase() || ''
               if (!userId && !userName) return true
               return photographerName === userName
             }
 
-            if (role === 'editor') {
-              const userId = user?.id ? String(user.id) : ''
+            if (currentRole === 'editor') {
+              const userId = currentUser?.id ? String(currentUser.id) : ''
               const editorId = shoot.editor?.id ? String(shoot.editor.id) : ''
               if (userId && editorId) return userId === editorId
 
-              const userName = user?.name?.toLowerCase() || ''
+              const userName = currentUser?.name?.toLowerCase() || ''
               const editorName = shoot.editor?.name?.toLowerCase() || ''
               if (!editorId && !editorName) return true
               if (!userId && !userName) return true
@@ -3111,8 +3144,8 @@ const ShootHistory: React.FC = () => {
       const visibleShoots = roleFilteredShoots.filter((shoot) => !shoot.isPrivateListing)
 
       // Apply status filter per active tab (using status or workflowStatus)
-      const filterTab = (['scheduled', 'completed', 'delivered', 'hold', 'editing', 'edited'] as const).includes(activeTab as any)
-        ? (activeTab as ActiveOperationalTab)
+      const filterTab = (['scheduled', 'completed', 'delivered', 'hold', 'editing', 'edited'] as const).includes(currentTab as any)
+        ? (currentTab as ActiveOperationalTab)
         : backendTab
       const allowedStatuses = STATUS_FILTERS_BY_TAB[filterTab] ?? STATUS_FILTERS_BY_TAB.scheduled
       const filteredByStatus = visibleShoots.filter((shoot) => {
@@ -3126,21 +3159,21 @@ const ShootHistory: React.FC = () => {
       const meta = payload.meta as any
       if (meta && (meta.current_page !== undefined || meta.total !== undefined || meta.count !== undefined)) {
         setOperationalMeta({
-          current_page: meta.current_page ?? operationalPage,
+          current_page: meta.current_page ?? currentPage,
           per_page: 9, // Always use 9 for display consistency
           total: meta.total ?? meta.count ?? 0, // Backend returns 'count', but we use 'total' for consistency
         })
       } else {
         // Fallback: create meta from current data - but this shouldn't happen if backend returns proper meta
         setOperationalMeta({
-          current_page: operationalPage,
+          current_page: currentPage,
           per_page: 9,
           total: 0, // Don't use filteredByStatus.length as it's only current page items
         })
       }
 
       const filtersMeta: FilterCollections = payload.meta?.filters ?? deriveFilterOptionsFromShoots(mappedShoots)
-      setOperationalOptions(shouldHideClientDetails ? { ...filtersMeta, clients: [] } : filtersMeta)
+      setOperationalOptions(currentHideClient ? { ...filtersMeta, clients: [] } : filtersMeta)
     } catch (error) {
       if (axios.isAxiosError(error) && (error.code === 'ERR_CANCELED' || error.name === 'CanceledError')) {
         // Request was aborted, loading will be cleared in finally block
@@ -3179,7 +3212,7 @@ const ShootHistory: React.FC = () => {
     } finally {
       const end = typeof performance !== 'undefined' ? performance.now() : Date.now()
       console.debug('[ShootHistory] operational fetch', {
-        tab: activeTab,
+        tab: activeTabRef.current,
         ms: Math.round(end - start),
       })
 
@@ -3193,7 +3226,7 @@ const ShootHistory: React.FC = () => {
         setLoading(false)
       }
     }
-  }, [activeTab, operationalFilters, operationalPage, toast, canViewAllShoots, role, user])
+  }, [toast])
 
   const fetchBulkShoots = useCallback(async () => {
     if (!(isSuperAdmin || isAdmin)) return
@@ -3246,7 +3279,7 @@ const ShootHistory: React.FC = () => {
   }, [isBulkActionsOpen, fetchBulkShoots])
 
   const fetchHistoryData = useCallback(async () => {
-    if (!canViewHistory) {
+    if (!canViewHistoryRef.current) {
       setLoading(false)
       return
     }
@@ -3255,30 +3288,35 @@ const ShootHistory: React.FC = () => {
     historyFetchAbortRef.current = controller
     const start = typeof performance !== 'undefined' ? performance.now() : Date.now()
 
+    // Read current values from refs to avoid dependency churn
+    const currentFilters = historyFiltersRef.current
+    const currentPage = historyPageRef.current
+    const currentHideClient = shouldHideClientDetailsRef.current
+
     setLoading(true)
     try {
       const params: Record<string, unknown> = {
-        group_by: historyFilters.groupBy,
-        page: historyPage,
+        group_by: currentFilters.groupBy,
+        page: currentPage,
         per_page: 9,
       }
-      if (historyFilters.search) params.search = historyFilters.search
-      if (!shouldHideClientDetails && historyFilters.clientId) params.client_id = historyFilters.clientId
-      if (historyFilters.photographerId) params.photographer_id = historyFilters.photographerId
-      if (historyFilters.services.length) params.services = historyFilters.services
-      if (historyFilters.dateRange && historyFilters.dateRange !== 'all') {
-        if (historyFilters.dateRange === 'custom') {
-          if (historyFilters.scheduledStart) params.custom_start = historyFilters.scheduledStart
-          if (historyFilters.scheduledEnd) params.custom_end = historyFilters.scheduledEnd
+      if (currentFilters.search) params.search = currentFilters.search
+      if (!currentHideClient && currentFilters.clientId) params.client_id = currentFilters.clientId
+      if (currentFilters.photographerId) params.photographer_id = currentFilters.photographerId
+      if (currentFilters.services.length) params.services = currentFilters.services
+      if (currentFilters.dateRange && currentFilters.dateRange !== 'all') {
+        if (currentFilters.dateRange === 'custom') {
+          if (currentFilters.scheduledStart) params.custom_start = currentFilters.scheduledStart
+          if (currentFilters.scheduledEnd) params.custom_end = currentFilters.scheduledEnd
           params.date_range = 'custom'
         } else {
-          params.date_range = historyFilters.dateRange
+          params.date_range = currentFilters.dateRange
         }
       }
-      if (historyFilters.scheduledStart && historyFilters.dateRange !== 'custom') params.scheduled_start = historyFilters.scheduledStart
-      if (historyFilters.scheduledEnd && historyFilters.dateRange !== 'custom') params.scheduled_end = historyFilters.scheduledEnd
-      if (historyFilters.completedStart) params.completed_start = historyFilters.completedStart
-      if (historyFilters.completedEnd) params.completed_end = historyFilters.completedEnd
+      if (currentFilters.scheduledStart && currentFilters.dateRange !== 'custom') params.scheduled_start = currentFilters.scheduledStart
+      if (currentFilters.scheduledEnd && currentFilters.dateRange !== 'custom') params.scheduled_end = currentFilters.scheduledEnd
+      if (currentFilters.completedStart) params.completed_start = currentFilters.completedStart
+      if (currentFilters.completedEnd) params.completed_end = currentFilters.completedEnd
 
       const response = await apiClient.get('/shoots/history', {
         params,
@@ -3289,7 +3327,7 @@ const ShootHistory: React.FC = () => {
         data?: unknown
         meta?: { filters?: FilterCollections; current_page?: number; per_page?: number; total?: number }
       }
-      const isServiceGrouping = historyFilters.groupBy === 'services'
+      const isServiceGrouping = currentFilters.groupBy === 'services'
 
       const rows = Array.isArray(payload.data) ? payload.data : []
       const visibleRows = rows.filter((record) => {
@@ -3317,7 +3355,7 @@ const ShootHistory: React.FC = () => {
 
       if (payload.meta?.filters) {
         const metaFilters = payload.meta.filters
-        setHistoryOptions(shouldHideClientDetails ? { ...metaFilters, clients: [] } : metaFilters)
+        setHistoryOptions(currentHideClient ? { ...metaFilters, clients: [] } : metaFilters)
       }
     } catch (error) {
       if (axios.isAxiosError(error) && (error.code === 'ERR_CANCELED' || error.name === 'CanceledError')) {
@@ -3358,8 +3396,8 @@ const ShootHistory: React.FC = () => {
       const end = typeof performance !== 'undefined' ? performance.now() : Date.now()
       console.debug('[ShootHistory] history fetch', {
         ms: Math.round(end - start),
-        page: historyPage,
-        groupBy: historyFilters.groupBy,
+        page: historyPageRef.current,
+        groupBy: historyFiltersRef.current.groupBy,
       })
 
       // Always clear loading state if this is still the current request
@@ -3372,7 +3410,7 @@ const ShootHistory: React.FC = () => {
         setLoading(false)
       }
     }
-  }, [historyFilters, historyPage, canViewHistory, toast])
+  }, [toast])
 
   const handlePublishMls = useCallback(
     async (record: ShootHistoryRecord) => {
@@ -3467,21 +3505,19 @@ const ShootHistory: React.FC = () => {
     }
   }, [activeTab])
 
-  // Fetch history data when page changes or tab changes to history
+  // Fetch history data when page/filters change or tab changes to history
   useEffect(() => {
     if (activeTab === 'history' && canViewHistory) {
-      // Always fetch when page changes
       fetchHistoryData()
     }
-  }, [historyPage, activeTab, canViewHistory, fetchHistoryData])
+  }, [historyPage, activeTab, canViewHistory, historyFilters, fetchHistoryData])
 
-  // Fetch operational data when page changes or tab changes away from history
+  // Fetch operational data when page/filters change or tab changes away from history
   useEffect(() => {
-    if (activeTab !== 'history') {
-      // Always fetch when page changes
+    if (activeTab !== 'history' && activeTab !== 'linked') {
       fetchOperationalData()
     }
-  }, [operationalPage, activeTab, fetchOperationalData])
+  }, [operationalPage, activeTab, operationalFilters, fetchOperationalData])
 
   const refreshActiveTabData = useCallback(async () => {
     if (activeTab === 'history') {
@@ -5267,10 +5303,7 @@ const ShootHistory: React.FC = () => {
                   </CardHeader>
                   <CardContent>
                     {linkedLoading ? (
-                    <div className="flex items-center justify-center py-12">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                      <span className="ml-2 text-muted-foreground">Loading linked accounts...</span>
-                    </div>
+                    <HorizontalLoader message="Loading linked accounts..." />
                   ) : (
                     <>
                     {linkedAccountsLoaded && linkedAccounts.length === 0 && (

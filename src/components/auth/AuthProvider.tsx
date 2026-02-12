@@ -144,6 +144,16 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [originalUser, setOriginalUser] = useState<UserData | null>(null);
   const [isImpersonating, setIsImpersonating] = useState<boolean>(false);
 
+  // Monotonically increasing counter bumped every time impersonate() or
+  // stopImpersonating() writes new user state.  Any async operation that
+  // captured an earlier epoch must NOT write state — the impersonation
+  // transition has already superseded whatever it was going to write.
+  const impersonationEpochRef = React.useRef(0);
+
+  // AbortController for the initial /api/user refresh — impersonate() cancels it
+  // so a stale response can never overwrite the impersonated user.
+  const refreshAbortRef = React.useRef<AbortController | null>(null);
+
   const clearStoredAuth = () => {
     if (typeof window === 'undefined') return;
     localStorage.removeItem('authToken');
@@ -203,13 +213,27 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       // user.  We already loaded the impersonated user from localStorage above.
       const isCurrentlyImpersonating = !!localStorage.getItem('originalUser');
       if (isCurrentlyImpersonating) return;
+
+      // Snapshot the epoch BEFORE the async work begins.
+      const epochAtStart = impersonationEpochRef.current;
+
+      // Create an AbortController so impersonate() can cancel this in-flight request.
+      const controller = new AbortController();
+      refreshAbortRef.current = controller;
+
       try {
         const response = await fetch(`${API_BASE_URL}/api/user`, {
           headers: {
             Accept: 'application/json',
             Authorization: `Bearer ${storedToken}`,
           },
+          signal: controller.signal,
         });
+
+        // Re-check after the async gap — impersonation may have started while
+        // the fetch was in flight.  If so, discard this (now stale) response.
+        if (localStorage.getItem('originalUser')) return;
+        if (impersonationEpochRef.current !== epochAtStart) return;
 
         if (response.status === 401 || response.status === 419) {
           clearStoredAuth();
@@ -225,6 +249,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         }
 
         const apiUser = await response.json();
+
+        // Final guard before writing state — another async gap just passed.
+        if (localStorage.getItem('originalUser')) return;
+        if (impersonationEpochRef.current !== epochAtStart) return;
+
         const normalizedUser = normalizeApiUser(apiUser, initialUser);
         const normalizedRole = normalizeRole(normalizedUser.role);
 
@@ -234,7 +263,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         setRole(normalizedRole);
         setSession(buildSession(storedToken, normalizedUser, normalizedRole));
       } catch (error) {
+        if ((error as DOMException)?.name === 'AbortError') return;
         console.warn('Failed to refresh user data', error);
+      } finally {
+        if (refreshAbortRef.current === controller) {
+          refreshAbortRef.current = null;
+        }
       }
     };
 
@@ -291,38 +325,65 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const impersonate = (targetUser: UserData) => {
     if (!user) return;
 
-    // Store current user as original if not already impersonating
+    // Bump the epoch so any in-flight async work (refreshUser, fetches, etc.)
+    // that captured an earlier epoch will silently discard its result.
+    impersonationEpochRef.current += 1;
+
+    // Cancel any in-flight /api/user refresh so its stale response can't
+    // overwrite the impersonated user we're about to set.
+    refreshAbortRef.current?.abort();
+    refreshAbortRef.current = null;
+
+    // Store current (admin) user as original BEFORE anything else
     if (!isImpersonating) {
-      setOriginalUser(user);
-      localStorage.setItem('originalUser', JSON.stringify(user));
+      const adminSnapshot = { ...user };
+      localStorage.setItem('originalUser', JSON.stringify(adminSnapshot));
+      setOriginalUser(adminSnapshot);
       setIsImpersonating(true);
     }
 
-    // Switch to target user
+    // Normalize the target user data
     const roleToUse = normalizeRole(targetUser.role);
-    const updatedUserData = {
+    const updatedUserData: UserData = {
       ...targetUser,
+      id: String(targetUser.id),
       role: roleToUse,
       metadata: targetUser.metadata || {},
     };
 
+    // Write to localStorage synchronously so that any subsequent API calls
+    // (even from other modules reading localStorage directly) pick up the
+    // impersonated user immediately.
     localStorage.setItem('user', JSON.stringify(updatedUserData));
+
+    // Clear cached shoots so the new user context gets fresh data
+    localStorage.removeItem('shoots');
+
+    // Update React state
     setUser(updatedUserData);
     setRole(roleToUse);
 
-    // Create a session for the impersonated user (keep real token if available)
+    // Keep the real admin token — the backend middleware uses it to authenticate
+    // the admin, then swaps to the impersonated user via the header.
     const sessionToken = getSessionToken(updatedUserData.id, roleToUse);
     setSession(buildSession(sessionToken, updatedUserData, roleToUse));
     
-    console.log(`Impersonating user: ${targetUser.email}`);
+    console.log(`Impersonating user: ${targetUser.name} (${targetUser.email}), id=${updatedUserData.id}, epoch=${impersonationEpochRef.current}`);
   };
 
   const stopImpersonating = () => {
     if (!originalUser) return;
 
-    // Restore original user
-    localStorage.setItem('user', JSON.stringify(originalUser));
+    // Bump the epoch so any in-flight async work from the impersonated
+    // session silently discards its result.
+    impersonationEpochRef.current += 1;
+
+    // Write localStorage FIRST so any in-flight or subsequent API calls
+    // immediately stop sending the impersonation header.
     localStorage.removeItem('originalUser');
+    localStorage.setItem('user', JSON.stringify(originalUser));
+    // Clear cached shoots so dashboard re-fetches for the admin context
+    localStorage.removeItem('shoots');
     
     const restoredRole = normalizeRole(originalUser.role);
     setUser(originalUser);
@@ -334,7 +395,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     const sessionToken = getSessionToken(originalUser.id, restoredRole);
     setSession(buildSession(sessionToken, originalUser, restoredRole));
     
-    console.log('Stopped impersonating, restored original user');
+    console.log('Stopped impersonating, restored original user:', originalUser.name);
   };
 
   const setUserRole = (newRole: Role) => {

@@ -27,7 +27,8 @@ import {
   MoreVertical,
   RefreshCw,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Ban
 } from "lucide-react";
 import { addDays, isSameWeek } from "date-fns";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -216,6 +217,7 @@ export default function Availability() {
   const [backendSlots, setBackendSlots] = useState<BackendSlot[]>([]);
   const [allBackendSlots, setAllBackendSlots] = useState<BackendSlot[]>([]);
   const [loading, setLoading] = useState(false);
+  const loadingRef = React.useRef(false);
   const [loadingPhotographers, setLoadingPhotographers] = useState(true);
   const randomAvailabilityCacheRef = React.useRef<Record<string, BackendSlot[]>>({});
   const bookedSlotsCacheRef = React.useRef<Map<string, BackendSlot[]>>(new Map());
@@ -232,6 +234,12 @@ export default function Availability() {
   const [editingAvailability, setEditingAvailability] = useState<string | null>(null);
   const [editedAvailability, setEditedAvailability] = useState<Partial<Availability>>({});
     const [isWeeklyScheduleDialogOpen, setIsWeeklyScheduleDialogOpen] = useState(false);
+  const [isBlockDialogOpen, setIsBlockDialogOpen] = useState(false);
+  const [blockSchedule, setBlockSchedule] = useState({
+    date: null as Date | null,
+    startTime: "09:00",
+    endTime: "17:00",
+  });
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
   const [expandedBookingDetails, setExpandedBookingDetails] = useState<Set<string>>(new Set());
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -347,16 +355,13 @@ export default function Availability() {
     });
   }, []);
 
-  const refreshPhotographerSlots = React.useCallback(async () => {
-    // Prevent multiple simultaneous calls
-    if (loading) return;
-    
+  const refreshPhotographerSlots = React.useCallback(async (signal?: AbortSignal) => {
+    loadingRef.current = true;
     setLoading(true);
     try {
       if (!selectedPhotographer) {
         setBackendSlots([]);
         setAllBackendSlots([]);
-        setLoading(false);
         return;
       }
 
@@ -387,7 +392,6 @@ export default function Availability() {
         if (!photographers || photographers.length === 0) {
           setAllBackendSlots([]);
           setBackendSlots([]);
-          setLoading(false);
           return;
         }
 
@@ -401,7 +405,6 @@ export default function Availability() {
         if (cached && cached.key === cacheKey && (Date.now() - cached.timestamp) < CACHE_TTL) {
           setAllBackendSlots(cached.data);
           setBackendSlots([]);
-          setLoading(false);
           return;
         }
         
@@ -410,12 +413,15 @@ export default function Availability() {
           const bulkResponse = await fetch(API_ROUTES.photographerAvailability.bulkIndex, {
             method: 'POST',
             headers,
+            signal,
             body: JSON.stringify({
               photographer_ids: photographerIds,
               from_date: fromDate,
               to_date: toDate,
             }),
           });
+
+          if (signal?.aborted) return;
 
           if (bulkResponse.ok) {
             const bulkJson = await bulkResponse.json();
@@ -439,25 +445,29 @@ export default function Availability() {
             // Cache the result
             bulkAvailabilityCacheRef.current = { key: cacheKey, data: allSlots, timestamp: Date.now() };
             
-            setAllBackendSlots(allSlots);
-            setBackendSlots([]);
+            if (!signal?.aborted) {
+              setAllBackendSlots(allSlots);
+              setBackendSlots([]);
+            }
             usedBulkEndpoint = true;
           }
-        } catch (bulkError) {
+        } catch (bulkError: any) {
+          if (bulkError?.name === 'AbortError') return;
           console.warn('Bulk endpoint failed, falling back to individual calls:', bulkError);
         }
 
-        if (!usedBulkEndpoint) {
+        if (!usedBulkEndpoint && !signal?.aborted) {
           // Fallback: individual API calls (for backwards compatibility)
           const batchSize = 10;
           const results: Array<{ id: string; slots: BackendSlot[] }> = [];
           
           for (let i = 0; i < photographers.length; i += batchSize) {
+            if (signal?.aborted) return;
             const batch = photographers.slice(i, i + batchSize);
             const batchResults = await Promise.all(
               batch.map(async (p) => {
                 try {
-                  const response = await fetch(API_ROUTES.photographerAvailability.list(p.id));
+                  const response = await fetch(API_ROUTES.photographerAvailability.list(p.id), { signal });
                   if (!response.ok) throw new Error('Failed to load availability');
                   const json = await response.json();
                   return { id: p.id, slots: mapBackendSlots(json?.data || [], p.id) };
@@ -469,21 +479,23 @@ export default function Availability() {
             results.push(...batchResults);
           }
           
-          const merged = results.flatMap(({ id, slots }) => ensureSlotsWithFallback(id, slots));
-          setAllBackendSlots(merged);
-          setBackendSlots([]);
+          if (!signal?.aborted) {
+            const merged = results.flatMap(({ id, slots }) => ensureSlotsWithFallback(id, slots));
+            setAllBackendSlots(merged);
+            setBackendSlots([]);
+          }
         }
         
-        setLoading(false);
         return;
       }
 
       // Single photographer selected - fetch availability and booked slots in parallel
       const [availabilityResponse, bookedResponse] = await Promise.all([
-        fetch(API_ROUTES.photographerAvailability.list(selectedPhotographer)),
+        fetch(API_ROUTES.photographerAvailability.list(selectedPhotographer), { signal }),
         fetch(API_ROUTES.photographerAvailability.bookedSlots, {
           method: 'POST',
           headers,
+          signal,
           body: JSON.stringify({
             photographer_id: Number(selectedPhotographer),
             from_date: fromDate,
@@ -491,6 +503,8 @@ export default function Availability() {
           }),
         }).catch(() => null), // Don't fail if booked slots endpoint fails
       ]);
+
+      if (signal?.aborted) return;
 
       if (!availabilityResponse.ok) {
         throw new Error('Failed to load availability');
@@ -510,13 +524,16 @@ export default function Availability() {
         }));
       }
 
+      if (signal?.aborted) return;
+
       // Merge availability and booked slots
       const allSlots = [...availabilitySlots, ...bookedSlots];
       setBackendSlots(ensureSlotsWithFallback(selectedPhotographer, allSlots));
       setAllBackendSlots([]);
-      setLoading(false);
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.name === 'AbortError') return;
       console.error('Error refreshing photographer slots:', error);
+      if (signal?.aborted) return;
       if (selectedPhotographer === 'all') {
         if (!photographers || photographers.length === 0) {
           setAllBackendSlots([]);
@@ -533,9 +550,11 @@ export default function Availability() {
         setBackendSlots([]);
         setAllBackendSlots([]);
       }
+    } finally {
+      loadingRef.current = false;
       setLoading(false);
     }
-  }, [selectedPhotographer, photographers, ensureSlotsWithFallback, date, viewMode, loading]);
+  }, [selectedPhotographer, photographers, ensureSlotsWithFallback, date, viewMode]);
 
   // Listen for availability updates from other components (e.g., PhotographerAssignmentModal)
   useEffect(() => {
@@ -568,56 +587,71 @@ export default function Availability() {
       if (cacheAge < CACHE_TTL) {
         try {
           const list = JSON.parse(cachedPhotographers);
-          setPhotographers(list);
-          setLoadingPhotographers(false);
-          return;
+          if (Array.isArray(list) && list.length > 0) {
+            setPhotographers(list);
+            setLoadingPhotographers(false);
+            return;
+          }
         } catch (e) {
           // Invalid cache, continue to fetch
         }
       }
     }
     
-    setLoadingPhotographers(true);
-    const publicUrl = (API_ROUTES as any)?.people?.photographers || `${API_BASE_URL}/api/photographers`;
-    fetch(publicUrl)
-      .then(r => (r.ok ? r.json() : Promise.reject(r)))
-      .then(json => {
-        const list = (json?.data || json || []).map((u: any) => ({
-          id: String(u.id),
-          name: u.name || u.email || `User ${u.id}`,
-          avatar: u.avatar || u.profile_photo_url
-        }));
-        setPhotographers(list);
-        setLoadingPhotographers(false);
-        // Cache the result
-        sessionStorage.setItem('photographers_cache', JSON.stringify(list));
-        sessionStorage.setItem('photographers_cache_time', String(Date.now()));
-      })
-      .catch(() => {
-        const token = localStorage.getItem("token") || localStorage.getItem("authToken");
-        if (!token) {
-          setLoadingPhotographers(false);
-          return;
-        }
-        const adminUrl = (API_ROUTES as any)?.people?.adminPhotographers || `${API_BASE_URL}/api/admin/photographers`;
-        fetch(adminUrl, { headers: { Authorization: `Bearer ${token}` } })
-          .then(r => (r.ok ? r.json() : Promise.reject(r)))
-          .then(json => {
-            const list = (json?.data || json?.users || json || []).map((u: any) => ({
+    const loadPhotographers = async () => {
+      setLoadingPhotographers(true);
+      try {
+        const publicUrl = (API_ROUTES as any)?.people?.photographers || `${API_BASE_URL}/api/photographers`;
+        const token = localStorage.getItem("authToken") || localStorage.getItem("token");
+
+        // Try public endpoint first
+        let list: Photographer[] = [];
+        try {
+          const r = await fetch(publicUrl);
+          if (r.ok) {
+            const json = await r.json();
+            list = (json?.data || json || []).map((u: any) => ({
               id: String(u.id),
-              name: u.name || u.full_name || u.email || `User ${u.id}`,
+              name: u.name || u.email || `User ${u.id}`,
               avatar: u.avatar || u.profile_photo_url
             }));
-            setPhotographers(list);
-            setLoadingPhotographers(false);
-            // Cache the result
-            sessionStorage.setItem('photographers_cache', JSON.stringify(list));
-            sessionStorage.setItem('photographers_cache_time', String(Date.now()));
-          })
-          .catch(() => {
-            setLoadingPhotographers(false);
-          });
-      });
+          }
+        } catch {
+          // Public endpoint failed, will try admin below
+        }
+
+        // Fallback to admin endpoint if public returned nothing
+        if (list.length === 0 && token) {
+          try {
+            const adminUrl = (API_ROUTES as any)?.people?.adminPhotographers || `${API_BASE_URL}/api/admin/photographers`;
+            const r = await fetch(adminUrl, { headers: { Authorization: `Bearer ${token}` } });
+            if (r.ok) {
+              const json = await r.json();
+              list = (json?.data || json?.users || json || []).map((u: any) => ({
+                id: String(u.id),
+                name: u.name || u.full_name || u.email || `User ${u.id}`,
+                avatar: u.avatar || u.profile_photo_url
+              }));
+            }
+          } catch {
+            // Admin endpoint also failed
+          }
+        }
+
+        setPhotographers(list);
+        if (list.length > 0) {
+          sessionStorage.setItem('photographers_cache', JSON.stringify(list));
+          sessionStorage.setItem('photographers_cache_time', String(Date.now()));
+        }
+      } catch {
+        // Unexpected error — ensure state is still updated
+        setPhotographers([]);
+      } finally {
+        setLoadingPhotographers(false);
+      }
+    };
+
+    loadPhotographers();
   }, []);
 
   // Auto-select photographer if user is photographer
@@ -627,17 +661,18 @@ export default function Availability() {
     }
   }, [isPhotographer, user, selectedPhotographer]);
 
-  // Load slots when photographer or date changes (debounced)
+  // Load slots when photographer or date changes — abort stale requests on dep change
   useEffect(() => {
     if (!selectedPhotographer || loadingPhotographers) return;
-    
-    const timeoutId = setTimeout(() => {
-      refreshPhotographerSlots();
-    }, 300); // Debounce by 300ms
 
-    return () => clearTimeout(timeoutId);
+    const abortController = new AbortController();
+    refreshPhotographerSlots(abortController.signal);
+
+    return () => {
+      abortController.abort();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedPhotographer, date, currentMonth, viewMode, loadingPhotographers]); // loadingPhotographers added to trigger after photographers load
+  }, [selectedPhotographer, date, currentMonth, viewMode, loadingPhotographers]);
 
   // Keep list availability updated for admin view when a single photographer is selected
   useEffect(() => {
@@ -1468,10 +1503,15 @@ export default function Availability() {
                         });
                         return;
                       }
-                      setIsWeeklyScheduleDialogOpen(true);
+                      setBlockSchedule({
+                        date: date,
+                        startTime: "09:00",
+                        endTime: "17:00",
+                      });
+                      setIsBlockDialogOpen(true);
                     }}
                   >
-                    <CalendarIcon className="h-4 w-4 mr-2" />
+                    <Ban className="h-4 w-4 mr-2" />
                     Block Calendar
                   </Button>
                 )}
@@ -2022,6 +2062,20 @@ export default function Availability() {
                                                   <CalendarIcon className="h-4 w-4 mr-2" />
                                                   Add Weekly Schedule
                                                 </ContextMenuItem>
+                                                <ContextMenuItem onClick={() => {
+                                                  setDate(day);
+                                                  setRightClickedDate(day);
+                                                  setRightClickedTime(null);
+                                                  if (selectedPhotographer === "all") {
+                                                    toast({ title: "Select a photographer", description: "Please select a specific photographer before blocking.", variant: "destructive" });
+                                                    return;
+                                                  }
+                                                  setBlockSchedule({ date: day, startTime: "09:00", endTime: "17:00" });
+                                                  setIsBlockDialogOpen(true);
+                                                }}>
+                                                  <Ban className="h-4 w-4 mr-2" />
+                                                  Block Time on {format(day, 'MMM d')}
+                                                </ContextMenuItem>
                                               </ContextMenuContent>
                                             </ContextMenu>
                                           );
@@ -2147,6 +2201,10 @@ export default function Availability() {
                                           <ContextMenuItem onClick={() => { setDate(day); setRightClickedDate(day); setRightClickedTime(null); if (selectedPhotographer === "all") { toast({ title: "Select a photographer", description: "Please select a specific photographer before scheduling.", variant: "destructive" }); return; } setIsWeeklyScheduleDialogOpen(true); }}>
                                             <CalendarIcon className="h-4 w-4 mr-2" />
                                             Add Weekly Schedule
+                                          </ContextMenuItem>
+                                          <ContextMenuItem onClick={() => { setDate(day); setRightClickedDate(day); setRightClickedTime(null); if (selectedPhotographer === "all") { toast({ title: "Select a photographer", description: "Please select a specific photographer before blocking.", variant: "destructive" }); return; } setBlockSchedule({ date: day, startTime: "09:00", endTime: "17:00" }); setIsBlockDialogOpen(true); }}>
+                                            <Ban className="h-4 w-4 mr-2" />
+                                            Block Time on {format(day, 'MMM d')}
                                           </ContextMenuItem>
                                         </ContextMenuContent>
                                       </ContextMenu>
@@ -2277,6 +2335,18 @@ export default function Availability() {
                                             }}>
                                               <Clock className="h-4 w-4 mr-2" />
                                               Schedule at {timeStr}
+                                            </ContextMenuItem>
+                                            <ContextMenuItem onClick={() => {
+                                              if (!date) { toast({ title: "Select a date", description: "Please select a date before blocking.", variant: "destructive" }); return; }
+                                              setRightClickedDate(date);
+                                              setRightClickedTime(timeStr);
+                                              if (selectedPhotographer === "all") { toast({ title: "Select a photographer", description: "Please select a specific photographer before blocking.", variant: "destructive" }); return; }
+                                              const nextHour = String(hour + 1).padStart(2, '0') + ':00';
+                                              setBlockSchedule({ date: date, startTime: timeStr, endTime: nextHour });
+                                              setIsBlockDialogOpen(true);
+                                            }}>
+                                              <Ban className="h-4 w-4 mr-2" />
+                                              Block at {timeStr}
                                             </ContextMenuItem>
                                           </ContextMenuContent>
                                         </ContextMenu>
@@ -2810,6 +2880,26 @@ export default function Availability() {
                                               <CalendarIcon className="h-4 w-4 mr-2" />
                                               Add Weekly Schedule
                                             </ContextMenuItem>
+                                            <ContextMenuItem
+                                              onClick={() => {
+                                                setDate(day);
+                                                setRightClickedDate(day);
+                                                setRightClickedTime(null);
+                                                if (selectedPhotographer === "all") {
+                                                  toast({
+                                                    title: "Select a photographer",
+                                                    description: "Please select a specific photographer before blocking.",
+                                                    variant: "destructive"
+                                                  });
+                                                  return;
+                                                }
+                                                setBlockSchedule({ date: day, startTime: "09:00", endTime: "17:00" });
+                                                setIsBlockDialogOpen(true);
+                                              }}
+                                            >
+                                              <Ban className="h-4 w-4 mr-2" />
+                                              Block Time on {format(day, 'MMM d')}
+                                            </ContextMenuItem>
                                           </ContextMenuContent>
                                         </ContextMenu>
                                       );
@@ -3199,6 +3289,26 @@ export default function Availability() {
                                         <CalendarIcon className="h-4 w-4 mr-2" />
                                         Add Weekly Schedule
                                       </ContextMenuItem>
+                                      <ContextMenuItem
+                                        onClick={() => {
+                                          setDate(day);
+                                          setRightClickedDate(day);
+                                          setRightClickedTime(null);
+                                          if (selectedPhotographer === "all") {
+                                            toast({
+                                              title: "Select a photographer",
+                                              description: "Please select a specific photographer before blocking.",
+                                              variant: "destructive"
+                                            });
+                                            return;
+                                          }
+                                          setBlockSchedule({ date: day, startTime: "09:00", endTime: "17:00" });
+                                          setIsBlockDialogOpen(true);
+                                        }}
+                                      >
+                                        <Ban className="h-4 w-4 mr-2" />
+                                        Block Time on {format(day, 'MMM d')}
+                                      </ContextMenuItem>
                                     </ContextMenuContent>
                                   </ContextMenu>
                                 );
@@ -3419,6 +3529,34 @@ export default function Availability() {
                                         >
                                           <Clock className="h-4 w-4 mr-2" />
                                           Schedule at {timeStr}
+                                        </ContextMenuItem>
+                                        <ContextMenuItem
+                                          onClick={() => {
+                                            if (!date) {
+                                              toast({
+                                                title: "Select a date",
+                                                description: "Please select a date before blocking.",
+                                                variant: "destructive"
+                                              });
+                                              return;
+                                            }
+                                            setRightClickedDate(date);
+                                            setRightClickedTime(timeStr);
+                                            if (selectedPhotographer === "all") {
+                                              toast({
+                                                title: "Select a photographer",
+                                                description: "Please select a specific photographer before blocking.",
+                                                variant: "destructive"
+                                              });
+                                              return;
+                                            }
+                                            const nextHour = String(hour + 1).padStart(2, '0') + ':00';
+                                            setBlockSchedule({ date: date, startTime: timeStr, endTime: nextHour });
+                                            setIsBlockDialogOpen(true);
+                                          }}
+                                        >
+                                          <Ban className="h-4 w-4 mr-2" />
+                                          Block at {timeStr}
                                         </ContextMenuItem>
                                       </ContextMenuContent>
                                     </ContextMenu>
@@ -4131,24 +4269,41 @@ export default function Availability() {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Status</Label>
-              <Select
-                value={editedAvailability.status}
-                onValueChange={(value) =>
-                  setEditedAvailability({
-                    ...editedAvailability,
-                    status: value as AvailabilityStatus
-                  })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="available">Available</SelectItem>
-                  <SelectItem value="booked">Booked</SelectItem>
-                  <SelectItem value="unavailable">Unavailable</SelectItem>
-                </SelectContent>
-              </Select>
+              {editedAvailability.status === "booked" ? (
+                <div className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium bg-blue-50 border border-blue-300 text-blue-700 w-fit">
+                  <span className="h-2.5 w-2.5 rounded-full bg-blue-500" />
+                  Booked
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditedAvailability({ ...editedAvailability, status: "available" })}
+                    className={cn(
+                      "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all border",
+                      editedAvailability.status === "available"
+                        ? "bg-green-50 border-green-300 text-green-700 ring-2 ring-green-200"
+                        : "bg-muted/50 border-muted text-muted-foreground hover:bg-muted"
+                    )}
+                  >
+                    <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
+                    Available
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditedAvailability({ ...editedAvailability, status: "unavailable" })}
+                    className={cn(
+                      "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all border",
+                      editedAvailability.status === "unavailable"
+                        ? "bg-red-50 border-red-300 text-red-700 ring-2 ring-red-200"
+                        : "bg-muted/50 border-muted text-muted-foreground hover:bg-muted"
+                    )}
+                  >
+                    <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
+                    Unavailable
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -4324,27 +4479,37 @@ export default function Availability() {
               </Select>
             </div>
 
-            {/* Status */}
+            {/* Status Toggle */}
             <div className="space-y-2">
               <Label>Status</Label>
-              <Select
-                value={newWeeklySchedule.status}
-                onValueChange={(value) =>
-                  setNewWeeklySchedule({
-                    ...newWeeklySchedule,
-                    status: value as AvailabilityStatus
-                  })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="available">Available</SelectItem>
-                  <SelectItem value="booked">Booked</SelectItem>
-                  <SelectItem value="unavailable">Unavailable</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setNewWeeklySchedule({ ...newWeeklySchedule, status: "available" })}
+                  className={cn(
+                    "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all border",
+                    newWeeklySchedule.status === "available"
+                      ? "bg-green-50 border-green-300 text-green-700 ring-2 ring-green-200"
+                      : "bg-muted/50 border-muted text-muted-foreground hover:bg-muted"
+                  )}
+                >
+                  <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
+                  Available
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNewWeeklySchedule({ ...newWeeklySchedule, status: "unavailable" })}
+                  className={cn(
+                    "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all border",
+                    newWeeklySchedule.status === "unavailable"
+                      ? "bg-red-50 border-red-300 text-red-700 ring-2 ring-red-200"
+                      : "bg-muted/50 border-muted text-muted-foreground hover:bg-muted"
+                  )}
+                >
+                  <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
+                  Unavailable
+                </button>
+              </div>
             </div>
 
             {/* Time Range */}
@@ -4595,6 +4760,148 @@ export default function Availability() {
                 });
               }
             }}>Add Schedule</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Block Time Dialog */}
+      <Dialog open={isBlockDialogOpen} onOpenChange={setIsBlockDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Block Time</DialogTitle>
+            <DialogDescription>
+              Block a time slot for {getPhotographerName(selectedPhotographer)}{blockSchedule.date ? ` on ${format(blockSchedule.date, "MMMM d, yyyy")}` : ""}.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* Date */}
+            <div className="space-y-2">
+              <Label>Date</Label>
+              <Input
+                type="date"
+                value={blockSchedule.date ? format(blockSchedule.date, 'yyyy-MM-dd') : ''}
+                onChange={(e) => {
+                  if (e.target.value) {
+                    setBlockSchedule({ ...blockSchedule, date: new Date(e.target.value) });
+                  }
+                }}
+                className="rounded-md"
+              />
+            </div>
+
+            {/* Time Range */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Start Time</Label>
+                <TimeSelect
+                  value={blockSchedule.startTime}
+                  onChange={(time) => setBlockSchedule({ ...blockSchedule, startTime: time })}
+                  placeholder="Select start time"
+                  startHour={6}
+                  endHour={21}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>End Time</Label>
+                <TimeSelect
+                  value={blockSchedule.endTime}
+                  onChange={(time) => setBlockSchedule({ ...blockSchedule, endTime: time })}
+                  placeholder="Select end time"
+                  startHour={6}
+                  endHour={21}
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-red-50 border border-red-200 text-red-700 text-sm">
+              <Ban className="h-4 w-4 shrink-0" />
+              This time will be marked as unavailable
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setIsBlockDialogOpen(false);
+              setBlockSchedule({ date: null, startTime: "09:00", endTime: "17:00" });
+            }}>Cancel</Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                if (selectedPhotographer === "all") {
+                  toast({
+                    title: "Select a photographer",
+                    description: "Please select a specific photographer before blocking time.",
+                    variant: "destructive"
+                  });
+                  return;
+                }
+
+                if (!blockSchedule.date) {
+                  toast({
+                    title: "Select a date",
+                    description: "Please select a date to block.",
+                    variant: "destructive"
+                  });
+                  return;
+                }
+
+                const startTime = uiTimeToHhmm(blockSchedule.startTime);
+                const endTime = uiTimeToHhmm(blockSchedule.endTime);
+
+                if (startTime >= endTime) {
+                  toast({
+                    title: "Invalid time range",
+                    description: "End time must be after start time.",
+                    variant: "destructive"
+                  });
+                  return;
+                }
+
+                try {
+                  const dateStr = format(blockSchedule.date, "yyyy-MM-dd");
+                  const payload = {
+                    photographer_id: Number(selectedPhotographer),
+                    date: dateStr,
+                    start_time: startTime,
+                    end_time: endTime,
+                    status: "unavailable",
+                  };
+
+                  const res = await fetch(API_ROUTES.photographerAvailability.create, {
+                    method: 'POST',
+                    headers: authHeaders(),
+                    body: JSON.stringify(payload),
+                  });
+
+                  if (res.ok) {
+                    await refreshPhotographerSlots();
+                    setIsBlockDialogOpen(false);
+                    setBlockSchedule({ date: null, startTime: "09:00", endTime: "17:00" });
+                    toast({
+                      title: "Time blocked",
+                      description: `Blocked ${startTime} - ${endTime} on ${format(blockSchedule.date, "MMMM d, yyyy")}`,
+                    });
+                  } else {
+                    const errorData = await res.json().catch(() => ({}));
+                    toast({
+                      title: "Error",
+                      description: errorData.message || "Failed to block time. Please try again.",
+                      variant: "destructive"
+                    });
+                  }
+                } catch (error) {
+                  toast({
+                    title: "Error",
+                    description: "Failed to block time. Please try again.",
+                    variant: "destructive"
+                  });
+                }
+              }}
+            >
+              <Ban className="h-4 w-4 mr-2" />
+              Block Time
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

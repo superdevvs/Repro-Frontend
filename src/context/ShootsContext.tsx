@@ -446,7 +446,7 @@ export const useShoots = () => {
 export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [shoots, setShoots] = useState<ShootData[]>(getStoredShoots);
   const [paginationMeta, setPaginationMeta] = useState<ShootsContextType['paginationMeta']>();
-  const { user, logout } = useAuth();
+  const { user, logout, isImpersonating } = useAuth();
   const location = useLocation();
   const sessionExpiredRef = useRef(false);
   const clientRole = user?.role;
@@ -467,6 +467,9 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (sessionExpiredRef.current) return;
       // Don't show session expired on login page or if user never logged in
       if (location.pathname === '/' || !user) return;
+      // During impersonation, 401s can happen transiently when the user
+      // context is switching.  Never log the admin out because of them.
+      if (isImpersonating || localStorage.getItem('originalUser')) return;
       sessionExpiredRef.current = true;
       toast({
         title: 'Session expired',
@@ -475,7 +478,7 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       });
       logout();
     },
-    [logout, location.pathname, user],
+    [logout, location.pathname, user, isImpersonating],
   );
 
   const persistShoots = useCallback((items: ShootData[]) => {

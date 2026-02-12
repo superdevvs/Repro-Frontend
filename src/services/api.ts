@@ -34,15 +34,19 @@ export const apiClient = axios.create({
  */
 export const getImpersonatedUserId = (): string | null => {
   try {
-    const originalUser = localStorage.getItem('originalUser');
-    const currentUser = localStorage.getItem('user');
-    
-    
-    if (originalUser && currentUser) {
-      const user = JSON.parse(currentUser);
-        if (user?.id) {
-        return String(user.id);
-      }
+    const originalUserRaw = localStorage.getItem('originalUser');
+    if (!originalUserRaw) return null;
+
+    const currentUserRaw = localStorage.getItem('user');
+    if (!currentUserRaw) return null;
+
+    const originalUser = JSON.parse(originalUserRaw);
+    const currentUser = JSON.parse(currentUserRaw);
+
+    // Only return impersonated ID if the current user differs from the original
+    // (i.e. we are actually impersonating someone else)
+    if (currentUser?.id && String(currentUser.id) !== String(originalUser?.id)) {
+      return String(currentUser.id);
     }
   } catch (e) {
     console.error('[getImpersonatedUserId] Error:', e);
@@ -76,6 +80,63 @@ export const getApiHeaders = (): Record<string, string> => {
   
   return headers;
 };
+
+// Patch the global fetch to automatically inject the impersonation header into every
+// request targeting our API. This covers the ~36 raw fetch() calls across the codebase
+// that don't use axios or apiClient.
+const _originalFetch = window.fetch;
+window.fetch = function patchedFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const url = typeof input === 'string' ? input : input instanceof URL ? input.href : (input as Request).url;
+  const isApiCall = url.includes('/api/');
+
+  if (isApiCall) {
+    const headers = new Headers(init?.headers);
+
+    // Inject auth token if not already present
+    if (!headers.has('Authorization')) {
+      const token =
+        localStorage.getItem('authToken') ||
+        localStorage.getItem('token') ||
+        localStorage.getItem('access_token');
+      if (token) {
+        headers.set('Authorization', `Bearer ${token}`);
+      }
+    }
+
+    // Inject impersonation header
+    const impersonatedUserId = getImpersonatedUserId();
+    if (impersonatedUserId) {
+      headers.set('X-Impersonate-User-Id', impersonatedUserId);
+    }
+
+    return _originalFetch.call(window, input, { ...init, headers });
+  }
+
+  return _originalFetch.call(window, input, init);
+};
+
+// Global interceptor on the DEFAULT axios instance so that all `import axios from 'axios'`
+// calls across the codebase automatically include auth + impersonation headers.
+axios.interceptors.request.use((config) => {
+  try {
+    const token =
+      localStorage.getItem('authToken') ||
+      localStorage.getItem('token') ||
+      localStorage.getItem('access_token');
+
+    if (token && !config.headers.get('Authorization')) {
+      config.headers.set('Authorization', `Bearer ${token}`);
+    }
+
+    const impersonatedUserId = getImpersonatedUserId();
+    if (impersonatedUserId) {
+      config.headers.set('X-Impersonate-User-Id', impersonatedUserId);
+    }
+  } catch (error) {
+    // Silently ignore – individual calls still set their own headers
+  }
+  return config;
+});
 
 apiClient.interceptors.request.use((config) => {
   try {

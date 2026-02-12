@@ -71,10 +71,10 @@ export const IntegrationsSettingsContent = () => {
   // MMM Settings
   const [mmmSettings, setMmmSettings] = useState({
     enabled: true,
-    duns: '',
+    duns: 'Wqsw5cPn3Neo9Blz',
     sharedSecret: '',
     userAgent: 'REPro Photos',
-    punchoutUrl: '',
+    punchoutUrl: 'https://repro.mymarketingmatters.com/punchoutsetup.asp',
     templateExternalNumber: '',
     deploymentMode: 'test',
     startPoint: 'Category',
@@ -146,7 +146,7 @@ export const IntegrationsSettingsContent = () => {
 
       if (!brightMlsSettings.apiUrl) {
         setBrightMlsSettings({
-          apiUrl: 'https://bright-manifestservices.tst.brightmls.com',
+          apiUrl: 'https://agl1paz1msaasservices.bright-solutions.co',
           apiUser: '',
           apiKey: '',
           vendorId: '',
@@ -168,10 +168,10 @@ export const IntegrationsSettingsContent = () => {
       if (!mmmSettings.duns && !mmmSettings.sharedSecret && !mmmSettings.punchoutUrl) {
         setMmmSettings({
           enabled: true,
-          duns: '',
+          duns: 'Wqsw5cPn3Neo9Blz',
           sharedSecret: '',
           userAgent: 'REPro Photos',
-          punchoutUrl: '',
+          punchoutUrl: 'https://repro.mymarketingmatters.com/punchoutsetup.asp',
           templateExternalNumber: '',
           deploymentMode: 'test',
           startPoint: 'Category',
@@ -665,7 +665,7 @@ export const IntegrationsSettingsContent = () => {
                         onChange={(e) =>
                           setBrightMlsSettings({ ...brightMlsSettings, apiUrl: e.target.value })
                         }
-                        placeholder="https://bright-manifestservices.tst.brightmls.com"
+                        placeholder="https://agl1paz1msaasservices.bright-solutions.co"
                       />
                     </div>
                     <div className="space-y-2">

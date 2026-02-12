@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { HorizontalLoader } from '@/components/ui/horizontal-loader';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Slider } from '@/components/ui/slider';
 import {
@@ -1015,9 +1016,7 @@ const AiEditing = () => {
 
             {/* Image Grid */}
             {loadingFiles ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-6 w-6 animate-spin" />
-              </div>
+              <HorizontalLoader message="Loading files..." />
             ) : availableFiles.length === 0 ? (
               <Card>
                 <CardContent className="py-12 text-center">
@@ -1686,9 +1685,7 @@ const AiEditing = () => {
 
       {/* Shoots Grid */}
       {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin" />
-        </div>
+        <HorizontalLoader message="Loading shoots..." />
       ) : filteredShoots.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">

@@ -52,6 +52,7 @@ export const API_ROUTES = {
     brightMls: {
       publish: (shootId: number | string) => `${BASE_URL}/api/integrations/shoots/${shootId}/bright-mls/publish`,
       queue: `${BASE_URL}/api/integrations/mls-queue`,
+      redirectUrl: (manifestId: string) => `${BASE_URL}/api/integrations/bright-mls/redirect/${manifestId}`,
     },
     mmm: {
       punchout: (shootId: number | string) => `${BASE_URL}/api/integrations/shoots/${shootId}/mmm/punchout`,

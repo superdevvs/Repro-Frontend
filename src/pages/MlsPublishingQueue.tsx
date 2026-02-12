@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { apiClient } from '@/services/api';
 import API_ROUTES from '@/lib/api';
+import { HorizontalLoader } from '@/components/ui/horizontal-loader';
 import { 
   Table, 
   TableBody, 
@@ -24,7 +25,8 @@ import {
   AlertCircle,
   CheckCircle2,
   Clock,
-  XCircle
+  XCircle,
+  ExternalLink
 } from 'lucide-react';
 import {
   Dialog,
@@ -45,6 +47,7 @@ interface MlsQueueItem {
   status: 'pending' | 'published' | 'error';
   last_published: string | null;
   manifest_id: string | null;
+  redirect_url: string | null;
   response: any;
 }
 
@@ -182,9 +185,7 @@ const MlsPublishingQueue = () => {
           <Card>
             <CardContent className="p-0">
               {loading ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                </div>
+                <HorizontalLoader message="Loading MLS queue..." className="px-4" />
               ) : queueItems.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
                   <AlertCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -273,6 +274,18 @@ const MlsPublishingQueue = () => {
                                   </ScrollArea>
                                 </DialogContent>
                               </Dialog>
+                            )}
+                            {item.redirect_url && (
+                              <a
+                                href={item.redirect_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                <Button variant="ghost" size="sm">
+                                  <ExternalLink className="mr-1 h-4 w-4" />
+                                  View on MLS
+                                </Button>
+                              </a>
                             )}
                             {item.status === 'error' && (
                               <Button

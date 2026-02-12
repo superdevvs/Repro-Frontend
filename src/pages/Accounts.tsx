@@ -43,6 +43,7 @@ import { API_BASE_URL } from '@/config/env';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { InteractionCloud, type InteractionCloudAccount } from '@/components/accounts/InteractionCloud';
 import { endOfMonth, isWithinInterval, startOfMonth } from 'date-fns';
+import { HorizontalLoader } from '@/components/ui/horizontal-loader';
 
 type InsightRole = Extract<Role, 'client' | 'photographer' | 'editor' | 'salesRep'>;
 
@@ -261,25 +262,41 @@ export default function Accounts() {
   );
 
 
+  const handleSessionExpiredRef = useRef(handleSessionExpired);
+  handleSessionExpiredRef.current = handleSessionExpired;
+
   useEffect(() => {
+    let cancelled = false;
     const fetchUsers = async () => {
       setLoading(true);
       try {
         const token = localStorage.getItem('authToken') || localStorage.getItem('token');
         if (!token) {
-          handleSessionExpired("Please log in to view accounts.");
+          handleSessionExpiredRef.current("Please log in to view accounts.");
           setLoading(false);
           return;
         }
         const res = await fetch(`${API_BASE_URL}/api/admin/users?light=1`, {
           headers: {
             Accept: 'application/json',
-            Authorization: `Bearer ${token}`, // If needed
+            Authorization: `Bearer ${token}`,
           },
         });
 
+        if (cancelled) return;
+
         if (res.status === 401 || res.status === 419) {
-          handleSessionExpired();
+          handleSessionExpiredRef.current();
+          setLoading(false);
+          return;
+        }
+
+        if (res.status === 403) {
+          toast({
+            title: "Access denied",
+            description: "You do not have permission to view accounts.",
+            variant: "destructive",
+          });
           setLoading(false);
           return;
         }
@@ -287,9 +304,9 @@ export default function Accounts() {
         if (!res.ok) throw new Error('Failed to fetch users');
 
         const data = await res.json();
-        setUsers(data.users || []);
+        if (!cancelled) setUsers(data.users || []);
       } catch (err) {
-        if (sessionExpiredRef.current) {
+        if (cancelled || sessionExpiredRef.current) {
           setLoading(false);
           return;
         }
@@ -300,12 +317,13 @@ export default function Accounts() {
           variant: "destructive",
         });
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     fetchUsers();
-  }, [handleSessionExpired, toast]);
+    return () => { cancelled = true; };
+  }, [toast]);
 
   const getAccountRepInfo = useCallback((user: UserType) => {
     const metadata = user.metadata || {};
@@ -877,10 +895,8 @@ export default function Accounts() {
       title: "Impersonating user",
       description: `You are now viewing the dashboard as ${user.name}.`,
     });
-    // Small delay to ensure state updates, then navigate
-    setTimeout(() => {
-      window.location.href = '/dashboard';
-    }, 100);
+    // Use React Router navigate to avoid full page reload which destroys state
+    navigate('/dashboard');
   };
 
   const handleManageNotifications = (user) => {
@@ -1245,10 +1261,7 @@ export default function Accounts() {
             />
 
             {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                <span className="ml-2 text-muted-foreground">Loading accounts...</span>
-              </div>
+              <HorizontalLoader message="Loading accounts..." />
             ) : viewMode === 'grid' ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {paginatedUsers.map((user) => (

@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Loader2, Mail, MessageCircle, RefreshCcw, TriangleAlert } from 'lucide-react';
+import { HorizontalLoader } from '@/components/ui/horizontal-loader';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { fetchMessagingOverview } from '@/services/messagingService';
 import { getAuthToken } from '@/utils/authToken';
@@ -127,10 +128,7 @@ const MessagingOverviewPage = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             {loading && !data && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Loading activity…
-              </div>
+              <HorizontalLoader message="Loading activity…" />
             )}
             {!loading && data?.recentActivity?.length === 0 && (
               <p className="text-sm text-muted-foreground">No activity yet.</p>

@@ -485,26 +485,10 @@ const Dashboard = () => {
     const fetchInvoices = async () => {
       setInvoicesLoading(true);
       try {
-        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-        // Check if impersonating by looking for originalUser
-        const originalUser = localStorage.getItem('originalUser');
-        const currentUser = localStorage.getItem('user');
-        let impersonatedUserId: string | null = null;
-        if (originalUser && currentUser) {
-          try {
-            const parsed = JSON.parse(currentUser);
-            impersonatedUserId = parsed?.id ? String(parsed.id) : null;
-          } catch (e) {}
-        }
-        const headers: Record<string, string> = {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-        };
-        if (impersonatedUserId) {
-          headers['X-Impersonate-User-Id'] = impersonatedUserId;
-        }
+        // The global fetch polyfill in api.ts automatically injects
+        // Authorization and X-Impersonate-User-Id headers for /api/ calls.
         const res = await fetch(`${API_BASE_URL}/api/invoices?client_id=${user.id}`, {
-          headers,
+          headers: { 'Accept': 'application/json' },
         });
         
         if (res.ok) {

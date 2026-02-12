@@ -245,12 +245,15 @@ const ChatWithReproAi = () => {
       setTabMode('chat');
     }
 
-    // Auto-detect intent from message if not provided
-    const intent = context?.intent || getIntentFromSuggestion(messageToSend);
+    // Auto-detect intent from message only when starting a new conversation (no session yet).
+    // Once inside a flow (sessionId exists), rely on the backend session state to keep the
+    // correct intent — sending a re-detected intent on every follow-up message can reset the
+    // flow and cause loops.
+    const intent = context?.intent || (!sessionId ? getIntentFromSuggestion(messageToSend) : undefined);
     const finalContext = {
       ...pageContext,
       ...context,
-      intent,
+      ...(intent ? { intent } : {}),
       role: user?.role,
     };
 
