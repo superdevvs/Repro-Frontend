@@ -21,6 +21,7 @@ import {
   Check,
   X,
   Plus,
+  Info,
 } from 'lucide-react';
 import { ShootData } from '@/types/shoots';
 import { useToast } from '@/hooks/use-toast';
@@ -30,6 +31,11 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from '@/components/ui/popover';
 import {
   Dialog,
   DialogContent,
@@ -891,7 +897,33 @@ export function ShootDetailsTourTab({
 
           {/* Generic MLS Link */}
           <div className="space-y-2">
-            <Label>Generic MLS Link</Label>
+            <div className="flex items-center gap-1.5">
+              <Label>Generic MLS Link</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground">
+                    <Info className="h-3.5 w-3.5" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-96 max-h-80 overflow-y-auto text-sm" side="top" align="start">
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-sm">Generic MLS Link Guidelines</h4>
+                    <p className="text-muted-foreground text-xs leading-relaxed">
+                      A stripped-down tour that may include video, images, and music. Ideally no text, but limited strictly-controlled text is acceptable. No property address or marketing information for a competitor.
+                    </p>
+                    <ul className="list-disc pl-4 text-xs text-muted-foreground space-y-1.5 leading-relaxed">
+                      <li>The URL must have the Tour ID at the end (e.g., <code className="text-[10px] bg-muted px-1 rounded">http://yourvirtualtoururl.com/ID?=TOURID#</code>) so it is distinguishable from a branded tour before the tour ID.</li>
+                      <li>No address information on the link or anywhere on the tour.</li>
+                      <li>Tours must come directly from your company — no third parties like YouTube, Metacafe, etc.</li>
+                      <li>No email forms or emailing options on the tour.</li>
+                      <li>Text entered by the agent must be monitored — no address/contact info allowed. If found, the tour company will be removed from the approved vendor list.</li>
+                      <li>No agents/people in the tour.</li>
+                      <li>No links to third-party sites (social media, etc.) on the tour.</li>
+                    </ul>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
             <div className="flex items-center gap-2">
               <Input
                 value={getTourUrl('genericMls')}
