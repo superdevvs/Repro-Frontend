@@ -2148,9 +2148,12 @@ export default function Availability() {
                                       const totalMinutes = slotEnd - slotStart;
                                       const leftPercent = ((startMinutes - slotStart) / totalMinutes) * 100;
                                       const widthPercent = ((endMinutes - startMinutes) / totalMinutes) * 100;
+                                      const durationMinutes = endMinutes - startMinutes;
                                       return {
                                         left: `${Math.max(0, Math.min(100, leftPercent))}%`,
-                                        width: `${Math.max(2, Math.min(100 - Math.max(0, leftPercent), widthPercent))}%`
+                                        width: `${Math.max(2, Math.min(100 - Math.max(0, leftPercent), widthPercent))}%`,
+                                        isNarrow: durationMinutes < 120,
+                                        isWide: durationMinutes >= 180
                                       };
                                     };
                                     const formatTimeDisplay = (time: string) => to12HourDisplay(time);
@@ -2183,10 +2186,29 @@ export default function Availability() {
                                                 const topOffset = overlappingBefore.length * 18;
                                                 const heightReduction = overlappingBefore.length > 0 ? 2 : 0;
                                                 return (
-                                                  <div key={slot.id} onClick={(e) => { e.stopPropagation(); setSelectedSlotId(slot.id); setDate(day); if (slot.status === 'booked' && slot.shootDetails) { setExpandedBookingDetails(prev => new Set(prev).add(slot.id)); } if (isMobile) setMobileTab("details"); }} className={cn("absolute rounded-md px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs flex flex-col justify-center border z-10 cursor-pointer hover:opacity-80 transition-opacity", selectedSlotId === slot.id && "ring-2 ring-primary ring-offset-1", slot.status === 'available' && "bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-700 text-green-700 dark:text-green-300", slot.status === 'booked' && "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300", slot.status === 'unavailable' && "bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-700 text-red-700 dark:text-red-300")} style={{ ...style, top: `${4 + topOffset}px`, bottom: `${4 + topOffset + heightReduction}px` }}>
-                                                    <div className="font-medium capitalize">{slot.status}</div>
-                                                    <div className="text-[9px] sm:text-[10px] opacity-80">{formatTimeDisplay(slot.startTime)} - {formatTimeDisplay(slot.endTime)}</div>
-                                                  </div>
+                                                  <TooltipProvider key={slot.id}>
+                                                    <Tooltip>
+                                                      <TooltipTrigger asChild>
+                                                        <div onClick={(e) => { e.stopPropagation(); setSelectedSlotId(slot.id); setDate(day); if (slot.status === 'booked' && slot.shootDetails) { setExpandedBookingDetails(prev => new Set(prev).add(slot.id)); } if (isMobile) setMobileTab("details"); }} className={cn("absolute rounded-md px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs flex flex-col justify-center border z-10 cursor-pointer hover:opacity-80 transition-opacity overflow-hidden", selectedSlotId === slot.id && "ring-2 ring-primary ring-offset-1", slot.status === 'available' && "bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-700 text-green-700 dark:text-green-300", slot.status === 'booked' && "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300", slot.status === 'unavailable' && "bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-700 text-red-700 dark:text-red-300")} style={{ left: style.left, width: style.width, top: `${4 + topOffset}px`, bottom: `${4 + topOffset + heightReduction}px` }}>
+                                                          {style.isNarrow ? (
+                                                            <div className="flex items-center gap-1">
+                                                              <span className={cn("w-2 h-2 rounded-full flex-shrink-0", slot.status === 'available' && "bg-green-500", slot.status === 'booked' && "bg-blue-500", slot.status === 'unavailable' && "bg-red-500")} />
+                                                              <span className="text-[9px] whitespace-nowrap truncate">{formatTimeDisplay(slot.startTime)} - {formatTimeDisplay(slot.endTime)}</span>
+                                                            </div>
+                                                          ) : (
+                                                            <>
+                                                              {style.isWide && <div className="font-medium capitalize truncate">{slot.status}</div>}
+                                                              <div className="text-[9px] sm:text-[10px] opacity-80 whitespace-nowrap">{formatTimeDisplay(slot.startTime)} - {formatTimeDisplay(slot.endTime)}</div>
+                                                            </>
+                                                          )}
+                                                        </div>
+                                                      </TooltipTrigger>
+                                                      <TooltipContent>
+                                                        <div className="text-xs font-medium capitalize">{slot.status}</div>
+                                                        <div className="text-[10px] text-muted-foreground">{formatTimeDisplay(slot.startTime)} - {formatTimeDisplay(slot.endTime)}</div>
+                                                      </TooltipContent>
+                                                    </Tooltip>
+                                                  </TooltipProvider>
                                                 );
                                               })}
                                             </div>
@@ -2994,10 +3016,13 @@ export default function Availability() {
                                   const leftPercent = ((startMinutes - slotStart) / totalMinutes) * 100;
                                   // Calculate width (percentage of total)
                                   const widthPercent = ((endMinutes - startMinutes) / totalMinutes) * 100;
+                                  const durationMinutes = endMinutes - startMinutes;
 
                                   return {
                                     left: `${Math.max(0, Math.min(100, leftPercent))}%`,
-                                    width: `${Math.max(2, Math.min(100 - Math.max(0, leftPercent), widthPercent))}%`
+                                    width: `${Math.max(2, Math.min(100 - Math.max(0, leftPercent), widthPercent))}%`,
+                                    isNarrow: durationMinutes < 120,
+                                    isWide: durationMinutes >= 180
                                   };
                                 };
 
@@ -3220,30 +3245,47 @@ export default function Availability() {
                                             const heightReduction = overlappingBefore.length > 0 ? 2 : 0;
 
                                             return (
-                                              <div
-                                                key={slot.id}
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  setSelectedSlotId(slot.id);
-                                                  setDate(day);
-                                                }}
-                                                className={cn(
-                                                  "absolute rounded-md px-2 py-1 text-xs flex flex-col justify-center border z-10 cursor-pointer hover:opacity-80 transition-opacity",
-                                                  selectedSlotId === slot.id && "ring-2 ring-primary ring-offset-1",
-                                                  slot.status === 'available' && "bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-700 text-green-700 dark:text-green-300",
-                                                  slot.status === 'unavailable' && "bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-700 text-red-700 dark:text-red-300"
-                                                )}
-                                                style={{
-                                                  ...style,
-                                                  top: `${4 + topOffset}px`,
-                                                  bottom: `${4 + topOffset + heightReduction}px`
-                                                }}
-                                              >
-                                                <div className="font-medium capitalize">{slot.status}</div>
-                                                <div className="text-[10px] opacity-80">
-                                                  {formatTimeDisplay(slot.startTime)} - {formatTimeDisplay(slot.endTime)}
-                                                </div>
-                                              </div>
+                                              <TooltipProvider key={slot.id}>
+                                                <Tooltip>
+                                                  <TooltipTrigger asChild>
+                                                    <div
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setSelectedSlotId(slot.id);
+                                                        setDate(day);
+                                                      }}
+                                                      className={cn(
+                                                        "absolute rounded-md px-2 py-1 text-xs flex flex-col justify-center border z-10 cursor-pointer hover:opacity-80 transition-opacity overflow-hidden",
+                                                        selectedSlotId === slot.id && "ring-2 ring-primary ring-offset-1",
+                                                        slot.status === 'available' && "bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-700 text-green-700 dark:text-green-300",
+                                                        slot.status === 'unavailable' && "bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-700 text-red-700 dark:text-red-300"
+                                                      )}
+                                                      style={{
+                                                        left: style.left,
+                                                        width: style.width,
+                                                        top: `${4 + topOffset}px`,
+                                                        bottom: `${4 + topOffset + heightReduction}px`
+                                                      }}
+                                                    >
+                                                      {style.isNarrow ? (
+                                                        <div className="flex items-center gap-1">
+                                                          <span className={cn("w-2 h-2 rounded-full flex-shrink-0", slot.status === 'available' && "bg-green-500", slot.status === 'unavailable' && "bg-red-500")} />
+                                                          <span className="text-[9px] whitespace-nowrap truncate">{formatTimeDisplay(slot.startTime)} - {formatTimeDisplay(slot.endTime)}</span>
+                                                        </div>
+                                                      ) : (
+                                                        <>
+                                                          {style.isWide && <div className="font-medium capitalize truncate">{slot.status}</div>}
+                                                          <div className="text-[10px] opacity-80 whitespace-nowrap">{formatTimeDisplay(slot.startTime)} - {formatTimeDisplay(slot.endTime)}</div>
+                                                        </>
+                                                      )}
+                                                    </div>
+                                                  </TooltipTrigger>
+                                                  <TooltipContent>
+                                                    <div className="text-xs font-medium capitalize">{slot.status}</div>
+                                                    <div className="text-[10px] text-muted-foreground">{formatTimeDisplay(slot.startTime)} - {formatTimeDisplay(slot.endTime)}</div>
+                                                  </TooltipContent>
+                                                </Tooltip>
+                                              </TooltipProvider>
                                             );
                                           })}
                                         </div>

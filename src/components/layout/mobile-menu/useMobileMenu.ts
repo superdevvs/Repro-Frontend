@@ -74,7 +74,7 @@ export const useMobileMenu = () => {
     },
     {
       to: "/portal",
-      icon: "Search",
+      icon: "Crown",
       label: "Exclusive Listings",
       isActive: pathname === '/portal' || pathname.startsWith('/exclusive-listings'),
       roles: ['admin', 'superadmin', 'editing_manager', 'salesRep', 'client']

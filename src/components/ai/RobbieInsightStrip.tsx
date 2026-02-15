@@ -57,7 +57,7 @@ const priorityMeta: Record<InsightPriority, { label: string; badgeClass: string;
   },
 };
 
-const allowedRoles: UserRole[] = ["admin", "superadmin", "salesRep", "client", "photographer", "editor"];
+const allowedRoles: UserRole[] = ["admin", "superadmin", "editing_manager", "salesRep", "client", "photographer", "editor"];
 
 const REFRESH_INTERVAL_MS = 60000; // Auto-refresh every 60 seconds
 

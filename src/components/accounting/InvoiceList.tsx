@@ -17,7 +17,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
-import { InvoiceViewDialog } from '@/components/invoices/InvoiceViewDialog';
 import { InvoiceData } from '@/utils/invoiceUtils';
 import {
   Pagination,
@@ -55,8 +54,6 @@ export function InvoiceList({
   role = '' // Default to empty string
 }: InvoiceListProps) {
   const { toast } = useToast();
-  const [viewInvoiceDialogOpen, setViewInvoiceDialogOpen] = useState(false);
-  const [selectedInvoice, setSelectedInvoice] = useState<InvoiceData | null>(null);
   const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'paid' | 'overdue'>('all');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [currentPage, setCurrentPage] = useState(1);
@@ -90,8 +87,6 @@ export function InvoiceList({
   };
 
   const handleViewInvoice = (invoice: InvoiceData) => {
-    setSelectedInvoice(invoice);
-    setViewInvoiceDialogOpen(true);
     onView(invoice);
   };
 
@@ -340,14 +335,6 @@ export function InvoiceList({
             </Pagination>
           )}
         </div>
-      )}
-      
-      {selectedInvoice && (
-        <InvoiceViewDialog
-          isOpen={viewInvoiceDialogOpen}
-          onClose={() => setViewInvoiceDialogOpen(false)}
-          invoice={selectedInvoice}
-        />
       )}
     </div>
   );

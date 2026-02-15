@@ -2,13 +2,15 @@
 import React from 'react';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
-import { PlusIcon, Download, UsersIcon, BarChart3Icon } from 'lucide-react';
+import { PlusIcon, Download, UsersIcon, BarChart3Icon, RefreshCw, Loader2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+
+type AccountingTab = 'home' | 'photographers';
 
 interface AccountingHeaderProps {
   onCreateInvoice: () => void;
@@ -17,6 +19,15 @@ interface AccountingHeaderProps {
   description?: string;
   badge?: string;
   showCreateButton?: boolean;
+  activeTab?: AccountingTab;
+  onTabChange?: (tab: AccountingTab) => void;
+  showTabs?: boolean;
+  payoutActions?: {
+    refresh: () => void;
+    download: () => Promise<void>;
+    loading: boolean;
+    downloading: boolean;
+  } | null;
 }
 
 export function AccountingHeader({ 
@@ -26,6 +37,10 @@ export function AccountingHeader({
   description = "Manage your finances, invoices, and payments",
   badge = "Accounting",
   showCreateButton = true,
+  activeTab = 'home',
+  onTabChange,
+  showTabs = false,
+  payoutActions,
 }: AccountingHeaderProps) {
   return (
     <PageHeader
@@ -36,6 +51,21 @@ export function AccountingHeader({
       action={
         showCreateButton ? (
           <div className="flex items-center gap-3">
+            {/* Show Refresh and Download CSV when on photographers tab */}
+            {activeTab === 'photographers' && payoutActions && (
+              <>
+                <Button variant="outline" className="gap-2" onClick={payoutActions.refresh} disabled={payoutActions.loading}>
+                  <RefreshCw className={`h-4 w-4 ${payoutActions.loading ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+                <Button variant="outline" className="gap-2" onClick={payoutActions.download} disabled={payoutActions.downloading}>
+                  {payoutActions.downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                  Download CSV
+                </Button>
+              </>
+            )}
+
+            {/* Always show Export and Create Invoice */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" className="gap-2">
@@ -82,3 +112,5 @@ export function AccountingHeader({
     />
   );
 }
+
+export type { AccountingTab };

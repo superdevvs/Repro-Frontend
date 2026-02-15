@@ -41,7 +41,14 @@ const formatDate = (dateStr: string) => {
   return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 };
 
-export const PayoutReportPanel: React.FC = () => {
+interface PayoutReportPanelProps {
+  hideHeaderButtons?: boolean;
+  onRefresh?: () => void;
+  onDownload?: () => void;
+  registerActions?: (actions: { refresh: () => void; download: () => Promise<void>; loading: boolean; downloading: boolean }) => void;
+}
+
+export const PayoutReportPanel: React.FC<PayoutReportPanelProps> = ({ hideHeaderButtons = false, registerActions }) => {
   const { toast } = useToast();
   const [report, setReport] = useState<PayoutReport | null>(null);
   const [loading, setLoading] = useState(true);
@@ -69,10 +76,6 @@ export const PayoutReportPanel: React.FC = () => {
     loadReport();
   }, [loadReport]);
 
-  const handleFilter = () => {
-    loadReport(startDate || undefined, endDate || undefined);
-  };
-
   const handleDownload = async () => {
     try {
       setDownloading(true);
@@ -88,6 +91,21 @@ export const PayoutReportPanel: React.FC = () => {
     }
   };
 
+  const handleFilter = () => {
+    loadReport(startDate || undefined, endDate || undefined);
+  };
+
+  useEffect(() => {
+    if (registerActions) {
+      registerActions({
+        refresh: () => loadReport(),
+        download: handleDownload,
+        loading,
+        downloading,
+      });
+    }
+  }, [registerActions, loading, downloading, loadReport]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -98,56 +116,58 @@ export const PayoutReportPanel: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
+    <div className="space-y-4">
+      {/* Header with Date Filters - Combined */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
           <h2 className="text-lg font-semibold flex items-center gap-2">
             <DollarSign className="w-5 h-5" />
             Payout Report
           </h2>
           {report?.period && (
-            <p className="text-sm text-muted-foreground mt-1">
-              Period: {formatDate(report.period.start)} – {formatDate(report.period.end)}
-            </p>
+            <span className="text-sm text-muted-foreground">
+              {formatDate(report.period.start)} – {formatDate(report.period.end)}
+            </span>
           )}
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => loadReport()} disabled={loading}>
-            <RefreshCw className="w-3 h-3 mr-1" />
-            Refresh
+          <Input 
+            type="date" 
+            value={startDate} 
+            onChange={(e) => setStartDate(e.target.value)} 
+            className="w-36 h-9"
+            placeholder="Start Date"
+          />
+          <Input 
+            type="date" 
+            value={endDate} 
+            onChange={(e) => setEndDate(e.target.value)} 
+            className="w-36 h-9"
+            placeholder="End Date"
+          />
+          <Button variant="outline" size="sm" onClick={handleFilter}>
+            <CalendarDays className="w-3 h-3 mr-1" />
+            Filter
           </Button>
-          <Button size="sm" onClick={handleDownload} disabled={downloading}>
-            {downloading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Download className="w-3 h-3 mr-1" />}
-            Download CSV
-          </Button>
+          {(startDate || endDate) && (
+            <Button variant="ghost" size="sm" onClick={() => { setStartDate(''); setEndDate(''); loadReport(); }}>
+              Clear
+            </Button>
+          )}
+          {!hideHeaderButtons && (
+            <>
+              <Button variant="outline" size="sm" onClick={() => loadReport()} disabled={loading}>
+                <RefreshCw className="w-3 h-3 mr-1" />
+                Refresh
+              </Button>
+              <Button size="sm" onClick={handleDownload} disabled={downloading}>
+                {downloading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Download className="w-3 h-3 mr-1" />}
+                Download CSV
+              </Button>
+            </>
+          )}
         </div>
       </div>
-
-      {/* Date Filters */}
-      <Card>
-        <CardContent className="pt-4">
-          <div className="flex flex-col sm:flex-row items-end gap-3">
-            <div className="flex-1">
-              <Label className="text-xs">Start Date</Label>
-              <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-            </div>
-            <div className="flex-1">
-              <Label className="text-xs">End Date</Label>
-              <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-            </div>
-            <Button variant="outline" onClick={handleFilter}>
-              <CalendarDays className="w-3 h-3 mr-1" />
-              Filter
-            </Button>
-            {(startDate || endDate) && (
-              <Button variant="ghost" size="sm" onClick={() => { setStartDate(''); setEndDate(''); loadReport(); }}>
-                Clear
-              </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Summary Cards */}
       {report && (

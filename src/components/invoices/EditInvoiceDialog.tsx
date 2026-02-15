@@ -3,13 +3,27 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarIcon, FileTextIcon, Plus, Minus } from "lucide-react";
+import { CalendarIcon, FileTextIcon } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format, parseISO } from "date-fns";
 import { InvoiceData } from '@/utils/invoiceUtils';
 import { useToast } from '@/hooks/use-toast';
+
+interface InvoiceItem {
+  id?: number | string;
+  description?: string;
+  quantity?: number;
+  unit_amount?: number;
+  total_amount?: number;
+  type?: string;
+  meta?: {
+    extra_description?: string;
+    service_name?: string;
+    photographer_name?: string;
+    source?: string;
+  };
+}
 
 interface EditInvoiceDialogProps {
   isOpen: boolean;
@@ -27,7 +41,7 @@ export function EditInvoiceDialog({ isOpen, onClose, invoice, onInvoiceEdit }: E
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState<Date>(new Date());
   const [dueDate, setDueDate] = useState<Date>(new Date());
-  const [services, setServices] = useState<string[]>(['Photography']);
+  const [items, setItems] = useState<InvoiceItem[]>([]);
 
   useEffect(() => {
     if (invoice) {
@@ -36,26 +50,21 @@ export function EditInvoiceDialog({ isOpen, onClose, invoice, onInvoiceEdit }: E
       setAmount(invoice.amount?.toString() || '');
       setDate(invoice.date ? parseISO(invoice.date) : new Date());
       setDueDate(invoice.dueDate ? parseISO(invoice.dueDate) : new Date());
-      setServices(invoice.services && invoice.services.length > 0 ? invoice.services : ['Photography']);
+      setItems(invoice.items || []);
     }
   }, [invoice]);
 
-  const handleAddService = () => setServices([...services, '']);
-
-  const handleRemoveService = (index: number) => {
-    setServices(services.filter((_, i) => i !== index));
-  };
-
-  const handleServiceChange = (index: number, value: string) => {
-    const updatedServices = [...services];
-    updatedServices[index] = value;
-    setServices(updatedServices);
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(value);
   };
 
   const handleEditInvoice = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!client || !property || !amount || !services.length || services.some(service => !service)) {
+    if (!client || !amount) {
       toast({
         title: "Validation Error",
         description: "Please fill out all required fields",
@@ -75,8 +84,7 @@ export function EditInvoiceDialog({ isOpen, onClose, invoice, onInvoiceEdit }: E
       date: formattedDate,
       dueDate: formattedDueDate,
       amount: parseFloat(amount),
-      services: services.filter(service => service !== ''),
-      // keep other fields as is (like status, number, etc)
+      items: items,
     };
 
     setTimeout(() => {
@@ -174,49 +182,54 @@ export function EditInvoiceDialog({ isOpen, onClose, invoice, onInvoiceEdit }: E
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label>Services</Label>
-            {services.map((service, index) => (
-              <div key={index} className="flex items-center space-x-2">
-                <Select
-                  value={service}
-                  onValueChange={(value) => handleServiceChange(index, value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a service" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Photography">Photography</SelectItem>
-                    <SelectItem value="Videography">Videography</SelectItem>
-                    <SelectItem value="Drone">Drone</SelectItem>
-                    <SelectItem value="Virtual Staging">Virtual Staging</SelectItem>
-                    <SelectItem value="Floorplans">Floorplans</SelectItem>
-                    <SelectItem value="3D Tour">3D Tour</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => handleRemoveService(index)}
-                  disabled={services.length <= 1}
-                >
-                  <Minus className="h-4 w-4" />
-                </Button>
+          {/* Invoice Items - Read-only display */}
+          {items.length > 0 && (
+            <div className="space-y-2">
+              <Label>Services</Label>
+              <div className="border rounded-md overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/50">
+                    <tr>
+                      <th className="text-left py-2 px-3 font-medium">Description</th>
+                      <th className="text-right py-2 px-3 font-medium w-24">Rate</th>
+                      <th className="text-center py-2 px-3 font-medium w-16">Qty</th>
+                      <th className="text-right py-2 px-3 font-medium w-24">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.map((item, index) => {
+                      const description = item.description || item.meta?.service_name || 'Service';
+                      const quantity = item.quantity ?? 1;
+                      const unitAmount = item.unit_amount ?? 0;
+                      const totalAmount = item.total_amount ?? unitAmount * quantity;
+                      return (
+                        <tr key={item.id || index} className="border-t border-border">
+                          <td className="py-2 px-3">
+                            <span className="font-medium">{description}</span>
+                            {item.meta?.photographer_name && (
+                              <span className="block text-xs text-muted-foreground">
+                                Photographer: {item.meta.photographer_name}
+                              </span>
+                            )}
+                          </td>
+                          <td className="text-right py-2 px-3 text-muted-foreground">
+                            {formatCurrency(unitAmount)}
+                          </td>
+                          <td className="text-center py-2 px-3 text-muted-foreground">{quantity}</td>
+                          <td className="text-right py-2 px-3 font-medium">
+                            {formatCurrency(totalAmount)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-            ))}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="mt-2"
-              onClick={handleAddService}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Service
-            </Button>
-          </div>
+              <p className="text-xs text-muted-foreground">
+                To add or remove services, use the View Invoice dialog.
+              </p>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="amount">Invoice Amount ($)</Label>

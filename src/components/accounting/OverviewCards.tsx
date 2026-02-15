@@ -53,9 +53,11 @@ interface OverviewCardsProps {
   invoices: InvoiceData[];
   // optional legacy timeFilter you had — kept but not used for the 30/60/90 filter UI
   timeFilter?: "day" | "week" | "month" | "quarter" | "year";
+  // optional element to render on the left side of the filter row (e.g., tabs)
+  leftElement?: React.ReactNode;
 }
 
-export function OverviewCards({ invoices, timeFilter }: OverviewCardsProps) {
+export function OverviewCards({ invoices, timeFilter, leftElement }: OverviewCardsProps) {
   // selected days window for Outstanding Invoices (default 30)
   const [daysWindow, setDaysWindow] = useState<number>(30);
 
@@ -114,10 +116,14 @@ export function OverviewCards({ invoices, timeFilter }: OverviewCardsProps) {
   return (
     <div className="space-y-2">
       {/* Segmented control row — aligned to Outstanding Invoices visually */}
-      <div className="flex items-center justify-end gap-4">
-        {/* <div className="text-sm text-muted-foreground">Outstanding window:</div> */}
-        <SegmentedDays value={daysWindow} onChange={setDaysWindow} />
-        <div className="ml-3 text-sm text-slate-600 dark:text-slate-400">Showing last {daysWindow} days</div>
+      <div className="flex items-center justify-between gap-4">
+        {/* Left element (e.g., tabs) */}
+        <div className="flex items-center">{leftElement}</div>
+        {/* Right side filters */}
+        <div className="flex items-center gap-4">
+          <div className="text-sm text-slate-600 dark:text-slate-400">Showing last {daysWindow} days</div>
+          <SegmentedDays value={daysWindow} onChange={setDaysWindow} />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">

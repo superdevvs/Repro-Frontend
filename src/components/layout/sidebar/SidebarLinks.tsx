@@ -21,7 +21,7 @@ import {
   Mail,
   MessageSquare,
   Upload,
-  Search,
+  Crown,
   Sparkles,
 } from 'lucide-react';
 
@@ -57,8 +57,8 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
         />
       )}
       
-      {/* Book Shoot link - only those who can book shoots */}
-      {shootsPermission.canBook() && (
+      {/* Book Shoot link - only those who can book shoots (not editing_manager) */}
+      {shootsPermission.canBook() && role !== 'editing_manager' && (
         <NavLink
           to="/book-shoot"
           icon={<ClipboardIcon className="h-5 w-5" />}
@@ -89,13 +89,16 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
             isCollapsed={isCollapsed}
             isActive={pathname === '/accounts'}
           />
-          <NavLink
-            to="/scheduling-settings"
-            icon={<Settings2Icon className="h-5 w-5" />}
-            label="Scheduling"
-            isCollapsed={isCollapsed}
-            isActive={pathname === '/scheduling-settings'}
-          />
+          {/* Scheduling - hide for editing_manager */}
+          {role !== 'editing_manager' && (
+            <NavLink
+              to="/scheduling-settings"
+              icon={<Settings2Icon className="h-5 w-5" />}
+              label="Scheduling"
+              isCollapsed={isCollapsed}
+              isActive={pathname === '/scheduling-settings'}
+            />
+          )}
         </>
       )}
 
@@ -103,15 +106,15 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
       {(role === 'admin' || role === 'superadmin' || role === 'editing_manager' || role === 'salesRep' || role === 'client') && (
         <NavLink
           to="/portal"
-          icon={<Search className="h-5 w-5" />}
+          icon={<Crown className="h-5 w-5" />}
           label="Exclusive Listings"
           isCollapsed={isCollapsed}
           isActive={pathname === '/portal' || pathname.startsWith('/exclusive-listings')}
         />
       )}
       
-      {/* Accounting - Available to all roles with role-specific labels */}
-      {(() => {
+      {/* Accounting - Available to all roles except editing_manager */}
+      {role !== 'editing_manager' && (() => {
         const accountingMode = getAccountingMode(role);
         const config = accountingConfigs[accountingMode];
         return (

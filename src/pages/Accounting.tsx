@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { AccountingHeader } from '@/components/accounting/AccountingHeader';
+import { AccountingHeader, type AccountingTab } from '@/components/accounting/AccountingHeader';
 import { OverviewCards } from '@/components/accounting/OverviewCards';
 import { RoleBasedOverviewCards } from '@/components/accounting/RoleBasedOverviewCards';
 import { RevenueCharts } from '@/components/accounting/RevenueCharts';
@@ -60,6 +60,13 @@ const AccountingPage = () => {
   const [batchDialogOpen, setBatchDialogOpen] = useState(false);
   const [timeFilter, setTimeFilter] = useState<'day' | 'week' | 'month' | 'quarter' | 'year'>('month');
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<AccountingTab>('home');
+  const [payoutActions, setPayoutActions] = useState<{
+    refresh: () => void;
+    download: () => Promise<void>;
+    loading: boolean;
+    downloading: boolean;
+  } | null>(null);
   const { shoots: contextShoots } = useShoots();
 
   // Get accounting mode based on role
@@ -69,21 +76,34 @@ const AccountingPage = () => {
   const loadInvoices = useCallback(async (): Promise<void> => {
     try {
       setLoading(true);
-      const collected: InvoiceData[] = [];
-      let page = 1;
-      let lastPage = 1;
-
-      do {
-        const response = await fetchInvoices({
-          page,
-          per_page: 100,
-        });
-        collected.push(...response.data);
-        lastPage = response.last_page || 1;
-        page += 1;
-      } while (page <= lastPage);
-
-      setInvoices(collected);
+      // Fetch first page only for fast initial load
+      const response = await fetchInvoices({
+        page: 1,
+        per_page: 100,
+      });
+      
+      const firstPageData = response.data;
+      const lastPage = response.last_page || 1;
+      
+      // If there are more pages, fetch them in parallel (background)
+      if (lastPage > 1) {
+        setInvoices(firstPageData); // Show first page immediately
+        
+        // Fetch remaining pages in parallel
+        const pagePromises = [];
+        for (let page = 2; page <= lastPage; page++) {
+          pagePromises.push(fetchInvoices({ page, per_page: 100 }));
+        }
+        
+        const remainingResponses = await Promise.all(pagePromises);
+        const allData = [
+          ...firstPageData,
+          ...remainingResponses.flatMap(r => r.data)
+        ];
+        setInvoices(allData);
+      } else {
+        setInvoices(firstPageData);
+      }
     } catch (error) {
       console.error('Failed to load invoices:', error);
       toast({
@@ -360,105 +380,166 @@ const AccountingPage = () => {
             }
             badge={config.sidebarLabel}
             showCreateButton={canCreateInvoice && accountingMode === 'admin'}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            showTabs={accountingMode === 'admin'}
+            payoutActions={payoutActions}
           />
 
-          {config.showOverviewCards && (
-            accountingMode === 'admin' ? (
-              <OverviewCards invoices={filteredInvoices} timeFilter={timeFilter} />
-            ) : (
-              <RoleBasedOverviewCards
-                invoices={filteredInvoices}
-                mode={accountingMode}
-                timeFilter={timeFilter}
-                shoots={shoots}
-                editingJobs={editingJobs}
-              />
-            )
-          )}
-
-          {config.showRevenueChart && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 items-stretch">
-              <div className="lg:col-span-2">
-                {accountingMode === 'admin' ? (
-                  <RevenueCharts
-                    invoices={filteredInvoices}
+          {/* Home Tab Content */}
+          {(activeTab === 'home' || accountingMode !== 'admin') && (
+            <>
+              {config.showOverviewCards && (
+                accountingMode === 'admin' ? (
+                  <OverviewCards 
+                    invoices={filteredInvoices} 
                     timeFilter={timeFilter}
-                    onTimeFilterChange={setTimeFilter}
-                    role={role}
+                    leftElement={
+                      <div className="flex items-center gap-1 text-sm">
+                        <button
+                          onClick={() => setActiveTab('home')}
+                          className={`px-2 py-1.5 font-medium transition-colors relative ${
+                            activeTab === 'home'
+                              ? 'text-foreground'
+                              : 'text-muted-foreground hover:text-foreground'
+                          }`}
+                        >
+                          Home
+                          {activeTab === 'home' && (
+                            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+                          )}
+                        </button>
+                        <span className="text-muted-foreground">/</span>
+                        <button
+                          onClick={() => setActiveTab('photographers')}
+                          className={`px-2 py-1.5 font-medium transition-colors relative ${
+                            activeTab === 'photographers'
+                              ? 'text-foreground'
+                              : 'text-muted-foreground hover:text-foreground'
+                          }`}
+                        >
+                          Photographers
+                          {activeTab === 'photographers' && (
+                            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+                          )}
+                        </button>
+                      </div>
+                    }
                   />
                 ) : (
-                  <RoleBasedCharts
+                  <RoleBasedOverviewCards
                     invoices={filteredInvoices}
                     mode={accountingMode}
                     timeFilter={timeFilter}
-                    onTimeFilterChange={setTimeFilter}
                     shoots={shoots}
                     editingJobs={editingJobs}
                   />
-                )}
-              </div>
-              {(config.showPaymentsSummary || config.showLatestTransactions || accountingMode === 'editor') && (
-                <div className="lg:col-span-1 flex flex-col gap-3 h-full">
-                  {accountingMode === 'admin' ? (
-                    <PaymentsSummary invoices={filteredInvoices} />
-                  ) : accountingMode === 'editor' ? (
-                    <>
-                      <EditorRateSettings />
-                      <RoleBasedSidePanel
+                )
+              )}
+
+              {config.showRevenueChart && (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 items-stretch">
+                  <div className="lg:col-span-2">
+                    {accountingMode === 'admin' ? (
+                      <RevenueCharts
+                        invoices={filteredInvoices}
+                        timeFilter={timeFilter}
+                        onTimeFilterChange={setTimeFilter}
+                        role={role}
+                      />
+                    ) : (
+                      <RoleBasedCharts
                         invoices={filteredInvoices}
                         mode={accountingMode}
+                        timeFilter={timeFilter}
+                        onTimeFilterChange={setTimeFilter}
                         shoots={shoots}
                         editingJobs={editingJobs}
                       />
-                    </>
-                  ) : (
-                    <RoleBasedSidePanel
-                      invoices={filteredInvoices}
-                      mode={accountingMode}
-                      shoots={shoots}
-                      editingJobs={editingJobs}
-                    />
+                    )}
+                  </div>
+                  {(config.showPaymentsSummary || config.showLatestTransactions || accountingMode === 'editor') && (
+                    <div className="lg:col-span-1 flex flex-col gap-3 h-full">
+                      {accountingMode === 'admin' ? (
+                        <PaymentsSummary invoices={filteredInvoices} />
+                      ) : accountingMode === 'editor' ? (
+                        <>
+                          <EditorRateSettings />
+                          <RoleBasedSidePanel
+                            invoices={filteredInvoices}
+                            mode={accountingMode}
+                            shoots={shoots}
+                            editingJobs={editingJobs}
+                          />
+                        </>
+                      ) : (
+                        <RoleBasedSidePanel
+                          invoices={filteredInvoices}
+                          mode={accountingMode}
+                          shoots={shoots}
+                          editingJobs={editingJobs}
+                        />
+                      )}
+                    </div>
                   )}
                 </div>
               )}
-            </div>
-          )}
 
-          {/* Weekly Invoice Review for Photographers and Sales Reps */}
-          {(accountingMode === 'photographer' || accountingMode === 'rep') && (
-            <WeeklyInvoiceReview />
-          )}
+              {/* Weekly Invoice Review for Photographers and Sales Reps */}
+              {(accountingMode === 'photographer' || accountingMode === 'rep') && (
+                <WeeklyInvoiceReview />
+              )}
 
-          {/* Pending Invoice Approvals for Admin/SuperAdmin */}
-          {accountingMode === 'admin' && (
-            <PendingInvoiceApprovals />
-          )}
-
-          {config.showInvoiceTable && (
-            <>
-              {accountingMode === 'photographer' ? (
-                <PhotographerShootsTable shoots={shoots} />
-              ) : accountingMode === 'editor' ? (
-                <EditorJobsTable jobs={editingJobs} />
-              ) : (
-                <InvoiceList
-                  data={{ invoices: filteredInvoices }}
-                  onView={handleViewInvoice}
-                  onEdit={handleEditInvoice}
-                  onDownload={handleDownloadInvoice}
-                  onPay={handlePayInvoice}
-                  onSendReminder={handleSendReminder}
-                  isAdmin={isAdmin} // Pass down admin status
-                  isSuperAdmin={isSuperAdmin} // Pass down super admin status for payment visibility
-                  role={role || ''} // Pass role for payment checks
-                />
+              {config.showInvoiceTable && (
+                <>
+                  {accountingMode === 'photographer' ? (
+                    <PhotographerShootsTable shoots={shoots} />
+                  ) : accountingMode === 'editor' ? (
+                    <EditorJobsTable jobs={editingJobs} />
+                  ) : (
+                    <InvoiceList
+                      data={{ invoices: filteredInvoices }}
+                      onView={handleViewInvoice}
+                      onEdit={handleEditInvoice}
+                      onDownload={handleDownloadInvoice}
+                      onPay={handlePayInvoice}
+                      onSendReminder={handleSendReminder}
+                      isAdmin={isAdmin}
+                      isSuperAdmin={isSuperAdmin}
+                      role={role || ''}
+                    />
+                  )}
+                </>
               )}
             </>
           )}
 
-          {/* Payout Report for Admin/SuperAdmin */}
-          {accountingMode === 'admin' && (
-            <PayoutReportPanel />
+          {/* Photographers Tab Content - Payout Report and Pending Invoice Approvals */}
+          {activeTab === 'photographers' && accountingMode === 'admin' && (
+            <div className="space-y-6">
+              {/* Tab navigation row for photographers view */}
+              <div className="flex items-center gap-1 text-sm">
+                <button
+                  onClick={() => setActiveTab('home')}
+                  className="px-2 py-1.5 font-medium transition-colors relative text-muted-foreground hover:text-foreground"
+                >
+                  Home
+                </button>
+                <span className="text-muted-foreground">/</span>
+                <button
+                  onClick={() => setActiveTab('photographers')}
+                  className="px-2 py-1.5 font-medium transition-colors relative text-foreground"
+                >
+                  Photographers
+                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+                </button>
+              </div>
+              <PayoutReportPanel 
+                hideHeaderButtons={true}
+                registerActions={setPayoutActions}
+              />
+              <PendingInvoiceApprovals />
+            </div>
           )}
         </div>
 
