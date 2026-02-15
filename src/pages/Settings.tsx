@@ -211,19 +211,20 @@ const Settings = () => {
     localStorage.setItem(storageKey('avatar'), url);
     
     // Don't save blob URLs to the backend - they're only valid locally
-    if (!url || url.startsWith('blob:')) {
+    if (url.startsWith('blob:')) {
       console.log('Skipping backend save for blob URL');
       return;
     }
     
     // Save to backend immediately for better UX
+    // Empty string means user is removing their avatar - send null to clear it
     try {
       const token = localStorage.getItem('authToken');
       if (!token) return;
 
       const { data } = await axios.put(
         `${API_BASE_URL}/api/profile`,
-        { avatar: url },
+        { avatar: url || null },
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -244,8 +245,8 @@ const Settings = () => {
         };
         setUser(updatedUser);
         toast({
-          title: "Avatar saved",
-          description: "Your profile photo has been saved to your account.",
+          title: url ? "Avatar saved" : "Avatar removed",
+          description: url ? "Your profile photo has been saved to your account." : "Your profile photo has been removed.",
         });
       }
     } catch (error) {

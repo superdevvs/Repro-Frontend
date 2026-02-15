@@ -78,7 +78,9 @@ export function getAvatarUrl(
   gender?: Gender,
   userId?: string | number
 ): string {
-  if (customAvatar && customAvatar.trim()) {
+  // Check for valid custom avatar - handle edge cases like "null" string, empty strings, etc.
+  const invalidValues = ['null', 'undefined', 'none', ''];
+  if (customAvatar && customAvatar.trim() && !invalidValues.includes(customAvatar.trim().toLowerCase())) {
     const trimmed = customAvatar.trim();
     const isAbsolute = /^https?:\/\//i.test(trimmed) || trimmed.startsWith('data:') || trimmed.startsWith('blob:');
     if (isAbsolute) {
