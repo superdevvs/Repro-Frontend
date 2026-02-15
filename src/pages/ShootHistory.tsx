@@ -108,6 +108,7 @@ import {
   Check,
   Edit,
   X,
+  PenLine,
 } from 'lucide-react'
 import { useTheme } from '@/hooks/useTheme'
 import {
@@ -830,11 +831,6 @@ const ScheduledShootListRow = ({
                   {paymentStatus}
                 </Badge>
               )}
-              {canShowEditingNotes && (
-                <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
-                  Editing Notes
-                </Badge>
-              )}
             </div>
           </div>
 
@@ -889,11 +885,6 @@ const ScheduledShootListRow = ({
             {paymentStatus && (
               <Badge variant={paymentStatus === 'Paid' ? 'secondary' : 'destructive'} className="text-xs">
                 {paymentStatus}
-              </Badge>
-            )}
-            {canShowEditingNotes && (
-              <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
-                Editing Notes
               </Badge>
             )}
             {isSuperAdmin && paymentStatus === 'Unpaid' && (
@@ -1061,7 +1052,15 @@ const ScheduledShootListRow = ({
             </div>
           );
         })()}
+
       </div>
+      {/* Editing Notes - full-width bottom banner */}
+      {canShowEditingNotes && editingNotes && (
+        <div className="bg-purple-100 dark:bg-purple-900/30 px-3 sm:px-4 py-1.5 text-xs flex items-center gap-2 border-t border-purple-200 dark:border-purple-700/30 rounded-b-lg">
+          <span className="text-purple-700 dark:text-purple-400 font-medium">Editing notes :</span>
+          <span className="text-purple-600 dark:text-purple-300 truncate">{editingNotes}</span>
+        </div>
+      )}
     </Card>
   )
 }
@@ -1165,11 +1164,6 @@ const CompletedAlbumCard = ({
               </Badge>
             );
           })()}
-          {canShowEditingNotes && (
-            <Badge variant="outline" className="ml-2 text-xs bg-purple-500/90 text-white border-purple-400">
-              Editing Notes
-            </Badge>
-          )}
         </div>
         
         {/* Send to Editing button - Top right */}
@@ -1307,7 +1301,15 @@ const CompletedAlbumCard = ({
             </Badge>
           )}
         </div>
+
       </div>
+      {/* Editing Notes - full-width bottom banner */}
+      {canShowEditingNotes && editingNotes && (
+        <div className="bg-purple-100 dark:bg-purple-900/30 px-3 sm:px-4 py-1.5 text-xs flex items-center gap-2 border-t border-purple-200 dark:border-purple-700/30 rounded-b-lg">
+          <span className="text-purple-700 dark:text-purple-400 font-medium">Editing notes :</span>
+          <span className="text-purple-600 dark:text-purple-300 truncate">{editingNotes}</span>
+        </div>
+      )}
     </Card>
   )
 }
@@ -1406,11 +1408,6 @@ const CompletedShootListRow = ({
                 <div onClick={(e) => e.stopPropagation()}>
                   <PaymentButton shoot={shoot} />
                 </div>
-              )}
-              {canShowEditingNotes && (
-                <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
-                  Editing Notes
-                </Badge>
               )}
             </div>
           </div>
@@ -1528,8 +1525,16 @@ const CompletedShootListRow = ({
               </div>
             );
           })()}
+
         </div>
       </div>
+      {/* Editing Notes - full-width bottom banner */}
+      {canShowEditingNotes && editingNotes && (
+        <div className="bg-purple-100 dark:bg-purple-900/30 px-3 sm:px-4 py-1.5 text-xs flex items-center gap-2 border-t border-purple-200 dark:border-purple-700/30 rounded-b-lg">
+          <span className="text-purple-700 dark:text-purple-400 font-medium">Editing notes :</span>
+          <span className="text-purple-600 dark:text-purple-300 truncate">{editingNotes}</span>
+        </div>
+      )}
     </Card>
   )
 }
@@ -1591,11 +1596,6 @@ const HoldOnShootCard = ({
                 <PauseCircle className="h-3.5 w-3.5 mr-1" />
                 {holdReason.label}
               </Badge>
-              {canShowEditingNotes && (
-                <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
-                  Editing Notes
-                </Badge>
-              )}
             </div>
             <h3 className="font-semibold leading-tight">{shoot.location.fullAddress}</h3>
           </div>
@@ -1704,8 +1704,16 @@ const HoldOnShootCard = ({
               </div>
             );
           })()}
+
         </div>
       </div>
+      {/* Editing Notes - full-width bottom banner */}
+      {canShowEditingNotes && editingNotes && (
+        <div className="bg-purple-100 dark:bg-purple-900/30 px-3 sm:px-4 py-1.5 text-xs flex items-center gap-2 border-t border-purple-200 dark:border-purple-700/30 rounded-b-lg">
+          <span className="text-purple-700 dark:text-purple-400 font-medium">Editing notes :</span>
+          <span className="text-purple-600 dark:text-purple-300 truncate">{editingNotes}</span>
+        </div>
+      )}
     </Card>
   )
 }
@@ -1919,11 +1927,6 @@ const HistoryRow = memo(({
                 ID #{record.id}
               </Badge>
             )}
-            {canShowEditingNotes && (
-              <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
-                Editing Notes
-              </Badge>
-            )}
           </div>
           <div className="flex items-center gap-3 flex-wrap">
             {!shouldHideClientDetails && (
@@ -2062,7 +2065,15 @@ const HistoryRow = memo(({
           )}
           <ChevronDown className={cn('h-4 w-4 text-muted-foreground ml-auto transition-transform', open && 'rotate-180')} />
         </div>
+
       </div>
+      {/* Editing Notes - full-width bottom banner */}
+      {canShowEditingNotes && editingNotesValue && (
+        <div className="bg-purple-100 dark:bg-purple-900/30 px-3 sm:px-4 py-1.5 text-xs flex items-center gap-2 border-t border-purple-200 dark:border-purple-700/30 rounded-b-lg">
+          <span className="text-purple-700 dark:text-purple-400 font-medium">Editing notes :</span>
+          <span className="text-purple-600 dark:text-purple-300 truncate">{editingNotesValue}</span>
+        </div>
+      )}
 
       {/* Expanded Details - spec 3.3.2 */}
       {open && (
