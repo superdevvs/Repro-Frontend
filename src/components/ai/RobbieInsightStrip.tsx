@@ -69,6 +69,8 @@ export const RobbieInsightStrip: React.FC<RobbieInsightStripProps> = ({ role, cl
     || (typeof window !== 'undefined'
       ? (localStorage.getItem('authToken') || localStorage.getItem('token'))
       : null);
+  const tokenRef = React.useRef(token);
+  React.useEffect(() => { tokenRef.current = token; }, [token]);
   const navigate = useNavigate();
   const location = useLocation();
   const activeRole = role ?? authRole;
@@ -98,8 +100,9 @@ export const RobbieInsightStrip: React.FC<RobbieInsightStripProps> = ({ role, cl
   const [thinkingDots, setThinkingDots] = useState("");
 
   // Fetch insights from API
-  const fetchInsights = useCallback(async () => {
-    if (!isAllowedRole || !token) {
+  const fetchInsights = useCallback(async (signal?: AbortSignal) => {
+    const currentToken = tokenRef.current;
+    if (!isAllowedRole || !currentToken) {
       setIsLoading(false);
       return;
     }
@@ -107,12 +110,11 @@ export const RobbieInsightStrip: React.FC<RobbieInsightStripProps> = ({ role, cl
     try {
       setError(null);
       const response = await fetch(`${API_BASE_URL}/api/robbie/insights`, {
-        cache: 'no-store',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${currentToken}`,
           'Accept': 'application/json',
-          'Cache-Control': 'no-cache',
         },
+        signal,
       });
 
       if (!response.ok) {
@@ -128,19 +130,24 @@ export const RobbieInsightStrip: React.FC<RobbieInsightStripProps> = ({ role, cl
         setApiInsights([]);
       }
     } catch (error) {
+      if ((error as DOMException)?.name === 'AbortError') return;
       console.error('Failed to fetch Robbie insights:', error);
       setApiInsights([]);
       setError('Unable to load insights right now.');
     } finally {
       setIsLoading(false);
     }
-  }, [isAllowedRole, token]);
+  }, [isAllowedRole]);
 
   // Initial fetch and auto-refresh
   useEffect(() => {
-    fetchInsights();
-    const interval = setInterval(fetchInsights, REFRESH_INTERVAL_MS);
-    return () => clearInterval(interval);
+    const controller = new AbortController();
+    fetchInsights(controller.signal);
+    const interval = setInterval(() => fetchInsights(controller.signal), REFRESH_INTERVAL_MS);
+    return () => {
+      controller.abort();
+      clearInterval(interval);
+    };
   }, [fetchInsights]);
 
   // Use API insights - prioritize blocking and rotate through the top insights

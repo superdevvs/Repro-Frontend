@@ -28,7 +28,8 @@ import {
   RefreshCw,
   ChevronLeft,
   ChevronRight,
-  Ban
+  Ban,
+  Loader2
 } from "lucide-react";
 import { addDays, isSameWeek } from "date-fns";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -235,11 +236,15 @@ export default function Availability() {
   const [editedAvailability, setEditedAvailability] = useState<Partial<Availability>>({});
     const [isWeeklyScheduleDialogOpen, setIsWeeklyScheduleDialogOpen] = useState(false);
   const [isBlockDialogOpen, setIsBlockDialogOpen] = useState(false);
+  const [isBlocking, setIsBlocking] = useState(false);
   const [blockSchedule, setBlockSchedule] = useState({
     date: null as Date | null,
     startTime: "09:00",
     endTime: "17:00",
   });
+  const [blockPhotographer, setBlockPhotographer] = useState<string>("");
+  const [blockPhotographerSearch, setBlockPhotographerSearch] = useState("");
+  const [blockPhotographerOpen, setBlockPhotographerOpen] = useState(false);
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
   const [expandedBookingDetails, setExpandedBookingDetails] = useState<Set<string>>(new Set());
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -1495,19 +1500,13 @@ export default function Availability() {
                         });
                         return;
                       }
-                      if (selectedPhotographer === "all") {
-                        toast({
-                          title: "Select a photographer",
-                          description: "Please select a specific photographer before blocking calendar.",
-                          variant: "destructive"
-                        });
-                        return;
-                      }
                       setBlockSchedule({
                         date: date,
                         startTime: "09:00",
                         endTime: "17:00",
                       });
+                      setBlockPhotographer(selectedPhotographer === "all" ? "" : selectedPhotographer);
+                      setBlockPhotographerSearch("");
                       setIsBlockDialogOpen(true);
                     }}
                   >
@@ -4489,7 +4488,7 @@ export default function Availability() {
                   className={cn(
                     "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all border",
                     newWeeklySchedule.status === "available"
-                      ? "bg-green-50 border-green-300 text-green-700 ring-2 ring-green-200"
+                      ? "bg-green-950/40 border-green-700 text-green-300 ring-2 ring-green-800"
                       : "bg-muted/50 border-muted text-muted-foreground hover:bg-muted"
                   )}
                 >
@@ -4502,7 +4501,7 @@ export default function Availability() {
                   className={cn(
                     "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all border",
                     newWeeklySchedule.status === "unavailable"
-                      ? "bg-red-50 border-red-300 text-red-700 ring-2 ring-red-200"
+                      ? "bg-red-950/40 border-red-700 text-red-300 ring-2 ring-red-800"
                       : "bg-muted/50 border-muted text-muted-foreground hover:bg-muted"
                   )}
                 >
@@ -4765,16 +4764,83 @@ export default function Availability() {
       </Dialog>
 
       {/* Block Time Dialog */}
-      <Dialog open={isBlockDialogOpen} onOpenChange={setIsBlockDialogOpen}>
+      <Dialog open={isBlockDialogOpen} onOpenChange={(open) => { setIsBlockDialogOpen(open); if (!open) { setBlockPhotographerOpen(false); } }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Block Time</DialogTitle>
             <DialogDescription>
-              Block a time slot for {getPhotographerName(selectedPhotographer)}{blockSchedule.date ? ` on ${format(blockSchedule.date, "MMMM d, yyyy")}` : ""}.
+              Block a time slot{blockPhotographer ? ` for ${getPhotographerName(blockPhotographer)}` : ""}{blockSchedule.date ? ` on ${format(blockSchedule.date, "MMMM d, yyyy")}` : ""}.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
+            {/* Photographer Selector */}
+            <div className="space-y-2">
+              <Label>Photographer</Label>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setBlockPhotographerOpen(!blockPhotographerOpen)}
+                  className={cn(
+                    "flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background",
+                    !blockPhotographer && "text-muted-foreground"
+                  )}
+                >
+                  <span className="truncate">{blockPhotographer ? getPhotographerName(blockPhotographer) : "Choose Photographer"}</span>
+                  <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
+                </button>
+                {blockPhotographerOpen && (
+                  <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-popover shadow-md">
+                    <div className="p-2">
+                      <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-muted/50">
+                        <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <input
+                          type="text"
+                          placeholder="Search photographers..."
+                          value={blockPhotographerSearch}
+                          onChange={(e) => setBlockPhotographerSearch(e.target.value)}
+                          className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                          autoFocus
+                        />
+                      </div>
+                    </div>
+                    <div className="max-h-48 overflow-y-auto px-1 pb-1">
+                      {photographers
+                        .filter((p) =>
+                          p.name.toLowerCase().includes(blockPhotographerSearch.toLowerCase())
+                        )
+                        .map((p) => (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => {
+                              setBlockPhotographer(p.id);
+                              setBlockPhotographerOpen(false);
+                              setBlockPhotographerSearch("");
+                            }}
+                            className={cn(
+                              "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground transition-colors",
+                              blockPhotographer === p.id && "bg-accent text-accent-foreground"
+                            )}
+                          >
+                            <Avatar className="h-6 w-6">
+                              <AvatarImage src={getAvatarUrl(p.avatar)} />
+                              <AvatarFallback className="text-xs">{p.name.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                            <span className="truncate">{p.name}</span>
+                          </button>
+                        ))}
+                      {photographers.filter((p) =>
+                        p.name.toLowerCase().includes(blockPhotographerSearch.toLowerCase())
+                      ).length === 0 && (
+                        <div className="px-2 py-3 text-sm text-muted-foreground text-center">No photographers found</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* Date */}
             <div className="space-y-2">
               <Label>Date</Label>
@@ -4814,7 +4880,7 @@ export default function Availability() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-red-50 border border-red-200 text-red-700 text-sm">
+            <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-red-950/40 border border-red-800 text-red-300 text-sm">
               <Ban className="h-4 w-4 shrink-0" />
               This time will be marked as unavailable
             </div>
@@ -4824,14 +4890,18 @@ export default function Availability() {
             <Button variant="outline" onClick={() => {
               setIsBlockDialogOpen(false);
               setBlockSchedule({ date: null, startTime: "09:00", endTime: "17:00" });
+              setBlockPhotographer("");
+              setBlockPhotographerSearch("");
             }}>Cancel</Button>
             <Button
               variant="destructive"
+              disabled={isBlocking}
               onClick={async () => {
-                if (selectedPhotographer === "all") {
+                if (isBlocking) return;
+                if (!blockPhotographer) {
                   toast({
                     title: "Select a photographer",
-                    description: "Please select a specific photographer before blocking time.",
+                    description: "Please choose a photographer before blocking time.",
                     variant: "destructive"
                   });
                   return;
@@ -4858,10 +4928,11 @@ export default function Availability() {
                   return;
                 }
 
+                setIsBlocking(true);
                 try {
                   const dateStr = format(blockSchedule.date, "yyyy-MM-dd");
                   const payload = {
-                    photographer_id: Number(selectedPhotographer),
+                    photographer_id: Number(blockPhotographer),
                     date: dateStr,
                     start_time: startTime,
                     end_time: endTime,
@@ -4878,6 +4949,8 @@ export default function Availability() {
                     await refreshPhotographerSlots();
                     setIsBlockDialogOpen(false);
                     setBlockSchedule({ date: null, startTime: "09:00", endTime: "17:00" });
+                    setBlockPhotographer("");
+                    setBlockPhotographerSearch("");
                     toast({
                       title: "Time blocked",
                       description: `Blocked ${startTime} - ${endTime} on ${format(blockSchedule.date, "MMMM d, yyyy")}`,
@@ -4896,11 +4969,13 @@ export default function Availability() {
                     description: "Failed to block time. Please try again.",
                     variant: "destructive"
                   });
+                } finally {
+                  setIsBlocking(false);
                 }
               }}
             >
-              <Ban className="h-4 w-4 mr-2" />
-              Block Time
+              {isBlocking ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Ban className="h-4 w-4 mr-2" />}
+              {isBlocking ? "Blocking..." : "Block Time"}
             </Button>
           </DialogFooter>
         </DialogContent>

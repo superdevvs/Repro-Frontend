@@ -449,10 +449,17 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const { user, logout, isImpersonating } = useAuth();
   const location = useLocation();
   const sessionExpiredRef = useRef(false);
+  const locationRef = useRef(location.pathname);
+  const fetchInFlightRef = useRef(false);
   const clientRole = user?.role;
   const clientName = user?.name;
   const clientCompany = user?.company;
   const clientEmail = user?.email;
+
+  // Keep locationRef in sync without triggering re-fetches
+  useEffect(() => {
+    locationRef.current = location.pathname;
+  }, [location.pathname]);
 
   useEffect(() => {
     sessionExpiredRef.current = false;
@@ -466,7 +473,7 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     (description?: string) => {
       if (sessionExpiredRef.current) return;
       // Don't show session expired on login page or if user never logged in
-      if (location.pathname === '/' || !user) return;
+      if (locationRef.current === '/' || !user) return;
       // During impersonation, 401s can happen transiently when the user
       // context is switching.  Never log the admin out because of them.
       if (isImpersonating || localStorage.getItem('originalUser')) return;
@@ -478,7 +485,7 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       });
       logout();
     },
-    [logout, location.pathname, user, isImpersonating],
+    [logout, user, isImpersonating],
   );
 
   const persistShoots = useCallback((items: ShootData[]) => {
@@ -501,6 +508,12 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return [];
     }
 
+    // Dedup guard: skip if another fetch is already in flight (unless it has an AbortSignal, meaning it's a fresh controlled fetch)
+    if (fetchInFlightRef.current && !signal) {
+      return [];
+    }
+
+    fetchInFlightRef.current = true;
     try {
       // For admins/superadmins, fetch from both 'scheduled' and 'completed' tabs to get all non-delivered shoots
       // For photographers, fetch from both tabs to see all shoots until delivered
@@ -765,25 +778,29 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setShoots([]);
       persistShoots([]);
       return [];
+    } finally {
+      fetchInFlightRef.current = false;
     }
   }, [handleSessionExpired, persistShoots, user?.role]);
 
   const refreshShoots = useCallback(async (): Promise<void> => {
-    const isDashboardRoute = location.pathname === '/dashboard';
-    const isAccountsRoute = location.pathname.startsWith('/accounts');
+    const currentPath = locationRef.current;
+    const isDashboardRoute = currentPath === '/dashboard';
+    const isAccountsRoute = currentPath.startsWith('/accounts');
     const shouldUseLightweight = (isDashboardRoute || isAccountsRoute) && user?.role !== 'client';
     if (shouldUseLightweight) {
       await fetchShoots(undefined, 1, 25, { includeFiles: false });
       return;
     }
     await fetchShoots();
-  }, [fetchShoots, location.pathname, user?.role]);
+  }, [fetchShoots, user?.role]);
 
-  // Optimize: Only fetch shoots when necessary
+  // Fetch shoots once on mount and when user/role changes — NOT on every route change
   useEffect(() => {
     const controller = new AbortController();
-    const isDashboardRoute = location.pathname === '/dashboard';
-    const isAccountsRoute = location.pathname.startsWith('/accounts');
+    const currentPath = locationRef.current;
+    const isDashboardRoute = currentPath === '/dashboard';
+    const isAccountsRoute = currentPath.startsWith('/accounts');
     const shouldUseLightweight = (isDashboardRoute || isAccountsRoute) && user?.role !== 'client';
 
     if (shouldUseLightweight) {
@@ -793,7 +810,7 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     return () => controller.abort();
-  }, [fetchShoots, location.pathname, user?.role]);
+  }, [fetchShoots, user?.role]);
 
   useEffect(() => {
     if (!user?.id) return;

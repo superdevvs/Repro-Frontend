@@ -45,7 +45,7 @@ interface AvailabilitySlot {
 interface TimelineSlot {
   start: string;
   end: string;
-  status: 'available' | 'booked' | 'past' | 'travel';
+  status: 'available' | 'booked' | 'past' | 'unavailable';
   shoot?: {
     id: number;
     address: string;
