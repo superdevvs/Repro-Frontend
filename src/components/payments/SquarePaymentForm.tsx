@@ -28,6 +28,9 @@ declare global {
           tokenize: (verificationDetails?: any) => Promise<any>;
           destroy?: () => void;
         };
+        paymentRequest: (options: any) => any;
+        applePay: (paymentRequest: any) => Promise<any>;
+        googlePay: (paymentRequest: any) => Promise<any>;
       };
     };
   }
@@ -82,9 +85,13 @@ export function SquarePaymentForm({
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSDKLoaded, setIsSDKLoaded] = useState(false);
   const [card, setCard] = useState<any>(null);
+  const [applePay, setApplePay] = useState<any>(null);
+  const [googlePay, setGooglePay] = useState<any>(null);
   const [squareConfig, setSquareConfig] = useState<{ applicationId: string; locationId: string } | null>(null);
   const [configLoading, setConfigLoading] = useState(true);
   const cardElementRef = useRef<HTMLDivElement>(null);
+  const applePayRef = useRef<HTMLDivElement>(null);
+  const googlePayRef = useRef<HTMLDivElement>(null);
   const paymentsRef = useRef<any>(null);
   
   // Form state
@@ -320,7 +327,41 @@ export function SquarePaymentForm({
       if (cardElementRef.current) {
         await cardInstance.attach(cardElementRef.current);
         setCard(cardInstance);
-        
+      }
+
+      // Initialize Apple Pay (requires HTTPS + Safari)
+      try {
+        const paymentRequest = paymentsRef.current.paymentRequest({
+          countryCode: 'US',
+          currencyCode: currency,
+          total: {
+            amount: effectivePaymentAmount.toFixed(2),
+            label: 'REPro Photos',
+          },
+        });
+        const applePayInstance = await paymentsRef.current.applePay(paymentRequest);
+        setApplePay(applePayInstance);
+      } catch (e) {
+        console.log('Apple Pay not available:', (e as Error).message);
+      }
+
+      // Initialize Google Pay
+      try {
+        const paymentRequest = paymentsRef.current.paymentRequest({
+          countryCode: 'US',
+          currencyCode: currency,
+          total: {
+            amount: effectivePaymentAmount.toFixed(2),
+            label: 'REPro Photos',
+          },
+        });
+        const googlePayInstance = await paymentsRef.current.googlePay(paymentRequest);
+        if (googlePayRef.current) {
+          await googlePayInstance.attach(googlePayRef.current);
+        }
+        setGooglePay(googlePayInstance);
+      } catch (e) {
+        console.log('Google Pay not available:', (e as Error).message);
       }
     } catch (error) {
       console.error('Error initializing Square card element:', error);
@@ -465,6 +506,82 @@ export function SquarePaymentForm({
         error.response?.data?.message ||
         error.message ||
         'Payment processing failed. Please try again.';
+
+      toast({
+        title: 'Payment Error',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+
+      if (onPaymentError) {
+        onPaymentError(error);
+      }
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Handle digital wallet payment (Apple Pay / Google Pay)
+  const handleWalletPayment = async (walletInstance: any, walletName: string) => {
+    if (isProcessing || disabled) return;
+
+    if (effectivePaymentAmount <= 0 || effectivePaymentAmount > outstandingAmount) {
+      toast({
+        title: 'Invalid Payment Amount',
+        description: `Payment amount must be between $0.01 and $${outstandingAmount.toFixed(2)}`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsProcessing(true);
+
+    try {
+      const authToken = localStorage.getItem('authToken') || localStorage.getItem('token');
+
+      const tokenResult = await walletInstance.tokenize();
+
+      if (tokenResult.status === 'OK') {
+        const response = await axios.post(
+          `${API_BASE_URL}/api/payments/create`,
+          {
+            sourceId: tokenResult.token,
+            amount: effectivePaymentAmount,
+            currency: currency,
+            shoot_id: shootId,
+            payment_method: walletName.toLowerCase().replace(/\s/g, '_'),
+            buyer: tokenResult.details || undefined,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${authToken}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        if (response.data && (response.data.status === 'success' || response.data.payment)) {
+          toast({
+            title: 'Payment Successful',
+            description: `Payment of $${effectivePaymentAmount.toFixed(2)} via ${walletName} has been processed.${remainingBalanceAfterPayment > 0 ? ` Remaining: $${remainingBalanceAfterPayment.toFixed(2)}` : ''}`,
+          });
+
+          if (onPaymentSuccess) {
+            onPaymentSuccess(response.data);
+          }
+        } else {
+          throw new Error(response.data?.message || 'Payment failed');
+        }
+      } else {
+        const errors = tokenResult.errors || [];
+        const firstError = errors[0] || {};
+        throw new Error(firstError.detail || firstError.message || `${walletName} payment failed`);
+      }
+    } catch (error: any) {
+      const errorMessage =
+        error.response?.data?.message ||
+        error.message ||
+        `${walletName} payment failed. Please try again.`;
 
       toast({
         title: 'Payment Error',
@@ -709,6 +826,41 @@ export function SquarePaymentForm({
                   Remaining after payment: <span className="text-orange-600 font-medium">${remainingBalanceAfterPayment.toFixed(2)}</span>
                 </p>
               )}
+            </div>
+          )}
+
+          {/* Digital Wallet Buttons (Apple Pay / Google Pay) */}
+          {(applePay || googlePay) && (
+            <div className="space-y-2">
+              {applePay && (
+                <button
+                  type="button"
+                  onClick={() => handleWalletPayment(applePay, 'Apple Pay')}
+                  disabled={isProcessing || disabled || effectivePaymentAmount <= 0}
+                  className="w-full h-11 rounded-md bg-black text-white flex items-center justify-center gap-2 hover:bg-black/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  style={{ WebkitAppearance: 'none' }}
+                >
+                  <svg viewBox="0 0 24 24" className="h-5 w-5 fill-current">
+                    <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
+                  </svg>
+                  <span className="font-medium text-sm">Pay with Apple Pay</span>
+                </button>
+              )}
+              {googlePay && (
+                <div
+                  ref={googlePayRef}
+                  id="sq-google-pay"
+                  className="w-full [&>button]:!w-full [&>button]:!h-11 [&>button]:!rounded-md"
+                />
+              )}
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <Separator className="w-full" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">or pay with card</span>
+                </div>
+              </div>
             </div>
           )}
           
