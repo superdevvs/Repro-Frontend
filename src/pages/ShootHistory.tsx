@@ -992,7 +992,7 @@ const ScheduledShootListRow = ({
                         <Badge 
                           key={idx} 
                           variant="secondary" 
-                          className="bg-primary/10 text-primary hover:bg-primary/20 font-medium px-2.5 py-1 text-xs rounded-md border border-primary/20"
+                          className="bg-gray-100 text-gray-600 hover:bg-gray-200 border-gray-200 dark:bg-primary/10 dark:text-primary dark:hover:bg-primary/20 dark:border-primary/20 font-medium px-2.5 py-1 text-xs rounded-md border"
                         >
                           {serviceName}
                         </Badge>
@@ -1056,9 +1056,9 @@ const ScheduledShootListRow = ({
       </div>
       {/* Editing Notes - full-width bottom banner */}
       {canShowEditingNotes && editingNotes && (
-        <div className="bg-purple-100 dark:bg-purple-900/30 px-3 sm:px-4 py-1.5 text-xs flex items-center gap-2 border-t border-purple-200 dark:border-purple-700/30 rounded-b-lg">
-          <span className="text-purple-700 dark:text-purple-400 font-medium">Editing notes :</span>
-          <span className="text-purple-600 dark:text-purple-300 truncate">{editingNotes}</span>
+        <div className="bg-gray-100 dark:bg-purple-900/30 px-3 sm:px-4 py-1.5 text-xs flex items-center gap-2 border-t border-gray-200 dark:border-purple-700/30 rounded-b-lg">
+          <span className="text-gray-700 dark:text-purple-400 font-medium">Editing notes :</span>
+          <span className="text-gray-600 dark:text-purple-300 truncate">{editingNotes}</span>
         </div>
       )}
     </Card>
@@ -1273,7 +1273,7 @@ const CompletedAlbumCard = ({
                 <Badge 
                   key={idx} 
                   variant="secondary" 
-                  className="bg-primary/10 text-primary hover:bg-primary/20 font-medium px-3 py-1 text-sm rounded-md border border-primary/20"
+                  className="bg-gray-100 text-gray-600 hover:bg-gray-200 border-gray-200 dark:bg-primary/10 dark:text-primary dark:hover:bg-primary/20 dark:border-primary/20 font-medium px-3 py-1 text-sm rounded-md border"
                 >
                   {typeof service === 'string' ? service : (service as any).name || String(service)}
                 </Badge>
@@ -1305,9 +1305,9 @@ const CompletedAlbumCard = ({
       </div>
       {/* Editing Notes - full-width bottom banner */}
       {canShowEditingNotes && editingNotes && (
-        <div className="bg-purple-100 dark:bg-purple-900/30 px-3 sm:px-4 py-1.5 text-xs flex items-center gap-2 border-t border-purple-200 dark:border-purple-700/30 rounded-b-lg">
-          <span className="text-purple-700 dark:text-purple-400 font-medium">Editing notes :</span>
-          <span className="text-purple-600 dark:text-purple-300 truncate">{editingNotes}</span>
+        <div className="bg-gray-100 dark:bg-purple-900/30 px-3 sm:px-4 py-1.5 text-xs flex items-center gap-2 border-t border-gray-200 dark:border-purple-700/30 rounded-b-lg">
+          <span className="text-gray-700 dark:text-purple-400 font-medium">Editing notes :</span>
+          <span className="text-gray-600 dark:text-purple-300 truncate">{editingNotes}</span>
         </div>
       )}
     </Card>
@@ -1451,7 +1451,7 @@ const CompletedShootListRow = ({
                         <Badge 
                           key={idx} 
                           variant="outline" 
-                          className="bg-primary/5 text-primary font-medium text-xs py-0.5 px-2 rounded-full border-primary/20"
+                          className="bg-gray-100 text-gray-600 border-gray-200 dark:bg-primary/5 dark:text-primary dark:border-primary/20 font-medium text-xs py-0.5 px-2 rounded-full"
                         >
                           {serviceName}
                         </Badge>
@@ -1530,9 +1530,9 @@ const CompletedShootListRow = ({
       </div>
       {/* Editing Notes - full-width bottom banner */}
       {canShowEditingNotes && editingNotes && (
-        <div className="bg-purple-100 dark:bg-purple-900/30 px-3 sm:px-4 py-1.5 text-xs flex items-center gap-2 border-t border-purple-200 dark:border-purple-700/30 rounded-b-lg">
-          <span className="text-purple-700 dark:text-purple-400 font-medium">Editing notes :</span>
-          <span className="text-purple-600 dark:text-purple-300 truncate">{editingNotes}</span>
+        <div className="bg-gray-100 dark:bg-purple-900/30 px-3 sm:px-4 py-1.5 text-xs flex items-center gap-2 border-t border-gray-200 dark:border-purple-700/30 rounded-b-lg">
+          <span className="text-gray-700 dark:text-purple-400 font-medium">Editing notes :</span>
+          <span className="text-gray-600 dark:text-purple-300 truncate">{editingNotes}</span>
         </div>
       )}
     </Card>
@@ -1691,7 +1691,7 @@ const HoldOnShootCard = ({
                         <Badge 
                           key={idx} 
                           variant="secondary" 
-                          className="bg-primary/10 text-primary hover:bg-primary/20 font-medium px-3 py-1 text-sm rounded-md border border-primary/20"
+                          className="bg-gray-100 text-gray-600 hover:bg-gray-200 border-gray-200 dark:bg-primary/10 dark:text-primary dark:hover:bg-primary/20 dark:border-primary/20 font-medium px-3 py-1 text-sm rounded-md border"
                         >
                           {serviceName}
                         </Badge>
@@ -1709,9 +1709,9 @@ const HoldOnShootCard = ({
       </div>
       {/* Editing Notes - full-width bottom banner */}
       {canShowEditingNotes && editingNotes && (
-        <div className="bg-purple-100 dark:bg-purple-900/30 px-3 sm:px-4 py-1.5 text-xs flex items-center gap-2 border-t border-purple-200 dark:border-purple-700/30 rounded-b-lg">
-          <span className="text-purple-700 dark:text-purple-400 font-medium">Editing notes :</span>
-          <span className="text-purple-600 dark:text-purple-300 truncate">{editingNotes}</span>
+        <div className="bg-gray-100 dark:bg-purple-900/30 px-3 sm:px-4 py-1.5 text-xs flex items-center gap-2 border-t border-gray-200 dark:border-purple-700/30 rounded-b-lg">
+          <span className="text-gray-700 dark:text-purple-400 font-medium">Editing notes :</span>
+          <span className="text-gray-600 dark:text-purple-300 truncate">{editingNotes}</span>
         </div>
       )}
     </Card>
@@ -1787,7 +1787,7 @@ const ShootListRow = ({
                   <Badge 
                     key={idx} 
                     variant="secondary" 
-                    className="bg-primary/10 text-primary hover:bg-primary/20 font-medium px-3 py-1 text-sm rounded-md border border-primary/20"
+                    className="bg-gray-100 text-gray-600 hover:bg-gray-200 border-gray-200 dark:bg-primary/10 dark:text-primary dark:hover:bg-primary/20 dark:border-primary/20 font-medium px-3 py-1 text-sm rounded-md border"
                   >
                     {serviceName}
                   </Badge>
@@ -2069,9 +2069,9 @@ const HistoryRow = memo(({
       </div>
       {/* Editing Notes - full-width bottom banner */}
       {canShowEditingNotes && editingNotesValue && (
-        <div className="bg-purple-100 dark:bg-purple-900/30 px-3 sm:px-4 py-1.5 text-xs flex items-center gap-2 border-t border-purple-200 dark:border-purple-700/30 rounded-b-lg">
-          <span className="text-purple-700 dark:text-purple-400 font-medium">Editing notes :</span>
-          <span className="text-purple-600 dark:text-purple-300 truncate">{editingNotesValue}</span>
+        <div className="bg-gray-100 dark:bg-purple-900/30 px-3 sm:px-4 py-1.5 text-xs flex items-center gap-2 border-t border-gray-200 dark:border-purple-700/30 rounded-b-lg">
+          <span className="text-gray-700 dark:text-purple-400 font-medium">Editing notes :</span>
+          <span className="text-gray-600 dark:text-purple-300 truncate">{editingNotesValue}</span>
         </div>
       )}
 
@@ -4038,7 +4038,7 @@ const ShootHistory: React.FC = () => {
     }
 
     // Apply client-side pagination - always show 9 items per page
-    const perPage = 9
+    const perPage = viewMode === 'grid' ? 15 : 9
     const currentPage = operationalMeta?.current_page ?? 1
     const startIndex = (currentPage - 1) * perPage
     const endIndex = startIndex + perPage
@@ -4046,7 +4046,7 @@ const ShootHistory: React.FC = () => {
 
     if (viewMode === 'grid') {
       return (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="masonry-grid">
           {paginatedData.map((shoot) => (
             <SharedShootCard
               key={shoot.id}
@@ -4110,7 +4110,7 @@ const ShootHistory: React.FC = () => {
     
     if (loading && (activeTab === 'completed' || activeTab === 'delivered' || activeTab === 'editing' || activeTab === 'edited')) {
       return (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="masonry-grid">
           {[1, 2, 3, 4, 5, 6].map((item) => (
             <Skeleton key={item} className="h-72 w-full rounded-xl" />
           ))}
@@ -4157,7 +4157,7 @@ const ShootHistory: React.FC = () => {
     }
 
     // Apply client-side pagination - always show 9 items per page
-    const perPage = 9
+    const perPage = viewMode === 'grid' ? 15 : 9
     const currentPage = operationalMeta?.current_page ?? 1
     const startIndex = (currentPage - 1) * perPage
     const endIndex = startIndex + perPage
@@ -4165,7 +4165,7 @@ const ShootHistory: React.FC = () => {
 
     if (viewMode === 'grid') {
       return (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="masonry-grid">
           {displayData.map((shoot) => (
             <CompletedAlbumCard
               key={shoot.id}
@@ -4216,7 +4216,7 @@ const ShootHistory: React.FC = () => {
   const holdOnContent = useMemo(() => {
     if (loading && activeTab === 'hold') {
       return (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="masonry-grid">
           {[1, 2, 3].map((item) => (
             <Skeleton key={item} className="h-40 w-full rounded-xl" />
           ))}
@@ -4225,7 +4225,7 @@ const ShootHistory: React.FC = () => {
     }
 
     // Apply client-side pagination - always show 9 items per page
-    const perPage = 9
+    const perPage = viewMode === 'grid' ? 15 : 9
     const currentPage = operationalMeta?.current_page ?? 1
     const startIndex = (currentPage - 1) * perPage
     const endIndex = startIndex + perPage
@@ -4255,7 +4255,7 @@ const ShootHistory: React.FC = () => {
 
     if (viewMode === 'grid') {
       return (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="masonry-grid">
           {paginatedData.map((shoot) => (
             <HoldOnShootCard 
               key={shoot.id} 
@@ -4361,7 +4361,7 @@ const ShootHistory: React.FC = () => {
 
     if (historyFilters.viewAs === 'grid') {
       return (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="masonry-grid">
           {paginatedRecords.map((record) => (
             <Card key={record.id} className="overflow-hidden border hover:border-primary/40 transition-colors cursor-pointer" onClick={() => handleHistoryRecordSelect(record)}>
               <CardHeader className="pb-3">

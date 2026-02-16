@@ -15,6 +15,7 @@ import { MapPin, Calendar, ExternalLink, FileText, Camera, Loader2 } from "lucid
 import { useNavigate } from 'react-router-dom';
 import { useUserPreferences } from "@/contexts/UserPreferencesContext";
 import { API_BASE_URL } from "@/config/env";
+import axios from 'axios';
 
 export function PhotographerProfile() {
   const { user, setUser } = useAuth();
@@ -45,8 +46,37 @@ export function PhotographerProfile() {
     setFormData(prev => ({ ...prev, [name]: checked }));
   };
 
-  const handleAvatarChange = (url: string) => {
+  const handleAvatarChange = async (url: string) => {
     setFormData(prev => ({ ...prev, avatar: url }));
+
+    // Don't save blob URLs to the backend
+    if (url.startsWith('blob:')) return;
+
+    // Save avatar to backend immediately
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      if (!token) return;
+
+      const { data } = await axios.put(
+        `${API_BASE_URL}/api/profile`,
+        { avatar: url || null },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (data.user && user) {
+        setUser({ ...user, ...data.user, avatar: data.user.avatar });
+      }
+
+      toast.success(url ? "Avatar saved" : "Avatar removed");
+    } catch (error) {
+      console.error('Error saving avatar:', error);
+      toast.error("Could not save avatar. Please try again.");
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

@@ -96,6 +96,8 @@ const SHOOT_ACTIVITY_TITLES: Record<string, string> = {
   payment_done: 'Payment Received',
   media_uploaded: 'Media Uploaded',
   cancellation_requested: 'Cancellation Requested',
+  email_received: 'Email Received',
+  email_sent: 'Email Sent',
 };
 
 const normalizeActivity = (activity: DashboardActivityItem, readIds: Set<string>): NotificationItem => {
@@ -103,7 +105,7 @@ const normalizeActivity = (activity: DashboardActivityItem, readIds: Set<string>
   const actionHint = (activity.action || '').toLowerCase();
   
   let type: NotificationCategory = 'system';
-  if (typeHint.includes('message') || actionHint.includes('sms')) {
+  if (typeHint.includes('message') || actionHint.includes('sms') || actionHint.includes('email')) {
     type = 'messages';
   } else if (
     typeHint.includes('shoot') ||

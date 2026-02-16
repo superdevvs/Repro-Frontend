@@ -14,6 +14,7 @@ import { CheckCircle2, AlertTriangle, Clock, Activity, Settings, Thermometer, Lo
 import { useTheme } from "@/hooks/useTheme";
 import { useUserPreferences } from "@/contexts/UserPreferencesContext";
 import { API_BASE_URL } from "@/config/env";
+import axios from 'axios';
 
 export function AdminProfile() {
   const { user, setUser } = useAuth();
@@ -55,8 +56,37 @@ export function AdminProfile() {
     }
   };
 
-  const handleAvatarChange = (url: string) => {
+  const handleAvatarChange = async (url: string) => {
     setFormData(prev => ({ ...prev, avatar: url }));
+
+    // Don't save blob URLs to the backend
+    if (url.startsWith('blob:')) return;
+
+    // Save avatar to backend immediately for better UX
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      if (!token) return;
+
+      const { data } = await axios.put(
+        `${API_BASE_URL}/api/profile`,
+        { avatar: url || null },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (data.user && user) {
+        setUser({ ...user, ...data.user, avatar: data.user.avatar });
+      }
+
+      toast.success(url ? "Avatar saved" : "Avatar removed");
+    } catch (error) {
+      console.error('Error saving avatar:', error);
+      toast.error("Could not save avatar. Please try again.");
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -79,7 +109,7 @@ export function AdminProfile() {
         },
         body: JSON.stringify({
           name: formData.name,
-          avatar: formData.avatar || undefined,
+          avatar: formData.avatar || null,
         }),
       });
 

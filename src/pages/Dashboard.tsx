@@ -97,6 +97,7 @@ import { RequestedShootsSection } from "@/components/dashboard/v2/RequestedShoot
 import { ShootsTabsCard } from "@/components/dashboard/v2/ShootsTabsCard";
 import { ErrorBoundary, withErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { InvoiceViewDialog } from "@/components/invoices/InvoiceViewDialog";
+import { CancellationRequestsDialog } from "@/components/dashboard/CancellationRequestsDialog";
 
 const LazyAssignPhotographersCard = lazy(() =>
   import("@/components/dashboard/v2/AssignPhotographersCard").then((module) => ({
@@ -228,6 +229,7 @@ const Dashboard = () => {
     useState<DashboardPhotographerSummary | null>(null);
   const [specialRequestOpen, setSpecialRequestOpen] = useState(false);
   const [selectedRequestId, setSelectedRequestId] = useState<number | null>(null);
+  const [cancellationDialogOpen, setCancellationDialogOpen] = useState(false);
   const [mobileDashboardTab, setMobileDashboardTab] = useState<MobileDashboardTab>("shoots");
   const canCustomizeQuickActions = Boolean(user) && (role === 'admin' || role === 'superadmin');
   const quickActionsStorageKey = useMemo(
@@ -551,6 +553,17 @@ const Dashboard = () => {
     
     fetchClientRequests();
   }, [isAdminExperience]);
+
+  // Count shoots with pending cancellation requests (requested but not yet cancelled)
+  const cancellationRequestCount = useMemo(() => {
+    if (!isAdminExperience) return 0;
+    return shoots.filter(s => {
+      const hasRequest = !!(s.cancellationRequestedAt || (s as any).cancellation_requested_at);
+      if (!hasRequest) return false;
+      const status = (s.workflowStatus || s.status || '').toLowerCase();
+      return !status.includes('canceled') && !status.includes('cancelled');
+    }).length;
+  }, [shoots, isAdminExperience]);
 
   useEffect(() => {
     const state = location.state as CommandBarState | null;
@@ -1876,6 +1889,17 @@ const Dashboard = () => {
           <div className="flex-1">
             <PageHeader title={greetingTitle} description={DASHBOARD_DESCRIPTION} />
           </div>
+          {cancellationRequestCount > 0 && (
+            <button
+              onClick={() => setCancellationDialogOpen(true)}
+              className="flex-shrink-0 rounded-2xl border border-rose-200/80 dark:border-rose-800/40 bg-white dark:bg-card shadow-sm px-4 py-3 flex items-center gap-3 hover:border-rose-300 dark:hover:border-rose-700 hover:shadow-md transition-all cursor-pointer"
+            >
+              <div className="flex items-center justify-center h-9 w-9 rounded-xl border border-rose-200 dark:border-rose-800/50 bg-rose-50 dark:bg-rose-950/30">
+                <span className="text-base font-bold text-rose-600 dark:text-rose-400">{cancellationRequestCount}</span>
+              </div>
+              <span className="text-[11px] font-medium text-muted-foreground leading-tight text-left">Cancellation{cancellationRequestCount !== 1 ? 's' : ''}<br />pending</span>
+            </button>
+          )}
         </div>
 
         {error && (
@@ -1966,6 +1990,15 @@ const Dashboard = () => {
           onDelete={isAdminExperience ? removeEditingRequest : undefined}
         />
       </Suspense>
+
+      <CancellationRequestsDialog
+        open={cancellationDialogOpen}
+        onOpenChange={setCancellationDialogOpen}
+        onActionComplete={() => {
+          refresh();
+          if (fetchShoots) fetchShoots().catch(() => {});
+        }}
+      />
     </DashboardLayout>
   );
 };
