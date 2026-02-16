@@ -1165,6 +1165,15 @@ const CompletedAlbumCard = ({
             );
           })()}
         </div>
+
+        {/* Paid/Unpaid badge - Top right (non-hover) */}
+        {isSuperAdmin && (
+          <div className="absolute top-3 right-3 opacity-100 group-hover:opacity-0 transition-opacity">
+            <Badge variant={isPaid ? 'secondary' : 'destructive'} className="text-xs font-medium">
+              {isPaid ? 'Paid' : 'Unpaid'}
+            </Badge>
+          </div>
+        )}
         
         {/* Send to Editing button - Top right */}
         {canSendToEditing && (
@@ -1295,11 +1304,6 @@ const CompletedAlbumCard = ({
             <span className="font-medium truncate max-w-[120px]">{shoot.photographer?.name ?? 'Unassigned'}</span>
           </div>
         </div>
-          {isSuperAdmin && (
-            <Badge variant={isPaid ? 'secondary' : 'destructive'} className="text-xs font-medium">
-              {isPaid ? 'Paid' : 'Unpaid'}
-            </Badge>
-          )}
         </div>
 
       </div>
