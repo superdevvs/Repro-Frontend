@@ -1857,9 +1857,9 @@ const Dashboard = () => {
     <Tabs
       value={mobileDashboardTab}
       onValueChange={(val) => setMobileDashboardTab(val as MobileDashboardTab)}
-      className="space-y-4 flex-1 flex flex-col dashboard-mobile-tabs"
+      className="space-y-2 flex-1 flex flex-col dashboard-mobile-tabs"
     >
-      <div className="sticky top-[-0.25rem] z-20 pb-2 -mx-2 px-2 sm:-mx-3 sm:px-4 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+      <div className="sticky top-[-0.25rem] z-20 pb-1 -mx-2 px-2 sm:-mx-3 sm:px-4 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
         <div className="overflow-x-auto hidden-scrollbar">
           <TabsList className="mx-auto inline-flex gap-2 rounded-full border border-border/50 bg-muted/30 px-3 py-1.5">
             {mobileTabs.map((tab) => (
@@ -1876,7 +1876,7 @@ const Dashboard = () => {
       </div>
       {mobileTabs.map((tab) => (
         <TabsContent key={tab.id} value={tab.id} className="focus-visible:outline-none flex-1 flex flex-col min-h-0">
-          <div className="flex-1 flex flex-col min-h-0 pt-2">
+          <div className="flex-1 flex flex-col min-h-0 pt-1">
             {tab.content}
           </div>
         </TabsContent>

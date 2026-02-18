@@ -50,6 +50,8 @@ interface BookingContentAreaProps {
   photographers: any[];
   handleSubmit: () => void;
   goBack: () => void;
+  showClearSavedData?: boolean;
+  onClearSavedData?: () => void;
 }
 
 export function BookingContentArea({
@@ -89,11 +91,13 @@ export function BookingContentArea({
   clients,
   photographers,
   handleSubmit,
-  goBack
+  goBack,
+  showClearSavedData = false,
+  onClearSavedData,
 }: BookingContentAreaProps) {
   
   return (
-    <Card className="p-4 md:p-6 border border-blue-100/70 shadow-none bg-background dark:border-slate-800/60 dark:bg-transparent">
+    <Card className="p-2 sm:p-4 md:p-6 border border-blue-100/70 shadow-none bg-background dark:border-slate-800/60 dark:bg-transparent">
       {step === 1 && clientPropertyFormData && (
         <ClientPropertyForm
           initialData={clientPropertyFormData.initialData}
@@ -106,6 +110,8 @@ export function BookingContentArea({
           selectedServices={selectedServices}
           onSelectedServicesChange={onSelectedServicesChange}
           packagesLoading={packagesLoading}
+          showClearSavedData={showClearSavedData}
+          onClearSavedData={onClearSavedData}
         />
       )}
       

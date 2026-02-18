@@ -46,9 +46,9 @@ export const ExpandableMenuItem = ({
   const renderIcon = () => {
     switch (icon) {
       case 'MessageSquare':
-        return <MessageSquareIcon className="h-6 w-6" />;
+        return <MessageSquareIcon className="h-5 w-5" />;
       default:
-        return <MessageSquareIcon className="h-6 w-6" />;
+        return <MessageSquareIcon className="h-5 w-5" />;
     }
   };
 
@@ -73,28 +73,28 @@ export const ExpandableMenuItem = ({
       {/* Main Item */}
       <div
         className={cn(
-          "flex flex-col rounded-xl backdrop-blur-md bg-background/60 border border-background/10 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden",
+          "flex flex-col overflow-hidden rounded-lg border border-background/10 bg-background/60 shadow-lg transition-all duration-200",
           isActive ? "bg-secondary/90 border-primary/30" : "bg-background/60"
         )}
       >
-        <div className="flex items-center gap-2 p-3">
+        <div className="flex items-center gap-1.5 p-2.5">
           <Link
             to={to}
             onClick={onClick}
-            className="flex-1 flex flex-col items-center justify-center gap-2"
+            className="flex flex-1 flex-col items-center justify-center gap-1.5"
           >
-            <div className="text-2xl text-primary">
+            <div className="text-primary">
               {renderIcon()}
             </div>
-            <span className="text-sm font-medium">{label}</span>
+            <span className="text-xs font-medium leading-tight text-center">{label}</span>
           </Link>
           {subItems.length > 0 && (
             <button
               onClick={handleToggle}
-              className="p-1.5 rounded-md text-muted-foreground hover:bg-secondary/50 transition-colors flex-shrink-0"
+              className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary/50 flex-shrink-0"
               aria-label="Toggle submenu"
             >
-              <ChevronDown className={cn('h-4 w-4 transition-transform duration-200', isExpanded && 'rotate-180')} />
+              <ChevronDown className={cn('h-3.5 w-3.5 transition-transform duration-200', isExpanded && 'rotate-180')} />
             </button>
           )}
         </div>
@@ -109,7 +109,7 @@ export const ExpandableMenuItem = ({
               transition={{ duration: 0.2, ease: "easeInOut" }}
               className="overflow-hidden border-t border-background/20"
             >
-              <div className="p-2 space-y-1">
+              <div className="space-y-1 p-2">
                 {subItems.map((subItem) => {
                   const isSubItemActive = pathname === subItem.to || pathname.startsWith(subItem.to + '/');
                   return (
@@ -118,7 +118,7 @@ export const ExpandableMenuItem = ({
                       to={subItem.to}
                       onClick={onClick}
                       className={cn(
-                        "flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors",
+                        "flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs transition-colors",
                         isSubItemActive
                           ? "bg-secondary/60 font-medium text-foreground"
                           : "text-muted-foreground hover:bg-secondary/40 hover:text-foreground"

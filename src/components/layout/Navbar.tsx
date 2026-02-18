@@ -122,6 +122,7 @@ export function Navbar() {
   
   // Photographers and editors get simplified nav with menu in top bar
   const isSimplifiedLayout = role === 'photographer' || role === 'editor';
+  const showRobbieStrip = role !== 'photographer' && role !== 'editor';
 
   useEffect(() => {
     const unsubscribe = subscribeToWeatherProvider(() => {
@@ -233,7 +234,12 @@ export function Navbar() {
   return (
     <div className="w-full border-b border-border bg-card dark:bg-background">
       <div className="h-16 flex items-center justify-between px-4">
-        <div className="flex items-center gap-4 pl-4">
+        <div
+          className={cn(
+            "flex min-w-0 items-center gap-2 sm:gap-4 pl-0 sm:pl-4",
+            showRobbieStrip ? "flex-1 xl:flex-none xl:w-[280px]" : "flex-1"
+          )}
+        >
         {/* Logo for simplified layout (photographer/editor) */}
         {isSimplifiedLayout && (
           <div className="flex items-center gap-6">
@@ -281,7 +287,7 @@ export function Navbar() {
               <Button 
                 variant="default" 
                 size="sm" 
-                className="mr-2 flex items-center gap-1 bg-primary text-primary-foreground hover:bg-primary/90"
+                className="mr-2 shrink-0 flex items-center gap-1 bg-primary text-primary-foreground hover:bg-primary/90"
                 onClick={() => navigate('/book-shoot')}
               >
                 <PlusCircleIcon className="h-4 w-4" />
@@ -289,7 +295,7 @@ export function Navbar() {
               </Button>
             )}
           
-            <div className="flex w-[160px] sm:w-[180px] items-center gap-1.5 relative">
+            <div className="relative flex min-w-[110px] flex-1 items-center gap-1.5 sm:flex-none sm:min-w-[100px] sm:max-w-[100px] md:min-w-[110px] md:max-w-[110px] lg:min-w-[120px] lg:max-w-[120px]">
               <SearchIcon className="h-4 w-4 text-muted-foreground absolute ml-3" />
               <Input 
                 type="search" 
@@ -306,8 +312,8 @@ export function Navbar() {
         </div>
 
         {/* Hide Robbie strip for photographer and editor roles */}
-        {role !== 'photographer' && role !== 'editor' && (
-          <div className="hidden xl:flex flex-1 min-w-0 px-4 items-center">
+        {showRobbieStrip && (
+          <div className="hidden xl:flex flex-[1.6] min-w-0 px-3 items-center">
             <div className="h-8 w-px bg-border/60" />
             <RobbieInsightStrip
               role={role}

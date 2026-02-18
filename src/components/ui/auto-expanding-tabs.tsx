@@ -15,6 +15,7 @@ interface AutoExpandingTabsListProps {
   value: string
   className?: string
   variant?: 'default' | 'compact'
+  desktopExpanded?: boolean
 }
 
 export function AutoExpandingTabsList({
@@ -22,6 +23,7 @@ export function AutoExpandingTabsList({
   value,
   className,
   variant = 'default',
+  desktopExpanded = false,
 }: AutoExpandingTabsListProps) {
   const [hoveredTab, setHoveredTab] = React.useState<string | null>(null)
 
@@ -31,7 +33,7 @@ export function AutoExpandingTabsList({
         {tabs.map((tab) => {
           const isActive = value === tab.value
           const isHovered = hoveredTab === tab.value
-          const shouldExpand = isActive || isHovered
+          const shouldExpandOnMobile = isActive || isHovered
           const Icon = tab.icon
 
           return (
@@ -42,7 +44,7 @@ export function AutoExpandingTabsList({
               onMouseLeave={() => setHoveredTab(null)}
             >
               {/* Invisible extended hitbox - only when hovered to prevent wiggle during expansion */}
-              {shouldExpand && (
+              {shouldExpandOnMobile && (
                 <div 
                   className="absolute top-0 bottom-0 left-0"
                   style={{
@@ -58,14 +60,15 @@ export function AutoExpandingTabsList({
                 className={cn(
                   "relative flex items-center justify-center z-10",
                   "rounded-full",
-                  "transition-all duration-200 ease-out",
+                  "transition-all duration-150 ease-out",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                   "disabled:pointer-events-none disabled:opacity-50",
                   variant === 'compact' ? "h-9" : "h-10",
                   // When collapsed: perfect circle (w = h), when expanded: pill with padding and gap
-                  shouldExpand 
+                  shouldExpandOnMobile
                     ? "px-4 gap-2" 
                     : variant === 'compact' ? "w-9" : "w-10",
+                  desktopExpanded && "sm:w-auto sm:px-4 sm:gap-2",
                   isActive
                     ? "bg-primary text-primary-foreground"
                     : isHovered
@@ -74,17 +77,25 @@ export function AutoExpandingTabsList({
                 )}
               >
                 <Icon className="flex-shrink-0 h-4 w-4" />
-                {shouldExpand && (
-                  <span className="text-sm font-medium whitespace-nowrap">
+                {(shouldExpandOnMobile || desktopExpanded) && (
+                  <span
+                    className={cn(
+                      "text-sm font-medium whitespace-nowrap",
+                      shouldExpandOnMobile ? "inline" : "hidden",
+                      desktopExpanded && "sm:inline"
+                    )}
+                  >
                     {tab.label}
                   </span>
                 )}
-                {tab.badge && shouldExpand && (
+                {tab.badge && (shouldExpandOnMobile || desktopExpanded) && (
                   <span
                     className={cn(
                       "flex items-center justify-center",
                       "rounded-full",
                       "text-xs font-semibold",
+                      shouldExpandOnMobile ? "inline-flex" : "hidden",
+                      desktopExpanded && "sm:inline-flex",
                       variant === 'compact' ? "h-4 min-w-[1rem] px-1" : "h-5 min-w-[1.25rem] px-1.5",
                       isActive 
                         ? "bg-primary-foreground/20 text-primary-foreground"

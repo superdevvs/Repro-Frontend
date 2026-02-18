@@ -67,11 +67,12 @@ export const MobileBottomNav = ({ toggleMenu }: MobileBottomNavProps) => {
   return (
     <motion.div 
       className={cn(
-        "fixed bottom-0 left-0 right-0 z-50 px-1 py-2",
+        "fixed left-0 right-0 -bottom-[2px] z-50 px-1 pt-2",
         isLightMode 
           ? "bg-white/80 backdrop-blur-md border-t border-gray-200 shadow-sm"
           : "bg-background/50 backdrop-blur-xl border-t border-white/10 shadow-lg"
       )}
+      style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 0.5rem)' }}
       initial={{ y: 100 }}
       animate={{ y: 0 }}
       transition={{ duration: 0.3, ease: "easeOut" }}

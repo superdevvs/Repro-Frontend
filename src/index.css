@@ -6,34 +6,38 @@
 @tailwind components;
 @tailwind utilities;
 
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 /* Global root + body background setup (fixes iOS safe areas) */
 html,
 body {
   margin: 0;
   padding: 0;
   /* Match Android Chrome/iOS Safari theme-color for seamless chrome + overscroll */
-  background-color: #03060B;
+  background-color: #030619;
   min-height: 100%;
 }
 
 #root {
   min-height: 100vh;
   min-height: 100svh;
-  background-color: #03060B;
+  background-color: #030619;
 }
 
 .app-root {
   min-height: 100vh;
   min-height: 100svh;
   width: 100%;
-  background-color: #03060B;
+  background-color: #030619;
   padding-top: env(safe-area-inset-top, 0px);
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .app-shell {
   min-height: 100%;
-  background-color: #03060B;
+  background-color: #030619;
 }
 
 @layer base {

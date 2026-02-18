@@ -372,7 +372,7 @@ export const GlobalCommandBar: React.FC<GlobalCommandBarProps> = ({ open, onOpen
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl w-[92vw] p-0 overflow-hidden">
+      <DialogContent className="max-w-4xl w-[92vw] rounded-2xl sm:rounded-2xl p-0 overflow-hidden">
         <Command shouldFilter={false} className="flex flex-col">
           <CommandInput
             placeholder="Search or run a command..."

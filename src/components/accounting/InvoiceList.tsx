@@ -2,9 +2,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { 
   Calendar as CalendarIcon,
+  MoreVertical,
+  Check,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
+import { useIsMobile } from '@/hooks/use-mobile';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,7 +18,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
 import { InvoiceData } from '@/utils/invoiceUtils';
 import {
@@ -27,6 +30,18 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@/components/ui/pagination';
+
+const usdCurrencyFormatter = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+});
+
+const formatInvoiceDate = (value?: string | null) => {
+  if (!value) return '—';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '—';
+  return format(parsed, 'MMM d, yyyy');
+};
 
 interface InvoiceListProps {
   data: {
@@ -54,8 +69,13 @@ export function InvoiceList({
   role = '' // Default to empty string
 }: InvoiceListProps) {
   const { toast } = useToast();
+  const isMobile = useIsMobile();
   const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'paid' | 'overdue'>('all');
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>(() => {
+    if (typeof window === 'undefined') return 'list';
+    return window.innerWidth < 768 ? 'grid' : 'list';
+  });
+  const [hasExplicitViewMode, setHasExplicitViewMode] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
   const filteredInvoices = activeTab === 'all' 
@@ -82,8 +102,18 @@ export function InvoiceList({
     setCurrentPage(1);
   }, [activeTab, viewMode]);
 
+  useEffect(() => {
+    if (hasExplicitViewMode) return;
+    setViewMode(isMobile ? 'grid' : 'list');
+  }, [hasExplicitViewMode, isMobile]);
+
   const handlePageChange = (page: number) => {
     setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+  };
+
+  const handleViewModeChange = (mode: 'list' | 'grid') => {
+    setHasExplicitViewMode(true);
+    setViewMode(mode);
   };
 
   const handleViewInvoice = (invoice: InvoiceData) => {
@@ -149,111 +179,218 @@ export function InvoiceList({
   return (
     <div className="w-full">
       <Card className="mb-6">
-        <div className="flex items-center justify-between p-3 border-b">
-          <Tabs defaultValue="all" className="w-auto" onValueChange={(value) => setActiveTab(value as any)}>
-            <TabsList className="grid grid-cols-4 w-full min-w-[320px]">
-              <TabsTrigger value="all" className="py-1 text-sm">All Invoices</TabsTrigger>
-              <TabsTrigger value="pending" className="py-1 text-sm">Pending</TabsTrigger>
-              <TabsTrigger value="paid" className="py-1 text-sm">Paid</TabsTrigger>
-              <TabsTrigger value="overdue" className="py-1 text-sm">Overdue</TabsTrigger>
-            </TabsList>
-          </Tabs>
-          <div className="flex gap-1 ml-4 text-xs">
-            <Button variant={viewMode === 'list' ? 'secondary' : 'ghost'} size="sm" aria-label="List view" onClick={() => setViewMode('list')}>
-              List View
-            </Button>
-            <Button variant={viewMode === 'grid' ? 'secondary' : 'ghost'} size="sm" aria-label="Grid view" onClick={() => setViewMode('grid')}>
-              Grid View
-            </Button>
+        <div className="border-b p-3">
+          <div className="flex items-start gap-2 sm:items-center sm:justify-between">
+            <Tabs value={activeTab} className="min-w-0 flex-1 sm:w-auto" onValueChange={(value) => setActiveTab(value as any)}>
+              <div className="overflow-x-auto pb-1 sm:pb-0">
+                <TabsList className="inline-flex min-w-max">
+                  <TabsTrigger value="all" className="py-1 text-sm">All Invoices</TabsTrigger>
+                  <TabsTrigger value="pending" className="py-1 text-sm">Pending</TabsTrigger>
+                  <TabsTrigger value="paid" className="py-1 text-sm">Paid</TabsTrigger>
+                  <TabsTrigger value="overdue" className="py-1 text-sm">Overdue</TabsTrigger>
+                </TabsList>
+              </div>
+            </Tabs>
+
+            <div className="flex items-center gap-1 text-xs">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8 sm:hidden"
+                    aria-label="View options"
+                    title="View options"
+                  >
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-40 sm:hidden">
+                  <DropdownMenuLabel>View Mode</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => handleViewModeChange('list')}>
+                    <span>List view</span>
+                    {viewMode === 'list' && <Check className="ml-auto h-4 w-4" />}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleViewModeChange('grid')}>
+                    <span>Grid view</span>
+                    {viewMode === 'grid' && <Check className="ml-auto h-4 w-4" />}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <div className="hidden sm:flex items-center gap-1">
+                <Button
+                  variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  aria-label="List view"
+                  className="h-8 px-2.5"
+                  onClick={() => handleViewModeChange('list')}
+                >
+                  List
+                </Button>
+                <Button
+                  variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  aria-label="Grid view"
+                  className="h-8 px-2.5"
+                  onClick={() => handleViewModeChange('grid')}
+                >
+                  Grid
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
 
         <div>
           {viewMode === 'list' ? (
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
-                <thead>
-                  <tr className="border-b">
-                    <th className="py-1 px-2 text-left">Invoice #</th>
-                    <th className="py-1 px-2 text-left">Client</th>
-                    <th className="py-1 px-2 text-left">Status</th>
-                    <th className="py-1 px-2 text-left">Amount</th>
-                    <th className="py-1 px-2 text-left">Date</th>
-                    <th className="py-1 px-2 text-left">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paginatedInvoices.map((invoice) => (
-                    <tr key={invoice.id} className="border-b hover:bg-muted/30 transition">
-                      <td className="py-1 px-2 font-medium text-xs">#{invoice.number}</td>
-                      <td className="py-1 px-2 text-xs">{invoice.client}</td>
-                      <td className="py-1 px-2">
-                        <span className={`px-2 py-0.5 rounded text-xs font-semibold ${getStatusColor(invoice.status)}`}>{invoice.status}</span>
-                      </td>
-                      <td className="py-1 px-2 text-xs">${invoice.amount}</td>
-                      <td className="py-1 px-2 text-xs">{format(new Date(invoice.date), 'MMM d, yyyy')}</td>
-                      <td className="py-1 px-2">
-                        <div className="flex flex-wrap gap-1">
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={() => handleViewInvoice(invoice)} 
-                            aria-label="View" 
-                            className="px-3 py-1 text-xs"
+            isMobile ? (
+              <div className="space-y-2 p-3">
+                {paginatedInvoices.map((invoice) => {
+                  const showMarkAsPaid = isSuperAdmin && (invoice.status === 'pending' || invoice.status === 'overdue');
+                  return (
+                    <div key={invoice.id} className="rounded-xl border bg-card p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Invoice</p>
+                          <p className="text-base font-semibold">#{invoice.number}</p>
+                        </div>
+                        <Badge className={`${getStatusColor(invoice.status)} capitalize`}>{invoice.status}</Badge>
+                      </div>
+
+                      <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+                        <div className="col-span-2">
+                          <p className="text-xs text-muted-foreground">Client</p>
+                          <p className="font-medium" title={invoice.client}>{invoice.client || '—'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Amount</p>
+                          <p className="font-semibold">{usdCurrencyFormatter.format(invoice.amount || 0)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Date</p>
+                          <p className="font-medium">{formatInvoiceDate(invoice.date)}</p>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <Button variant="outline" size="sm" className="h-8 px-3 text-xs" onClick={() => handleViewInvoice(invoice)}>
+                          View
+                        </Button>
+                        <Button variant="outline" size="sm" className="h-8 px-3 text-xs" onClick={() => handleDownloadInvoice(invoice)}>
+                          Download
+                        </Button>
+                        {showMarkAsPaid && (
+                          <Button
+                            variant="accent"
+                            size="sm"
+                            className="h-8 px-3 text-xs"
+                            onClick={() => onPay(invoice)}
                           >
-                            View
+                            Mark Paid
                           </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={() => handleDownloadInvoice(invoice)} 
-                            aria-label="Download" 
-                            className="px-3 py-1 text-xs"
-                          >
-                            Download
+                        )}
+                        {isAdmin && (
+                          <Button variant="outline" size="sm" className="h-8 px-3 text-xs" onClick={() => handleEditInvoice(invoice)}>
+                            Edit
                           </Button>
-                          {/* Only show mark as paid button for Super Admin */}
-                          {isSuperAdmin && (invoice.status === "pending" || invoice.status === "overdue") && (
-                            <Button
-                              variant="accent"
-                              size="sm"
-                              onClick={() => onPay(invoice)}
-                              className="!px-3 py-1 text-xs"
-                              aria-label="Mark as Paid"
-                            >
-                              Mark Paid
-                            </Button>
-                          )}
-                          {/* Only show edit button for admins */}
-                          {isAdmin && (
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {paginatedInvoices.length === 0 && (
+                  <div className="py-8 text-center text-muted-foreground text-sm">
+                    No invoices found
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="px-3 py-2 text-left">Invoice #</th>
+                      <th className="px-3 py-2 text-left">Client</th>
+                      <th className="px-3 py-2 text-left">Status</th>
+                      <th className="px-3 py-2 text-left">Amount</th>
+                      <th className="px-3 py-2 text-left">Date</th>
+                      <th className="px-3 py-2 text-left">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedInvoices.map((invoice) => (
+                      <tr key={invoice.id} className="border-b hover:bg-muted/30 transition">
+                        <td className="px-3 py-2 font-medium text-xs">#{invoice.number}</td>
+                        <td className="px-3 py-2 text-xs">{invoice.client || '—'}</td>
+                        <td className="px-3 py-2">
+                          <span className={`rounded px-2 py-0.5 text-xs font-semibold ${getStatusColor(invoice.status)}`}>{invoice.status}</span>
+                        </td>
+                        <td className="px-3 py-2 text-xs">{usdCurrencyFormatter.format(invoice.amount || 0)}</td>
+                        <td className="px-3 py-2 text-xs">{formatInvoiceDate(invoice.date)}</td>
+                        <td className="px-3 py-2">
+                          <div className="flex flex-wrap gap-1">
                             <Button 
                               variant="outline" 
                               size="sm" 
-                              onClick={() => handleEditInvoice(invoice)} 
-                              aria-label="Edit" 
+                              onClick={() => handleViewInvoice(invoice)} 
+                              aria-label="View" 
                               className="px-3 py-1 text-xs"
                             >
-                              Edit
+                              View
                             </Button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                  {paginatedInvoices.length === 0 && (
-                    <tr>
-                      <td colSpan={6} className="py-4 text-center text-muted-foreground text-sm">
-                        No invoices found
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => handleDownloadInvoice(invoice)} 
+                              aria-label="Download" 
+                              className="px-3 py-1 text-xs"
+                            >
+                              Download
+                            </Button>
+                            {isSuperAdmin && (invoice.status === "pending" || invoice.status === "overdue") && (
+                              <Button
+                                variant="accent"
+                                size="sm"
+                                onClick={() => onPay(invoice)}
+                                className="!px-3 py-1 text-xs"
+                                aria-label="Mark as Paid"
+                              >
+                                Mark Paid
+                              </Button>
+                            )}
+                            {isAdmin && (
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => handleEditInvoice(invoice)} 
+                                aria-label="Edit" 
+                                className="px-3 py-1 text-xs"
+                              >
+                                Edit
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {paginatedInvoices.length === 0 && (
+                      <tr>
+                        <td colSpan={6} className="py-4 text-center text-muted-foreground text-sm">
+                          No invoices found
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )
           ) : (
             <div className="p-4">
               {paginatedInvoices.length > 0 ? (
-                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                <div className="grid gap-3 sm:gap-4 sm:grid-cols-2 xl:grid-cols-3">
                   {paginatedInvoices.map((invoice) => (
                     <InvoiceGridCard
                       key={invoice.id}
@@ -368,12 +505,10 @@ function InvoiceGridCard({
   isSuperAdmin = false,
 }: InvoiceCardProps) {
   const showMarkAsPaid = isSuperAdmin && (invoice.status === 'pending' || invoice.status === 'overdue');
-  const amountFormatted = useMemo(() => {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(invoice.amount || 0);
-  }, [invoice.amount]);
+  const amountFormatted = usdCurrencyFormatter.format(invoice.amount || 0);
 
-  const formattedIssue = invoice.date ? format(new Date(invoice.date), 'MMM d, yyyy') : '—';
-  const formattedDue = invoice.dueDate ? format(new Date(invoice.dueDate), 'MMM d, yyyy') : '—';
+  const formattedIssue = formatInvoiceDate(invoice.date);
+  const formattedDue = formatInvoiceDate(invoice.dueDate);
 
   return (
     <div className="relative flex h-full flex-col justify-between rounded-2xl border border-border bg-gradient-to-b from-background via-background to-muted/40 p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg">

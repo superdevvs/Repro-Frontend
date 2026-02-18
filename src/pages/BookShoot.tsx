@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { Button } from '@/components/ui/button';
 import { AnimatePresence } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
 import { BookingStepIndicator } from '@/components/booking/BookingStepIndicator';
@@ -10,7 +9,6 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
 import { Client } from '@/types/clients';
 import { initialClientsData } from '@/data/clientsData';
-import { ArrowLeft, X, Trash2 } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { format } from 'date-fns';
 import { BookingSummary } from '@/components/booking/BookingSummary';
@@ -46,6 +44,42 @@ type ServicePackage = {
     id: string;
     name: string;
   };
+};
+
+const normalizeAddressPart = (value?: string | null) =>
+  String(value || '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const buildNormalizedAddress = (params: {
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  zip?: string | null;
+}) => {
+  let street = normalizeAddressPart(params.address);
+  const cityPart = normalizeAddressPart(params.city);
+  const statePart = normalizeAddressPart(params.state);
+  const zipPart = normalizeAddressPart(params.zip);
+
+  const trimTrailingToken = (source: string, token: string) => {
+    if (!source || !token) return source;
+    const pattern = new RegExp(`(?:,\\s*)?${escapeRegExp(token)}\\s*$`, 'i');
+    return source.replace(pattern, '').replace(/[\s,]+$/, '').trim();
+  };
+
+  const stateZip = [statePart, zipPart].filter(Boolean).join(' ');
+  street = trimTrailingToken(street, stateZip);
+  street = trimTrailingToken(street, zipPart);
+  street = trimTrailingToken(street, statePart);
+  street = trimTrailingToken(street, cityPart);
+
+  const locality = [cityPart, [statePart, zipPart].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+  const parts = [street, locality].filter(Boolean);
+
+  return parts.join(', ');
 };
 
 const BookShoot = () => {
@@ -1277,12 +1311,7 @@ const BookShoot = () => {
       }
     }
 
-    const addressParts = [
-      address,
-      city,
-      [state, zip].filter(Boolean).join(' ')
-    ].filter(Boolean);
-    const fullAddress = addressParts.length > 0 ? addressParts.join(', ') : '';
+    const fullAddress = buildNormalizedAddress({ address, city, state, zip });
 
     // Summary info calculated
 
@@ -1333,7 +1362,7 @@ const BookShoot = () => {
   return (
     // Match Shoot History padding; scroll only within the page content (navbar/sidebar/summary stay fixed)
     <DashboardLayout>
-      <div className="space-y-6 p-6">
+      <div className="space-y-6 px-1 py-4 sm:px-4 sm:py-6 lg:p-6">
           <AnimatePresence mode="wait">
             {isComplete ? (
               <BookingComplete 
@@ -1343,7 +1372,7 @@ const BookShoot = () => {
                 isClientRequest={isClientAccount}
                 shootId={createdShootId}
                 totalAmount={getTotal()}
-                shootAddress={`${address}, ${city}, ${state} ${zip}`}
+                shootAddress={buildNormalizedAddress({ address, city, state, zip })}
                 shootServices={selectedServices.map(s => s.name)}
                 clientName={user?.name}
                 clientEmail={user?.email}
@@ -1355,17 +1384,6 @@ const BookShoot = () => {
                   title={currentStepContent.title}
                   description={currentStepContent.description}
                 />
-                {shouldCacheForm && hasCachedData && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 text-xs px-3 text-muted-foreground hover:text-destructive border-muted-foreground/20 hover:border-destructive/50"
-                    onClick={handleClearCache}
-                  >
-                    <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-                    <span>Clear saved data</span>
-                  </Button>
-                )}
               </div>
 
               <BookingStepIndicator currentStep={step} totalSteps={3} />
@@ -1375,7 +1393,12 @@ const BookShoot = () => {
 
           <AnimatePresence mode="wait">
             {!isComplete && (
-              <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.85fr)_minmax(320px,0.95fr)] gap-8 mt-2 items-start">
+              <div
+                className={`grid grid-cols-1 ${{
+                  true: 'lg:grid-cols-[minmax(0,1.85fr)_minmax(320px,0.95fr)]',
+                  false: 'lg:grid-cols-1',
+                }[String(!isMobile || step === 3) as 'true' | 'false']} gap-8 mt-2 items-start`}
+              >
                 <div className="order-2 lg:order-1 w-full">
                 <BookingContentArea
                   step={step}
@@ -1415,19 +1438,25 @@ const BookShoot = () => {
                   photographers={photographers}
                   handleSubmit={handleSubmit}
                   goBack={goBack}
+                  showClearSavedData={shouldCacheForm && hasCachedData}
+                  onClearSavedData={handleClearCache}
                 />
                 </div>
-                <div className="order-1 lg:order-2 lg:sticky lg:top-4 lg:max-w-sm w-full">
-                  <BookingSummary
-                    summaryInfo={summaryInfo}
-                    selectedServices={selectedServices}
-                    onSubmit={step === 3 ? handleSubmit : undefined}
-                    isLastStep={step === 3}
-                    isSubmitting={isSubmitting}
-                    showRepName={user?.role === 'admin' || user?.role === 'superadmin' || user?.role === 'photographer'}
-                    weather={{ temperature: parsedTemperature, condition }}
-                  />
-                </div>
+                {(!isMobile || step === 3) && (
+                  <div className="order-1 lg:order-2 lg:sticky lg:top-4 lg:max-w-sm w-full">
+                    <BookingSummary
+                      summaryInfo={summaryInfo}
+                      selectedServices={selectedServices}
+                      onSubmit={step === 3 ? handleSubmit : undefined}
+                      isLastStep={step === 3}
+                      canSubmit={isMobile ? true : Boolean(String(photographer || '').trim())}
+                      isSubmitting={isSubmitting}
+                      showRepName={user?.role === 'admin' || user?.role === 'superadmin' || user?.role === 'photographer'}
+                      weather={{ temperature: parsedTemperature, condition }}
+                      isMobile={isMobile}
+                    />
+                  </div>
+                )}
               </div>
             )}
           </AnimatePresence>

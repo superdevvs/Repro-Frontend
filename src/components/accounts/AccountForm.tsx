@@ -732,10 +732,10 @@ export function AccountForm({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[900px] lg:max-w-[1100px] max-h-[90vh] overflow-y-auto px-6 py-8">
+      <DialogContent className="flex h-[calc(100dvh-0.75rem)] w-[calc(100vw-0.75rem)] max-w-[1100px] flex-col gap-0 overflow-hidden p-0 sm:h-auto sm:max-h-[90vh] sm:w-full sm:gap-4 sm:px-6 sm:py-8">
         <Form {...form}>
-        <DialogHeader className="relative -mt-2 pt-0 pr-14">
-          <div className="flex items-start justify-between w-full gap-4">
+        <DialogHeader className="relative border-b px-4 py-3 sm:-mt-2 sm:border-0 sm:px-0 sm:pt-0 sm:pb-0 sm:pr-14">
+          <div className="flex w-full flex-col gap-3 pr-12 sm:flex-row sm:items-start sm:justify-between sm:gap-4 sm:pr-0">
             <div className="flex-1 min-w-0">
               <DialogTitle className="pt-0 text-xl font-semibold">
                 {initialData
@@ -787,7 +787,7 @@ export function AccountForm({
                 </div>
               )}
             </div>
-            <div className="flex-shrink-0 pt-0 flex items-center gap-4">
+            <div className="flex w-full items-center gap-2 sm:w-auto sm:flex-shrink-0 sm:gap-4">
               <FormField
                 control={form.control}
                 name="role"
@@ -801,7 +801,7 @@ export function AccountForm({
                         disabled={roleSelectionDisabled}
                       >
                         <FormControl>
-                          <SelectTrigger disabled={roleSelectionDisabled} className="w-[140px] h-9">
+                          <SelectTrigger disabled={roleSelectionDisabled} className="h-9 w-full sm:w-[140px]">
                             <SelectValue placeholder="Select role" />
                           </SelectTrigger>
                         </FormControl>
@@ -842,7 +842,9 @@ export function AccountForm({
             </div>
           </div>
         </DialogHeader>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-8">
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="flex min-h-0 flex-1 flex-col">
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-0 sm:py-2">
+              <div className="space-y-6 sm:space-y-8">
             <div className="grid gap-6 md:grid-cols-[260px,1fr]">
               <div className="flex flex-col items-center gap-3">
                 <ImageUpload
@@ -1477,6 +1479,8 @@ export function AccountForm({
                 </FormItem>
               )}
             />
+              </div>
+            </div>
 
             {/* Pilot License Upload Modal */}
             {currentRole === "photographer" && (
@@ -1516,12 +1520,13 @@ export function AccountForm({
               />
             )}
 
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <DialogFooter className="flex-col gap-2 border-t bg-background px-4 py-3 sm:flex-row sm:justify-end sm:gap-0 sm:space-x-2 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 [padding-bottom:calc(0.75rem+env(safe-area-inset-bottom))] sm:[padding-bottom:0]">
+              <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
               <Button
                 type="button"
+                className="w-full sm:w-auto"
                 onClick={() => {
                   console.log("✅ Create Account button clicked");
                   form.handleSubmit(handleSubmit)();

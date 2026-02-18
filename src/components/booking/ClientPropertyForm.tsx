@@ -20,7 +20,15 @@ import {
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from '@/components/ui/drawer';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -44,13 +52,14 @@ import {
   PlusCircle,
   Search,
   Check,
+  AlertCircle,
   Sparkles,
   Video,
   Info,
   Star,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { useForm } from 'react-hook-form';
+import { useForm, type FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -68,7 +77,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogClose,
 } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -80,6 +88,7 @@ import { Loader2 } from 'lucide-react';
 import type { ServiceWithPricing, SqftRange } from '@/utils/servicePricing';
 import { formatPrice, getServicePricingForSqft } from '@/utils/servicePricing';
 import { getAvatarUrl } from '@/utils/defaultAvatars';
+import { cn } from '@/lib/utils';
 
 
 interface PackageCategory {
@@ -304,6 +313,8 @@ type ClientPropertyFormProps = {
   selectedServices: PackageOption[];
   onSelectedServicesChange: (services: PackageOption[]) => void;
   packagesLoading?: boolean;
+  showClearSavedData?: boolean;
+  onClearSavedData?: () => void;
 };
 
 
@@ -318,8 +329,11 @@ export const ClientPropertyForm = ({
   selectedServices,
   onSelectedServicesChange,
   packagesLoading = false,
+  showClearSavedData = false,
+  onClearSavedData,
 }: ClientPropertyFormProps) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [serviceSearchQuery, setServiceSearchQuery] = useState('');
   const [clientSelectOpen, setClientSelectOpen] = useState(false);
   const [isAddingClient, setIsAddingClient] = useState(false);
   const [newlyAddedClients, setNewlyAddedClients] = useState<Client[]>([]);
@@ -329,10 +343,12 @@ export const ClientPropertyForm = ({
   const [isAccountFormOpen, setIsAccountFormOpen] = useState<boolean>(false);
   const [accountInitialData, setAccountInitialData] = useState<User | undefined>(undefined);
   const [serviceDialogOpen, setServiceDialogOpen] = useState(false);
+  const [stateDrawerOpen, setStateDrawerOpen] = useState(false);
   const [panelCategory, setPanelCategory] = useState<string>('all');
   const [presenceOption, setPresenceOption] = useState<PresenceOption>('self');
   const [propertyDetailsData, setPropertyDetailsData] = useState<any>(null);
   const [completeAddress, setCompleteAddress] = useState<string>('');
+  const [submitAttemptNotice, setSubmitAttemptNotice] = useState<string | null>(null);
   const { toast } = useToast();
 
   const navigate = useNavigate();
@@ -343,6 +359,22 @@ export const ClientPropertyForm = ({
     if (!open) {
       setSearchQuery('');
     }
+  };
+
+  const handleInvalidSubmit = (errors: FieldErrors<FormValues>) => {
+    const firstMessage = Object.values(errors).find((error) => {
+      const message = (error as { message?: unknown } | undefined)?.message;
+      return typeof message === 'string' && message.trim().length > 0;
+    }) as { message?: string } | undefined;
+
+    const noticeText = firstMessage?.message || 'Please complete all required fields before continuing.';
+
+    setSubmitAttemptNotice(noticeText);
+    toast({
+      title: 'Missing required fields',
+      description: noticeText,
+      variant: 'destructive',
+    });
   };
 
   const formSchema = isClientAccount ? clientAccountPropertyFormSchema : adminPropertyFormSchema;
@@ -515,9 +547,26 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
 
     const panelServices = React.useMemo(() => {
     if (!packages?.length) return [];
-    if (!panelCategory) return packages;
-    return packages.filter(pkg => getPackageCategoryId(pkg) === panelCategory);
-  }, [panelCategory, packages]);
+    let filtered = panelCategory
+      ? packages.filter(pkg => getPackageCategoryId(pkg) === panelCategory)
+      : packages;
+
+    const query = serviceSearchQuery.trim().toLowerCase();
+    if (query) {
+      filtered = filtered.filter((pkg) =>
+        pkg.name.toLowerCase().includes(query) ||
+        (pkg.description || '').toLowerCase().includes(query)
+      );
+    }
+
+    return filtered;
+  }, [panelCategory, packages, serviceSearchQuery]);
+
+  React.useEffect(() => {
+    if (!serviceDialogOpen) {
+      setServiceSearchQuery('');
+    }
+  }, [serviceDialogOpen]);
 
   const watchedSqft = form.watch('sqft' as any);
   const derivedSqftFromDetails = React.useMemo(() => {
@@ -609,6 +658,8 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
   const selectedClient = selectedClientId ? allClients.find(client => client.id === selectedClientId) : null;
 
   const handleSubmit = (data: FormValues) => {
+    setSubmitAttemptNotice(null);
+
     const normalizedComplete =
       completeAddress ||
       [data.propertyAddress, data.propertyCity, data.propertyState, data.propertyZip]
@@ -705,10 +756,11 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
 
   const toggleServiceSelection = (service: PackageOption) => {
     const exists = isServiceSelected(service.id);
+    let updatedServices: PackageOption[];
+
     if (exists) {
       // Remove service
-      const updated = selectedServices.filter(selected => selected.id !== service.id);
-      onSelectedServicesChange(updated);
+      updatedServices = selectedServices.filter(selected => selected.id !== service.id);
     } else {
       // Add service with sqft-adjusted price if applicable
       let adjustedService = { ...service };
@@ -717,7 +769,13 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
         const pricingInfo = getServicePricingForSqft({ ...service, sqft_ranges: sqftRanges }, effectiveSqft);
         adjustedService = { ...service, price: pricingInfo.price };
       }
-      onSelectedServicesChange([...selectedServices, adjustedService]);
+      updatedServices = [...selectedServices, adjustedService];
+    }
+
+    onSelectedServicesChange(updatedServices);
+
+    if (isMobile && typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate(8);
     }
   };
 
@@ -725,6 +783,191 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
     const updated = selectedServices.filter(service => service.id !== serviceId);
     onSelectedServicesChange(updated);
   };
+
+  const selectedServicesTotal = React.useMemo(
+    () =>
+      selectedServices.reduce((total, service) => {
+        const numericPrice = Number(service.price ?? 0);
+        return total + (Number.isFinite(numericPrice) ? numericPrice : 0);
+      }, 0),
+    [selectedServices],
+  );
+
+  const renderServicePickerBody = (mobileDrawer = false) => (
+    <div className="flex h-full min-h-0 flex-col sm:h-[70vh] sm:flex-row overflow-hidden">
+      <aside className="shrink-0 border-b sm:border-b-0 sm:border-r border-border/60 px-2.5 py-1.5 sm:p-4 sm:w-64 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85 sm:overflow-y-auto sm:max-h-[70vh]">
+        <div className="-mx-1.5 flex gap-1.5 overflow-x-auto px-1.5 pb-1 snap-x snap-mandatory [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden sm:flex-col sm:gap-2 sm:overflow-visible sm:pb-0 sm:snap-none">
+          {categoryOptions.map((category) => {
+            const isActive = category.id === panelCategory;
+            return (
+              <button
+                key={category.id}
+                type="button"
+                onClick={() => setPanelCategory(category.id)}
+                className={`snap-start rounded-full sm:rounded-lg border px-3 sm:px-4 py-1.5 sm:py-2.5 text-left transition-all duration-200 flex items-center gap-1.5 sm:gap-3 flex-shrink-0 min-h-9 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
+                  isActive
+                    ? 'border-primary bg-primary text-primary-foreground shadow-[inset_0_0_0_1px_rgba(255,255,255,0.2)] sm:border-primary/60 sm:bg-primary/10 sm:text-primary sm:shadow-none'
+                    : 'border-border/60 bg-background/80 text-foreground/85 hover:border-primary/40 hover:bg-primary/5 sm:border-transparent sm:bg-transparent sm:text-muted-foreground sm:hover:bg-muted/40'
+                } ${category.id === 'all' ? 'min-w-[112px] sm:w-full' : 'min-w-[98px] sm:w-full'}`}
+              >
+                <div className="hidden h-8 w-8 sm:flex sm:h-9 sm:w-9 rounded-full bg-muted items-center justify-center flex-shrink-0">
+                  <category.icon className="h-4 w-4" />
+                </div>
+                <div className="min-w-0 flex items-center gap-1.5 sm:block">
+                  <p className="text-xs sm:text-sm font-medium leading-tight truncate">{category.name}</p>
+                  <span className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold leading-none tabular-nums sm:hidden ${
+                    isActive
+                      ? 'bg-primary-foreground/20 text-primary-foreground'
+                      : 'bg-muted text-muted-foreground'
+                  }`}>
+                    {category.count}
+                  </span>
+                  <p className="hidden sm:block text-[11px] sm:text-xs text-muted-foreground">{category.count} items</p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </aside>
+
+      <div
+        className={cn(
+          "flex-1 min-h-0 overflow-y-auto px-2.5 sm:p-6 space-y-2.5 sm:space-y-4",
+          mobileDrawer ? "pb-4" : "pb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:pb-6"
+        )}
+      >
+        <div className="sticky top-0 z-20 -mx-2.5 px-2.5 py-2 sm:static sm:mx-0 sm:px-0 sm:py-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85 border-b border-border/50 sm:border-0">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Search services..."
+              value={serviceSearchQuery}
+              onChange={(event) => setServiceSearchQuery(event.target.value)}
+              className="h-9 text-sm pl-8 border-border/70 focus-visible:ring-primary/40"
+            />
+          </div>
+        </div>
+
+        {packagesLoading ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {Array.from({ length: 4 }).map((_, idx) => (
+              <Skeleton key={idx} className="h-28 rounded-2xl" />
+            ))}
+          </div>
+        ) : panelServices.length ? (
+          <div className="grid gap-2.5 sm:gap-4 sm:grid-cols-2">
+            {panelServices.map((service) => {
+              const isSelected = isServiceSelected(service.id);
+              const sqftRanges = getServiceSqftRanges(service);
+              const supportsVariablePricing = !!(
+                effectiveSqft &&
+                service.pricing_type === 'variable' &&
+                sqftRanges.length
+              );
+              const pricingInfo = supportsVariablePricing
+                ? getServicePricingForSqft({ ...service, sqft_ranges: sqftRanges }, effectiveSqft)
+                : null;
+              const displayPrice = pricingInfo
+                ? formatPrice(pricingInfo.price)
+                : formatPrice(Number(service.price ?? 0));
+              const matchedRange = pricingInfo?.matchedRange;
+              const sqftContext = matchedRange
+                ? `${matchedRange.sqft_from.toLocaleString()} - ${matchedRange.sqft_to.toLocaleString()} sqft tier`
+                : supportsVariablePricing
+                  ? `Using default price for ${effectiveSqft?.toLocaleString()} sqft`
+                  : null;
+
+              return (
+                <div
+                  key={service.id}
+                  className={`group relative overflow-hidden rounded-lg sm:rounded-2xl border border-l-4 p-3 sm:p-4 cursor-pointer transition-all duration-200 ${
+                    isSelected
+                      ? 'border-primary/55 border-l-primary bg-primary/[0.08] shadow-[0_6px_18px_-12px_rgba(59,130,246,0.65)]'
+                      : 'border-border/70 border-l-border/80 bg-background hover:border-primary/35 hover:border-l-primary/40'
+                  }`}
+                  onClick={() => toggleServiceSelection(service)}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[15px] sm:text-base font-semibold leading-tight line-clamp-1">{service.name}</p>
+                      <p className="mt-1 text-xs sm:text-sm text-muted-foreground line-clamp-2">
+                        {service.description}
+                      </p>
+                      {sqftContext && (
+                        <p className="mt-1 text-[11px] sm:text-xs text-muted-foreground line-clamp-1">
+                          {sqftContext}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex shrink-0 flex-col items-end gap-2">
+                      <span className="text-base sm:text-lg font-semibold tabular-nums leading-none text-foreground">
+                        {displayPrice}
+                      </span>
+                      <span className={`inline-flex h-5 w-5 items-center justify-center rounded-full border transition-colors sm:hidden ${
+                        isSelected
+                          ? 'border-primary bg-primary text-primary-foreground'
+                          : 'border-border bg-background text-transparent'
+                      }`}>
+                        <Check className="h-3.5 w-3.5" />
+                      </span>
+                      <Checkbox
+                        className="hidden sm:inline-flex"
+                        checked={isSelected}
+                        onClick={(event) => event.stopPropagation()}
+                        onCheckedChange={() => toggleServiceSelection(service)}
+                      />
+                    </div>
+                  </div>
+                  {service.category?.name && (
+                    <div className="mt-2.5 flex items-center justify-between gap-2">
+                      <Badge variant="outline" className="uppercase text-[10px] tracking-wide">
+                        {service.category.name}
+                        {supportsVariablePricing && matchedRange && (
+                          <span className="ml-1 text-[8px] tracking-normal text-primary">SQFT</span>
+                        )}
+                      </Badge>
+                      {isSelected && (
+                        <span className="text-[11px] font-medium text-primary sm:hidden">Selected</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="rounded-xl border border-dashed border-muted-foreground/40 bg-muted/20 p-6 text-left text-sm text-muted-foreground">
+            {serviceSearchQuery.trim()
+              ? 'No services match this search in the selected category.'
+              : 'No services exist in this category yet. Pick a different category to continue.'}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const renderServicePickerFooterContent = (mobileDrawer = false) => (
+    <>
+      <div className={cn("min-w-0", !mobileDrawer && "sm:hidden") }>
+        <p className="text-sm font-semibold leading-tight">
+          {selectedServices.length} Selected · {formatPrice(selectedServicesTotal)}
+        </p>
+      </div>
+      {!mobileDrawer && (
+        <p className="hidden sm:block text-sm text-muted-foreground mr-auto">
+          {selectedServices.length} selected · {formatPrice(selectedServicesTotal)}
+        </p>
+      )}
+      <Button
+        className="h-10 px-5"
+        disabled={selectedServices.length === 0}
+        onClick={() => setServiceDialogOpen(false)}
+      >
+        Done
+      </Button>
+    </>
+  );
 
 
   const getPackageHighlight = (pkg: { id: string; name: string }) => {
@@ -735,7 +978,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(handleSubmit, handleInvalidSubmit)} className="space-y-6">
         {!isClientAccount && (
           <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 shadow-[0_1px_2px_rgba(15,23,42,0.08)] dark:border-muted/40 dark:bg-card/40 p-4 sm:p-5 space-y-4">
             <h3 className="text-base font-semibold">Client Information</h3>
@@ -1125,18 +1368,67 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                     <FormItem>
                       <FormLabel>State</FormLabel>
                       <FormControl>
-                        <Select value={field.value} onValueChange={field.onChange}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select state" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {STATE_OPTIONS.map((option) => (
-                              <SelectItem key={option.value} value={option.value}>
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        {isMobile ? (
+                          <Drawer open={stateDrawerOpen} onOpenChange={setStateDrawerOpen}>
+                            <DrawerTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="w-full h-10 justify-between font-normal"
+                              >
+                                <span className="truncate">
+                                  {STATE_OPTIONS.find((option) => option.value === field.value)?.label || 'Select state'}
+                                </span>
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              </Button>
+                            </DrawerTrigger>
+                            <DrawerContent className="h-[63vh] max-h-[63vh]">
+                              <DrawerHeader className="pb-2 text-left">
+                                <DrawerTitle>Choose state</DrawerTitle>
+                              </DrawerHeader>
+                              <div className="px-4 pb-4 overflow-y-auto">
+                                <div className="grid gap-1.5">
+                                  {STATE_OPTIONS.map((option) => {
+                                    const isSelected = field.value === option.value;
+                                    return (
+                                      <button
+                                        key={option.value}
+                                        type="button"
+                                        onClick={() => {
+                                          field.onChange(option.value);
+                                          setStateDrawerOpen(false);
+                                        }}
+                                        className={`w-full rounded-lg border px-3 py-2.5 text-left text-sm transition-colors ${
+                                          isSelected
+                                            ? 'border-primary bg-primary/10 text-primary'
+                                            : 'border-border/60 bg-background hover:bg-muted/40'
+                                        }`}
+                                      >
+                                        <span className="flex items-center justify-between gap-2">
+                                          <span className="truncate">{option.label}</span>
+                                          {isSelected && <Check className="h-4 w-4 shrink-0" />}
+                                        </span>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            </DrawerContent>
+                          </Drawer>
+                        ) : (
+                          <Select value={field.value} onValueChange={field.onChange}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select state" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {STATE_OPTIONS.map((option) => (
+                                <SelectItem key={option.value} value={option.value}>
+                                  {option.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -1296,135 +1588,47 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                   {selectedServices.length ? `${selectedServices.length} item${selectedServices.length > 1 ? 's' : ''}` : 'None yet'}
                 </p>
               </div>
-              <Dialog open={serviceDialogOpen} onOpenChange={setServiceDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    {selectedServices.length ? 'Edit services' : 'Select services'}
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-5xl w-[96vw] max-h-[90vh] p-0 overflow-hidden">
-                  <DialogHeader className="px-4 sm:px-6 py-4 border-b border-border/80">
-                    <DialogTitle>Select services</DialogTitle>
-                    <DialogDescription>
-                      Pick every service needed for this shoot. Categories appear on the left; services are listed on the right.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="flex flex-col sm:flex-row h-full sm:h-[70vh]">
-                    <aside className="border-b sm:border-b-0 sm:border-r border-border/60 p-3 sm:p-4 space-y-2 sm:w-64 sm:overflow-y-auto sm:max-h-[70vh]">
-                      <div className="flex gap-2 overflow-x-auto pb-2 sm:flex-col sm:overflow-visible sm:pb-0">
-                        {categoryOptions.map(category => {
-                          const isActive = category.id === panelCategory;
-                          return (
-                            <button
-                              key={category.id}
-                              type="button"
-                              onClick={() => setPanelCategory(category.id)}
-                              className={`rounded-full sm:rounded-lg border px-4 py-2 text-left transition-colors flex items-center gap-2 sm:gap-3 flex-shrink-0 ${
-                                isActive
-                                  ? 'border-primary/60 bg-primary/5 text-primary'
-                                  : 'border-transparent hover:bg-muted/40 text-muted-foreground'
-                              } ${category.id === 'all' ? 'min-w-[200px] sm:w-full' : 'min-w-[160px] sm:w-full'}`}
-                            >
-                              <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
-                                <category.icon className="h-4 w-4" />
-                              </div>
-                              <div>
-                                <p className="text-sm font-medium">{category.name}</p>
-                                <p className="text-xs text-muted-foreground">{category.count} items</p>
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </aside>
-                    <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 max-h-[60vh] sm:max-h-none">
-                      {packagesLoading ? (
-                        <div className="grid gap-3 sm:grid-cols-2">
-                          {Array.from({ length: 4 }).map((_, idx) => (
-                            <Skeleton key={idx} className="h-28 rounded-2xl" />
-                          ))}
-                        </div>
-                      ) : panelServices.length ? (
-                        <div className="grid gap-3 sm:gap-4 sm:grid-cols-2">
-                          {panelServices.map(service => {
-                            const isSelected = isServiceSelected(service.id);
-                            const sqftRanges = getServiceSqftRanges(service);
-                            const supportsVariablePricing =
-                              !!(
-                                effectiveSqft &&
-                                service.pricing_type === 'variable' &&
-                                sqftRanges.length
-                              );
-                            const pricingInfo = supportsVariablePricing
-                              ? getServicePricingForSqft({ ...service, sqft_ranges: sqftRanges }, effectiveSqft)
-                              : null;
-                            const displayPrice = pricingInfo
-                              ? formatPrice(pricingInfo.price)
-                              : formatPrice(Number(service.price ?? 0));
-                            const matchedRange = pricingInfo?.matchedRange;
-                            const sqftContext = matchedRange
-                              ? `${matchedRange.sqft_from.toLocaleString()} - ${matchedRange.sqft_to.toLocaleString()} sqft tier`
-                              : supportsVariablePricing
-                                ? `Using default price for ${effectiveSqft?.toLocaleString()} sqft`
-                                : null;
-
-                            return (
-                              <div
-                                key={service.id}
-                                className={`rounded-2xl border p-4 cursor-pointer transition-all ${
-                                  isSelected
-                                    ? 'border-primary/60 bg-primary/5 shadow-sm'
-                                    : 'border-border/70 bg-background hover:border-primary/40'
-                                }`}
-                                onClick={() => toggleServiceSelection(service)}
-                              >
-                                <div className="flex items-start justify-between gap-3">
-                                  <div className="flex-1">
-                                    <p className="font-medium text-base">{service.name}</p>
-                                    <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                                      {service.description}
-                                    </p>
-                                  </div>
-                                  <Checkbox checked={isSelected} onCheckedChange={() => toggleServiceSelection(service)} />
-                                </div>
-                                <div className="mt-4 flex items-start justify-between gap-3 text-sm font-semibold">
-                                  <div>
-                                    <span>{displayPrice}</span>
-                                    {sqftContext && (
-                                      <p className="text-xs font-normal text-muted-foreground mt-1">
-                                        {sqftContext}
-                                      </p>
-                                    )}
-                                  </div>
-                                  {service.category?.name && (
-                                    <Badge variant="outline" className="uppercase text-[10px] tracking-wide">
-                                      {service.category.name}
-                                      {supportsVariablePricing && matchedRange && (
-                                        <span className="ml-1 text-[8px] tracking-normal text-primary">
-                                          SQFT
-                                        </span>
-                                      )}
-                                    </Badge>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <div className="rounded-xl border border-dashed border-muted-foreground/40 bg-muted/20 p-6 text-center text-sm text-muted-foreground">
-                          No services exist in this category yet. Pick a different category to continue.
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <DialogFooter className="px-4 sm:px-6 py-4 border-t border-border/80 gap-2 sm:gap-0">
-                    <DialogClose asChild>
-                      <Button className="w-full sm:w-auto">Done</Button>
-                    </DialogClose>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+              {isMobile ? (
+                <Drawer open={serviceDialogOpen} onOpenChange={setServiceDialogOpen}>
+                  <DrawerTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      {selectedServices.length ? 'Edit services' : 'Select services'}
+                    </Button>
+                  </DrawerTrigger>
+                  <DrawerContent className="h-[84vh] max-h-[84vh]">
+                    <DrawerHeader className="pb-2 text-left">
+                      <DrawerTitle>Select services</DrawerTitle>
+                      <DrawerDescription>
+                        Pick the services for this shoot, compare prices quickly, then tap Done.
+                      </DrawerDescription>
+                    </DrawerHeader>
+                    <div className="min-h-0 flex-1 overflow-hidden">{renderServicePickerBody(true)}</div>
+                    <DrawerFooter className="border-t border-border/80 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85 [padding-bottom:calc(0.5rem+env(safe-area-inset-bottom))]">
+                      {renderServicePickerFooterContent(true)}
+                    </DrawerFooter>
+                  </DrawerContent>
+                </Drawer>
+              ) : (
+                <Dialog open={serviceDialogOpen} onOpenChange={setServiceDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      {selectedServices.length ? 'Edit services' : 'Select services'}
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:!max-h-[90vh] sm:!w-[96vw] sm:!max-w-5xl p-0 gap-0 overflow-hidden [&>button]:right-2 [&>button]:top-2">
+                    <DialogHeader className="px-6 py-4 border-b border-border/80 text-left items-start space-y-1">
+                      <DialogTitle className="w-full pr-10 text-left leading-tight">Select services</DialogTitle>
+                      <DialogDescription className="w-full pr-10 text-left text-sm leading-snug">
+                        Pick the services for this shoot, compare prices quickly, then tap Done.
+                      </DialogDescription>
+                    </DialogHeader>
+                    {renderServicePickerBody(false)}
+                    <DialogFooter className="px-6 py-4 border-t border-border/80 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85 flex-row items-center justify-between gap-2 [padding-bottom:1rem]">
+                      {renderServicePickerFooterContent(false)}
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              )}
             </div>
 
             {selectedServices.length === 0 ? (
@@ -1654,8 +1858,37 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
           </div>
         </div>
 
-        <div className="mt-6 flex justify-end">
-          <Button type="submit">Continue</Button>
+        <div className="mt-6 flex flex-col gap-2 pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:flex-row sm:justify-end sm:pb-0">
+          {submitAttemptNotice && (
+            <div
+              id="property-continue-warning"
+              role="alert"
+              className="w-full rounded-xl border border-amber-300/70 bg-amber-50/95 px-3 py-2.5 text-amber-900 shadow-sm dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100 sm:mr-auto sm:max-w-md"
+            >
+              <div className="flex items-start gap-2.5">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-300" />
+                <div className="min-w-0">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-amber-700/90 dark:text-amber-200/90">
+                    Action required
+                  </p>
+                  <p className="mt-0.5 text-sm leading-snug">
+                    {submitAttemptNotice}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+          {showClearSavedData && onClearSavedData && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClearSavedData}
+              className="w-full sm:w-auto"
+            >
+              Clear saved data
+            </Button>
+          )}
+          <Button type="submit" className="w-full sm:w-auto">Continue</Button>
         </div>
       </form>
 

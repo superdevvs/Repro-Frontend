@@ -5,7 +5,14 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Plus, Save, Edit, Trash2, MoreVertical, HelpCircle } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -515,87 +522,112 @@ export function ServicesTab() {
   }, [mergedCategories]);
 
   return (
-  <div className="space-y-6">
-    {/* Add Service Button - positioned top right above tabs */}
-    <div className="flex justify-end -mt-14">
-      <Button onClick={handleOpenAddService}>
-        <Plus className="h-4 w-4 mr-2" />
-        Add Service
-      </Button>
+  <div className="space-y-4 sm:space-y-6">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="space-y-1">
+        <h2 className="text-lg font-semibold tracking-tight">Service Catalog</h2>
+        <p className="text-sm text-muted-foreground">Manage categories, pricing, and service details.</p>
+      </div>
+
+      <div className="flex items-center gap-2 self-start sm:self-auto">
+        <Button onClick={handleOpenAddService} className="h-9 gap-1.5 px-3 sm:h-10 sm:px-4">
+          <Plus className="h-4 w-4" />
+          <span className="sm:hidden">New</span>
+          <span className="hidden sm:inline">Add Service</span>
+        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="icon" className="h-9 w-9">
+              <MoreVertical className="h-4 w-4" />
+              <span className="sr-only">Service actions</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-44">
+            <DropdownMenuLabel>Quick Actions</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => setIsAddCategoryOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Category
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </div>
 
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       {categoriesLoading ? (
         <div className="flex justify-center py-4">
           <Loader2 className="h-6 w-6 animate-spin text-primary" />
         </div>
       ) : (
-        <div className="flex flex-wrap items-center gap-2">
-          {sortedCategories.map(category => {
-            const Icon = category.icon ? getIconComponent(category.icon) : null;
-            const displayName = normalizeCategoryName(category.name) === 'photos'
-              ? 'Photos'
-              : category.name;
-            return (
-              <div key={category.id} className="relative group">
-                <Button
-                  variant={selectedCategory === category.id ? "default" : "outline"}
-                  onClick={() => handleCategoryChange(category.id)}
-                  className="rounded-full transition-all gap-2 pr-8"
-                >
-                  {Icon && <Icon className="h-4 w-4" />}
-                  {displayName}
-                </Button>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-0 top-0 h-full rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <MoreVertical className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={(e) => {
-                      e.stopPropagation();
-                      handleEditCategory(category);
-                    }}>
-                      <Edit className="h-4 w-4 mr-2" />
-                      Edit
-                    </DropdownMenuItem>
-                    {!category.is_default && !['photo', 'video'].includes(category.name?.toLowerCase()) && (
-                      <DropdownMenuItem 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteCategory(category);
-                        }}
-                        className="text-destructive"
+        <div className="overflow-x-auto pb-1">
+          <div className="inline-flex min-w-max items-center gap-2">
+            {sortedCategories.map(category => {
+              const Icon = category.icon ? getIconComponent(category.icon) : null;
+              const displayName = normalizeCategoryName(category.name) === 'photos'
+                ? 'Photos'
+                : category.name;
+              return (
+                <div key={category.id} className="relative group">
+                  <Button
+                    variant={selectedCategory === category.id ? "default" : "outline"}
+                    onClick={() => handleCategoryChange(category.id)}
+                    className="rounded-full transition-all gap-2 pr-8"
+                  >
+                    {Icon && <Icon className="h-4 w-4" />}
+                    {displayName}
+                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-0 top-0 h-full rounded-full opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+                        onClick={(e) => e.stopPropagation()}
                       >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={(e) => {
+                        e.stopPropagation();
+                        handleEditCategory(category);
+                      }}>
+                        <Edit className="h-4 w-4 mr-2" />
+                        Edit
                       </DropdownMenuItem>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            );
-          })}
-          
-          <Button
-            variant="outline"
-            className="rounded-full border-dashed border-muted-foreground/50 hover:border-primary hover:text-primary gap-2"
-            onClick={() => setIsAddCategoryOpen(true)}
-          >
-            <Plus className="h-4 w-4" />
-            Add Category
-          </Button>
+                      {!category.is_default && !['photo', 'video'].includes(category.name?.toLowerCase()) && (
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteCategory(category);
+                          }}
+                          className="text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              );
+            })}
+
+            <Button
+              variant="outline"
+              className="hidden sm:inline-flex rounded-full border-dashed border-muted-foreground/50 hover:border-primary hover:text-primary gap-2"
+              onClick={() => setIsAddCategoryOpen(true)}
+            >
+              <Plus className="h-4 w-4" />
+              Add Category
+            </Button>
+          </div>
         </div>
       )}
     </div>
 
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
       {filteredServices.map(service => (
         <ServiceCard
           key={service.id}
@@ -607,11 +639,11 @@ export function ServicesTab() {
 
     {/* Add New Service Dialog */}
     <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[calc(100vw-1rem)] max-h-[88vh] overflow-hidden rounded-2xl sm:max-w-[600px] sm:max-h-[90vh] sm:rounded-2xl">
         <DialogHeader>
           <DialogTitle>Add New Service</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 py-4">
+        <div className="max-h-[calc(88vh-10.5rem)] space-y-4 overflow-y-auto py-4 pr-1 sm:max-h-[calc(90vh-10.5rem)]">
           <div className="space-y-2">
             <CategorySelect
               value={newService.category}
@@ -873,7 +905,7 @@ export function ServicesTab() {
             </div>
           )}
         </div>
-        <DialogFooter>
+        <DialogFooter className="border-t pt-3 sm:pt-4">
           <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
             Cancel
           </Button>
@@ -887,7 +919,7 @@ export function ServicesTab() {
 
     {/* Add New Category Dialog */}
     <Dialog open={isAddCategoryOpen} onOpenChange={setIsAddCategoryOpen}>
-      <DialogContent className="sm:max-w-[420px]">
+      <DialogContent className="w-[calc(100vw-1rem)] rounded-2xl sm:max-w-[420px] sm:rounded-2xl">
         <DialogHeader>
           <DialogTitle>Add New Category</DialogTitle>
         </DialogHeader>
@@ -929,7 +961,7 @@ export function ServicesTab() {
 
     {/* Edit Category Dialog */}
     <Dialog open={isEditCategoryOpen} onOpenChange={setIsEditCategoryOpen}>
-      <DialogContent className="sm:max-w-[420px]">
+      <DialogContent className="w-[calc(100vw-1rem)] rounded-2xl sm:max-w-[420px] sm:rounded-2xl">
         <DialogHeader>
           <DialogTitle>Edit Category</DialogTitle>
         </DialogHeader>

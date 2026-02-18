@@ -66,6 +66,7 @@ const ChatWithReproAi = () => {
   const navigate = useNavigate();
   const hasConsumedNavigation = useRef(false);
   const contentScrollRef = useRef<HTMLDivElement | null>(null);
+  const mainScrollRef = useRef<HTMLElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const isSendingRef = useRef(false);
   const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -101,6 +102,18 @@ const ChatWithReproAi = () => {
       return content !== '' || hasActions;
     });
   }, [messages]);
+
+  const lastAssistantMessage = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const msg = messages[i];
+      if (msg.sender === 'assistant') {
+        return msg;
+      }
+    }
+    return undefined;
+  }, [messages]);
+  const lastAssistantStep = (lastAssistantMessage?.metadata as any)?.step as string | undefined;
+  const shouldShowFallbackSuggestions = currentSuggestions.length === 0 && !lastAssistantStep;
 
   const mapRouteToPage = useCallback((route: string): string | undefined => {
     if (route.startsWith('/dashboard')) return 'dashboard';
@@ -153,7 +166,7 @@ const ChatWithReproAi = () => {
   // Load sessions when history tab is active
   useEffect(() => {
     if (tabMode === 'history') {
-      loadSessions();
+      void loadSessions();
     }
   }, [tabMode, searchTerm]);
 
@@ -171,18 +184,68 @@ const ChatWithReproAi = () => {
     resizeMessageInput();
   }, [message, resizeMessageInput]);
 
+  // Capture the real scroll owner (<main> from DashboardLayout)
+  useEffect(() => {
+    if (contentScrollRef.current) {
+      mainScrollRef.current = contentScrollRef.current.closest('main');
+    }
+  }, []);
+
   // Auto-scroll to bottom when messages change
   useEffect(() => {
-    if (messagesEndRef.current && visibleMessages.length > 0) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (tabMode !== 'chat' || viewMode !== 'chat' || visibleMessages.length === 0) {
+      return;
     }
-  }, [visibleMessages, isLoading]);
+
+    const scrollOwner = mainScrollRef.current;
+    if (!scrollOwner) return;
+
+    const scrollToLatest = () => {
+      scrollOwner.scrollTop = scrollOwner.scrollHeight;
+    };
+
+    scrollToLatest();
+    const rafId = window.requestAnimationFrame(scrollToLatest);
+    const t1 = window.setTimeout(scrollToLatest, 150);
+    const t2 = window.setTimeout(scrollToLatest, 400);
+
+    return () => {
+      window.cancelAnimationFrame(rafId);
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+    };
+  }, [
+    tabMode,
+    viewMode,
+    visibleMessages,
+    isLoading,
+    currentSuggestions.length,
+    shouldShowFallbackSuggestions,
+  ]);
 
   const loadSessions = useCallback(async () => {
     setIsLoadingSessions(true);
     try {
       const response = await fetchAiSessions(searchTerm || undefined);
-      setSessions(response.data);
+      const normalizedSessions: AiChatSession[] = Array.isArray(response.data)
+        ? response.data
+            .map((session: any) => {
+              const createdAt = session?.createdAt ?? session?.created_at;
+              const updatedAt = session?.updatedAt ?? session?.updated_at ?? createdAt;
+
+              return {
+                id: String(session?.id ?? ''),
+                title: (session?.title ?? '').toString(),
+                topic: (session?.topic ?? 'general') as AiChatSession['topic'],
+                messageCount: Number(session?.messageCount ?? session?.messages_count ?? 0),
+                createdAt: typeof createdAt === 'string' ? createdAt : new Date().toISOString(),
+                updatedAt: typeof updatedAt === 'string' ? updatedAt : new Date().toISOString(),
+              };
+            })
+            .filter((session: AiChatSession) => session.id !== '')
+        : [];
+
+      setSessions(normalizedSessions);
       if (response.meta?.stats) {
         setSessionsStats(response.meta.stats);
       }
@@ -437,9 +500,11 @@ const ChatWithReproAi = () => {
     });
   }, []);
 
-  const filteredSessions = sessions.filter(session =>
-    session.title.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const normalizedSearchTerm = searchTerm.trim().toLowerCase();
+  const filteredSessions = sessions.filter((session) => {
+    const sessionTitle = (session?.title ?? '').toString().toLowerCase();
+    return sessionTitle.includes(normalizedSearchTerm);
+  });
 
   const handleSelectAll = useCallback(() => {
     if (selectedSessions.size === filteredSessions.length) {
@@ -631,38 +696,44 @@ const ChatWithReproAi = () => {
   }, [pageContext.page]);
 
   const suggestionFallbacks = pagePrompts ?? defaultPrompts;
-  const lastAssistantMessage = useMemo(() => {
-    for (let i = messages.length - 1; i >= 0; i -= 1) {
-      const message = messages[i];
-      if (message.sender === 'assistant') {
-        return message;
-      }
-    }
-    return undefined;
-  }, [messages]);
-  const lastAssistantStep = (lastAssistantMessage?.metadata as any)?.step as string | undefined;
-  const shouldShowFallbackSuggestions = currentSuggestions.length === 0 && !lastAssistantStep;
 
   return (
-    <DashboardLayout className="!p-0 !pb-0 !overflow-hidden">
-      {/* Single flex column - the ONLY container that cares about height */}
-      <div className="flex flex-col h-[calc(100vh-64px)] md:h-[calc(100vh-64px)]">
-        {/* ── TOP AREA: sticky controls without header bar ── */}
-        <div className="sticky top-0 z-40 h-0 pointer-events-none">
-          <div className="relative h-0">
-            <div className="absolute left-2 md:left-4 top-3 md:top-4 pointer-events-auto hidden md:block">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 px-2 text-muted-foreground hover:text-foreground"
-                onClick={handleNavigateBack}
-              >
-                <ArrowLeft className="h-4 w-4" />
-                <span className="ml-1">Back</span>
-              </Button>
-            </div>
-            <div className="absolute right-2 md:right-4 top-3 md:top-4 pointer-events-auto">
-              <Tabs value={tabMode} onValueChange={(v) => {
+    <DashboardLayout hideNavbar={false} className="!p-0 !pb-0 !min-h-0">
+      {/* Let content grow naturally so <main> scrolls */}
+      <div className="flex flex-col">
+        {/* ── TOP AREA: sticky page header + controls ── */}
+        <div className="sticky top-0 z-50 shrink-0 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85">
+          <div className="mx-auto w-full max-w-5xl px-2 md:px-4 pt-2 md:pt-3 pb-2 md:pb-3">
+            <div
+              className={cn(
+                "flex items-start md:items-center gap-2 pointer-events-auto",
+                tabMode === 'history' ? 'justify-between' : 'justify-end'
+              )}
+            >
+              {tabMode === 'history' && (
+                <div className="min-w-0 pr-2">
+                  <h2 className="text-xl md:text-2xl font-semibold leading-tight">Chat History</h2>
+                  <p className="text-sm text-muted-foreground">
+                    {filteredSessions.length} {filteredSessions.length === 1 ? 'conversation' : 'conversations'}
+                    {searchTerm && ` matching "${searchTerm}"`}
+                  </p>
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 shrink-0">
+                {tabMode === 'history' && !isMobile && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 px-2 text-muted-foreground hover:text-foreground"
+                    onClick={handleNavigateBack}
+                    aria-label="Go back"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    <span className="ml-1">Back</span>
+                  </Button>
+                )}
+                <Tabs value={tabMode} onValueChange={(v) => {
                 const newTab = v as TabMode;
                 const previousTab = tabMode;
                 setTabMode(newTab);
@@ -742,6 +813,7 @@ const ChatWithReproAi = () => {
                   </TabsTrigger>
                 </TabsList>
               </Tabs>
+              </div>
             </div>
           </div>
         </div>
@@ -749,34 +821,18 @@ const ChatWithReproAi = () => {
         <div
           ref={contentScrollRef}
           className={cn(
-            "flex-1 relative flex flex-col",
-            viewMode === 'home' ? "overflow-hidden" : "overflow-y-auto pb-48 md:pb-0"
+            "relative flex flex-col",
+            tabMode === 'history'
+              ? "pb-16 md:pb-0"
+              : viewMode === 'chat'
+                ? "pb-56 md:pb-0"
+                : ""
           )}
         >
         {/* Tabs Content */}
-        <Tabs
-          value={tabMode}
-          className="flex-1 flex flex-col"
-          onValueChange={(v) => {
-              const newTab = v as TabMode;
-              const previousTab = tabMode;
-              setTabMode(newTab);
-              // Navigation logic:
-              // - If clicking "Ai Chat" tab while in chat view, go back to home
-              // - If clicking "Ai Chat" tab while in history tab, go to chat view (if there's a session)
-              if (newTab === 'chat') {
-                if (viewMode === 'chat') {
-                  // Already in chat view, clicking "Ai Chat" goes to home
-                  handleBackToHome();
-                } else if (previousTab === 'history') {
-                  // Coming from history tab, go to chat view if there's a session
-                  if (sessionId || messages.length > 0) {
-                    setViewMode('chat');
-                  }
-                }
-              }
-            }}>
-            <TabsContent value="chat" className="mt-0 flex-1 flex flex-col">
+        <div className="flex flex-col">
+          {tabMode === 'chat' && (
+            <div className="mt-0 flex flex-col">
               <AnimatePresence mode="sync" initial={false}>
                 {viewMode === 'home' ? (
                   <motion.div
@@ -785,7 +841,7 @@ const ChatWithReproAi = () => {
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.08 }}
-                    className="flex flex-col items-center justify-center space-y-4 md:space-y-6 px-4 py-10 min-h-[calc(100vh-64px-200px)]"
+                    className="mt-4 md:mt-0 flex flex-col items-center justify-center space-y-4 md:space-y-6 px-4 py-10 min-h-[calc(100vh-64px-200px)]"
                   >
                     {/* Welcome Section - Centered */}
                     <motion.div
@@ -899,10 +955,10 @@ const ChatWithReproAi = () => {
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.08 }}
-                    className="flex flex-col flex-1"
+                    className="flex flex-col"
                   >
                     {/* Messages List */}
-                    <div className="px-2 md:px-6 space-y-4 pb-4 pt-4 md:pt-6 flex-1 flex flex-col justify-end max-w-5xl mx-auto w-full">
+                    <div className="px-2 md:px-6 space-y-4 pb-4 pt-4 md:pt-6 flex flex-col max-w-5xl mx-auto w-full">
                     {visibleMessages.length === 0 ? (
                       <div className="flex items-end justify-center flex-1 min-h-0">
                         <div className="flex flex-col items-center justify-center text-center pb-6">
@@ -950,54 +1006,67 @@ const ChatWithReproAi = () => {
                   </motion.div>
                 )}
               </AnimatePresence>
-            </TabsContent>
+            </div>
+          )}
 
             {/* History Tab Content */}
-            <TabsContent value="history" className="mt-0 flex-1 flex flex-col">
-              <div className="flex flex-col max-w-5xl mx-auto w-full px-4 py-4">
+          {tabMode === 'history' && (
+            <div className="mt-0 flex-1 min-h-0 flex flex-col">
+              <div className="flex flex-col flex-1 min-h-0 max-w-5xl mx-auto w-full px-2 md:px-4 py-2 md:py-4">
                 {/* Header Section with Stats */}
-              <div className="mb-8">
-                <div className="mb-6">
-                  <h2 className="text-2xl font-semibold mb-1">Chat History</h2>
-                  <p className="text-sm text-muted-foreground">
-                    {filteredSessions.length} {filteredSessions.length === 1 ? 'conversation' : 'conversations'}
-                    {searchTerm && ` matching "${searchTerm}"`}
-                  </p>
-                </div>
-
+              <div className="mb-4 md:mb-8">
                 {/* Stats Cards */}
                 {filteredSessions.length > 0 && (
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-                    <div className="rounded-lg border bg-card p-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <MessageSquare className="h-4 w-4 text-primary" />
-                        <span className="text-sm font-medium">This Week</span>
+                  <>
+                    {/* Mobile: compact stat pills */}
+                    <div className="md:hidden mb-4 -mx-0.5 px-0.5 flex items-stretch gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                      <div className="shrink-0 min-w-[132px] rounded-lg border bg-card/80 px-3 py-2">
+                        <p className="text-[11px] text-muted-foreground">This Week</p>
+                        <p className="text-sm font-semibold">{sessionsStats.thisWeekCount}</p>
                       </div>
-                      <p className="text-2xl font-bold">{sessionsStats.thisWeekCount}</p>
-                      <p className="text-xs text-muted-foreground mt-1">conversations started</p>
-                    </div>
-                    <div className="rounded-lg border bg-card p-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <FileText className="h-4 w-4 text-primary" />
-                        <span className="text-sm font-medium">Avg. Messages</span>
+                      <div className="shrink-0 min-w-[132px] rounded-lg border bg-card/80 px-3 py-2">
+                        <p className="text-[11px] text-muted-foreground">Avg. Messages</p>
+                        <p className="text-sm font-semibold">{sessionsStats.avgMessagesPerSession}</p>
                       </div>
-                      <p className="text-2xl font-bold">{sessionsStats.avgMessagesPerSession}</p>
-                      <p className="text-xs text-muted-foreground mt-1">per conversation</p>
-                    </div>
-                    <div className="rounded-lg border bg-card p-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Code className="h-4 w-4 text-primary" />
-                        <span className="text-sm font-medium">Top Topic</span>
+                      <div className="shrink-0 min-w-[132px] rounded-lg border bg-card/80 px-3 py-2">
+                        <p className="text-[11px] text-muted-foreground">Top Topic</p>
+                        <p className="text-sm font-semibold capitalize truncate">{sessionsStats.topTopic}</p>
                       </div>
-                      <p className="text-lg font-bold capitalize">{sessionsStats.topTopic}</p>
-                      <p className="text-xs text-muted-foreground mt-1">most discussed</p>
                     </div>
-                  </div>
+
+                    {/* Desktop/tablet: full stat cards */}
+                    <div className="hidden md:grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                      <div className="rounded-lg border bg-card p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <MessageSquare className="h-4 w-4 text-primary" />
+                          <span className="text-sm font-medium">This Week</span>
+                        </div>
+                        <p className="text-2xl font-bold">{sessionsStats.thisWeekCount}</p>
+                        <p className="text-xs text-muted-foreground mt-1">conversations started</p>
+                      </div>
+                      <div className="rounded-lg border bg-card p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <FileText className="h-4 w-4 text-primary" />
+                          <span className="text-sm font-medium">Avg. Messages</span>
+                        </div>
+                        <p className="text-2xl font-bold">{sessionsStats.avgMessagesPerSession}</p>
+                        <p className="text-xs text-muted-foreground mt-1">per conversation</p>
+                      </div>
+                      <div className="rounded-lg border bg-card p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Code className="h-4 w-4 text-primary" />
+                          <span className="text-sm font-medium">Top Topic</span>
+                        </div>
+                        <p className="text-lg font-bold capitalize">{sessionsStats.topTopic}</p>
+                        <p className="text-xs text-muted-foreground mt-1">most discussed</p>
+                      </div>
+                    </div>
+                  </>
                 )}
               </div>
 
               {/* Search Bar and Selection Controls */}
-              <div className="mb-6 space-y-3">
+              <div className="mb-3 md:mb-6 space-y-3">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
@@ -1040,7 +1109,7 @@ const ChatWithReproAi = () => {
               </div>
 
               {/* Chat History List */}
-              <div className="flex-1 overflow-y-auto">
+              <div className="flex-1 min-h-0 pb-4 md:pb-2">
                 {isLoadingSessions ? (
                   <div className="flex items-center justify-center h-full">
                     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -1095,27 +1164,34 @@ const ChatWithReproAi = () => {
                           selectedSessions.has(session.id) && "bg-primary/5"
                         )}
                       >
-                        <div className="flex items-start gap-4 p-4 rounded-lg hover:bg-secondary/50 transition-colors border border-transparent hover:border-border">
+                        <div className="flex items-center gap-2 md:gap-4 p-2.5 md:p-4 rounded-lg hover:bg-secondary/50 transition-colors border border-transparent hover:border-border">
                           <Checkbox
                             checked={selectedSessions.has(session.id)}
                             onCheckedChange={() => {}}
                             onClick={(e) => handleToggleSelect(session.id, e)}
-                            className="mt-1"
+                            className="shrink-0"
                           />
-                          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 group-hover:bg-primary/20 transition-colors">
-                            <MessageSquare className="h-5 w-5 text-primary" />
+                          <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 group-hover:bg-primary/20 transition-colors">
+                            <MessageSquare className="h-4 w-4 md:h-5 md:w-5 text-primary" />
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between gap-3 mb-1">
-                              <h4 className="font-medium text-base group-hover:text-primary transition-colors">
-                                {session.title}
+                          <div className="flex-1 min-w-0 flex items-center gap-2 md:gap-3">
+                              <h4 className="font-medium text-sm md:text-base truncate group-hover:text-primary transition-colors">
+                                {(session.title ?? '').trim() || 'New conversation'}
                               </h4>
+                              <div className="ml-auto flex items-center gap-1.5 text-[11px] md:text-xs text-muted-foreground whitespace-nowrap">
+                                <Clock className="h-3 w-3" />
+                                <span>{formatTimestamp(session.updatedAt)}</span>
+                              </div>
+                              <span className="hidden md:inline text-muted-foreground/50">•</span>
+                              <span className="hidden md:inline text-xs text-muted-foreground whitespace-nowrap">
+                                {session.messageCount || 0} {session.messageCount === 1 ? 'message' : 'messages'}
+                              </span>
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                                    className="h-7 w-7 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex-shrink-0"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       e.preventDefault();
@@ -1142,15 +1218,6 @@ const ChatWithReproAi = () => {
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
-                            </div>
-                            <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                              <div className="flex items-center gap-1.5">
-                                <Clock className="h-3.5 w-3.5" />
-                                <span>{formatTimestamp(session.updatedAt)}</span>
-                              </div>
-                              <span className="text-muted-foreground/50">•</span>
-                              <span>{session.messageCount || 0} {session.messageCount === 1 ? 'message' : 'messages'}</span>
-                            </div>
                           </div>
                         </div>
                       </button>
@@ -1159,8 +1226,9 @@ const ChatWithReproAi = () => {
                 )}
               </div>
             </div>
-          </TabsContent>
-          </Tabs>
+            </div>
+          )}
+        </div>
         </div>
 
         {/* ── BOTTOM AREA: fixed chat bar ── */}

@@ -227,8 +227,8 @@ const ShootDetails: React.FC = () => {
   );
   const hasEditedWithoutRaw = editedMediaCount > 0 && rawMediaCount === 0;
 
-  const loadShoot = useCallback(async () => {
-    if (!id) return;
+  const loadShoot = useCallback(async (): Promise<ShootData | null> => {
+    if (!id) return null;
     try {
       const headers = getApiHeaders();
       const res = await fetch(`${API_BASE_URL}/api/shoots/${id}`, {
@@ -319,11 +319,13 @@ const ShootDetails: React.FC = () => {
       }
       
       setShoot(shootData);
+      return shootData;
     } catch (error: any) {
       console.error('Error fetching shoot details:', error);
       const errorMessage = error?.response?.data?.message || error?.message || 'Failed to fetch shoot details';
       toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
       setShoot(null);
+      return null;
     } finally {
       setLoading(false);
     }
@@ -335,7 +337,9 @@ const ShootDetails: React.FC = () => {
 
   useEffect(() => {
     if (!id) return;
-    return registerShootDetailRefresh(id, () => loadShoot());
+    return registerShootDetailRefresh(id, () => {
+      void loadShoot();
+    });
   }, [id, loadShoot]);
 
   useEffect(() => {
@@ -503,17 +507,58 @@ const ShootDetails: React.FC = () => {
         headers,
         body: JSON.stringify({ final_status: 'admin_verified' }),
       });
-      
+
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({ message: 'Failed to finalize shoot' }));
         throw new Error(errorData.message || 'Failed to finalize shoot');
       }
-      
+
+      const isQueued = res.status === 202;
+
       toast({
-        title: 'Success',
-        description: 'Shoot finalized and delivered',
+        title: isQueued ? 'Finalize started' : 'Success',
+        description: isQueued
+          ? 'Finalize started in background. You can continue working.'
+          : 'Shoot finalized and delivered',
       });
-      loadShoot();
+
+      if (!isQueued) {
+        loadShoot();
+        return;
+      }
+
+      const deliveredStatuses = ['delivered', 'ready', 'ready_for_client', 'admin_verified'];
+      for (let attempt = 0; attempt < 20; attempt += 1) {
+        const latestShoot = await loadShoot();
+        const latestStatus = String(latestShoot?.workflowStatus || latestShoot?.status || '').toLowerCase();
+        if (deliveredStatuses.includes(latestStatus)) {
+          toast({
+            title: 'Finalize complete',
+            description: 'Shoot is now delivered.',
+          });
+          return;
+        }
+
+        const workflowLogs = (latestShoot as any)?.workflowLogs || (latestShoot as any)?.workflow_logs || [];
+        const hasFinalizeFailure = Array.isArray(workflowLogs)
+          && workflowLogs.some((log: any) => String(log?.action || '').toLowerCase() === 'finalize_failed');
+
+        if (hasFinalizeFailure) {
+          toast({
+            title: 'Finalize failed',
+            description: 'Finalize failed in background. Check Activity Log for details.',
+            variant: 'destructive',
+          });
+          return;
+        }
+
+        await new Promise((resolve) => window.setTimeout(resolve, 4000));
+      }
+
+      toast({
+        title: 'Still processing',
+        description: 'Finalize is still running in background. Check back in a moment.',
+      });
     } catch (error: any) {
       toast({
         title: 'Error',

@@ -8,6 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import { getStateFullName } from '@/utils/stateUtils';
 import { useAuth } from '@/components/auth/AuthProvider';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface ReviewFormProps {
   client: string; // Client ID
@@ -42,6 +43,42 @@ interface ReviewFormProps {
   isLastStep?: boolean;
 }
 
+const normalizeAddressPart = (value?: string | null) =>
+  String(value || '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const buildNormalizedAddress = (params: {
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  zip?: string | null;
+}) => {
+  let street = normalizeAddressPart(params.address);
+  const cityPart = normalizeAddressPart(params.city);
+  const statePart = normalizeAddressPart(params.state);
+  const zipPart = normalizeAddressPart(params.zip);
+
+  const trimTrailingToken = (source: string, token: string) => {
+    if (!source || !token) return source;
+    const pattern = new RegExp(`(?:,\\s*)?${escapeRegExp(token)}\\s*$`, 'i');
+    return source.replace(pattern, '').replace(/[\s,]+$/, '').trim();
+  };
+
+  const stateZip = [statePart, zipPart].filter(Boolean).join(' ');
+  street = trimTrailingToken(street, stateZip);
+  street = trimTrailingToken(street, zipPart);
+  street = trimTrailingToken(street, statePart);
+  street = trimTrailingToken(street, cityPart);
+
+  const locality = [cityPart, [statePart, zipPart].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+  const parts = [street, locality].filter(Boolean);
+
+  return parts.join(', ');
+};
+
 export function ReviewForm({
   client,
   clientName,
@@ -73,6 +110,7 @@ export function ReviewForm({
   isLastStep = false
 }: ReviewFormProps) {
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const isClientRole = user?.role === 'client';
 
   /* ---------------- TAX LOGIC ---------------- */
@@ -84,12 +122,41 @@ export function ReviewForm({
 
   const tax = Number((subtotal * taxRate).toFixed(2));
   const total = Number((subtotal + tax).toFixed(2));
-  const addressParts = [
-    address,
-    city,
-    [state, zip].filter(Boolean).join(' ')
-  ].filter(Boolean);
-  const fullAddress = addressParts.length > 0 ? addressParts.join(', ') : '';
+  const fullAddress = buildNormalizedAddress({ address, city, state, zip });
+
+  const reviewToggles = (
+    <div className="rounded-xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900/60 p-3 sm:p-4 space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="space-y-0.5 min-w-0">
+          <Label htmlFor="bypass-payment" className="text-slate-900 dark:text-slate-100">Bypass Payment</Label>
+          <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+            Client will be invoiced later
+          </div>
+        </div>
+        <Switch
+          id="bypass-payment"
+          checked={bypassPayment}
+          onCheckedChange={setBypassPayment}
+        />
+      </div>
+
+      <Separator />
+
+      <div className="flex items-center justify-between gap-3">
+        <div className="space-y-0.5 min-w-0">
+          <Label htmlFor="send-notification" className="text-slate-900 dark:text-slate-100">Send Notification</Label>
+          <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+            Notify client and photographer
+          </div>
+        </div>
+        <Switch
+          id="send-notification"
+          checked={sendNotification}
+          onCheckedChange={setSendNotification}
+        />
+      </div>
+    </div>
+  );
 
   return (
     <motion.div
@@ -155,7 +222,10 @@ export function ReviewForm({
         </div> */}
       </div>
 
+      {isMobile && reviewToggles}
+
       {/* Booking Summary */}
+      {!isMobile && (
       <div className="p-4 bg-white dark:bg-slate-900 rounded-lg space-y-4 border border-gray-100 dark:border-slate-800">
         <h3 className="font-medium text-slate-900 dark:text-slate-100">Booking Summary</h3>
 
@@ -235,37 +305,10 @@ export function ReviewForm({
           </div>
         </div>
       </div>
+      )}
 
       {/* Toggles */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="space-y-0.5">
-            <Label htmlFor="bypass-payment" className="text-slate-900 dark:text-slate-100">Bypass Payment</Label>
-            <div className="text-sm text-slate-500 dark:text-slate-400">
-              Client will be invoiced later
-            </div>
-          </div>
-          <Switch
-            id="bypass-payment"
-            checked={bypassPayment}
-            onCheckedChange={setBypassPayment}
-          />
-        </div>
-
-        <div className="flex items-center justify-between">
-          <div className="space-y-0.5">
-            <Label htmlFor="send-notification" className="text-slate-900 dark:text-slate-100">Send Notification</Label>
-            <div className="text-sm text-slate-500 dark:text-slate-400">
-              Notify client and photographer
-            </div>
-          </div>
-          <Switch
-            id="send-notification"
-            checked={sendNotification}
-            onCheckedChange={setSendNotification}
-          />
-        </div>
-      </div>
+      {!isMobile && reviewToggles}
 
       <div className="pt-2 pb-4">
         <Button

@@ -558,7 +558,10 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
 
       await Promise.all(
         shootsNeedingWeather.map(async (shoot) => {
-          const location = shoot.cityStateZip || shoot.addressLine!;
+          const location = [shoot.addressLine, shoot.cityStateZip]
+            .filter((part): part is string => Boolean(part && part.trim()))
+            .join(', ');
+          if (!location) return;
           try {
             const info = await getWeatherForLocation(location, shoot.startTime, controller.signal);
             if (info && isMounted) {
@@ -591,6 +594,43 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
       default:
         return <Cloud size={14} />;
     }
+  };
+
+  const getShootTemperatureLabel = (shoot: DashboardShootSummary, weather?: WeatherInfo) => {
+    const nestedWeather = (shoot as DashboardShootSummary & {
+      weather?: {
+        temperature?: string | number | null;
+        temp?: string | number | null;
+        temp_f?: string | number | null;
+        temp_c?: string | number | null;
+      } | null;
+    }).weather;
+
+    const candidates: Array<string | number | null | undefined> = [
+      weather?.temperature,
+      typeof weather?.temperatureF === 'number' ? weather.temperatureF : undefined,
+      typeof weather?.temperatureC === 'number' ? weather.temperatureC : undefined,
+      shoot.temperature,
+      nestedWeather?.temperature,
+      nestedWeather?.temp,
+      nestedWeather?.temp_f,
+      nestedWeather?.temp_c,
+    ];
+
+    const value = candidates.find((candidate) => candidate !== null && candidate !== undefined && String(candidate).trim() !== '');
+    if (value === undefined) return '--°';
+
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return formatTemperature(value);
+    }
+
+    const stringValue = String(value).trim();
+    const numericMatch = stringValue.match(/-?\d+(?:\.\d+)?/);
+    if (numericMatch) {
+      return formatTemperature(Number(numericMatch[0]));
+    }
+
+    return stringValue;
   };
 
   const renderShootCard = (shoot: DashboardShootSummary, isRequested: boolean) => {
@@ -666,14 +706,7 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
             </span>
             <div className="inline-flex items-center h-5 gap-1 rounded-full border border-border px-2 text-[10px] font-semibold text-muted-foreground bg-background shadow-sm">
               {renderWeatherIcon(weather?.icon)}
-              <span>{(() => {
-                const temp = weather?.temperature ?? shoot.temperature;
-                if (!temp) return '--°';
-                if (typeof temp === 'number') return formatTemperature(temp);
-                const match = String(temp).match(/^(-?\d+)/);
-                if (match) return formatTemperature(parseInt(match[1], 10));
-                return temp;
-              })()}</span>
+              <span>{getShootTemperatureLabel(shoot, weather)}</span>
             </div>
           </div>
 
@@ -816,14 +849,7 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
           <div className="flex flex-col items-end gap-3 min-w-[120px] justify-between">
             <div className="flex items-center gap-1 rounded-full border border-border px-3 py-1 text-xs font-semibold text-muted-foreground bg-background shadow-sm">
               {renderWeatherIcon(weather?.icon)}
-              <span>{(() => {
-                const temp = weather?.temperature ?? shoot.temperature;
-                if (!temp) return '--°';
-                if (typeof temp === 'number') return formatTemperature(temp);
-                const match = String(temp).match(/^(-?\d+)/);
-                if (match) return formatTemperature(parseInt(match[1], 10));
-                return temp;
-              })()}</span>
+              <span>{getShootTemperatureLabel(shoot, weather)}</span>
             </div>
             <div className="text-xs text-muted-foreground text-right">
               Photographer{' '}
@@ -919,7 +945,7 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
       </button>
 
       {/* Header with static "Shoots" title and inline tabs */}
-      <div className="flex flex-wrap items-center justify-between mb-4 gap-3 pr-10 sm:pr-0">
+      <div className="flex flex-wrap items-center justify-between mb-2 gap-3 pr-10 sm:pr-0">
         <div className="flex items-center gap-4">
           <h2 className="text-lg font-bold text-foreground">Shoots</h2>
           <div className="flex items-center gap-1 border-b border-transparent">

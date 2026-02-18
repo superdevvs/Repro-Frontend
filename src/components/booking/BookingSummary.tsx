@@ -25,12 +25,14 @@ interface BookingSummaryProps {
   selectedServices: Array<{ id: string; name: string; description: string; price: number }>;
   onSubmit?: () => void;
   isLastStep?: boolean;
+  canSubmit?: boolean;
   isSubmitting?: boolean;
   showRepName?: boolean; // Whether to show rep name (admin, superadmin, photographer only)
   weather?: {
     temperature?: number | null;
     condition?: string | null;
   };
+  isMobile?: boolean;
 }
 
 export function BookingSummary({
@@ -38,9 +40,11 @@ export function BookingSummary({
   selectedServices,
   onSubmit,
   isLastStep = false,
+  canSubmit = true,
   isSubmitting = false,
   showRepName = false,
   weather,
+  isMobile = false,
 }: BookingSummaryProps) {
   const { formatTemperature } = useUserPreferences();
   const { user } = useAuth();
@@ -57,10 +61,12 @@ export function BookingSummary({
       transition={{ duration: 0.4 }}
       className={
         // light by default, dark when `dark:` is present in page
-        "bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:to-slate-800 rounded-lg border border-gray-200 dark:border-slate-800 shadow-sm sticky top-20 max-h-[calc(100vh-6rem)] overflow-hidden flex flex-col"
+        isMobile
+          ? "bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:to-slate-800 rounded-lg border border-gray-200 dark:border-slate-800 shadow-sm flex flex-col"
+          : "bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:to-slate-800 rounded-lg border border-gray-200 dark:border-slate-800 shadow-sm sticky top-20 max-h-[calc(100vh-6rem)] overflow-hidden flex flex-col"
       }
     >
-      <div className="flex-1 overflow-y-auto p-6 pr-4">
+      <div className={isMobile ? "p-4 pr-3" : "flex-1 overflow-y-auto p-6 pr-4"}>
         <h2 className="text-xl font-bold mb-2 text-slate-900 dark:text-white">Booking Summary</h2>
         <p className="text-sm mb-6 text-slate-500 dark:text-slate-300">Complete all steps to schedule your shoot</p>
 
@@ -161,27 +167,32 @@ export function BookingSummary({
         </div>
       </div>
 
-      <div className="border-t border-gray-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 backdrop-blur px-6 py-4">
-        <Button
-          onClick={onSubmit}
-          disabled={isSubmitting}
-          className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-md transition-colors disabled:opacity-70"
-        >
-          {isSubmitting ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Requesting...
-            </>
-          ) : isClientRole ? (
-            <>
-              <Send className="mr-2 h-4 w-4" /> Request Shoot
-            </>
-          ) : (
-            <>
-              <Check className="mr-2 h-4 w-4" /> Book Shoot
-            </>
-          )}
-        </Button>
-      </div>
+      {isLastStep && (
+        <div className={isMobile
+          ? "border-t border-gray-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 backdrop-blur px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
+          : "border-t border-gray-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 backdrop-blur px-6 py-4"
+        }>
+          <Button
+            onClick={onSubmit}
+            disabled={isSubmitting || !canSubmit}
+            className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-md transition-colors disabled:opacity-100 disabled:bg-slate-300 disabled:text-slate-600 disabled:hover:bg-slate-300"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Requesting...
+              </>
+            ) : isClientRole ? (
+              <>
+                <Send className="mr-2 h-4 w-4" /> Request Shoot
+              </>
+            ) : (
+              <>
+                <Check className="mr-2 h-4 w-4" /> Book Shoot
+              </>
+            )}
+          </Button>
+        </div>
+      )}
     </motion.div>
   );
 }

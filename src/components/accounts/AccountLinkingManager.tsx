@@ -329,39 +329,53 @@ export function AccountLinkingManager() {
 
   const clientAccounts = accounts.filter(a => a.role === 'client');
   const mainAccounts = accounts.filter(a => ['admin', 'superadmin', 'client'].includes(a.role));
+  const availableClientAccounts = clientAccounts
+    .filter((account) => account.id !== selectedMainAccount)
+    .filter((account) => !linkedAccounts.some((link) => link.accountId === account.id))
+    .filter((account) =>
+      searchTerm === '' ||
+      account.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      account.email.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
+        <CardHeader className="space-y-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-1">
               <CardTitle>Account Linking</CardTitle>
               <CardDescription>
                 Link multiple client accounts to a main account and manage shared details efficiently
               </CardDescription>
             </div>
-            <Button onClick={() => setIsLinkDialogOpen(true)}>
-              <Users className="mr-2 h-4 w-4" />
-              Link Multiple Accounts
-            </Button>
+            {linkedAccounts.length > 0 && (
+              <Button onClick={() => setIsLinkDialogOpen(true)} className="w-full sm:w-auto">
+                <Users className="mr-2 h-4 w-4" />
+                Link Multiple Accounts
+              </Button>
+            )}
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-4 sm:p-6">
           {linkedAccounts.length === 0 ? (
-            <div className="text-center py-12">
-              <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No Linked Accounts</h3>
-              <p className="text-muted-foreground mb-4">
+            <div className="text-center py-8 sm:py-12">
+              <Users className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+              <h3 className="mb-2 text-lg font-semibold">No Linked Accounts</h3>
+              <p className="mb-4 text-muted-foreground sm:mb-5">
                 Start by linking multiple client accounts to a main account. This allows you to manage and share data across connected accounts seamlessly.
               </p>
-              <p className="text-sm text-muted-foreground">
-                Click the "Link Multiple Accounts" button above to get started.
-              </p>
+              <Button
+                onClick={() => setIsLinkDialogOpen(true)}
+                className="w-full sm:w-auto"
+              >
+                <Users className="mr-2 h-4 w-4" />
+                Link Multiple Accounts
+              </Button>
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
+              <div className="flex flex-col gap-3 p-4 bg-green-50 rounded-lg border border-green-200 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-green-500 rounded-full">
                     <Link2 className="h-4 w-4 text-white" />
@@ -378,14 +392,14 @@ export function AccountLinkingManager() {
                 <Button 
                   onClick={() => setIsLinkDialogOpen(true)}
                   variant="outline"
-                  className="border-green-300 text-green-700 hover:bg-green-50"
+                  className="w-full sm:w-auto border-green-300 text-green-700 hover:bg-green-50"
                 >
                   <Users className="mr-2 h-4 w-4" />
                   Link More
                 </Button>
               </div>
               
-              <ScrollArea className="h-[600px] rounded-lg border">
+              <ScrollArea className="h-[60vh] min-h-[420px] rounded-lg border sm:h-[600px]">
                 <div className="p-4 space-y-6">
                   {(() => {
                     // Group linked accounts by main account
@@ -411,7 +425,7 @@ export function AccountLinkingManager() {
                     return Object.values(groupedLinks).map((group, groupIndex) => (
                       <Card key={group.mainAccount.id} className="overflow-hidden border-border shadow-sm hover:shadow-md transition-shadow duration-200">
                         <CardHeader className="bg-gradient-to-r from-blue-50/50 to-indigo-50/50 dark:from-blue-950/50 dark:to-indigo-950/50 border-b border-border py-4">
-                          <div className="flex items-center justify-between">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <div className="flex items-center gap-3">
                               <div className="w-9 h-9 bg-blue-500 rounded-full flex items-center justify-center">
                                 <span className="text-sm font-bold text-white">
@@ -427,7 +441,7 @@ export function AccountLinkingManager() {
                                 </CardDescription>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 self-start sm:self-auto">
                               <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200 text-xs px-2 py-1">
                                 <Users className="w-3 h-3 mr-1" />
                                 {group.linkedAccounts.length}
@@ -450,25 +464,25 @@ export function AccountLinkingManager() {
                         <CardContent className="p-4">
                           <div className="space-y-3">
                             {group.linkedAccounts.map((link) => (
-                              <div key={link.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border hover:bg-muted/50 transition-all duration-200">
-                                <div className="flex items-center gap-3">
+                              <div key={link.id} className="flex flex-col gap-3 p-3 bg-muted/30 rounded-lg border hover:bg-muted/50 transition-all duration-200 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="flex items-center gap-3 min-w-0">
                                   <div className="w-8 h-8 bg-green-500/20 rounded-full flex items-center justify-center">
                                     <span className="text-xs font-bold text-green-700 dark:text-green-300">
                                       {link.accountName?.charAt(0)?.toUpperCase() || 'C'}
                                     </span>
                                   </div>
-                                  <div className="flex-1">
+                                  <div className="flex-1 min-w-0">
                                     <p className="font-medium text-foreground text-sm leading-tight">
                                       {link.accountName || 'Unknown Client'}
                                     </p>
-                                    <p className="text-xs text-muted-foreground mt-0.5">
+                                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
                                       {link.accountEmail}
                                     </p>
                                   </div>
                                 </div>
                                 
-                                <div className="flex items-center gap-3">
-                                  <div className="flex flex-wrap gap-1 max-w-[150px]">
+                                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
+                                  <div className="flex flex-wrap gap-1 max-w-full sm:max-w-[180px]">
                                     {Object.entries(link.sharedDetails || {}).filter(([_, enabled]) => enabled).map(([detail]) => (
                                       <Badge key={detail} variant="outline" className="text-xs bg-background px-1.5 py-0.5">
                                         {detail.charAt(0).toUpperCase() + detail.slice(1)}
@@ -476,7 +490,7 @@ export function AccountLinkingManager() {
                                     ))}
                                   </div>
                                   
-                                  <div className="flex items-center gap-2">
+                                  <div className="flex items-center gap-2 sm:justify-end">
                                     <Badge 
                                       variant={link.status === 'active' ? 'default' : 'secondary'}
                                       className={link.status === 'active' ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-200 text-xs px-1.5 py-0.5' : 'text-xs px-1.5 py-0.5'}
@@ -554,22 +568,30 @@ export function AccountLinkingManager() {
           )}
 
       {/* Link Accounts Dialog */}
-      <Dialog open={isLinkDialogOpen} onOpenChange={setIsLinkDialogOpen}>
-        <DialogContent className="sm:max-w-[1100px] max-h-[85vh] overflow-hidden">
-          <DialogHeader>
-            <DialogTitle>Link Multiple Client Accounts</DialogTitle>
-            <DialogDescription>
+      <Dialog
+        open={isLinkDialogOpen}
+        onOpenChange={(open) => {
+          setIsLinkDialogOpen(open);
+          if (!open) {
+            setSearchTerm('');
+          }
+        }}
+      >
+        <DialogContent className="flex h-[calc(100dvh-0.75rem)] w-[calc(100vw-0.75rem)] max-w-[1100px] flex-col gap-0 overflow-hidden rounded-2xl p-0 sm:h-auto sm:max-h-[85vh] sm:w-full sm:gap-4 sm:rounded-xl sm:p-6">
+          <DialogHeader className="space-y-1 border-b px-4 py-3 pr-12 text-left sm:border-0 sm:px-0 sm:py-0 sm:pr-0">
+            <DialogTitle className="text-left">Link Multiple Client Accounts</DialogTitle>
+            <DialogDescription className="text-left sm:max-w-[80ch]">
               Select multiple client accounts to link to a main account and configure shared details
             </DialogDescription>
           </DialogHeader>
           
-          <div className="flex gap-6 py-4 h-[calc(85vh-140px)]">
+          <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto px-4 py-4 sm:h-[calc(85vh-170px)] sm:grid-cols-[minmax(0,1fr)_24rem] sm:gap-6 sm:overflow-hidden sm:px-0 sm:py-0">
             {/* Left Panel - Account Selection */}
-            <div className="flex-1 space-y-4 overflow-hidden flex flex-col">
+            <div className="flex min-h-0 flex-col gap-4 sm:overflow-hidden">
               <div className="space-y-2">
                 <Label>Main Account</Label>
                 <Select value={selectedMainAccount} onValueChange={setSelectedMainAccount}>
-                  <SelectTrigger>
+                  <SelectTrigger className="h-10">
                     <SelectValue placeholder="Select main account to link to" />
                   </SelectTrigger>
                   <SelectContent>
@@ -585,15 +607,15 @@ export function AccountLinkingManager() {
                 </Select>
               </div>
 
-              <div className="space-y-2 flex-1 overflow-hidden flex flex-col">
-                <div className="flex items-center justify-between">
-                  <Label>Client Accounts to Link ({selectedClientAccounts.length} selected)</Label>
+              <div className="flex min-h-0 flex-1 flex-col space-y-2 sm:overflow-hidden">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <Label className="text-[15px] sm:text-sm">Client Accounts to Link ({selectedClientAccounts.length} selected)</Label>
                   {selectedClientAccounts.length > 0 && (
                     <Button 
                       variant="ghost" 
                       size="sm" 
                       onClick={() => setSelectedClientAccounts([])}
-                      className="text-xs h-7 px-2"
+                      className="h-7 px-2 text-xs text-primary"
                     >
                       Clear All
                     </Button>
@@ -604,20 +626,12 @@ export function AccountLinkingManager() {
                   placeholder="Search client accounts..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="mb-2"
+                  className="h-10"
                 />
                 
-                <div className="border rounded-lg p-3 flex-1 overflow-y-auto">
-                  {clientAccounts
-                    .filter(acc => acc.id !== selectedMainAccount)
-                    .filter(acc => !linkedAccounts.some(link => link.accountId === acc.id))
-                    .filter(acc => 
-                      searchTerm === '' || 
-                      acc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                      acc.email.toLowerCase().includes(searchTerm.toLowerCase())
-                    )
-                    .length === 0 ? (
-                    <div className="text-center py-8">
+                <div className="min-h-[140px] max-h-[30dvh] rounded-lg border p-2.5 overflow-y-auto sm:min-h-[220px] sm:max-h-none sm:flex-1 sm:p-3">
+                  {availableClientAccounts.length === 0 ? (
+                    <div className="text-center py-8 sm:py-10">
                       <Users className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
                       <p className="text-sm font-medium text-muted-foreground mb-1">
                         {searchTerm ? 'No accounts found' : 'No available client accounts'}
@@ -628,28 +642,20 @@ export function AccountLinkingManager() {
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {clientAccounts
-                        .filter(acc => acc.id !== selectedMainAccount)
-                        .filter(acc => !linkedAccounts.some(link => link.accountId === acc.id))
-                        .filter(acc => 
-                          searchTerm === '' || 
-                          acc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          acc.email.toLowerCase().includes(searchTerm.toLowerCase())
-                        )
-                        .map((account) => (
+                      {availableClientAccounts.map((account) => (
                           <div 
                             key={account.id} 
-                            className={`flex items-center space-x-3 p-3 rounded-lg border transition-all cursor-pointer hover:bg-accent ${
+                            className={`flex items-start space-x-3 rounded-lg border p-2.5 transition-all cursor-pointer hover:bg-accent sm:items-center sm:p-3 ${
                               selectedClientAccounts.includes(account.id) 
                                 ? 'bg-accent border-accent-foreground' 
                                 : 'bg-background border-border'
                             }`}
                             onClick={() => {
-                              if (selectedClientAccounts.includes(account.id)) {
-                                setSelectedClientAccounts(selectedClientAccounts.filter(id => id !== account.id));
-                              } else {
-                                setSelectedClientAccounts([...selectedClientAccounts, account.id]);
-                              }
+                              setSelectedClientAccounts((previous) =>
+                                previous.includes(account.id)
+                                  ? previous.filter((id) => id !== account.id)
+                                  : [...previous, account.id]
+                              );
                             }}
                           >
                             <Checkbox
@@ -667,7 +673,7 @@ export function AccountLinkingManager() {
                               <p className="text-xs text-muted-foreground">{account.email}</p>
                             </div>
                             {selectedClientAccounts.includes(account.id) && (
-                              <Badge variant="default" className="text-xs">
+                              <Badge variant="default" className="text-[11px] sm:text-xs">
                                 Selected
                               </Badge>
                             )}
@@ -680,12 +686,12 @@ export function AccountLinkingManager() {
             </div>
 
             {/* Right Panel - Shared Details */}
-            <div className="w-96 space-y-4 overflow-hidden flex flex-col">
-              <div className="space-y-3 flex-1 overflow-hidden flex flex-col">
-                <Label>Shared Details (Applied to all selected accounts)</Label>
-                <div className="border rounded-lg p-4 bg-card flex-1 overflow-y-auto">
-                  <div className="space-y-3">
-                    <div className="flex items-center space-x-3 p-3 rounded-lg bg-accent/50 border">
+            <div className="flex min-h-0 flex-col space-y-3 sm:space-y-4 sm:overflow-hidden">
+              <div className="flex min-h-0 flex-1 flex-col space-y-3 sm:overflow-hidden">
+                <Label className="text-[15px] sm:text-sm">Shared Details (Applied to all selected accounts)</Label>
+                <div className="min-h-[170px] max-h-[34dvh] rounded-lg border bg-card p-2.5 overflow-y-auto sm:min-h-[220px] sm:max-h-none sm:flex-1 sm:p-4">
+                  <div className="space-y-2.5 sm:space-y-3">
+                    <div className="flex items-center space-x-3 rounded-lg border bg-accent/50 p-2.5 sm:p-3">
                       <Checkbox
                         id="share-shoots"
                         checked={sharedDetails.shoots}
@@ -700,7 +706,7 @@ export function AccountLinkingManager() {
                         <p className="text-xs text-muted-foreground">Photo sessions</p>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-3 p-3 rounded-lg bg-accent/50 border">
+                    <div className="flex items-center space-x-3 rounded-lg border bg-accent/50 p-2.5 sm:p-3">
                       <Checkbox
                         id="share-invoices"
                         checked={sharedDetails.invoices}
@@ -715,7 +721,7 @@ export function AccountLinkingManager() {
                         <p className="text-xs text-muted-foreground">Billing info</p>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-3 p-3 rounded-lg bg-accent/50 border">
+                    <div className="flex items-center space-x-3 rounded-lg border bg-accent/50 p-2.5 sm:p-3">
                       <Checkbox
                         id="share-clients"
                         checked={sharedDetails.clients}
@@ -730,7 +736,7 @@ export function AccountLinkingManager() {
                         <p className="text-xs text-muted-foreground">Client data</p>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-3 p-3 rounded-lg bg-accent/50 border">
+                    <div className="flex items-center space-x-3 rounded-lg border bg-accent/50 p-2.5 sm:p-3">
                       <Checkbox
                         id="share-availability"
                         checked={sharedDetails.availability}
@@ -745,7 +751,7 @@ export function AccountLinkingManager() {
                         <p className="text-xs text-muted-foreground">Schedule info</p>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-3 p-3 rounded-lg bg-accent/50 border">
+                    <div className="flex items-center space-x-3 rounded-lg border bg-accent/50 p-2.5 sm:p-3">
                       <Checkbox
                         id="share-settings"
                         checked={sharedDetails.settings}
@@ -760,7 +766,7 @@ export function AccountLinkingManager() {
                         <p className="text-xs text-muted-foreground">Account settings</p>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-3 p-3 rounded-lg bg-accent/50 border">
+                    <div className="flex items-center space-x-3 rounded-lg border bg-accent/50 p-2.5 sm:p-3">
                       <Checkbox
                         id="share-profile"
                         checked={sharedDetails.profile}
@@ -775,7 +781,7 @@ export function AccountLinkingManager() {
                         <p className="text-xs text-muted-foreground">Profile info</p>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-3 p-3 rounded-lg bg-accent/50 border">
+                    <div className="flex items-center space-x-3 rounded-lg border bg-accent/50 p-2.5 sm:p-3">
                       <Checkbox
                         id="share-documents"
                         checked={sharedDetails.documents}
@@ -795,7 +801,7 @@ export function AccountLinkingManager() {
               </div>
 
               {selectedClientAccounts.length > 0 && (
-                <div className="p-3 bg-accent rounded-lg border">
+                <div className="rounded-lg border bg-accent p-3">
                   <p className="text-sm font-medium text-accent-foreground">
                     📋 {selectedClientAccounts.length} account{selectedClientAccounts.length !== 1 ? 's' : ''} selected
                   </p>
@@ -804,16 +810,21 @@ export function AccountLinkingManager() {
             </div>
           </div>
           
-          <DialogFooter>
-            <Button variant="outline" onClick={() => {
-              setIsLinkDialogOpen(false);
-              setSearchTerm('');
-            }}>
+          <DialogFooter className="flex-col gap-2 border-t bg-background px-4 py-3 shadow-[0_-1px_0_0_hsl(var(--border))] sm:flex-row sm:justify-end sm:gap-0 sm:space-x-2 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 sm:shadow-none [padding-bottom:calc(0.75rem+env(safe-area-inset-bottom))] sm:[padding-bottom:0]">
+            <Button
+              variant="outline"
+              className="w-full sm:w-auto"
+              onClick={() => {
+                setIsLinkDialogOpen(false);
+                setSearchTerm('');
+              }}
+            >
               Cancel
             </Button>
             <Button 
               onClick={handleLinkAccounts}
               disabled={selectedClientAccounts.length === 0}
+              className="w-full sm:w-auto"
             >
               <Users className="mr-2 h-4 w-4" />
               Link {selectedClientAccounts.length} Account{selectedClientAccounts.length !== 1 ? 's' : ''}

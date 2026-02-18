@@ -132,12 +132,13 @@ export function UserProfileDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>User Profile</DialogTitle>
+      <DialogContent className="flex h-[calc(100dvh-0.75rem)] w-[calc(100vw-0.75rem)] max-w-[760px] flex-col gap-0 overflow-hidden rounded-2xl p-0 sm:h-auto sm:max-h-[85vh] sm:w-full sm:gap-4 sm:rounded-xl sm:p-6">
+        <DialogHeader className="border-b px-4 py-3 pr-12 text-left sm:border-0 sm:px-0 sm:py-0 sm:pr-0">
+          <DialogTitle className="text-left">User Profile</DialogTitle>
         </DialogHeader>
 
-        <div className="flex flex-col md:flex-row gap-6">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-0 sm:py-0">
+          <div className="flex flex-col gap-5 md:flex-row md:gap-6">
           <div className="flex flex-col items-center space-y-3">
             <Avatar className="h-24 w-24">
               <AvatarImage src={getAvatarUrl(user.avatar, user.role, (user as any).gender, user.id)} alt={user.name} />
@@ -159,7 +160,7 @@ export function UserProfileDialog({
 
           <div className="flex-1">
             <Tabs defaultValue="info">
-              <TabsList className="grid grid-cols-3">
+              <TabsList className="grid h-12 grid-cols-3 rounded-xl p-1">
                 <TabsTrigger value="info">Profile Info</TabsTrigger>
                 <TabsTrigger value="activity">Activity Log</TabsTrigger>
                 <TabsTrigger value="stats">Stats</TabsTrigger>
@@ -370,14 +371,15 @@ export function UserProfileDialog({
             </Tabs>
           </div>
         </div>
+        </div>
 
-        <Separator className="my-4" />
+        <Separator className="my-0" />
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+        <DialogFooter className="flex-col-reverse gap-2 border-t bg-background px-4 py-3 sm:flex-row sm:justify-end sm:gap-0 sm:space-x-2 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 [padding-bottom:calc(0.75rem+env(safe-area-inset-bottom))] sm:[padding-bottom:0]">
+          <Button variant="outline" className="w-full sm:w-auto" onClick={() => onOpenChange(false)}>
             Close
           </Button>
-          <Button onClick={onEdit}>
+          <Button className="w-full sm:w-auto" onClick={onEdit}>
             Edit Profile
           </Button>
         </DialogFooter>

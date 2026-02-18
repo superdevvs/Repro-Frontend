@@ -147,7 +147,7 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
   }, [photographers, tab, sortBy, hasAvailabilityData, availabilitySet]);
 
   return (
-    <Card className="p-0 h-full flex flex-col overflow-hidden min-h-0">
+    <Card className="p-0 sm:p-0 h-full flex flex-col overflow-hidden min-h-0">
       <div className="p-3 sm:p-5 border-b border-border/60 space-y-2 sm:space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-base sm:text-lg font-bold text-foreground">Assign Photographers</h2>
@@ -177,7 +177,7 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-2 space-y-2 custom-scrollbar min-h-0">
+      <div className="flex-1 overflow-y-auto px-3 sm:px-5 py-3 sm:py-4 space-y-2 custom-scrollbar min-h-0">
         {filteredPhotographers.map((photographer) => (
           <div
             key={photographer.id}
@@ -255,7 +255,7 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
         )}
       </div>
 
-      <div className="p-3 sm:p-4 border-t border-border/60 mt-auto">
+      <div className="p-3 sm:p-5 border-t border-border/60 mt-auto">
         <div className="space-y-2 mb-3">
           <p className="text-[10px] sm:text-[11px] text-muted-foreground uppercase tracking-wide">Select window</p>
           <div className="grid grid-cols-3 gap-1.5 sm:gap-2">

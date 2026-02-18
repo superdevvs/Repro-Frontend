@@ -106,39 +106,41 @@ export function PermissionsManager() {
 
   return (
     <Card className="w-full">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
+      <CardHeader className="space-y-4 p-4 sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-1">
             <CardTitle>Account Permissions</CardTitle>
             <CardDescription>
               Manage permissions for all user types including pages and features
             </CardDescription>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={resetToDefault}>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:justify-end">
+            <Button variant="outline" onClick={resetToDefault} className="w-full sm:w-auto">
               Reset to Default
             </Button>
-            <Button onClick={saveChanges}>
+            <Button onClick={saveChanges} className="w-full sm:w-auto">
               Save Changes
             </Button>
           </div>
         </div>
       </CardHeader>
       
-      <CardContent>
+      <CardContent className="p-4 sm:p-6">
         <Tabs 
           defaultValue="admin" 
           value={activeRole}
           onValueChange={setActiveRole}
           className="w-full"
         >
-          <TabsList className="grid grid-cols-5 w-full">
-            <TabsTrigger value="superadmin">Superadmin</TabsTrigger>
-            <TabsTrigger value="admin">Admin</TabsTrigger>
-            <TabsTrigger value="client">Client</TabsTrigger>
-            <TabsTrigger value="photographer">Photographer</TabsTrigger>
-            <TabsTrigger value="editor">Editor</TabsTrigger>
-          </TabsList>
+          <div className="-mx-1 overflow-x-auto px-1 pb-1">
+            <TabsList className="inline-flex w-max min-w-full sm:grid sm:w-full sm:grid-cols-5">
+              <TabsTrigger value="superadmin" className="min-w-[116px] sm:min-w-0">Superadmin</TabsTrigger>
+              <TabsTrigger value="admin" className="min-w-[96px] sm:min-w-0">Admin</TabsTrigger>
+              <TabsTrigger value="client" className="min-w-[96px] sm:min-w-0">Client</TabsTrigger>
+              <TabsTrigger value="photographer" className="min-w-[126px] sm:min-w-0">Photographer</TabsTrigger>
+              <TabsTrigger value="editor" className="min-w-[96px] sm:min-w-0">Editor</TabsTrigger>
+            </TabsList>
+          </div>
           
           <TabsContent value={activeRole} className="mt-6">
             <div className="mb-4">
@@ -146,7 +148,7 @@ export function PermissionsManager() {
                 {rolePermissions[activeRole]?.permissions.length || 0} permissions enabled
               </Badge>
             </div>
-            <ScrollArea className="h-[500px] pr-4">
+            <ScrollArea className="h-[58vh] min-h-[360px] pr-1 sm:h-[500px] sm:pr-4">
               <div className="space-y-6">
                 {resources.map(resource => (
                   <div key={resource.id} className="border rounded-lg p-4 bg-muted/30">

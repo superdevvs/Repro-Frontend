@@ -4,14 +4,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/components/auth';
 import { useNavigate } from 'react-router-dom';
-import { useTheme } from '@/hooks/useTheme';
 
 const Index = () => {
   const isMobile = useIsMobile();
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const { theme } = useTheme();
-  const isDarkDesktop = !isMobile && theme === 'dark';
   const [activeTab, setActiveTab] = useState<string>('login');
 
   useEffect(() => {
@@ -19,6 +16,34 @@ const Index = () => {
       navigate('/dashboard');
     }
   }, [isAuthenticated, navigate]);
+
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+
+    const prevHtmlBg = html.style.backgroundColor;
+    const prevBodyBg = body.style.backgroundColor;
+
+    html.style.backgroundColor = '#030619';
+    body.style.backgroundColor = '#030619';
+
+    const themeColorMetas = Array.from(
+      document.querySelectorAll("meta[name='theme-color']")
+    ) as HTMLMetaElement[];
+    const prevThemeColors = themeColorMetas.map((meta) => meta.content);
+
+    themeColorMetas.forEach((meta) => {
+      meta.content = '#030619';
+    });
+
+    return () => {
+      html.style.backgroundColor = prevHtmlBg;
+      body.style.backgroundColor = prevBodyBg;
+      themeColorMetas.forEach((meta, index) => {
+        meta.content = prevThemeColors[index] ?? meta.content;
+      });
+    };
+  }, []);
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
@@ -59,9 +84,9 @@ const Index = () => {
     
     return (
       <div 
-        className={isLogin ? '' : 'mobile-login-scrollable'} 
+        className={`dark ${isLogin ? '' : 'mobile-login-scrollable'}`} 
         style={{ 
-          background: '#03060B', 
+          background: '#030619', 
           minHeight: '100dvh',
           height: isLogin ? '100dvh' : 'auto',
           overflow: isLogin ? 'hidden' : 'auto',
@@ -119,10 +144,10 @@ const Index = () => {
             style={{
               height: isLogin ? '35px' : '25px',
               marginTop: isLogin ? '-35px' : '-25px',
-              background: 'linear-gradient(to bottom, transparent 0%, rgba(3,6,11,0.45) 30%, rgba(3,6,11,0.78) 65%, #03060B 100%)',
+              background: 'linear-gradient(to bottom, transparent 0%, rgba(3,6,25,0.45) 30%, rgba(3,6,25,0.78) 65%, #030619 100%)',
             }}
           />
-          <div style={{ background: '#03060B' }}>
+          <div style={{ background: '#030619' }}>
             <motion.div
               className={`relative z-10 w-full text-white ${isLogin ? '' : 'px-4'}`}
               initial={{ opacity: 0, y: 20 }}
@@ -142,12 +167,8 @@ const Index = () => {
   // Desktop layout
   return (
     <div
-      className="min-h-dvh w-full flex flex-row md:overflow-hidden relative pb-[env(safe-area-inset-bottom)]"
-      style={{ 
-        background: isDarkDesktop 
-          ? 'linear-gradient(180deg, rgba(6,10,14,1) 0%, rgba(9,16,28,1) 35%, rgba(11,24,42,1) 60%, rgba(14,35,63,1) 85%, rgba(18,55,92,1) 100%)'
-          : 'white'
-      }}
+      className="dark min-h-dvh w-full flex flex-row md:overflow-hidden relative pb-[env(safe-area-inset-bottom)]"
+      style={{ background: '#030619' }}
     >
       {/* Left Side - Slideshow */}
       <div className="w-1/2 relative p-4 flex items-center justify-center">

@@ -16,7 +16,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
 import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { calculateDistance, getCoordinatesFromAddress } from '@/utils/distanceUtils';
@@ -96,6 +106,7 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
     []
   );
   const { toast } = useToast();
+  const isMobile = useIsMobile();
   const [isLocationLoading, setIsLocationLoading] = useState(false);
   const [timeDialogOpen, setTimeDialogOpen] = useState(false);
   const [tempTime, setTempTime] = useState('');
@@ -350,6 +361,19 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
       return;
     }
     setPhotographerDialogOpen(open);
+  };
+
+  const handleConfirmPhotographer = () => {
+    if (!photographer) {
+      toast({
+        title: "No photographer selected",
+        description: "Please select a photographer before continuing.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setPhotographerDialogOpen(false);
   };
 
   const handleGetCurrentLocation = () => {
@@ -916,17 +940,262 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
     });
 
     return sorted;
-  }, [photographersWithDistance, photographers, searchQuery, sortBy, showAllPhotographers, photographerAvailability]);
+  }, [photographersWithDistance, photographers, searchQuery, sortBy, showAllPhotographers, photographerAvailability, time]);
+
+  const renderPhotographerFilters = (mobileDrawer = false) => (
+    <div className={cn("space-y-3", mobileDrawer && "space-y-2") }>
+      <div className={cn("flex items-center gap-2", mobileDrawer && "flex-col items-stretch") }>
+        <div className="relative flex-1 min-w-0">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by name or area..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className={cn("pl-9 h-9 rounded-full bg-slate-50 dark:bg-slate-900/50", mobileDrawer && "h-10")}
+          />
+        </div>
+
+        <div
+          className={cn(
+            "flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden",
+            mobileDrawer && "-mx-1 px-1"
+          )}
+        >
+          <button
+            type="button"
+            onClick={() => setSortBy('distance')}
+            className={cn(
+              "shrink-0 px-2.5 sm:px-3 py-1.5 rounded-full text-[11px] font-semibold border transition-colors",
+              sortBy === 'distance'
+                ? "bg-blue-600 text-white border-blue-500"
+                : "bg-slate-100 text-slate-600 border-transparent hover:bg-slate-200 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-700/60"
+            )}
+          >
+            Distance
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setSortBy('availability')}
+            className={cn(
+              "shrink-0 px-2.5 sm:px-3 py-1.5 rounded-full text-[11px] font-semibold border transition-colors",
+              sortBy === 'availability'
+                ? "bg-blue-600 text-white border-blue-500"
+                : "bg-slate-100 text-slate-600 border-transparent hover:bg-slate-200 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-700/60"
+            )}
+          >
+            Availability
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowAllPhotographers(!showAllPhotographers)}
+            className={cn(
+              "shrink-0 px-2.5 sm:px-3 py-1.5 rounded-full text-[11px] font-semibold border transition-colors",
+              showAllPhotographers
+                ? "bg-blue-600 text-white border-blue-500"
+                : "bg-slate-100 text-slate-600 border-transparent hover:bg-slate-200 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-700/60"
+            )}
+          >
+            Show All
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderPhotographerResults = (mobileDrawer = false) => {
+    if (isCalculatingDistances) {
+      return (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <span className="ml-2 text-sm text-muted-foreground">Calculating distances...</span>
+        </div>
+      );
+    }
+
+    if (isLoadingAvailability && date && time) {
+      return (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <span className="ml-2 text-sm text-muted-foreground">Checking availability...</span>
+        </div>
+      );
+    }
+
+    if (!filteredAndSortedPhotographers.length) {
+      return (
+        <div className="text-sm text-slate-500 dark:text-slate-400 text-center py-8">
+          {searchQuery
+            ? 'No photographers found matching your search.'
+            : showAllPhotographers
+              ? 'No photographers found in the system.'
+              : (
+                <div className="space-y-2">
+                  <p>No photographers available for the selected date and time.</p>
+                  <Button
+                    type="button"
+                    variant="link"
+                    size="sm"
+                    onClick={() => setShowAllPhotographers(true)}
+                    className="text-blue-600"
+                  >
+                    Show all photographers
+                  </Button>
+                </div>
+              )}
+        </div>
+      );
+    }
+
+    return (
+      <div className={cn("grid", mobileDrawer ? "gap-2.5 pb-1 px-0.5" : "gap-3") }>
+        {filteredAndSortedPhotographers.map((photographerItem) => {
+          const isSelected = photographer === photographerItem.id;
+          const locationLabel = formatLocationLabel({
+            address: photographerItem.address,
+            city: photographerItem.city,
+            state: photographerItem.state,
+            zip: photographerItem.zip,
+          });
+
+          const availabilitySource = (photographerItem.netAvailableSlots && photographerItem.netAvailableSlots.length > 0)
+            ? photographerItem.netAvailableSlots
+            : photographerItem.availabilitySlots || [];
+
+          const availabilitySlots = availabilitySource
+            .map((slot) => ({
+              start_time: normalizeSlotTime(slot.start_time),
+              end_time: normalizeSlotTime(slot.end_time),
+            }))
+            .filter((slot) => slot.start_time && slot.end_time);
+
+          return (
+            <button
+              key={photographerItem.id}
+              type="button"
+              onClick={() => setPhotographer?.(photographerItem.id)}
+              className={cn(
+                "w-full max-w-full min-w-0 text-left border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40",
+                mobileDrawer ? "rounded-xl px-3 py-2.5" : "rounded-2xl px-4 py-3",
+                isSelected
+                  ? "border-blue-500/70 bg-blue-50/60 dark:border-blue-500/50 dark:bg-blue-950/30"
+                  : "border-slate-200/70 bg-white/70 dark:border-slate-800/70 dark:bg-slate-900/40 hover:border-blue-400/50"
+              )}
+            >
+              <div className={cn("flex min-w-0 items-center", mobileDrawer ? "gap-3" : "gap-4") }>
+                <Avatar
+                  className={cn(
+                    mobileDrawer ? "h-10 w-10 flex-shrink-0" : "h-11 w-11 flex-shrink-0",
+                    isSelected && "ring-2 ring-blue-500 ring-offset-2 ring-offset-white dark:ring-offset-slate-950"
+                  )}
+                >
+                  <AvatarImage
+                    src={getAvatarUrl(photographerItem.avatar, 'photographer', undefined, photographerItem.id)}
+                    alt={photographerItem.name}
+                  />
+                  <AvatarFallback>{photographerItem.name?.charAt(0)}</AvatarFallback>
+                </Avatar>
+
+                <div className="flex-1 min-w-0">
+                  <p className={cn("font-semibold text-slate-900 dark:text-slate-100 truncate", mobileDrawer ? "text-base" : "text-sm") }>
+                    {photographerItem.name}
+                  </p>
+
+                  <p className={cn("truncate text-slate-500 dark:text-slate-400", mobileDrawer ? "mt-0.5 text-sm" : "mt-0.5 text-xs") }>
+                    {locationLabel || 'Location unavailable'}
+                  </p>
+
+                  <div className={cn("relative h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden", mobileDrawer ? "mt-1.5" : "mt-2") }>
+                    {availabilitySlots.map((slot, index) => {
+                      const slotStart = 8 * 60;
+                      const slotEnd = 20 * 60;
+                      const startMinutes = timeToMinutes(slot.start_time);
+                      const endMinutes = timeToMinutes(slot.end_time);
+                      const totalMinutes = slotEnd - slotStart;
+                      const leftPercent = ((startMinutes - slotStart) / totalMinutes) * 100;
+                      const widthPercent = ((endMinutes - startMinutes) / totalMinutes) * 100;
+                      const clampedLeft = Math.max(0, Math.min(100, leftPercent));
+                      const clampedWidth = Math.max(2, Math.min(100 - clampedLeft, widthPercent));
+
+                      if (clampedWidth <= 0) return null;
+
+                      return (
+                        <span
+                          key={`${photographerItem.id}-slot-${index}`}
+                          className="absolute top-0 bottom-0 rounded-full bg-blue-500 dark:bg-blue-400"
+                          style={{ left: `${clampedLeft}%`, width: `${clampedWidth}%` }}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <span
+                  className={cn(
+                    "inline-flex shrink-0 items-center justify-center rounded-full border",
+                    isSelected
+                      ? "h-8 w-8 border-blue-600 bg-blue-600 text-white"
+                      : "h-8 w-8 border-slate-300/80 dark:border-slate-700/80"
+                  )}
+                >
+                  {isSelected ? <Check className="h-4 w-4" /> : null}
+                </span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const photographerTrigger = (
+    <div
+      className={cn(
+        "bg-gray-50 dark:bg-card/60 rounded-lg p-3 sm:p-4 flex justify-between items-center transition-colors border border-gray-100 dark:border-muted/40",
+        time ? "cursor-pointer hover:bg-gray-100 dark:hover:bg-card/70" : "opacity-60 cursor-not-allowed"
+      )}
+      onClick={() => {
+        if (!time) {
+          toast({
+            title: "Select time first",
+            description: "Please choose a time before selecting a photographer.",
+            variant: "destructive",
+          });
+          return;
+        }
+        setPhotographerDialogOpen(true);
+      }}
+    >
+      <div className="flex items-center min-w-0">
+        {selectedPhotographer ? (
+          <>
+            <Avatar className="h-10 w-10 sm:h-12 sm:w-12 mr-3 sm:mr-4 shrink-0">
+              <AvatarImage
+                src={getAvatarUrl(selectedPhotographer.avatar, 'photographer', undefined, selectedPhotographer.id)}
+                alt={selectedPhotographer.name}
+              />
+              <AvatarFallback>{selectedPhotographer.name.charAt(0)}</AvatarFallback>
+            </Avatar>
+            <span className="truncate text-base sm:text-xl font-semibold text-slate-900 dark:text-white">{selectedPhotographer.name}</span>
+          </>
+        ) : (
+          <span className="truncate text-slate-500 dark:text-slate-400">Select a photographer</span>
+        )}
+      </div>
+      <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6 text-slate-400 shrink-0" />
+    </div>
+  );
 
   // NOTE: Removed redundant fetchAvailability useEffect that was calling a separate API
   // which didn't account for booked slots. The fetchPhotographerData above already 
   // calls the for-booking endpoint which returns correct is_available_at_time 
   // that accounts for existing bookings.
   return (
-    <div className="space-y-6 text-slate-900 dark:text-slate-100">
-      <div className="grid grid-cols-1 gap-6">
+    <div className="space-y-5 sm:space-y-6 text-slate-900 dark:text-slate-100">
+      <div className="grid grid-cols-1 gap-4 sm:gap-6">
         {/* Date Selection Section */}
-        <div className="bg-white dark:bg-card/40 rounded-2xl p-6 space-y-4 border border-slate-200/80 dark:border-muted/40 shadow-[0_1px_2px_rgba(15,23,42,0.08)]">
+        <div className="bg-white dark:bg-card/40 rounded-2xl p-3 sm:p-6 space-y-3 sm:space-y-4 border border-slate-200/80 dark:border-muted/40 shadow-[0_1px_2px_rgba(15,23,42,0.08)]">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Select Date</h2>
             <span className="text-sm font-semibold text-slate-900 dark:text-white">
@@ -934,7 +1203,7 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
             </span>
           </div>
 
-          <div className="rounded-lg border border-gray-100 dark:border-muted/40 bg-gray-50 dark:bg-card/40 p-4">
+          <div className="rounded-lg border border-gray-100 dark:border-muted/40 bg-gray-50 dark:bg-card/40 p-2.5 sm:p-4">
             <Calendar
               mode="single"
               selected={date}
@@ -965,7 +1234,7 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
         </div>
 
         {/* Time Selection Section */}
-        <div className="bg-white dark:bg-card/40 rounded-2xl p-6 space-y-4 border border-slate-200/80 dark:border-muted/40 shadow-[0_1px_2px_rgba(15,23,42,0.08)]">
+        <div className="bg-white dark:bg-card/40 rounded-2xl p-3 sm:p-6 space-y-3 sm:space-y-4 border border-slate-200/80 dark:border-muted/40 shadow-[0_1px_2px_rgba(15,23,42,0.08)]">
           <div className="flex items-center justify-between gap-2">
             <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Time</h2>
             <span className="text-sm font-semibold text-slate-900 dark:text-white">
@@ -973,7 +1242,7 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
             </span>
           </div>
 
-          <div className="grid gap-3 grid-cols-2 sm:grid-cols-4 lg:grid-cols-6">
+          <div className="grid gap-2.5 sm:gap-3 grid-cols-2 sm:grid-cols-4 lg:grid-cols-6">
             {quickTimes.map((slot) => (
               <Button
                 key={slot}
@@ -1004,34 +1273,63 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
             Choose manually
           </Button>
 
-          <Dialog open={timeDialogOpen} onOpenChange={handleTimeDialogOpen}>
-            <DialogContent className="sm:max-w-md w-full">
-              <DialogHeader>
-                <DialogTitle>Select Time</DialogTitle>
-                <DialogDescription>
-                  Choose a time for the shoot
-                </DialogDescription>
-              </DialogHeader>
+          {isMobile ? (
+            <Drawer open={timeDialogOpen} onOpenChange={handleTimeDialogOpen}>
+              <DrawerContent className="h-[56vh] max-h-[56vh]">
+                <DrawerHeader className="pb-2 text-left">
+                  <DrawerTitle>Select Time</DrawerTitle>
+                  <DrawerDescription>Choose a time for the shoot</DrawerDescription>
+                </DrawerHeader>
 
-              <div className="mt-4 w-full flex justify-center">
-                <TimeSelect
-                  value={time}
-                  onChange={onTimeChange}
-                  startHour={6}
-                  endHour={21}
-                  interval={5}
-                  placeholder="Select a time"
-                  className="w-full"
-                />
-              </div>
+                <div className="px-4 pb-2">
+                  <TimeSelect
+                    value={tempTime || time}
+                    onChange={onTimeChange}
+                    startHour={6}
+                    endHour={21}
+                    interval={5}
+                    placeholder="Select a time"
+                    className="w-full"
+                  />
+                </div>
 
-              <DialogFooter className="mt-4">
-                <Button type="button" className="w-full" onClick={handleTimeConfirm}>
-                  OK
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+                <DrawerFooter className="[padding-bottom:calc(0.5rem+env(safe-area-inset-bottom))]">
+                  <Button type="button" className="w-full" onClick={handleTimeConfirm}>
+                    OK
+                  </Button>
+                </DrawerFooter>
+              </DrawerContent>
+            </Drawer>
+          ) : (
+            <Dialog open={timeDialogOpen} onOpenChange={handleTimeDialogOpen}>
+              <DialogContent className="sm:max-w-md w-full">
+                <DialogHeader>
+                  <DialogTitle>Select Time</DialogTitle>
+                  <DialogDescription>
+                    Choose a time for the shoot
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="mt-4 w-full flex justify-center">
+                  <TimeSelect
+                    value={tempTime || time}
+                    onChange={onTimeChange}
+                    startHour={6}
+                    endHour={21}
+                    interval={5}
+                    placeholder="Select a time"
+                    className="w-full"
+                  />
+                </div>
+
+                <DialogFooter className="mt-4">
+                  <Button type="button" className="w-full" onClick={handleTimeConfirm}>
+                    OK
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
 
           {formErrors['time'] && (
             <p className="text-sm font-medium text-destructive mt-1">{formErrors['time']}</p>
@@ -1039,331 +1337,116 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
         </div>
 
         {/* Photographer Section */}
-        <div className="bg-white dark:bg-card/40 rounded-2xl p-6 space-y-2 border border-slate-200/80 dark:border-muted/40 shadow-[0_1px_2px_rgba(15,23,42,0.08)]">
-          <h2 className="text-xl font-semibold text-slate-900 dark:text-white mb-4">Photographer</h2>
+        <div className="bg-white dark:bg-card/40 rounded-2xl p-3 sm:p-6 space-y-2 border border-slate-200/80 dark:border-muted/40 shadow-[0_1px_2px_rgba(15,23,42,0.08)]">
+          <h2 className="text-lg sm:text-xl font-semibold text-slate-900 dark:text-white mb-3 sm:mb-4">Photographer</h2>
 
-          <Dialog open={photographerDialogOpen} onOpenChange={handlePhotographerDialogOpen}>
-            <DialogTrigger asChild>
-              <div
-                className={cn(
-                  "bg-gray-50 dark:bg-card/60 rounded-lg p-4 flex justify-between items-center transition-colors border border-gray-100 dark:border-muted/40",
-                  time ? "cursor-pointer hover:bg-gray-100 dark:hover:bg-card/70" : "opacity-60 cursor-not-allowed"
-                )}
-                onClick={() => {
-                  if (!time) {
-                    toast({
-                      title: "Select time first",
-                      description: "Please choose a time before selecting a photographer.",
-                      variant: "destructive",
-                    });
-                    return;
-                  }
-                  setPhotographerDialogOpen(true);
-                }}
-              >
-                <div className="flex items-center">
-                  {selectedPhotographer ? (
-                    <>
-                      <Avatar className="h-12 w-12 mr-4">
-                        <AvatarImage
-                          src={getAvatarUrl(selectedPhotographer.avatar, 'photographer', undefined, selectedPhotographer.id)}
-                          alt={selectedPhotographer.name}
-                        />
-                        <AvatarFallback>{selectedPhotographer.name.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      <span className="text-xl font-semibold text-slate-900 dark:text-white">{selectedPhotographer.name}</span>
-                    </>
-                  ) : (
-                    <span className="text-slate-500 dark:text-slate-400">Select a photographer</span>
-                  )}
+          {isMobile ? (
+            <Drawer open={photographerDialogOpen} onOpenChange={handlePhotographerDialogOpen}>
+              <DrawerTrigger asChild>{photographerTrigger}</DrawerTrigger>
+              <DrawerContent className="h-[78vh] max-h-[78vh]">
+                <DrawerHeader className="pb-2 text-left">
+                  <DrawerTitle className="text-lg text-slate-900 dark:text-slate-100">Select Photographer</DrawerTitle>
+                  <DrawerDescription className="text-[11px] uppercase tracking-[0.28em] text-blue-500/80">
+                    Curated network - {availabilityStats.hasAvailabilityData ? availabilityStats.available : availabilityStats.total} available
+                  </DrawerDescription>
+                </DrawerHeader>
+
+                <div className="flex min-h-0 flex-1 flex-col px-4 pb-3">
+                  {renderPhotographerFilters(true)}
+                  <div className="mt-2 min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-1.5 [scrollbar-gutter:stable_both-edges]">
+                    {renderPhotographerResults(true)}
+                  </div>
                 </div>
-                <ChevronRight className="text-slate-400" size={24} />
-              </div>
-            </DialogTrigger>
 
-            <DialogContent className="sm:max-w-2xl w-[92vw] max-h-[90vh] p-0 overflow-hidden">
-              <div className="flex flex-col h-full sm:h-[70vh]">
-                <div className="flex-1 flex flex-col p-4 sm:p-6 gap-4 min-h-0">
-                  <div className="flex items-start justify-between">
-                    <DialogHeader className="space-y-1">
+                <DrawerFooter className="border-t border-slate-200/70 dark:border-slate-800/70 bg-white/90 dark:bg-slate-950/60 backdrop-blur [padding-bottom:calc(0.75rem+env(safe-area-inset-bottom))]">
+                  <div className="min-w-0">
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-blue-500/80">Selected photographer</p>
+                    <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+                      {selectedPhotographerDetails?.name || 'None selected'}
+                    </p>
+                  </div>
+                  <Button
+                    onClick={handleConfirmPhotographer}
+                    className="h-11 w-full rounded-xl bg-blue-600 hover:bg-blue-700"
+                    disabled={!photographer}
+                  >
+                    Confirm Assignment
+                  </Button>
+                </DrawerFooter>
+              </DrawerContent>
+            </Drawer>
+          ) : (
+            <Dialog open={photographerDialogOpen} onOpenChange={handlePhotographerDialogOpen}>
+              <DialogTrigger asChild>{photographerTrigger}</DialogTrigger>
+
+              <DialogContent className="sm:max-w-2xl w-[92vw] max-h-[90vh] p-0 overflow-hidden">
+                <div className="flex flex-col h-full sm:h-[70vh]">
+                  <div className="flex-1 flex flex-col p-4 sm:p-6 gap-4 min-h-0">
+                    <DialogHeader className="space-y-1 text-left items-start">
                       <DialogTitle className="text-xl text-slate-900 dark:text-slate-100">Select Photographer</DialogTitle>
                       <DialogDescription className="text-[11px] uppercase tracking-[0.28em] text-blue-500/80">
                         Curated network - {availabilityStats.hasAvailabilityData ? availabilityStats.available : availabilityStats.total} available
                       </DialogDescription>
                     </DialogHeader>
-                  </div>
 
-                  {/* Search and Sort Controls */}
-                  <div className="space-y-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <div className="relative flex-1 min-w-[220px]">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          placeholder="Search by name or area..."
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          className="pl-9 h-9 rounded-full bg-slate-50 dark:bg-slate-900/50"
-                        />
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setSortBy('distance')}
-                          className={cn(
-                            "px-3 py-1.5 rounded-full text-[11px] font-semibold border transition-colors",
-                            sortBy === 'distance'
-                              ? "bg-blue-600 text-white border-blue-500"
-                              : "bg-slate-100 text-slate-600 border-transparent hover:bg-slate-200 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-700/60"
-                          )}
-                        >
-                          Distance
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setSortBy('availability')}
-                          className={cn(
-                            "px-3 py-1.5 rounded-full text-[11px] font-semibold border transition-colors",
-                            sortBy === 'availability'
-                              ? "bg-blue-600 text-white border-blue-500"
-                              : "bg-slate-100 text-slate-600 border-transparent hover:bg-slate-200 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-700/60"
-                          )}
-                        >
-                          Availability
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setShowAllPhotographers(!showAllPhotographers)}
-                          className={cn(
-                            "px-3 py-1.5 rounded-full text-[11px] font-semibold border transition-colors",
-                            showAllPhotographers
-                              ? "bg-blue-600 text-white border-blue-500"
-                              : "bg-slate-100 text-slate-600 border-transparent hover:bg-slate-200 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-700/60"
-                          )}
-                        >
-                          Show All
-                        </button>
-                      </div>
+                    {renderPhotographerFilters(false)}
+
+                    <div className="flex-1 min-h-0 overflow-y-auto pr-2">
+                      {renderPhotographerResults(false)}
                     </div>
-                  </div>
 
-                  <div className="flex-1 min-h-0 overflow-y-auto pr-2">
-                    {/* Scrollable content area */}
-                    <div className="pt-3">
-                      {isCalculatingDistances ? (
-                        <div className="flex items-center justify-center py-8">
-                          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                          <span className="ml-2 text-sm text-muted-foreground">Calculating distances...</span>
+                    <div className="pt-4 border-t border-slate-200/70 dark:border-slate-800/70 bg-white/80 dark:bg-slate-950/50 backdrop-blur flex-shrink-0">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <Avatar className={cn(
+                            "h-10 w-10 shrink-0",
+                            selectedPhotographerDetails
+                              ? "ring-2 ring-blue-500/70 ring-offset-2 ring-offset-white dark:ring-offset-slate-950"
+                              : "bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+                          )}>
+                            {selectedPhotographerDetails ? (
+                              <>
+                                <AvatarImage
+                                  src={getAvatarUrl(selectedPhotographerDetails.avatar, 'photographer', undefined, selectedPhotographerDetails.id)}
+                                  alt={selectedPhotographerDetails.name}
+                                />
+                                <AvatarFallback>{selectedPhotographerDetails.name?.charAt(0)}</AvatarFallback>
+                              </>
+                            ) : (
+                              <AvatarFallback>
+                                <User className="h-4 w-4" />
+                              </AvatarFallback>
+                            )}
+                          </Avatar>
+                          <div className="min-w-0">
+                            <p className="text-[10px] uppercase tracking-[0.28em] text-blue-500/80">Selected specialist</p>
+                            <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+                              {selectedPhotographerDetails?.name || 'None selected'}
+                            </p>
+                          </div>
                         </div>
-                      ) : isLoadingAvailability && date && time ? (
-                        <div className="flex items-center justify-center py-8">
-                          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                          <span className="ml-2 text-sm text-muted-foreground">Checking availability...</span>
+
+                        <div className="flex gap-2 shrink-0">
+                          <Button
+                            variant="ghost"
+                            onClick={() => setPhotographerDialogOpen(false)}
+                          >
+                            Discard
+                          </Button>
+                          <Button
+                            onClick={handleConfirmPhotographer}
+                            disabled={!photographer}
+                          >
+                            Confirm Assignment
+                          </Button>
                         </div>
-                      ) : filteredAndSortedPhotographers.length > 0 ? (
-                        <div className="grid gap-3">
-                          {filteredAndSortedPhotographers.map((photographerItem) => {
-                            const isSelected = photographer === photographerItem.id;
-                            const locationLabel = formatLocationLabel({
-                              address: photographerItem.address,
-                              city: photographerItem.city,
-                              state: photographerItem.state,
-                              zip: photographerItem.zip,
-                            });
-                            const availabilitySource = (photographerItem.netAvailableSlots && photographerItem.netAvailableSlots.length > 0)
-                              ? photographerItem.netAvailableSlots
-                              : photographerItem.availabilitySlots || [];
-                            const normalizedAvailability = availabilitySource
-                              .map((slot) => ({
-                                start_time: normalizeSlotTime(slot.start_time),
-                                end_time: normalizeSlotTime(slot.end_time),
-                              }))
-                              .filter((slot) => slot.start_time && slot.end_time);
-                            const availabilitySlots = normalizedAvailability;
-
-                            return (
-                              <button
-                                key={photographerItem.id}
-                                type="button"
-                                onClick={() => setPhotographer?.(photographerItem.id)}
-                                className={cn(
-                                  "w-full text-left rounded-2xl border px-4 py-3 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40",
-                                  isSelected
-                                    ? "border-blue-500/70 bg-blue-50/60 dark:border-blue-500/50 dark:bg-blue-950/30"
-                                    : "border-slate-200/70 bg-white/70 dark:border-slate-800/70 dark:bg-slate-900/40 hover:border-blue-400/50"
-                                )}
-                              >
-                                <div className="flex items-center gap-4">
-                                  <Avatar className={cn(
-                                    "h-11 w-11 flex-shrink-0",
-                                    isSelected && "ring-2 ring-blue-500 ring-offset-2 ring-offset-white dark:ring-offset-slate-950"
-                                  )}>
-                                    <AvatarImage
-                                      src={getAvatarUrl(photographerItem.avatar, 'photographer', undefined, photographerItem.id)}
-                                      alt={photographerItem.name}
-                                    />
-                                    <AvatarFallback>{photographerItem.name?.charAt(0)}</AvatarFallback>
-                                  </Avatar>
-
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center justify-between gap-2">
-                                      <div className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
-                                        {photographerItem.name}
-                                      </div>
-                                      {isSelected && (
-                                        <span className="text-[10px] uppercase tracking-[0.2em] text-blue-500/80">Selected</span>
-                                      )}
-                                    </div>
-                                    <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400 truncate">
-                                      {locationLabel || 'Location unavailable'}
-                                    </div>
-                                    <div className="mt-2 relative h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
-                                      {availabilitySlots.map((slot, index) => {
-                                        const slotStart = 8 * 60;
-                                        const slotEnd = 20 * 60;
-                                        const startMinutes = timeToMinutes(slot.start_time);
-                                        const endMinutes = timeToMinutes(slot.end_time);
-                                        const totalMinutes = slotEnd - slotStart;
-                                        const leftPercent = ((startMinutes - slotStart) / totalMinutes) * 100;
-                                        const widthPercent = ((endMinutes - startMinutes) / totalMinutes) * 100;
-                                        const clampedLeft = Math.max(0, Math.min(100, leftPercent));
-                                        const clampedWidth = Math.max(
-                                          2,
-                                          Math.min(100 - clampedLeft, widthPercent)
-                                        );
-
-                                        if (clampedWidth <= 0) return null;
-
-                                        return (
-                                          <span
-                                            key={`${photographerItem.id}-slot-${index}`}
-                                            className="absolute top-0 bottom-0 rounded-full bg-blue-500 dark:bg-blue-400"
-                                            style={{ left: `${clampedLeft}%`, width: `${clampedWidth}%` }}
-                                          />
-                                        );
-                                      })}
-                                    </div>
-                                    <div className="mt-1 grid grid-cols-7 text-[10px] leading-none text-slate-400 dark:text-slate-500">
-                                      <span className="text-left">8:00 AM</span>
-                                      <span className="text-center">10:00 AM</span>
-                                      <span className="text-center">12:00 PM</span>
-                                      <span className="text-center">2:00 PM</span>
-                                      <span className="text-center">4:00 PM</span>
-                                      <span className="text-center">6:00 PM</span>
-                                      <span className="text-right">8:00 PM</span>
-                                    </div>
-                                  </div>
-
-                                  <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                                    {isSelected ? (
-                                      <div className="h-9 w-9 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-sm">
-                                        <Check className="h-4 w-4" />
-                                      </div>
-                                    ) : (
-                                      <span className="text-[10px] text-slate-500 dark:text-slate-400">
-                                        {photographerItem.distance !== undefined
-                                          ? `${photographerItem.distance.toFixed(1)} miles away`
-                                          : 'Distance unavailable'}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <div className="text-sm text-slate-500 dark:text-slate-400 text-center py-8">
-                          {searchQuery 
-                            ? 'No photographers found matching your search.' 
-                            : showAllPhotographers 
-                              ? 'No photographers found in the system.'
-                              : (
-                                <div className="space-y-2">
-                                  <p>No photographers available for the selected date and time.</p>
-                                  <Button
-                                    type="button"
-                                    variant="link"
-                                    size="sm"
-                                    onClick={() => setShowAllPhotographers(true)}
-                                    className="text-blue-600"
-                                  >
-                                    Show all photographers
-                                  </Button>
-                                </div>
-                              )
-                          }
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* footer actions - outside scrollable area */}
-                  <div className="pt-4 border-t border-slate-200/70 dark:border-slate-800/70 bg-white/80 dark:bg-slate-950/50 backdrop-blur flex-shrink-0">
-                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                      <div className="flex items-center gap-3 w-full sm:w-auto">
-                        <Avatar className={cn(
-                          "h-10 w-10",
-                          selectedPhotographerDetails
-                            ? "ring-2 ring-blue-500/70 ring-offset-2 ring-offset-white dark:ring-offset-slate-950"
-                            : "bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
-                        )}>
-                          {selectedPhotographerDetails ? (
-                            <>
-                              <AvatarImage
-                                src={getAvatarUrl(selectedPhotographerDetails.avatar, 'photographer', undefined, selectedPhotographerDetails.id)}
-                                alt={selectedPhotographerDetails.name}
-                              />
-                              <AvatarFallback>{selectedPhotographerDetails.name?.charAt(0)}</AvatarFallback>
-                            </>
-                          ) : (
-                            <AvatarFallback>
-                              <User className="h-4 w-4" />
-                            </AvatarFallback>
-                          )}
-                        </Avatar>
-                        <div>
-                          <p className="text-[10px] uppercase tracking-[0.28em] text-blue-500/80">
-                            Selected specialist
-                          </p>
-                          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                            {selectedPhotographerDetails?.name || 'None selected'}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex w-full sm:w-auto gap-2">
-                        <Button
-                          variant="ghost"
-                          onClick={() => setPhotographerDialogOpen(false)}
-                          className="w-full sm:w-auto"
-                        >
-                          Discard
-                        </Button>
-                        <Button
-                          onClick={() => {
-                            // if photographer selected, close; else toast
-                            if (!photographer) {
-                              toast({
-                                title: "No photographer selected",
-                                description: "Please select a photographer before continuing.",
-                                variant: "destructive",
-                              });
-                              return;
-                            }
-                            setPhotographerDialogOpen(false);
-                          }}
-                          className="w-full sm:w-auto"
-                          disabled={!photographer}
-                        >
-                          Confirm Assignment
-                        </Button>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            </DialogContent>
-
-          </Dialog>
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
 
       </div>

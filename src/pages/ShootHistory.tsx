@@ -100,6 +100,7 @@ import {
   Grid3X3,
   List,
   Map as MapIcon,
+  MoreVertical,
   Pin,
   Eye,
   XCircle,
@@ -4548,7 +4549,7 @@ const ShootHistory: React.FC = () => {
   return (
     <>
       <DashboardLayout>
-        <div className="space-y-6 p-6">
+        <div className="space-y-4 px-2 pt-3 pb-3 sm:space-y-6 sm:p-6">
           {/* Header */}
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div className="space-y-1">
@@ -4568,29 +4569,106 @@ const ShootHistory: React.FC = () => {
                   Bulk Actions
                 </Button>
               )}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-10 w-10 sm:hidden"
+                    title="View options"
+                  >
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="sm:hidden w-52">
+                  <DropdownMenuItem
+                    onClick={() => {
+                      if (activeTab === 'history') {
+                        setHistoryFilters((prev) => ({ ...prev, viewAs: 'grid' }))
+                      } else {
+                        setViewMode('grid')
+                      }
+                    }}
+                  >
+                    <Grid3X3 className="mr-2 h-4 w-4" />
+                    Grid view
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      if (activeTab === 'history') {
+                        setHistoryFilters((prev) => ({ ...prev, viewAs: 'list' }))
+                      } else {
+                        setViewMode('list')
+                      }
+                    }}
+                  >
+                    <List className="mr-2 h-4 w-4" />
+                    List view
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      if (activeTab === 'history') {
+                        setHistoryFilters((prev) => ({ ...prev, viewAs: 'map' }))
+                      } else {
+                        setViewMode('map')
+                      }
+                    }}
+                  >
+                    <MapIcon className="mr-2 h-4 w-4" />
+                    Map view
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      if (activeTab === 'history') {
+                        setHistoryFiltersOpen((prev) => !prev)
+                      } else {
+                        setOperationalFiltersOpen((prev) => !prev)
+                      }
+                    }}
+                  >
+                    <Filter className="mr-2 h-4 w-4" />
+                    {activeTab === 'history'
+                      ? historyFiltersOpen
+                        ? 'Hide filters'
+                        : 'Show filters'
+                      : operationalFiltersOpen
+                        ? 'Hide filters'
+                        : 'Show filters'}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={fetchOperationalData}>
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Refresh
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
 
         {/* Tab bar with view controls */}
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as AvailableTab)} className="space-y-3">
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => setActiveTab(value as AvailableTab)}
+          className="space-y-3 pb-[calc(2.75rem+env(safe-area-inset-bottom))] sm:pb-0"
+        >
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <AutoExpandingTabsList 
                 tabs={tabsConfig} 
                 value={activeTab}
+                desktopExpanded
               />
               {/* Pin button for current tab */}
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8"
+                className="hidden h-8 w-8 sm:inline-flex"
                 onClick={() => togglePinTab(activeTab)}
                 title={pinnedTabs.has(activeTab) ? 'Unpin tab' : 'Pin tab'}
               >
                 <Pin className={`h-4 w-4 ${pinnedTabs.has(activeTab) ? 'fill-current' : ''}`} />
               </Button>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="hidden sm:flex items-center gap-2">
               <ToggleGroup 
                 type="single" 
                 value={activeTab === 'history' ? historyFilters.viewAs : viewMode} 

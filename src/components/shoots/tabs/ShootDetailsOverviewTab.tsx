@@ -1624,6 +1624,7 @@ export function ShootDetailsOverviewTab({
     }
   };
 
+
   return (
     <div className="space-y-2">
       {/* Date, Time, Weather - Three Separate Cards */}

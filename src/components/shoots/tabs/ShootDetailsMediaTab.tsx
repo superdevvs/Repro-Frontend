@@ -2187,94 +2187,66 @@ export function ShootDetailsMediaTab({
         </div>
       </div>
       
-      {/* Upload and Download buttons - Below tabs on mobile only */}
-      {(showUploadTab || (canDownload && selectedFiles.size > 0) || rawFiles.length > 0 || editedFiles.length > 0) && (
+      {/* Selected-file actions - Below tabs on mobile only */}
+      {canDownload && selectedFiles.size > 0 && (
         <div className="mb-1.5 pb-1 border-b flex-shrink-0 sm:hidden">
           <div className="flex items-center justify-end gap-1.5">
-            {/* Upload More button - shown when files exist and user can upload */}
-            {showUploadTab && (rawFiles.length > 0 || editedFiles.length > 0) && (
+            {/* AI Edit, Download, and Delete buttons for selected files */}
+            {/* Hide AI Edit button for clients */}
+            {!isClient && (
               <Button
-                variant="default"
                 size="sm"
-                className="h-7 text-[11px] px-3 bg-blue-600 hover:bg-blue-700 text-white w-full"
-                onClick={() => setActiveSubTab('upload')}
+                className="h-7 text-[11px] px-2 w-full bg-purple-600 hover:bg-purple-700 text-white"
+                onClick={() => setShowAiEditDialog(true)}
               >
-                <Upload className="h-3 w-3 mr-1" />
-                <span>Upload More</span>
+                <Sparkles className="h-3 w-3 mr-1" />
+                <span>AI Edit</span>
               </Button>
             )}
-            {/* AI Edit, Download, and Delete buttons for selected files */}
-            {canDownload && selectedFiles.size > 0 && (
-              <>
-                {/* Hide AI Edit button for clients */}
-                {!isClient && (
-                  <Button
-                    size="sm"
-                    className="h-7 text-[11px] px-2 w-full bg-purple-600 hover:bg-purple-700 text-white"
-                    onClick={() => setShowAiEditDialog(true)}
-                  >
-                    <Sparkles className="h-3 w-3 mr-1" />
-                    <span>AI Edit</span>
-                  </Button>
-                )}
-                {/* Show Create Request button for clients when photos are selected */}
-                {isClient && (
-                  <Button
-                    size="sm"
-                    className="h-7 text-[11px] px-2 w-full bg-blue-600 hover:bg-blue-700 text-white"
-                    onClick={() => setRequestManagerOpen(true)}
-                  >
-                    <AlertCircle className="h-3 w-3 mr-1" />
-                    <span>Create Request</span>
-                  </Button>
-                )}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button size="sm" className="h-7 text-[11px] px-2 w-full" disabled={downloading}>
-                      <Download className="h-3 w-3 mr-1" />
-                      <span>Download</span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => handleDownload('original')}>
-                      <Download className="h-4 w-4 mr-2" />
-                      <div>
-                        <div className="font-medium text-sm">Full Size</div>
-                        <div className="text-xs text-muted-foreground">Original resolution</div>
-                      </div>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleDownload('small')}>
-                      <Download className="h-4 w-4 mr-2" />
-                      <div>
-                        <div className="font-medium text-sm">Small Size</div>
-                        <div className="text-xs text-muted-foreground">1800x1200px (optimized)</div>
-                      </div>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                {canDelete && (
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    className="h-7 text-[11px] px-2 w-full bg-red-600 hover:bg-red-700 text-white"
-                    onClick={handleDeleteFiles}
-                  >
-                    <Trash2 className="h-3 w-3 mr-1" />
-                    <span>Delete</span>
-                  </Button>
-                )}
-              </>
-            )}
-            {/* Upload button - Full width on mobile */}
-            {showUploadTab && (
+            {/* Show Create Request button for clients when photos are selected */}
+            {isClient && (
               <Button
-                variant="default"
                 size="sm"
-                className="h-7 text-[11px] px-3 bg-blue-600 hover:bg-blue-700 text-white w-full"
-                onClick={() => setActiveSubTab('upload')}
+                className="h-7 text-[11px] px-2 w-full bg-blue-600 hover:bg-blue-700 text-white"
+                onClick={() => setRequestManagerOpen(true)}
               >
-                <Upload className="h-3 w-3 mr-1" />
-                <span>Upload</span>
+                <AlertCircle className="h-3 w-3 mr-1" />
+                <span>Create Request</span>
+              </Button>
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" className="h-7 text-[11px] px-2 w-full" disabled={downloading}>
+                  <Download className="h-3 w-3 mr-1" />
+                  <span>Download</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => handleDownload('original')}>
+                  <Download className="h-4 w-4 mr-2" />
+                  <div>
+                    <div className="font-medium text-sm">Full Size</div>
+                    <div className="text-xs text-muted-foreground">Original resolution</div>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleDownload('small')}>
+                  <Download className="h-4 w-4 mr-2" />
+                  <div>
+                    <div className="font-medium text-sm">Small Size</div>
+                    <div className="text-xs text-muted-foreground">1800x1200px (optimized)</div>
+                  </div>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {canDelete && (
+              <Button
+                size="sm"
+                variant="destructive"
+                className="h-7 text-[11px] px-2 w-full bg-red-600 hover:bg-red-700 text-white"
+                onClick={handleDeleteFiles}
+              >
+                <Trash2 className="h-3 w-3 mr-1" />
+                <span>Delete</span>
               </Button>
             )}
           </div>
@@ -2361,35 +2333,50 @@ export function ShootDetailsMediaTab({
             {!isClient && displayTab === 'uploaded' && (
               <div className="flex-1" style={{ minHeight: 0, display: 'flex', flexDirection: 'column', height: '100%', width: '100%' }}>
                 {/* Sub-tabs for Photos/Videos/iGuide/Floorplans */}
-                <div className="flex items-center gap-4 px-2.5 py-1 border-b" style={{ flexShrink: 0 }}>
-                  <button
-                    onClick={() => setUploadedMediaTab('photos')}
-                    className={`text-xs py-1 border-b-2 transition-colors ${uploadedMediaTab === 'photos' ? 'border-foreground text-foreground font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
-                  >
-                    Photos ({uploadedPhotos.length})
-                  </button>
-                  <button
-                    onClick={() => setUploadedMediaTab('videos')}
-                    className={`text-xs py-1 border-b-2 transition-colors ${uploadedMediaTab === 'videos' ? 'border-foreground text-foreground font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
-                  >
-                    Video ({uploadedVideos.length})
-                  </button>
-                  {iguideUrl && (
-                    <button
-                      onClick={() => setUploadedMediaTab('iguide')}
-                      className={`text-xs py-1 border-b-2 transition-colors ${uploadedMediaTab === 'iguide' ? 'border-foreground text-foreground font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
-                    >
-                      iGuide zip file
-                    </button>
-                  )}
-                  {iguideFloorplans.length > 0 && (
-                    <button
-                      onClick={() => setUploadedMediaTab('floorplans')}
-                      className={`text-xs py-1 border-b-2 transition-colors ${uploadedMediaTab === 'floorplans' ? 'border-foreground text-foreground font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
-                    >
-                      Floorplans ({iguideFloorplans.length})
-                    </button>
-                  )}
+                <div className="sticky top-0 z-10 px-2.5 py-1 border-b bg-background" style={{ flexShrink: 0 }}>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-4 overflow-x-auto">
+                      <button
+                        onClick={() => setUploadedMediaTab('photos')}
+                        className={`text-xs py-1 border-b-2 transition-colors whitespace-nowrap ${uploadedMediaTab === 'photos' ? 'border-foreground text-foreground font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                      >
+                        Photos ({uploadedPhotos.length})
+                      </button>
+                      <button
+                        onClick={() => setUploadedMediaTab('videos')}
+                        className={`text-xs py-1 border-b-2 transition-colors whitespace-nowrap ${uploadedMediaTab === 'videos' ? 'border-foreground text-foreground font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                      >
+                        Video ({uploadedVideos.length})
+                      </button>
+                      {iguideUrl && (
+                        <button
+                          onClick={() => setUploadedMediaTab('iguide')}
+                          className={`text-xs py-1 border-b-2 transition-colors whitespace-nowrap ${uploadedMediaTab === 'iguide' ? 'border-foreground text-foreground font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                        >
+                          iGuide zip file
+                        </button>
+                      )}
+                      {iguideFloorplans.length > 0 && (
+                        <button
+                          onClick={() => setUploadedMediaTab('floorplans')}
+                          className={`text-xs py-1 border-b-2 transition-colors whitespace-nowrap ${uploadedMediaTab === 'floorplans' ? 'border-foreground text-foreground font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                        >
+                          Floorplans ({iguideFloorplans.length})
+                        </button>
+                      )}
+                    </div>
+                    {showUploadTab && (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="sm:hidden h-7 px-2.5 text-[11px] bg-blue-600 hover:bg-blue-700 text-white"
+                        onClick={() => setActiveSubTab('upload')}
+                      >
+                        <Upload className="h-3 w-3 mr-1" />
+                        Upload Files
+                      </Button>
+                    )}
+                  </div>
                 </div>
                 
                 {/* Sub-tab content */}
@@ -2411,15 +2398,6 @@ export function ShootDetailsMediaTab({
                           <p className="text-sm text-muted-foreground mb-6">
                             Upload property photos and videos to get started. Our AI will automatically analyze assets for quality and categorization.
                           </p>
-                          {showUploadTab && (
-                            <Button 
-                              size="lg" 
-                              className="w-full max-w-sm h-14 text-base bg-primary hover:bg-primary/90"
-                              onClick={() => setActiveSubTab('upload')}
-                            >
-                              <ImageIcon className="h-5 w-5 mr-2" /> Upload Files
-                            </Button>
-                          )}
                         </div>
                       </div>
                     ) : (
@@ -2465,15 +2443,6 @@ export function ShootDetailsMediaTab({
                           <p className="text-sm text-muted-foreground mb-6">
                             Upload property videos to get started. Our AI will automatically analyze assets for quality and categorization.
                           </p>
-                          {showUploadTab && (
-                            <Button 
-                              size="lg" 
-                              className="w-full max-w-sm h-14 text-base bg-primary hover:bg-primary/90"
-                              onClick={() => setActiveSubTab('upload')}
-                            >
-                              <ImageIcon className="h-5 w-5 mr-2" /> Upload Files
-                            </Button>
-                          )}
                         </div>
                       </div>
                     ) : (
@@ -2559,35 +2528,50 @@ export function ShootDetailsMediaTab({
             {!isPhotographer && displayTab === 'edited' && (
               <div className="flex-1" style={{ minHeight: 0, display: 'flex', flexDirection: 'column', height: '100%', width: '100%' }}>
                 {/* Sub-tabs for Photos/Videos/iGuide/Floorplans */}
-                <div className="flex items-center gap-4 px-2.5 py-1 border-b" style={{ flexShrink: 0 }}>
-                  <button
-                    onClick={() => setEditedMediaTab('photos')}
-                    className={`text-xs py-1 border-b-2 transition-colors ${editedMediaTab === 'photos' ? 'border-foreground text-foreground font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
-                  >
-                    Photos ({editedPhotos.length})
-                  </button>
-                  <button
-                    onClick={() => setEditedMediaTab('videos')}
-                    className={`text-xs py-1 border-b-2 transition-colors ${editedMediaTab === 'videos' ? 'border-foreground text-foreground font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
-                  >
-                    Video ({editedVideos.length})
-                  </button>
-                  {iguideUrl && (
-                    <button
-                      onClick={() => setEditedMediaTab('iguide')}
-                      className={`text-xs py-1 border-b-2 transition-colors ${editedMediaTab === 'iguide' ? 'border-foreground text-foreground font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
-                    >
-                      iGuide zip file
-                    </button>
-                  )}
-                  {iguideFloorplans.length > 0 && (
-                    <button
-                      onClick={() => setEditedMediaTab('floorplans')}
-                      className={`text-xs py-1 border-b-2 transition-colors ${editedMediaTab === 'floorplans' ? 'border-foreground text-foreground font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
-                    >
-                      Floorplans ({iguideFloorplans.length})
-                    </button>
-                  )}
+                <div className="sticky top-0 z-10 px-2.5 py-1 border-b bg-background" style={{ flexShrink: 0 }}>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-4 overflow-x-auto">
+                      <button
+                        onClick={() => setEditedMediaTab('photos')}
+                        className={`text-xs py-1 border-b-2 transition-colors whitespace-nowrap ${editedMediaTab === 'photos' ? 'border-foreground text-foreground font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                      >
+                        Photos ({editedPhotos.length})
+                      </button>
+                      <button
+                        onClick={() => setEditedMediaTab('videos')}
+                        className={`text-xs py-1 border-b-2 transition-colors whitespace-nowrap ${editedMediaTab === 'videos' ? 'border-foreground text-foreground font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                      >
+                        Video ({editedVideos.length})
+                      </button>
+                      {iguideUrl && (
+                        <button
+                          onClick={() => setEditedMediaTab('iguide')}
+                          className={`text-xs py-1 border-b-2 transition-colors whitespace-nowrap ${editedMediaTab === 'iguide' ? 'border-foreground text-foreground font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                        >
+                          iGuide zip file
+                        </button>
+                      )}
+                      {iguideFloorplans.length > 0 && (
+                        <button
+                          onClick={() => setEditedMediaTab('floorplans')}
+                          className={`text-xs py-1 border-b-2 transition-colors whitespace-nowrap ${editedMediaTab === 'floorplans' ? 'border-foreground text-foreground font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                        >
+                          Floorplans ({iguideFloorplans.length})
+                        </button>
+                      )}
+                    </div>
+                    {showUploadTab && (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="sm:hidden h-7 px-2.5 text-[11px] bg-blue-600 hover:bg-blue-700 text-white"
+                        onClick={() => setActiveSubTab('upload')}
+                      >
+                        <Upload className="h-3 w-3 mr-1" />
+                        Upload Files
+                      </Button>
+                    )}
+                  </div>
                 </div>
                 
                 {/* Sub-tab content */}
@@ -2609,15 +2593,6 @@ export function ShootDetailsMediaTab({
                           <p className="text-sm text-muted-foreground mb-6">
                             Upload edited photos and videos to get started. Our AI will automatically analyze assets for quality and categorization.
                           </p>
-                          {showUploadTab && (
-                            <Button 
-                              size="lg" 
-                              className="w-full max-w-sm h-14 text-base bg-primary hover:bg-primary/90"
-                              onClick={() => setActiveSubTab('upload')}
-                            >
-                              <ImageIcon className="h-5 w-5 mr-2" /> Upload Files
-                            </Button>
-                          )}
                         </div>
                       </div>
                     ) : (
@@ -2663,15 +2638,6 @@ export function ShootDetailsMediaTab({
                           <p className="text-sm text-muted-foreground mb-6">
                             Upload edited videos to get started. Our AI will automatically analyze assets for quality and categorization.
                           </p>
-                          {showUploadTab && (
-                            <Button 
-                              size="lg" 
-                              className="w-full max-w-sm h-14 text-base bg-primary hover:bg-primary/90"
-                              onClick={() => setActiveSubTab('upload')}
-                            >
-                              <ImageIcon className="h-5 w-5 mr-2" /> Upload Files
-                            </Button>
-                          )}
                         </div>
                       </div>
                     ) : (

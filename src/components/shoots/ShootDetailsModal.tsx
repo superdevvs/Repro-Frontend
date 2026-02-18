@@ -13,7 +13,13 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { X, ExternalLink, CalendarIcon, MapPinIcon, ClockIcon, Send, CheckCircle, DollarSign as DollarSignIcon, ChevronUp, ChevronDown, Edit, Save, XCircle, PauseCircle, PlayCircle, Upload, Download, UserIcon, Check, FileText, Loader2, Share2, Link2, Printer } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { X, ExternalLink, CalendarIcon, MapPinIcon, ClockIcon, Send, CheckCircle, DollarSign as DollarSignIcon, ChevronUp, ChevronDown, Edit, Save, XCircle, PauseCircle, PlayCircle, Upload, Download, UserIcon, Check, FileText, Loader2, Share2, Link2, Printer, MoreVertical } from "lucide-react";
 import { format } from 'date-fns';
 import { ShootData } from '@/types/shoots';
 import { transformShootFromApi } from '@/context/ShootsContext';
@@ -78,7 +84,9 @@ export function ShootDetailsModal({
   
   const [shoot, setShoot] = useState<ShootData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState(initialTab);
+  const [activeTab, setActiveTab] = useState<'overview' | 'notes' | 'issues' | 'tours' | 'settings' | 'media'>(
+    initialTab,
+  );
   const [weather, setWeather] = useState<WeatherInfo | null>(null);
   const [providerVersion, setProviderVersion] = useState(0);
   const [isMediaExpanded, setIsMediaExpanded] = useState(false);
@@ -454,6 +462,30 @@ export function ShootDetailsModal({
     }
   };
 
+  const pollFinalizeCompletion = async (): Promise<{ delivered: boolean; failed: boolean }> => {
+    const deliveredStatuses = ['delivered', 'ready', 'ready_for_client', 'admin_verified'];
+
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const latestShoot = await refreshShoot();
+      const latestStatus = String((latestShoot as any)?.workflowStatus || (latestShoot as any)?.status || '').toLowerCase();
+      if (deliveredStatuses.includes(latestStatus)) {
+        return { delivered: true, failed: false };
+      }
+
+      const workflowLogs = (latestShoot as any)?.workflowLogs || (latestShoot as any)?.workflow_logs || [];
+      const hasFinalizeFailure = Array.isArray(workflowLogs)
+        && workflowLogs.some((log: any) => String(log?.action || '').toLowerCase() === 'finalize_failed');
+
+      if (hasFinalizeFailure) {
+        return { delivered: false, failed: true };
+      }
+
+      await new Promise((resolve) => window.setTimeout(resolve, 4000));
+    }
+
+    return { delivered: false, failed: false };
+  };
+
   // Mark complete handler
   const handleFinalise = async () => {
     if (!shoot) return;
@@ -474,12 +506,43 @@ export function ShootDetailsModal({
         const errorData = await res.json().catch(() => ({ message: 'Failed to finalize shoot' }));
         throw new Error(errorData.message || 'Failed to finalize shoot');
       }
+
+      const isQueued = res.status === 202;
       
       toast({
-        title: 'Success',
-        description: 'Shoot finalized successfully',
+        title: isQueued ? 'Finalize started' : 'Success',
+        description: isQueued
+          ? 'Finalize started in background. You can continue working.'
+          : 'Shoot finalized successfully',
       });
-      refreshShoot();
+
+      if (!isQueued) {
+        refreshShoot();
+        return;
+      }
+
+      const result = await pollFinalizeCompletion();
+      if (result.failed) {
+        toast({
+          title: 'Finalize failed',
+          description: 'Finalize failed in background. Check Activity Log for details.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if (result.delivered) {
+        toast({
+          title: 'Finalize complete',
+          description: 'Shoot is now delivered.',
+        });
+        return;
+      }
+
+      toast({
+        title: 'Still processing',
+        description: 'Finalize is still running in background. Check back in a moment.',
+      });
     } catch (error: any) {
       console.error('Finalize error:', error);
       toast({
@@ -1988,6 +2051,20 @@ export function ShootDetailsModal({
     return tabs;
   }, [isAdmin, isClient, isRequestedStatus]);
 
+  // Mobile bottom bar: show all relevant actions (parity with desktop)
+  const canMarkPaidOnMobile =
+    (currentUserRole === 'superadmin' || currentUserRole === 'admin') &&
+    !((shoot?.payment?.totalPaid ?? 0) >= (shoot?.payment?.totalQuote ?? 0));
+  const canProcessPaymentOnMobile = (isAdmin || isRep) && !isPaid && !isPhotographer && !isEditor;
+  const showMobilePaymentActions =
+    !isEditMode && !isRequestedStatus && (canMarkPaidOnMobile || canProcessPaymentOnMobile);
+  const showMobileSendToEditingAction =
+    !isEditMode && !isRequestedStatus && isAdmin && canSendToEditing;
+  const showMobileHoldAction = !isEditMode && !isRequestedStatus && canUserPutOnHold;
+  const showMobileResumeAction = !isEditMode && canResumeFromHold;
+  const showMobileFinaliseAction = !isEditMode && canFinalise;
+  const showMobileBottomActionBar = showMobilePaymentActions;
+
   if (loading) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
@@ -2081,7 +2158,7 @@ export function ShootDetailsModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-[95vw] w-full max-h-[98vh] h-auto sm:max-h-[95vh] sm:h-[95vh] overflow-y-auto flex flex-col p-0">
+      <DialogContent className="w-screen h-[100dvh] max-w-none rounded-none overflow-hidden flex flex-col p-0 sm:max-w-[95vw] sm:max-h-[95vh] sm:h-[95vh] sm:rounded-lg [&>button.absolute]:hidden [&>button.absolute]:sm:flex">
         {/* DialogHeader for accessibility - must be first child */}
         <DialogHeader className="sr-only">
             <DialogTitle>
@@ -2294,195 +2371,175 @@ export function ShootDetailsModal({
           </div>
         </div>
         
-        {/* Mobile: Edit button, Mark as on hold, Resume from hold, and View full page button - Top right before close button */}
-        <div className="sm:hidden absolute top-3 right-12 z-[60] flex items-center gap-1.5">
-          {canUserPutOnHold && !isEditMode && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs px-2.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200"
-              onClick={handleMarkOnHoldClick}
-            >
-              <PauseCircle className="h-3 w-3" />
-            </Button>
-          )}
-          {canResumeFromHold && !isEditMode && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs px-2.5 bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
-              onClick={handleResumeFromHold}
-            >
-              <PlayCircle className="h-3 w-3" />
-            </Button>
-          )}
-          {isAdmin && !isEditMode && canSendToEditing && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs px-2.5 bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200"
-              onClick={handleSendToEditing}
-            >
-              <Send className="h-3 w-3" />
-            </Button>
-          )}
-          {(canAdminEdit || (isAdminOrRep && isScheduledOrOnHold)) && !isEditMode && !isRequestedStatus && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs px-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
-              onClick={() => setIsEditMode(true)}
-            >
-              <Edit className="h-3 w-3" />
-            </Button>
-          )}
-          {(isAdmin || isClient) && isDelivered && !isEditMode && !isEditor && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs px-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200"
-              onClick={handleSendToBrightMls}
-              disabled={isPublishingToBrightMls}
-            >
-              <Upload className="h-3 w-3" />
-            </Button>
-          )}
-          {showMmmPunchoutButtons && (
-            <>
-              {mmmRedirectUrl && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-xs px-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200"
-                  onClick={() => window.open(mmmRedirectUrl, '_blank', 'noopener,noreferrer')}
-                >
-                  <Link2 className="h-3 w-3" />
-                </Button>
-              )}
-              {canStartMmmPunchout && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-xs px-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200"
-                  onClick={handleStartMmmPunchout}
-                  disabled={isStartingMmmPunchout}
-                >
-                  {isStartingMmmPunchout ? (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  ) : (
-                    <Printer className="h-3 w-3" />
-                  )}
-                </Button>
-              )}
-            </>
-          )}
-          {fullPagePath && !isEditMode && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs px-2.5"
-              onClick={() => {
-                onClose();
-                navigate(fullPagePath);
-              }}
-            >
-              <ExternalLink className="h-3 w-3 mr-1" />
-              <span className="hidden xs:inline">View full page</span>
-              <span className="xs:hidden">View</span>
-            </Button>
-          )}
-        </div>
+        {/* Mobile actions moved into overflow menu in the sticky header */}
         
         {/* Header */}
-        <div className="px-3 sm:px-4 pt-3 sm:pt-4 pb-2 sm:pb-3 border-b flex-shrink-0">
-          <div className="flex flex-col sm:flex-row items-start justify-between gap-2 sm:gap-4">
-            <div className="flex-1 min-w-0 w-full sm:w-auto">
-              {/* "Shoot details" label - Left aligned on mobile */}
-              <div className="text-xs sm:text-sm text-primary mb-1.5 sm:mb-2 font-medium text-left">
-                Shoot details
-              </div>
-              
-              {/* Main Title - Location/Address with Status Badge inline */}
-              <div className="flex items-center gap-2 sm:gap-3 mb-1.5 sm:mb-2 flex-wrap">
-                <h2 className="text-base sm:text-lg font-bold truncate text-left">
-                  {(() => {
-                    let address = shoot.location?.address || (shoot as any).address || '';
-                    const city = shoot.location?.city || (shoot as any).city || '';
-                    const state = shoot.location?.state || (shoot as any).state || '';
-                    const zip = shoot.location?.zip || (shoot as any).zip || '';
-                    if (address && (city || state || zip)) {
-                      let streetAddress = address;
-                      if (city) streetAddress = streetAddress.replace(new RegExp(`\\s*,?\\s*${city}\\s*,?`, 'i'), '');
-                      if (state) streetAddress = streetAddress.replace(new RegExp(`\\s*,?\\s*${state}\\s*,?`, 'i'), '');
-                      if (zip) streetAddress = streetAddress.replace(new RegExp(`\\s*,?\\s*${zip}\\s*`, 'i'), '');
-                      streetAddress = streetAddress.replace(/[,\s]+$/, '').trim();
-                      if (streetAddress) return streetAddress;
-                    }
-                    return address || shoot.location?.fullAddress || 'Shoot Details';
-                  })()}
-                </h2>
-                <div className="flex-shrink-0">
-                  {getStatusBadge(shoot.status || shoot.workflowStatus || 'booked')}
+        <div className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85 flex-shrink-0">
+          <div className="px-3 sm:px-4 pt-2 sm:pt-4 pb-1 sm:pb-3">
+            <div className="flex items-start justify-between gap-2 sm:gap-4">
+              <div className="flex-1 min-w-0 w-full sm:w-auto">
+                <div className="flex items-center gap-2 sm:gap-3 mb-1.5 sm:mb-2 flex-wrap">
+                  <h2 className="text-base sm:text-lg font-bold truncate text-left">
+                    {(() => {
+                      let address = shoot.location?.address || (shoot as any).address || '';
+                      const city = shoot.location?.city || (shoot as any).city || '';
+                      const state = shoot.location?.state || (shoot as any).state || '';
+                      const zip = shoot.location?.zip || (shoot as any).zip || '';
+                      if (address && (city || state || zip)) {
+                        let streetAddress = address;
+                        if (city) streetAddress = streetAddress.replace(new RegExp(`\\s*,?\\s*${city}\\s*,?`, 'i'), '');
+                        if (state) streetAddress = streetAddress.replace(new RegExp(`\\s*,?\\s*${state}\\s*,?`, 'i'), '');
+                        if (zip) streetAddress = streetAddress.replace(new RegExp(`\\s*,?\\s*${zip}\\s*`, 'i'), '');
+                        streetAddress = streetAddress.replace(/[,\s]+$/, '').trim();
+                        if (streetAddress) return streetAddress;
+                      }
+                      return address || shoot.location?.fullAddress || 'Shoot Details';
+                    })()}
+                  </h2>
+                  <div className="flex-shrink-0">
+                    {getStatusBadge(shoot.status || shoot.workflowStatus || 'booked')}
+                  </div>
                 </div>
+
+                {createdByLabel && (
+                  <div className="hidden sm:flex text-[11px] text-muted-foreground text-left items-center gap-1.5">
+                    <UserIcon className="h-3 w-3" />
+                    <span>Created by: {createdByLabel}</span>
+                  </div>
+                )}
               </div>
-              
-              {/* Created By Info */}
-              {createdByLabel && (
-                <div className="text-[11px] text-muted-foreground text-left flex items-center gap-1.5">
-                  <UserIcon className="h-3 w-3" />
-                  <span>Created by: {createdByLabel}</span>
-                </div>
-              )}
-            </div>
-            {isEditMode && (
-              <div className="w-full sm:hidden flex flex-col items-end gap-1">
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="default"
-                    size="sm"
-                    className="h-8 text-xs px-3"
-                    onClick={() => editActions?.save()}
-                    disabled={!editActions || isSavingChanges}
-                  >
-                    {isSavingChanges ? (
-                      <>
-                        <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      <>
-                        <Save className="h-3.5 w-3.5 mr-1.5" />
-                        Save Changes
-                      </>
+
+              <div className="sm:hidden flex items-center gap-1.5">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="icon" className="h-8 w-8 rounded-full">
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    {(canAdminEdit || (isAdminOrRep && isScheduledOrOnHold)) && !isEditMode && !isRequestedStatus && (
+                      <DropdownMenuItem onClick={() => setIsEditMode(true)}>
+                        <Edit className="mr-2 h-4 w-4" />
+                        Edit shoot
+                      </DropdownMenuItem>
                     )}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 text-xs px-3"
-                    onClick={() => editActions?.cancel()}
-                    disabled={!editActions || isSavingChanges}
-                  >
-                    Cancel
-                  </Button>
-                </div>
+                    {canUserPutOnHold && !isEditMode && (
+                      <DropdownMenuItem onClick={handleMarkOnHoldClick}>
+                        <PauseCircle className="mr-2 h-4 w-4" />
+                        {holdActionLabel}
+                      </DropdownMenuItem>
+                    )}
+                    {canResumeFromHold && !isEditMode && (
+                      <DropdownMenuItem onClick={handleResumeFromHold}>
+                        <PlayCircle className="mr-2 h-4 w-4" />
+                        Resume from hold
+                      </DropdownMenuItem>
+                    )}
+                    {isAdmin && !isEditMode && canSendToEditing && (
+                      <DropdownMenuItem onClick={handleSendToEditing}>
+                        <Send className="mr-2 h-4 w-4" />
+                        Send to Editing
+                      </DropdownMenuItem>
+                    )}
+                    {canCancelShoot && !isEditMode && (
+                      <DropdownMenuItem className="text-destructive" onClick={handleCancelShootClick}>
+                        <XCircle className="mr-2 h-4 w-4" />
+                        {isDelivered ? 'Delete shoot' : 'Cancel shoot'}
+                      </DropdownMenuItem>
+                    )}
+                    {fullPagePath && !isEditMode && (
+                      <DropdownMenuItem
+                        onClick={() => {
+                          onClose();
+                          navigate(fullPagePath);
+                        }}
+                      >
+                        <ExternalLink className="mr-2 h-4 w-4" />
+                        View full page
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => onClose()}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
+            {isEditMode && (
+              <div className="w-full sm:hidden flex items-center justify-end gap-2 mt-2">
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="h-8 text-xs px-3"
+                  onClick={() => editActions?.save()}
+                  disabled={!editActions || isSavingChanges}
+                >
+                  {isSavingChanges ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-3.5 w-3.5 mr-1.5" />
+                      Save Changes
+                    </>
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs px-3"
+                  onClick={() => editActions?.cancel()}
+                  disabled={!editActions || isSavingChanges}
+                >
+                  Cancel
+                </Button>
               </div>
             )}
           </div>
+
+          <div className="sm:hidden px-2 pb-1 overflow-x-auto scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            <div className="flex gap-1 rounded-xl bg-muted/50 p-0.5 min-w-max">
+              {(() => {
+                const tabs = visibleTabs.filter(t => t.id !== 'media');
+                const mediaTab = { id: 'media', label: 'Media' };
+                // Insert Media as second tab (after Overview)
+                tabs.splice(1, 0, mediaTab);
+                return tabs;
+              })().map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id as typeof activeTab)}
+                  className={`rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition whitespace-nowrap ${
+                    activeTab === tab.id
+                      ? 'bg-blue-600/10 text-blue-500 ring-1 ring-blue-500/50'
+                      : 'text-muted-foreground'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
-        {/* Split Pane Layout - Stack on mobile, expandable media */}
-        <div className={`flex flex-col sm:flex-row overflow-hidden pb-20 sm:pb-0 ${isMediaExpanded ? 'min-h-[70vh]' : 'min-h-[50vh]'} sm:flex-1 sm:min-h-0`}>
-          {/* Left Pane - Full width on mobile, 37.5% on desktop */}
-          <div className={`relative w-full sm:w-[37.5%] border-r sm:border-r border-b sm:border-b-0 flex flex-col ${isMediaExpanded ? 'min-h-[35vh]' : 'flex-1'} sm:min-h-0 overflow-hidden bg-muted/30 flex-1 sm:flex-none`}>
-            {/* Tab Navigation */}
-            <div className="px-2 sm:px-4 py-1.5 sm:py-2 border-b bg-background flex-shrink-0 overflow-x-auto">
+        {/* Split Pane Layout - mobile task sheet + desktop split view */}
+        <div className="flex flex-col sm:flex-row overflow-hidden pb-14 sm:pb-0 sm:flex-1 sm:min-h-0">
+          {/* Left Pane - non-media tabs on mobile, full left column on desktop */}
+          <div
+            className={`relative w-full sm:w-[37.5%] border-r sm:border-r border-b sm:border-b-0 ${activeTab === 'media' ? 'hidden sm:flex' : 'flex'} flex-col sm:min-h-0 overflow-hidden bg-muted/30 flex-1 sm:flex-none`}
+          >
+            {/* Desktop tab navigation */}
+            <div className="hidden sm:block px-2 sm:px-4 py-1.5 sm:py-2 border-b bg-background flex-shrink-0 overflow-x-auto">
               <Tabs value={activeTab} onValueChange={handleTabChange}>
                 <TabsList className="w-full justify-start h-7 sm:h-8 bg-transparent p-0 min-w-max sm:min-w-0">
                   {visibleTabs.filter(tab => tab.id !== 'media').map(tab => (
-                    <TabsTrigger 
-                      key={tab.id} 
-                      value={tab.id} 
+                    <TabsTrigger
+                      key={tab.id}
+                      value={tab.id}
                       className="text-[11px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 h-7 sm:h-8 data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:rounded-none whitespace-nowrap"
                     >
                       {tab.label}
@@ -2492,8 +2549,8 @@ export function ShootDetailsModal({
               </Tabs>
             </div>
 
-            {/* Main Content Area - Independent scrolling */}
-            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-2 sm:px-4 py-2 sm:py-2.5">
+            {/* Unified content area - same tab content for mobile and desktop */}
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-2 sm:px-4 py-0.5 sm:py-2.5">
               <Tabs value={activeTab} onValueChange={handleTabChange}>
                 <TabsContent value="overview" className="mt-0">
                   <ShootDetailsOverviewTab
@@ -2558,12 +2615,12 @@ export function ShootDetailsModal({
               </Tabs>
             </div>
 
-            {/* Payment Buttons Section at Bottom of Left Pane - only show if at least one button visible */}
+            {/* Payment buttons section - desktop */}
             {(isAdmin || isRep) && !isPhotographer && !isEditor && (
-              ((currentUserRole === 'superadmin' || currentUserRole === 'admin') && !((shoot.payment?.totalPaid ?? 0) >= (shoot.payment?.totalQuote ?? 0))) || 
+              ((currentUserRole === 'superadmin' || currentUserRole === 'admin') && !((shoot.payment?.totalPaid ?? 0) >= (shoot.payment?.totalQuote ?? 0))) ||
               ((isAdmin || isRep) && !isPaid)
             ) && (
-              <div className="px-2 sm:px-4 py-2 border-t bg-background flex-shrink-0">
+              <div className="hidden sm:block px-2 sm:px-4 py-2 border-t bg-background flex-shrink-0">
                 <div className="hidden sm:flex gap-2 w-full">
                   {(currentUserRole === 'superadmin' || currentUserRole === 'admin') && !((shoot.payment?.totalPaid ?? 0) >= (shoot.payment?.totalQuote ?? 0)) && (
                     <Button
@@ -2592,9 +2649,26 @@ export function ShootDetailsModal({
             )}
           </div>
 
-          {/* Right Pane - Full width on mobile, 62.5% on desktop - Media Tab Always Visible, Expandable */}
-          <div className={`w-full sm:w-[62.5%] flex flex-col ${isMediaExpanded ? 'fixed inset-x-0 bottom-0 top-[7.5rem] sm:relative sm:inset-auto sm:top-auto sm:bottom-auto flex-1' : 'h-auto max-h-[12vh] overflow-hidden'} sm:min-h-0 sm:flex-1 sm:max-h-none transition-all duration-300 flex-1 sm:flex-none bg-background border-t sm:border-t-0 z-40 sm:z-auto shadow-lg sm:shadow-none`}>
-            <div className={`flex-1 min-h-0 flex flex-col ${!isMediaExpanded ? 'overflow-hidden' : 'overflow-y-auto'} sm:overflow-y-auto px-2 sm:px-3`}>
+          {/* Mobile media pane */}
+          <div className={`${activeTab === 'media' ? 'flex' : 'hidden'} sm:hidden flex-1 min-h-0 flex-col bg-background`}>
+            <div className="flex-1 min-h-0 overflow-y-auto px-2">
+              <ShootDetailsMediaTab
+                shoot={shoot}
+                isAdmin={isAdmin}
+                isPhotographer={isPhotographer}
+                isEditor={isEditor}
+                isClient={isClient}
+                role={currentUserRole}
+                onShootUpdate={refreshShoot}
+                onSelectionChange={setSelectedFileIds}
+                isExpanded={true}
+              />
+            </div>
+          </div>
+
+          {/* Desktop media pane */}
+          <div className="hidden sm:flex w-[62.5%] min-h-0 flex-1 flex-col bg-background border-t sm:border-t-0">
+            <div className="flex-1 min-h-0 overflow-y-auto px-2 sm:px-3">
               <ShootDetailsMediaTab
                 shoot={shoot}
                 isAdmin={isAdmin}
@@ -2667,94 +2741,26 @@ export function ShootDetailsModal({
           </div>
         </div>
         
-        {/* Bottom Overlay Buttons - Mobile only */}
-        {(isAdmin || isClient || isRep) && (
-          <div className="fixed sm:hidden bottom-0 left-0 right-0 bg-background border-t shadow-lg z-50 px-3 py-2 space-y-2">
-            {/* Workflow action buttons */}
-            {!isEditMode && !isRequestedStatus && (canResumeFromHold || canSendToEditing || canFinalise || (canShowInvoiceButton && !isPhotographer && !isEditor)) && (
-              <div className="flex flex-wrap items-center gap-2">
-                {canResumeFromHold && (
-                  <Button
-                    variant="default"
-                    size="sm"
-                    className="flex-1 h-8 text-xs px-3 bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
-                    onClick={handleResumeFromHold}
-                  >
-                    <PlayCircle className="h-3.5 w-3.5 mr-1.5" />
-                    <span>Resume</span>
-                  </Button>
-                )}
-                {(canShowInvoiceButton || (isAdmin && isPaid)) && !isPhotographer && !isEditor && (
-                  <Button
-                    variant="default"
-                    size="sm"
-                    className="h-8 text-xs px-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
-                    onClick={handleShowInvoice}
-                    disabled={isLoadingInvoice}
-                  >
-                    <FileText className="h-3.5 w-3.5 mr-1" />
-                    <span>Invoice</span>
-                  </Button>
-                )}
-                {isAdmin && canSendToEditing && (
-                  <Button
-                    variant="default"
-                    size="sm"
-                    className="flex-1 h-8 text-xs px-3 bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200"
-                    onClick={handleSendToEditing}
-                  >
-                    <Send className="h-3.5 w-3.5 mr-1.5" />
-                    <span>Send to Editing</span>
-                  </Button>
-                )}
-                {canFinalise && (
-                  <Button
-                    variant="default"
-                    size="sm"
-                    className="flex-1 h-8 text-xs px-3 bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
-                    onClick={handleFinalise}
-                  >
-                    <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
-                    <span>Finalize</span>
-                  </Button>
-                )}
-              </div>
-            )}
-
-            {/* Payment Buttons - Mark as Paid and Process Payment (50/50 split) */}
-            <div className="flex gap-2 w-full">
-              {(currentUserRole === 'superadmin' || currentUserRole === 'admin') && !((shoot.payment?.totalPaid ?? 0) >= (shoot.payment?.totalQuote ?? 0)) && (
+        {/* Bottom Overlay Buttons - Mobile only (full desktop parity) */}
+        {showMobileBottomActionBar && (
+          <div className="fixed sm:hidden bottom-0 left-0 right-0 bg-background border-t shadow-lg z-50 px-3 py-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]">
+            <div className="flex gap-2 w-full overflow-x-auto">
+              {canMarkPaidOnMobile && (
                 <Button
                   variant="default"
                   size="sm"
-                  className="flex-1 h-9 text-xs px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:hover:bg-emerald-900 dark:text-emerald-300 dark:border-emerald-800"
+                  className="flex-1 h-9 text-xs px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:hover:bg-emerald-900 dark:text-emerald-300 dark:border-emerald-800 whitespace-nowrap"
                   onClick={() => setIsMarkPaidDialogOpen(true)}
                 >
                   <DollarSignIcon className="h-3.5 w-3.5 mr-1.5" />
                   <span>Mark as Paid</span>
                 </Button>
               )}
-              {isAdmin && isPaid && (
+              {canProcessPaymentOnMobile && (
                 <Button
                   variant="default"
                   size="sm"
-                  className="w-full h-9 text-xs px-3 bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950 dark:hover:bg-blue-900 dark:text-blue-300 dark:border-blue-800"
-                  onClick={handleShowInvoice}
-                  disabled={isLoadingInvoice}
-                >
-                  {isLoadingInvoice ? (
-                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                  ) : (
-                    <FileText className="h-3.5 w-3.5 mr-1.5" />
-                  )}
-                  <span>{isLoadingInvoice ? 'Loading...' : 'Show Invoice'}</span>
-                </Button>
-              )}
-              {(isAdmin || isRep) && !isPaid && (
-                <Button
-                  variant="default"
-                  size="sm"
-                  className={`${currentUserRole === 'superadmin' && !((shoot.payment?.totalPaid ?? 0) >= (shoot.payment?.totalQuote ?? 0)) ? 'flex-1' : 'w-full'} h-9 text-xs px-3 bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-950 dark:hover:bg-orange-900 dark:text-orange-300 dark:border-orange-800`}
+                  className="flex-1 h-9 text-xs px-3 bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-950 dark:hover:bg-orange-900 dark:text-orange-300 dark:border-orange-800 whitespace-nowrap"
                   onClick={handleProcessPayment}
                 >
                   <DollarSignIcon className="h-3.5 w-3.5 mr-1.5" />

@@ -375,7 +375,7 @@ const AccountingPage = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-3 p-6">
+      <div className="space-y-4 px-2 pt-3 pb-3 sm:space-y-6 sm:p-6">
           <AccountingHeader
             onCreateInvoice={() => canCreateInvoice && setCreateDialogOpen(true)}
             onCreateBatch={() => canCreateInvoice && setBatchDialogOpen(true)}
@@ -403,37 +403,6 @@ const AccountingPage = () => {
                   <OverviewCards 
                     invoices={filteredInvoices} 
                     timeFilter={timeFilter}
-                    leftElement={
-                      <div className="flex items-center gap-1 text-sm">
-                        <button
-                          onClick={() => setActiveTab('home')}
-                          className={`px-2 py-1.5 font-medium transition-colors relative ${
-                            activeTab === 'home'
-                              ? 'text-foreground'
-                              : 'text-muted-foreground hover:text-foreground'
-                          }`}
-                        >
-                          Home
-                          {activeTab === 'home' && (
-                            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
-                          )}
-                        </button>
-                        <span className="text-muted-foreground">/</span>
-                        <button
-                          onClick={() => setActiveTab('photographers')}
-                          className={`px-2 py-1.5 font-medium transition-colors relative ${
-                            activeTab === 'photographers'
-                              ? 'text-foreground'
-                              : 'text-muted-foreground hover:text-foreground'
-                          }`}
-                        >
-                          Photographers
-                          {activeTab === 'photographers' && (
-                            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
-                          )}
-                        </button>
-                      </div>
-                    }
                   />
                 ) : (
                   <RoleBasedOverviewCards
@@ -525,24 +494,7 @@ const AccountingPage = () => {
 
           {/* Photographers Tab Content - Payout Report and Pending Invoice Approvals */}
           {activeTab === 'photographers' && accountingMode === 'admin' && (
-            <div className="space-y-6">
-              {/* Tab navigation row for photographers view */}
-              <div className="flex items-center gap-1 text-sm">
-                <button
-                  onClick={() => setActiveTab('home')}
-                  className="px-2 py-1.5 font-medium transition-colors relative text-muted-foreground hover:text-foreground"
-                >
-                  Home
-                </button>
-                <span className="text-muted-foreground">/</span>
-                <button
-                  onClick={() => setActiveTab('photographers')}
-                  className="px-2 py-1.5 font-medium transition-colors relative text-foreground"
-                >
-                  Photographers
-                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
-                </button>
-              </div>
+            <div className="space-y-4 sm:space-y-6">
               <PayoutReportPanel 
                 hideHeaderButtons={true}
                 registerActions={setPayoutActions}

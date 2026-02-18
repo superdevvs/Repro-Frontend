@@ -160,7 +160,9 @@ export default function Accounts() {
 
   const [filterRole, setFilterRole] = useState<Role | "all">("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>(() =>
+    typeof window !== 'undefined' && window.innerWidth < 768 ? 'grid' : 'list'
+  );
   const [repFilter, setRepFilter] = useState<'all' | 'unassigned' | string>('all');
   const { toast } = useToast();
   const { user: currentUser, role: currentUserRole, impersonate, logout } = useAuth();
@@ -1194,31 +1196,49 @@ export default function Accounts() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6 p-6">
+      <div className="space-y-4 px-2 pt-3 pb-3 sm:space-y-6 sm:p-6">
         <PageHeader
           badge="Team"
           title="Accounts"
           description="Manage your team members and their permissions"
           icon={UsersIcon}
           action={
-            <div className="flex items-center gap-3">
+            <div className="flex w-full items-center gap-2 sm:w-auto">
               {/* Search input in header */}
-              <div className="relative">
+              <div className="relative min-w-0 flex-1 sm:flex-none">
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 h-10 w-[180px]"
+                  className="pl-9 h-10 w-full sm:w-[180px]"
                 />
               </div>
               <Button
                 onClick={handleAddAccount}
-                className="h-10 bg-gradient-to-r from-[#4FA8FF] via-[#3E8BFF] to-[#2F6DFF] text-white shadow-lg shadow-blue-500/30 transition-all duration-200 hover:from-[#63B4FF] hover:via-[#4C94FF] hover:to-[#3775FF]"
+                className="h-10 shrink-0 gap-1.5 px-2.5 sm:px-4 bg-gradient-to-r from-[#4FA8FF] via-[#3E8BFF] to-[#2F6DFF] text-white shadow-lg shadow-blue-500/30 transition-all duration-200 hover:from-[#63B4FF] hover:via-[#4C94FF] hover:to-[#3775FF]"
               >
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Add Account
+                <PlusCircle className="h-4 w-4" />
+                <span className="text-[11px] font-semibold uppercase tracking-wide sm:hidden">New</span>
+                <span className="hidden sm:inline">Add Account</span>
               </Button>
+              {activeTab === 'accounts' && (
+                <div className="ml-auto shrink-0 sm:hidden">
+                  <AccountsHeader
+                    onExport={handleExport}
+                    onImport={handleImportAccounts}
+                    onSearch={setSearchQuery}
+                    searchQuery={searchQuery}
+                    onFilterChange={setFilterRole}
+                    selectedFilter={filterRole}
+                    viewMode={viewMode}
+                    onViewModeChange={setViewMode}
+                    repFilter={repFilter}
+                    onRepFilterChange={setRepFilter}
+                    repOptions={repOptions}
+                  />
+                </div>
+              )}
             </div>
           }
         />
@@ -1237,22 +1257,26 @@ export default function Accounts() {
             </TabsList>
 
             {/* Inline controls - only show on accounts tab */}
-            <AccountsHeader
-              onExport={handleExport}
-              onImport={handleImportAccounts}
-              onSearch={setSearchQuery}
-              searchQuery={searchQuery}
-              onFilterChange={setFilterRole}
-              selectedFilter={filterRole}
-              viewMode={viewMode}
-              onViewModeChange={setViewMode}
-              repFilter={repFilter}
-              onRepFilterChange={setRepFilter}
-              repOptions={repOptions}
-            />
+            {activeTab === 'accounts' && (
+              <div className="hidden sm:block">
+                <AccountsHeader
+                  onExport={handleExport}
+                  onImport={handleImportAccounts}
+                  onSearch={setSearchQuery}
+                  searchQuery={searchQuery}
+                  onFilterChange={setFilterRole}
+                  selectedFilter={filterRole}
+                  viewMode={viewMode}
+                  onViewModeChange={setViewMode}
+                  repFilter={repFilter}
+                  onRepFilterChange={setRepFilter}
+                  repOptions={repOptions}
+                />
+              </div>
+            )}
           </div>
 
-          <TabsContent value="accounts" className="space-y-6">
+          <TabsContent value="accounts" className="space-y-3 sm:space-y-6">
             {/* Stats Cards - role filter pills with counts */}
             <AccountsStatsCards
               stats={roleStats}
@@ -1263,7 +1287,7 @@ export default function Accounts() {
             {loading ? (
               <HorizontalLoader message="Loading accounts..." />
             ) : viewMode === 'grid' ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6">
                 {paginatedUsers.map((user) => (
                   <AccountCard
                     key={user.id}
