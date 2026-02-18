@@ -179,15 +179,40 @@ function AdminPaymentsSummary({ invoices }: { invoices: InvoiceData[] }) {
 
 // Client Side Panel
 function ClientSidePanel({ invoices, user }: { invoices: InvoiceData[]; user: any }) {
-  const myInvoices = invoices.filter((i) => i.client === user?.name || i.client_id === user?.id);
+  const userId = user?.id != null ? String(user.id) : null;
+  const userName = String(user?.name || '').trim().toLowerCase();
+  const myInvoices = invoices.filter((i) => {
+    const invoiceClientId = i.client_id != null ? String(i.client_id) : null;
+    if (userId && invoiceClientId) {
+      return invoiceClientId === userId;
+    }
+    const invoiceClientName = String(i.client || '').trim().toLowerCase();
+    return Boolean(userName && invoiceClientName && invoiceClientName === userName);
+  });
   const paidInvoices = myInvoices.filter(i => i.status === 'paid');
+
+  const getInvoicePaymentInfo = (invoice: InvoiceData) => {
+    const method =
+      invoice.paymentMethod ||
+      (invoice as any).payment_method ||
+      (invoice as any).paymentType ||
+      (invoice as any).payment_type ||
+      undefined;
+    const details =
+      invoice.paymentDetails ||
+      (invoice as any).payment_details ||
+      (invoice as any).paymentDetails ||
+      undefined;
+    return { method, details };
+  };
   
   const paymentMethods = paidInvoices
-    .filter(i => i.paymentMethod)
+    .filter(i => Boolean(getInvoicePaymentInfo(i).method))
     .reduce((acc, i) => {
-      const label = getPaymentMethodLabel(i.paymentMethod);
-      const method = label === 'N/A' ? 'Unknown' : label;
-      acc[method] = (acc[method] || 0) + 1;
+      const { method } = getInvoicePaymentInfo(i);
+      const label = getPaymentMethodLabel(method);
+      const methodLabel = label === 'N/A' ? 'Unknown' : label;
+      acc[methodLabel] = (acc[methodLabel] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
 
@@ -197,7 +222,11 @@ function ClientSidePanel({ invoices, user }: { invoices: InvoiceData[]; user: an
     .slice(0, 4);
 
   const recentPayments = paidInvoices
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .sort((a, b) => {
+      const aDate = a.paidAt || (a as any).paid_at || a.date;
+      const bDate = b.paidAt || (b as any).paid_at || b.date;
+      return new Date(String(bDate)).getTime() - new Date(String(aDate)).getTime();
+    })
     .slice(0, 5);
 
   return (
@@ -236,7 +265,9 @@ function ClientSidePanel({ invoices, user }: { invoices: InvoiceData[]; user: an
           {recentPayments.length > 0 ? (
             <div className="flex-1 overflow-y-auto space-y-2 pr-2">
               {recentPayments.map((invoice) => {
-                const methodLabel = formatPaymentMethod(invoice.paymentMethod, invoice.paymentDetails);
+                const { method, details } = getInvoicePaymentInfo(invoice);
+                const methodLabel = formatPaymentMethod(method, details);
+                const paidDate = invoice.paidAt || (invoice as any).paid_at || invoice.date;
                 return (
                   <div
                     key={invoice.id}
@@ -244,7 +275,7 @@ function ClientSidePanel({ invoices, user }: { invoices: InvoiceData[]; user: an
                   >
                     <div>
                       <p className="text-sm font-medium">{invoice.property || invoice.client}</p>
-                      <p className="text-xs text-muted-foreground">{invoice.date}</p>
+                      <p className="text-xs text-muted-foreground">{String(paidDate || '')}</p>
                       {methodLabel !== 'N/A' && (
                         <p className="text-xs text-muted-foreground">Paid via {methodLabel}</p>
                       )}

@@ -4050,22 +4050,23 @@ const ShootHistory: React.FC = () => {
 
     if (viewMode === 'grid') {
       return (
-        <div className="masonry-grid">
+        <div className="masonry-grid masonry-grid--equal-cards">
           {paginatedData.map((shoot) => (
-            <SharedShootCard
-              key={shoot.id}
-              shoot={shoot}
-              role={role}
-              onSelect={handleShootSelect}
-              onPrimaryAction={(action) => handlePrimaryAction(action, shoot)}
-              onOpenWorkflow={(selected) => navigate(`/shoots/${selected.id}#workflow`)}
-              onApprove={(s) => setApprovalModalShoot(s)}
-              onDecline={(s) => setDeclineModalShoot(s)}
-              onModify={(s) => setEditModalShoot(s)}
-              onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
-              onViewInvoice={canViewInvoice ? handleViewInvoice : undefined}
-              onSendToEditing={handleSendToEditing}
-            />
+            <div key={shoot.id} className="masonry-grid-item">
+              <SharedShootCard
+                shoot={shoot}
+                role={role}
+                onSelect={handleShootSelect}
+                onPrimaryAction={(action) => handlePrimaryAction(action, shoot)}
+                onOpenWorkflow={(selected) => navigate(`/shoots/${selected.id}#workflow`)}
+                onApprove={(s) => setApprovalModalShoot(s)}
+                onDecline={(s) => setDeclineModalShoot(s)}
+                onModify={(s) => setEditModalShoot(s)}
+                onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
+                onViewInvoice={canViewInvoice ? handleViewInvoice : undefined}
+                onSendToEditing={handleSendToEditing}
+              />
+            </div>
           ))}
         </div>
       )
@@ -4919,7 +4920,7 @@ const ShootHistory: React.FC = () => {
             </CollapsibleContent>
           </Collapsible>
 
-          <TabsContent value="scheduled" className="space-y-6">
+          <TabsContent value="scheduled" className="w-full space-y-6">
             {scheduledContent}
 
             {operationalMeta && operationalMeta.total > 0 && (
@@ -4949,7 +4950,7 @@ const ShootHistory: React.FC = () => {
             )}
           </TabsContent>
 
-          <TabsContent value="editing" className="space-y-6">
+          <TabsContent value="editing" className="w-full space-y-6">
             {completedContent}
 
             {operationalMeta && operationalMeta.total > 0 && (
@@ -4979,7 +4980,7 @@ const ShootHistory: React.FC = () => {
             )}
           </TabsContent>
 
-          <TabsContent value="edited" className="space-y-6">
+          <TabsContent value="edited" className="w-full space-y-6">
             {completedContent}
 
             {operationalMeta && operationalMeta.total > 0 && (
@@ -5010,7 +5011,7 @@ const ShootHistory: React.FC = () => {
           </TabsContent>
 
           {/* Delivered Shoots Tab */}
-          <TabsContent value="delivered" className="space-y-6">
+          <TabsContent value="delivered" className="w-full space-y-6">
             {completedContent}
 
             {operationalMeta && operationalMeta.total > 0 && (
@@ -5041,7 +5042,7 @@ const ShootHistory: React.FC = () => {
           </TabsContent>
 
           {/* Completed Shoots Tab - spec 2.2 */}
-          <TabsContent value="completed" className="space-y-6">
+          <TabsContent value="completed" className="w-full space-y-6">
             {completedContent}
 
             {operationalMeta && operationalMeta.total > 0 && (
@@ -5072,7 +5073,7 @@ const ShootHistory: React.FC = () => {
           </TabsContent>
 
           {/* Hold-On Shoots Tab - spec 2.3 */}
-          <TabsContent value="hold" className="space-y-6">
+          <TabsContent value="hold" className="w-full space-y-6">
             {holdOnContent}
 
             {operationalMeta && operationalMeta.total > 0 && (
@@ -5104,7 +5105,7 @@ const ShootHistory: React.FC = () => {
 
           {/* History Tab - spec 3 */}
           {canViewHistory && (
-            <TabsContent value="history" className="space-y-6">
+            <TabsContent value="history" className="w-full space-y-6">
               <Tabs value={historySubTab} onValueChange={(value) => setHistorySubTab(value as 'all' | 'mls-queue')} className="w-full">
                 {/* Reporting filters - expands below */}
                 <Collapsible open={historyFiltersOpen} onOpenChange={setHistoryFiltersOpen}>
@@ -5260,7 +5261,7 @@ const ShootHistory: React.FC = () => {
                   </CollapsibleContent>
                 </Collapsible>
 
-                <TabsContent value="all" className="space-y-6">
+                <TabsContent value="all" className="w-full space-y-6">
                   {historyContent}
 
                   {historyMeta && historyFilters.groupBy === 'shoot' && (
@@ -5290,7 +5291,7 @@ const ShootHistory: React.FC = () => {
                   )}
                 </TabsContent>
                 
-                <TabsContent value="mls-queue" className="space-y-6">
+                <TabsContent value="mls-queue" className="w-full space-y-6">
                   <MlsQueueView />
                 </TabsContent>
               </Tabs>
@@ -5299,7 +5300,7 @@ const ShootHistory: React.FC = () => {
 
           {/* Linked View Tab - Shows combined data from all linked accounts */}
           {canViewLinkedAccounts && (
-            <TabsContent value="linked" className="space-y-6">
+            <TabsContent value="linked" className="w-full space-y-6">
               <div className="space-y-6">
                 {/* Header with linked accounts info */}
                 <Card>

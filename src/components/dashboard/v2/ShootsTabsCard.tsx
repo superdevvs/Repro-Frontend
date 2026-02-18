@@ -21,6 +21,8 @@ import {
   X,
   Edit,
   Eye,
+  MoreVertical,
+  ChevronsDown,
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -259,6 +261,7 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
   const weatherMapRef = useRef<Map<number, WeatherInfo>>(new Map());
   const [providerVersion, setProviderVersion] = useState(0);
   const [hoveredShoot, setHoveredShoot] = useState<number | null>(null);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const lastRequestedCountRef = useRef<number>(requestedShoots.length);
   
   const SHOOTS_PER_PAGE = 5;
@@ -627,19 +630,113 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
             <Flag size={14} />
           </div>
         )}
-        <div className="grid grid-cols-1 sm:grid-cols-[auto,1fr,auto] items-stretch gap-3 sm:gap-4">
-          <div className="flex flex-row sm:flex-col items-center sm:items-center gap-2 sm:gap-2">
+
+        {/* ── Mobile layout ── */}
+        <div className="sm:hidden space-y-2.5">
+          {/* Row 1: Time + Status pill + Weather pill (all same height) */}
+          <div className="flex items-center gap-2">
+            <div className="rounded-xl border border-border/80 bg-muted/40 dark:bg-muted/20 px-4 py-2 shadow-sm flex-shrink-0">
+              {(() => {
+                const rawTime =
+                  shoot.timeLabel ||
+                  (shoot.startTime
+                    ? (() => {
+                        const date = new Date(shoot.startTime);
+                        if (isNaN(date.getTime())) return null;
+                        const hh = date.getHours().toString().padStart(2, '0');
+                        const mm = date.getMinutes().toString().padStart(2, '0');
+                        return `${hh}:${mm}`;
+                      })()
+                    : null);
+                const formattedTime = rawTime ? formatTime(rawTime) : '--';
+                return (
+                  <p className="text-[15px] font-bold text-foreground leading-none tracking-tight whitespace-nowrap">
+                    {formattedTime}
+                  </p>
+                );
+              })()}
+            </div>
+            <span
+              className={cn(
+                'inline-flex items-center h-5 px-2 rounded-full text-[10px] font-semibold border whitespace-nowrap',
+                statusClass,
+              )}
+            >
+              {formatWorkflowStatus(shoot.workflowStatus || shoot.status)}
+            </span>
+            <div className="inline-flex items-center h-5 gap-1 rounded-full border border-border px-2 text-[10px] font-semibold text-muted-foreground bg-background shadow-sm">
+              {renderWeatherIcon(weather?.icon)}
+              <span>{(() => {
+                const temp = weather?.temperature ?? shoot.temperature;
+                if (!temp) return '--°';
+                if (typeof temp === 'number') return formatTemperature(temp);
+                const match = String(temp).match(/^(-?\d+)/);
+                if (match) return formatTemperature(parseInt(match[1], 10));
+                return temp;
+              })()}</span>
+            </div>
+          </div>
+
+          {/* Row 2: Full address */}
+          <div>
+            <h3 className="text-sm font-semibold text-foreground break-words">{shoot.addressLine}</h3>
+            <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+              <MapPin size={10} />
+              {shoot.cityStateZip}
+            </p>
+          </div>
+
+          {/* Row 3: Client + Shoot ID */}
+          <div className="flex items-center gap-x-3 flex-wrap text-[10px] text-muted-foreground">
+            <span>Client <span className="font-semibold text-foreground">• {shoot.clientName || 'Client TBD'}</span></span>
+            <span>Shoot ID <span className="font-semibold text-foreground">• #{shoot.id}</span></span>
+          </div>
+
+          {/* Row 4: Service tags + Photographer bottom-right */}
+          <div className="flex gap-1.5 flex-wrap">
+            {visibleServices.map((tag, index) => {
+              const key = getServiceKey(tag.label, tag.type);
+              const icon = SERVICE_ICON_MAP[key] || <Camera size={10} />;
+              return (
+                <span
+                  key={`${shoot.id}-${key}-${index}`}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-border/70 bg-muted/30 text-[10px] font-semibold text-muted-foreground"
+                >
+                  {icon}
+                  {SERVICE_LABELS[key] || tag.label}
+                </span>
+              );
+            })}
+            {hidden > 0 && (
+              <Badge
+                variant="outline"
+                className="rounded-full border-dashed text-muted-foreground px-2 py-0.5 text-[10px]"
+              >
+                +{hidden} more
+              </Badge>
+            )}
+          </div>
+
+          {/* Row 5: Photographer — bottom right */}
+          <div className="flex justify-end text-[10px] text-muted-foreground">
+            <span>Photographer <span className="font-semibold text-foreground">• {shoot.photographer?.name || 'Unassigned'}</span></span>
+          </div>
+        </div>
+
+        {/* ── Desktop layout (unchanged) ── */}
+        <div className="hidden sm:grid sm:grid-cols-[auto,1fr,auto] items-stretch gap-4">
+          <div className="flex flex-col items-center gap-2">
             {isRequested && (
               <span
                 className={cn(
-                  'px-2 sm:px-3 py-1 rounded-full text-[10px] sm:text-[11px] font-semibold border whitespace-nowrap order-first sm:order-first',
+                  'px-3 py-1 rounded-full text-[11px] font-semibold border whitespace-nowrap',
                   statusClass,
                 )}
               >
                 {formatWorkflowStatus(shoot.workflowStatus || shoot.status)}
               </span>
             )}
-            <div className="w-16 sm:w-20 rounded-xl sm:rounded-2xl border border-border bg-background text-center py-2 sm:py-3 shadow-sm flex-shrink-0">
+            <div className="w-20 rounded-2xl border border-border/80 bg-muted/40 dark:bg-muted/20 text-center py-3 shadow-sm flex-shrink-0">
               {(() => {
                 const rawTime =
                   shoot.timeLabel ||
@@ -657,10 +754,10 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
                 const parts = formattedTime.split(' ');
                 return (
                   <>
-                    <p className="text-lg sm:text-xl font-semibold text-foreground leading-none">
+                    <p className="text-xl font-bold text-foreground leading-tight tracking-tight">
                       {parts[0] || '--'}
                     </p>
-                    <p className="text-[10px] sm:text-xs text-muted-foreground uppercase">
+                    <p className="text-xs text-muted-foreground uppercase font-medium tracking-wide">
                       {parts[1] || ''}
                     </p>
                   </>
@@ -670,7 +767,7 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
             {!isRequested && (
               <span
                 className={cn(
-                  'px-2 sm:px-3 py-1 rounded-full text-[10px] sm:text-[11px] font-semibold border whitespace-nowrap',
+                  'px-3 py-1 rounded-full text-[11px] font-semibold border whitespace-nowrap',
                   statusClass,
                 )}
               >
@@ -679,26 +776,26 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
             )}
           </div>
 
-          <div className="space-y-2 sm:space-y-3 min-w-0">
+          <div className="space-y-3 min-w-0">
             <div>
-              <h3 className="text-sm sm:text-base font-semibold text-foreground break-words">{shoot.addressLine}</h3>
-              <p className="text-[10px] sm:text-xs text-muted-foreground flex items-center gap-1">
-                <MapPin size={10} className="sm:w-3 sm:h-3" />
+              <h3 className="text-base font-semibold text-foreground break-words">{shoot.addressLine}</h3>
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <MapPin size={12} />
                 {shoot.cityStateZip}
               </p>
             </div>
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] sm:text-xs text-muted-foreground">
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
               <span>Client <span className="font-semibold text-foreground">• {shoot.clientName || 'Client TBD'}</span></span>
               <span>Shoot ID <span className="font-semibold text-foreground">• #{shoot.id}</span></span>
             </div>
-            <div className="flex gap-1.5 sm:gap-2 flex-wrap text-[10px] sm:text-xs text-muted-foreground transition-all">
+            <div className="flex gap-2 flex-wrap text-xs text-muted-foreground transition-all">
               {visibleServices.map((tag, index) => {
                 const key = getServiceKey(tag.label, tag.type);
-                const icon = SERVICE_ICON_MAP[key] || <Camera size={10} className="sm:w-3 sm:h-3" />;
+                const icon = SERVICE_ICON_MAP[key] || <Camera size={12} />;
                 return (
                   <span
                     key={`${shoot.id}-${key}-${index}`}
-                    className="inline-flex items-center gap-1 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full border border-border/70 bg-background text-[10px] sm:text-[11px] font-semibold text-muted-foreground"
+                    className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-border/70 bg-background text-[11px] font-semibold text-muted-foreground"
                   >
                     {icon}
                     {SERVICE_LABELS[key] || tag.label}
@@ -708,7 +805,7 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
               {hidden > 0 && (
                 <Badge
                   variant="outline"
-                  className="rounded-full border-dashed text-muted-foreground px-2 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-[11px]"
+                  className="rounded-full border-dashed text-muted-foreground px-3 py-1 text-[11px]"
                 >
                   +{hidden} more
                 </Badge>
@@ -716,8 +813,8 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
             </div>
           </div>
 
-          <div className="flex flex-row sm:flex-col items-center sm:items-end gap-2 sm:gap-3 sm:min-w-[120px] justify-between sm:justify-between">
-            <div className="flex items-center gap-1 rounded-full border border-border px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-semibold text-muted-foreground bg-background shadow-sm">
+          <div className="flex flex-col items-end gap-3 min-w-[120px] justify-between">
+            <div className="flex items-center gap-1 rounded-full border border-border px-3 py-1 text-xs font-semibold text-muted-foreground bg-background shadow-sm">
               {renderWeatherIcon(weather?.icon)}
               <span>{(() => {
                 const temp = weather?.temperature ?? shoot.temperature;
@@ -728,7 +825,7 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
                 return temp;
               })()}</span>
             </div>
-            <div className="text-[10px] sm:text-xs text-muted-foreground text-right sm:text-right">
+            <div className="text-xs text-muted-foreground text-right">
               Photographer{' '}
               <span className="font-semibold text-foreground">
                 • {shoot.photographer?.name || 'Unassigned'}
@@ -811,16 +908,25 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
   }, [activeTab, hasUnreadRequests]);
 
   return (
-    <Card className="flex flex-col h-full">
+    <Card className="flex flex-col h-full flex-1 relative">
+      {/* 3-dot / chevron menu toggle — top-right corner on mobile */}
+      <button
+        onClick={() => setIsMenuOpen((prev) => !prev)}
+        className="sm:hidden absolute top-3 right-3 z-10 h-8 w-8 flex items-center justify-center rounded-full hover:bg-muted/60 transition-colors text-muted-foreground"
+        aria-label="Toggle menu"
+      >
+        {isMenuOpen ? <ChevronsDown size={16} /> : <MoreVertical size={16} />}
+      </button>
+
       {/* Header with static "Shoots" title and inline tabs */}
-      <div className="flex flex-wrap items-center justify-between mb-4 gap-3">
+      <div className="flex flex-wrap items-center justify-between mb-4 gap-3 pr-10 sm:pr-0">
         <div className="flex items-center gap-4">
           <h2 className="text-lg font-bold text-foreground">Shoots</h2>
           <div className="flex items-center gap-1 border-b border-transparent">
             <button
               onClick={() => setActiveTab('upcoming')}
               className={cn(
-                'px-3 py-1.5 text-sm font-medium transition-all border-b-2',
+                'px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium transition-all border-b-2 whitespace-nowrap',
                 activeTab === 'upcoming'
                   ? 'text-foreground border-primary'
                   : 'text-muted-foreground border-transparent hover:text-foreground'
@@ -831,7 +937,7 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
             <button
               onClick={() => setActiveTab('requested')}
               className={cn(
-                'px-3 py-1.5 text-sm font-medium transition-all border-b-2',
+                'px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium transition-all border-b-2 whitespace-nowrap',
                 activeTab === 'requested'
                   ? 'text-foreground border-primary'
                   : 'text-muted-foreground border-transparent hover:text-foreground'
@@ -855,8 +961,8 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
             </button>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          {/* Toggle button based on active tab */}
+        {/* Desktop: inline filter/previous buttons */}
+        <div className="hidden sm:flex items-center gap-2">
           {activeTab === 'upcoming' && (
             <Button
               variant="outline"
@@ -865,7 +971,7 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
               onClick={() => setShowPastDays((prev) => !prev)}
               disabled={!hasPastDays}
             >
-              {hasPastDays ? (showPastDays ? 'Hide' : 'Previous shoots') : 'Previous shoots'}
+              {hasPastDays ? (showPastDays ? 'Hide past' : 'Previous shoots') : 'Previous shoots'}
             </Button>
           )}
           {activeTab === 'requested' && (
@@ -877,34 +983,74 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
               disabled={!hasPastRequests}
             >
               {hasPastRequests
-                ? (showPastRequests ? 'Hide' : `Previous requests (${pastRequests.length})`)
+                ? (showPastRequests ? 'Hide past' : `Previous requests (${pastRequests.length})`)
                 : 'Previous requests'}
             </Button>
           )}
           {activeTab !== 'requested' && (
-            <Dialog
-              open={isFilterOpen}
-              onOpenChange={(open) => {
-                setIsFilterOpen(open);
-                if (open) {
-                  setDraftFilters(filters);
-                } else {
-                  setDraftFilters(filters);
-                }
-              }}
+            <Button
+              variant="secondary"
+              size="sm"
+              className="rounded-full bg-slate-900 text-white hover:bg-slate-800 border border-slate-900"
+              onClick={() => { setDraftFilters(filters); setIsFilterOpen(true); }}
             >
-              <DialogTrigger asChild>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="rounded-full bg-slate-900 text-white hover:bg-slate-800 border border-slate-900"
-                  onClick={() => setIsFilterOpen(true)}
-                >
-                  <Filter size={14} className="mr-1.5" />
-                  Filters {activeFilterCount > 0 && `(${activeFilterCount})`}
-                </Button>
-              </DialogTrigger>
-            <DialogContent className="max-w-3xl w-[calc(100vw-2rem)] sm:w-full max-h-[85vh] sm:max-h-[80vh] overflow-y-auto">
+              <Filter size={14} className="mr-1.5" />
+              Filters {activeFilterCount > 0 && `(${activeFilterCount})`}
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Mobile: expandable menu row (shown when 3-dot is tapped) */}
+      {isMenuOpen && (
+        <div className="sm:hidden flex items-center gap-2 mb-3 -mt-1">
+          {activeTab === 'upcoming' && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs rounded-full border-dashed"
+              onClick={() => setShowPastDays((prev) => !prev)}
+              disabled={!hasPastDays}
+            >
+              {hasPastDays ? (showPastDays ? 'Hide past' : 'Previous shoots') : 'Previous shoots'}
+            </Button>
+          )}
+          {activeTab === 'requested' && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs rounded-full border-dashed"
+              onClick={() => setShowPastRequests((prev) => !prev)}
+              disabled={!hasPastRequests}
+            >
+              {hasPastRequests
+                ? (showPastRequests ? 'Hide past' : `Previous requests (${pastRequests.length})`)
+                : 'Previous requests'}
+            </Button>
+          )}
+          {activeTab !== 'requested' && (
+            <Button
+              variant="secondary"
+              size="sm"
+              className="rounded-full bg-slate-900 text-white hover:bg-slate-800 border border-slate-900"
+              onClick={() => { setDraftFilters(filters); setIsFilterOpen(true); }}
+            >
+              <Filter size={14} className="mr-1.5" />
+              Filters {activeFilterCount > 0 && `(${activeFilterCount})`}
+            </Button>
+          )}
+        </div>
+      )}
+
+      {/* Shared filter dialog (used by both mobile and desktop) */}
+      <Dialog
+        open={isFilterOpen}
+        onOpenChange={(open) => {
+          setIsFilterOpen(open);
+          if (!open) setDraftFilters(filters);
+        }}
+      >
+        <DialogContent className="max-w-3xl w-[calc(100vw-2rem)] sm:w-full max-h-[85vh] sm:max-h-[80vh] overflow-y-auto">
               <DialogHeader className="mb-2">
                 <DialogTitle className="text-base sm:text-lg">Filter shoots</DialogTitle>
                 <p className="text-xs sm:text-sm text-muted-foreground">
@@ -1194,11 +1340,8 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
                   Apply filters
                 </Button>
               </DialogFooter>
-            </DialogContent>
-          </Dialog>
-          )}
-        </div>
-      </div>
+          </DialogContent>
+      </Dialog>
 
       {/* Content based on active tab - flex-1 to fill remaining space */}
       <div className="flex-1 flex flex-col">
@@ -1211,8 +1354,7 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
             <div 
               ref={scrollContainerRef}
               onScroll={handleScroll}
-              className="flex-1 space-y-6 overflow-y-auto hidden-scrollbar"
-              style={{ minHeight: '300px' }}
+              className="flex-1 min-h-0 space-y-6 overflow-y-auto hidden-scrollbar"
             >
               {paginatedGroups.map((group) => (
                 <div key={group.label} className="space-y-3">
@@ -1239,8 +1381,7 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
             </div>
           ) : (
             <div 
-              className="flex-1 space-y-6 overflow-y-auto hidden-scrollbar"
-              style={{ minHeight: '300px' }}
+              className="flex-1 min-h-0 space-y-6 overflow-y-auto hidden-scrollbar"
             >
               {requestedGroups.map((group) => (
                 <div key={group.label} className="space-y-3">

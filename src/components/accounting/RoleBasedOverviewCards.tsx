@@ -83,6 +83,24 @@ export function RoleBasedOverviewCards({
     return isNaN(d.getTime()) ? null : d;
   };
 
+  const getInvoicePaidDate = (inv: any): Date | null => {
+    const maybe = inv.paidAt ?? inv.paid_at ?? inv.updated_at ?? inv.updatedAt;
+    if (!maybe) return null;
+    const d = new Date(maybe);
+    return isNaN(d.getTime()) ? null : d;
+  };
+
+  const isInvoiceForCurrentClient = (inv: InvoiceData) => {
+    if (!user) return false;
+    const invoiceClientId = (inv.client_id ?? (inv as any).clientId) as unknown;
+    if (invoiceClientId != null && user.id != null) {
+      return String(invoiceClientId) === String(user.id);
+    }
+    const invoiceClientName = (inv.client || '').trim().toLowerCase();
+    const userName = String(user.name || '').trim().toLowerCase();
+    return Boolean(invoiceClientName && userName && invoiceClientName === userName);
+  };
+
   const daysBetween = (d: Date) => {
     const now = new Date();
     const diff = now.getTime() - d.getTime();
@@ -199,35 +217,33 @@ export function RoleBasedOverviewCards({
 
       case 'client': {
         // Filter invoices for this client
-        const myInvoices = invoices.filter(
-          (i) => i.client === user?.name || String(i.client_id ?? '') === String(user?.id ?? ''),
-        );
+        const myInvoices = invoices.filter(isInvoiceForCurrentClient);
         
         const outstandingBalance = myInvoices
           .filter((i) => i.status === "pending" || i.status === "overdue")
-          .reduce((s, i) => s + Number(i.amount || 0), 0);
+          .reduce((s, i) => s + Number(i.balance ?? i.amount ?? 0), 0);
 
         const last30Days = new Date();
         last30Days.setDate(last30Days.getDate() - 30);
         const paidLast30Days = myInvoices
           .filter((i) => {
             if (i.status !== "paid") return false;
-            const d = getInvoiceDate(i);
+            const d = getInvoicePaidDate(i) || getInvoiceDate(i);
             return d && d >= last30Days;
           })
-          .reduce((s, i) => s + Number(i.amount || 0), 0);
+          .reduce((s, i) => s + Number(i.amountPaid ?? i.amount ?? 0), 0);
 
         const totalSpend = myInvoices
           .filter((i) => {
             if (i.status !== "paid") return false;
-            const d = getInvoiceDate(i);
+            const d = getInvoicePaidDate(i) || getInvoiceDate(i);
             return d && d.getFullYear() === currentYear;
           })
-          .reduce((s, i) => s + Number(i.amount || 0), 0);
+          .reduce((s, i) => s + Number(i.amountPaid ?? i.amount ?? 0), 0);
 
         const upcomingCharges = myInvoices
           .filter((i) => i.status === "pending")
-          .reduce((s, i) => s + Number(i.amount || 0), 0);
+          .reduce((s, i) => s + Number(i.balance ?? i.amount ?? 0), 0);
 
         return {
           outstandingBalance: { value: outstandingBalance, count: 0 },

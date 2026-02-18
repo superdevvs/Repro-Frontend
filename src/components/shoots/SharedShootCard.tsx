@@ -152,7 +152,7 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
 
   return (
     <Card
-      className="overflow-hidden border border-border/70 hover:border-primary/50 transition-all hover:shadow-xl cursor-pointer bg-card/50 backdrop-blur-sm group"
+      className="h-full overflow-hidden border border-border/70 hover:border-primary/50 transition-all hover:shadow-xl cursor-pointer bg-card/50 backdrop-blur-sm group flex flex-col"
       onClick={() => onSelect?.(shoot)}
     >
       {/* Hero Image */}
@@ -249,7 +249,7 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
       )}
 
       {/* Card Content */}
-      <div className="p-6 space-y-5">
+      <div className="p-6 space-y-5 flex-1 flex flex-col">
         {/* Address & Date Header */}
         <div className="space-y-2">
           <div className="flex items-start justify-between gap-4">
@@ -346,7 +346,7 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
         </div>
 
         {/* Additional Info & Metadata */}
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border/50">
+        <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border/50">
           <div className="flex flex-wrap items-center gap-2">
             {bracketSummary && (
               <Badge variant="secondary" className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium">

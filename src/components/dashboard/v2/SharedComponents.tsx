@@ -13,7 +13,7 @@ export const Card = ({
     className={cn(
       'rounded-3xl border border-border/60 bg-card text-card-foreground shadow-md shadow-black/5',
       'dark:shadow-black/30 transition-colors',
-      'p-5',
+      'p-3 sm:p-5',
       className,
     )}
   >

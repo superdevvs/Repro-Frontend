@@ -278,6 +278,8 @@ export default function Availability() {
   const dateNavHasAutoScrolled = React.useRef(false);
   const lastMonthNavScrollKey = React.useRef<string | null>(null);
   const lastDateNavScrollKey = React.useRef<string | null>(null);
+  const desktopCalendarRowRef = React.useRef<HTMLDivElement>(null);
+  const [desktopCalendarRowHeight, setDesktopCalendarRowHeight] = useState<number | null>(null);
 
   const { toast } = useToast();
   const { user, role } = useAuth();
@@ -1410,6 +1412,10 @@ export default function Availability() {
   };
 
   const isDesktop = !isMobile;
+  const dayViewStartHour = 8;
+  const dayViewEndHour = 20;
+  const dayViewHourCount = dayViewEndHour - dayViewStartHour;
+  const dayViewTotalMinutes = (dayViewEndHour - dayViewStartHour) * 60;
   const [hasInitializedMobileSelection, setHasInitializedMobileSelection] = useState(false);
 
   const renderViewModeButtons = (variant: "header" | "compact") => (
@@ -1464,10 +1470,41 @@ export default function Availability() {
     setSelectedPhotographer
   ]);
 
+  useEffect(() => {
+    if (isMobile) {
+      setDesktopCalendarRowHeight(null);
+      return;
+    }
+
+    const recalculateDesktopCalendarHeight = () => {
+      const rowElement = desktopCalendarRowRef.current;
+      if (!rowElement) return;
+
+      const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+      const topOffset = rowElement.getBoundingClientRect().top;
+      const availableHeight = Math.floor(viewportHeight - topOffset - 2);
+
+      if (availableHeight > 240) {
+        setDesktopCalendarRowHeight((previous) =>
+          previous === availableHeight ? previous : availableHeight
+        );
+      }
+    };
+
+    recalculateDesktopCalendarHeight();
+    const rafId = window.requestAnimationFrame(recalculateDesktopCalendarHeight);
+    window.addEventListener("resize", recalculateDesktopCalendarHeight);
+
+    return () => {
+      window.cancelAnimationFrame(rafId);
+      window.removeEventListener("resize", recalculateDesktopCalendarHeight);
+    };
+  }, [isMobile, loadingPhotographers, viewMode, selectedPhotographer]);
+
   return (
-    <DashboardLayout>
-      <div className={cn("h-full flex flex-col overflow-hidden", isMobile && "pb-6")}>
-        <div className={cn("flex-1 flex flex-col", isMobile ? "p-3 sm:p-4 overflow-y-auto" : "min-h-0 p-6")}>
+    <DashboardLayout className="!min-h-0 !overflow-hidden">
+      <div className={cn("flex-1 min-h-0 flex flex-col overflow-hidden", isMobile && "pb-6")}>
+        <div className={cn("flex-1 flex flex-col", isMobile ? "h-full min-h-0 p-3 sm:p-4 overflow-hidden" : "h-full min-h-0 p-6 overflow-hidden")}>
           <PageHeader
             badge={isDesktop ? "Availability" : undefined}
             title="Photographer Availability"
@@ -1706,7 +1743,7 @@ export default function Availability() {
             <Tabs
               value={mobileTab}
               onValueChange={(v) => setMobileTab(v as "calendar" | "details")}
-              className="flex flex-col gap-3 flex-1 min-h-0"
+              className="flex flex-col gap-3 flex-1 min-h-0 overflow-hidden"
             >
               <TabsList className="grid w-full grid-cols-2 rounded-xl bg-muted p-1 mb-3 flex-shrink-0">
                 <TabsTrigger value="calendar" className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow">
@@ -1717,7 +1754,7 @@ export default function Availability() {
                 </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="calendar" className="flex flex-col gap-3 flex-1 min-h-0">
+              <TabsContent value="calendar" className="flex flex-col gap-3 flex-1 min-h-0 overflow-hidden">
                 <div className="flex flex-col gap-2 flex-1 min-h-0">
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <Select
@@ -1858,7 +1895,7 @@ export default function Availability() {
                   </div>
                 </div>
 
-                <Card className="p-2 flex-1 flex flex-col border shadow-sm rounded-md overflow-hidden">
+                <Card className="p-2 flex-1 flex flex-col border shadow-sm rounded-md min-h-0 overflow-hidden">
                   <div className="flex items-start justify-between mb-2 flex-shrink-0 gap-2">
                     <div className="min-w-0 flex-1">
                       <h2 className="text-xs sm:text-sm font-semibold mb-0.5 truncate">
@@ -1977,7 +2014,7 @@ export default function Availability() {
                                       </div>
                                     ))}
                                   </div>
-                                  <div className="flex flex-col flex-1 min-h-0">
+                                  <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
                                     {weeks.map((week, weekIdx) => (
                                       <div key={weekIdx} className="grid grid-cols-7 border-b last:border-b-0 flex-1 min-h-0">
                                         {week.map((day, dayIdx) => {
@@ -2087,7 +2124,7 @@ export default function Availability() {
                             })()}
                           </div>
                         ) : viewMode === "week" ? (
-                          <div className="w-full flex flex-col border rounded-md overflow-hidden bg-background flex-1 min-h-0">
+                          <div className="w-full h-full flex flex-col border rounded-md overflow-hidden bg-background flex-1 min-h-0">
                             <div className="flex-shrink-0 border-b bg-muted/30">
                               <div className="flex">
                                 <div className="w-14 sm:w-24 flex-shrink-0 border-r p-1.5 sm:p-2 text-[11px] sm:text-xs font-medium text-muted-foreground">Days</div>
@@ -2109,7 +2146,7 @@ export default function Availability() {
                                 </div>
                               </div>
                             </div>
-                            <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
+                            <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
                                 {(() => {
                                   const weekStart = startOfWeek(date || new Date());
                                   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
@@ -2160,12 +2197,17 @@ export default function Availability() {
                                     return (
                                       <ContextMenu key={dayIdx}>
                                         <ContextMenuTrigger asChild>
-                                          <div className={cn("flex border-b last:border-b-0 flex-1 min-h-[80px] relative cursor-context-menu", isTodayDate && "bg-primary/5")} style={{ minHeight: isMobile ? '80px' : '100px' }}>
-                                            <div className={cn("w-14 sm:w-24 flex-shrink-0 border-r p-1.5 sm:p-2 flex flex-col items-center justify-center", isTodayDate && "bg-primary/10", isSelected && !isTodayDate && "bg-primary/5")}>
-                                              <div className={cn("text-xs font-medium", isTodayDate && "text-primary font-semibold", isSelected && !isTodayDate && "text-primary")}>{format(day, 'EEE')}</div>
-                                              <button onClick={(e) => { e.stopPropagation(); setDate(day); if (isMobile) setMobileTab("details"); }} className={cn("text-sm font-semibold mt-1", isTodayDate && "text-primary", isSelected && !isTodayDate && "text-primary")}>{format(day, 'd')}</button>
+                                          <div className={cn("flex border-b last:border-b-0 flex-1 min-h-0 relative cursor-context-menu", isTodayDate && "bg-primary/5")}>
+                                            <div className={cn("w-14 sm:w-24 flex-shrink-0 border-r p-1.5 sm:p-2 flex flex-col items-start justify-center", isTodayDate && "bg-primary/10", isSelected && !isTodayDate && "bg-primary/5")}>
+                                              <button
+                                                onClick={(e) => { e.stopPropagation(); setDate(day); if (isMobile) setMobileTab("details"); }}
+                                                className={cn("inline-flex w-full justify-start items-baseline gap-1 mt-0.5", isTodayDate && "text-primary", isSelected && !isTodayDate && "text-primary")}
+                                              >
+                                                <span className="text-lg sm:text-xl leading-none font-bold tabular-nums">{format(day, 'd')}</span>
+                                                <span className="text-[10px] sm:text-xs font-medium uppercase tracking-wide">{format(day, 'EEE')}</span>
+                                              </button>
                                             </div>
-                                            <div className={cn("flex-1 relative overflow-hidden", !isMobile && "overflow-x-auto")} style={{ minHeight: isMobile ? '80px' : '100px' }}>
+                                            <div className={cn("flex-1 relative overflow-hidden", !isMobile && "overflow-x-auto")}>
                                               {Array.from({ length: 7 }, (_, i) => {
                                                 const hour = 8 + (i * 2);
                                                 return <div key={hour} className="absolute top-0 bottom-0 border-l border-dashed border-muted/30" style={{ left: `${(i / 7) * 100}%` }} />;
@@ -2235,19 +2277,19 @@ export default function Availability() {
                               </div>
                             </div>
                         ) : (
-                          <div className="w-full flex flex-col flex-1 min-h-0">
+                          <div className="w-full h-full flex flex-col flex-1 min-h-0 overflow-hidden">
                             {date && (
-                              <div className="flex-1 grid grid-cols-5 gap-px border rounded-md overflow-hidden min-h-0 h-full">
+                              <div className="flex-1 grid grid-cols-5 gap-px border rounded-md overflow-hidden min-h-0">
                                 <div className="bg-muted/50 border-r flex flex-col min-h-0">
-                                  <div className="h-10 sm:h-12 border-b flex items-center justify-center text-[10px] sm:text-xs font-medium text-muted-foreground flex-shrink-0">
-                                    <div>
+                                  <div className="h-10 sm:h-12 border-b flex items-center justify-start pl-1.5 sm:pl-2 text-[10px] sm:text-xs font-medium text-muted-foreground flex-shrink-0">
+                                    <div className="text-left">
                                       <div className="font-semibold text-xs sm:text-sm">{format(date, 'EEE')}</div>
                                       <div className="text-[9px] sm:text-[10px]">{format(date, 'MMM d')}</div>
                                     </div>
                                   </div>
                                   <div
                                     ref={dayViewTimeScrollRef}
-                                    className="flex-1 min-h-0 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+                                    className="flex-1 min-h-0 flex flex-col overflow-hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
                                     onScroll={(e) => {
                                       if (!dayViewScrollRef.current) return;
                                       const nextScrollTop = e.currentTarget.scrollTop;
@@ -2264,11 +2306,14 @@ export default function Availability() {
                                         for (let h = startH; h < endH; h++) hoursWithAvailability.add(h);
                                         hoursWithAvailability.add(endH);
                                       });
-                                      return Array.from({ length: 16 }, (_, i) => i + 8).map((hour) => (
-                                        <div key={hour} className={cn("h-12 sm:h-16 border-b flex items-start justify-end pr-1 sm:pr-2 pt-1 text-[10px] sm:text-xs", hoursWithAvailability.has(hour) ? "text-foreground font-medium" : "text-muted-foreground")}>
-                                          {hour.toString().padStart(2, '0')}:00
-                                        </div>
-                                      ));
+                                      return Array.from({ length: dayViewHourCount }, (_, i) => i + dayViewStartHour).map((hour) => {
+                                        const hourLabel = to12HourDisplay(`${hour.toString().padStart(2, '0')}:00`);
+                                        return (
+                                          <div key={hour} className={cn("flex-1 min-h-0 border-b flex items-start justify-start pl-1.5 sm:pl-2 pt-1 text-[10px] sm:text-xs", hoursWithAvailability.has(hour) ? "text-foreground font-medium" : "text-muted-foreground")}>
+                                            {hourLabel}
+                                          </div>
+                                        );
+                                      });
                                     })()}
                                   </div>
                                 </div>
@@ -2277,7 +2322,7 @@ export default function Availability() {
                                     Availability
                                     {date && isToday(date) && <span className="ml-1 sm:ml-2 px-1.5 sm:px-2 py-0.5 bg-primary/10 text-primary text-[9px] sm:text-[10px] rounded-md font-semibold">Today</span>}
                                   </div>
-                                  <div ref={dayViewScrollRef} className="flex-1 min-h-0 relative overflow-y-auto" onScroll={(e) => {
+                                  <div ref={dayViewScrollRef} className="flex-1 min-h-0 relative flex flex-col overflow-hidden" onScroll={(e) => {
                                     if (dayViewTimeScrollRef.current) dayViewTimeScrollRef.current.scrollTop = e.currentTarget.scrollTop;
                                     if (dayViewIsProgrammaticScroll.current) { dayViewIsProgrammaticScroll.current = false; return; }
                                     if (dayViewScrollChanging.current) return;
@@ -2301,7 +2346,7 @@ export default function Availability() {
                                             setTimeout(() => {
                                               if (dayViewScrollRef.current) {
                                                 dayViewIsProgrammaticScroll.current = true;
-                                                dayViewScrollRef.current.scrollTop = hourHeight * 15;
+                                                dayViewScrollRef.current.scrollTop = hourHeight * Math.max(0, dayViewHourCount - 1);
                                                 dayViewScrollChanging.current = false;
                                               }
                                             }, 100);
@@ -2339,38 +2384,40 @@ export default function Availability() {
                                       if (dayViewScrollTimeout.current) { clearTimeout(dayViewScrollTimeout.current); dayViewScrollTimeout.current = null; }
                                     }
                                   }}>
-                                    {Array.from({ length: 16 }, (_, i) => i + 8).map((hour) => {
+                                    {Array.from({ length: dayViewHourCount }, (_, i) => i + dayViewStartHour).map((hour) => {
                                       const timeStr = `${hour.toString().padStart(2, '0')}:00`;
                                       return (
-                                        <ContextMenu key={hour}>
-                                          <ContextMenuTrigger asChild>
-                                            <div className="h-12 sm:h-16 border-b border-dashed border-muted cursor-context-menu" style={{ minHeight: '48px' }} />
-                                          </ContextMenuTrigger>
-                                          <ContextMenuContent>
-                                            <ContextMenuItem onClick={() => {
-                                              if (!date) { toast({ title: "Select a date", description: "Please select a date before scheduling.", variant: "destructive" }); return; }
-                                              setRightClickedDate(date);
-                                              setRightClickedTime(timeStr);
-                                              if (selectedPhotographer === "all") { toast({ title: "Select a photographer", description: "Please select a specific photographer before scheduling.", variant: "destructive" }); return; }
-                                              setIsWeeklyScheduleDialogOpen(true);
-                                            }}>
-                                              <Clock className="h-4 w-4 mr-2" />
-                                              Schedule at {timeStr}
-                                            </ContextMenuItem>
-                                            <ContextMenuItem onClick={() => {
-                                              if (!date) { toast({ title: "Select a date", description: "Please select a date before blocking.", variant: "destructive" }); return; }
-                                              setRightClickedDate(date);
-                                              setRightClickedTime(timeStr);
-                                              if (selectedPhotographer === "all") { toast({ title: "Select a photographer", description: "Please select a specific photographer before blocking.", variant: "destructive" }); return; }
-                                              const nextHour = String(hour + 1).padStart(2, '0') + ':00';
-                                              setBlockSchedule({ date: date, startTime: timeStr, endTime: nextHour });
-                                              setIsBlockDialogOpen(true);
-                                            }}>
-                                              <Ban className="h-4 w-4 mr-2" />
-                                              Block at {timeStr}
-                                            </ContextMenuItem>
-                                          </ContextMenuContent>
-                                        </ContextMenu>
+                                        <div key={hour} className="flex-1 min-h-0">
+                                          <ContextMenu>
+                                            <ContextMenuTrigger asChild>
+                                              <div className="h-full border-b border-dashed border-muted cursor-context-menu" />
+                                            </ContextMenuTrigger>
+                                            <ContextMenuContent>
+                                              <ContextMenuItem onClick={() => {
+                                                if (!date) { toast({ title: "Select a date", description: "Please select a date before scheduling.", variant: "destructive" }); return; }
+                                                setRightClickedDate(date);
+                                                setRightClickedTime(timeStr);
+                                                if (selectedPhotographer === "all") { toast({ title: "Select a photographer", description: "Please select a specific photographer before scheduling.", variant: "destructive" }); return; }
+                                                setIsWeeklyScheduleDialogOpen(true);
+                                              }}>
+                                                <Clock className="h-4 w-4 mr-2" />
+                                                Schedule at {timeStr}
+                                              </ContextMenuItem>
+                                              <ContextMenuItem onClick={() => {
+                                                if (!date) { toast({ title: "Select a date", description: "Please select a date before blocking.", variant: "destructive" }); return; }
+                                                setRightClickedDate(date);
+                                                setRightClickedTime(timeStr);
+                                                if (selectedPhotographer === "all") { toast({ title: "Select a photographer", description: "Please select a specific photographer before blocking.", variant: "destructive" }); return; }
+                                                const nextHour = String(hour + 1).padStart(2, '0') + ':00';
+                                                setBlockSchedule({ date: date, startTime: timeStr, endTime: nextHour });
+                                                setIsBlockDialogOpen(true);
+                                              }}>
+                                                <Ban className="h-4 w-4 mr-2" />
+                                                Block at {timeStr}
+                                              </ContextMenuItem>
+                                            </ContextMenuContent>
+                                          </ContextMenu>
+                                        </div>
                                       );
                                     })}
                                     {(() => {
@@ -2388,12 +2435,12 @@ export default function Availability() {
                                         const [endH, endM] = cleanEnd.split(':').map(Number);
                                         const startMinutes = startH * 60 + startM;
                                         const endMinutes = endH * 60 + endM;
-                                        const startHour = 8;
-                                        const adjustedStartMinutes = startMinutes - (startHour * 60);
-                                        const adjustedEndMinutes = endMinutes - (startHour * 60);
-                                        const hourHeight = isMobile ? 48 : 64;
-                                        const top = (adjustedStartMinutes / 60) * hourHeight;
-                                        const height = ((adjustedEndMinutes - adjustedStartMinutes) / 60) * hourHeight;
+                                        const adjustedStartMinutes = startMinutes - (dayViewStartHour * 60);
+                                        const adjustedEndMinutes = endMinutes - (dayViewStartHour * 60);
+                                        const clampedStart = Math.max(0, Math.min(dayViewTotalMinutes, adjustedStartMinutes));
+                                        const clampedEnd = Math.max(clampedStart, Math.min(dayViewTotalMinutes, adjustedEndMinutes));
+                                        const top = `${(clampedStart / dayViewTotalMinutes) * 100}%`;
+                                        const height = `${((clampedEnd - clampedStart) / dayViewTotalMinutes) * 100}%`;
                                         return { top, height };
                                       };
                                       return daySlots.map((slot, slotIdx) => {
@@ -2412,7 +2459,7 @@ export default function Availability() {
                                         });
                                         const leftOffset = overlappingSlots.length * 4;
                                         return (
-                                          <div key={slot.id} onClick={(e) => { e.stopPropagation(); setSelectedSlotId(slot.id); if (slot.status === 'booked' && slot.shootDetails) { setExpandedBookingDetails(prev => new Set(prev).add(slot.id)); } if (isMobile) setMobileTab("details"); }} className={cn("absolute rounded px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs z-10 cursor-pointer hover:opacity-80 transition-opacity", selectedSlotId === slot.id && "ring-2 ring-primary ring-offset-1", slot.status === 'available' && "bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-700", slot.status === 'booked' && "bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700", slot.status === 'unavailable' && "bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700")} style={{ top: `${top}px`, height: `${Math.max(height, 20)}px`, left: `${4 + leftOffset}px`, right: `${4 + leftOffset}px` }}>
+                                          <div key={slot.id} onClick={(e) => { e.stopPropagation(); setSelectedSlotId(slot.id); if (slot.status === 'booked' && slot.shootDetails) { setExpandedBookingDetails(prev => new Set(prev).add(slot.id)); } if (isMobile) setMobileTab("details"); }} className={cn("absolute rounded px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs z-10 cursor-pointer hover:opacity-80 transition-opacity", selectedSlotId === slot.id && "ring-2 ring-primary ring-offset-1", slot.status === 'available' && "bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-700", slot.status === 'booked' && "bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700", slot.status === 'unavailable' && "bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700")} style={{ top, height, minHeight: '18px', left: `${4 + leftOffset}px`, right: `${4 + leftOffset}px` }}>
                                             <div className="font-medium">{formatTimeDisplay(slot.startTime)} - {formatTimeDisplay(slot.endTime)}</div>
                                             <div className="text-[9px] sm:text-[10px] opacity-80 capitalize">{slot.status}</div>
                                             {slot.shootTitle && <div className="text-[9px] sm:text-[10px] opacity-80 truncate mt-0.5">{slot.shootTitle}</div>}
@@ -2432,7 +2479,7 @@ export default function Availability() {
                 </Card>
               </TabsContent>
 
-              <TabsContent value="details" className="flex-1 flex flex-col min-h-0 mt-0">
+              <TabsContent value="details" className="flex-1 flex flex-col min-h-0 mt-0 overflow-hidden">
                 {/* Details View - Right Panel Content - Mobile */}
                 <Card className="p-3 sm:p-4 flex-1 flex flex-col border shadow-sm rounded-md min-h-0 overflow-hidden">
                   <div className="flex-1 min-h-0 overflow-y-auto">
@@ -2542,7 +2589,18 @@ export default function Availability() {
             </Tabs>
           ) : (
             /* Desktop: Three Column Layout */
-            <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 grid-rows-1 gap-4 min-h-0 overflow-hidden">
+            <div
+              ref={desktopCalendarRowRef}
+              className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 grid-rows-1 gap-4 overflow-hidden"
+              style={
+                !isMobile && desktopCalendarRowHeight
+                  ? {
+                    height: `${desktopCalendarRowHeight}px`,
+                    maxHeight: `${desktopCalendarRowHeight}px`
+                  }
+                  : undefined
+              }
+            >
               {/* Left Column: Search and Select Photographer (Admin only) */}
               {isAdmin && (
                 <div className="lg:col-span-3 flex flex-col min-h-0">
@@ -2744,7 +2802,7 @@ export default function Availability() {
                               </div>
 
                               {/* Calendar grid - 6 rows to fit all weeks */}
-                              <div className="flex flex-col flex-1 min-h-0">
+                              <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
                                 {weeks.map((week, weekIdx) => (
                                   <div key={weekIdx} className="grid grid-cols-7 border-b last:border-b-0 flex-1 min-h-0">
                                     {week.map((day, dayIdx) => {
@@ -2933,7 +2991,7 @@ export default function Availability() {
                         })()}
                       </div>
                     ) : viewMode === "week" ? (
-                      <div className="w-full h-full flex flex-col min-h-0">
+                      <div className="w-full h-full flex flex-col flex-1 min-h-0 overflow-hidden">
                         {/* Week view: Days vertical on left, time slots horizontal on top, availability blocks spanning time slots */}
                         <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
                           {/* Time slots header - horizontal */}
@@ -3040,29 +3098,23 @@ export default function Availability() {
                                       >
                                         {/* Day label */}
                                         <div className={cn(
-                                          "w-24 flex-shrink-0 border-r p-2 flex flex-col items-center justify-center",
+                                          "w-24 flex-shrink-0 border-r p-2 flex flex-col items-start justify-center",
                                           isTodayDate && "bg-primary/10",
                                           isSelected && !isTodayDate && "bg-primary/5"
                                         )}>
-                                          <div className={cn(
-                                            "text-xs font-medium",
-                                            isTodayDate && "text-primary font-semibold",
-                                            isSelected && !isTodayDate && "text-primary"
-                                          )}>
-                                            {format(day, 'EEE')}
-                                          </div>
                                           <button
                                             onClick={(e) => {
                                               e.stopPropagation();
                                               setDate(day);
                                             }}
                                             className={cn(
-                                              "text-sm font-semibold mt-1",
+                                              "inline-flex w-full justify-start items-baseline gap-1.5 mt-0.5",
                                               isTodayDate && "text-primary",
                                               isSelected && !isTodayDate && "text-primary"
                                             )}
                                           >
-                                            {format(day, 'd')}
+                                            <span className="text-xl leading-none font-bold tabular-nums">{format(day, 'd')}</span>
+                                            <span className="text-[10px] uppercase tracking-wide font-medium">{format(day, 'EEE')}</span>
                                           </button>
                                         </div>
 
@@ -3359,20 +3411,20 @@ export default function Availability() {
                         </div>
                       </div>
                     ) : (
-                      <div className="w-full h-full flex flex-col min-h-0">
+                      <div className="w-full h-full flex flex-col flex-1 min-h-0 overflow-hidden">
                         {date && (
-                          <div className="flex-1 grid grid-cols-5 gap-px border rounded-md overflow-hidden min-h-0 h-full">
+                          <div className="flex-1 grid grid-cols-5 gap-px border rounded-md overflow-hidden min-h-0">
                             {/* Time column - 20% */}
                             <div className="bg-muted/50 border-r flex flex-col min-h-0">
-                              <div className="h-12 border-b flex items-center justify-center text-xs font-medium text-muted-foreground flex-shrink-0">
-                                <div>
+                              <div className="h-12 border-b flex items-center justify-start pl-2 text-xs font-medium text-muted-foreground flex-shrink-0">
+                                <div className="text-left">
                                   <div className="font-semibold">{format(date, 'EEEE')}</div>
                                   <div className="text-[10px]">{format(date, 'MMMM d, yyyy')}</div>
                                 </div>
                               </div>
                               <div
                                 ref={dayViewTimeScrollRef}
-                                className="flex-1 min-h-0 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+                                className="flex-1 min-h-0 flex flex-col overflow-hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
                                 onScroll={(e) => {
                                   if (!dayViewScrollRef.current) return;
                                   const nextScrollTop = e.currentTarget.scrollTop;
@@ -3393,20 +3445,23 @@ export default function Availability() {
                                     hoursWithAvailability.add(endH);
                                   });
 
-                                  // Show hours 8-23 (8 AM to 11 PM)
-                                  return Array.from({ length: 16 }, (_, i) => i + 8).map((hour) => (
-                                    <div
-                                      key={hour}
-                                      className={cn(
-                                        "h-16 border-b flex items-start justify-end pr-2 pt-1 text-xs",
-                                        hoursWithAvailability.has(hour)
-                                          ? "text-foreground font-medium"
-                                          : "text-muted-foreground"
-                                      )}
-                                    >
-                                      {hour.toString().padStart(2, '0')}:00
-                                    </div>
-                                  ));
+                                  // Show rows 8-19 (8 AM to 7 PM); 8 PM is the bottom boundary
+                                  return Array.from({ length: dayViewHourCount }, (_, i) => i + dayViewStartHour).map((hour) => {
+                                    const hourLabel = to12HourDisplay(`${hour.toString().padStart(2, '0')}:00`);
+                                    return (
+                                      <div
+                                        key={hour}
+                                        className={cn(
+                                          "flex-1 min-h-0 border-b flex items-start justify-start pl-2 pt-1 text-xs",
+                                          hoursWithAvailability.has(hour)
+                                            ? "text-foreground font-medium"
+                                            : "text-muted-foreground"
+                                        )}
+                                      >
+                                        {hourLabel}
+                                      </div>
+                                    );
+                                  });
                                 })()}
                               </div>
                             </div>
@@ -3423,7 +3478,7 @@ export default function Availability() {
                               </div>
                               <div
                                 ref={dayViewScrollRef}
-                                className="flex-1 min-h-0 relative overflow-y-auto"
+                                className="flex-1 min-h-0 relative flex flex-col overflow-hidden"
                                 onScroll={(e) => {
                                   // Sync time column scroll position (but don't show scrollbar on time column)
                                   if (dayViewTimeScrollRef.current) {
@@ -3480,7 +3535,7 @@ export default function Availability() {
                                           setTimeout(() => {
                                             if (dayViewScrollRef.current) {
                                               dayViewIsProgrammaticScroll.current = true;
-                                              dayViewScrollRef.current.scrollTop = hourHeight * 15; // Scroll to 11 PM (23:00 - 8 = 15)
+                                              dayViewScrollRef.current.scrollTop = hourHeight * Math.max(0, dayViewHourCount - 1);
                                               dayViewScrollChanging.current = false;
                                             }
                                           }, 100);
@@ -3534,73 +3589,74 @@ export default function Availability() {
                                   }
                                 }}
                               >
-                                {Array.from({ length: 16 }, (_, i) => i + 8).map((hour) => {
+                                {Array.from({ length: dayViewHourCount }, (_, i) => i + dayViewStartHour).map((hour) => {
                                   const timeStr = `${hour.toString().padStart(2, '0')}:00`;
                                   return (
-                                    <ContextMenu key={hour}>
-                                      <ContextMenuTrigger asChild>
-                                        <div
-                                          className="h-16 border-b border-dashed border-muted cursor-context-menu"
-                                          style={{ minHeight: '64px' }}
-                                        />
-                                      </ContextMenuTrigger>
-                                      <ContextMenuContent>
-                                        <ContextMenuItem
-                                          onClick={() => {
-                                            if (!date) {
-                                              toast({
-                                                title: "Select a date",
-                                                description: "Please select a date before scheduling.",
-                                                variant: "destructive"
-                                              });
-                                              return;
-                                            }
-                                            setRightClickedDate(date);
-                                            setRightClickedTime(timeStr);
-                                            if (selectedPhotographer === "all") {
-                                              toast({
-                                                title: "Select a photographer",
-                                                description: "Please select a specific photographer before scheduling.",
-                                                variant: "destructive"
-                                              });
-                                              return;
-                                            }
-                                            setIsWeeklyScheduleDialogOpen(true);
-                                          }}
-                                        >
-                                          <Clock className="h-4 w-4 mr-2" />
-                                          Schedule at {timeStr}
-                                        </ContextMenuItem>
-                                        <ContextMenuItem
-                                          onClick={() => {
-                                            if (!date) {
-                                              toast({
-                                                title: "Select a date",
-                                                description: "Please select a date before blocking.",
-                                                variant: "destructive"
-                                              });
-                                              return;
-                                            }
-                                            setRightClickedDate(date);
-                                            setRightClickedTime(timeStr);
-                                            if (selectedPhotographer === "all") {
-                                              toast({
-                                                title: "Select a photographer",
-                                                description: "Please select a specific photographer before blocking.",
-                                                variant: "destructive"
-                                              });
-                                              return;
-                                            }
-                                            const nextHour = String(hour + 1).padStart(2, '0') + ':00';
-                                            setBlockSchedule({ date: date, startTime: timeStr, endTime: nextHour });
-                                            setIsBlockDialogOpen(true);
-                                          }}
-                                        >
-                                          <Ban className="h-4 w-4 mr-2" />
-                                          Block at {timeStr}
-                                        </ContextMenuItem>
-                                      </ContextMenuContent>
-                                    </ContextMenu>
+                                    <div key={hour} className="flex-1 min-h-0">
+                                      <ContextMenu>
+                                        <ContextMenuTrigger asChild>
+                                          <div
+                                            className="h-full border-b border-dashed border-muted cursor-context-menu"
+                                          />
+                                        </ContextMenuTrigger>
+                                        <ContextMenuContent>
+                                          <ContextMenuItem
+                                            onClick={() => {
+                                              if (!date) {
+                                                toast({
+                                                  title: "Select a date",
+                                                  description: "Please select a date before scheduling.",
+                                                  variant: "destructive"
+                                                });
+                                                return;
+                                              }
+                                              setRightClickedDate(date);
+                                              setRightClickedTime(timeStr);
+                                              if (selectedPhotographer === "all") {
+                                                toast({
+                                                  title: "Select a photographer",
+                                                  description: "Please select a specific photographer before scheduling.",
+                                                  variant: "destructive"
+                                                });
+                                                return;
+                                              }
+                                              setIsWeeklyScheduleDialogOpen(true);
+                                            }}
+                                          >
+                                            <Clock className="h-4 w-4 mr-2" />
+                                            Schedule at {timeStr}
+                                          </ContextMenuItem>
+                                          <ContextMenuItem
+                                            onClick={() => {
+                                              if (!date) {
+                                                toast({
+                                                  title: "Select a date",
+                                                  description: "Please select a date before blocking.",
+                                                  variant: "destructive"
+                                                });
+                                                return;
+                                              }
+                                              setRightClickedDate(date);
+                                              setRightClickedTime(timeStr);
+                                              if (selectedPhotographer === "all") {
+                                                toast({
+                                                  title: "Select a photographer",
+                                                  description: "Please select a specific photographer before blocking.",
+                                                  variant: "destructive"
+                                                });
+                                                return;
+                                              }
+                                              const nextHour = String(hour + 1).padStart(2, '0') + ':00';
+                                              setBlockSchedule({ date: date, startTime: timeStr, endTime: nextHour });
+                                              setIsBlockDialogOpen(true);
+                                            }}
+                                          >
+                                            <Ban className="h-4 w-4 mr-2" />
+                                            Block at {timeStr}
+                                          </ContextMenuItem>
+                                        </ContextMenuContent>
+                                      </ContextMenu>
+                                    </div>
                                   );
                                 })}
 
@@ -3623,12 +3679,12 @@ export default function Availability() {
                                     const [endH, endM] = cleanEnd.split(':').map(Number);
                                     const startMinutes = startH * 60 + startM;
                                     const endMinutes = endH * 60 + endM;
-                                    // Adjust for 8 AM start (subtract 8 hours = 480 minutes)
-                                    const startHour = 8;
-                                    const adjustedStartMinutes = startMinutes - (startHour * 60);
-                                    const adjustedEndMinutes = endMinutes - (startHour * 60);
-                                    const top = (adjustedStartMinutes / 60) * 64;
-                                    const height = ((adjustedEndMinutes - adjustedStartMinutes) / 60) * 64;
+                                    const adjustedStartMinutes = startMinutes - (dayViewStartHour * 60);
+                                    const adjustedEndMinutes = endMinutes - (dayViewStartHour * 60);
+                                    const clampedStart = Math.max(0, Math.min(dayViewTotalMinutes, adjustedStartMinutes));
+                                    const clampedEnd = Math.max(clampedStart, Math.min(dayViewTotalMinutes, adjustedEndMinutes));
+                                    const top = `${(clampedStart / dayViewTotalMinutes) * 100}%`;
+                                    const height = `${((clampedEnd - clampedStart) / dayViewTotalMinutes) * 100}%`;
                                     return { top, height };
                                   };
 
@@ -3719,8 +3775,9 @@ export default function Availability() {
                                           slot.status === 'unavailable' && "bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700"
                                         )}
                                         style={{
-                                          top: `${top}px`,
-                                          height: `${Math.max(height, 20)}px`,
+                                          top,
+                                          height,
+                                          minHeight: '20px',
                                           left: `${4 + leftOffset}px`,
                                           right: `${4 + leftOffset}px`
                                         }}

@@ -131,7 +131,16 @@ const AccountingPage = () => {
       return invoices; // Admin and rep see all (filtered by backend)
     }
     if (accountingMode === 'client') {
-      return invoices.filter(i => String(i.client_id ?? '') === String(user?.id ?? '') || i.client === user?.name);
+      const userId = user?.id != null ? String(user.id) : null;
+      const userName = String(user?.name || '').trim().toLowerCase();
+      return invoices.filter((i) => {
+        const invoiceClientId = i.client_id != null ? String(i.client_id) : null;
+        if (userId && invoiceClientId) {
+          return invoiceClientId === userId;
+        }
+        const invoiceClientName = String(i.client || '').trim().toLowerCase();
+        return Boolean(userName && invoiceClientName && invoiceClientName === userName);
+      });
     }
     if (accountingMode === 'photographer') {
       return invoices.filter(i => String(i.photographer_id ?? '') === String(user?.id ?? ''));

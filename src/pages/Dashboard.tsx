@@ -1857,10 +1857,10 @@ const Dashboard = () => {
     <Tabs
       value={mobileDashboardTab}
       onValueChange={(val) => setMobileDashboardTab(val as MobileDashboardTab)}
-      className="space-y-4"
+      className="space-y-4 flex-1 flex flex-col dashboard-mobile-tabs"
     >
-      <div className="sticky top-[-0.25rem] z-20 pb-2 -mx-3 px-4 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-        <div className="overflow-x-auto">
+      <div className="sticky top-[-0.25rem] z-20 pb-2 -mx-2 px-2 sm:-mx-3 sm:px-4 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <div className="overflow-x-auto hidden-scrollbar">
           <TabsList className="mx-auto inline-flex gap-2 rounded-full border border-border/50 bg-muted/30 px-3 py-1.5">
             {mobileTabs.map((tab) => (
               <TabsTrigger
@@ -1875,8 +1875,10 @@ const Dashboard = () => {
         </div>
       </div>
       {mobileTabs.map((tab) => (
-        <TabsContent key={tab.id} value={tab.id} className="mt-2 focus-visible:outline-none">
-          {tab.content}
+        <TabsContent key={tab.id} value={tab.id} className="focus-visible:outline-none flex-1 flex flex-col min-h-0">
+          <div className="flex-1 flex flex-col min-h-0 pt-2">
+            {tab.content}
+          </div>
         </TabsContent>
       ))}
     </Tabs>
@@ -1884,7 +1886,7 @@ const Dashboard = () => {
 
   return (
     <DashboardLayout>
-      <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
+      <div className="px-2 pt-3 pb-3 sm:p-6 flex flex-col min-h-full gap-4 sm:gap-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex-1">
             <PageHeader title={greetingTitle} description={DASHBOARD_DESCRIPTION} />

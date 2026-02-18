@@ -130,7 +130,7 @@ export const CompletedShootsCard: React.FC<CompletedShootsCardProps> = ({
   const safeShoots = Array.isArray(shoots) ? shoots : [];
   
   return (
-    <Card className="flex flex-col h-full">
+    <Card className="flex flex-col h-full flex-1 min-h-0">
       <div className="flex items-center justify-between mb-3 sm:mb-4">
         <div>
           <h2 className="text-base sm:text-lg font-bold text-foreground">{title}</h2>

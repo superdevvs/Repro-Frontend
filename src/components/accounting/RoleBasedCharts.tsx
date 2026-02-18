@@ -30,6 +30,31 @@ export function RoleBasedCharts({
   const { user } = useAuth();
   const [chartType, setChartType] = useState<'area' | 'bar' | 'line'>('area');
 
+  const isInvoiceForCurrentClient = (inv: InvoiceData) => {
+    if (!user) return false;
+    const invoiceClientId = (inv.client_id ?? (inv as any).clientId) as unknown;
+    if (invoiceClientId != null && user.id != null) {
+      return String(invoiceClientId) === String(user.id);
+    }
+    const invoiceClientName = (inv.client || '').trim().toLowerCase();
+    const userName = String(user.name || '').trim().toLowerCase();
+    return Boolean(invoiceClientName && userName && invoiceClientName === userName);
+  };
+
+  const getInvoiceDate = (inv: any): Date | null => {
+    const maybe = inv.date ?? inv.issueDate ?? inv.issue_date ?? inv.createdAt ?? inv.created_at ?? inv.dueDate ?? inv.due_date;
+    if (!maybe) return null;
+    const d = new Date(maybe);
+    return isNaN(d.getTime()) ? null : d;
+  };
+
+  const getInvoicePaidDate = (inv: any): Date | null => {
+    const maybe = inv.paidAt ?? inv.paid_at ?? inv.updated_at ?? inv.updatedAt;
+    if (!maybe) return null;
+    const d = new Date(maybe);
+    return isNaN(d.getTime()) ? null : d;
+  };
+
   // Generate chart data based on mode
   const chartData = useMemo(() => {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -94,22 +119,21 @@ export function RoleBasedCharts({
 
       case 'client': {
         // Spending Overview: amountBilled, amountPaid
-        const myInvoices = invoices.filter((i) => i.client === user?.name || i.client_id === user?.id);
+        const myInvoices = invoices.filter(isInvoiceForCurrentClient);
         return months.map((m, index) => {
           const monthInvoices = myInvoices.filter((i) => {
-            const date = i.date || i.dueDate;
-            if (!date) return false;
-            const d = new Date(date);
+            const d = getInvoiceDate(i);
+            if (!d) return false;
             return d.getMonth() === index;
           });
           const amountBilled = monthInvoices.reduce((sum, i) => sum + Number(i.amount || 0), 0);
           const amountPaid = monthInvoices
             .filter(i => i.status === 'paid')
-            .reduce((sum, i) => sum + Number(i.amount || 0), 0);
+            .reduce((sum, i) => sum + Number(i.amountPaid ?? i.amount ?? 0), 0);
           return { 
             month: m, 
-            amountBilled: amountBilled || Math.floor(Math.random() * 5000) + 500,
-            amountPaid: amountPaid || Math.floor(Math.random() * 4000) + 400
+            amountBilled,
+            amountPaid,
           };
         });
       }
