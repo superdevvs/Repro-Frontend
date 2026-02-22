@@ -2035,9 +2035,9 @@ const HistoryRow = memo(({
 
         {/* Line 2: Summary */}
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <MapPin className="h-4 w-4" />
-            <span className="truncate max-w-[300px]">{record.address?.full ?? '—'}</span>
+          <div className="flex items-center gap-2">
+            <MapPin className="h-4 w-4 text-primary/70" />
+            <span className="truncate max-w-[400px] font-semibold text-base text-foreground">{record.address?.full ?? '—'}</span>
           </div>
           <div className="flex items-center gap-2">
             <Camera className="h-4 w-4 text-muted-foreground" />

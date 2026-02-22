@@ -40,6 +40,8 @@ interface BookingContentAreaProps {
   setZip?: React.Dispatch<React.SetStateAction<string>>;
   photographer: string;
   setPhotographer: React.Dispatch<React.SetStateAction<string>>;
+  servicePhotographers: Record<string, string>;
+  setServicePhotographers: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   bypassPayment: boolean;
   setBypassPayment: React.Dispatch<React.SetStateAction<boolean>>;
   sendNotification: boolean;
@@ -82,6 +84,8 @@ export function BookingContentArea({
   setZip,
   photographer,
   setPhotographer,
+  servicePhotographers,
+  setServicePhotographers,
   bypassPayment,
   setBypassPayment,
   sendNotification,
@@ -133,6 +137,9 @@ export function BookingContentArea({
           setZip={setZip}
           photographer={photographer}
           setPhotographer={setPhotographer}
+          servicePhotographers={servicePhotographers}
+          setServicePhotographers={setServicePhotographers}
+          selectedServices={selectedServices}
           photographers={photographers}
           handleSubmit={handleSubmit}
           goBack={goBack}
@@ -151,6 +158,8 @@ export function BookingContentArea({
           time={time}
           photographer={photographer}
           setPhotographer={setPhotographer}
+          servicePhotographers={servicePhotographers}
+          setServicePhotographers={setServicePhotographers}
           bypassPayment={bypassPayment}
           setBypassPayment={setBypassPayment}
           sendNotification={sendNotification}

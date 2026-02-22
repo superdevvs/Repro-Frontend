@@ -38,6 +38,22 @@ export function SpecialtiesSelector({
     return services.filter((s) => s.active !== false);
   }, [services]);
 
+  // Group services by category
+  const groupedServices = React.useMemo(() => {
+    if (!serviceOptions.length) return [];
+    const groups: Record<string, typeof serviceOptions> = {};
+    for (const s of serviceOptions) {
+      const cat = s.category || 'Other';
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push(s);
+    }
+    return Object.entries(groups).sort(([a], [b]) => {
+      if (a === 'Other') return 1;
+      if (b === 'Other') return -1;
+      return a.localeCompare(b);
+    });
+  }, [serviceOptions]);
+
   return (
     <FormField
       control={form.control}
@@ -58,18 +74,25 @@ export function SpecialtiesSelector({
               No services configured. Add services in Scheduling Settings.
             </p>
           ) : (
-            <div className="flex flex-wrap gap-2 mt-2">
-              {serviceOptions.map((service) => (
-                <Button
-                  type="button"
-                  key={service.id}
-                  variant={selectedSpecialties.includes(service.id) ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => onSpecialtyChange(service.id)}
-                  title={service.description || service.name}
-                >
-                  {service.name}
-                </Button>
+            <div className="space-y-3 mt-2">
+              {groupedServices.map(([category, services]) => (
+                <div key={category}>
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">{category}</h4>
+                  <div className="flex flex-wrap gap-1.5">
+                    {services.map((service) => (
+                      <Button
+                        type="button"
+                        key={service.id}
+                        variant={selectedSpecialties.includes(service.id) ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => onSpecialtyChange(service.id)}
+                        title={service.description || service.name}
+                      >
+                        {service.name}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           )}

@@ -185,6 +185,12 @@ const PrivateListingPortal = () => {
           },
           tourLinks: shoot.tourLinks || {},
           isPrivateListing: shoot.is_private_listing || shoot.isPrivateListing || false,
+          listing_type: shoot.listing_type || shoot.listingType || undefined,
+          bedrooms: shoot.bedrooms || shoot.property_details?.bedrooms || undefined,
+          bathrooms: shoot.bathrooms || shoot.property_details?.bathrooms || undefined,
+          sqft: shoot.sqft || shoot.property_details?.sqft || undefined,
+          price: shoot.price || shoot.property_details?.price || undefined,
+          mls_number: shoot.mls_number || shoot.mls_id || undefined,
         }));
 
       setListings(formattedListings);

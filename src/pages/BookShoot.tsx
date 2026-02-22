@@ -114,12 +114,25 @@ const BookShoot = () => {
   const [date, setDate] = useState<Date | undefined>(undefined);
   const [time, setTime] = useState('');
   const [photographer, setPhotographer] = useState('');
+  // Per-service photographer assignments: { serviceId: photographerId }
+  const [servicePhotographers, setServicePhotographers] = useState<Record<string, string>>({});
   const [selectedServices, setSelectedServices] = useState<ServicePackage[]>([]);
   const [propertyDetails, setPropertyDetails] = useState<any>(null);
   const [propertySqft, setPropertySqft] = useState<number | null>(null);
 
   const handleSelectedServicesChange = (services: ServicePackage[]) => {
     setSelectedServices(services);
+    // Clean up stale servicePhotographers entries for removed services
+    setServicePhotographers(prev => {
+      const currentServiceIds = new Set(services.map(s => s.id));
+      const next: Record<string, string> = {};
+      for (const [svcId, photogId] of Object.entries(prev)) {
+        if (currentServiceIds.has(svcId)) {
+          next[svcId] = photogId;
+        }
+      }
+      return next;
+    });
   };
   const [notes, setNotes] = useState('');
   const [companyNotes, setCompanyNotes] = useState('');
@@ -230,6 +243,7 @@ const BookShoot = () => {
         }
         if (parsed.time) setTime(parsed.time);
         if (parsed.photographer) setPhotographer(parsed.photographer);
+        if (parsed.servicePhotographers) setServicePhotographers(parsed.servicePhotographers);
         if (parsed.selectedServices && Array.isArray(parsed.selectedServices)) {
           setSelectedServices(parsed.selectedServices);
         }
@@ -280,6 +294,7 @@ const BookShoot = () => {
         date: date ? date.toISOString() : null,
         time,
         photographer,
+        servicePhotographers,
         selectedServices,
         notes,
         companyNotes,
@@ -307,6 +322,7 @@ const BookShoot = () => {
     date,
     time,
     photographer,
+    servicePhotographers,
     selectedServices,
     notes,
     companyNotes,
@@ -640,6 +656,19 @@ const BookShoot = () => {
             
             if (matchedServices.length > 0) {
               setSelectedServices(matchedServices);
+            }
+
+            // Pre-fill per-service photographer assignments from shoot data
+            const svcPhotographers: Record<string, string> = {};
+            for (const svc of shootData.services) {
+              const svcId = (svc.id || svc.service_id)?.toString();
+              const svcPhotographerId = (svc.photographer_id || svc.resolved_photographer_id)?.toString();
+              if (svcId && svcPhotographerId) {
+                svcPhotographers[svcId] = svcPhotographerId;
+              }
+            }
+            if (Object.keys(svcPhotographers).length > 0) {
+              setServicePhotographers(svcPhotographers);
             }
           }
           
@@ -1014,6 +1043,13 @@ const BookShoot = () => {
         scheduled_date: shootDate.toISOString().split('T')[0], // YYYY-MM-DD format (legacy support)
         time: time24Hour, // 24-hour format for backend
         photographer_id: photographer || null,
+        // Per-service photographer assignments (multi-photographer support)
+        service_photographers: Object.keys(servicePhotographers).length > 0
+          ? Object.entries(servicePhotographers).map(([serviceId, photographerId]) => ({
+              service_id: serviceId,
+              photographer_id: photographerId,
+            }))
+          : undefined,
         service_id: primaryServiceId,
         services: servicesPayload,
         service_category: selectedServices[0]?.category?.name || undefined,
@@ -1129,6 +1165,7 @@ const BookShoot = () => {
     setDate(undefined);
     setTime('');
     setPhotographer('');
+    setServicePhotographers({});
     setSelectedServices([]);
     setNotes('');
     setBypassPayment(false);
@@ -1214,6 +1251,7 @@ const BookShoot = () => {
       setDate(undefined);
       setTime('');
       setPhotographer('');
+      setServicePhotographers({});
       setSelectedServices([]);
       setNotes('');
       setCompanyNotes('');
@@ -1442,6 +1480,8 @@ const BookShoot = () => {
                   setZip={setZip}
                   photographer={photographer}
                   setPhotographer={setPhotographer}
+                  servicePhotographers={servicePhotographers}
+                  setServicePhotographers={setServicePhotographers}
                   bypassPayment={bypassPayment}
                   setBypassPayment={setBypassPayment}
                   sendNotification={sendNotification}

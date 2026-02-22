@@ -58,6 +58,9 @@ interface SchedulingFormProps {
   photographer?: string;
   photographers?: Array<{ id: string; name: string; avatar?: string }>;
   setPhotographer?: React.Dispatch<React.SetStateAction<string>>;
+  servicePhotographers?: Record<string, string>;
+  setServicePhotographers?: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  selectedServices?: Array<{ id: string; name: string; description?: string; price: number; category?: { id: string; name: string } }>;
 }
 
 export const SchedulingForm: React.FC<SchedulingFormProps> = ({
@@ -82,7 +85,10 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
   setZip,
   photographer = '',
   photographers = [],
-  setPhotographer
+  setPhotographer,
+  servicePhotographers = {},
+  setServicePhotographers,
+  selectedServices = [],
 }) => {
   const disabledDates = {
     before: new Date(),
@@ -461,6 +467,96 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
     (photographerItem) => String(photographerItem.id) === String(photographer)
   ) || selectedPhotographer;
   const fullAddress = address && city && state ? `${address}, ${city}, ${state}${zip ? ' ' + zip : ''}` : '';
+
+  // Multi-photographer: group selected services by normalized category name
+  // Normalizes similar names like "Photo"/"Photos" into a single group
+  const serviceCategories = useMemo(() => {
+    if (!selectedServices.length) return [];
+    // Normalize category name: lowercase, strip trailing 's', trim
+    const normalizeCatName = (name: string) => name.trim().toLowerCase().replace(/s$/, '');
+    const groups: Record<string, { displayName: string; services: typeof selectedServices }> = {};
+    for (const s of selectedServices) {
+      const rawName = s.category?.name || 'Other';
+      const key = normalizeCatName(rawName);
+      if (!groups[key]) groups[key] = { displayName: rawName, services: [] };
+      groups[key].services.push(s);
+    }
+    // Return as [categoryName, services[]] sorted alphabetically, "Other" last
+    return Object.values(groups)
+      .map(g => [g.displayName, g.services] as [string, typeof selectedServices])
+      .sort(([a], [b]) => {
+        if (a === 'Other') return 1;
+        if (b === 'Other') return -1;
+        return a.localeCompare(b);
+      });
+  }, [selectedServices]);
+
+  const isMultiCategory = serviceCategories.length > 1;
+
+  // Which category is currently being assigned in the picker (null = default/single mode)
+  const [activeCategoryForPicker, setActiveCategoryForPicker] = useState<string | null>(null);
+
+  // Get service IDs for the active category (used to filter photographers by specialties)
+  const activeServiceIdsForPicker = useMemo(() => {
+    if (!activeCategoryForPicker) return new Set<string>();
+    const services = serviceCategories.find(([cat]) => cat === activeCategoryForPicker)?.[1] || [];
+    return new Set(services.map(s => s.id));
+  }, [activeCategoryForPicker, serviceCategories]);
+
+  // Filter photographers to only those whose specialties match the active category's services
+  const filteredPhotographersForCategory = useMemo(() => {
+    if (!isMultiCategory || activeServiceIdsForPicker.size === 0) return null; // null = no filtering
+    return photographers.filter(p => {
+      const specialties: string[] = (p as any).metadata?.specialties
+        || (p as any).specialties
+        || [];
+      if (!specialties.length) return true; // No specialties defined = show (can do anything)
+      // Show if photographer has ANY of the active category's service IDs in their specialties
+      return specialties.some(specId => activeServiceIdsForPicker.has(String(specId)));
+    });
+  }, [isMultiCategory, activeServiceIdsForPicker, photographers]);
+
+  // Helper: get photographer ID for a category (from servicePhotographers map)
+  const getPhotographerForCategory = (categoryName: string): string => {
+    const servicesInCategory = serviceCategories.find(([cat]) => cat === categoryName)?.[1] || [];
+    // Return the photographer assigned to the first service in this category
+    for (const s of servicesInCategory) {
+      if (servicePhotographers[s.id]) return servicePhotographers[s.id];
+    }
+    return '';
+  };
+
+  // Helper: get photographer details for a category
+  const getPhotographerDetailsForCategory = (categoryName: string) => {
+    const photographerId = getPhotographerForCategory(categoryName);
+    if (!photographerId) return null;
+    return photographersWithDistance.find(p => String(p.id) === String(photographerId))
+      || photographers.find(p => String(p.id) === String(photographerId))
+      || null;
+  };
+
+  // Modified confirm handler for multi-category mode
+  const handleConfirmCategoryPhotographer = () => {
+    if (!photographer || !activeCategoryForPicker || !setServicePhotographers) {
+      setPhotographerDialogOpen(false);
+      return;
+    }
+    // Assign this photographer to all services in the active category
+    const servicesInCategory = serviceCategories.find(([cat]) => cat === activeCategoryForPicker)?.[1] || [];
+    setServicePhotographers(prev => {
+      const next = { ...prev };
+      for (const s of servicesInCategory) {
+        next[s.id] = photographer;
+      }
+      return next;
+    });
+    setPhotographerDialogOpen(false);
+    setActiveCategoryForPicker(null);
+    // Also set the first category's photographer as the default/fallback photographer
+    if (!selectedPhotographer) {
+      setPhotographer?.(photographer);
+    }
+  };
 
   // Fetch comprehensive photographer data when booking location, photographers, date, or time change
   useEffect(() => {
@@ -888,6 +984,16 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
         })
       : photographersWithDistance;
 
+    // Multi-category mode: filter by specialties for the active category
+    if (isMultiCategory && activeCategoryForPicker && activeServiceIdsForPicker.size > 0) {
+      const allowedIds = filteredPhotographersForCategory
+        ? new Set(filteredPhotographersForCategory.map(p => String(p.id)))
+        : null;
+      if (allowedIds) {
+        filtered = filtered.filter(p => allowedIds.has(String(p.id)));
+      }
+    }
+
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(p =>
@@ -940,7 +1046,7 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
     });
 
     return sorted;
-  }, [photographersWithDistance, photographers, searchQuery, sortBy, showAllPhotographers, photographerAvailability, time]);
+  }, [photographersWithDistance, photographers, searchQuery, sortBy, showAllPhotographers, photographerAvailability, time, isMultiCategory, activeCategoryForPicker, activeServiceIdsForPicker, filteredPhotographersForCategory]);
 
   const renderPhotographerFilters = (mobileDrawer = false) => (
     <div className={cn("space-y-3", mobileDrawer && "space-y-2") }>
@@ -1338,114 +1444,308 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
 
         {/* Photographer Section */}
         <div className="bg-white dark:bg-card/40 rounded-2xl p-3 sm:p-6 space-y-2 border border-slate-200/80 dark:border-muted/40 shadow-[0_1px_2px_rgba(15,23,42,0.08)]">
-          <h2 className="text-lg sm:text-xl font-semibold text-slate-900 dark:text-white mb-3 sm:mb-4">Photographer</h2>
+          <h2 className="text-lg sm:text-xl font-semibold text-slate-900 dark:text-white mb-3 sm:mb-4">
+            {isMultiCategory ? 'Photographers' : 'Photographer'}
+          </h2>
 
-          {isMobile ? (
-            <Drawer open={photographerDialogOpen} onOpenChange={handlePhotographerDialogOpen}>
-              <DrawerTrigger asChild>{photographerTrigger}</DrawerTrigger>
-              <DrawerContent className="h-[78vh] max-h-[78vh]">
-                <DrawerHeader className="pb-2 text-left">
-                  <DrawerTitle className="text-lg text-slate-900 dark:text-slate-100">Select Photographer</DrawerTitle>
-                  <DrawerDescription className="text-[11px] uppercase tracking-[0.28em] text-blue-500/80">
-                    Curated network - {availabilityStats.hasAvailabilityData ? availabilityStats.available : availabilityStats.total} available
-                  </DrawerDescription>
-                </DrawerHeader>
+          {isMultiCategory && (
+            <p className="text-xs text-slate-500 dark:text-slate-400 -mt-1 mb-2">
+              Assign a photographer for each service category
+            </p>
+          )}
 
-                <div className="flex min-h-0 flex-1 flex-col px-4 pb-3">
-                  {renderPhotographerFilters(true)}
-                  <div className="mt-2 min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-1.5 [scrollbar-gutter:stable_both-edges]">
-                    {renderPhotographerResults(true)}
+          {/* Multi-category: per-category photographer triggers */}
+          {isMultiCategory && serviceCategories.map(([categoryName, services]) => {
+            const catPhotographer = getPhotographerDetailsForCategory(categoryName);
+            return (
+              <div key={categoryName} className="space-y-1">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  {categoryName}
+                  <span className="ml-1.5 font-normal normal-case tracking-normal text-slate-400">
+                    ({services.map(s => s.name).join(', ')})
+                  </span>
+                </p>
+                <div
+                  className={cn(
+                    "bg-gray-50 dark:bg-card/60 rounded-lg p-3 sm:p-4 flex justify-between items-center transition-colors border border-gray-100 dark:border-muted/40",
+                    time ? "cursor-pointer hover:bg-gray-100 dark:hover:bg-card/70" : "opacity-60 cursor-not-allowed"
+                  )}
+                  onClick={() => {
+                    if (!time) {
+                      toast({
+                        title: "Select time first",
+                        description: "Please choose a time before selecting a photographer.",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+                    setActiveCategoryForPicker(categoryName);
+                    // Pre-select the currently assigned photographer for this category
+                    const currentId = getPhotographerForCategory(categoryName);
+                    if (currentId) setPhotographer?.(currentId);
+                    setPhotographerDialogOpen(true);
+                  }}
+                >
+                  <div className="flex items-center min-w-0">
+                    {catPhotographer ? (
+                      <>
+                        <Avatar className="h-8 w-8 sm:h-10 sm:w-10 mr-2.5 sm:mr-3 shrink-0">
+                          <AvatarImage
+                            src={getAvatarUrl((catPhotographer as any).avatar, 'photographer', undefined, catPhotographer.id)}
+                            alt={catPhotographer.name}
+                          />
+                          <AvatarFallback>{catPhotographer.name?.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <span className="truncate text-sm sm:text-base font-semibold text-slate-900 dark:text-white">{catPhotographer.name}</span>
+                      </>
+                    ) : (
+                      <span className="truncate text-slate-500 dark:text-slate-400 text-sm">Select a photographer</span>
+                    )}
                   </div>
+                  <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 text-slate-400 shrink-0" />
                 </div>
+              </div>
+            );
+          })}
 
-                <DrawerFooter className="border-t border-slate-200/70 dark:border-slate-800/70 bg-white/90 dark:bg-slate-950/60 backdrop-blur [padding-bottom:calc(0.75rem+env(safe-area-inset-bottom))]">
-                  <div className="min-w-0">
-                    <p className="text-[10px] uppercase tracking-[0.2em] text-blue-500/80">Selected photographer</p>
-                    <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
-                      {selectedPhotographerDetails?.name || 'None selected'}
-                    </p>
-                  </div>
-                  <Button
-                    onClick={handleConfirmPhotographer}
-                    className="h-11 w-full rounded-xl bg-blue-600 hover:bg-blue-700"
-                    disabled={!photographer}
-                  >
-                    Confirm Assignment
-                  </Button>
-                </DrawerFooter>
-              </DrawerContent>
-            </Drawer>
-          ) : (
-            <Dialog open={photographerDialogOpen} onOpenChange={handlePhotographerDialogOpen}>
-              <DialogTrigger asChild>{photographerTrigger}</DialogTrigger>
-
-              <DialogContent className="sm:max-w-2xl w-[92vw] max-h-[90vh] p-0 overflow-hidden">
-                <div className="flex flex-col h-full sm:h-[70vh]">
-                  <div className="flex-1 flex flex-col p-4 sm:p-6 gap-4 min-h-0">
-                    <DialogHeader className="space-y-1 text-left items-start">
-                      <DialogTitle className="text-xl text-slate-900 dark:text-slate-100">Select Photographer</DialogTitle>
-                      <DialogDescription className="text-[11px] uppercase tracking-[0.28em] text-blue-500/80">
+          {/* Single-category: original single photographer trigger with inline Drawer/Dialog */}
+          {!isMultiCategory && (
+            <>
+              {isMobile ? (
+                <Drawer open={photographerDialogOpen} onOpenChange={handlePhotographerDialogOpen}>
+                  <DrawerTrigger asChild>{photographerTrigger}</DrawerTrigger>
+                  <DrawerContent className="h-[78vh] max-h-[78vh]">
+                    <DrawerHeader className="pb-2 text-left">
+                      <DrawerTitle className="text-lg text-slate-900 dark:text-slate-100">Select Photographer</DrawerTitle>
+                      <DrawerDescription className="text-[11px] uppercase tracking-[0.28em] text-blue-500/80">
                         Curated network - {availabilityStats.hasAvailabilityData ? availabilityStats.available : availabilityStats.total} available
-                      </DialogDescription>
-                    </DialogHeader>
+                      </DrawerDescription>
+                    </DrawerHeader>
 
-                    {renderPhotographerFilters(false)}
-
-                    <div className="flex-1 min-h-0 overflow-y-auto pr-2">
-                      {renderPhotographerResults(false)}
+                    <div className="flex min-h-0 flex-1 flex-col px-4 pb-3">
+                      {renderPhotographerFilters(true)}
+                      <div className="mt-2 min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-1.5 [scrollbar-gutter:stable_both-edges]">
+                        {renderPhotographerResults(true)}
+                      </div>
                     </div>
 
-                    <div className="pt-4 border-t border-slate-200/70 dark:border-slate-800/70 bg-white/80 dark:bg-slate-950/50 backdrop-blur flex-shrink-0">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <Avatar className={cn(
-                            "h-10 w-10 shrink-0",
-                            selectedPhotographerDetails
-                              ? "ring-2 ring-blue-500/70 ring-offset-2 ring-offset-white dark:ring-offset-slate-950"
-                              : "bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
-                          )}>
-                            {selectedPhotographerDetails ? (
-                              <>
-                                <AvatarImage
-                                  src={getAvatarUrl(selectedPhotographerDetails.avatar, 'photographer', undefined, selectedPhotographerDetails.id)}
-                                  alt={selectedPhotographerDetails.name}
-                                />
-                                <AvatarFallback>{selectedPhotographerDetails.name?.charAt(0)}</AvatarFallback>
-                              </>
-                            ) : (
-                              <AvatarFallback>
-                                <User className="h-4 w-4" />
-                              </AvatarFallback>
-                            )}
-                          </Avatar>
-                          <div className="min-w-0">
-                            <p className="text-[10px] uppercase tracking-[0.28em] text-blue-500/80">Selected specialist</p>
-                            <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
-                              {selectedPhotographerDetails?.name || 'None selected'}
-                            </p>
-                          </div>
+                    <DrawerFooter className="border-t border-slate-200/70 dark:border-slate-800/70 bg-white/90 dark:bg-slate-950/60 backdrop-blur [padding-bottom:calc(0.75rem+env(safe-area-inset-bottom))]">
+                      <div className="min-w-0">
+                        <p className="text-[10px] uppercase tracking-[0.2em] text-blue-500/80">Selected photographer</p>
+                        <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+                          {selectedPhotographerDetails?.name || 'None selected'}
+                        </p>
+                      </div>
+                      <Button
+                        onClick={handleConfirmPhotographer}
+                        className="h-11 w-full rounded-xl bg-blue-600 hover:bg-blue-700"
+                        disabled={!photographer}
+                      >
+                        Confirm Assignment
+                      </Button>
+                    </DrawerFooter>
+                  </DrawerContent>
+                </Drawer>
+              ) : (
+                <Dialog open={photographerDialogOpen} onOpenChange={handlePhotographerDialogOpen}>
+                  <DialogTrigger asChild>{photographerTrigger}</DialogTrigger>
+
+                  <DialogContent className="sm:max-w-2xl w-[92vw] max-h-[90vh] p-0 overflow-hidden">
+                    <div className="flex flex-col h-full sm:h-[70vh]">
+                      <div className="flex-1 flex flex-col p-4 sm:p-6 gap-4 min-h-0">
+                        <DialogHeader className="space-y-1 text-left items-start">
+                          <DialogTitle className="text-xl text-slate-900 dark:text-slate-100">Select Photographer</DialogTitle>
+                          <DialogDescription className="text-[11px] uppercase tracking-[0.28em] text-blue-500/80">
+                            Curated network - {availabilityStats.hasAvailabilityData ? availabilityStats.available : availabilityStats.total} available
+                          </DialogDescription>
+                        </DialogHeader>
+
+                        {renderPhotographerFilters(false)}
+
+                        <div className="flex-1 min-h-0 overflow-y-auto pr-2">
+                          {renderPhotographerResults(false)}
                         </div>
 
-                        <div className="flex gap-2 shrink-0">
-                          <Button
-                            variant="ghost"
-                            onClick={() => setPhotographerDialogOpen(false)}
-                          >
-                            Discard
-                          </Button>
-                          <Button
-                            onClick={handleConfirmPhotographer}
-                            disabled={!photographer}
-                          >
-                            Confirm Assignment
-                          </Button>
+                        <div className="pt-4 border-t border-slate-200/70 dark:border-slate-800/70 bg-white/80 dark:bg-slate-950/50 backdrop-blur flex-shrink-0">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <Avatar className={cn(
+                                "h-10 w-10 shrink-0",
+                                selectedPhotographerDetails
+                                  ? "ring-2 ring-blue-500/70 ring-offset-2 ring-offset-white dark:ring-offset-slate-950"
+                                  : "bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+                              )}>
+                                {selectedPhotographerDetails ? (
+                                  <>
+                                    <AvatarImage
+                                      src={getAvatarUrl(selectedPhotographerDetails.avatar, 'photographer', undefined, selectedPhotographerDetails.id)}
+                                      alt={selectedPhotographerDetails.name}
+                                    />
+                                    <AvatarFallback>{selectedPhotographerDetails.name?.charAt(0)}</AvatarFallback>
+                                  </>
+                                ) : (
+                                  <AvatarFallback>
+                                    <User className="h-4 w-4" />
+                                  </AvatarFallback>
+                                )}
+                              </Avatar>
+                              <div className="min-w-0">
+                                <p className="text-[10px] uppercase tracking-[0.28em] text-blue-500/80">Selected specialist</p>
+                                <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+                                  {selectedPhotographerDetails?.name || 'None selected'}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex gap-2 shrink-0">
+                              <Button
+                                variant="ghost"
+                                onClick={() => setPhotographerDialogOpen(false)}
+                              >
+                                Discard
+                              </Button>
+                              <Button
+                                onClick={handleConfirmPhotographer}
+                                disabled={!photographer}
+                              >
+                                Confirm Assignment
+                              </Button>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
+                  </DialogContent>
+                </Dialog>
+              )}
+            </>
+          )}
+
+          {/* Multi-category: shared photographer picker (no trigger, opened programmatically) */}
+          {isMultiCategory && (
+            <>
+              {isMobile ? (
+                <Drawer open={photographerDialogOpen} onOpenChange={(open) => {
+                  setPhotographerDialogOpen(open);
+                  if (!open) setActiveCategoryForPicker(null);
+                }}>
+                  <DrawerContent className="h-[78vh] max-h-[78vh]">
+                    <DrawerHeader className="pb-2 text-left">
+                      <DrawerTitle className="text-lg text-slate-900 dark:text-slate-100">
+                        Select Photographer{activeCategoryForPicker ? ` for ${activeCategoryForPicker}` : ''}
+                      </DrawerTitle>
+                      <DrawerDescription className="text-[11px] uppercase tracking-[0.28em] text-blue-500/80">
+                        Curated network - {availabilityStats.hasAvailabilityData ? availabilityStats.available : availabilityStats.total} available
+                      </DrawerDescription>
+                    </DrawerHeader>
+
+                    <div className="flex min-h-0 flex-1 flex-col px-4 pb-3">
+                      {renderPhotographerFilters(true)}
+                      <div className="mt-2 min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-1.5 [scrollbar-gutter:stable_both-edges]">
+                        {renderPhotographerResults(true)}
+                      </div>
+                    </div>
+
+                    <DrawerFooter className="border-t border-slate-200/70 dark:border-slate-800/70 bg-white/90 dark:bg-slate-950/60 backdrop-blur [padding-bottom:calc(0.75rem+env(safe-area-inset-bottom))]">
+                      <div className="min-w-0">
+                        <p className="text-[10px] uppercase tracking-[0.2em] text-blue-500/80">
+                          {activeCategoryForPicker ? `Photographer for ${activeCategoryForPicker}` : 'Selected photographer'}
+                        </p>
+                        <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+                          {selectedPhotographerDetails?.name || 'None selected'}
+                        </p>
+                      </div>
+                      <Button
+                        onClick={handleConfirmCategoryPhotographer}
+                        className="h-11 w-full rounded-xl bg-blue-600 hover:bg-blue-700"
+                        disabled={!photographer}
+                      >
+                        Confirm Assignment
+                      </Button>
+                    </DrawerFooter>
+                  </DrawerContent>
+                </Drawer>
+              ) : (
+                <Dialog open={photographerDialogOpen} onOpenChange={(open) => {
+                  setPhotographerDialogOpen(open);
+                  if (!open) setActiveCategoryForPicker(null);
+                }}>
+                  <DialogContent className="sm:max-w-2xl w-[92vw] max-h-[90vh] p-0 overflow-hidden">
+                    <div className="flex flex-col h-full sm:h-[70vh]">
+                      <div className="flex-1 flex flex-col p-4 sm:p-6 gap-4 min-h-0">
+                        <DialogHeader className="space-y-1 text-left items-start">
+                          <DialogTitle className="text-xl text-slate-900 dark:text-slate-100">
+                            Select Photographer{activeCategoryForPicker ? ` for ${activeCategoryForPicker}` : ''}
+                          </DialogTitle>
+                          <DialogDescription className="text-[11px] uppercase tracking-[0.28em] text-blue-500/80">
+                            Curated network - {availabilityStats.hasAvailabilityData ? availabilityStats.available : availabilityStats.total} available
+                          </DialogDescription>
+                        </DialogHeader>
+
+                        {renderPhotographerFilters(false)}
+
+                        <div className="flex-1 min-h-0 overflow-y-auto pr-2">
+                          {renderPhotographerResults(false)}
+                        </div>
+
+                        <div className="pt-4 border-t border-slate-200/70 dark:border-slate-800/70 bg-white/80 dark:bg-slate-950/50 backdrop-blur flex-shrink-0">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <Avatar className={cn(
+                                "h-10 w-10 shrink-0",
+                                selectedPhotographerDetails
+                                  ? "ring-2 ring-blue-500/70 ring-offset-2 ring-offset-white dark:ring-offset-slate-950"
+                                  : "bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+                              )}>
+                                {selectedPhotographerDetails ? (
+                                  <>
+                                    <AvatarImage
+                                      src={getAvatarUrl(selectedPhotographerDetails.avatar, 'photographer', undefined, selectedPhotographerDetails.id)}
+                                      alt={selectedPhotographerDetails.name}
+                                    />
+                                    <AvatarFallback>{selectedPhotographerDetails.name?.charAt(0)}</AvatarFallback>
+                                  </>
+                                ) : (
+                                  <AvatarFallback>
+                                    <User className="h-4 w-4" />
+                                  </AvatarFallback>
+                                )}
+                              </Avatar>
+                              <div className="min-w-0">
+                                <p className="text-[10px] uppercase tracking-[0.28em] text-blue-500/80">
+                                  {activeCategoryForPicker ? `Photographer for ${activeCategoryForPicker}` : 'Selected specialist'}
+                                </p>
+                                <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+                                  {selectedPhotographerDetails?.name || 'None selected'}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex gap-2 shrink-0">
+                              <Button
+                                variant="ghost"
+                                onClick={() => {
+                                  setPhotographerDialogOpen(false);
+                                  setActiveCategoryForPicker(null);
+                                }}
+                              >
+                                Discard
+                              </Button>
+                              <Button
+                                onClick={handleConfirmCategoryPhotographer}
+                                disabled={!photographer}
+                              >
+                                Confirm Assignment
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              )}
+            </>
           )}
         </div>
 

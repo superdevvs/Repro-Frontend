@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -55,7 +55,12 @@ const extractPhotoCount = (name: string) => {
   return match ? Number(match[1]) : 0;
 };
 
-export function ServicesTab() {
+export interface ServicesTabHandle {
+  openAddService: () => void;
+  openAddCategory: () => void;
+}
+
+export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_props, ref) {
   const [isLoading, setIsLoading] = useState(true);
   const [services, setServices] = useState<Service[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -163,6 +168,11 @@ export function ServicesTab() {
     setNewSqftRanges([]);
     setIsAddDialogOpen(true);
   };
+
+  useImperativeHandle(ref, () => ({
+    openAddService: handleOpenAddService,
+    openAddCategory: () => setIsAddCategoryOpen(true),
+  }));
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
@@ -522,492 +532,461 @@ export function ServicesTab() {
   }, [mergedCategories]);
 
   return (
-  <div className="space-y-4 sm:space-y-6">
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-      <div className="space-y-1">
-        <h2 className="text-lg font-semibold tracking-tight">Service Catalog</h2>
-        <p className="text-sm text-muted-foreground">Manage categories, pricing, and service details.</p>
-      </div>
-
-      <div className="flex items-center gap-2 self-start sm:self-auto">
-        <Button onClick={handleOpenAddService} className="h-9 gap-1.5 px-3 sm:h-10 sm:px-4">
-          <Plus className="h-4 w-4" />
-          <span className="sm:hidden">New</span>
-          <span className="hidden sm:inline">Add Service</span>
-        </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="icon" className="h-9 w-9">
-              <MoreVertical className="h-4 w-4" />
-              <span className="sr-only">Service actions</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-44">
-            <DropdownMenuLabel>Quick Actions</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => setIsAddCategoryOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Category
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-    </div>
-
     <div className="space-y-3 sm:space-y-4">
-      {categoriesLoading ? (
-        <div className="flex justify-center py-4">
-          <Loader2 className="h-6 w-6 animate-spin text-primary" />
-        </div>
-      ) : (
-        <div className="overflow-x-auto pb-1">
-          <div className="inline-flex min-w-max items-center gap-2">
-            {sortedCategories.map(category => {
-              const Icon = category.icon ? getIconComponent(category.icon) : null;
-              const displayName = normalizeCategoryName(category.name) === 'photos'
-                ? 'Photos'
-                : category.name;
-              return (
-                <div key={category.id} className="relative group">
-                  <Button
-                    variant={selectedCategory === category.id ? "default" : "outline"}
-                    onClick={() => handleCategoryChange(category.id)}
-                    className="rounded-full transition-all gap-2 pr-8"
-                  >
-                    {Icon && <Icon className="h-4 w-4" />}
-                    {displayName}
-                  </Button>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="absolute right-0 top-0 h-full rounded-full opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={(e) => {
-                        e.stopPropagation();
-                        handleEditCategory(category);
-                      }}>
-                        <Edit className="h-4 w-4 mr-2" />
-                        Edit
-                      </DropdownMenuItem>
-                      {!category.is_default && !['photo', 'video'].includes(category.name?.toLowerCase()) && (
-                        <DropdownMenuItem
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteCategory(category);
-                          }}
-                          className="text-destructive"
+      <div>
+        {categoriesLoading ? (
+          <div className="flex justify-center py-4">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          </div>
+        ) : (
+          <div className="overflow-x-auto pb-1">
+            <div className="inline-flex min-w-max items-center gap-2">
+              {sortedCategories.map(category => {
+                const Icon = category.icon ? getIconComponent(category.icon) : null;
+                const displayName = normalizeCategoryName(category.name) === 'photos'
+                  ? 'Photos'
+                  : category.name;
+                return (
+                  <div key={category.id} className="relative group">
+                    <Button
+                      variant={selectedCategory === category.id ? "default" : "outline"}
+                      onClick={() => handleCategoryChange(category.id)}
+                      className="rounded-full transition-all gap-2 pr-8"
+                    >
+                      {Icon && <Icon className="h-4 w-4" />}
+                      {displayName}
+                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="absolute right-0 top-0 h-full rounded-full opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+                          onClick={(e) => e.stopPropagation()}
                         >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={(e) => {
+                          e.stopPropagation();
+                          handleEditCategory(category);
+                        }}>
+                          <Edit className="h-4 w-4 mr-2" />
+                          Edit
                         </DropdownMenuItem>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              );
-            })}
+                        {!category.is_default && !['photo', 'video'].includes(category.name?.toLowerCase()) && (
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteCategory(category);
+                            }}
+                            className="text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                );
+              })}
 
-            <Button
-              variant="outline"
-              className="hidden sm:inline-flex rounded-full border-dashed border-muted-foreground/50 hover:border-primary hover:text-primary gap-2"
-              onClick={() => setIsAddCategoryOpen(true)}
-            >
-              <Plus className="h-4 w-4" />
-              Add Category
-            </Button>
-          </div>
-        </div>
-      )}
-    </div>
-
-    <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
-      {filteredServices.map(service => (
-        <ServiceCard
-          key={service.id}
-          service={service}
-          onUpdate={fetchServices}
-        />
-      ))}
-    </div>
-
-    {/* Add New Service Dialog */}
-    <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-      <DialogContent className="w-[calc(100vw-1rem)] max-h-[88vh] overflow-hidden rounded-2xl sm:max-w-[600px] sm:max-h-[90vh] sm:rounded-2xl">
-        <DialogHeader>
-          <DialogTitle>Add New Service</DialogTitle>
-        </DialogHeader>
-        <div className="max-h-[calc(88vh-10.5rem)] space-y-4 overflow-y-auto py-4 pr-1 sm:max-h-[calc(90vh-10.5rem)]">
-          <div className="space-y-2">
-            <CategorySelect
-              value={newService.category}
-              onChange={(value) => {
-                setNewService(prev => ({ ...prev, category: value }));
-              }}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="name">Service Name</Label>
-            <Input
-              id="name"
-              name="name"
-              value={newService.name}
-              onChange={handleInputChange}
-              placeholder="e.g., HDR Photos"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Input
-              id="description"
-              name="description"
-              value={newService.description}
-              onChange={handleInputChange}
-              placeholder="Service description"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Icon</Label>
-              <IconPicker
-                value={newService.icon}
-                onChange={(value) => setNewService(prev => ({ ...prev, icon: value }))}
-              />
+              <Button
+                variant="outline"
+                className="hidden sm:inline-flex rounded-full border-dashed border-muted-foreground/50 hover:border-primary hover:text-primary gap-2"
+                onClick={() => setIsAddCategoryOpen(true)}
+              >
+                <Plus className="h-4 w-4" />
+                Add Category
+              </Button>
             </div>
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {filteredServices.map(service => (
+          <ServiceCard
+            key={service.id}
+            service={service}
+            onUpdate={fetchServices}
+          />
+        ))}
+      </div>
+
+      {/* Add New Service Dialog */}
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent className="w-[calc(100vw-1rem)] max-h-[88vh] overflow-hidden rounded-2xl sm:max-w-[600px] sm:max-h-[90vh] sm:rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Add New Service</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[calc(88vh-10.5rem)] space-y-4 overflow-y-auto py-4 pr-1 sm:max-h-[calc(90vh-10.5rem)]">
             <div className="space-y-2">
-              <Label htmlFor="quantity_field">
-                {isNewServicePhotoCategory ? 'Photo Count' : 'Quantity'}
-              </Label>
-              <Input
-                id="quantity_field"
-                type="number"
-                min="0"
-                value={isNewServicePhotoCategory 
-                  ? (newService.photo_count ?? '') 
-                  : (newService.quantity ?? '')}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  const numVal = val === '' ? undefined : parseInt(val, 10);
-                  if (isNewServicePhotoCategory) {
-                    setNewService(prev => ({ ...prev, photo_count: numVal }));
-                  } else {
-                    setNewService(prev => ({ ...prev, quantity: numVal }));
-                  }
+              <CategorySelect
+                value={newService.category}
+                onChange={(value) => {
+                  setNewService(prev => ({ ...prev, category: value }));
                 }}
-                placeholder={isNewServicePhotoCategory ? "Number of photos" : "Quantity"}
               />
             </div>
-          </div>
-
-          {/* Pricing Type */}
-          <div className="space-y-2">
-            <Label>Pricing</Label>
-            <Select
-              value={newService.pricing_type}
-              onValueChange={(value: 'fixed' | 'variable') => 
-                setNewService(prev => ({ ...prev, pricing_type: value }))
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select pricing type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="fixed">Fixed Price</SelectItem>
-                <SelectItem value="variable">Variable (SQFT)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Fixed pricing fields */}
-          {newService.pricing_type !== 'variable' && (
+            <div className="space-y-2">
+              <Label htmlFor="name">Service Name</Label>
+              <Input
+                id="name"
+                name="name"
+                value={newService.name}
+                onChange={handleInputChange}
+                placeholder="e.g., HDR Photos"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Input
+                id="description"
+                name="description"
+                value={newService.description}
+                onChange={handleInputChange}
+                placeholder="Service description"
+              />
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="price">Price ($)</Label>
-                <Input
-                  id="price"
-                  name="price"
-                  type="number"
-                  step="0.01"
-                  value={newService.price}
-                  onChange={handleInputChange}
-                  placeholder="0.00"
+                <Label>Icon</Label>
+                <IconPicker
+                  value={newService.icon}
+                  onChange={(value) => setNewService(prev => ({ ...prev, icon: value }))}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="delivery_time">Delivery Time (hours)</Label>
+                <Label htmlFor="quantity_field">
+                  {isNewServicePhotoCategory ? 'Photo Count' : 'Quantity'}
+                </Label>
                 <Input
-                  id="delivery_time"
-                  name="delivery_time"
+                  id="quantity_field"
                   type="number"
-                  value={newService.delivery_time}
-                  onChange={handleInputChange}
-                  placeholder="24"
+                  min="0"
+                  value={isNewServicePhotoCategory 
+                    ? (newService.photo_count ?? '') 
+                    : (newService.quantity ?? '')}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const numVal = val === '' ? undefined : parseInt(val, 10);
+                    if (isNewServicePhotoCategory) {
+                      setNewService(prev => ({ ...prev, photo_count: numVal }));
+                    } else {
+                      setNewService(prev => ({ ...prev, quantity: numVal }));
+                    }
+                  }}
+                  placeholder={isNewServicePhotoCategory ? "Number of photos" : "Quantity"}
                 />
               </div>
             </div>
-          )}
 
-          {/* Variable pricing - SQFT Ranges */}
-          {newService.pricing_type === 'variable' && (
-            <div className="space-y-3 border rounded-lg p-4 bg-muted/30">
-              <div className="flex items-center gap-2">
-                <p className="text-sm text-muted-foreground">
-                  Define each square footage range and provide the duration and price for each range.
-                </p>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <HelpCircle className="h-4 w-4 text-muted-foreground" />
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-xs">
-                      <p>Price will be automatically calculated based on the property's square footage when booking a shoot.</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-
-              {/* Header row */}
-              <div className="grid grid-cols-[0.8fr_0.8fr_0.6fr_0.6fr_0.8fr_auto] gap-2 text-xs font-medium text-muted-foreground">
-                <div>From</div>
-                <div>To</div>
-                <div>Count</div>
-                <div>Dur (min)</div>
-                <div>Price ($)</div>
-                <div className="w-8"></div>
-              </div>
-
-              {/* Range rows */}
-              {newSqftRanges.map((range, index) => (
-                <div key={index} className="grid grid-cols-[0.8fr_0.8fr_0.6fr_0.6fr_0.8fr_auto] gap-2 items-center">
-                  <Input
-                    type="number"
-                    min="0"
-                    value={range.sqft_from}
-                    onChange={(e) => updateNewSqftRange(index, 'sqft_from', parseInt(e.target.value) || 0)}
-                    className="h-8 text-sm"
-                  />
-                  <Input
-                    type="number"
-                    min="0"
-                    value={range.sqft_to}
-                    onChange={(e) => updateNewSqftRange(index, 'sqft_to', parseInt(e.target.value) || 0)}
-                    className="h-8 text-sm"
-                  />
-                  <Input
-                    type="number"
-                    min="0"
-                    value={range.photo_count ?? ''}
-                    onChange={(e) => updateNewSqftRange(index, 'photo_count', e.target.value ? parseInt(e.target.value) : null)}
-                    className="h-8 text-sm"
-                    placeholder={isNewServicePhotoCategory ? "25" : "1"}
-                  />
-                  <Input
-                    type="number"
-                    min="0"
-                    value={range.duration || ''}
-                    onChange={(e) => updateNewSqftRange(index, 'duration', e.target.value ? parseInt(e.target.value) : null)}
-                    className="h-8 text-sm"
-                    placeholder="60"
-                  />
-                  <div className="relative">
-                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={range.price}
-                      onChange={(e) => updateNewSqftRange(index, 'price', parseFloat(e.target.value) || 0)}
-                      className="h-8 text-sm pl-5"
-                    />
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-destructive hover:text-destructive"
-                    onClick={() => removeNewSqftRange(index)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-
-              {/* Add new range button */}
-              <Button
-                type="button"
-                variant="link"
-                size="sm"
-                className="text-primary p-0 h-auto"
-                onClick={addNewSqftRange}
+            {/* Pricing Type */}
+            <div className="space-y-2">
+              <Label>Pricing</Label>
+              <Select
+                value={newService.pricing_type}
+                onValueChange={(value: 'fixed' | 'variable') => 
+                  setNewService(prev => ({ ...prev, pricing_type: value }))
+                }
               >
-                <Plus className="h-4 w-4 mr-1" />
-                Add New Range
-              </Button>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select pricing type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="fixed">Fixed Price</SelectItem>
+                  <SelectItem value="variable">Variable (SQFT)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-              {/* Default/fallback price */}
-              <div className="grid grid-cols-2 gap-4 pt-2 border-t">
+            {/* Fixed pricing fields */}
+            {newService.pricing_type !== 'variable' && (
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="price" className="text-xs">Default Price (fallback)</Label>
+                  <Label htmlFor="price">Price ($)</Label>
                   <Input
                     id="price"
                     name="price"
                     type="number"
+                    step="0.01"
                     value={newService.price}
                     onChange={handleInputChange}
-                    className="h-8"
+                    placeholder="0.00"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="delivery_time" className="text-xs">Default Duration (hours)</Label>
+                  <Label htmlFor="delivery_time">Delivery Time (hours)</Label>
                   <Input
                     id="delivery_time"
                     name="delivery_time"
                     type="number"
                     value={newService.delivery_time}
                     onChange={handleInputChange}
-                    className="h-8"
+                    placeholder="24"
                   />
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          <div className="flex items-center justify-between">
-            <Label htmlFor="photographer_required" className="cursor-pointer">
-              Photographer Required
-            </Label>
-            <Switch
-              id="photographer_required"
-              checked={newService.photographer_required}
-              onCheckedChange={(checked) => 
-                setNewService(prev => ({ ...prev, photographer_required: checked }))
-              }
-            />
-          </div>
-          {newService.photographer_required && (
-            <div className="space-y-2">
-              <Label htmlFor="photographer_pay">Photographer's Pay ($)</Label>
-              <Input
-                id="photographer_pay"
-                name="photographer_pay"
-                type="number"
-                step="0.01"
-                value={newService.photographer_pay}
-                onChange={handleInputChange}
-                placeholder="0.00"
+            {/* Variable pricing - SQFT Ranges */}
+            {newService.pricing_type === 'variable' && (
+              <div className="space-y-3 border rounded-lg p-4 bg-muted/30">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm text-muted-foreground">
+                    Define each square footage range and provide the duration and price for each range.
+                  </p>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        <p>Price will be automatically calculated based on the property's square footage when booking a shoot.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+
+                {/* Header row */}
+                <div className="grid grid-cols-[0.8fr_0.8fr_0.6fr_0.6fr_0.8fr_auto] gap-2 text-xs font-medium text-muted-foreground">
+                  <div>From</div>
+                  <div>To</div>
+                  <div>Count</div>
+                  <div>Dur (min)</div>
+                  <div>Price ($)</div>
+                  <div className="w-8"></div>
+                </div>
+
+                {/* Range rows */}
+                {newSqftRanges.map((range, index) => (
+                  <div key={index} className="grid grid-cols-[0.8fr_0.8fr_0.6fr_0.6fr_0.8fr_auto] gap-2 items-center">
+                    <Input
+                      type="number"
+                      min="0"
+                      value={range.sqft_from}
+                      onChange={(e) => updateNewSqftRange(index, 'sqft_from', parseInt(e.target.value) || 0)}
+                      className="h-8 text-sm"
+                    />
+                    <Input
+                      type="number"
+                      min="0"
+                      value={range.sqft_to}
+                      onChange={(e) => updateNewSqftRange(index, 'sqft_to', parseInt(e.target.value) || 0)}
+                      className="h-8 text-sm"
+                    />
+                    <Input
+                      type="number"
+                      min="0"
+                      value={range.photo_count ?? ''}
+                      onChange={(e) => updateNewSqftRange(index, 'photo_count', e.target.value ? parseInt(e.target.value) : null)}
+                      className="h-8 text-sm"
+                      placeholder={isNewServicePhotoCategory ? "25" : "1"}
+                    />
+                    <Input
+                      type="number"
+                      min="0"
+                      value={range.duration || ''}
+                      onChange={(e) => updateNewSqftRange(index, 'duration', e.target.value ? parseInt(e.target.value) : null)}
+                      className="h-8 text-sm"
+                      placeholder="60"
+                    />
+                    <div className="relative">
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={range.price}
+                        onChange={(e) => updateNewSqftRange(index, 'price', parseFloat(e.target.value) || 0)}
+                        className="h-8 text-sm pl-5"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-destructive hover:text-destructive"
+                      onClick={() => removeNewSqftRange(index)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+
+                {/* Add new range button */}
+                <Button
+                  type="button"
+                  variant="link"
+                  size="sm"
+                  className="text-primary p-0 h-auto"
+                  onClick={addNewSqftRange}
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add New Range
+                </Button>
+
+                {/* Default/fallback price */}
+                <div className="grid grid-cols-2 gap-4 pt-2 border-t">
+                  <div className="space-y-2">
+                    <Label htmlFor="price" className="text-xs">Default Price (fallback)</Label>
+                    <Input
+                      id="price"
+                      name="price"
+                      type="number"
+                      value={newService.price}
+                      onChange={handleInputChange}
+                      className="h-8"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="delivery_time" className="text-xs">Default Duration (hours)</Label>
+                    <Input
+                      id="delivery_time"
+                      name="delivery_time"
+                      type="number"
+                      value={newService.delivery_time}
+                      onChange={handleInputChange}
+                      className="h-8"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between">
+              <Label htmlFor="photographer_required" className="cursor-pointer">
+                Photographer Required
+              </Label>
+              <Switch
+                id="photographer_required"
+                checked={newService.photographer_required}
+                onCheckedChange={(checked) => 
+                  setNewService(prev => ({ ...prev, photographer_required: checked }))
+                }
               />
             </div>
-          )}
-        </div>
-        <DialogFooter className="border-t pt-3 sm:pt-4">
-          <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handleSaveService}>
-            <Save className="w-4 h-4 mr-2" />
-            Save Service
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-
-    {/* Add New Category Dialog */}
-    <Dialog open={isAddCategoryOpen} onOpenChange={setIsAddCategoryOpen}>
-      <DialogContent className="w-[calc(100vw-1rem)] rounded-2xl sm:max-w-[420px] sm:rounded-2xl">
-        <DialogHeader>
-          <DialogTitle>Add New Category</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3 py-2">
-          <Label htmlFor="new-category-name">Category name</Label>
-          <Input
-            id="new-category-name"
-            placeholder="e.g., Floor Plans"
-            value={newCategoryName}
-            autoFocus
-            onChange={(e) => setNewCategoryName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleCreateCategory();
-            }}
-          />
-          <div className="space-y-2">
-            <Label>Icon (optional)</Label>
-            <IconPicker
-              value={newCategoryIcon}
-              onChange={setNewCategoryIcon}
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setIsAddCategoryOpen(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handleCreateCategory} disabled={isCreatingCategory}>
-            {isCreatingCategory ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
-              <Save className="w-4 h-4 mr-2" />
+            {newService.photographer_required && (
+              <div className="space-y-2">
+                <Label htmlFor="photographer_pay">Photographer's Pay ($)</Label>
+                <Input
+                  id="photographer_pay"
+                  name="photographer_pay"
+                  type="number"
+                  step="0.01"
+                  value={newService.photographer_pay}
+                  onChange={handleInputChange}
+                  placeholder="0.00"
+                />
+              </div>
             )}
-            Create
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-
-    {/* Edit Category Dialog */}
-    <Dialog open={isEditCategoryOpen} onOpenChange={setIsEditCategoryOpen}>
-      <DialogContent className="w-[calc(100vw-1rem)] rounded-2xl sm:max-w-[420px] sm:rounded-2xl">
-        <DialogHeader>
-          <DialogTitle>Edit Category</DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-3 py-2">
-          <Label htmlFor="edit-category-name">Category name</Label>
-          <Input
-            id="edit-category-name"
-            placeholder="e.g., Floor Plans"
-            value={editCategoryName}
-            autoFocus
-            onChange={(e) => setEditCategoryName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleUpdateCategory();
-            }}
-          />
-          
-          <div className="space-y-2">
-            <Label>Icon (optional)</Label>
-            <IconPicker
-              value={editCategoryIcon}
-              onChange={setEditCategoryIcon}
-            />
           </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => {
-            setIsEditCategoryOpen(false);
-            setEditingCategory(null);
-            setEditCategoryName('');
-            setEditCategoryIcon('');
-          }}>
-            Cancel
-          </Button>
-          <Button onClick={handleUpdateCategory} disabled={isUpdatingCategory}>
-            {isUpdatingCategory ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
+          <DialogFooter className="border-t pt-3 sm:pt-4">
+            <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveService}>
               <Save className="w-4 h-4 mr-2" />
-            )}
-            Update
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+              Save Service
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-  </div>
-);
-}
+      {/* Add New Category Dialog */}
+      <Dialog open={isAddCategoryOpen} onOpenChange={setIsAddCategoryOpen}>
+        <DialogContent className="w-[calc(100vw-1rem)] rounded-2xl sm:max-w-[420px] sm:rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Add New Category</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <Label htmlFor="new-category-name">Category name</Label>
+            <Input
+              id="new-category-name"
+              placeholder="e.g., Floor Plans"
+              value={newCategoryName}
+              autoFocus
+              onChange={(e) => setNewCategoryName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleCreateCategory();
+              }}
+            />
+            <div className="space-y-2">
+              <Label>Icon (optional)</Label>
+              <IconPicker
+                value={newCategoryIcon}
+                onChange={setNewCategoryIcon}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddCategoryOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateCategory} disabled={isCreatingCategory}>
+              {isCreatingCategory ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Save className="w-4 h-4 mr-2" />
+              )}
+              Create
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Category Dialog */}
+      <Dialog open={isEditCategoryOpen} onOpenChange={setIsEditCategoryOpen}>
+        <DialogContent className="w-[calc(100vw-1rem)] rounded-2xl sm:max-w-[420px] sm:rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Category</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2">
+            <Label htmlFor="edit-category-name">Category name</Label>
+            <Input
+              id="edit-category-name"
+              placeholder="e.g., Floor Plans"
+              value={editCategoryName}
+              autoFocus
+              onChange={(e) => setEditCategoryName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleUpdateCategory();
+              }}
+            />
+            
+            <div className="space-y-2">
+              <Label>Icon (optional)</Label>
+              <IconPicker
+                value={editCategoryIcon}
+                onChange={setEditCategoryIcon}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setIsEditCategoryOpen(false);
+              setEditingCategory(null);
+              setEditCategoryName('');
+              setEditCategoryIcon('');
+            }}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateCategory} disabled={isUpdatingCategory}>
+              {isUpdatingCategory ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Save className="w-4 h-4 mr-2" />
+              )}
+              Update
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+    </div>
+  );
+});

@@ -2131,86 +2131,124 @@ export function ShootDetailsOverviewTab({
         </div>
       )}
 
-      {/* Photographer Card */}
-      {(shoot.photographer || isEditMode) && (
-        <div className="p-2.5 border rounded-lg bg-card">
-          <div className="flex items-center gap-1.5 mb-1.5">
-            <CameraIcon className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-[11px] font-semibold text-muted-foreground uppercase">Photographer</span>
-          </div>
-          {isEditMode ? (
-            <Popover open={photographerSearchOpen} onOpenChange={setPhotographerSearchOpen} modal={false}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  aria-expanded={photographerSearchOpen}
-                  className="w-full justify-between h-8 text-xs font-normal"
-                >
-                  {selectedPhotographerIdEdit
-                    ? editPhotographers.find((p) => p.id === selectedPhotographerIdEdit)?.name || 'Select photographer...'
-                    : 'Select photographer...'}
-                  <ArrowUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent 
-                className="w-[var(--radix-popover-trigger-width)] max-w-[300px] p-0 shadow-lg z-[200] max-h-[250px]" 
-                align="start" 
-                sideOffset={4}
-                side="bottom"
-                onOpenAutoFocus={(e) => e.preventDefault()}
-                style={{ pointerEvents: 'auto' }}
-              >
-                <Command className="rounded-lg flex flex-col" shouldFilter={true}>
-                  <CommandInput placeholder="Search photographers..." className="h-9 flex-shrink-0 border-b" />
-                  <CommandList className="max-h-[200px] overflow-y-auto overflow-x-hidden">
-                    <CommandEmpty>
-                      {editPhotographers.length === 0 ? 'Loading photographers...' : 'No photographer found.'}
-                    </CommandEmpty>
-                    <CommandGroup>
-                      {editPhotographers.length > 0 ? editPhotographers.map((photographer) => (
-                        <CommandItem
-                          key={photographer.id}
-                          value={`${photographer.name} ${photographer.email}`}
-                          onSelect={() => {
-                            // Ensure photographer ID is properly set
-                            const photographerId = photographer.id;
-                            console.log('📸 Selecting photographer:', { id: photographerId, name: photographer.name });
-                            setSelectedPhotographerIdEdit(photographerId);
-                            updateField('photographer', {
-                              id: photographerId, // Keep as string for now, will convert to number in handleSave
-                              name: photographer.name,
-                              email: photographer.email,
-                            });
-                            setPhotographerSearchOpen(false);
-                          }}
-                        >
-                          <div className="flex flex-col">
-                            <span className="font-medium">{photographer.name}</span>
-                            {photographer.email && (
-                              <span className="text-[10px] text-muted-foreground">{photographer.email}</span>
-                            )}
-                          </div>
-                          {selectedPhotographerIdEdit === photographer.id && (
-                            <Check className="ml-auto h-4 w-4" />
-                          )}
-                        </CommandItem>
-                      )) : null}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-          ) : (
-            <div className="space-y-1 text-xs">
-              <div className="font-medium">{shoot.photographer?.name || 'Not assigned'}</div>
-              {shoot.photographer?.email && (
-                <div className="text-muted-foreground truncate">{shoot.photographer.email}</div>
-              )}
+      {/* Photographer Card — per-service or single */}
+      {(shoot.photographer || isEditMode) && (() => {
+        // Detect per-service photographer assignments
+        const svcList = Array.isArray(shoot.services) ? shoot.services : [];
+        const normCat = (name: string) => name.trim().toLowerCase().replace(/s$/, '');
+        const catGroups: Record<string, { name: string; photographer: any; services: any[] }> = {};
+        for (const s of svcList) {
+          if (typeof s !== 'object' || !s) continue;
+          const catName = (s as any).category?.name || (s as any).category_name || 'Other';
+          const key = normCat(catName);
+          if (!catGroups[key]) catGroups[key] = { name: catName, photographer: null, services: [] };
+          catGroups[key].services.push(s);
+          const svcPhotographer = (s as any).photographer || null;
+          const svcPhotographerId = (s as any).resolved_photographer_id || (s as any).photographer_id;
+          if (svcPhotographer && svcPhotographerId) {
+            catGroups[key].photographer = svcPhotographer;
+          }
+        }
+        const catEntries = Object.values(catGroups).filter(g => g.services.length > 0);
+        // Check if there are genuinely different photographers across categories
+        const uniquePhotographerIds = new Set(
+          catEntries.map(g => String(g.photographer?.id || shoot.photographer?.id || '')).filter(Boolean)
+        );
+        const hasMultiplePhotographers = catEntries.length > 1 && uniquePhotographerIds.size > 1;
+
+        return (
+          <div className="p-2.5 border rounded-lg bg-card">
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <CameraIcon className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase">
+                {hasMultiplePhotographers ? 'Photographers' : 'Photographer'}
+              </span>
             </div>
-          )}
-        </div>
-      )}
+            {isEditMode ? (
+              <Popover open={photographerSearchOpen} onOpenChange={setPhotographerSearchOpen} modal={false}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={photographerSearchOpen}
+                    className="w-full justify-between h-8 text-xs font-normal"
+                  >
+                    {selectedPhotographerIdEdit
+                      ? editPhotographers.find((p) => p.id === selectedPhotographerIdEdit)?.name || 'Select photographer...'
+                      : 'Select photographer...'}
+                    <ArrowUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent 
+                  className="w-[var(--radix-popover-trigger-width)] max-w-[300px] p-0 shadow-lg z-[200] max-h-[250px]" 
+                  align="start" 
+                  sideOffset={4}
+                  side="bottom"
+                  onOpenAutoFocus={(e) => e.preventDefault()}
+                  style={{ pointerEvents: 'auto' }}
+                >
+                  <Command className="rounded-lg flex flex-col" shouldFilter={true}>
+                    <CommandInput placeholder="Search photographers..." className="h-9 flex-shrink-0 border-b" />
+                    <CommandList className="max-h-[200px] overflow-y-auto overflow-x-hidden">
+                      <CommandEmpty>
+                        {editPhotographers.length === 0 ? 'Loading photographers...' : 'No photographer found.'}
+                      </CommandEmpty>
+                      <CommandGroup>
+                        {editPhotographers.length > 0 ? editPhotographers.map((photographer) => (
+                          <CommandItem
+                            key={photographer.id}
+                            value={`${photographer.name} ${photographer.email}`}
+                            onSelect={() => {
+                              const photographerId = photographer.id;
+                              console.log('📸 Selecting photographer:', { id: photographerId, name: photographer.name });
+                              setSelectedPhotographerIdEdit(photographerId);
+                              updateField('photographer', {
+                                id: photographerId,
+                                name: photographer.name,
+                                email: photographer.email,
+                              });
+                              setPhotographerSearchOpen(false);
+                            }}
+                          >
+                            <div className="flex flex-col">
+                              <span className="font-medium">{photographer.name}</span>
+                              {photographer.email && (
+                                <span className="text-[10px] text-muted-foreground">{photographer.email}</span>
+                              )}
+                            </div>
+                            {selectedPhotographerIdEdit === photographer.id && (
+                              <Check className="ml-auto h-4 w-4" />
+                            )}
+                          </CommandItem>
+                        )) : null}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            ) : hasMultiplePhotographers ? (
+              <div className="space-y-1.5">
+                {catEntries.map(group => {
+                  const photog = group.photographer || shoot.photographer;
+                  return (
+                    <div key={group.name} className="flex items-center justify-between gap-2 text-xs">
+                      <span className="text-[10px] font-medium text-muted-foreground uppercase truncate">{group.name}</span>
+                      <span className="font-medium truncate">{photog?.name || 'Not assigned'}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="space-y-1 text-xs">
+                <div className="font-medium">{shoot.photographer?.name || 'Not assigned'}</div>
+                {shoot.photographer?.email && (
+                  <div className="text-muted-foreground truncate">{shoot.photographer.email}</div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Property Access Card - Lockbox or Access Contact Info */}
       <div className="p-2.5 border rounded-lg bg-card">

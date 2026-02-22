@@ -407,45 +407,88 @@ export function ShootDetailsSidebar({
       </Card>
       )}
 
-      {/* Photographer Card */}
-      {photographer && (
-        <Card className="shadow-sm border-2 hover:shadow-md transition-shadow">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <div className="h-8 w-8 rounded-full bg-blue-500/10 flex items-center justify-center">
-                <Camera className="h-4 w-4 text-blue-600" />
-              </div>
-              Photographer
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500/20 to-blue-500/10 flex items-center justify-center border-2 border-blue-500/20">
-                <Camera className="h-5 w-5 text-blue-600" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-base truncate">{photographer.name}</p>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <Circle className="h-2 w-2 fill-green-500 text-green-500" />
-                  <span className="text-xs text-muted-foreground">Online</span>
+      {/* Photographer Card — per-service or single */}
+      {photographer && (() => {
+        // Detect per-service photographer assignments
+        const svcList = Array.isArray(shoot.services) ? shoot.services : [];
+        const normCat = (name: string) => name.trim().toLowerCase().replace(/s$/, '');
+        const catGroups: Record<string, { name: string; photographer: any; services: any[] }> = {};
+        for (const s of svcList) {
+          if (typeof s !== 'object' || !s) continue;
+          const catName = (s as any).category?.name || (s as any).category_name || 'Other';
+          const key = normCat(catName);
+          if (!catGroups[key]) catGroups[key] = { name: catName, photographer: null, services: [] };
+          catGroups[key].services.push(s);
+          const svcPhotographer = (s as any).photographer || null;
+          const svcPhotographerId = (s as any).resolved_photographer_id || (s as any).photographer_id;
+          if (svcPhotographer && svcPhotographerId) {
+            catGroups[key].photographer = svcPhotographer;
+          }
+        }
+        const catEntries = Object.values(catGroups).filter(g => g.services.length > 0);
+        const uniquePhotographerIds = new Set(
+          catEntries.map(g => String(g.photographer?.id || photographer?.id || '')).filter(Boolean)
+        );
+        const hasMultiplePhotographers = catEntries.length > 1 && uniquePhotographerIds.size > 1;
+
+        return (
+          <Card className="shadow-sm border-2 hover:shadow-md transition-shadow">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <div className="h-8 w-8 rounded-full bg-blue-500/10 flex items-center justify-center">
+                  <Camera className="h-4 w-4 text-blue-600" />
                 </div>
-              </div>
-            </div>
-            
-            {isAdmin && photographer.id && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full text-xs"
-                onClick={() => setAssignPhotographerOpen(true)}
-              >
-                Change Photographer
-                <ChevronRight className="h-3 w-3 ml-1" />
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      )}
+                {hasMultiplePhotographers ? 'Photographers' : 'Photographer'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {hasMultiplePhotographers ? (
+                <div className="space-y-2">
+                  {catEntries.map(group => {
+                    const photog = group.photographer || photographer;
+                    return (
+                      <div key={group.name} className="flex items-center gap-3">
+                        <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500/20 to-blue-500/10 flex items-center justify-center border border-blue-500/20 flex-shrink-0">
+                          <Camera className="h-4 w-4 text-blue-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-sm truncate">{photog?.name || 'Not assigned'}</p>
+                          <p className="text-[10px] text-muted-foreground uppercase">{group.name}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500/20 to-blue-500/10 flex items-center justify-center border-2 border-blue-500/20">
+                    <Camera className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-base truncate">{photographer.name}</p>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <Circle className="h-2 w-2 fill-green-500 text-green-500" />
+                      <span className="text-xs text-muted-foreground">Online</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {isAdmin && photographer.id && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-xs"
+                  onClick={() => setAssignPhotographerOpen(true)}
+                >
+                  Change Photographer
+                  <ChevronRight className="h-3 w-3 ml-1" />
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* Billing Summary Card */}
       {(isAdmin || isSuperAdmin) && (

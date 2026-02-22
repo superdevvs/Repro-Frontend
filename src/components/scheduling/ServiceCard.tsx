@@ -13,6 +13,7 @@ import { Edit, Trash2, CheckCircle2, XCircle, Plus, HelpCircle } from 'lucide-re
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import axios from 'axios';
 import { API_BASE_URL } from '@/config/env';
+import { useQueryClient } from '@tanstack/react-query';
 import { IconPicker, getIconComponent } from './IconPicker';
 
 type SqftRange = {
@@ -47,6 +48,7 @@ type ServiceProps = {
 };
 
 export function ServiceCard({ service, onUpdate }: ServiceProps) {
+  const queryClient = useQueryClient();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   type Service = ServiceProps['service'];
@@ -168,6 +170,7 @@ export function ServiceCard({ service, onUpdate }: ServiceProps) {
   
       setIsEditDialogOpen(false);
       onUpdate();
+      queryClient.invalidateQueries({ queryKey: ['services'] });
     } catch (error) {
       console.error('Error updating service:', error);
   
@@ -219,6 +222,7 @@ export function ServiceCard({ service, onUpdate }: ServiceProps) {
   
       setIsDeleteDialogOpen(false);
       onUpdate();
+      queryClient.invalidateQueries({ queryKey: ['services'] });
     } catch (error) {
       console.error('Error deleting service:', error);
       toast({

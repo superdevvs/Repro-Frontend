@@ -44,10 +44,11 @@ import { useServices } from "@/hooks/useServices";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { usePermission } from "@/hooks/usePermission";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 
 // Define allowed roles for the form
 type FormRole = 'superadmin' | 'admin' | 'editing_manager' | 'photographer' | 'client' | 'editor' | 'salesRep';
@@ -168,6 +169,7 @@ export function AccountForm({
   const [adminsAndReps, setAdminsAndReps] = useState<Array<{id: string, name: string}>>([]);
   const [pilotLicenseModalOpen, setPilotLicenseModalOpen] = useState(false);
   const [insuranceModalOpen, setInsuranceModalOpen] = useState(false);
+  const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
   const { toast } = useToast();
   const { role: viewerRole, user: currentUser } = useAuth();
   const permission = usePermission();
@@ -692,6 +694,23 @@ export function AccountForm({
     if (!servicesData || servicesData.length === 0) return [];
     return servicesData.filter((s) => s.active !== false);
   }, [servicesData]);
+
+  // Group services by category for organized display
+  const groupedServices = React.useMemo(() => {
+    if (!serviceOptions.length) return [];
+    const groups: Record<string, typeof serviceOptions> = {};
+    for (const s of serviceOptions) {
+      const cat = s.category || 'Other';
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push(s);
+    }
+    // Sort: named categories first alphabetically, "Other" last
+    return Object.entries(groups).sort(([a], [b]) => {
+      if (a === 'Other') return 1;
+      if (b === 'Other') return -1;
+      return a.localeCompare(b);
+    });
+  }, [serviceOptions]);
   
   // Helper to get service name by ID for display
   const getServiceName = (serviceId: string) => {
@@ -721,158 +740,166 @@ export function AccountForm({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[calc(100dvh-0.75rem)] w-[calc(100vw-0.75rem)] max-w-[1100px] flex-col gap-0 overflow-hidden p-0 sm:h-auto sm:max-h-[90vh] sm:w-full sm:gap-4 sm:px-6 sm:py-8">
+      <DialogContent className="flex h-[calc(100dvh-0.5rem)] w-[calc(100vw-0.5rem)] max-w-[1100px] flex-col gap-0 overflow-hidden rounded-2xl p-0 sm:h-auto sm:max-h-[90vh] sm:w-full sm:gap-4 sm:rounded-lg sm:px-6 sm:py-8">
         <Form {...form}>
-        <DialogHeader className="relative border-b px-4 py-3 sm:-mt-2 sm:border-0 sm:px-0 sm:pt-0 sm:pb-0 sm:pr-14">
-          <div className="flex w-full flex-col gap-3 pr-12 sm:flex-row sm:items-start sm:justify-between sm:gap-4 sm:pr-0">
-            <div className="flex-1 min-w-0">
-              <DialogTitle className="pt-0 text-xl font-semibold">
-                {initialData
-                  ? "Update user account details"
-                  : "Create a new user account"}
-              </DialogTitle>
-              {showRepSelector && (
-                <FormField
-                  control={form.control}
-                  name="created_by_id"
-                  render={({ field }) => (
-                    <FormItem className="mt-1">
-                      <div className="flex items-center gap-1">
-                        <span className="text-xs text-muted-foreground">{repLabel}:</span>
-                        <Select
-                          onValueChange={(value) => {
-                            field.onChange(value);
-                            const selected = adminsAndReps.find(u => u.id === value);
-                            if (selected) {
-                              form.setValue('created_by_name', selected.name);
-                            }
-                          }}
-                          value={field.value || (currentUser?.id ? String(currentUser.id) : "")}
-                        >
-                          <FormControl>
-                            <SelectTrigger className="border-0 bg-transparent shadow-none h-auto p-0 gap-1 text-xs font-medium text-foreground hover:bg-transparent focus:ring-0 focus:ring-offset-0 w-auto">
-                              <SelectValue placeholder={`Select ${repLabel.toLowerCase()}`} />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {adminsAndReps.map((user) => (
-                              <SelectItem key={user.id} value={user.id}>
-                                {user.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <FormMessage />
-                    </FormItem>
+        <DialogHeader className="relative border-b px-3 py-2.5 sm:-mt-2 sm:border-0 sm:px-0 sm:pt-0 sm:pb-0 sm:pr-14">
+          {/* Row 1: Title left + Role right */}
+          <div className="flex w-full items-center justify-between gap-3 pr-8 sm:pr-0">
+            <DialogTitle className="min-w-0 truncate pt-0 text-[15px] font-semibold sm:text-xl sm:truncate-none">
+              {initialData
+                ? "Update account"
+                : "New account"}
+              <span className="hidden sm:inline">
+                {initialData ? " details" : " — create user"}
+              </span>
+            </DialogTitle>
+            <FormField
+              control={form.control}
+              name="role"
+              render={({ field }) => (
+                <FormItem className="flex-shrink-0">
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value}
+                    disabled={roleSelectionDisabled}
+                  >
+                    <FormControl>
+                      <SelectTrigger disabled={roleSelectionDisabled} className="h-7 w-auto gap-1 rounded-full border-border/60 bg-muted/40 px-2.5 text-xs font-medium sm:h-9 sm:w-[140px] sm:rounded-md sm:px-3 sm:text-sm">
+                        <SelectValue placeholder="Role" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {viewerRole === 'superadmin' && (
+                        <SelectItem value="superadmin" disabled={!canManageRoles}>
+                          Super Admin
+                        </SelectItem>
+                      )}
+                      <SelectItem value="admin" disabled={!canManageRoles}>
+                        Admin
+                      </SelectItem>
+                      <SelectItem value="editing_manager" disabled={!canManageRoles}>
+                        Editing Manager
+                      </SelectItem>
+                      <SelectItem value="photographer" disabled={!canManageRoles}>
+                        Photographer
+                      </SelectItem>
+                      <SelectItem value="client">Client</SelectItem>
+                      <SelectItem value="editor" disabled={!canManageRoles}>
+                        Editor
+                      </SelectItem>
+                      <SelectItem value="salesRep" disabled={!canCreateSalesRep}>
+                        Sales/Rep
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {roleSelectionDisabled && (
+                    <p className="text-[10px] text-muted-foreground mt-0.5 text-right whitespace-nowrap sm:text-xs sm:mt-1">
+                      Sales reps can only create clients.
+                    </p>
                   )}
-                />
+                  <FormMessage />
+                </FormItem>
               )}
-              {!showRepSelector && isClientRole && (
-                <div className="text-xs text-muted-foreground mt-1">
-                  {repLabel}: <span className="font-medium text-foreground">
-                    {createdByName || 'Unassigned'}
-                  </span>
-                </div>
-              )}
-            </div>
-            <div className="flex w-full items-center gap-2 sm:w-auto sm:flex-shrink-0 sm:gap-4">
-              <FormField
-                control={form.control}
-                name="role"
-                render={({ field }) => (
-                  <FormItem>
-                    <div className="flex items-center gap-2">
-                      <FormLabel className="text-sm text-muted-foreground whitespace-nowrap">Role:</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        value={field.value}
-                        disabled={roleSelectionDisabled}
-                      >
-                        <FormControl>
-                          <SelectTrigger disabled={roleSelectionDisabled} className="h-9 w-full sm:w-[140px]">
-                            <SelectValue placeholder="Select role" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {viewerRole === 'superadmin' && (
-                            <SelectItem value="superadmin" disabled={!canManageRoles}>
-                              Super Admin
-                            </SelectItem>
-                          )}
-                          <SelectItem value="admin" disabled={!canManageRoles}>
-                            Admin
-                          </SelectItem>
-                          <SelectItem value="editing_manager" disabled={!canManageRoles}>
-                            Editing Manager
-                          </SelectItem>
-                          <SelectItem value="photographer" disabled={!canManageRoles}>
-                            Photographer
-                          </SelectItem>
-                          <SelectItem value="client">Client</SelectItem>
-                          <SelectItem value="editor" disabled={!canManageRoles}>
-                            Editor
-                          </SelectItem>
-                          <SelectItem value="salesRep" disabled={!canCreateSalesRep}>
-                            Sales/Rep
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    {roleSelectionDisabled && (
-                      <p className="text-xs text-muted-foreground mt-1.5 whitespace-nowrap">
-                        Sales reps can only create client accounts.
-                      </p>
-                    )}
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+            />
           </div>
+          {/* Row 2: Rep selector / label */}
+          {showRepSelector && (
+            <FormField
+              control={form.control}
+              name="created_by_id"
+              render={({ field }) => (
+                <FormItem className="mt-0.5">
+                  <div className="flex items-center gap-1">
+                    <span className="text-[11px] text-muted-foreground sm:text-xs">{repLabel}:</span>
+                    <Select
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        const selected = adminsAndReps.find(u => u.id === value);
+                        if (selected) {
+                          form.setValue('created_by_name', selected.name);
+                        }
+                      }}
+                      value={field.value || (currentUser?.id ? String(currentUser.id) : "")}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="border-0 bg-transparent shadow-none h-auto p-0 gap-1 text-[11px] font-medium text-foreground hover:bg-transparent focus:ring-0 focus:ring-offset-0 w-auto sm:text-xs">
+                          <SelectValue placeholder={`Select ${repLabel.toLowerCase()}`} />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {adminsAndReps.map((user) => (
+                          <SelectItem key={user.id} value={user.id}>
+                            {user.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+          {!showRepSelector && isClientRole && (
+            <div className="text-[11px] text-muted-foreground mt-0.5 sm:text-xs">
+              {repLabel}: <span className="font-medium text-foreground">
+                {createdByName || 'Unassigned'}
+              </span>
+            </div>
+          )}
         </DialogHeader>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="flex min-h-0 flex-1 flex-col">
-            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-0 sm:py-2">
-              <div className="space-y-6 sm:space-y-8">
-            <div className="grid gap-6 md:grid-cols-[260px,1fr]">
-              <div className="flex flex-col items-center gap-3">
+            <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 sm:px-0 sm:py-2">
+              <div className="space-y-3 sm:space-y-8">
+            <div className="grid gap-4 md:grid-cols-[260px,1fr]">
+              <div className="flex flex-row items-center gap-3 sm:flex-col sm:gap-3">
                 <ImageUpload
                   initialImage={avatarUrl}
                   onChange={(url) => {
                     setAvatarUrl(url);
                     form.setValue("avatar", url);
                   }}
-                  className="h-24 w-24"
+                  className="h-16 w-16 sm:h-24 sm:w-24"
                 />
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" size="sm" className="gap-2">
-                      {avatarUrl ? (
-                        <img src={avatarUrl} alt="Selected avatar" className="h-5 w-5 rounded-full object-cover" />
-                      ) : (
-                        <Camera className="h-4 w-4" />
-                      )}
-                      Choose Avatar
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-80" align="center">
-                    <div className="space-y-3">
-                      <p className="text-sm text-muted-foreground">
-                        Upload a profile image or choose a default avatar
-                      </p>
-                      <AvatarPicker
-                        selectedAvatar={avatarUrl}
-                        onSelect={(url) => {
-                          setAvatarUrl(url);
-                          form.setValue("avatar", url);
-                        }}
-                      />
-                    </div>
-                  </PopoverContent>
-                </Popover>
+                <div className="flex flex-col gap-1.5 sm:items-center">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1.5 text-xs sm:h-9 sm:gap-2 sm:text-sm"
+                    onClick={() => setAvatarPickerOpen(true)}
+                  >
+                    {avatarUrl ? (
+                      <img src={avatarUrl} alt="Selected avatar" className="h-4 w-4 rounded-full object-cover sm:h-5 sm:w-5" />
+                    ) : (
+                      <Camera className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    )}
+                    Choose Avatar
+                  </Button>
+                  <Drawer open={avatarPickerOpen} onOpenChange={setAvatarPickerOpen}>
+                    <DrawerContent className="max-h-[70dvh]">
+                      <DrawerHeader className="pb-2">
+                        <DrawerTitle>Choose Avatar</DrawerTitle>
+                        <p className="text-sm text-muted-foreground">
+                          Upload a profile image or choose a default avatar
+                        </p>
+                      </DrawerHeader>
+                      <div className="overflow-y-auto px-4 pb-6">
+                        <AvatarPicker
+                          selectedAvatar={avatarUrl}
+                          onSelect={(url) => {
+                            setAvatarUrl(url);
+                            form.setValue("avatar", url);
+                            setAvatarPickerOpen(false);
+                          }}
+                        />
+                      </div>
+                    </DrawerContent>
+                  </Drawer>
+                </div>
               </div>
-              <div className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2.5 sm:space-y-4">
+                <div className="grid grid-cols-2 gap-2.5 sm:gap-4">
                   <FormField
                     control={form.control}
                     name="firstName"
@@ -900,7 +927,7 @@ export function AccountForm({
                     )}
                   />
                 </div>
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid grid-cols-1 gap-2.5 sm:gap-4 md:grid-cols-2">
                   <FormField
                     control={form.control}
                     name="email"
@@ -934,7 +961,7 @@ export function AccountForm({
               </div>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid grid-cols-2 gap-2.5 sm:gap-4 md:grid-cols-2">
               <FormField
                 control={form.control}
                 name="company"
@@ -1038,7 +1065,7 @@ export function AccountForm({
                     Upload insurance documents and pilot license
                   </p>
                 </div>
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid grid-cols-1 gap-2.5 sm:gap-4 md:grid-cols-2">
                   <FormField
                     control={form.control}
                     name="insuranceNumber"
@@ -1149,7 +1176,7 @@ export function AccountForm({
                   </p>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid grid-cols-1 gap-2.5 sm:gap-4 md:grid-cols-2">
                   <FormField
                     control={form.control}
                     name="repPayoutEmail"
@@ -1191,7 +1218,7 @@ export function AccountForm({
                   />
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid grid-cols-2 gap-2.5 sm:gap-4">
                   <FormField
                     control={form.control}
                     name="repHomeStreet"
@@ -1353,7 +1380,7 @@ export function AccountForm({
                   }}
                 />
 
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid grid-cols-1 gap-2.5 sm:gap-4 md:grid-cols-2">
                   <FormField
                     control={form.control}
                     name="repAutoApprovePayouts"
@@ -1437,26 +1464,33 @@ export function AccountForm({
                             No services configured. Add services in Scheduling Settings.
                           </p>
                         ) : (
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            {serviceOptions.map((service) => {
-                              const active = valueArray.includes(service.id);
-                              return (
-                                <button
-                                  key={service.id}
-                                  type="button"
-                                  onClick={() => toggle(service.id)}
-                                  title={service.description || service.name}
-                                  className={cn(
-                                    "px-3 py-1.5 rounded-full text-sm border transition",
-                                    active
-                                      ? "bg-primary/10 text-primary border-primary/30 shadow-sm"
-                                      : "bg-background text-muted-foreground border-border/70 hover:bg-muted/60 hover:text-foreground"
-                                  )}
-                                >
-                                  {service.name}
-                                </button>
-                              );
-                            })}
+                          <div className="space-y-3 mt-2">
+                            {groupedServices.map(([category, services]) => (
+                              <div key={category}>
+                                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">{category}</h4>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {services.map((service) => {
+                                    const active = valueArray.includes(service.id);
+                                    return (
+                                      <button
+                                        key={service.id}
+                                        type="button"
+                                        onClick={() => toggle(service.id)}
+                                        title={service.description || service.name}
+                                        className={cn(
+                                          "px-3 py-1.5 rounded-full text-sm border transition",
+                                          active
+                                            ? "bg-primary/10 text-primary border-primary/30 shadow-sm"
+                                            : "bg-background text-muted-foreground border-border/70 hover:bg-muted/60 hover:text-foreground"
+                                        )}
+                                      >
+                                        {service.name}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ))}
                           </div>
                         )}
                         <FormMessage />
@@ -1524,13 +1558,13 @@ export function AccountForm({
               />
             )}
 
-            <DialogFooter className="flex-col gap-2 border-t bg-background px-4 py-3 sm:flex-row sm:justify-end sm:gap-0 sm:space-x-2 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 [padding-bottom:calc(0.75rem+env(safe-area-inset-bottom))] sm:[padding-bottom:0]">
-              <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => onOpenChange(false)}>
+            <DialogFooter className="flex-row gap-2 border-t bg-background px-3 py-2.5 sm:justify-end sm:gap-0 sm:space-x-2 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 [padding-bottom:calc(0.5rem+env(safe-area-inset-bottom))] sm:[padding-bottom:0]">
+              <Button type="button" variant="outline" className="flex-1 sm:flex-initial sm:w-auto" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
               <Button
                 type="button"
-                className="w-full sm:w-auto"
+                className="flex-1 sm:flex-initial sm:w-auto"
                 onClick={() => {
                   console.log("✅ Create Account button clicked");
                   form.handleSubmit(handleSubmit)();

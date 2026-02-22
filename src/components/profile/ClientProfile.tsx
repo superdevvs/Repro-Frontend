@@ -337,7 +337,7 @@ export function ClientProfile() {
             <div className="flex items-center space-x-2">
               <Badge variant="outline" className="text-muted-foreground">
                 <div className="flex items-center gap-1">
-                  <span>Assigned Rep: John Smith</span>
+                  <span>Assigned Rep: {user?.metadata?.accountRep || 'Not assigned'}</span>
                 </div>
               </Badge>
             </div>

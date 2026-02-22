@@ -234,8 +234,8 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
             </Button>
           )}
           
-          {/* Pay Now Button - Only show to clients for their own shoots if not paid */}
-          {isClient && !isPaid && (
+          {/* Pay Now Button - Only show to clients for their own shoots if not paid and not cancelled/declined */}
+          {isClient && !isPaid && !['cancelled', 'canceled', 'declined'].includes(normalizedStatus) && (
             <Button 
               onClick={handlePayNow}
               className="bg-red-500 hover:bg-red-600 text-white font-semibold px-6 py-2 rounded-full shadow-lg"

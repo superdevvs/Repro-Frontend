@@ -109,14 +109,14 @@ export function ImageUpload({ onChange, initialImage, className }: ImageUploadPr
   };
 
   return (
-    <div className="flex flex-col items-center">
+    <div className="flex flex-col items-center gap-0">
       <div 
         className="relative group"
         onMouseEnter={() => setIsHovering(true)}
         onMouseLeave={() => setIsHovering(false)}
       >
         <Avatar 
-          className={`h-24 w-24 cursor-pointer ${className}`}
+          className={`cursor-pointer ${className || 'h-24 w-24'}`}
           onClick={handleButtonClick}
         >
           <AvatarImage src={preview || user?.avatar} />
@@ -155,7 +155,7 @@ export function ImageUpload({ onChange, initialImage, className }: ImageUploadPr
       <Button 
         variant="outline" 
         size="sm" 
-        className="mt-3 text-xs"
+        className="mt-2 hidden text-xs sm:mt-3 sm:inline-flex"
         onClick={handleButtonClick}
         disabled={uploading}
       >

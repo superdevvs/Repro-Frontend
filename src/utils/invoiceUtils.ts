@@ -127,7 +127,16 @@ export const generateInvoicePDF = (invoice: InvoiceData): void => {
   // Draw table footer line
   doc.line(20, yPos, 190, yPos);
   yPos += 8;
-  
+
+  // Shoot address below items
+  if (invoice.property) {
+    doc.setFont("helvetica", "bold");
+    doc.text("Property Address:", 20, yPos);
+    doc.setFont("helvetica", "normal");
+    doc.text(invoice.property, 20, yPos + 5);
+    yPos += 14;
+  }
+
   // Totals
   doc.setFont("helvetica", "bold");
   doc.text("Subtotal:", 140, yPos);

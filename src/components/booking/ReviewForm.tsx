@@ -25,7 +25,9 @@ interface ReviewFormProps {
   time: string;
   photographer: string;
   setPhotographer: (id: string) => void;
-  selectedServices: Array<{ id: string; name: string; description?: string; price: number }>;
+  servicePhotographers?: Record<string, string>;
+  setServicePhotographers?: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  selectedServices: Array<{ id: string; name: string; description?: string; price: number; category?: { id: string; name: string } }>;
   additionalNotes: string; // Renamed from notes to additionalNotes
   setAdditionalNotes: (value: string) => void; // Renamed from setNotes
   bypassPayment: boolean;
@@ -94,6 +96,8 @@ export function ReviewForm({
   time,
   photographer,
   setPhotographer,
+  servicePhotographers = {},
+  setServicePhotographers,
   selectedServices,
   additionalNotes,
   setAdditionalNotes,
@@ -269,12 +273,56 @@ export function ReviewForm({
             )}
           </div>
 
-          <div className="flex justify-between">
-            <span className="text-sm text-slate-500 dark:text-slate-400">Photographer:</span>
-            <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
-              {photographers.find(p => p.id === photographer)?.name || (photographers.length === 0 ? "To be assigned" : "No photographer selected")}
-            </span>
-          </div>
+          {(() => {
+            // Check if we have per-service photographer assignments
+            const hasServicePhotographers = Object.keys(servicePhotographers).length > 0;
+            // Group services by normalized category name (merges "Photo"/"Photos" etc.)
+            const normalizeCatName = (name: string) => name.trim().toLowerCase().replace(/s$/, '');
+            const categoryGroupsNorm: Record<string, { name: string; services: Array<{ id: string; name: string; category?: { id: string; name: string } }> }> = {};
+            for (const s of selectedServices) {
+              const rawName = s.category?.name || 'Other';
+              const key = normalizeCatName(rawName);
+              if (!categoryGroupsNorm[key]) categoryGroupsNorm[key] = { name: rawName, services: [] };
+              categoryGroupsNorm[key].services.push(s);
+            }
+            const categories = Object.values(categoryGroupsNorm).map(g => [g.name, g.services] as [string, typeof g.services]);
+            const isMultiCategory = categories.length > 1 && hasServicePhotographers;
+
+            if (isMultiCategory) {
+              // Show per-category photographer assignments
+              return (
+                <div>
+                  <span className="text-sm text-slate-500 dark:text-slate-400">Photographers:</span>
+                  <div className="mt-1 space-y-1">
+                    {categories.map(([catName, catServices]) => {
+                      const photographerId = catServices.find(s => servicePhotographers[s.id])
+                        ? servicePhotographers[catServices.find(s => servicePhotographers[s.id])!.id]
+                        : '';
+                      const photographerName = photographers.find(p => p.id === photographerId)?.name;
+                      return (
+                        <div key={catName} className="flex justify-between text-sm">
+                          <span className="text-slate-600 dark:text-slate-300">{catName}:</span>
+                          <span className="font-medium text-slate-900 dark:text-slate-100">
+                            {photographerName || 'To be assigned'}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            }
+
+            // Single photographer (default)
+            return (
+              <div className="flex justify-between">
+                <span className="text-sm text-slate-500 dark:text-slate-400">Photographer:</span>
+                <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                  {photographers.find(p => p.id === photographer)?.name || (photographers.length === 0 ? "To be assigned" : "No photographer selected")}
+                </span>
+              </div>
+            );
+          })()}
 
           {additionalNotes && (
             <div className="pt-2">
