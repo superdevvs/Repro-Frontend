@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"; 
+import React, { useState, useEffect } from "react"; 
 import { User, Role } from "@/components/auth/AuthProvider";
 import { useAuth } from "@/components/auth";
 import { cn } from "@/lib/utils";
@@ -39,7 +39,8 @@ import { useToast } from "@/hooks/use-toast";
 import { API_BASE_URL } from "@/config/env";
 import type { RepDetails } from "@/types/auth";
 import { STATE_OPTIONS } from "@/utils/stateUtils";
-import { Upload, FileText, X, Camera } from "lucide-react";
+import { Upload, FileText, X, Camera, Loader2 } from "lucide-react";
+import { useServices } from "@/hooks/useServices";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { usePermission } from "@/hooks/usePermission";
 import {
@@ -684,31 +685,19 @@ export function AccountForm({
     }
   };
 
-  // specialties options
-  const specialtyOptions = [
-    "Residential",
-    "Commercial",
-    "Aerial",
-    "Virtual Tours",
-    "Twilight",
-    "HDR",
-    "Drone",
-    "3D Tours",
-    "Flash Photos",
-    "Walkthrough Video",
-    "Vertical/Social media Video",
-    "Matterport",
-    "iGuide",
-    "Elevated Photos",
-    "Agent on Camera",
-    "Floor plans",
-    "HDR Photos + Video",
-    "HDR Photos + Video + 3D Matterport",
-    "HDR Photos + Video + iGuide",
-    "Video + iGuide",
-    "Video + Matterport",
-    "Photos + Floor plans",
-  ];
+  // Dynamic services from API (synced with Scheduling Settings)
+  // Stores service IDs, not names - for stable references
+  const { data: servicesData, isLoading: isLoadingServices } = useServices();
+  const serviceOptions = React.useMemo(() => {
+    if (!servicesData || servicesData.length === 0) return [];
+    return servicesData.filter((s) => s.active !== false);
+  }, [servicesData]);
+  
+  // Helper to get service name by ID for display
+  const getServiceName = (serviceId: string) => {
+    const service = servicesData?.find(s => s.id === serviceId);
+    return service?.name || serviceId;
+  };
 
   // watch role to toggle specialties UI
   const isSalesRep = currentRole === "salesRep";
@@ -1434,27 +1423,42 @@ export function AccountForm({
 
                     return (
                       <FormItem>
-                        <FormLabel>Resources</FormLabel>
-                        <div className="flex flex-wrap gap-2 mt-2">
-                          {specialtyOptions.map((opt) => {
-                            const active = valueArray.includes(opt);
-                            return (
-                              <button
-                                key={opt}
-                                type="button"
-                                onClick={() => toggle(opt)}
-                                className={cn(
-                                  "px-3 py-1.5 rounded-full text-sm border transition",
-                                  active
-                                    ? "bg-primary/10 text-primary border-primary/30 shadow-sm"
-                                    : "bg-background text-muted-foreground border-border/70 hover:bg-muted/60 hover:text-foreground"
-                                )}
-                              >
-                                {opt}
-                              </button>
-                            );
-                          })}
-                        </div>
+                        <FormLabel>Service Capabilities</FormLabel>
+                        <p className="text-xs text-muted-foreground mb-2">
+                          Select services this photographer can perform
+                        </p>
+                        {isLoadingServices ? (
+                          <div className="flex items-center gap-2 py-4 text-muted-foreground">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span className="text-sm">Loading services...</span>
+                          </div>
+                        ) : serviceOptions.length === 0 ? (
+                          <p className="text-sm text-muted-foreground py-2">
+                            No services configured. Add services in Scheduling Settings.
+                          </p>
+                        ) : (
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            {serviceOptions.map((service) => {
+                              const active = valueArray.includes(service.id);
+                              return (
+                                <button
+                                  key={service.id}
+                                  type="button"
+                                  onClick={() => toggle(service.id)}
+                                  title={service.description || service.name}
+                                  className={cn(
+                                    "px-3 py-1.5 rounded-full text-sm border transition",
+                                    active
+                                      ? "bg-primary/10 text-primary border-primary/30 shadow-sm"
+                                      : "bg-background text-muted-foreground border-border/70 hover:bg-muted/60 hover:text-foreground"
+                                  )}
+                                >
+                                  {service.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
                         <FormMessage />
                       </FormItem>
                     );
