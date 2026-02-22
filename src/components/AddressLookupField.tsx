@@ -393,6 +393,7 @@ const AddressLookupField: React.FC<AddressLookupFieldProps> = ({
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState<AddressDetails | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [inputValue, setInputValue] = useState(value || '');
   
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
@@ -677,6 +678,7 @@ const AddressLookupField: React.FC<AddressLookupFieldProps> = ({
   // Handle input change with debouncing
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
+    setInputValue(newValue);
     onChange(newValue);
     setSelectedAddress(null);
 
@@ -750,8 +752,8 @@ const AddressLookupField: React.FC<AddressLookupFieldProps> = ({
         });
         setSelectedAddress(mergedDetails);
         onAddressSelect(mergedDetails);
-        // Clear search input after selection
-        onChange('');
+        // Clear search input display after selection (don't touch form field)
+        setInputValue('');
         setShowSuggestions(false);
         setIsLoading(false);
         return;
@@ -897,8 +899,8 @@ const AddressLookupField: React.FC<AddressLookupFieldProps> = ({
         const fallbackDetails = buildDetailsFromSuggestion(suggestion);
         setSelectedAddress(fallbackDetails);
         onAddressSelect(fallbackDetails);
-        // Clear search input after selection
-        onChange('');
+        // Clear search input display after selection (don't touch form field)
+        setInputValue('');
         setShowSuggestions(false);
         return;
       }
@@ -917,8 +919,8 @@ const AddressLookupField: React.FC<AddressLookupFieldProps> = ({
       
       setSelectedAddress(mergedDetails);
       onAddressSelect(mergedDetails);
-      // Clear the search input after selection - form fields are populated by onAddressSelect
-      onChange('');
+      // Clear search input display after selection (don't touch form field)
+      setInputValue('');
       setShowSuggestions(false);
     } catch (err) {
       console.warn('Address details fetch error:', err);
@@ -934,8 +936,8 @@ const AddressLookupField: React.FC<AddressLookupFieldProps> = ({
       };
       setSelectedAddress(fallbackDetails);
       onAddressSelect(fallbackDetails);
-      // Clear search input after selection
-      onChange('');
+      // Clear search input display after selection (don't touch form field)
+      setInputValue('');
       setShowSuggestions(false);
     } finally {
       setIsLoading(false);
@@ -977,7 +979,7 @@ const AddressLookupField: React.FC<AddressLookupFieldProps> = ({
         <Input
           ref={inputRef}
           type="text"
-          value={value}
+          value={inputValue}
           onChange={handleInputChange}
           placeholder={placeholder}
           disabled={disabled}
@@ -1034,7 +1036,7 @@ const AddressLookupField: React.FC<AddressLookupFieldProps> = ({
       )}
 
       {/* No results message */}
-      {showSuggestions && suggestions.length === 0 && value.length >= 1 && !isLoading && (
+      {showSuggestions && suggestions.length === 0 && inputValue.length >= 1 && !isLoading && (
         <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg p-3">
           <div className="text-center text-gray-500">
             <MapPin className="w-6 h-6 mx-auto mb-1 text-gray-300" />
