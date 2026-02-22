@@ -2049,7 +2049,7 @@ export function ShootDetailsOverviewTab({
             <span className="text-[11px] font-semibold text-muted-foreground uppercase">Client</span>
           </div>
           {isEditMode ? (
-            <Popover open={clientSearchOpen} onOpenChange={setClientSearchOpen}>
+            <Popover open={clientSearchOpen} onOpenChange={setClientSearchOpen} modal={false}>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
@@ -2064,10 +2064,12 @@ export function ShootDetailsOverviewTab({
                 </Button>
               </PopoverTrigger>
               <PopoverContent 
-                className="w-[var(--radix-popover-trigger-width)] max-w-[300px] p-0 shadow-lg z-50 max-h-[250px]" 
+                className="w-[var(--radix-popover-trigger-width)] max-w-[300px] p-0 shadow-lg z-[200] max-h-[250px]" 
                 align="start" 
                 sideOffset={4}
                 side="bottom"
+                onOpenAutoFocus={(e) => e.preventDefault()}
+                style={{ pointerEvents: 'auto' }}
               >
                 <Command className="rounded-lg flex flex-col" shouldFilter={true}>
                   <CommandInput placeholder="Search clients..." className="h-9 flex-shrink-0 border-b" />
@@ -2137,7 +2139,7 @@ export function ShootDetailsOverviewTab({
             <span className="text-[11px] font-semibold text-muted-foreground uppercase">Photographer</span>
           </div>
           {isEditMode ? (
-            <Popover open={photographerSearchOpen} onOpenChange={setPhotographerSearchOpen}>
+            <Popover open={photographerSearchOpen} onOpenChange={setPhotographerSearchOpen} modal={false}>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
@@ -2152,10 +2154,12 @@ export function ShootDetailsOverviewTab({
                 </Button>
               </PopoverTrigger>
               <PopoverContent 
-                className="w-[var(--radix-popover-trigger-width)] max-w-[300px] p-0 shadow-lg z-50 max-h-[250px]" 
+                className="w-[var(--radix-popover-trigger-width)] max-w-[300px] p-0 shadow-lg z-[200] max-h-[250px]" 
                 align="start" 
                 sideOffset={4}
                 side="bottom"
+                onOpenAutoFocus={(e) => e.preventDefault()}
+                style={{ pointerEvents: 'auto' }}
               >
                 <Command className="rounded-lg flex flex-col" shouldFilter={true}>
                   <CommandInput placeholder="Search photographers..." className="h-9 flex-shrink-0 border-b" />

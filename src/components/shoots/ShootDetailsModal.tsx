@@ -1725,7 +1725,7 @@ export function ShootDetailsModal({
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       
       // Get photos from shoot files - filter for valid URLs
-      const photos: Array<{ url: string; filename: string; selected: boolean }> = [];
+      const photos: Array<{ id?: number; url: string; filename: string; selected: boolean }> = [];
       
       // Try to get photos from files first
       if (shoot.files && Array.isArray(shoot.files)) {
@@ -1742,6 +1742,7 @@ export function ShootDetailsModal({
             const url = f.url || f.path || f.original_url || f.large_url || '';
             if (url) {
               photos.push({
+                id: f.id,
                 url: url,
                 filename: f.filename || `photo-${f.id}`,
                 selected: true,

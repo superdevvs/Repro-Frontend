@@ -2349,6 +2349,7 @@ const MlsQueueView: React.FC = () => {
       const photos = shoot.files
         ?.filter((f: any) => f.path || f.url)
         .map((f: any) => ({
+          id: f.id,
           url: f.path || f.url || '',
           filename: f.filename || `photo-${f.id}`,
           selected: true,
