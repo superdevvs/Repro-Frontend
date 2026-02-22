@@ -90,7 +90,7 @@ export default function ResetPassword() {
 
   if (isSuccess) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#030619] p-4">
+      <div className="min-h-screen flex items-center justify-center bg-[#060a0e] p-4">
         <Card className="w-full max-w-md bg-slate-900 border-slate-800">
           <CardHeader className="text-center">
             <div className="mx-auto w-12 h-12 bg-green-500/20 rounded-full flex items-center justify-center mb-4">
@@ -113,7 +113,7 @@ export default function ResetPassword() {
 
   if (!token || !email) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#030619] p-4">
+      <div className="min-h-screen flex items-center justify-center bg-[#060a0e] p-4">
         <Card className="w-full max-w-md bg-slate-900 border-slate-800">
           <CardHeader className="text-center">
             <div className="mx-auto w-12 h-12 bg-red-500/20 rounded-full flex items-center justify-center mb-4">
@@ -135,7 +135,7 @@ export default function ResetPassword() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#030619] p-4">
+    <div className="min-h-screen flex items-center justify-center bg-[#060a0e] p-4">
       <Card className="w-full max-w-md bg-slate-900 border-slate-800">
         <CardHeader className="text-center">
           <CardTitle className="text-white text-2xl">Reset Your Password</CardTitle>

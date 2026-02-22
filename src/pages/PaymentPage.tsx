@@ -123,7 +123,7 @@ export default function PaymentPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#030619] flex items-center justify-center">
+      <div className="min-h-screen bg-[#060a0e] flex items-center justify-center">
         <div className="w-full max-w-md">
           <HorizontalLoader message="Loading payment details..." />
         </div>
@@ -133,7 +133,7 @@ export default function PaymentPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[#030619] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[#060a0e] flex items-center justify-center p-4">
         <Card className="max-w-md w-full bg-[#0a0f1a] border-red-500/30">
           <CardContent className="pt-6 text-center">
             <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
@@ -147,7 +147,7 @@ export default function PaymentPage() {
 
   if (paymentSuccess) {
     return (
-      <div className="min-h-screen bg-[#030619] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[#060a0e] flex items-center justify-center p-4">
         <Card className="max-w-md w-full bg-[#0a0f1a] border-green-500/30">
           <CardContent className="pt-6 text-center">
             <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
@@ -166,7 +166,7 @@ export default function PaymentPage() {
 
   if (amountDue <= 0) {
     return (
-      <div className="min-h-screen bg-[#030619] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[#060a0e] flex items-center justify-center p-4">
         <Card className="max-w-md w-full bg-[#0a0f1a] border-green-500/30">
           <CardContent className="pt-6 text-center">
             <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
@@ -181,7 +181,7 @@ export default function PaymentPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#030619] text-white">
+    <div className="min-h-screen bg-[#060a0e] text-white">
       <div className="mx-auto w-full max-w-5xl px-4 py-10">
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <Logo variant="light" className="h-8 w-auto" />

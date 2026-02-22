@@ -24,8 +24,8 @@ const Index = () => {
     const prevHtmlBg = html.style.backgroundColor;
     const prevBodyBg = body.style.backgroundColor;
 
-    html.style.backgroundColor = '#030619';
-    body.style.backgroundColor = '#030619';
+    html.style.backgroundColor = '#060a0e';
+    body.style.backgroundColor = '#060a0e';
 
     const themeColorMetas = Array.from(
       document.querySelectorAll("meta[name='theme-color']")
@@ -33,7 +33,7 @@ const Index = () => {
     const prevThemeColors = themeColorMetas.map((meta) => meta.content);
 
     themeColorMetas.forEach((meta) => {
-      meta.content = '#030619';
+      meta.content = '#060a0e';
     });
 
     return () => {
@@ -86,7 +86,7 @@ const Index = () => {
       <div 
         className={`dark ${isLogin ? '' : 'mobile-login-scrollable'}`} 
         style={{ 
-          background: '#030619', 
+          background: '#060a0e', 
           minHeight: '100dvh',
           height: isLogin ? '100dvh' : 'auto',
           overflow: isLogin ? 'hidden' : 'auto',
@@ -144,10 +144,10 @@ const Index = () => {
             style={{
               height: isLogin ? '35px' : '25px',
               marginTop: isLogin ? '-35px' : '-25px',
-              background: 'linear-gradient(to bottom, transparent 0%, rgba(3,6,25,0.45) 30%, rgba(3,6,25,0.78) 65%, #030619 100%)',
+              background: 'linear-gradient(to bottom, transparent 0%, rgba(6,10,14,0.45) 30%, rgba(6,10,14,0.78) 65%, #060a0e 100%)',
             }}
           />
-          <div style={{ background: '#030619' }}>
+          <div style={{ background: '#060a0e' }}>
             <motion.div
               className={`relative z-10 w-full text-white ${isLogin ? '' : 'px-4'}`}
               initial={{ opacity: 0, y: 20 }}
@@ -168,7 +168,7 @@ const Index = () => {
   return (
     <div
       className="dark min-h-dvh w-full flex flex-row md:overflow-hidden relative pb-[env(safe-area-inset-bottom)]"
-      style={{ background: '#030619' }}
+      style={{ background: '#060a0e' }}
     >
       {/* Left Side - Slideshow */}
       <div className="w-1/2 relative p-4 flex items-center justify-center">
