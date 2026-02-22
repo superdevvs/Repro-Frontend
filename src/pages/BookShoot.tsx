@@ -159,6 +159,20 @@ const BookShoot = () => {
   // Check if user is a client (either actual client or admin impersonating a client)
   // When impersonating, user.role is already set to the target user's role
   const isClientAccount = user && (user.role as string) === 'client';
+
+  // Form validation: Check if all required fields are filled for booking
+  const isFormComplete = React.useMemo(() => {
+    const hasClient = isClientAccount || !!client;
+    const hasAddress = !!address?.trim();
+    const hasCity = !!city?.trim();
+    const hasState = !!state?.trim();
+    const hasZip = !!zip?.trim();
+    const hasDate = !!date;
+    const hasTime = !!time?.trim();
+    const hasServices = selectedServices.length > 0;
+    
+    return hasClient && hasAddress && hasCity && hasState && hasZip && hasDate && hasTime && hasServices;
+  }, [isClientAccount, client, address, city, state, zip, date, time, selectedServices]);
   
   // Check if user should have form data cached (admin, rep, or photographer)
   const shouldCacheForm = user && ['admin', 'superadmin', 'rep', 'photographer'].includes(user.role);
@@ -1449,7 +1463,7 @@ const BookShoot = () => {
                       selectedServices={selectedServices}
                       onSubmit={step === 3 ? handleSubmit : undefined}
                       isLastStep={step === 3}
-                      canSubmit={isMobile ? true : Boolean(String(photographer || '').trim())}
+                      canSubmit={isFormComplete}
                       isSubmitting={isSubmitting}
                       showRepName={user?.role === 'admin' || user?.role === 'superadmin' || user?.role === 'photographer'}
                       weather={{ temperature: parsedTemperature, condition }}

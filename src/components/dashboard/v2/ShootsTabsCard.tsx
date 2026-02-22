@@ -1373,14 +1373,14 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
       <div className="flex-1 flex flex-col">
         {activeTab === 'upcoming' ? (
           paginatedGroups.length === 0 ? (
-            <div className="flex-1 flex items-center justify-center text-center text-sm text-slate-500">
+            <div className="flex-1 flex items-center justify-center text-center text-sm text-slate-500 pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:pb-0">
               No upcoming shoots found.
             </div>
           ) : (
             <div 
               ref={scrollContainerRef}
               onScroll={handleScroll}
-              className="flex-1 min-h-0 space-y-6 overflow-y-auto hidden-scrollbar"
+              className="flex-1 min-h-0 space-y-6 overflow-y-auto hidden-scrollbar pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:pb-0"
             >
               {paginatedGroups.map((group) => (
                 <div key={group.label} className="space-y-3">
@@ -1402,12 +1402,12 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
           )
         ) : (
           filteredRequestedShoots.length === 0 ? (
-            <div className="flex-1 flex items-center justify-center text-center text-sm text-slate-500">
+            <div className="flex-1 flex items-center justify-center text-center text-sm text-slate-500 pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:pb-0">
               No pending requests.
             </div>
           ) : (
             <div 
-              className="flex-1 min-h-0 space-y-6 overflow-y-auto hidden-scrollbar"
+              className="flex-1 min-h-0 space-y-6 overflow-y-auto hidden-scrollbar pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:pb-0"
             >
               {requestedGroups.map((group) => (
                 <div key={group.label} className="space-y-3">

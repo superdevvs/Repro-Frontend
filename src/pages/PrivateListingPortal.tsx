@@ -50,6 +50,12 @@ interface PrivateListing {
     genericMls?: string;
   };
   isPrivateListing: boolean;
+  listing_type?: 'for_sale' | 'for_rent';
+  bedrooms?: number;
+  bathrooms?: number;
+  sqft?: number;
+  price?: number;
+  mls_number?: string;
 }
 
 const buildListingAlias = (listing: PrivateListing) => {
@@ -484,6 +490,14 @@ const PrivateListingPortal = () => {
               <MapPin className="h-3 w-3" />
               {listing.city}, {listing.state}
             </div>
+            {/* Property details row */}
+            {(listing.bedrooms || listing.bathrooms || listing.sqft) && (
+              <div className="text-[10px] text-muted-foreground mt-1 flex items-center gap-2">
+                {listing.bedrooms && <span>{listing.bedrooms} bed</span>}
+                {listing.bathrooms && <span>{listing.bathrooms} bath</span>}
+                {listing.sqft && <span>{listing.sqft.toLocaleString()} sqft</span>}
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             {variant === 'ready' && (

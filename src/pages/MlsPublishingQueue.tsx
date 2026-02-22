@@ -47,6 +47,8 @@ interface MlsQueueItem {
   status: 'pending' | 'published' | 'error';
   last_published: string | null;
   manifest_id: string | null;
+  mode: string | null;
+  environment: string | null;
   redirect_url: string | null;
   response: any;
 }
@@ -100,7 +102,6 @@ const MlsPublishingQueue = () => {
       // Prepare photos
       const photos = shoot.files
         ?.filter((f: any) => f.path || f.url)
-        .slice(0, 20)
         .map((f: any) => ({
           id: f.id,
           url: f.path || f.url || '',
@@ -201,6 +202,7 @@ const MlsPublishingQueue = () => {
                       <TableHead>Client</TableHead>
                       <TableHead>Photographer</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead>Mode / Env</TableHead>
                       <TableHead>Last Published</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
@@ -214,6 +216,16 @@ const MlsPublishingQueue = () => {
                         <TableCell>{item.client}</TableCell>
                         <TableCell>{item.photographer}</TableCell>
                         <TableCell>{getStatusBadge(item.status)}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-1">
+                            <Badge variant="outline" className="text-xs w-fit">
+                              {item.mode === 'new' ? 'New API' : 'Legacy'}
+                            </Badge>
+                            <Badge variant="secondary" className="text-xs w-fit">
+                              {(item.environment || 't1').toUpperCase()}
+                            </Badge>
+                          </div>
+                        </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {formatDate(item.last_published)}
                         </TableCell>

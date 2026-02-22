@@ -92,20 +92,36 @@ export function BookingComplete({
           }
         </p>
         
-        {/* Payment countdown for client requests */}
-        {isClientRequest && !countdownComplete && (
+        {/* Payment section for client requests */}
+        {isClientRequest && totalAmount > 0 && (
           <motion.div 
-            className="mb-6 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800"
+            className="mb-6 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800 w-full"
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
           >
-            <p className="text-blue-700 dark:text-blue-300 font-medium flex items-center gap-2">
-              <CreditCard className="h-5 w-5" />
-              Taking you to payment in{' '}
-              <span className="inline-flex items-center justify-center min-w-[28px] h-7 px-2 text-lg font-bold text-white bg-blue-500 rounded-full animate-pulse">
-                {countdown}
-              </span>
-            </p>
+            {!countdownComplete ? (
+              <p className="text-blue-700 dark:text-blue-300 font-medium flex items-center justify-center gap-2">
+                <CreditCard className="h-5 w-5" />
+                Taking you to payment in{' '}
+                <span className="inline-flex items-center justify-center min-w-[28px] h-7 px-2 text-lg font-bold text-white bg-blue-500 rounded-full animate-pulse">
+                  {countdown}
+                </span>
+              </p>
+            ) : (
+              <p className="text-blue-700 dark:text-blue-300 text-sm">
+                Complete your payment to confirm your booking.
+              </p>
+            )}
+            <Button 
+              onClick={() => {
+                setCountdownComplete(true);
+                setShowPaymentDialog(true);
+              }}
+              className="w-full mt-3 bg-green-600 hover:bg-green-700 text-white"
+            >
+              <CreditCard className="mr-2 h-4 w-4" />
+              Pay Now - ${totalAmount.toFixed(2)}
+            </Button>
           </motion.div>
         )}
         

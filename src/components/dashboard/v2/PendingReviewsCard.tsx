@@ -110,7 +110,7 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
   }
 
   return (
-    <Card className="flex flex-col h-full flex-1 min-h-0">
+    <Card className="flex flex-col h-full flex-1 min-h-0 overflow-hidden">
       <div className="flex flex-col h-full flex-1 min-h-0">
         <div className="flex items-center justify-between mb-2 flex-shrink-0">
           <h2 className="text-base sm:text-lg font-bold text-foreground">{title}</h2>
@@ -141,11 +141,11 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
           <div className="flex-1 flex flex-col min-h-0">
             {displayClientRequests ? (
               safeClientRequests.length === 0 ? (
-                <div className="flex-1 flex items-center justify-center text-center text-sm text-muted-foreground pb-3">
+                <div className="flex-1 flex items-center justify-center text-center text-sm text-muted-foreground pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:pb-3">
                   {clientRequestsLoading ? 'Loading requests...' : emptyRequestsText}
                 </div>
               ) : (
-                <div className="overflow-y-auto" style={{ maxHeight: '320px', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                <div className="flex-1 min-h-0 overflow-y-auto pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:pb-0" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                   <div className="space-y-1.5" style={{ WebkitOverflowScrolling: 'touch' }}>
                     {safeClientRequests.map((request) => (
                       <button
@@ -174,9 +174,9 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
                 </div>
               )
             ) : visibleIssues.length === 0 ? (
-              <div className="flex-1 flex items-center justify-center text-center text-sm text-muted-foreground pb-3">{emptyRequestsText}</div>
+              <div className="flex-1 flex items-center justify-center text-center text-sm text-muted-foreground pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:pb-3">{emptyRequestsText}</div>
             ) : (
-              <div className="overflow-y-auto" style={{ maxHeight: '320px', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+              <div className="flex-1 min-h-0 overflow-y-auto pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:pb-0" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                 <div className="space-y-1.5" style={{ WebkitOverflowScrolling: 'touch' }}>
                   {visibleIssues.map((issue) => (
                     <button
@@ -212,9 +212,9 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
         {activeTab === 'editing' && showEditingTab && (
           <div className="flex-1 flex flex-col min-h-0">
             {editingRequestsLoading ? (
-              <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">Loading...</div>
+              <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:pb-0">Loading...</div>
             ) : activeEditingRequests.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center px-3 pb-3">
+              <div className="flex-1 flex flex-col items-center justify-center px-3 pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:pb-3">
                 <p className="text-xs text-muted-foreground italic mb-3">No active requests.</p>
                 {onCreateEditingRequest && (
                   <Button size="sm" onClick={onCreateEditingRequest} className="w-full">
@@ -224,7 +224,7 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
               </div>
             ) : (
               <div className="flex flex-col flex-1">
-                <div className="overflow-y-auto flex-1" style={{ maxHeight: '280px', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                <div className="overflow-y-auto flex-1 min-h-0 pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:pb-0" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                   <div className="space-y-1.5">
                     {activeEditingRequests.slice(0, 5).map((request) => (
                       <button

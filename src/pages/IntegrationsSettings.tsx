@@ -36,7 +36,10 @@ export const IntegrationsSettingsContent = () => {
 
   // Bright MLS Settings
   const [brightMlsSettings, setBrightMlsSettings] = useState({
+    apiMode: 'legacy',
+    environment: 't1',
     apiUrl: '',
+    importUrlBase: '',
     apiUser: '',
     apiKey: '',
     vendorId: '',
@@ -111,7 +114,19 @@ export const IntegrationsSettingsContent = () => {
         }
 
         if (brightMlsRes?.data?.success && brightMlsRes.data.data?.value) {
-          setBrightMlsSettings({ ...brightMlsRes.data.data.value, enabled: brightMlsRes.data.data.value.enabled ?? true });
+          setBrightMlsSettings({
+            apiMode: 'legacy',
+            environment: 't1',
+            apiUrl: 'https://bright-manifestservices.tst.brightmls.com',
+            importUrlBase: 'https://lmsedit.tst.brightmls.com',
+            apiUser: '',
+            apiKey: '',
+            vendorId: '',
+            vendorName: 'Repro Photos',
+            defaultDocVisibility: 'private',
+            ...brightMlsRes.data.data.value,
+            enabled: brightMlsRes.data.data.value.enabled ?? true,
+          });
         }
 
         if (iguideRes?.data?.success && iguideRes.data.data?.value) {
@@ -146,7 +161,10 @@ export const IntegrationsSettingsContent = () => {
 
       if (!brightMlsSettings.apiUrl) {
         setBrightMlsSettings({
-          apiUrl: 'https://agl1paz1msaasservices.bright-solutions.co',
+          apiMode: 'legacy',
+          environment: 't1',
+          apiUrl: 'https://bright-manifestservices.tst.brightmls.com',
+          importUrlBase: 'https://lmsedit.tst.brightmls.com',
           apiUser: '',
           apiKey: '',
           vendorId: '',
@@ -657,6 +675,34 @@ export const IntegrationsSettingsContent = () => {
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
+                      <Label htmlFor="bright-mls-api-mode">API Mode</Label>
+                      <select
+                        id="bright-mls-api-mode"
+                        value={brightMlsSettings.apiMode}
+                        onChange={(e) =>
+                          setBrightMlsSettings({ ...brightMlsSettings, apiMode: e.target.value })
+                        }
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                      >
+                        <option value="legacy">Legacy</option>
+                        <option value="new">New (April Migration)</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="bright-mls-environment">Environment</Label>
+                      <select
+                        id="bright-mls-environment"
+                        value={brightMlsSettings.environment}
+                        onChange={(e) =>
+                          setBrightMlsSettings({ ...brightMlsSettings, environment: e.target.value })
+                        }
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                      >
+                        <option value="t1">T1 (Test)</option>
+                        <option value="p1">P1 (Production)</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2">
                       <Label htmlFor="bright-mls-api-url">API URL</Label>
                       <Input
                         id="bright-mls-api-url"
@@ -665,7 +711,19 @@ export const IntegrationsSettingsContent = () => {
                         onChange={(e) =>
                           setBrightMlsSettings({ ...brightMlsSettings, apiUrl: e.target.value })
                         }
-                        placeholder="https://agl1paz1msaasservices.bright-solutions.co"
+                        placeholder="https://bright-manifestservices.tst.brightmls.com"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="bright-mls-import-url-base">Import URL Base</Label>
+                      <Input
+                        id="bright-mls-import-url-base"
+                        type="text"
+                        value={brightMlsSettings.importUrlBase}
+                        onChange={(e) =>
+                          setBrightMlsSettings({ ...brightMlsSettings, importUrlBase: e.target.value })
+                        }
+                        placeholder="https://lmsedit.tst.brightmls.com"
                       />
                     </div>
                     <div className="space-y-2">

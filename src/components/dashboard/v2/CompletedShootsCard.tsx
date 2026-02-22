@@ -139,11 +139,11 @@ export const CompletedShootsCard: React.FC<CompletedShootsCardProps> = ({
         <span className="text-[10px] sm:text-xs text-muted-foreground">{safeShoots.length} ready</span>
       </div>
       {safeShoots.length === 0 ? (
-        <div className="flex-1 flex items-center justify-center text-center text-sm text-muted-foreground">
+        <div className="flex-1 flex items-center justify-center text-center text-sm text-muted-foreground pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:pb-0">
           {emptyStateText}
         </div>
       ) : (
-        <div className="space-y-3 flex-1 overflow-y-auto custom-scrollbar pr-1">
+        <div className="space-y-3 flex-1 overflow-y-auto custom-scrollbar pr-1 pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:pb-0">
           {safeShoots.slice(0, 3).map((shoot, index) => {
             const images = getShootImages(shoot);
             return (

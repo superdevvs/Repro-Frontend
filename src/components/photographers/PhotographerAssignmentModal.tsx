@@ -419,7 +419,7 @@ export const PhotographerAssignmentModal: React.FC = () => {
 
   return (
     <Dialog open={isOpen} onOpenChange={closeModal}>
-      <DialogContent className="max-w-[1100px] max-h-[90vh] flex flex-col p-0">
+      <DialogContent className="w-screen h-[100dvh] max-w-none rounded-none overflow-hidden flex flex-col p-0 sm:max-w-[1100px] sm:max-h-[90vh] sm:h-auto sm:rounded-lg">
         <DialogHeader className="sr-only">
           <DialogTitle>Assign Photographer</DialogTitle>
           <DialogDescription>
@@ -427,14 +427,14 @@ export const PhotographerAssignmentModal: React.FC = () => {
           </DialogDescription>
         </DialogHeader>
         {/* Top Bar */}
-        <div className="px-6 pt-6 pb-4 border-b flex items-center justify-between">
-          <h2 className="text-2xl font-bold">Assign Photographer</h2>
-          <div className="flex items-center gap-4">
+        <div className="px-3 sm:px-6 pt-3 sm:pt-6 pb-3 sm:pb-4 border-b flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <h2 className="text-base sm:text-2xl font-bold">Assign Photographer</h2>
+          <div className="flex flex-wrap items-center gap-2 sm:gap-4">
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  <span className="text-sm font-medium">
+                <Button variant="outline" size="sm" className="h-8 sm:h-9 flex items-center gap-2 text-xs sm:text-sm">
+                  <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  <span className="font-medium">
                     {isToday(selectedDate) ? 'Today' : isTomorrow(selectedDate) ? 'Tomorrow' : format(selectedDate, 'EEE, MMM d')}
                   </span>
                 </Button>
@@ -448,7 +448,7 @@ export const PhotographerAssignmentModal: React.FC = () => {
                 />
               </PopoverContent>
             </Popover>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 ml-auto sm:ml-0">
               <Button
                 variant="ghost"
                 size="icon"
@@ -474,29 +474,29 @@ export const PhotographerAssignmentModal: React.FC = () => {
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground">
               <Info className="h-3 w-3" />
               <span>Changes sync automatically</span>
             </div>
           </div>
         </div>
 
-        <div className="flex-1 flex min-h-0 overflow-hidden">
+        <div className="flex-1 flex flex-col sm:flex-row min-h-0 overflow-hidden">
           {/* Left Column - Photographer Summary + Availability (35%) */}
-          <div className="w-[35%] border-r border-border flex flex-col bg-muted/20">
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          <div className="w-full sm:w-[35%] sm:border-r border-border flex flex-col bg-muted/20">
+            <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
               {/* Identity Block */}
               <div className="space-y-3">
-                <div className="flex items-start gap-4">
+                <div className="flex items-start gap-3 sm:gap-4">
                   <Avatar
                     src={photographer.avatar}
                     initials={photographer.name.split(' ').map(n => n[0]).join('')}
-                    className="w-16 h-16"
+                    className="w-12 h-12 sm:w-16 sm:h-16"
                     status={photographer.status}
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <h3 className="text-lg font-semibold text-foreground truncate">{photographer.name}</h3>
+                      <h3 className="text-base sm:text-lg font-semibold text-foreground truncate">{photographer.name}</h3>
                       <Badge
                         variant="outline"
                         className={cn(
@@ -517,7 +517,7 @@ export const PhotographerAssignmentModal: React.FC = () => {
               </div>
 
               {/* Metrics Strip */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2 sm:gap-3">
                 <div className="p-3 rounded-lg border bg-card">
                   <p className="text-xs text-muted-foreground mb-1">Jobs today</p>
                   <p className="text-xl font-semibold">{photographer.loadToday} / 5</p>
@@ -549,7 +549,7 @@ export const PhotographerAssignmentModal: React.FC = () => {
                     ))}
                   </div>
                 ) : timelineSlots.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {timelineSlots.map((slot, idx) => (
                       <div
                         key={`${slot.start}-${idx}`}
@@ -649,7 +649,7 @@ export const PhotographerAssignmentModal: React.FC = () => {
               {/* Contact & Actions */}
               <div className="pt-4 border-t border-border space-y-2">
                 {(photographer.phone || photographer.email) && (
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {photographer.phone && (
                       <Button variant="outline" size="sm" className="w-full" asChild>
                         <a href={`tel:${photographer.phone}`}>
@@ -679,10 +679,10 @@ export const PhotographerAssignmentModal: React.FC = () => {
           </div>
 
           {/* Right Column - Assignable Shoots (65%) */}
-          <div className="flex-1 flex flex-col min-h-0">
+          <div className="flex-1 flex flex-col min-h-0 border-t sm:border-t-0">
             {/* Offline Warning */}
             {photographer.status === 'offline' && (
-              <div className="mx-6 mt-6 p-3 rounded-lg border bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800">
+              <div className="mx-3 sm:mx-6 mt-3 sm:mt-6 p-3 rounded-lg border bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800">
                 <div className="flex items-start gap-2">
                   <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5" />
                   <div className="flex-1">
@@ -696,18 +696,18 @@ export const PhotographerAssignmentModal: React.FC = () => {
                 </div>
               </div>
             )}
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex-1 overflow-y-auto p-3 sm:p-6 pb-[calc(env(safe-area-inset-bottom,0px)+1rem)] sm:pb-6">
 
               {/* Assignable Shoots List */}
               <div>
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
                   <h4 className="text-sm font-semibold flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4" />
                     Assignable Shoots ({filteredShoots.length})
                   </h4>
                   <div className="flex items-center gap-2">
                     <Select value={filterType} onValueChange={(v: any) => setFilterType(v)}>
-                      <SelectTrigger className="w-32 h-8 text-xs">
+                      <SelectTrigger className="w-full sm:w-32 h-8 text-xs">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -727,7 +727,7 @@ export const PhotographerAssignmentModal: React.FC = () => {
                     ))}
                   </div>
                 ) : filteredShoots.length > 0 ? (
-                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                  <div className="space-y-3">
                     {filteredShoots.map((shoot) => {
                       const isCompatible = timelineSlots.some(slot => slot.status === 'available');
                       return (

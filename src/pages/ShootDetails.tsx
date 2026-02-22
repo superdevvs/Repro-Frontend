@@ -980,7 +980,7 @@ const ShootDetails: React.FC = () => {
                       </Button>
                     </>
                   )}
-                  {isAdminOrSuperAdmin && (
+                  {isAdminOrSuperAdmin && !['cancelled', 'canceled', 'declined'].includes(workflowStatusKey) && (
                     <Button
                       variant="default"
                       size="sm"

@@ -112,28 +112,13 @@ const RobbieRouteTracker = () => {
 // Protected route component
 const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
   const { isAuthenticated, isLoading } = useAuth();
-  const hasNotifiedRef = useRef(false);
-
-  useEffect(() => {
-    if (isLoading) return;
-    if (!isAuthenticated) {
-      if (hasNotifiedRef.current) return;
-      hasNotifiedRef.current = true;
-      toast({
-        title: "Authentication Required",
-        description: "Please log in to access this page.",
-        variant: "destructive",
-      });
-    } else {
-      hasNotifiedRef.current = false;
-    }
-  }, [isAuthenticated, isLoading]);
 
   // Show loading state if auth is still initializing
   if (isLoading) {
     return <FullScreenSpinner />;
   }
 
+  // Silently redirect to login - no toast notification needed
   if (!isAuthenticated) {
     return <Navigate to="/" replace />;
   }
@@ -144,23 +129,7 @@ const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
 // Admin route component
 const AdminRoute = ({ children }: { children: JSX.Element }) => {
   const { role, isAuthenticated, isLoading } = useAuth();
-  const authNotifiedRef = useRef(false);
   const denyNotifiedRef = useRef(false);
-
-  useEffect(() => {
-    if (isLoading) return;
-    if (!isAuthenticated) {
-      if (authNotifiedRef.current) return;
-      authNotifiedRef.current = true;
-      toast({
-        title: "Authentication Required",
-        description: "Please log in to access this page.",
-        variant: "destructive",
-      });
-    } else {
-      authNotifiedRef.current = false;
-    }
-  }, [isAuthenticated, isLoading]);
 
   useEffect(() => {
     if (isLoading || !isAuthenticated) return;
@@ -203,23 +172,7 @@ const RoleRestrictedRoute = ({
   allowedRoles: string[] 
 }) => {
   const { role, isAuthenticated, isLoading } = useAuth();
-  const authNotifiedRef = useRef(false);
   const denyNotifiedRef = useRef(false);
-
-  useEffect(() => {
-    if (isLoading) return;
-    if (!isAuthenticated) {
-      if (authNotifiedRef.current) return;
-      authNotifiedRef.current = true;
-      toast({
-        title: "Authentication Required",
-        description: "Please log in to access this page.",
-        variant: "destructive",
-      });
-    } else {
-      authNotifiedRef.current = false;
-    }
-  }, [isAuthenticated, isLoading]);
 
   useEffect(() => {
     if (isLoading || !isAuthenticated) return;

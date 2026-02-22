@@ -109,9 +109,12 @@ export function ReviewForm({
   onBack,
   isLastStep = false
 }: ReviewFormProps) {
-  const { user } = useAuth();
+  const { user, isImpersonating } = useAuth();
   const isMobile = useIsMobile();
   const isClientRole = user?.role === 'client';
+
+  // Hide admin-only options for clients and when impersonating
+  const showAdminOptions = !isClientRole && !isImpersonating;
 
   /* ---------------- TAX LOGIC ---------------- */
   const TAXABLE_STATES = ['MD', 'DC', 'VA'];
@@ -124,7 +127,8 @@ export function ReviewForm({
   const total = Number((subtotal + tax).toFixed(2));
   const fullAddress = buildNormalizedAddress({ address, city, state, zip });
 
-  const reviewToggles = (
+  // Only show toggles section if user has admin options to show
+  const reviewToggles = showAdminOptions ? (
     <div className="rounded-xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900/60 p-3 sm:p-4 space-y-3">
       <div className="flex items-center justify-between gap-3">
         <div className="space-y-0.5 min-w-0">
@@ -156,7 +160,7 @@ export function ReviewForm({
         />
       </div>
     </div>
-  );
+  ) : null;
 
   return (
     <motion.div

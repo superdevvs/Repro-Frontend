@@ -147,7 +147,7 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
   }, [photographers, tab, sortBy, hasAvailabilityData, availabilitySet]);
 
   return (
-    <Card className="p-0 sm:p-0 h-full flex flex-col overflow-hidden min-h-0">
+    <Card className="p-0 sm:p-0 h-full flex-1 flex flex-col overflow-hidden min-h-0">
       <div className="p-3 sm:p-5 border-b border-border/60 space-y-2 sm:space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-base sm:text-lg font-bold text-foreground">Assign Photographers</h2>
@@ -177,81 +177,87 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-3 sm:px-5 py-3 sm:py-4 space-y-2 custom-scrollbar min-h-0">
-        {filteredPhotographers.map((photographer) => (
-          <div
-            key={photographer.id}
-            role="button"
-            tabIndex={0}
-            onClick={() => handlePhotographerClick(photographer)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                handlePhotographerClick(photographer);
-              }
-            }}
-            className="w-full flex flex-col gap-2 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl border border-transparent hover:border-primary/40 hover:bg-primary/5 transition-all text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-          >
-            <div className="flex items-center gap-2 sm:gap-3">
-              <Avatar
-                src={photographer.avatar}
-                initials={photographer.name.split(' ').map((n) => n[0]).join('')}
-                className="w-10 h-10 sm:w-12 sm:h-12 flex-shrink-0"
-                status={availabilitySet.has(photographer.id) || !hasAvailabilityData ? 'free' : photographer.status}
-              />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="text-xs sm:text-sm font-semibold text-foreground truncate">{photographer.name}</h3>
-                  <span className="text-[10px] sm:text-[11px] text-muted-foreground flex-shrink-0">{photographer.region}</span>
-                </div>
-                <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-muted-foreground mt-1 gap-2">
-                  <span>{photographer.loadToday}/5 jobs</span>
-                  <span className="text-muted-foreground/70 truncate">
-                    Next slot {photographer.nextSlot ? photographer.nextSlot : 'N/A'}
-                  </span>
-                </div>
-                {showContactActions && (
-                  <div className="flex flex-wrap gap-1.5 sm:gap-2 text-[10px] sm:text-[11px] text-muted-foreground mt-2">
-                    {photographer.phone && (
-                      <>
-                        <a
-                          href={`tel:${photographer.phone}`}
-                          onClick={(event) => event.stopPropagation()}
-                          className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full border bg-background hover:bg-primary/10"
-                        >
-                          <Phone size={10} className="sm:w-3 sm:h-3" />
-                          Call
-                        </a>
-                        <a
-                          href={`sms:${photographer.phone}`}
-                          onClick={(event) => event.stopPropagation()}
-                          className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full border bg-background hover:bg-primary/10"
-                        >
-                          <MessageSquare size={10} className="sm:w-3 sm:h-3" />
-                          Text
-                        </a>
-                      </>
-                    )}
-                    {photographer.email && (
-                      <a
-                        href={`mailto:${photographer.email}`}
-                        onClick={(event) => event.stopPropagation()}
-                        className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full border bg-background hover:bg-primary/10"
-                      >
-                        <Mail size={10} className="sm:w-3 sm:h-3" />
-                        Email
-                      </a>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        ))}
-        {filteredPhotographers.length === 0 && (
-          <div className="text-center py-6 text-sm text-slate-500">
+      <div
+        className={cn(
+          "flex-1 overflow-y-auto px-3 sm:px-5 py-3 sm:py-4 custom-scrollbar min-h-0",
+          filteredPhotographers.length === 0 ? "flex items-center justify-center" : "space-y-2",
+        )}
+      >
+        {filteredPhotographers.length === 0 ? (
+          <div className="w-full text-center text-sm text-slate-500 pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:pb-0">
             No photographers match this filter.
           </div>
+        ) : (
+          filteredPhotographers.map((photographer) => (
+            <div
+              key={photographer.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => handlePhotographerClick(photographer)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  handlePhotographerClick(photographer);
+                }
+              }}
+              className="w-full flex flex-col gap-2 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl border border-transparent hover:border-primary/40 hover:bg-primary/5 transition-all text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            >
+              <div className="flex items-center gap-2 sm:gap-3">
+                <Avatar
+                  src={photographer.avatar}
+                  initials={photographer.name.split(' ').map((n) => n[0]).join('')}
+                  className="w-10 h-10 sm:w-12 sm:h-12 flex-shrink-0"
+                  status={availabilitySet.has(photographer.id) || !hasAvailabilityData ? 'free' : photographer.status}
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="text-xs sm:text-sm font-semibold text-foreground truncate">{photographer.name}</h3>
+                    <span className="text-[10px] sm:text-[11px] text-muted-foreground flex-shrink-0">{photographer.region}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-muted-foreground mt-1 gap-2">
+                    <span>{photographer.loadToday}/5 jobs</span>
+                    <span className="text-muted-foreground/70 truncate">
+                      Next slot {photographer.nextSlot ? photographer.nextSlot : 'N/A'}
+                    </span>
+                  </div>
+                  {showContactActions && (
+                    <div className="flex flex-wrap gap-1.5 sm:gap-2 text-[10px] sm:text-[11px] text-muted-foreground mt-2">
+                      {photographer.phone && (
+                        <>
+                          <a
+                            href={`tel:${photographer.phone}`}
+                            onClick={(event) => event.stopPropagation()}
+                            className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full border bg-background hover:bg-primary/10"
+                          >
+                            <Phone size={10} className="sm:w-3 sm:h-3" />
+                            Call
+                          </a>
+                          <a
+                            href={`sms:${photographer.phone}`}
+                            onClick={(event) => event.stopPropagation()}
+                            className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full border bg-background hover:bg-primary/10"
+                          >
+                            <MessageSquare size={10} className="sm:w-3 sm:h-3" />
+                            Text
+                          </a>
+                        </>
+                      )}
+                      {photographer.email && (
+                        <a
+                          href={`mailto:${photographer.email}`}
+                          onClick={(event) => event.stopPropagation()}
+                          className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full border bg-background hover:bg-primary/10"
+                        >
+                          <Mail size={10} className="sm:w-3 sm:h-3" />
+                          Email
+                        </a>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))
         )}
       </div>
 

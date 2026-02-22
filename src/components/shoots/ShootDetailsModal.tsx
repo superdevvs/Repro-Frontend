@@ -722,6 +722,7 @@ export function ShootDetailsModal({
   const isDelivered = normalizedStatus === 'delivered';
   const isUploadedStatus = normalizedStatus === 'uploaded';
   const isEditingStatus = normalizedStatus === 'editing';
+  const isCancelledOrDeclined = ['cancelled', 'canceled', 'declined'].includes(normalizedStatus);
   const canShowInvoiceButton = isUploadedStatus || isEditingStatus;
   const canFinalise = isAdmin && !isDelivered && ['uploaded', 'editing'].includes(normalizedStatus);
   const canSendToEditing =
@@ -2057,7 +2058,7 @@ export function ShootDetailsModal({
     !((shoot?.payment?.totalPaid ?? 0) >= (shoot?.payment?.totalQuote ?? 0));
   const canProcessPaymentOnMobile = (isAdmin || isRep) && !isPaid && !isPhotographer && !isEditor;
   const showMobilePaymentActions =
-    !isEditMode && !isRequestedStatus && (canMarkPaidOnMobile || canProcessPaymentOnMobile);
+    !isEditMode && !isRequestedStatus && !isCancelledOrDeclined && (canMarkPaidOnMobile || canProcessPaymentOnMobile);
   const showMobileSendToEditingAction =
     !isEditMode && !isRequestedStatus && isAdmin && canSendToEditing;
   const showMobileHoldAction = !isEditMode && !isRequestedStatus && canUserPutOnHold;
@@ -2615,8 +2616,8 @@ export function ShootDetailsModal({
               </Tabs>
             </div>
 
-            {/* Payment buttons section - desktop */}
-            {(isAdmin || isRep) && !isPhotographer && !isEditor && (
+            {/* Payment buttons section - desktop (hidden for cancelled/declined shoots) */}
+            {!isCancelledOrDeclined && (isAdmin || isRep) && !isPhotographer && !isEditor && (
               ((currentUserRole === 'superadmin' || currentUserRole === 'admin') && !((shoot.payment?.totalPaid ?? 0) >= (shoot.payment?.totalQuote ?? 0))) ||
               ((isAdmin || isRep) && !isPaid)
             ) && (

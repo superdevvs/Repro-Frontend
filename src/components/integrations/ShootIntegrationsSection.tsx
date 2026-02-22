@@ -398,7 +398,7 @@ export function ShootIntegrationsSection({ shoot, onRefresh }: ShootIntegrations
                 <div>
                   <Label className="mb-2 block">Photos</Label>
                   <div className="space-y-2 max-h-60 overflow-y-auto">
-                    {shoot.files?.slice(0, 20).map((file, idx) => (
+                    {shoot.files?.map((file, idx) => (
                       <div key={file.id} className="flex items-center space-x-2">
                         <Checkbox
                           id={`photo-${file.id}`}

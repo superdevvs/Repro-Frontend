@@ -12,7 +12,12 @@ import { ShootData } from '@/types/shoots';
 import {
   ArrowLeft,
   Lock,
+  Home,
+  DollarSign,
+  Tag,
+  Ruler,
 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 const resolvePreviewUrl = (value: string | null | undefined): string | null => {
   if (!value) return null;
@@ -354,9 +359,74 @@ export default function ExclusiveListingDetails() {
               </div>
 
               <CardContent className="p-5 space-y-4">
-                <div className="text-sm text-muted-foreground">
-                  Ref ID: <span className="text-foreground font-medium">{shoot.id}</span>
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="text-sm text-muted-foreground">
+                    Ref ID: <span className="text-foreground font-medium">{shoot.id}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {(shoot as any)?.listing_type && (
+                      <Badge className={`${
+                        (shoot as any).listing_type === 'for_rent' 
+                          ? 'bg-blue-500 hover:bg-blue-600' 
+                          : 'bg-green-500 hover:bg-green-600'
+                      } text-white border-0`}>
+                        <Tag className="h-3 w-3 mr-1" />
+                        {(shoot as any).listing_type === 'for_rent' ? 'For Rent' : 'For Sale'}
+                      </Badge>
+                    )}
+                  </div>
                 </div>
+
+                {/* Property Details */}
+                {((shoot as any)?.bedrooms || (shoot as any)?.bathrooms || (shoot as any)?.sqft || (shoot as any)?.price || (shoot as any)?.mls_number) && (
+                  <div className="rounded-lg border bg-muted/30 p-4">
+                    <div className="text-sm font-medium mb-3">Property Details</div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                      {(shoot as any)?.bedrooms && (
+                        <div className="flex items-center gap-2">
+                          <Home className="h-4 w-4 text-muted-foreground" />
+                          <div>
+                            <div className="text-xs text-muted-foreground">Beds</div>
+                            <div className="font-medium">{(shoot as any).bedrooms}</div>
+                          </div>
+                        </div>
+                      )}
+                      {(shoot as any)?.bathrooms && (
+                        <div className="flex items-center gap-2">
+                          <Home className="h-4 w-4 text-muted-foreground" />
+                          <div>
+                            <div className="text-xs text-muted-foreground">Baths</div>
+                            <div className="font-medium">{(shoot as any).bathrooms}</div>
+                          </div>
+                        </div>
+                      )}
+                      {(shoot as any)?.sqft && (
+                        <div className="flex items-center gap-2">
+                          <Ruler className="h-4 w-4 text-muted-foreground" />
+                          <div>
+                            <div className="text-xs text-muted-foreground">Sq Ft</div>
+                            <div className="font-medium">{(shoot as any).sqft.toLocaleString()}</div>
+                          </div>
+                        </div>
+                      )}
+                      {(shoot as any)?.price && (
+                        <div className="flex items-center gap-2">
+                          <DollarSign className="h-4 w-4 text-muted-foreground" />
+                          <div>
+                            <div className="text-xs text-muted-foreground">Price</div>
+                            <div className="font-medium">${Number((shoot as any).price).toLocaleString()}</div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    {(shoot as any)?.mls_number && (
+                      <div className="mt-3 pt-3 border-t">
+                        <div className="text-xs text-muted-foreground">MLS #</div>
+                        <div className="font-medium">{(shoot as any).mls_number}</div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <Separator />
 

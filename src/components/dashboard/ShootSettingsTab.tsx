@@ -404,6 +404,21 @@ export function ShootSettingsTab({
             <div className="border rounded-lg p-3.5 space-y-3">
               <div className="text-sm font-medium">Property Details</div>
               <div className="space-y-2">
+                <Label htmlFor="listing_type" className="text-xs">Listing Type</Label>
+                <Select
+                  defaultValue={(shoot as any)?.listing_type || (shoot as any)?.listingType || ''}
+                  onValueChange={(value) => toggleSetting("listing_type", value)}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Select listing type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="for_sale">For Sale</SelectItem>
+                    <SelectItem value="for_rent">For Rent</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="mls_image_width" className="text-xs">MLS Image Width (px)</Label>
                 <Input
                   id="mls_image_width"

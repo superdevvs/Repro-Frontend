@@ -13,7 +13,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, CreditCard as CreditCardIcon, MapPin, Package, User, Calendar } from 'lucide-react';
+import { Loader2, CreditCard as CreditCardIcon, MapPin, Package, User, Calendar, Tag, CheckCircle2, XCircle } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import { API_BASE_URL, SQUARE_APPLICATION_ID, SQUARE_LOCATION_ID } from '@/config/env';
 import axios from 'axios';
@@ -97,6 +97,12 @@ export function SquarePaymentForm({
   // Form state
   const [email, setEmail] = useState(clientEmail || '');
   const [cardholderName, setCardholderName] = useState(clientName || '');
+  
+  // Coupon state
+  const [couponCode, setCouponCode] = useState('');
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discount: number; discountType: 'percentage' | 'fixed' } | null>(null);
   
   // Partial payment state
   const [paymentAmount, setPaymentAmount] = useState(amount);
@@ -890,6 +896,102 @@ export function SquarePaymentForm({
                 required
               />
             </div>
+          </div>
+
+          {/* Coupon Code Input */}
+          <div className="p-3 border rounded-lg bg-muted/30">
+            <Label htmlFor="couponCode" className="text-xs flex items-center gap-1 mb-2">
+              <Tag className="h-3 w-3" />
+              Coupon Code (Optional)
+            </Label>
+            {appliedCoupon ? (
+              <div className="flex items-center justify-between p-2 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-md">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  <span className="text-sm font-medium text-green-700 dark:text-green-300">
+                    {appliedCoupon.code} - {appliedCoupon.discountType === 'percentage' 
+                      ? `${appliedCoupon.discount}% off` 
+                      : `$${appliedCoupon.discount.toFixed(2)} off`}
+                  </span>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs text-red-600 hover:text-red-700"
+                  onClick={() => {
+                    setAppliedCoupon(null);
+                    setCouponCode('');
+                    setCouponError(null);
+                  }}
+                >
+                  <XCircle className="h-3 w-3 mr-1" />
+                  Remove
+                </Button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <Input
+                  id="couponCode"
+                  type="text"
+                  value={couponCode}
+                  onChange={(e) => {
+                    setCouponCode(e.target.value.toUpperCase());
+                    setCouponError(null);
+                  }}
+                  placeholder="Enter coupon code"
+                  className="h-9 text-sm flex-1"
+                  disabled={couponLoading}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-9"
+                  disabled={!couponCode.trim() || couponLoading}
+                  onClick={async () => {
+                    if (!couponCode.trim()) return;
+                    setCouponLoading(true);
+                    setCouponError(null);
+                    try {
+                      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+                      const res = await axios.post(
+                        `${API_BASE_URL}/api/coupons/validate`,
+                        { code: couponCode.trim(), amount: effectivePaymentAmount },
+                        { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+                      );
+                      if (res.data.valid) {
+                        setAppliedCoupon({
+                          code: couponCode.trim(),
+                          discount: res.data.discount || res.data.discount_amount || 0,
+                          discountType: res.data.discount_type || 'fixed',
+                        });
+                        toast({ title: 'Coupon Applied!', description: `Discount of ${res.data.discount_type === 'percentage' ? `${res.data.discount}%` : `$${res.data.discount}`} applied.` });
+                      } else {
+                        setCouponError(res.data.message || 'Invalid coupon code');
+                      }
+                    } catch (err: any) {
+                      setCouponError(err.response?.data?.message || 'Failed to validate coupon');
+                    } finally {
+                      setCouponLoading(false);
+                    }
+                  }}
+                >
+                  {couponLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Apply'}
+                </Button>
+              </div>
+            )}
+            {couponError && (
+              <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                <XCircle className="h-3 w-3" />
+                {couponError}
+              </p>
+            )}
+            {appliedCoupon && (
+              <p className="text-xs text-green-600 mt-2">
+                New total: <span className="font-bold">${Math.max(0, effectivePaymentAmount - (appliedCoupon.discountType === 'percentage' ? effectivePaymentAmount * appliedCoupon.discount / 100 : appliedCoupon.discount)).toFixed(2)}</span>
+              </p>
+            )}
           </div>
 
           {/* Square Card Element */}

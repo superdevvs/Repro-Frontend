@@ -849,10 +849,10 @@ const ScheduledShootListRow = ({
             )}
           </div>
 
-          {/* Address - Main Content (can wrap) */}
+          {/* Address - Main Content (can wrap) - Highlighted & Larger */}
           <div className="flex-1 min-w-0">
-            <h3 className="text-base font-semibold leading-tight break-words">{shoot.location.address}</h3>
-            <p className="text-xs text-muted-foreground break-words">
+            <h3 className="text-lg font-bold leading-tight break-words text-primary">{shoot.location.address}</h3>
+            <p className="text-sm text-muted-foreground break-words">
               {shoot.location.city}, {getStateFullName(shoot.location.state)} {shoot.location.zip}
             </p>
           </div>
@@ -1268,7 +1268,7 @@ const CompletedAlbumCard = ({
             {formatDisplayDateLocal(shoot.completedDate || shoot.scheduledDate)}
             {shoot.time && shoot.time !== 'TBD' && ` · ${formatTime(shoot.time)}`}
           </p>
-          <h3 className="font-bold text-lg leading-tight truncate mb-3">{shoot.location.fullAddress}</h3>
+          <h3 className="font-bold text-lg leading-tight truncate mb-3 text-primary">{shoot.location.fullAddress}</h3>
         </div>
 
         {/* Services - Prominent */}
@@ -1397,7 +1397,7 @@ const CompletedShootListRow = ({
               <p className="text-xs text-muted-foreground mb-0.5">
                 {formatDisplayDateLocal(shoot.completedDate || shoot.scheduledDate)}
               </p>
-              <h3 className="font-semibold text-base leading-tight truncate">{shoot.location.fullAddress}</h3>
+              <h3 className="font-bold text-lg leading-tight truncate text-primary">{shoot.location.fullAddress}</h3>
             </div>
             <div className="flex flex-wrap items-center gap-1.5 flex-shrink-0">
               <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs">
@@ -1602,7 +1602,7 @@ const HoldOnShootCard = ({
                 {holdReason.label}
               </Badge>
             </div>
-            <h3 className="font-semibold leading-tight">{shoot.location.fullAddress}</h3>
+            <h3 className="font-bold text-lg leading-tight text-primary">{shoot.location.fullAddress}</h3>
           </div>
           {canSendToEditing && (
             <Button
@@ -1758,7 +1758,7 @@ const ShootListRow = ({
             {formatDisplayDateLocal(shoot.scheduledDate)}
             {shoot.time ? ` · ${formatTime(shoot.time)}` : ''}
           </p>
-          <h3 className="text-lg font-semibold leading-tight">
+          <h3 className="text-lg font-bold leading-tight text-primary">
             {shoot.location.fullAddress}
           </h3>
         </div>
@@ -2348,7 +2348,6 @@ const MlsQueueView: React.FC = () => {
 
       const photos = shoot.files
         ?.filter((f: any) => f.path || f.url)
-        .slice(0, 20)
         .map((f: any) => ({
           url: f.path || f.url || '',
           filename: f.filename || `photo-${f.id}`,
@@ -3449,7 +3448,6 @@ const ShootHistory: React.FC = () => {
         // Prepare photos from shoot files
         const photos = (shoot.files || [])
           .filter((f: any) => f.path || f.url)
-          .slice(0, 20)
           .map((f: any) => ({
             id: f.id,
             url: f.path || f.url || '',

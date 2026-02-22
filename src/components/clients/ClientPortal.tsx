@@ -15,7 +15,18 @@ import {
   ChevronLeft,
   ChevronRight,
   ExternalLink,
+  Phone,
+  Facebook,
+  Twitter,
+  Linkedin,
+  Send,
+  Home,
+  Tag,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { toast } from "@/components/ui/use-toast";
 
 type PortfolioItem = {
   id: string;
@@ -27,6 +38,11 @@ type PortfolioItem = {
   badge?: string;
   gallery?: string[];
   iguideUrl?: string;
+  listingType?: 'for_sale' | 'for_rent';
+  propertyStatus?: 'available' | 'pending' | 'sold' | 'rented';
+  bedrooms?: number;
+  bathrooms?: number;
+  sqft?: number;
 };
 
 const extractUrls = (arr: any[] | undefined | null): string[] => {
@@ -76,7 +92,14 @@ export function ClientPortal() {
     address?: string;
     logo?: string;
     about?: string;
+    phone?: string;
+    facebook_url?: string;
+    twitter_url?: string;
+    linkedin_url?: string;
+    pinterest_url?: string;
   } | null>(null);
+  const [contactForm, setContactForm] = useState({ name: '', email: '', message: '' });
+  const [isSubmittingContact, setIsSubmittingContact] = useState(false);
   const [shoots, setShoots] = useState<PortfolioItem[]>([]);
   const [activeGallery, setActiveGallery] = useState<string[]>([]);
   const [galleryOpen, setGalleryOpen] = useState(false);
@@ -133,6 +156,11 @@ export function ClientPortal() {
           address: c.address || c.location,
           logo: c.logo || c.avatar,
           about: c.about,
+          phone: c.phone,
+          facebook_url: c.facebook_url,
+          twitter_url: c.twitter_url,
+          linkedin_url: c.linkedin_url,
+          pinterest_url: c.pinterest_url,
         });
 
         const items: PortfolioItem[] = (data.shoots || []).map((s: any) => {
@@ -171,6 +199,11 @@ export function ClientPortal() {
             badge: s.status || 'Completed',
             gallery: gallery.length ? gallery : (primaryImage ? [primaryImage] : []),
             iguideUrl: iguideUrl || undefined,
+            listingType: s.listing_type || s.listingType,
+            propertyStatus: s.property_status || s.propertyStatus || 'available',
+            bedrooms: s.bedrooms || s.property_details?.bedrooms,
+            bathrooms: s.bathrooms || s.property_details?.bathrooms,
+            sqft: s.sqft || s.property_details?.sqft,
           };
         });
         
@@ -212,6 +245,46 @@ export function ClientPortal() {
       activeGallery.length ? (prev - 1 + activeGallery.length) % activeGallery.length : prev
     );
   };
+
+  const handleContactSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!contactForm.name.trim() || !contactForm.email.trim() || !contactForm.message.trim()) {
+      toast({ title: 'Error', description: 'Please fill in all fields.', variant: 'destructive' });
+      return;
+    }
+    
+    setIsSubmittingContact(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/public/contact`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({
+          client_id: clientId,
+          name: contactForm.name.trim(),
+          email: contactForm.email.trim(),
+          message: contactForm.message.trim(),
+        }),
+      });
+      
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ message: 'Failed to send message' }));
+        throw new Error(error.message || 'Failed to send message');
+      }
+      
+      toast({ title: 'Message Sent!', description: 'Thank you for reaching out. We\'ll get back to you soon.' });
+      setContactForm({ name: '', email: '', message: '' });
+    } catch (error) {
+      toast({ 
+        title: 'Error', 
+        description: error instanceof Error ? error.message : 'Failed to send message. Please try again.',
+        variant: 'destructive' 
+      });
+    } finally {
+      setIsSubmittingContact(false);
+    }
+  };
+
+  const hasSocialLinks = clientInfo?.facebook_url || clientInfo?.twitter_url || clientInfo?.linkedin_url || clientInfo?.pinterest_url;
 
   const storedBrandLogo = typeof window !== 'undefined' ? localStorage.getItem(storageKey('brandLogo')) : '';
   const storedBanner = typeof window !== 'undefined' ? localStorage.getItem(storageKey('brandBanner')) : '';
@@ -335,6 +408,30 @@ export function ClientPortal() {
                     loading="lazy"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent pointer-events-none" />
+                  {/* Property Status Badge - top left */}
+                  <div className="absolute top-3 left-3 flex gap-2">
+                    {shoot.propertyStatus && shoot.propertyStatus !== 'available' && (
+                      <Badge className={`${
+                        shoot.propertyStatus === 'sold' || shoot.propertyStatus === 'rented' 
+                          ? 'bg-red-500 hover:bg-red-600' 
+                          : 'bg-amber-500 hover:bg-amber-600'
+                      } text-white border-0`}>
+                        {shoot.propertyStatus === 'sold' ? 'Sold' : 
+                         shoot.propertyStatus === 'rented' ? 'Rented' : 
+                         shoot.propertyStatus === 'pending' ? 'Pending' : 'Available'}
+                      </Badge>
+                    )}
+                    {shoot.listingType && (
+                      <Badge className={`${
+                        shoot.listingType === 'for_rent' 
+                          ? 'bg-blue-500 hover:bg-blue-600' 
+                          : 'bg-green-500 hover:bg-green-600'
+                      } text-white border-0`}>
+                        <Tag className="h-3 w-3 mr-1" />
+                        {shoot.listingType === 'for_rent' ? 'For Rent' : 'For Sale'}
+                      </Badge>
+                    )}
+                  </div>
                   <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-white">
                     <div>
                       <p className="text-sm opacity-80">Preview</p>
@@ -355,6 +452,23 @@ export function ClientPortal() {
                       </p>
                     </div>
                   </div>
+                  {/* Property Info - Beds/Baths/Sqft */}
+                  {(shoot.bedrooms || shoot.bathrooms || shoot.sqft) && (
+                    <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                      {shoot.bedrooms && (
+                        <span className="flex items-center gap-1">
+                          <Home className="h-4 w-4" />
+                          {shoot.bedrooms} bed{shoot.bedrooms !== 1 ? 's' : ''}
+                        </span>
+                      )}
+                      {shoot.bathrooms && (
+                        <span>{shoot.bathrooms} bath{shoot.bathrooms !== 1 ? 's' : ''}</span>
+                      )}
+                      {shoot.sqft && (
+                        <span>{shoot.sqft.toLocaleString()} sqft</span>
+                      )}
+                    </div>
+                  )}
                   <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
                     <Badge variant="outline" className="rounded-full">{shoot.category}</Badge>
                     <Badge variant="outline" className="rounded-full">Media Ready</Badge>
@@ -426,67 +540,192 @@ export function ClientPortal() {
 
       {/* Contact Section */}
       <section id="contact" className="container px-4 md:px-6 py-20">
-        <div className="space-y-6 rounded-3xl border shadow-sm bg-card/80 backdrop-blur p-6 md:p-8">
-          <div className="grid lg:grid-cols-3 gap-6 items-start">
-            <div className="lg:col-span-1 space-y-2">
-              <h2 className="text-3xl md:text-4xl font-bold">Contact</h2>
-              <p className="text-muted-foreground text-lg">
-                Quick reference for getting in touch and visiting on-site.
-              </p>
-            </div>
-
-            <div className={`lg:col-span-${showMap && clientInfo?.address ? '1' : '2'} grid sm:grid-cols-2 lg:grid-cols-1 gap-4`}>
-              <div className="flex items-center gap-3 rounded-2xl border p-4 bg-background/60">
-                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                  <MapPin className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Address</p>
-                  <p className="text-base font-medium whitespace-pre-line">
-                    {clientInfo?.address || "Address available on request"}
-                  </p>
-                </div>
+        <div className="space-y-8 rounded-3xl border shadow-sm bg-card/80 backdrop-blur p-6 md:p-8">
+          <div className="grid lg:grid-cols-2 gap-8">
+            {/* Contact Info */}
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-3xl md:text-4xl font-bold">Contact</h2>
+                <p className="text-muted-foreground text-lg mt-2">
+                  Get in touch or send us a message.
+                </p>
               </div>
 
-              <div className="flex items-center gap-3 rounded-2xl border p-4 bg-background/60">
-                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Building2 className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Company</p>
-                  <p className="text-base font-medium">{clientInfo?.company_name || clientName}</p>
-                </div>
-              </div>
-
-              {clientInfo?.email && (
+              <div className="grid sm:grid-cols-2 gap-4">
                 <div className="flex items-center gap-3 rounded-2xl border p-4 bg-background/60">
                   <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Mail className="h-5 w-5 text-primary" />
+                    <Building2 className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Email</p>
-                    <p className="text-base font-medium">{clientInfo.email}</p>
+                    <p className="text-sm text-muted-foreground">Company</p>
+                    <p className="text-base font-medium">{clientInfo?.company_name || clientName}</p>
+                  </div>
+                </div>
+
+                {clientInfo?.email && (
+                  <a 
+                    href={`mailto:${clientInfo.email}`}
+                    className="flex items-center gap-3 rounded-2xl border p-4 bg-background/60 hover:bg-primary/5 transition-colors"
+                  >
+                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Mail className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Email</p>
+                      <p className="text-base font-medium text-primary hover:underline">{clientInfo.email}</p>
+                    </div>
+                  </a>
+                )}
+
+                {clientInfo?.phone && (
+                  <a 
+                    href={`tel:${clientInfo.phone}`}
+                    className="flex items-center gap-3 rounded-2xl border p-4 bg-background/60 hover:bg-primary/5 transition-colors"
+                  >
+                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Phone className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Phone</p>
+                      <p className="text-base font-medium text-primary hover:underline">{clientInfo.phone}</p>
+                    </div>
+                  </a>
+                )}
+
+                {clientInfo?.address && (
+                  <div className="flex items-center gap-3 rounded-2xl border p-4 bg-background/60">
+                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      <MapPin className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Address</p>
+                      <p className="text-base font-medium whitespace-pre-line">{clientInfo.address}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Social Media Links */}
+              {hasSocialLinks && (
+                <div className="pt-4">
+                  <p className="text-sm text-muted-foreground mb-3">Connect with us</p>
+                  <div className="flex items-center gap-3">
+                    {clientInfo?.facebook_url && (
+                      <a 
+                        href={clientInfo.facebook_url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="h-10 w-10 rounded-full bg-[#1877F2]/10 hover:bg-[#1877F2]/20 flex items-center justify-center transition-colors"
+                      >
+                        <Facebook className="h-5 w-5 text-[#1877F2]" />
+                      </a>
+                    )}
+                    {clientInfo?.twitter_url && (
+                      <a 
+                        href={clientInfo.twitter_url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="h-10 w-10 rounded-full bg-black/10 hover:bg-black/20 flex items-center justify-center transition-colors"
+                      >
+                        <Twitter className="h-5 w-5" />
+                      </a>
+                    )}
+                    {clientInfo?.linkedin_url && (
+                      <a 
+                        href={clientInfo.linkedin_url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="h-10 w-10 rounded-full bg-[#0A66C2]/10 hover:bg-[#0A66C2]/20 flex items-center justify-center transition-colors"
+                      >
+                        <Linkedin className="h-5 w-5 text-[#0A66C2]" />
+                      </a>
+                    )}
+                    {clientInfo?.pinterest_url && (
+                      <a 
+                        href={clientInfo.pinterest_url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="h-10 w-10 rounded-full bg-[#E60023]/10 hover:bg-[#E60023]/20 flex items-center justify-center transition-colors"
+                      >
+                        <svg className="h-5 w-5 text-[#E60023]" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12 0C5.373 0 0 5.373 0 12c0 5.084 3.163 9.426 7.627 11.174-.105-.949-.2-2.405.042-3.441.218-.937 1.407-5.965 1.407-5.965s-.359-.719-.359-1.782c0-1.668.967-2.914 2.171-2.914 1.023 0 1.518.769 1.518 1.69 0 1.029-.655 2.568-.994 3.995-.283 1.194.599 2.169 1.777 2.169 2.133 0 3.772-2.249 3.772-5.495 0-2.873-2.064-4.882-5.012-4.882-3.414 0-5.418 2.561-5.418 5.207 0 1.031.397 2.138.893 2.738.098.119.112.224.083.345l-.333 1.36c-.053.22-.174.267-.402.161-1.499-.698-2.436-2.889-2.436-4.649 0-3.785 2.75-7.262 7.929-7.262 4.163 0 7.398 2.967 7.398 6.931 0 4.136-2.607 7.464-6.227 7.464-1.216 0-2.359-.632-2.75-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146C9.57 23.812 10.763 24 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0z"/>
+                        </svg>
+                      </a>
+                    )}
                   </div>
                 </div>
               )}
             </div>
 
-            {showMap && clientInfo?.address && (
-              <div className="lg:col-span-1 rounded-2xl overflow-hidden border shadow-sm bg-muted">
-                <div className="aspect-[4/3]">
-                  <iframe
-                    title="Client address map"
-                    width="100%"
-                    height="100%"
-                    style={{ border: 0 }}
-                    loading="lazy"
-                    allowFullScreen
-                    src={`https://www.google.com/maps?q=${encodeURIComponent(clientInfo.address)}&output=embed`}
+            {/* Contact Form */}
+            <div className="rounded-2xl border p-6 bg-background/60">
+              <h3 className="text-xl font-semibold mb-4">Send a Message</h3>
+              <form onSubmit={handleContactSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="contact-name">Your Name</Label>
+                  <Input
+                    id="contact-name"
+                    placeholder="John Doe"
+                    value={contactForm.name}
+                    onChange={(e) => setContactForm(prev => ({ ...prev, name: e.target.value }))}
+                    required
                   />
                 </div>
-              </div>
-            )}
+                <div className="space-y-2">
+                  <Label htmlFor="contact-email">Your Email</Label>
+                  <Input
+                    id="contact-email"
+                    type="email"
+                    placeholder="john@example.com"
+                    value={contactForm.email}
+                    onChange={(e) => setContactForm(prev => ({ ...prev, email: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="contact-message">Message</Label>
+                  <Textarea
+                    id="contact-message"
+                    placeholder="I'm interested in learning more about your properties..."
+                    value={contactForm.message}
+                    onChange={(e) => setContactForm(prev => ({ ...prev, message: e.target.value }))}
+                    rows={4}
+                    required
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={isSubmittingContact}>
+                  {isSubmittingContact ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4 mr-2" />
+                      Send Message
+                    </>
+                  )}
+                </Button>
+              </form>
+            </div>
           </div>
+
+          {/* Map - full width below */}
+          {showMap && clientInfo?.address && (
+            <div className="rounded-2xl overflow-hidden border shadow-sm bg-muted">
+              <div className="aspect-[21/9]">
+                <iframe
+                  title="Client address map"
+                  width="100%"
+                  height="100%"
+                  style={{ border: 0 }}
+                  loading="lazy"
+                  allowFullScreen
+                  src={`https://www.google.com/maps?q=${encodeURIComponent(clientInfo.address)}&output=embed`}
+                />
+              </div>
+            </div>
+          )}
         </div>
       </section>
 

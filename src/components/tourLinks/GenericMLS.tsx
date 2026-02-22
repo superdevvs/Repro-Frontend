@@ -284,34 +284,7 @@ export function GenericMLS() {
               Property Tour
             </h1>
 
-            {showVersionBadge && (
-              <div className={cn("mb-4 inline-flex", tourSettings.header_position === 'right' && 'justify-end')}>
-                <Badge variant="outline" className="uppercase tracking-widest text-xs">
-                  {tourSettings.tour_version}
-                </Badge>
-              </div>
-            )}
-
-            <div className={cn("flex flex-wrap items-center gap-6 mb-8", tourSettings.header_position === 'right' && 'justify-end')}>
-              {beds && (
-                <div className="flex items-center gap-2 text-foreground/90 bg-background/30 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 dark:border-white/10 border-black/5 shadow-sm">
-                  <BedDouble className="w-5 h-5" />
-                  <span className="text-lg font-medium">{beds} Beds</span>
-                </div>
-              )}
-              {baths && (
-                <div className="flex items-center gap-2 text-foreground/90 bg-background/30 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 dark:border-white/10 border-black/5 shadow-sm">
-                  <Bath className="w-5 h-5" />
-                  <span className="text-lg font-medium">{baths} Baths</span>
-                </div>
-              )}
-              {sqft && (
-                <div className="flex items-center gap-2 text-foreground/90 bg-background/30 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 dark:border-white/10 border-black/5 shadow-sm">
-                  <Maximize className="w-5 h-5" />
-                  <span className="text-lg font-medium">{sqft.toLocaleString()} Sq Ft</span>
-                </div>
-              )}
-            </div>
+            {/* Property details removed for MLS - media only */}
           </div>
         </motion.div>
 
@@ -372,25 +345,7 @@ export function GenericMLS() {
         </section>
       )}
 
-      {tourSettings.realtor_info && (
-        <section id="realtor" className="py-20 px-6 bg-muted/10">
-          <div className="max-w-4xl mx-auto">
-            <motion.div
-              initial={{ opacity: 0, y: 40 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6 }}
-              className="rounded-3xl border border-border/40 bg-background/80 p-8 shadow-lg"
-            >
-              <div className="flex items-center gap-2 text-primary text-sm font-semibold uppercase tracking-widest mb-4">
-                <Users className="h-4 w-4" />
-                Realtor Info
-              </div>
-              <pre className="whitespace-pre-wrap font-sans text-sm text-muted-foreground">{tourSettings.realtor_info}</pre>
-            </motion.div>
-          </div>
-        </section>
-      )}
+      {/* Realtor info removed for MLS - media only */}
 
       {/* Embed Section */}
       {orderedEmbeds.length > 0 && (

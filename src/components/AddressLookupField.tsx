@@ -750,7 +750,9 @@ const AddressLookupField: React.FC<AddressLookupFieldProps> = ({
         });
         setSelectedAddress(mergedDetails);
         onAddressSelect(mergedDetails);
-        onChange(mergedDetails.address || mergedDetails.formatted_address || suggestion.description);
+        // Clear search input after selection
+        onChange('');
+        setShowSuggestions(false);
         setIsLoading(false);
         return;
       }
@@ -895,7 +897,9 @@ const AddressLookupField: React.FC<AddressLookupFieldProps> = ({
         const fallbackDetails = buildDetailsFromSuggestion(suggestion);
         setSelectedAddress(fallbackDetails);
         onAddressSelect(fallbackDetails);
-        onChange(fallbackDetails.address || suggestion.main_text || suggestion.description);
+        // Clear search input after selection
+        onChange('');
+        setShowSuggestions(false);
         return;
       }
 
@@ -913,7 +917,9 @@ const AddressLookupField: React.FC<AddressLookupFieldProps> = ({
       
       setSelectedAddress(mergedDetails);
       onAddressSelect(mergedDetails);
-      onChange(mergedDetails.address || mergedDetails.formatted_address || suggestion.description);
+      // Clear the search input after selection - form fields are populated by onAddressSelect
+      onChange('');
+      setShowSuggestions(false);
     } catch (err) {
       console.warn('Address details fetch error:', err);
       const fallbackDetails: AddressDetails = {
@@ -928,7 +934,9 @@ const AddressLookupField: React.FC<AddressLookupFieldProps> = ({
       };
       setSelectedAddress(fallbackDetails);
       onAddressSelect(fallbackDetails);
-      onChange(fallbackDetails.address || suggestion.main_text || suggestion.description);
+      // Clear search input after selection
+      onChange('');
+      setShowSuggestions(false);
     } finally {
       setIsLoading(false);
     }

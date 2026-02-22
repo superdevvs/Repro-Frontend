@@ -63,7 +63,7 @@ export const ProductionWorkflowBoard: React.FC<ProductionWorkflowBoardProps> = (
   };
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64 border border-dashed border-border rounded-3xl text-muted-foreground">
+      <div className="flex items-center justify-center h-full min-h-[320px] sm:min-h-[16rem] border border-dashed border-border rounded-3xl text-muted-foreground">
         <p className="text-sm">Loading workflow…</p>
       </div>
     );
@@ -71,7 +71,7 @@ export const ProductionWorkflowBoard: React.FC<ProductionWorkflowBoardProps> = (
 
   if (!workflow) {
     return (
-      <div className="flex items-center justify-center h-64 border border-dashed border-border rounded-3xl text-muted-foreground">
+      <div className="flex items-center justify-center h-full min-h-[320px] sm:min-h-[16rem] border border-dashed border-border rounded-3xl text-muted-foreground">
         <p className="text-sm">No workflow data available.</p>
       </div>
     );
@@ -79,7 +79,7 @@ export const ProductionWorkflowBoard: React.FC<ProductionWorkflowBoardProps> = (
 
   if (!Array.isArray(workflow.columns)) {
     return (
-      <div className="flex items-center justify-center h-64 border border-dashed border-border rounded-3xl text-muted-foreground">
+      <div className="flex items-center justify-center h-full min-h-[320px] sm:min-h-[16rem] border border-dashed border-border rounded-3xl text-muted-foreground">
         <p className="text-sm">Invalid workflow data.</p>
       </div>
     );
@@ -117,8 +117,8 @@ export const ProductionWorkflowBoard: React.FC<ProductionWorkflowBoardProps> = (
   const visibleColumns = workflow.columns.filter((column) => column);
 
   return (
-    <div className="w-full">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 w-full">
+    <div className="w-full h-full">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 w-full h-full">
       {visibleColumns.map(column => {
         const safeShoots = Array.isArray(column.shoots) ? column.shoots : [];
         const filteredShoots = filterShootsByDate(safeShoots);
@@ -128,7 +128,7 @@ export const ProductionWorkflowBoard: React.FC<ProductionWorkflowBoardProps> = (
         const columnAccent = column.accent || '#6b7280';
         
         return (
-        <div key={columnKey} className="bg-card border border-border rounded-2xl sm:rounded-3xl p-3 sm:p-4 shadow-sm flex flex-col min-w-0 flex-1">
+        <div key={columnKey} className="bg-card border border-border rounded-2xl sm:rounded-3xl p-3 sm:p-4 shadow-sm flex flex-col min-w-0 flex-1 min-h-[320px] sm:min-h-[360px]">
           <div className="flex items-center justify-between mb-3 sm:mb-4">
             <div className="min-w-0 flex-1">
               <h3 className="text-xs sm:text-sm font-semibold text-foreground truncate">
@@ -142,7 +142,7 @@ export const ProductionWorkflowBoard: React.FC<ProductionWorkflowBoardProps> = (
               <p className="text-xs sm:text-sm font-semibold text-foreground">{averageTurnaround(column)}</p>
             </div>
           </div>
-          <div className="space-y-2 sm:space-y-3 overflow-y-auto max-h-[400px] sm:max-h-[500px]" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+          <div className="space-y-2 sm:space-y-3 overflow-y-auto max-h-[400px] sm:max-h-[500px] min-h-0 flex-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
             {filteredShoots.slice(0, 6).map(shoot => {
               const expanded = expandedCards[shoot.id];
               return (
@@ -246,7 +246,7 @@ export const ProductionWorkflowBoard: React.FC<ProductionWorkflowBoardProps> = (
             );
             })}
             {filteredShoots.length === 0 && (
-              <div className="text-center text-xs text-slate-400 dark:text-slate-600/80 py-4 border border-dashed border-slate-200/60 dark:border-slate-800/30 rounded-2xl">
+              <div className="text-center text-xs text-slate-400 dark:text-slate-600/80 py-4 border border-dashed border-slate-200/60 dark:border-slate-800/30 rounded-2xl flex items-center justify-center min-h-[180px]">
                 Empty
               </div>
             )}
