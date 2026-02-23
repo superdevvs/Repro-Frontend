@@ -2145,16 +2145,19 @@ export function ShootDetailsOverviewTab({
           catGroups[key].services.push(s);
           const svcPhotographer = (s as any).photographer || null;
           const svcPhotographerId = (s as any).resolved_photographer_id || (s as any).photographer_id;
-          if (svcPhotographer && svcPhotographerId) {
-            catGroups[key].photographer = svcPhotographer;
+          if (svcPhotographerId) {
+            catGroups[key].photographer = svcPhotographer || { id: svcPhotographerId, name: `Photographer #${svcPhotographerId}` };
           }
         }
         const catEntries = Object.values(catGroups).filter(g => g.services.length > 0);
-        // Check if there are genuinely different photographers across categories
-        const uniquePhotographerIds = new Set(
-          catEntries.map(g => String(g.photographer?.id || shoot.photographer?.id || '')).filter(Boolean)
+        // Check if there are genuinely different photographers across ALL services (not just categories)
+        const allServicePhotographerIds = new Set(
+          svcList
+            .filter((s: any) => typeof s === 'object' && s)
+            .map((s: any) => String((s as any).resolved_photographer_id || (s as any).photographer_id || (s as any).photographer?.id || shoot.photographer?.id || ''))
+            .filter(Boolean)
         );
-        const hasMultiplePhotographers = catEntries.length > 1 && uniquePhotographerIds.size > 1;
+        const hasMultiplePhotographers = catEntries.length > 1 && allServicePhotographerIds.size > 1;
 
         return (
           <div className="p-2.5 border rounded-lg bg-card">

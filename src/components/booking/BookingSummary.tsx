@@ -140,7 +140,7 @@ export function BookingSummary({
               <h3 className="text-sm font-medium text-blue-600 dark:text-blue-400">Selected Services</h3>
               <div className="flex items-center gap-1 text-green-600 dark:text-green-400">
                 <DollarSign className="h-4 w-4" />
-                <span className="font-bold">${summaryInfo.packagePrice.toFixed(2)}</span>
+                <span className="font-bold">{summaryInfo.packagePrice.toFixed(2)}</span>
               </div>
             </div>
             <div className="space-y-2">

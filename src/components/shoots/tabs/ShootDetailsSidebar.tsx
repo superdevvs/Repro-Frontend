@@ -421,15 +421,19 @@ export function ShootDetailsSidebar({
           catGroups[key].services.push(s);
           const svcPhotographer = (s as any).photographer || null;
           const svcPhotographerId = (s as any).resolved_photographer_id || (s as any).photographer_id;
-          if (svcPhotographer && svcPhotographerId) {
-            catGroups[key].photographer = svcPhotographer;
+          if (svcPhotographerId) {
+            catGroups[key].photographer = svcPhotographer || { id: svcPhotographerId, name: `Photographer #${svcPhotographerId}` };
           }
         }
         const catEntries = Object.values(catGroups).filter(g => g.services.length > 0);
-        const uniquePhotographerIds = new Set(
-          catEntries.map(g => String(g.photographer?.id || photographer?.id || '')).filter(Boolean)
+        // Check if there are genuinely different photographers across ALL services
+        const allServicePhotographerIds = new Set(
+          svcList
+            .filter((s: any) => typeof s === 'object' && s)
+            .map((s: any) => String((s as any).resolved_photographer_id || (s as any).photographer_id || (s as any).photographer?.id || photographer?.id || ''))
+            .filter(Boolean)
         );
-        const hasMultiplePhotographers = catEntries.length > 1 && uniquePhotographerIds.size > 1;
+        const hasMultiplePhotographers = catEntries.length > 1 && allServicePhotographerIds.size > 1;
 
         return (
           <Card className="shadow-sm border-2 hover:shadow-md transition-shadow">

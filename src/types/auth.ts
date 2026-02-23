@@ -55,7 +55,12 @@ export interface UserData {
   company?: string;
   companyNotes?: string;
   bio?: string;
+  about?: string;
   username?: string;
+  facebookUrl?: string;
+  twitterUrl?: string;
+  linkedinUrl?: string;
+  pinterestUrl?: string;
   lastLogin?: string;
   createdAt?: string;
   isActive?: boolean;
