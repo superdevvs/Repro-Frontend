@@ -65,7 +65,7 @@ const Slideshow: React.FC<SlideshowProps> = ({ images, shootId, addressLine, cli
 
   return (
     <div
-      className="relative h-32 sm:h-40 w-full overflow-hidden group"
+      className="relative h-48 sm:h-56 w-full overflow-hidden group"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
