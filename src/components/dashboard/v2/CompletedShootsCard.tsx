@@ -166,7 +166,7 @@ export const CompletedShootsCard: React.FC<CompletedShootsCardProps> = ({
         </div>
       )}
       <button
-        className="mt-4 w-full py-2.5 rounded-2xl border border-border hover:border-primary/40 text-xs font-semibold text-muted-foreground transition-colors"
+        className="mt-4 mb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:mb-0 w-full py-2.5 rounded-2xl border border-border hover:border-primary/40 text-xs font-semibold text-muted-foreground transition-colors"
         onClick={onViewAll}
       >
         {ctaLabel}
