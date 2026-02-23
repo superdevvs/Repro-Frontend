@@ -90,10 +90,10 @@ export function ShortcodePanel({ onInsert }: ShortcodePanelProps) {
   };
 
   return (
-    <Card className="h-full flex flex-col">
-      <div className="p-4 border-b">
-        <h3 className="font-semibold mb-3">Shortcodes</h3>
-        <div className="relative mb-3">
+    <Card className="h-full flex flex-col border-0 sm:border rounded-none sm:rounded-lg">
+      <div className="p-3 sm:p-4 border-b">
+        <h3 className="font-semibold text-sm sm:text-base mb-2 sm:mb-3">Shortcodes</h3>
+        <div className="relative mb-2 sm:mb-3">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search shortcodes..."
@@ -116,23 +116,23 @@ export function ShortcodePanel({ onInsert }: ShortcodePanelProps) {
         </div>
       </div>
       
-      <div className="flex-1 overflow-y-auto p-4">
-        <div className="space-y-2">
+      <div className="flex-1 overflow-y-auto p-3 sm:p-4">
+        <div className="space-y-1.5 sm:space-y-2">
           {filteredShortcodes.map((shortcode) => (
             <div
               key={shortcode.code}
-              className="p-3 border rounded-lg hover:bg-secondary/50 transition-colors group"
+              className="p-2.5 sm:p-3 border rounded-lg hover:bg-secondary/50 transition-colors group"
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
-                  <code className="text-sm font-mono text-primary font-semibold break-all">
+                  <code className="text-xs sm:text-sm font-mono text-primary font-semibold break-all">
                     {shortcode.code}
                   </code>
-                  <p className="text-xs text-muted-foreground mt-1">
+                  <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">
                     {shortcode.description}
                   </p>
                 </div>
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0">
                   <Button
                     size="sm"
                     variant="ghost"
@@ -164,8 +164,8 @@ export function ShortcodePanel({ onInsert }: ShortcodePanelProps) {
         )}
       </div>
       
-      <div className="p-4 border-t bg-muted/50">
-        <p className="text-xs text-muted-foreground">
+      <div className="p-3 sm:p-4 border-t bg-muted/50">
+        <p className="text-[10px] sm:text-xs text-muted-foreground">
           💡 <strong>Tip:</strong> Shortcodes are automatically replaced with real data when the email is sent.
         </p>
       </div>

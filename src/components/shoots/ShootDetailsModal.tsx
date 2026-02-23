@@ -118,6 +118,7 @@ export function ShootDetailsModal({
   const saveChangesInFlight = useRef(false);
   const [isSaveConfirmOpen, setIsSaveConfirmOpen] = useState(false);
   const [pendingUpdates, setPendingUpdates] = useState<Partial<ShootData> | null>(null);
+  const [isMobileActionsOpen, setIsMobileActionsOpen] = useState(false);
   const [notifyClientOnSave, setNotifyClientOnSave] = useState(true);
   const [notifyPhotographerOnSave, setNotifyPhotographerOnSave] = useState(true);
   
@@ -2373,7 +2374,90 @@ export function ShootDetailsModal({
           </div>
         </div>
         
-        {/* Mobile actions moved into overflow menu in the sticky header */}
+        {/* Mobile Actions Popup */}
+        <Dialog open={isMobileActionsOpen} onOpenChange={setIsMobileActionsOpen}>
+          <DialogContent className="sm:hidden max-w-[90vw] rounded-2xl p-0 gap-0 [&>button]:hidden">
+            <div className="px-5 pt-5 pb-3">
+              <h3 className="text-base font-semibold">Actions</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {shoot.location?.address || 'Shoot'} &middot; {getStatusBadge(shoot.status || shoot.workflowStatus || 'booked')}
+              </p>
+            </div>
+            <div className="px-3 pb-3 space-y-1">
+              {(canAdminEdit || (isAdminOrRep && isScheduledOrOnHold)) && !isEditMode && !isRequestedStatus && (
+                <button
+                  className="flex items-center gap-3 w-full rounded-xl px-3 py-3 text-sm font-medium hover:bg-muted transition-colors"
+                  onClick={() => { setIsMobileActionsOpen(false); setIsEditMode(true); }}
+                >
+                  <div className="flex items-center justify-center h-9 w-9 rounded-full bg-blue-100 dark:bg-blue-900/40">
+                    <Edit className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  Edit shoot
+                </button>
+              )}
+              {canUserPutOnHold && !isEditMode && (
+                <button
+                  className="flex items-center gap-3 w-full rounded-xl px-3 py-3 text-sm font-medium hover:bg-muted transition-colors"
+                  onClick={() => { setIsMobileActionsOpen(false); handleMarkOnHoldClick(); }}
+                >
+                  <div className="flex items-center justify-center h-9 w-9 rounded-full bg-amber-100 dark:bg-amber-900/40">
+                    <PauseCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  {holdActionLabel}
+                </button>
+              )}
+              {canResumeFromHold && !isEditMode && (
+                <button
+                  className="flex items-center gap-3 w-full rounded-xl px-3 py-3 text-sm font-medium hover:bg-muted transition-colors"
+                  onClick={() => { setIsMobileActionsOpen(false); handleResumeFromHold(); }}
+                >
+                  <div className="flex items-center justify-center h-9 w-9 rounded-full bg-green-100 dark:bg-green-900/40">
+                    <PlayCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  </div>
+                  Resume from hold
+                </button>
+              )}
+              {isAdmin && !isEditMode && canSendToEditing && (
+                <button
+                  className="flex items-center gap-3 w-full rounded-xl px-3 py-3 text-sm font-medium hover:bg-muted transition-colors"
+                  onClick={() => { setIsMobileActionsOpen(false); handleSendToEditing(); }}
+                >
+                  <div className="flex items-center justify-center h-9 w-9 rounded-full bg-violet-100 dark:bg-violet-900/40">
+                    <Send className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+                  </div>
+                  Send to Editing
+                </button>
+              )}
+              {fullPagePath && !isEditMode && (
+                <button
+                  className="flex items-center gap-3 w-full rounded-xl px-3 py-3 text-sm font-medium hover:bg-muted transition-colors"
+                  onClick={() => { setIsMobileActionsOpen(false); onClose(); navigate(fullPagePath); }}
+                >
+                  <div className="flex items-center justify-center h-9 w-9 rounded-full bg-sky-100 dark:bg-sky-900/40">
+                    <ExternalLink className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+                  </div>
+                  View full page
+                </button>
+              )}
+              {canCancelShoot && !isEditMode && (
+                <button
+                  className="flex items-center gap-3 w-full rounded-xl px-3 py-3 text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors"
+                  onClick={() => { setIsMobileActionsOpen(false); handleCancelShootClick(); }}
+                >
+                  <div className="flex items-center justify-center h-9 w-9 rounded-full bg-red-100 dark:bg-red-900/40">
+                    <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+                  </div>
+                  {isDelivered ? 'Delete shoot' : 'Cancel shoot'}
+                </button>
+              )}
+            </div>
+            <div className="px-3 pb-4">
+              <Button variant="outline" className="w-full rounded-xl" onClick={() => setIsMobileActionsOpen(false)}>
+                Cancel
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
         
         {/* Header */}
         <div className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85 flex-shrink-0">
@@ -2412,56 +2496,9 @@ export function ShootDetailsModal({
               </div>
 
               <div className="sm:hidden flex items-center gap-1.5">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="icon" className="h-8 w-8 rounded-full">
-                      <MoreVertical className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
-                    {(canAdminEdit || (isAdminOrRep && isScheduledOrOnHold)) && !isEditMode && !isRequestedStatus && (
-                      <DropdownMenuItem onClick={() => setIsEditMode(true)}>
-                        <Edit className="mr-2 h-4 w-4" />
-                        Edit shoot
-                      </DropdownMenuItem>
-                    )}
-                    {canUserPutOnHold && !isEditMode && (
-                      <DropdownMenuItem onClick={handleMarkOnHoldClick}>
-                        <PauseCircle className="mr-2 h-4 w-4" />
-                        {holdActionLabel}
-                      </DropdownMenuItem>
-                    )}
-                    {canResumeFromHold && !isEditMode && (
-                      <DropdownMenuItem onClick={handleResumeFromHold}>
-                        <PlayCircle className="mr-2 h-4 w-4" />
-                        Resume from hold
-                      </DropdownMenuItem>
-                    )}
-                    {isAdmin && !isEditMode && canSendToEditing && (
-                      <DropdownMenuItem onClick={handleSendToEditing}>
-                        <Send className="mr-2 h-4 w-4" />
-                        Send to Editing
-                      </DropdownMenuItem>
-                    )}
-                    {canCancelShoot && !isEditMode && (
-                      <DropdownMenuItem className="text-destructive" onClick={handleCancelShootClick}>
-                        <XCircle className="mr-2 h-4 w-4" />
-                        {isDelivered ? 'Delete shoot' : 'Cancel shoot'}
-                      </DropdownMenuItem>
-                    )}
-                    {fullPagePath && !isEditMode && (
-                      <DropdownMenuItem
-                        onClick={() => {
-                          onClose();
-                          navigate(fullPagePath);
-                        }}
-                      >
-                        <ExternalLink className="mr-2 h-4 w-4" />
-                        View full page
-                      </DropdownMenuItem>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <Button variant="outline" size="icon" className="h-8 w-8 rounded-full" onClick={() => setIsMobileActionsOpen(true)}>
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
                 <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => onClose()}>
                   <X className="h-4 w-4" />
                 </Button>

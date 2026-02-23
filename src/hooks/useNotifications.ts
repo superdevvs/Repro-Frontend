@@ -94,10 +94,33 @@ const SHOOT_ACTIVITY_TITLES: Record<string, string> = {
   shoot_editing_started: 'Editing Started',
   shoot_submitted_for_review: 'Submitted for Review',
   payment_done: 'Payment Received',
+  payment_marked_paid: 'Payment Marked Paid',
+  payment_received: 'Payment Received',
+  invoice_created: 'Invoice Created',
+  invoice_sent: 'Invoice Sent',
   media_uploaded: 'Media Uploaded',
   cancellation_requested: 'Cancellation Requested',
+  cancellation_approved: 'Cancellation Approved',
+  cancellation_rejected: 'Cancellation Rejected',
+  shoot_rescheduled: 'Shoot Rescheduled',
+  shoot_updated: 'Shoot Updated',
+  photographer_assigned: 'Photographer Assigned',
+  editor_assigned: 'Editor Assigned',
+  shoot_delivered: 'Shoot Delivered',
   email_received: 'Email Received',
   email_sent: 'Email Sent',
+};
+
+/**
+ * Derive a human-readable title from the activity message when no action mapping exists.
+ * Capitalizes the first letter and truncates to a reasonable length.
+ */
+const titleFromMessage = (message: string): string => {
+  if (!message) return 'Activity';
+  // Capitalize first letter, take first sentence or first ~40 chars
+  const cleaned = message.charAt(0).toUpperCase() + message.slice(1);
+  const firstSentence = cleaned.split(/[.!]\s/)[0];
+  return firstSentence.length > 50 ? firstSentence.slice(0, 47) + '…' : firstSentence;
 };
 
 const normalizeActivity = (activity: DashboardActivityItem, readIds: Set<string>): NotificationItem => {
@@ -119,15 +142,11 @@ const normalizeActivity = (activity: DashboardActivityItem, readIds: Set<string>
     type = 'shoots';
   }
 
-  // Generate a better title based on activity type
-  let title = 'Dashboard activity';
-  if (activity.userName) {
-    title = `${activity.userName} update`;
-  }
+  // Generate a better title based on activity type — never fall back to generic "Dashboard activity"
   const activityType = activity.action || typeHint;
-  if (SHOOT_ACTIVITY_TITLES[activityType]) {
-    title = SHOOT_ACTIVITY_TITLES[activityType];
-  }
+  let title = SHOOT_ACTIVITY_TITLES[activityType]
+    || titleFromMessage(activity.message)
+    || (activity.userName ? `${activity.userName} update` : 'Activity');
 
   const id = String(activity.id);
 

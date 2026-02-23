@@ -155,7 +155,7 @@ export function ImageUpload({ onChange, initialImage, className }: ImageUploadPr
       <Button 
         variant="outline" 
         size="sm" 
-        className="mt-2 hidden text-xs sm:mt-3 sm:inline-flex"
+        className="mt-2 text-xs sm:mt-3"
         onClick={handleButtonClick}
         disabled={uploading}
       >

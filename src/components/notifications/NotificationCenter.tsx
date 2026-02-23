@@ -45,6 +45,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { format, isToday, isYesterday, differenceInMinutes } from 'date-fns';
 import { useNotifications, NotificationItem } from '@/hooks/useNotifications';
 import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 // Notification types
 type NotificationType = 'all' | 'unread' | 'shoots' | 'messages' | 'system';
@@ -66,6 +67,7 @@ const isRecent = (dateString: string | null | undefined): boolean => {
 export function NotificationCenter() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const isMobile = useIsMobile();
   const { notifications, unreadCount, loading, error, refresh, markAsRead, markAllAsRead } =
     useNotifications();
   const [isOpen, setIsOpen] = useState(false);
@@ -325,76 +327,105 @@ export function NotificationCenter() {
     }
   };
 
-  // Get icon based on notification title/type for more specific icons
-  const getNotificationIcon = (notification: NotificationItem, isRecentNotification: boolean) => {
-    const iconClass = "h-5 w-5";
+  // Get icon + background color based on notification title/type
+  const getNotificationIcon = (notification: NotificationItem, _isRecentNotification: boolean): { icon: React.ReactNode; bg: string } => {
+    const iconClass = "h-3.5 w-3.5";
     const title = notification.title.toLowerCase();
     const type = notification.type;
-    
-    // Determine color based on notification state
-    const getColor = (baseColor: string, recentColor: string) => 
-      isRecentNotification ? recentColor : baseColor;
 
     // Messages
-    if (type === 'messages' || title.includes('sms') || title.includes('message')) {
-      return <MessageSquare className={cn(iconClass, getColor("text-purple-500", "text-purple-400"))} />;
+    if (type === 'messages' || title.includes('sms') || title.includes('message') || title.includes('email')) {
+      return { icon: <MessageSquare className={cn(iconClass, "text-purple-600 dark:text-purple-400")} />, bg: "bg-purple-100 dark:bg-purple-900/40" };
     }
 
-    // Shoot-specific icons based on title
-    if (title.includes('request')) {
-      return <CalendarPlus className={cn(iconClass, getColor("text-amber-500", "text-amber-400"))} />;
+    // Payment / Invoice
+    if (title.includes('payment') || title.includes('paid') || title.includes('invoice')) {
+      return { icon: <DollarSign className={cn(iconClass, "text-emerald-600 dark:text-emerald-400")} />, bg: "bg-emerald-100 dark:bg-emerald-900/40" };
     }
-    if (title.includes('created')) {
-      return <CalendarPlus className={cn(iconClass, getColor("text-green-500", "text-green-400"))} />;
+
+    // Cancellation
+    if (title.includes('cancel')) {
+      return { icon: <XCircle className={cn(iconClass, "text-red-600 dark:text-red-400")} />, bg: "bg-red-100 dark:bg-red-900/40" };
     }
-    if (title.includes('approved')) {
-      return <CalendarCheck className={cn(iconClass, getColor("text-green-500", "text-green-400"))} />;
+
+    // Declined
+    if (title.includes('decline')) {
+      return { icon: <XCircle className={cn(iconClass, "text-red-600 dark:text-red-400")} />, bg: "bg-red-100 dark:bg-red-900/40" };
     }
-    if (title.includes('scheduled')) {
-      return <CalendarCheck className={cn(iconClass, getColor("text-blue-500", "text-blue-400"))} />;
-    }
-    if (title.includes('started')) {
-      return <Play className={cn(iconClass, getColor("text-sky-500", "text-sky-400"))} />;
-    }
-    if (title.includes('completed') || title.includes('complete')) {
-      return <CheckCircle2 className={cn(iconClass, getColor("text-emerald-500", "text-emerald-400"))} />;
-    }
-    if (title.includes('cancelled') || title.includes('canceled')) {
-      return <XCircle className={cn(iconClass, getColor("text-red-500", "text-red-400"))} />;
-    }
+
+    // Hold
     if (title.includes('hold')) {
-      return <PauseCircle className={cn(iconClass, getColor("text-amber-500", "text-amber-400"))} />;
+      return { icon: <PauseCircle className={cn(iconClass, "text-amber-600 dark:text-amber-400")} />, bg: "bg-amber-100 dark:bg-amber-900/40" };
     }
+
+    // Request
+    if (title.includes('request')) {
+      return { icon: <CalendarPlus className={cn(iconClass, "text-amber-600 dark:text-amber-400")} />, bg: "bg-amber-100 dark:bg-amber-900/40" };
+    }
+
+    // Created
+    if (title.includes('created')) {
+      return { icon: <CalendarPlus className={cn(iconClass, "text-green-600 dark:text-green-400")} />, bg: "bg-green-100 dark:bg-green-900/40" };
+    }
+
+    // Approved
+    if (title.includes('approved')) {
+      return { icon: <CalendarCheck className={cn(iconClass, "text-green-600 dark:text-green-400")} />, bg: "bg-green-100 dark:bg-green-900/40" };
+    }
+
+    // Scheduled / Rescheduled
+    if (title.includes('scheduled') || title.includes('rescheduled')) {
+      return { icon: <CalendarCheck className={cn(iconClass, "text-blue-600 dark:text-blue-400")} />, bg: "bg-blue-100 dark:bg-blue-900/40" };
+    }
+
+    // Started
+    if (title.includes('started')) {
+      return { icon: <Play className={cn(iconClass, "text-sky-600 dark:text-sky-400")} />, bg: "bg-sky-100 dark:bg-sky-900/40" };
+    }
+
+    // Completed / Delivered
+    if (title.includes('completed') || title.includes('complete') || title.includes('delivered')) {
+      return { icon: <CheckCircle2 className={cn(iconClass, "text-emerald-600 dark:text-emerald-400")} />, bg: "bg-emerald-100 dark:bg-emerald-900/40" };
+    }
+
+    // Editing
     if (title.includes('editing')) {
-      return <Pencil className={cn(iconClass, getColor("text-violet-500", "text-violet-400"))} />;
+      return { icon: <Pencil className={cn(iconClass, "text-violet-600 dark:text-violet-400")} />, bg: "bg-violet-100 dark:bg-violet-900/40" };
     }
+
+    // Review
     if (title.includes('review')) {
-      return <Eye className={cn(iconClass, getColor("text-indigo-500", "text-indigo-400"))} />;
+      return { icon: <Eye className={cn(iconClass, "text-indigo-600 dark:text-indigo-400")} />, bg: "bg-indigo-100 dark:bg-indigo-900/40" };
     }
-    if (title.includes('payment') || title.includes('paid')) {
-      return <DollarSign className={cn(iconClass, getColor("text-green-500", "text-green-400"))} />;
-    }
+
+    // Upload / Media
     if (title.includes('upload') || title.includes('media')) {
-      return <Upload className={cn(iconClass, getColor("text-cyan-500", "text-cyan-400"))} />;
+      return { icon: <Upload className={cn(iconClass, "text-cyan-600 dark:text-cyan-400")} />, bg: "bg-cyan-100 dark:bg-cyan-900/40" };
     }
+
+    // Assigned
+    if (title.includes('assigned')) {
+      return { icon: <CalendarCheck className={cn(iconClass, "text-blue-600 dark:text-blue-400")} />, bg: "bg-blue-100 dark:bg-blue-900/40" };
+    }
+
+    // Update
     if (title.includes('update')) {
-      return <RefreshCw className={cn(iconClass, getColor("text-blue-500", "text-blue-400"))} />;
+      return { icon: <RefreshCw className={cn(iconClass, "text-blue-600 dark:text-blue-400")} />, bg: "bg-blue-100 dark:bg-blue-900/40" };
     }
+
+    // Error / Alert
     if (title.includes('issue') || title.includes('error') || title.includes('alert')) {
-      return <AlertCircle className={cn(iconClass, getColor("text-red-500", "text-red-400"))} />;
-    }
-    if (title.includes('sent') || title.includes('delivered')) {
-      return <Send className={cn(iconClass, getColor("text-teal-500", "text-teal-400"))} />;
+      return { icon: <AlertCircle className={cn(iconClass, "text-red-600 dark:text-red-400")} />, bg: "bg-red-100 dark:bg-red-900/40" };
     }
 
     // Fallback based on type
     switch (type) {
       case 'shoots':
-        return <CameraIcon className={cn(iconClass, getColor("text-blue-500", "text-blue-400"))} />;
+        return { icon: <CameraIcon className={cn(iconClass, "text-blue-600 dark:text-blue-400")} />, bg: "bg-blue-100 dark:bg-blue-900/40" };
       case 'system':
-        return <ClockIcon className={cn(iconClass, getColor("text-orange-500", "text-orange-400"))} />;
+        return { icon: <ClockIcon className={cn(iconClass, "text-orange-600 dark:text-orange-400")} />, bg: "bg-orange-100 dark:bg-orange-900/40" };
       default:
-        return <BellIcon className={cn(iconClass, getColor("text-primary", "text-primary/80"))} />;
+        return { icon: <BellIcon className={cn(iconClass, "text-primary")} />, bg: "bg-primary/10" };
     }
   };
 
@@ -476,7 +507,7 @@ export function NotificationCenter() {
         exit={{ opacity: 0, height: 0 }}
         transition={{ duration: 0.2 }}
         className={cn(
-          'p-4 rounded-xl cursor-pointer transition-all relative overflow-hidden',
+          'px-3 py-2 rounded-lg cursor-pointer transition-all relative overflow-hidden',
           getContainerStyles()
         )}
         onClick={() => handleNotificationClick(notification)}
@@ -486,66 +517,58 @@ export function NotificationCenter() {
           <div className={cn("absolute left-0 top-0 bottom-0 w-1 rounded-l-xl", getIndicatorColor())} />
         )}
         
-        <div className="flex items-start gap-3">
-          <div className="mt-0.5">
-            {getNotificationIcon(notification, isRecentNotification)}
-          </div>
-          <div className="flex-1 space-y-1 min-w-0">
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2.5">
+          {(() => {
+            const { icon, bg } = getNotificationIcon(notification, isRecentNotification);
+            return (
+              <div className={cn("flex-shrink-0 flex items-center justify-center h-7 w-7 rounded-full", bg)}>
+                {icon}
+              </div>
+            );
+          })()}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 min-w-0">
                 <h4 className={cn(
-                  "text-sm",
+                  "text-xs truncate",
                   isUnread ? "font-semibold text-foreground" : "font-normal text-muted-foreground"
                 )}>
                   {notification.title}
                 </h4>
                 {isRecentNotification && (
                   <Badge 
-                    className="bg-blue-500 text-white border-0 text-[10px] px-1.5 py-0 font-medium"
+                    className="bg-blue-500 text-white border-0 text-[9px] px-1 py-0 font-medium leading-tight"
                   >
                     New
                   </Badge>
                 )}
               </div>
               <span className={cn(
-                "text-xs whitespace-nowrap flex-shrink-0",
+                "text-[10px] whitespace-nowrap flex-shrink-0",
                 isUnread ? "text-muted-foreground font-medium" : "text-muted-foreground/70"
               )}>
                 {formatNotificationDate(notification.date)}
               </span>
             </div>
             <p className={cn(
-              "text-sm line-clamp-2",
+              "text-[11px] line-clamp-1",
               isUnread ? "text-muted-foreground" : "text-muted-foreground/60"
             )}>
               {notification.message}
             </p>
-            {notification.actionUrl && (
-              <Button 
-                variant="link" 
-                size="sm" 
-                className="h-auto p-0 text-xs font-medium text-blue-600 dark:text-blue-400"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleNotificationClick(notification);
-                }}
-              >
-                {notification.actionLabel || 'View'}
-              </Button>
-            )}
           </div>
           {isUnread && (
             <Button 
               variant="ghost" 
               size="icon" 
-              className="h-7 w-7 flex-shrink-0 rounded-full hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+              className="h-5 w-5 flex-shrink-0 rounded-full hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400"
               onClick={(e) => {
                 e.stopPropagation();
                 markAsRead(notification.id);
               }}
               title="Mark as read"
             >
-              <CheckIcon className="h-4 w-4" />
+              <CheckIcon className="h-3 w-3" />
             </Button>
           )}
         </div>
@@ -571,7 +594,15 @@ export function NotificationCenter() {
         </Button>
       </SheetTrigger>
       
-      <SheetContent className="w-[380px] sm:w-[540px] p-0 flex flex-col">
+      <SheetContent
+        side={isMobile ? "top" : "right"}
+        className={cn(
+          "p-0 flex flex-col",
+          isMobile
+            ? "w-full max-h-[95vh] rounded-b-2xl [&>button]:hidden"
+            : "w-[380px] sm:w-[540px]"
+        )}
+      >
         <SheetHeader className="px-6 py-4 border-b">
           <div className="flex justify-between items-center">
             <SheetTitle>Notifications</SheetTitle>
@@ -619,19 +650,19 @@ export function NotificationCenter() {
           </div>
           
           <div className="flex-1 overflow-hidden">
-            <ScrollArea className="h-[calc(100vh-180px)] p-4" style={{ background: 'transparent' }}>
+            <ScrollArea className={cn(isMobile ? "h-[calc(95vh-210px)]" : "h-[calc(100vh-180px)]", "p-4")} style={{ background: 'transparent' }}>
               {loading ? (
                 <div className="flex items-center justify-center h-40 text-muted-foreground gap-2">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   <span>Loading notifications…</span>
                 </div>
               ) : filteredNotifications.length > 0 ? (
-                <div className="space-y-4">
+                <div className="space-y-2">
                   {/* Recent notifications section */}
                   {recentNotifications.length > 0 && (
-                    <div className="space-y-3">
+                    <div className="space-y-1.5">
                       <div className="flex items-center gap-2 px-1">
-                        <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wide">
+                        <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wide">
                           New
                         </span>
                         <div className="flex-1 h-px bg-blue-200 dark:bg-blue-800" />
@@ -646,10 +677,10 @@ export function NotificationCenter() {
                   
                   {/* Older notifications section */}
                   {olderNotifications.length > 0 && (
-                    <div className="space-y-3">
+                    <div className="space-y-1.5">
                       {recentNotifications.length > 0 && (
-                        <div className="flex items-center gap-2 px-1 pt-3">
-                          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                        <div className="flex items-center gap-2 px-1 pt-2">
+                          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
                             Earlier
                           </span>
                           <div className="flex-1 h-px bg-border" />
@@ -675,6 +706,19 @@ export function NotificationCenter() {
             </ScrollArea>
           </div>
         </div>
+
+        {/* Close button at bottom - mobile only */}
+        {isMobile && (
+          <div className="px-4 py-3 border-t">
+            <Button
+              variant="outline"
+              className="w-full rounded-xl"
+              onClick={() => setIsOpen(false)}
+            >
+              Close
+            </Button>
+          </div>
+        )}
       </SheetContent>
 
       {/* Cancellation Approval Dialog */}

@@ -121,9 +121,13 @@ export const ProductionWorkflowBoard: React.FC<ProductionWorkflowBoardProps> = (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 w-full h-full">
       {visibleColumns.map(column => {
         const safeShoots = Array.isArray(column.shoots) ? column.shoots : [];
-        const filteredShoots = filterShootsByDate(safeShoots);
-        const count = filteredShoots.length;
         const columnKey = column.key || 'unknown';
+        // Only apply date filtering to the scheduled/booked column.
+        // Other stages (uploaded, editing, etc.) should show ALL active shoots
+        // regardless of when they were originally scheduled.
+        const isScheduledColumn = columnKey === 'booked' || columnKey === 'scheduled';
+        const filteredShoots = isScheduledColumn ? filterShootsByDate(safeShoots) : safeShoots;
+        const count = filteredShoots.length;
         const columnLabel = column.label || columnKey;
         const columnAccent = column.accent || '#6b7280';
         

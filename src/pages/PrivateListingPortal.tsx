@@ -560,7 +560,7 @@ const PrivateListingPortal = () => {
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="space-y-6 p-6">
+        <div className="space-y-4 px-2 pt-3 pb-3 sm:space-y-6 sm:p-6">
           <PageHeader
             badge="Exclusive"
             title="Exclusive Listings"
@@ -576,7 +576,7 @@ const PrivateListingPortal = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6 p-6">
+      <div className="space-y-4 px-2 pt-3 pb-3 sm:space-y-6 sm:p-6">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <PageHeader
             badge="Exclusive"

@@ -118,6 +118,7 @@ const MessagingSettingsPage = () => {
 
   return (
     <DashboardLayout>
+      <div className="space-y-4 px-2 pt-3 pb-3 sm:space-y-6 sm:p-6">
       <PageHeader
         title="Messaging settings"
         description="Configure provider credentials and defaults for email & SMS."
@@ -290,6 +291,7 @@ const MessagingSettingsPage = () => {
             </Button>
           </CardContent>
         </Card>
+      </div>
       </div>
     </DashboardLayout>
   );

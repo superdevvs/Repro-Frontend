@@ -143,7 +143,7 @@ export const CompletedShootsCard: React.FC<CompletedShootsCardProps> = ({
           {emptyStateText}
         </div>
       ) : (
-        <div className="space-y-3 flex-1 overflow-y-auto custom-scrollbar pr-1 pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:pb-0">
+        <div className="space-y-3 flex-1 overflow-y-auto custom-scrollbar pr-1">
           {safeShoots.slice(0, 3).map((shoot, index) => {
             const images = getShootImages(shoot);
             return (
@@ -166,7 +166,7 @@ export const CompletedShootsCard: React.FC<CompletedShootsCardProps> = ({
         </div>
       )}
       <button
-        className="mt-4 mb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:mb-0 w-full py-2.5 rounded-2xl border border-border hover:border-primary/40 text-xs font-semibold text-muted-foreground transition-colors"
+        className="mt-2 w-full py-2.5 rounded-2xl border border-border hover:border-primary/40 text-xs font-semibold text-muted-foreground transition-colors"
         onClick={onViewAll}
       >
         {ctaLabel}

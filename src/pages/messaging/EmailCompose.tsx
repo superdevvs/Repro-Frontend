@@ -339,26 +339,26 @@ export default function EmailCompose() {
   return (
     <DashboardLayout>
       <EmailNavigation />
-      <div className="flex flex-col h-[calc(100vh-120px)]">
+      <div className="flex flex-col h-[calc(100vh-120px-4.25rem)] sm:h-[calc(100vh-120px)]">
         {/* Mode-aware Header */}
-        <div className={cn("px-6 py-4 border-b flex items-center justify-between", currentMode.color)}>
-          <div className="flex items-center gap-3">
-            <div className={cn("p-2 rounded-lg", currentMode.color)}>
-              <ModeIcon className={cn("h-5 w-5", currentMode.accent)} />
+        <div className={cn("px-3 py-2.5 sm:px-6 sm:py-4 border-b flex items-center justify-between", currentMode.color)}>
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className={cn("p-1.5 sm:p-2 rounded-lg shrink-0", currentMode.color)}>
+              <ModeIcon className={cn("h-4 w-4 sm:h-5 sm:w-5", currentMode.accent)} />
             </div>
-            <div>
-              <h1 className={cn("text-xl font-semibold", currentMode.accent)}>{currentMode.title}</h1>
-              <p className="text-xs text-muted-foreground uppercase tracking-wide">{currentMode.subtitle}</p>
+            <div className="min-w-0">
+              <h1 className={cn("text-base sm:text-xl font-semibold truncate", currentMode.accent)}>{currentMode.title}</h1>
+              <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wide truncate">{currentMode.subtitle}</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             {lastSaved && (
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <div className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground">
                 <div className="w-2 h-2 rounded-full bg-green-500" />
                 Saved {Math.round((Date.now() - lastSaved.getTime()) / 1000)}s ago
               </div>
             )}
-            <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
+            <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="h-8 w-8 p-0 sm:h-auto sm:w-auto sm:p-2">
               <X className="h-4 w-4" />
             </Button>
           </div>
@@ -366,8 +366,8 @@ export default function EmailCompose() {
 
         {/* Main Content with Sidebars */}
         <div className="flex flex-1 overflow-hidden">
-          {/* Left Sidebar */}
-          <div className="w-72 border-r bg-muted/30 p-4 space-y-6 overflow-y-auto">
+          {/* Left Sidebar - Desktop only */}
+          <div className="hidden md:block w-72 border-r bg-muted/30 p-4 space-y-6 overflow-y-auto">
             {/* Priority */}
             <div className="space-y-2">
               <Label className="text-xs uppercase tracking-wide text-muted-foreground">Priority</Label>
@@ -494,13 +494,140 @@ export default function EmailCompose() {
 
           {/* Center - Compose Area */}
           <div className="flex-1 flex flex-col overflow-hidden">
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-3 sm:space-y-4 pb-[calc(env(safe-area-inset-bottom,0px)+4.5rem)] sm:pb-4">
+
+              {/* Mobile-only: Collapsible options (Priority, Shoot ID, Contacts, Attachments, Templates) */}
+              <div className="md:hidden">
+                <Accordion type="single" collapsible className="w-full">
+                  <AccordionItem value="options" className="border rounded-lg">
+                    <AccordionTrigger className="px-3 py-2 text-xs font-medium text-muted-foreground hover:no-underline">
+                      <div className="flex items-center gap-2">
+                        <ChevronDown className="h-3 w-3" />
+                        Options
+                        {priority !== 'normal' && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{priority}</Badge>}
+                        {attachments.length > 0 && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{attachments.length} file{attachments.length > 1 ? 's' : ''}</Badge>}
+                        {formData.related_shoot_id && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">#{formData.related_shoot_id}</Badge>}
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-3 pb-3 space-y-4">
+                      {/* Priority */}
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Priority</Label>
+                        <div className="flex gap-1">
+                          {(['normal', 'high', 'urgent'] as Priority[]).map((p) => (
+                            <Button
+                              key={p}
+                              size="sm"
+                              variant="ghost"
+                              className={cn("flex-1 text-xs h-8", priority === p ? priorityConfig[p].class : 'bg-background')}
+                              onClick={() => setPriority(p)}
+                            >
+                              {priority === p && <Check className="h-3 w-3 mr-1" />}
+                              {priorityConfig[p].label}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Link Shoot */}
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Link Shoot ID</Label>
+                        <div className="relative">
+                          <Hash className="absolute left-2 top-2 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            placeholder="Enter shoot ID"
+                            className="pl-8 h-8 text-sm"
+                            value={formData.related_shoot_id}
+                            onChange={(e) => setFormData({ ...formData, related_shoot_id: e.target.value })}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Quick Contacts */}
+                      {recipientOptions.length > 0 && (
+                        <div className="space-y-1.5">
+                          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Quick Contacts</Label>
+                          <div className="flex flex-wrap gap-1.5">
+                            {recipientOptions.slice(0, 5).map((contact) => (
+                              <Button
+                                key={contact.id}
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs"
+                                onClick={() => {
+                                  const current = formData.to ? formData.to.split(',').map((v) => v.trim()).filter(Boolean) : [];
+                                  if (!current.includes(contact.email)) {
+                                    setFormData({ ...formData, to: [...current, contact.email].join(', ') });
+                                  }
+                                }}
+                              >
+                                {(contact.name || contact.email).split(' ')[0]}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Attachments */}
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Attachments</Label>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full justify-start h-8 text-xs"
+                          onClick={() => fileInputRef.current?.click()}
+                        >
+                          <Paperclip className="h-3.5 w-3.5 mr-2" />
+                          Add Files
+                        </Button>
+                        {attachments.length > 0 && (
+                          <div className="space-y-1">
+                            {attachments.map((file, idx) => (
+                              <div key={idx} className="flex items-center justify-between p-1.5 bg-background rounded text-xs">
+                                <span className="truncate">{file.name}</span>
+                                <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => setAttachments((prev) => prev.filter((_, i) => i !== idx))}>
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Templates */}
+                      {canUseTemplates && templates && templates.length > 0 && (
+                        <div className="space-y-1.5">
+                          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Templates</Label>
+                          <div className="space-y-1">
+                            {templates.slice(0, 5).map((template) => (
+                              <button
+                                key={template.id}
+                                className={cn(
+                                  "w-full text-left p-2 rounded-md text-xs hover:bg-muted border",
+                                  formData.template_id === template.id.toString() ? 'border-primary bg-primary/5' : 'border-transparent'
+                                )}
+                                onClick={() => handleTemplateSelect(template.id.toString())}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <FileText className="h-3 w-3 shrink-0" />
+                                  <span className="truncate font-medium">{template.name}</span>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+              </div>
+
               {/* From */}
               {isAdmin && (
-                <div className="flex items-center gap-2">
-                  <Label className="w-16 text-sm text-muted-foreground">From</Label>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2">
+                  <Label className="text-xs sm:text-sm text-muted-foreground sm:w-16 shrink-0">From</Label>
                   <Select value={formData.channel_id} onValueChange={(value) => setFormData({ ...formData, channel_id: value })}>
-                    <SelectTrigger className="flex-1">
+                    <SelectTrigger className="flex-1 h-9 sm:h-10">
                       <SelectValue placeholder="Select email account" />
                     </SelectTrigger>
                     <SelectContent>
@@ -515,21 +642,21 @@ export default function EmailCompose() {
               )}
 
               {/* To */}
-              <div className="flex items-center gap-2">
-                <Label className="w-16 text-sm text-muted-foreground">To</Label>
-                <div className="flex-1 flex items-center gap-2">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2">
+                <Label className="text-xs sm:text-sm text-muted-foreground sm:w-16 shrink-0">To</Label>
+                <div className="flex-1 flex items-center gap-1.5 sm:gap-2">
                   <Input
                     type="text"
                     placeholder="recipient@example.com"
                     value={formData.to}
                     onChange={(e) => setFormData({ ...formData, to: e.target.value })}
-                    className="flex-1"
+                    className="flex-1 h-9 sm:h-10 text-sm"
                   />
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button variant="outline" size="sm">
-                        <Users className="h-4 w-4 mr-1" />
-                        {recipientLabel}
+                      <Button variant="outline" size="sm" className="shrink-0 h-9 sm:h-10 px-2 sm:px-3">
+                        <Users className="h-4 w-4 sm:mr-1" />
+                        <span className="hidden sm:inline">{recipientLabel}</span>
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-72 p-0">
@@ -558,7 +685,7 @@ export default function EmailCompose() {
                       </Command>
                     </PopoverContent>
                   </Popover>
-                  <Button variant="ghost" size="sm" onClick={() => setShowCcBcc((v) => !v)}>
+                  <Button variant="ghost" size="sm" onClick={() => setShowCcBcc((v) => !v)} className="shrink-0 h-9 sm:h-10 px-2 text-xs">
                     {showCcBcc ? 'Hide' : '+Cc/Bcc'}
                   </Button>
                 </div>
@@ -566,7 +693,7 @@ export default function EmailCompose() {
 
               {/* Recipient badges */}
               {formData.to && (
-                <div className="flex flex-wrap gap-1 ml-16">
+                <div className="flex flex-wrap gap-1 sm:ml-16">
                   {formData.to.split(',').map((addr) => addr.trim()).filter(Boolean).map((addr) => (
                     <Badge key={addr} variant="secondary" className="flex items-center gap-1 text-xs">
                       {addr}
@@ -583,29 +710,29 @@ export default function EmailCompose() {
 
               {/* CC / BCC */}
               {showCcBcc && (
-                <div className="space-y-2 ml-16">
+                <div className="space-y-2 sm:ml-16">
                   <div className="flex items-center gap-2">
-                    <Label className="w-8 text-sm text-muted-foreground">Cc</Label>
-                    <Input placeholder="cc@example.com" value={formData.cc} onChange={(e) => setFormData({ ...formData, cc: e.target.value })} />
+                    <Label className="w-8 text-xs sm:text-sm text-muted-foreground shrink-0">Cc</Label>
+                    <Input placeholder="cc@example.com" value={formData.cc} onChange={(e) => setFormData({ ...formData, cc: e.target.value })} className="h-9 sm:h-10 text-sm" />
                   </div>
                   <div className="flex items-center gap-2">
-                    <Label className="w-8 text-sm text-muted-foreground">Bcc</Label>
-                    <Input placeholder="bcc@example.com" value={formData.bcc} onChange={(e) => setFormData({ ...formData, bcc: e.target.value })} />
+                    <Label className="w-8 text-xs sm:text-sm text-muted-foreground shrink-0">Bcc</Label>
+                    <Input placeholder="bcc@example.com" value={formData.bcc} onChange={(e) => setFormData({ ...formData, bcc: e.target.value })} className="h-9 sm:h-10 text-sm" />
                   </div>
                 </div>
               )}
 
               {/* Subject */}
-              <div className="flex items-center gap-2">
-                <Label className="w-16 text-sm text-muted-foreground">Subject</Label>
-                <Input placeholder="Email subject" value={formData.subject} onChange={(e) => setFormData({ ...formData, subject: e.target.value })} className="flex-1" />
+              <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2">
+                <Label className="text-xs sm:text-sm text-muted-foreground sm:w-16 shrink-0">Subject</Label>
+                <Input placeholder="Email subject" value={formData.subject} onChange={(e) => setFormData({ ...formData, subject: e.target.value })} className="flex-1 h-9 sm:h-10 text-sm" />
               </div>
 
               {/* Body */}
               <div className="flex-1 flex flex-col">
                 <Textarea
                   placeholder={composeMode === 'reply' ? 'Type your reply...' : composeMode === 'forward' ? 'Add a message (optional)...' : 'Write your message here...'}
-                  className="flex-1 min-h-[200px] resize-none"
+                  className="flex-1 min-h-[150px] sm:min-h-[200px] resize-none text-sm"
                   value={formData.body_text}
                   onChange={(e) => setFormData({ ...formData, body_text: e.target.value, body_html: `<p>${e.target.value.replace(/\n/g, '</p><p>')}</p>` })}
                 />
@@ -613,19 +740,19 @@ export default function EmailCompose() {
 
               {/* Original message context */}
               {originalMessage && (
-                <Card className="p-4 bg-muted/50 border-dashed">
+                <Card className="p-3 sm:p-4 bg-muted/50 border-dashed">
                   <div className="flex items-center justify-between mb-2">
-                    <div>
-                      <p className="text-xs text-muted-foreground uppercase">Original Message</p>
-                      <p className="font-medium text-sm">{originalMessage.subject || '(No Subject)'}</p>
+                    <div className="min-w-0">
+                      <p className="text-[10px] sm:text-xs text-muted-foreground uppercase">Original Message</p>
+                      <p className="font-medium text-xs sm:text-sm truncate">{originalMessage.subject || '(No Subject)'}</p>
                     </div>
-                    <Badge variant="outline" className={composeMode === 'reply' ? 'bg-blue-500/10' : 'bg-orange-500/10'}>
+                    <Badge variant="outline" className={cn("shrink-0 text-[10px] sm:text-xs", composeMode === 'reply' ? 'bg-blue-500/10' : 'bg-orange-500/10')}>
                       {composeMode === 'reply' ? 'Reply' : 'Forward'}
                     </Badge>
                   </div>
-                  <p className="text-xs text-muted-foreground">From: {originalMessage.from_address}</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">From: {originalMessage.from_address}</p>
                   {originalMessage.body_text && (
-                    <pre className="mt-2 text-xs whitespace-pre-wrap text-muted-foreground max-h-32 overflow-y-auto">
+                    <pre className="mt-2 text-[10px] sm:text-xs whitespace-pre-wrap text-muted-foreground max-h-24 sm:max-h-32 overflow-y-auto">
                       {originalMessage.body_text.substring(0, 500)}...
                     </pre>
                   )}
@@ -634,21 +761,27 @@ export default function EmailCompose() {
             </div>
 
             {/* Footer with formatting toolbar */}
-            <div className="border-t p-4 flex items-center justify-between bg-muted/30">
-              <div className="flex items-center gap-1">
+            <div className="border-t p-2 sm:p-4 flex items-center justify-between bg-muted/30 shrink-0">
+              <div className="hidden sm:flex items-center gap-1">
                 <Button variant="ghost" size="sm" className="h-8 w-8 p-0"><Bold className="h-4 w-4" /></Button>
                 <Button variant="ghost" size="sm" className="h-8 w-8 p-0"><Italic className="h-4 w-4" /></Button>
                 <Button variant="ghost" size="sm" className="h-8 w-8 p-0"><List className="h-4 w-4" /></Button>
                 <Button variant="ghost" size="sm" className="h-8 w-8 p-0"><Link2 className="h-4 w-4" /></Button>
                 <Button variant="ghost" size="sm" className="h-8 w-8 p-0"><Smile className="h-4 w-4" /></Button>
               </div>
+              {/* Mobile: attachment shortcut + send */}
+              <div className="flex sm:hidden items-center gap-1">
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => fileInputRef.current?.click()}>
+                  <Paperclip className="h-4 w-4" />
+                </Button>
+              </div>
               <div className="flex items-center gap-2">
                 {isAdmin && (
                   <Dialog open={showScheduleDialog} onOpenChange={setShowScheduleDialog}>
                     <DialogTrigger asChild>
-                      <Button variant="outline" size="sm">
-                        <Clock className="h-4 w-4 mr-1" />
-                        Schedule
+                      <Button variant="outline" size="sm" className="h-8 sm:h-9 text-xs sm:text-sm">
+                        <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-1" />
+                        <span className="hidden sm:inline">Schedule</span>
                       </Button>
                     </DialogTrigger>
                     <DialogContent>
@@ -660,15 +793,15 @@ export default function EmailCompose() {
                     </DialogContent>
                   </Dialog>
                 )}
-                <Button onClick={handleSendNow} disabled={sendMutation.isPending} className={cn(currentMode.buttonClass)}>
-                  <Send className="h-4 w-4 mr-1" />
+                <Button onClick={handleSendNow} disabled={sendMutation.isPending} className={cn("h-8 sm:h-9 text-xs sm:text-sm", currentMode.buttonClass)}>
+                  <Send className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1" />
                   {sendLabel}
                 </Button>
               </div>
             </div>
           </div>
 
-          {/* Right Sidebar */}
+          {/* Right Sidebar - Desktop only */}
           <div className="w-64 border-l bg-muted/30 p-4 space-y-6 overflow-y-auto hidden lg:block">
             {/* Insert Variables */}
             <div className="space-y-2">

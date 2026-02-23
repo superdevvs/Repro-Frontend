@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogTrigger } from '@/components/ui/dialog';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
 import { ImageUpload } from '@/components/profile/ImageUpload';
@@ -58,6 +58,7 @@ const Settings = () => {
   const [bio, setBio] = React.useState(user?.bio || '');
   const [name, setName] = useState(user?.name || '');
   const [isSaving, setIsSaving] = useState(false);
+  const [avatarDrawerOpen, setAvatarDrawerOpen] = useState(false);
 
   const isSuperAdmin = role === 'superadmin';
   
@@ -316,7 +317,7 @@ const Settings = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6 p-6">
+      <div className="space-y-4 px-2 pt-3 pb-20 sm:space-y-6 sm:p-6 sm:pb-6">
         <PageHeader
           title="Settings"
           description="Manage your account settings and preferences"
@@ -340,68 +341,64 @@ const Settings = () => {
                 <CardContent>
                   <form onSubmit={handleSaveProfile} className="space-y-6">
                     <div className="space-y-4">
-                      <div className="flex flex-col items-center sm:flex-row sm:items-start gap-6">
-                        <div>
-                          <Avatar className="h-24 w-24 border-2 border-muted">
-                            <AvatarImage src={avatar || user?.avatar} alt={user?.name} />
-                            <AvatarFallback>{user?.name?.charAt(0) || 'U'}</AvatarFallback>
-                          </Avatar>
-                          <Sheet>
-                            <SheetTrigger asChild>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="mt-2 w-full"
-                              >
-                                Change Avatar
-                              </Button>
-                            </SheetTrigger>
-                            <SheetContent>
-                              <SheetHeader>
-                                <SheetTitle>Profile Picture</SheetTitle>
-                                <SheetDescription>
-                                  Upload a new profile picture
-                                </SheetDescription>
-                              </SheetHeader>
-                              <div className="py-6">
-                                <ImageUpload onChange={handleAvatarChange} initialImage={avatar || user?.avatar} />
-                              </div>
-                            </SheetContent>
-                          </Sheet>
-                        </div>
-
-                        <div className="flex-1 space-y-4">
-                          <div className="grid gap-4 sm:grid-cols-2">
-                            <div className="space-y-2">
-                              <label htmlFor="name" className="text-sm font-medium">
-                                Full Name
-                              </label>
-                              <Input 
-                                id="name" 
-                                value={name}
-                                onChange={(e) => setName(e.target.value)}
-                              />
+                      <div className="flex flex-col items-center gap-4 mb-4">
+                        <Avatar className="h-20 w-20 border-2 border-muted">
+                          <AvatarImage src={avatar || user?.avatar} alt={user?.name} />
+                          <AvatarFallback>{user?.name?.charAt(0) || 'U'}</AvatarFallback>
+                        </Avatar>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setAvatarDrawerOpen(true)}
+                        >
+                          Change Avatar
+                        </Button>
+                        <Drawer open={avatarDrawerOpen} onOpenChange={setAvatarDrawerOpen}>
+                          <DrawerContent className="max-h-[80dvh]">
+                            <DrawerHeader className="pb-2">
+                              <DrawerTitle>Profile Picture</DrawerTitle>
+                              <DrawerDescription>
+                                Upload a new profile picture
+                              </DrawerDescription>
+                            </DrawerHeader>
+                            <div className="px-4 pb-6 flex justify-center">
+                              <ImageUpload onChange={(url) => { handleAvatarChange(url); setAvatarDrawerOpen(false); }} initialImage={avatar || user?.avatar} />
                             </div>
-                            <div className="space-y-2">
-                              <label htmlFor="email" className="text-sm font-medium">
-                                Email
-                              </label>
-                              <Input id="email" type="email" defaultValue={user?.email} />
-                            </div>
-                          </div>
+                          </DrawerContent>
+                        </Drawer>
+                      </div>
 
+                      <div className="space-y-4 w-full">
+                        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
                           <div className="space-y-2">
-                            <label htmlFor="bio" className="text-sm font-medium">
-                              Bio
+                            <label htmlFor="name" className="text-sm font-medium">
+                              Full Name
                             </label>
-                            <Textarea
-                              id="bio"
-                              rows={4}
-                              value={bio}
-                              placeholder="Write a short bio about yourself"
-                              onChange={(e) => setBio(e.target.value)}
+                            <Input 
+                              id="name" 
+                              value={name}
+                              onChange={(e) => setName(e.target.value)}
                             />
                           </div>
+                          <div className="space-y-2">
+                            <label htmlFor="email" className="text-sm font-medium">
+                              Email
+                            </label>
+                            <Input id="email" type="email" defaultValue={user?.email} />
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <label htmlFor="bio" className="text-sm font-medium">
+                            Bio
+                          </label>
+                          <Textarea
+                            id="bio"
+                            rows={4}
+                            value={bio}
+                            placeholder="Write a short bio about yourself"
+                            onChange={(e) => setBio(e.target.value)}
+                          />
                         </div>
                       </div>
                     </div>

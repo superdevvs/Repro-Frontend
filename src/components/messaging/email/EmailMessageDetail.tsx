@@ -150,7 +150,7 @@ export function EmailMessageDetail({ message, onClose, onRefresh }: EmailMessage
   return (
     <div className="h-full flex flex-col bg-background">
       {/* Header */}
-      <div className="p-4 border-b border-border flex items-center justify-between">
+      <div className="p-3 sm:p-4 border-b border-border flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" onClick={onClose}>
             <X className="h-4 w-4" />
@@ -158,11 +158,11 @@ export function EmailMessageDetail({ message, onClose, onRefresh }: EmailMessage
           <StatusIcon className="h-5 w-5" />
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon">
+        <div className="flex items-center gap-1 sm:gap-2">
+          <Button variant="ghost" size="icon" className="hidden sm:inline-flex">
             <Archive className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon">
+          <Button variant="ghost" size="icon" className="hidden sm:inline-flex">
             <Printer className="h-4 w-4" />
           </Button>
 
@@ -185,6 +185,10 @@ export function EmailMessageDetail({ message, onClose, onRefresh }: EmailMessage
                   Cancel
                 </DropdownMenuItem>
               )}
+              <DropdownMenuItem className="sm:hidden">
+                <Archive className="mr-2 h-4 w-4" />
+                Archive
+              </DropdownMenuItem>
               <DropdownMenuItem>
                 <Download className="mr-2 h-4 w-4" />
                 Export
@@ -195,7 +199,7 @@ export function EmailMessageDetail({ message, onClose, onRefresh }: EmailMessage
       </div>
 
       {/* Message Content */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
         {/* Status Badge */}
         <Badge className={statusColors[message.status]}>
           {statusLabels[message.status]}
@@ -203,7 +207,7 @@ export function EmailMessageDetail({ message, onClose, onRefresh }: EmailMessage
 
         {/* Subject */}
         <div>
-          <h2 className="text-2xl font-bold">{message.subject || '(No Subject)'}</h2>
+          <h2 className="text-lg sm:text-2xl font-bold">{message.subject || '(No Subject)'}</h2>
         </div>
 
         {/* Meta */}
@@ -328,26 +332,26 @@ export function EmailMessageDetail({ message, onClose, onRefresh }: EmailMessage
       </div>
 
       {/* Inline Reply Section */}
-      <div className="border-t border-border">
+      <div className="border-t border-border pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:pb-0">
         {!showReply ? (
-          <div className="p-4 flex gap-2">
+          <div className="p-3 sm:p-4 flex gap-2">
             <button
-              className="flex-1 flex items-center gap-2 p-3 border-2 border-dashed border-muted-foreground/30 rounded-lg text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+              className="flex-1 flex items-center gap-2 p-2.5 sm:p-3 border-2 border-dashed border-muted-foreground/30 rounded-lg text-muted-foreground hover:border-primary hover:text-primary transition-colors"
               onClick={() => setShowReply(true)}
             >
-              <Reply className="h-4 w-4" />
-              <span className="text-sm">Reply to {senderLabel || 'sender'}...</span>
+              <Reply className="h-4 w-4 shrink-0" />
+              <span className="text-xs sm:text-sm truncate">Reply to {senderLabel || 'sender'}...</span>
             </button>
-            <Button variant="outline" size="sm" onClick={handleForward}>
-              <Forward className="h-4 w-4 mr-1" />
-              Forward
+            <Button variant="outline" size="sm" onClick={handleForward} className="shrink-0">
+              <Forward className="h-4 w-4 sm:mr-1" />
+              <span className="hidden sm:inline">Forward</span>
             </Button>
           </div>
         ) : (
-          <div className="p-4 space-y-3 bg-muted/30">
+          <div className="p-3 sm:p-4 space-y-3 bg-muted/30">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-blue-600">Replying to {senderLabel}</span>
-              <Button variant="ghost" size="sm" onClick={handleExpandToFull} className="text-xs">
+              <span className="text-xs sm:text-sm font-medium text-blue-600 truncate">Replying to {senderLabel}</span>
+              <Button variant="ghost" size="sm" onClick={handleExpandToFull} className="text-xs shrink-0">
                 <Maximize2 className="h-3 w-3 mr-1" />
                 Expand
               </Button>
@@ -356,24 +360,24 @@ export function EmailMessageDetail({ message, onClose, onRefresh }: EmailMessage
               placeholder="Type your reply..."
               value={replyBody}
               onChange={(e) => setReplyBody(e.target.value)}
-              rows={4}
-              className="resize-none"
+              rows={3}
+              className="resize-none text-sm"
               autoFocus
             />
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1">
+              <div className="hidden sm:flex items-center gap-1">
                 <Button variant="ghost" size="sm" className="h-8 w-8 p-0"><Bold className="h-4 w-4" /></Button>
                 <Button variant="ghost" size="sm" className="h-8 w-8 p-0"><Italic className="h-4 w-4" /></Button>
                 <Button variant="ghost" size="sm" className="h-8 w-8 p-0"><Link2 className="h-4 w-4" /></Button>
                 <Button variant="ghost" size="sm" className="h-8 w-8 p-0"><Paperclip className="h-4 w-4" /></Button>
                 <Button variant="ghost" size="sm" className="h-8 w-8 p-0"><Smile className="h-4 w-4" /></Button>
               </div>
-              <div className="flex items-center gap-2">
-                <Button variant="ghost" size="sm" onClick={() => { setShowReply(false); setReplyBody(''); }} disabled={sendingReply}>
+              <div className="flex items-center gap-2 ml-auto">
+                <Button variant="ghost" size="sm" onClick={() => { setShowReply(false); setReplyBody(''); }} disabled={sendingReply} className="text-xs sm:text-sm">
                   Cancel
                 </Button>
-                <Button size="sm" onClick={handleSendReply} disabled={sendingReply} className="bg-blue-600 hover:bg-blue-700">
-                  <Send className="h-4 w-4 mr-1" />
+                <Button size="sm" onClick={handleSendReply} disabled={sendingReply} className="bg-blue-600 hover:bg-blue-700 text-xs sm:text-sm">
+                  <Send className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1" />
                   {sendingReply ? 'Sending...' : 'Send'}
                 </Button>
               </div>

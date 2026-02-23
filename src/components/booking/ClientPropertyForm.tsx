@@ -980,7 +980,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit, handleInvalidSubmit)} className="space-y-6">
         {!isClientAccount && (
-          <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 shadow-[0_1px_2px_rgba(15,23,42,0.08)] dark:border-muted/40 dark:bg-card/40 p-4 sm:p-5 space-y-4">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50/80 shadow-[0_1px_2px_rgba(15,23,42,0.08)] dark:border-border dark:bg-card/40 p-4 sm:p-5 space-y-4">
             <h3 className="text-base font-semibold">Client Information</h3>
 
             <div className="space-y-3">
@@ -1184,7 +1184,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
           </div>
         )}
 
-        <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 shadow-[0_1px_2px_rgba(15,23,42,0.08)] dark:border-muted/40 dark:bg-card/40 p-4 sm:p-5 space-y-4">
+        <div className="rounded-2xl border border-slate-200 bg-slate-50/80 shadow-[0_1px_2px_rgba(15,23,42,0.08)] dark:border-border dark:bg-card/40 p-4 sm:p-5 space-y-4">
           <h3 className="text-base font-semibold">Property Details</h3>
 
           <div className="space-y-4">
@@ -1673,7 +1673,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
         <div className="pt-2">
           <Separator className="my-6" />
           <div className="space-y-6">
-            <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 shadow-[0_1px_2px_rgba(15,23,42,0.08)] dark:border-muted/40 dark:bg-card/40 p-4 sm:p-5 space-y-4">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 shadow-[0_1px_2px_rgba(15,23,42,0.08)] dark:border-border dark:bg-card/40 p-4 sm:p-5 space-y-4">
               <div className="space-y-3">
                 <div>
                   <h3 className="text-base font-semibold">Who will be at the property?</h3>
@@ -1731,7 +1731,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
             </div>
 
             {presenceOption === 'lockbox' && (
-              <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 shadow-[0_1px_2px_rgba(15,23,42,0.08)] dark:border-muted/40 dark:bg-card/40 p-4 sm:p-5 space-y-4">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/80 shadow-[0_1px_2px_rgba(15,23,42,0.08)] dark:border-border dark:bg-card/40 p-4 sm:p-5 space-y-4">
                 <div>
                   <h3 className="text-base font-semibold">Lockbox Details</h3>
                   <p className="text-sm text-muted-foreground">Share access info for the shoot.</p>
@@ -1769,7 +1769,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 shadow-[0_1px_2px_rgba(15,23,42,0.08)] dark:border-muted/40 dark:bg-card/40 p-4 sm:p-5 space-y-4">
+        <div className="rounded-2xl border border-slate-200 bg-slate-50/80 shadow-[0_1px_2px_rgba(15,23,42,0.08)] dark:border-border dark:bg-card/40 p-4 sm:p-5 space-y-4">
           <div>
             <h3 className="text-base font-semibold">Notes</h3>
             <p className="text-sm text-muted-foreground">Keep context for the client and internal teams.</p>

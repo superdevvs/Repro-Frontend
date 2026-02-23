@@ -426,14 +426,8 @@ export function ShootDetailsSidebar({
           }
         }
         const catEntries = Object.values(catGroups).filter(g => g.services.length > 0);
-        // Check if there are genuinely different photographers across ALL services
-        const allServicePhotographerIds = new Set(
-          svcList
-            .filter((s: any) => typeof s === 'object' && s)
-            .map((s: any) => String((s as any).resolved_photographer_id || (s as any).photographer_id || (s as any).photographer?.id || photographer?.id || ''))
-            .filter(Boolean)
-        );
-        const hasMultiplePhotographers = catEntries.length > 1 && allServicePhotographerIds.size > 1;
+        // Show per-category view when there are multiple categories
+        const hasMultiplePhotographers = catEntries.length > 1;
 
         return (
           <Card className="shadow-sm border-2 hover:shadow-md transition-shadow">

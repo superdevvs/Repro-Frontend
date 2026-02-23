@@ -155,7 +155,7 @@ export function EmailMessageList({
       </div>
 
       {/* Message List */}
-      <div className="flex-1 overflow-y-auto pt-4">
+      <div className="flex-1 overflow-y-auto pb-[calc(env(safe-area-inset-bottom,0px)+5rem)] sm:pb-0">
         {messages.length === 0 ? (
           <div className="flex items-center justify-center h-64 text-muted-foreground">
             <div className="text-center space-y-2">

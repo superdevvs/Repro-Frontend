@@ -88,19 +88,19 @@ export default function Templates() {
   return (
     <DashboardLayout>
       <EmailNavigation />
-      <div className="container mx-auto py-6">
+      <div className="space-y-4 px-3 pt-3 pb-[calc(env(safe-area-inset-bottom,0px)+5rem)] sm:space-y-6 sm:p-6 sm:pb-6">
         {/* Header */}
-        <div className="mb-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold">Email Templates</h1>
-              <p className="text-muted-foreground">
-                Manage booking confirmations, reminders, and custom email layouts
+        <div className="mb-4 sm:mb-6 space-y-3 sm:space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="text-xl sm:text-3xl font-bold">Email Templates</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground truncate">
+                Manage confirmations, reminders & custom layouts
               </p>
             </div>
-            <Button onClick={() => setIsCreating(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              New Template
+            <Button onClick={() => setIsCreating(true)} size="sm" className="shrink-0 h-8 sm:h-9">
+              <Plus className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">New Template</span>
             </Button>
           </div>
 
@@ -148,7 +148,7 @@ export default function Templates() {
                 {filteredTemplates.map((template) => (
                   <Card
                     key={template.id}
-                    className="p-6 hover:shadow-lg transition-shadow cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="p-4 sm:p-6 hover:shadow-lg transition-shadow cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary"
                     role="button"
                     tabIndex={0}
                     onClick={() => setEditingTemplate(template)}

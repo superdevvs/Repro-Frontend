@@ -109,8 +109,11 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
     tabs.push({ id: 'editing', label: 'Editing', count: activeEditingRequests.length });
   }
 
+  const totalRequests = tabs.reduce((sum, t) => sum + t.count, 0);
+  const isEmpty = totalRequests === 0;
+
   return (
-    <Card className="flex flex-col h-full flex-1 min-h-0 overflow-hidden">
+    <Card className={cn("flex flex-col min-h-0 overflow-hidden", isEmpty ? "h-auto" : "h-full flex-1")}>
       <div className="flex flex-col h-full flex-1 min-h-0">
         <div className="flex items-center justify-between mb-2 flex-shrink-0">
           <h2 className="text-base sm:text-lg font-bold text-foreground">{title}</h2>

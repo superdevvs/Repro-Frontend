@@ -1998,9 +1998,9 @@ export function ShootDetailsMediaTab({
   }
 
   return (
-    <div className="flex flex-col h-full min-h-0 bg-background px-3 sm:px-4 lg:px-6" style={{ height: '100%', minHeight: '100%' }}>
+    <div className="flex flex-col h-full min-h-0 bg-background px-1 sm:px-4 lg:px-6" style={{ height: '100%', minHeight: '100%' }}>
       {/* Header - Tabs with Upload button inline on desktop, expand/collapse button */}
-      <div className="border-b flex-shrink-0 bg-background pt-3 sm:pt-4">
+      <div className="border-b flex-shrink-0 bg-background pt-1 sm:pt-2">
         <div className="flex items-center justify-between gap-2">
           <Tabs value={activeSubTab === 'upload' ? displayTab : (activeSubTab === 'uploaded' || activeSubTab === 'edited' ? activeSubTab : defaultTab)} onValueChange={(v) => {
             if (v === 'media') {
@@ -2333,7 +2333,7 @@ export function ShootDetailsMediaTab({
             {!isClient && displayTab === 'uploaded' && (
               <div className="flex-1" style={{ minHeight: 0, display: 'flex', flexDirection: 'column', height: '100%', width: '100%' }}>
                 {/* Sub-tabs for Photos/Videos/iGuide/Floorplans */}
-                <div className="sticky top-0 z-10 px-2.5 py-1 border-b bg-background" style={{ flexShrink: 0 }}>
+                <div className="sticky top-0 z-10 px-2.5 py-0.5 border-b bg-background" style={{ flexShrink: 0 }}>
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-4 overflow-x-auto">
                       <button
@@ -2401,7 +2401,7 @@ export function ShootDetailsMediaTab({
                         </div>
                       </div>
                     ) : (
-                      <div className="h-full m-2.5 border rounded-lg bg-card overflow-y-auto p-2.5">
+                      <div className="h-full m-0 sm:m-2.5 border-0 sm:border rounded-none sm:rounded-lg bg-card overflow-y-auto p-1 sm:p-2.5">
                         <MediaGrid
                           files={uploadedPhotos}
                           onFileClick={(index) => openViewer(index, uploadedPhotos)}
@@ -2446,7 +2446,7 @@ export function ShootDetailsMediaTab({
                         </div>
                       </div>
                     ) : (
-                      <div className="h-full m-2.5 border rounded-lg bg-card overflow-y-auto p-2.5">
+                      <div className="h-full m-0 sm:m-2.5 border-0 sm:border rounded-none sm:rounded-lg bg-card overflow-y-auto p-1 sm:p-2.5">
                         <MediaGrid
                           files={uploadedVideos}
                           onFileClick={(index) => openViewer(index, uploadedVideos)}
@@ -2528,7 +2528,7 @@ export function ShootDetailsMediaTab({
             {!isPhotographer && displayTab === 'edited' && (
               <div className="flex-1" style={{ minHeight: 0, display: 'flex', flexDirection: 'column', height: '100%', width: '100%' }}>
                 {/* Sub-tabs for Photos/Videos/iGuide/Floorplans */}
-                <div className="sticky top-0 z-10 px-2.5 py-1 border-b bg-background" style={{ flexShrink: 0 }}>
+                <div className="sticky top-0 z-10 px-2.5 py-0.5 border-b bg-background" style={{ flexShrink: 0 }}>
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-4 overflow-x-auto">
                       <button
@@ -2596,7 +2596,7 @@ export function ShootDetailsMediaTab({
                         </div>
                       </div>
                     ) : (
-                      <div className="h-full m-2.5 border rounded-lg bg-card overflow-y-auto p-2.5">
+                      <div className="h-full m-0 sm:m-2.5 border-0 sm:border rounded-none sm:rounded-lg bg-card overflow-y-auto p-1 sm:p-2.5">
                         <MediaGrid
                           files={editedPhotos}
                           onFileClick={(index) => openViewer(index, editedPhotos)}
@@ -2641,7 +2641,7 @@ export function ShootDetailsMediaTab({
                         </div>
                       </div>
                     ) : (
-                      <div className="h-full m-2.5 border rounded-lg bg-card overflow-y-auto p-2.5">
+                      <div className="h-full m-0 sm:m-2.5 border-0 sm:border rounded-none sm:rounded-lg bg-card overflow-y-auto p-1 sm:p-2.5">
                         <MediaGrid
                           files={editedVideos}
                           onFileClick={(index) => openViewer(index, editedVideos)}
@@ -3002,13 +3002,8 @@ function MediaGrid({
           isSelected ? 'border-primary ring-1 ring-primary' : 'border-border hover:border-primary/50'
         } ${isExtraSection ? 'opacity-90' : ''} ${isDragging ? 'opacity-50 scale-95' : ''} ${isDragOver ? 'ring-2 ring-blue-500 border-blue-500' : ''} ${sortOrder === 'manual' && !isExtraSection ? 'cursor-grab active:cursor-grabbing' : ''}`}
         onClick={() => {
-          if (canSelect) {
-            onSelectionChange(file.id);
-          } else {
-            onFileClick(actualIndex);
-          }
+          onFileClick(actualIndex);
         }}
-        onDoubleClick={() => onFileClick(actualIndex)}
       >
         {/* Simple image display - backend generates thumbnails at upload time */}
         {/* For RAW files, only show image if we have a processed thumbnail (thumbnail_path set by backend) */}
@@ -3078,7 +3073,10 @@ function MediaGrid({
         )}
         
         {canSelect && (
-          <div className={`absolute ${file.isExtra ? 'top-5' : 'top-1'} left-1 opacity-0 group-hover:opacity-100 transition-opacity`}>
+          <div 
+            className={`absolute ${file.isExtra ? 'top-5' : 'top-1'} left-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity`}
+            onClick={(e) => e.stopPropagation()}
+          >
             <Checkbox
               checked={isSelected}
               onCheckedChange={() => onSelectionChange(file.id)}
@@ -3118,17 +3116,12 @@ function MediaGrid({
         onDragLeave={handleDragLeave}
         onDrop={(e) => handleDrop(e, file.id)}
         onDragEnd={handleDragEnd}
-        className={`flex items-center gap-3 p-2 rounded-lg border cursor-pointer transition-all group hover:bg-muted/50 ${
+        className={`flex items-center gap-2 sm:gap-3 p-1.5 sm:p-2 rounded-lg border cursor-pointer transition-all group hover:bg-muted/50 ${
           isSelected ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-border'
         } ${isExtraSection ? 'opacity-90' : ''} ${isDragging ? 'opacity-50' : ''} ${isDragOver ? 'ring-2 ring-blue-500 border-blue-500' : ''} ${sortOrder === 'manual' && !isExtraSection ? 'cursor-grab active:cursor-grabbing' : ''}`}
         onClick={() => {
-          if (canSelect) {
-            onSelectionChange(file.id);
-          } else {
-            onFileClick(actualIndex);
-          }
+          onFileClick(actualIndex);
         }}
-        onDoubleClick={() => onFileClick(actualIndex)}
       >
         {/* Selection indicator - moved to left */}
         {canSelect && (
@@ -3437,19 +3430,19 @@ function MediaViewer({
   const isImg = isPreviewableImage(currentFile);
   const fileExt = currentFile?.filename?.split('.')?.pop()?.toUpperCase();
 
-  const TOP_NAV_OFFSET = 64;
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent
-        className="max-w-none max-h-none h-full w-screen p-0 bg-black/95 backdrop-blur-md border-0 rounded-none [&>button:last-child]:hidden"
+        className="!fixed !inset-0 !translate-x-0 !translate-y-0 max-w-none max-h-none w-screen h-screen p-0 bg-black/95 backdrop-blur-md border-0 rounded-none [&>button:last-child]:hidden"
         style={{
-          top: TOP_NAV_OFFSET,
+          top: 0,
           left: 0,
           right: 0,
+          bottom: 0,
           transform: 'none',
           width: '100vw',
-          height: `calc(100vh - ${TOP_NAV_OFFSET}px)`,
+          height: '100dvh',
+          zIndex: 100,
         }}
       >
         <DialogHeader className="sr-only">
@@ -3465,36 +3458,36 @@ function MediaViewer({
           <Button
             variant="ghost"
             size="icon"
-            className="absolute top-4 right-4 z-20 text-white hover:bg-white/20 rounded-full"
+            className="absolute top-2 right-2 sm:top-4 sm:right-4 z-20 text-white hover:bg-white/20 rounded-full h-9 w-9 sm:h-10 sm:w-10"
             onClick={onClose}
           >
-            <X className="h-6 w-6" />
+            <X className="h-5 w-5 sm:h-6 sm:w-6" />
           </Button>
 
           {currentIndex > 0 && (
             <Button
               variant="ghost"
               size="icon"
-              className="absolute left-4 z-10 text-white hover:bg-white/20"
+              className="absolute left-1 sm:left-4 z-10 text-white hover:bg-white/20 h-10 w-10 sm:h-12 sm:w-12"
               onClick={handlePrevious}
             >
-              <ChevronLeft className="h-8 w-8" />
+              <ChevronLeft className="h-6 w-6 sm:h-8 sm:w-8" />
             </Button>
           )}
 
           {/* Top Metadata Bar */}
           {isImg && currentFile && (
-            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 bg-black/60 backdrop-blur-md rounded-lg px-4 py-2 flex items-center gap-4 text-white text-sm">
-              <div className="flex items-center gap-2">
-                <span className="font-medium">{currentFile.filename}</span>
+            <div className="absolute top-12 sm:top-4 left-1/2 -translate-x-1/2 z-20 bg-black/60 backdrop-blur-md rounded-lg px-3 sm:px-4 py-1.5 sm:py-2 flex items-center gap-2 sm:gap-4 text-white text-xs sm:text-sm max-w-[90vw]">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="font-medium truncate">{currentFile.filename}</span>
               </div>
               {currentFile.width && currentFile.height && (
-                <div className="text-white/70">
+                <div className="text-white/70 hidden sm:block">
                   {currentFile.width} × {currentFile.height}
                 </div>
               )}
               {currentFile.fileSize && (
-                <div className="text-white/70">
+                <div className="text-white/70 hidden sm:block">
                   {(currentFile.fileSize / 1024 / 1024).toFixed(2)} MB
                 </div>
               )}
@@ -3530,43 +3523,43 @@ function MediaViewer({
             </div>
           )}
 
-          <div className="flex items-center justify-center p-8 overflow-auto" style={{ transform: `scale(${zoom})`, transformOrigin: 'center' }}>
+          <div className="flex items-center justify-center p-2 sm:p-8 overflow-auto" style={{ transform: `scale(${zoom})`, transformOrigin: 'center' }}>
             {isImg ? (
               <img
                 src={imageUrl}
                 srcSet={srcSet}
-                sizes="90vw"
+                sizes="95vw"
                 alt={currentFile.filename}
-                className="max-w-full max-h-[70vh] object-contain select-none rounded-lg shadow-2xl"
+                className="max-w-full max-h-[60vh] sm:max-h-[70vh] object-contain select-none rounded-lg shadow-2xl"
                 loading="eager"
                 draggable={false}
               />
             ) : (
               <div className="text-white text-center">
-                <FileIcon className="h-16 w-16 mx-auto mb-4" />
-                <p>{currentFile.filename}</p>
+                <FileIcon className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-4" />
+                <p className="text-sm sm:text-base">{currentFile.filename}</p>
               </div>
             )}
           </div>
 
           {/* Zoom Controls */}
           {isImg && (
-            <div className="absolute top-4 left-4 z-20 flex items-center gap-2 bg-black/60 backdrop-blur-md rounded-lg p-1.5">
+            <div className="absolute top-2 sm:top-4 left-2 sm:left-4 z-20 flex items-center gap-1 sm:gap-2 bg-black/60 backdrop-blur-md rounded-lg p-1 sm:p-1.5">
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-white hover:bg-white/20"
+                className="h-7 w-7 sm:h-8 sm:w-8 text-white hover:bg-white/20"
                 onClick={handleZoomOut}
                 disabled={zoom <= 0.5}
                 title="Zoom out"
               >
                 <span className="text-sm">−</span>
               </Button>
-              <span className="text-white text-xs min-w-[3rem] text-center font-medium">{Math.round(zoom * 100)}%</span>
+              <span className="text-white text-[10px] sm:text-xs min-w-[2.5rem] sm:min-w-[3rem] text-center font-medium">{Math.round(zoom * 100)}%</span>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-white hover:bg-white/20"
+                className="h-7 w-7 sm:h-8 sm:w-8 text-white hover:bg-white/20"
                 onClick={handleZoomIn}
                 disabled={zoom >= 3}
                 title="Zoom in"
@@ -3576,7 +3569,7 @@ function MediaViewer({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 text-xs text-white hover:bg-white/20"
+                className="h-7 sm:h-8 text-[10px] sm:text-xs text-white hover:bg-white/20 hidden sm:inline-flex"
                 onClick={handleResetZoom}
                 title="Reset zoom (0)"
               >
@@ -3590,11 +3583,12 @@ function MediaViewer({
             <Button
               variant="destructive"
               size="sm"
-              className="absolute top-4 left-1/2 -translate-x-1/2 z-10"
+              className="absolute top-2 sm:top-4 right-14 sm:left-1/2 sm:-translate-x-1/2 sm:right-auto z-10 h-7 sm:h-8 text-xs"
               onClick={() => setShowFlagDialog(true)}
             >
-              <AlertCircle className="h-4 w-4 mr-1" />
-              Flag Issue
+              <AlertCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1" />
+              <span className="hidden sm:inline">Flag Issue</span>
+              <span className="sm:hidden">Flag</span>
             </Button>
           )}
 
@@ -3602,29 +3596,29 @@ function MediaViewer({
             <Button
               variant="ghost"
               size="icon"
-              className="absolute right-4 z-10 text-white hover:bg-white/20"
+              className="absolute right-1 sm:right-4 z-10 text-white hover:bg-white/20 h-10 w-10 sm:h-12 sm:w-12"
               onClick={handleNext}
             >
-              <ChevronRight className="h-8 w-8" />
+              <ChevronRight className="h-6 w-6 sm:h-8 sm:w-8" />
             </Button>
           )}
 
           {/* Bottom Filmstrip */}
-          <div className="absolute bottom-0 left-0 right-0 bg-black/80 backdrop-blur-md text-white p-4 z-20">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <div className="font-medium text-sm">{currentFile.filename}</div>
-                <div className="text-xs text-gray-300">
+          <div className="absolute bottom-0 left-0 right-0 bg-black/80 backdrop-blur-md text-white p-2 sm:p-4 z-20">
+            <div className="flex items-center justify-between mb-2 sm:mb-3">
+              <div className="min-w-0">
+                <div className="font-medium text-xs sm:text-sm truncate">{currentFile.filename}</div>
+                <div className="text-[10px] sm:text-xs text-gray-300">
                   {currentIndex + 1} of {files.length}
                 </div>
               </div>
-              <div className="text-xs text-gray-400">
+              <div className="text-xs text-gray-400 hidden sm:block">
                 Use ← → arrow keys to navigate • + - to zoom • ESC to close
               </div>
             </div>
             
             {/* Filmstrip Thumbnails */}
-            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
+            <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-1 sm:pb-2 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
               {files.map((file, index) => {
                 const isActive = index === currentIndex;
                 const fileImageUrl = getImageUrl(file, 'thumb');
@@ -3642,7 +3636,7 @@ function MediaViewer({
                       onIndexChange(index);
                       setZoom(1);
                     }}
-                    className={`flex-shrink-0 w-16 h-16 rounded overflow-hidden border-2 transition-all ${
+                    className={`flex-shrink-0 w-12 h-12 sm:w-16 sm:h-16 rounded overflow-hidden border-2 transition-all ${
                       isActive 
                         ? 'border-white ring-2 ring-white/50 scale-105' 
                         : 'border-white/30 hover:border-white/60 opacity-70 hover:opacity-100'

@@ -947,7 +947,7 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
       {/* Header with static "Shoots" title and inline tabs */}
       <div className="flex flex-wrap items-center justify-between mb-2 gap-3 pr-10 sm:pr-0">
         <div className="flex items-center gap-4">
-          <h2 className="text-lg font-bold text-foreground">Shoots</h2>
+          <h2 className="hidden sm:block text-lg font-bold text-foreground">Shoots</h2>
           <div className="flex items-center gap-1 border-b border-transparent">
             <button
               onClick={() => setActiveTab('upcoming')}
@@ -1373,7 +1373,7 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
       <div className="flex-1 flex flex-col">
         {activeTab === 'upcoming' ? (
           paginatedGroups.length === 0 ? (
-            <div className="flex-1 flex items-center justify-center text-center text-sm text-slate-500 pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:pb-0">
+            <div className="flex-1 w-full min-h-[120px] flex items-center justify-center text-center text-sm text-slate-500">
               No upcoming shoots found.
             </div>
           ) : (

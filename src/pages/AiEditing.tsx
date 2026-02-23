@@ -263,7 +263,7 @@ const AiEditing = () => {
           photo_count: shoot.photo_count || shoot.files?.length || 0,
           created_by: shoot.created_by || shoot.user?.name || 'Unknown',
           created_at: shoot.created_at || shoot.createdAt || new Date().toISOString(),
-          thumbnail: shoot.thumbnail || shoot.cover_image || null,
+          thumbnail: shoot.thumbnail || shoot.hero_image || shoot.cover_image || (Array.isArray(shoot.preview_images) && shoot.preview_images.length > 0 ? shoot.preview_images[0] : null),
           auto_edit_enabled: shoot.auto_edit_enabled || false,
         }));
         setShoots(shootsData);
@@ -791,119 +791,157 @@ const AiEditing = () => {
   const renderListView = () => (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold">{filteredListings.length} listings</h2>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="relative">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="text-lg sm:text-2xl font-semibold">{filteredListings.length} listings</h2>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="relative flex-1 sm:flex-initial">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search listings..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 w-64"
+              className="pl-10 w-full sm:w-64"
             />
           </div>
-          <Button onClick={handleNewEdit} className="bg-primary hover:bg-primary/90 text-white">
-            <Plus className="h-4 w-4 mr-2" />
-            New Listing
+          <Button onClick={handleNewEdit} size="sm" className="bg-primary hover:bg-primary/90 text-white shrink-0">
+            <Plus className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">New Listing</span>
           </Button>
         </div>
       </div>
 
-      {/* Table */}
-      <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Listing</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Photos</TableHead>
-                <TableHead>Created By</TableHead>
-                <TableHead>Created At</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin mx-auto" />
-                  </TableCell>
-                </TableRow>
-              ) : filteredListings.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-12">
-                    <div className="flex flex-col items-center gap-4">
-                      <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
-                        <ImageIcon className="h-8 w-8 text-muted-foreground" />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-semibold mb-1">No listings yet</h3>
-                        <p className="text-sm text-muted-foreground mb-4">
-                          Get started by creating your first listing
-                        </p>
-                        <Button onClick={handleNewEdit} className="bg-primary hover:bg-primary/90 text-white">
-                          <Plus className="h-4 w-4 mr-2" />
-                          Create New Listing
-                        </Button>
-                      </div>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredListings.map((listing) => {
-                  const imageUrl = listing.thumbnail 
-                    ? (listing.thumbnail.startsWith('http') ? listing.thumbnail : `${API_BASE_URL}/${listing.thumbnail.replace(/^\//, '')}`)
-                    : null;
-                  return (
-                    <TableRow
-                      key={listing.id}
-                      className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => handleShootSelect(listing)}
-                    >
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          {imageUrl ? (
-                            <img
-                              src={imageUrl}
-                              alt={listing.address}
-                              className="w-12 h-12 object-cover rounded"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).style.display = 'none';
-                              }}
-                            />
-                          ) : (
-                            <div className="w-12 h-12 bg-muted rounded flex items-center justify-center">
-                              <ImageIcon className="h-6 w-6 text-muted-foreground" />
-                            </div>
-                          )}
-                          <span className="font-medium">{listing.address}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>{getStatusBadge(listing)}</TableCell>
-                      <TableCell>{listing.photo_count || 0}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                            <span className="text-primary text-xs font-semibold">
-                              {listing.created_by?.charAt(0).toUpperCase() || 'C'}
-                            </span>
+      {/* Content */}
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-6 w-6 animate-spin" />
+        </div>
+      ) : filteredListings.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center gap-4 py-12">
+            <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+              <ImageIcon className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <div className="text-center">
+              <h3 className="text-lg font-semibold mb-1">No listings yet</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Get started by creating your first listing
+              </p>
+              <Button onClick={handleNewEdit} className="bg-primary hover:bg-primary/90 text-white">
+                <Plus className="h-4 w-4 mr-2" />
+                Create New Listing
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          {/* Desktop Table */}
+          <Card className="hidden sm:block">
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Listing</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Photos</TableHead>
+                    <TableHead>Created By</TableHead>
+                    <TableHead>Created At</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredListings.map((listing) => {
+                    const imageUrl = listing.thumbnail 
+                      ? (listing.thumbnail.startsWith('http') ? listing.thumbnail : `${API_BASE_URL}/${listing.thumbnail.replace(/^\//, '')}`)
+                      : null;
+                    return (
+                      <TableRow
+                        key={listing.id}
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={() => handleShootSelect(listing)}
+                      >
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            {imageUrl ? (
+                              <img
+                                src={imageUrl}
+                                alt={listing.address}
+                                className="w-12 h-12 object-cover rounded"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display = 'none';
+                                }}
+                              />
+                            ) : (
+                              <div className="w-12 h-12 bg-muted rounded flex items-center justify-center">
+                                <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                              </div>
+                            )}
+                            <span className="font-medium">{listing.address}</span>
                           </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {listing.created_at ? format(new Date(listing.created_at), 'MMM d, yyyy') : '—'}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                        </TableCell>
+                        <TableCell>{getStatusBadge(listing)}</TableCell>
+                        <TableCell>{listing.photo_count || 0}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                              <span className="text-primary text-xs font-semibold">
+                                {listing.created_by?.charAt(0).toUpperCase() || 'C'}
+                              </span>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {listing.created_at ? format(new Date(listing.created_at), 'MMM d, yyyy') : '—'}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          {/* Mobile Card List */}
+          <div className="sm:hidden space-y-2">
+            {filteredListings.map((listing) => {
+              const imageUrl = listing.thumbnail 
+                ? (listing.thumbnail.startsWith('http') ? listing.thumbnail : `${API_BASE_URL}/${listing.thumbnail.replace(/^\//, '')}`)
+                : null;
+              return (
+                <div
+                  key={listing.id}
+                  className="flex items-center gap-3 p-3 rounded-lg border bg-card cursor-pointer hover:bg-muted/50 transition-colors"
+                  onClick={() => handleShootSelect(listing)}
+                >
+                  {imageUrl ? (
+                    <img
+                      src={imageUrl}
+                      alt={listing.address}
+                      className="w-14 h-14 object-cover rounded-lg flex-shrink-0"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <div className="w-14 h-14 bg-muted rounded-lg flex items-center justify-center flex-shrink-0">
+                      <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{listing.address}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      {getStatusBadge(listing)}
+                      <span className="text-xs text-muted-foreground">{listing.photo_count || 0} photos</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {listing.created_at ? format(new Date(listing.created_at), 'MMM d, yyyy') : '—'}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
     </div>
   );
 
@@ -915,65 +953,62 @@ const AiEditing = () => {
     }
 
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 pb-20 sm:pb-4">
         {/* Breadcrumb */}
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Button variant="ghost" size="sm" onClick={handleBackToList}>
-            <Home className="h-4 w-4 mr-1" />
+        <div className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm text-muted-foreground overflow-x-auto">
+          <Button variant="ghost" size="sm" className="shrink-0 h-7 px-2 sm:h-8 sm:px-3" onClick={handleBackToList}>
+            <Home className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1" />
             Dashboard
           </Button>
           <span>/</span>
-          <span>Listings</span>
+          <span className="shrink-0">Listings</span>
           <span>/</span>
-          <span className="text-foreground">{selectedShoot.address}</span>
+          <span className="text-foreground truncate">{selectedShoot.address}</span>
         </div>
 
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" onClick={handleBackToList}>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2 min-w-0">
+            <Button variant="ghost" size="sm" className="shrink-0 h-8 w-8 p-0" onClick={handleBackToList}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <div>
-              <div className="flex items-center gap-2">
-                <Pencil className="h-4 w-4 text-muted-foreground" />
-                <h1 className="text-2xl font-semibold">{selectedShoot.address}</h1>
-              </div>
-            </div>
+            <h1 className="text-base sm:text-2xl font-semibold truncate">{selectedShoot.address}</h1>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm">
-              <Settings className="h-4 w-4 mr-2" />
-              Settings
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button variant="outline" size="sm" className="h-8 text-xs sm:text-sm">
+              <Settings className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Settings</span>
             </Button>
             {isAdmin && (
               <>
                 <Button
                   variant="default"
                   size="sm"
-                  className="bg-purple-600 hover:bg-purple-700 text-white"
+                  className="h-8 text-xs sm:text-sm bg-purple-600 hover:bg-purple-700 text-white"
                   onClick={handleSendToEditing}
                 >
-                  <Send className="h-4 w-4 mr-2" />
-                  Send to Editing
+                  <Send className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Send to Editing</span>
+                  <span className="sm:hidden">Edit</span>
                 </Button>
                 <Button
                   variant="default"
                   size="sm"
-                  className="bg-green-600 hover:bg-green-700 text-white"
+                  className="h-8 text-xs sm:text-sm bg-green-600 hover:bg-green-700 text-white"
                   onClick={handleMarkComplete}
                 >
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  Mark Complete
+                  <CheckCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Mark Complete</span>
+                  <span className="sm:hidden">Complete</span>
                 </Button>
               </>
             )}
             <Button 
-              className="bg-primary hover:bg-primary/90 text-white" 
+              className="h-8 text-xs sm:text-sm bg-primary hover:bg-primary/90 text-white" 
               size="sm"
               onClick={handleDeliver}
             >
-              <Send className="h-4 w-4 mr-2" />
+              <Send className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-2" />
               Deliver
             </Button>
           </div>
@@ -1667,18 +1702,18 @@ const AiEditing = () => {
       </div>
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-2xl font-semibold">Select a Shoot</h2>
-          <p className="text-muted-foreground">Choose an existing shoot to create a new listing for AI editing</p>
+          <h2 className="text-lg sm:text-2xl font-semibold">Select a Shoot</h2>
+          <p className="text-xs sm:text-sm text-muted-foreground">Choose an existing shoot to create a new listing for AI editing</p>
         </div>
-        <div className="relative">
+        <div className="relative w-full sm:w-auto">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search shoots..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 w-64"
+            className="pl-10 w-full sm:w-64"
           />
         </div>
       </div>
@@ -1715,16 +1750,17 @@ const AiEditing = () => {
                     <img
                       src={imageUrl}
                       alt={shoot.address}
-                      className="w-full h-48 object-cover rounded-t-lg"
+                      className="w-full h-36 sm:h-48 object-cover rounded-t-lg"
                       onError={(e) => {
                         (e.target as HTMLImageElement).style.display = 'none';
+                        const fallback = (e.target as HTMLElement).nextElementSibling as HTMLElement;
+                        if (fallback) fallback.style.display = 'flex';
                       }}
                     />
-                  ) : (
-                    <div className="w-full h-48 bg-muted rounded-t-lg flex items-center justify-center">
-                      <ImageIcon className="h-12 w-12 text-muted-foreground" />
-                    </div>
-                  )}
+                  ) : null}
+                  <div className={`w-full h-36 sm:h-48 bg-muted rounded-t-lg items-center justify-center ${imageUrl ? 'hidden' : 'flex'}`}>
+                    <ImageIcon className="h-10 w-10 text-muted-foreground" />
+                  </div>
                   <div className="p-4">
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="font-semibold truncate">{shoot.address}</h3>
@@ -1922,7 +1958,7 @@ const AiEditing = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6 p-6">
+      <div className="space-y-4 px-2 pt-3 pb-3 sm:space-y-6 sm:p-6">
           {viewMode === 'list' && (
             <>
               <PageHeader

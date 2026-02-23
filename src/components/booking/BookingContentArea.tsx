@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card } from '@/components/ui/card';
+
 import { ClientPropertyForm } from './ClientPropertyForm';
 import { SchedulingForm } from './SchedulingForm';
 import { ReviewForm } from './ReviewForm';
@@ -101,7 +101,7 @@ export function BookingContentArea({
 }: BookingContentAreaProps) {
   
   return (
-    <Card className="p-2 sm:p-4 md:p-6 border border-blue-100/70 shadow-none bg-background dark:border-slate-800/60 dark:bg-transparent">
+    <div className="space-y-6">
       {step === 1 && clientPropertyFormData && (
         <ClientPropertyForm
           initialData={clientPropertyFormData.initialData}
@@ -178,6 +178,6 @@ export function BookingContentArea({
           area={Number(clientPropertyFormData.initialData?.sqft) || 0}
         />
       )}
-    </Card>
+    </div>
   );
 }

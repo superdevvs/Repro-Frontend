@@ -1859,9 +1859,9 @@ const Dashboard = () => {
       onValueChange={(val) => setMobileDashboardTab(val as MobileDashboardTab)}
       className="space-y-2 flex-1 flex flex-col dashboard-mobile-tabs"
     >
-      <div className="sticky top-[-0.25rem] z-20 pb-1 -mx-2 px-2 sm:-mx-3 sm:px-4 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+      <div className="sticky top-[-0.25rem] z-20 pb-1 -mx-2 px-2 sm:-mx-3 sm:px-4 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80" style={{ marginLeft: '-15px' }}>
         <div className="overflow-x-auto hidden-scrollbar">
-          <TabsList className="mx-auto inline-flex gap-2 rounded-full border border-border/50 bg-muted/30 px-3 py-1.5">
+          <TabsList className="inline-flex gap-2 rounded-full border border-border/50 bg-muted/30 pl-1.5 pr-3 py-1.5">
             {mobileTabs.map((tab) => (
               <TabsTrigger
                 key={tab.id}

@@ -78,6 +78,7 @@ const MessagingOverviewPage = () => {
 
   return (
     <DashboardLayout>
+      <div className="space-y-4 px-2 pt-3 pb-3 sm:space-y-6 sm:p-6">
       <PageHeader
         title="Messaging Overview"
         description="Centralized health view for email and SMS channels."
@@ -236,6 +237,7 @@ const MessagingOverviewPage = () => {
         <Button variant="ghost" onClick={() => navigate('/messaging/settings')}>
           Configure providers
         </Button>
+      </div>
       </div>
     </DashboardLayout>
   );

@@ -1301,7 +1301,7 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
     <div className="space-y-5 sm:space-y-6 text-slate-900 dark:text-slate-100">
       <div className="grid grid-cols-1 gap-4 sm:gap-6">
         {/* Date Selection Section */}
-        <div className="bg-white dark:bg-card/40 rounded-2xl p-3 sm:p-6 space-y-3 sm:space-y-4 border border-slate-200/80 dark:border-muted/40 shadow-[0_1px_2px_rgba(15,23,42,0.08)]">
+        <div className="bg-white dark:bg-card/40 rounded-2xl p-3 sm:p-6 space-y-3 sm:space-y-4 border border-slate-200 dark:border-border shadow-[0_1px_2px_rgba(15,23,42,0.08)]">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Select Date</h2>
             <span className="text-sm font-semibold text-slate-900 dark:text-white">
@@ -1340,7 +1340,7 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
         </div>
 
         {/* Time Selection Section */}
-        <div className="bg-white dark:bg-card/40 rounded-2xl p-3 sm:p-6 space-y-3 sm:space-y-4 border border-slate-200/80 dark:border-muted/40 shadow-[0_1px_2px_rgba(15,23,42,0.08)]">
+        <div className="bg-white dark:bg-card/40 rounded-2xl p-3 sm:p-6 space-y-3 sm:space-y-4 border border-slate-200 dark:border-border shadow-[0_1px_2px_rgba(15,23,42,0.08)]">
           <div className="flex items-center justify-between gap-2">
             <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Time</h2>
             <span className="text-sm font-semibold text-slate-900 dark:text-white">
@@ -1443,7 +1443,7 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
         </div>
 
         {/* Photographer Section */}
-        <div className="bg-white dark:bg-card/40 rounded-2xl p-3 sm:p-6 space-y-2 border border-slate-200/80 dark:border-muted/40 shadow-[0_1px_2px_rgba(15,23,42,0.08)]">
+        <div className="bg-white dark:bg-card/40 rounded-2xl p-3 sm:p-6 space-y-2 border border-slate-200 dark:border-border shadow-[0_1px_2px_rgba(15,23,42,0.08)]">
           <h2 className="text-lg sm:text-xl font-semibold text-slate-900 dark:text-white mb-3 sm:mb-4">
             {isMultiCategory ? 'Photographers' : 'Photographer'}
           </h2>

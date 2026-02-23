@@ -52,8 +52,8 @@ export function EmailNavigation() {
 
   return (
     <div className="border-b border-border bg-background">
-      <div className="flex items-center justify-between px-4 py-2">
-        <div className="flex items-center gap-2 overflow-x-auto">
+      <div className="flex items-center justify-between px-3 sm:px-4 py-1.5 sm:py-2">
+        <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             return (
@@ -63,12 +63,12 @@ export function EmailNavigation() {
                 size="sm"
                 asChild
                 className={cn(
-                  'shrink-0',
+                  'shrink-0 h-8 sm:h-9',
                   tab.isActive && 'bg-secondary font-medium'
                 )}
               >
                 <Link to={tab.to}>
-                  <Icon className="h-4 w-4 mr-2" />
+                  <Icon className="h-4 w-4 mr-1.5 sm:mr-2" />
                   {tab.label}
                 </Link>
               </Button>
@@ -76,10 +76,10 @@ export function EmailNavigation() {
           })}
         </div>
         <Button
-          variant={pathname === '/messaging/email/compose' ? 'default' : 'default'}
+          variant="default"
           size="sm"
           asChild
-          className="shrink-0"
+          className="shrink-0 hidden sm:inline-flex"
         >
           <Link to="/messaging/email/compose">
             <Pencil className="h-4 w-4 mr-2" />

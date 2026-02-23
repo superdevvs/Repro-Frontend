@@ -443,6 +443,8 @@ export function ShootDetailsOverviewTab({
   });
   const [clientSearchOpen, setClientSearchOpen] = useState(false);
   const [photographerSearchOpen, setPhotographerSearchOpen] = useState(false);
+  const [perCategoryPhotographers, setPerCategoryPhotographers] = useState<Record<string, string>>({});
+  const [perCategoryPopoverOpen, setPerCategoryPopoverOpen] = useState<Record<string, boolean>>({});
   const [servicesList, setServicesList] = useState<ServiceOption[]>([]);
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [servicePrices, setServicePrices] = useState<Record<string, string>>({});
@@ -775,6 +777,20 @@ export function ShootDetailsOverviewTab({
       if (shoot.photographer) {
         setSelectedPhotographerIdEdit(String(shoot.photographer.id));
       }
+      // Initialize per-category photographer assignments from services
+      const svcList = Array.isArray(shoot.services) ? shoot.services : [];
+      const normCat = (name: string) => name.trim().toLowerCase().replace(/s$/, '');
+      const catPhotogMap: Record<string, string> = {};
+      for (const s of svcList) {
+        if (typeof s !== 'object' || !s) continue;
+        const catName = (s as any).category?.name || (s as any).category_name || 'Other';
+        const key = normCat(catName);
+        const svcPhotogId = (s as any).resolved_photographer_id || (s as any).photographer_id || (s as any).photographer?.id;
+        if (svcPhotogId && !catPhotogMap[key]) {
+          catPhotogMap[key] = String(svcPhotogId);
+        }
+      }
+      setPerCategoryPhotographers(catPhotogMap);
       setTaxAmountDirty(false);
     }
   }, [isEditMode, shoot]);
@@ -2150,14 +2166,19 @@ export function ShootDetailsOverviewTab({
           }
         }
         const catEntries = Object.values(catGroups).filter(g => g.services.length > 0);
-        // Check if there are genuinely different photographers across ALL services (not just categories)
-        const allServicePhotographerIds = new Set(
+        // Check if there are multiple categories with per-service photographer assignments
+        // Use only per-service photographer IDs (not the shoot-level fallback) to detect distinct assignments
+        const perServicePhotographerIds = new Set(
           svcList
             .filter((s: any) => typeof s === 'object' && s)
-            .map((s: any) => String((s as any).resolved_photographer_id || (s as any).photographer_id || (s as any).photographer?.id || shoot.photographer?.id || ''))
+            .map((s: any) => {
+              const svcPhotogId = (s as any).resolved_photographer_id || (s as any).photographer_id || (s as any).photographer?.id;
+              return svcPhotogId ? String(svcPhotogId) : null;
+            })
             .filter(Boolean)
         );
-        const hasMultiplePhotographers = catEntries.length > 1 && allServicePhotographerIds.size > 1;
+        // Show per-category view when there are multiple categories (even if same photographer, it's clearer)
+        const hasMultiplePhotographers = catEntries.length > 1;
 
         return (
           <div className="p-2.5 border rounded-lg bg-card">
@@ -2168,67 +2189,135 @@ export function ShootDetailsOverviewTab({
               </span>
             </div>
             {isEditMode ? (
-              <Popover open={photographerSearchOpen} onOpenChange={setPhotographerSearchOpen} modal={false}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={photographerSearchOpen}
-                    className="w-full justify-between h-8 text-xs font-normal"
-                  >
-                    {selectedPhotographerIdEdit
-                      ? editPhotographers.find((p) => p.id === selectedPhotographerIdEdit)?.name || 'Select photographer...'
-                      : 'Select photographer...'}
-                    <ArrowUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent 
-                  className="w-[var(--radix-popover-trigger-width)] max-w-[300px] p-0 shadow-lg z-[200] max-h-[250px]" 
-                  align="start" 
-                  sideOffset={4}
-                  side="bottom"
-                  onOpenAutoFocus={(e) => e.preventDefault()}
-                  style={{ pointerEvents: 'auto' }}
-                >
-                  <Command className="rounded-lg flex flex-col" shouldFilter={true}>
-                    <CommandInput placeholder="Search photographers..." className="h-9 flex-shrink-0 border-b" />
-                    <CommandList className="max-h-[200px] overflow-y-auto overflow-x-hidden">
-                      <CommandEmpty>
-                        {editPhotographers.length === 0 ? 'Loading photographers...' : 'No photographer found.'}
-                      </CommandEmpty>
-                      <CommandGroup>
-                        {editPhotographers.length > 0 ? editPhotographers.map((photographer) => (
-                          <CommandItem
-                            key={photographer.id}
-                            value={`${photographer.name} ${photographer.email}`}
-                            onSelect={() => {
-                              const photographerId = photographer.id;
-                              console.log('📸 Selecting photographer:', { id: photographerId, name: photographer.name });
-                              setSelectedPhotographerIdEdit(photographerId);
-                              updateField('photographer', {
-                                id: photographerId,
-                                name: photographer.name,
-                                email: photographer.email,
-                              });
-                              setPhotographerSearchOpen(false);
-                            }}
+              hasMultiplePhotographers ? (
+                <div className="space-y-2">
+                  {catEntries.map(group => {
+                    const catKey = normCat(group.name);
+                    const selectedId = perCategoryPhotographers[catKey] || selectedPhotographerIdEdit || '';
+                    const isOpen = perCategoryPopoverOpen[catKey] || false;
+                    return (
+                      <div key={catKey} className="space-y-1">
+                        <span className="text-[10px] font-medium text-muted-foreground uppercase">{group.name}</span>
+                        <Popover open={isOpen} onOpenChange={(open) => setPerCategoryPopoverOpen(prev => ({ ...prev, [catKey]: open }))} modal={false}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              className="w-full justify-between h-8 text-xs font-normal"
+                            >
+                              {selectedId
+                                ? editPhotographers.find((p) => p.id === selectedId)?.name || 'Select photographer...'
+                                : 'Select photographer...'}
+                              <ArrowUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent 
+                            className="w-[var(--radix-popover-trigger-width)] max-w-[300px] p-0 shadow-lg z-[200] max-h-[250px]" 
+                            align="start" 
+                            sideOffset={4}
+                            side="bottom"
+                            onOpenAutoFocus={(e) => e.preventDefault()}
+                            style={{ pointerEvents: 'auto' }}
                           >
-                            <div className="flex flex-col">
-                              <span className="font-medium">{photographer.name}</span>
-                              {photographer.email && (
-                                <span className="text-[10px] text-muted-foreground">{photographer.email}</span>
+                            <Command className="rounded-lg flex flex-col" shouldFilter={true}>
+                              <CommandInput placeholder="Search photographers..." className="h-9 flex-shrink-0 border-b" />
+                              <CommandList className="max-h-[200px] overflow-y-auto overflow-x-hidden">
+                                <CommandEmpty>
+                                  {editPhotographers.length === 0 ? 'Loading photographers...' : 'No photographer found.'}
+                                </CommandEmpty>
+                                <CommandGroup>
+                                  {editPhotographers.map((photographer) => (
+                                    <CommandItem
+                                      key={photographer.id}
+                                      value={`${photographer.name} ${photographer.email}`}
+                                      onSelect={() => {
+                                        setPerCategoryPhotographers(prev => ({ ...prev, [catKey]: photographer.id }));
+                                        updateField(`perCategoryPhotographers.${catKey}`, photographer.id);
+                                        setPerCategoryPopoverOpen(prev => ({ ...prev, [catKey]: false }));
+                                      }}
+                                    >
+                                      <div className="flex flex-col">
+                                        <span className="font-medium">{photographer.name}</span>
+                                        {photographer.email && (
+                                          <span className="text-[10px] text-muted-foreground">{photographer.email}</span>
+                                        )}
+                                      </div>
+                                      {selectedId === photographer.id && (
+                                        <Check className="ml-auto h-4 w-4" />
+                                      )}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <Popover open={photographerSearchOpen} onOpenChange={setPhotographerSearchOpen} modal={false}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={photographerSearchOpen}
+                      className="w-full justify-between h-8 text-xs font-normal"
+                    >
+                      {selectedPhotographerIdEdit
+                        ? editPhotographers.find((p) => p.id === selectedPhotographerIdEdit)?.name || 'Select photographer...'
+                        : 'Select photographer...'}
+                      <ArrowUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent 
+                    className="w-[var(--radix-popover-trigger-width)] max-w-[300px] p-0 shadow-lg z-[200] max-h-[250px]" 
+                    align="start" 
+                    sideOffset={4}
+                    side="bottom"
+                    onOpenAutoFocus={(e) => e.preventDefault()}
+                    style={{ pointerEvents: 'auto' }}
+                  >
+                    <Command className="rounded-lg flex flex-col" shouldFilter={true}>
+                      <CommandInput placeholder="Search photographers..." className="h-9 flex-shrink-0 border-b" />
+                      <CommandList className="max-h-[200px] overflow-y-auto overflow-x-hidden">
+                        <CommandEmpty>
+                          {editPhotographers.length === 0 ? 'Loading photographers...' : 'No photographer found.'}
+                        </CommandEmpty>
+                        <CommandGroup>
+                          {editPhotographers.length > 0 ? editPhotographers.map((photographer) => (
+                            <CommandItem
+                              key={photographer.id}
+                              value={`${photographer.name} ${photographer.email}`}
+                              onSelect={() => {
+                                const photographerId = photographer.id;
+                                setSelectedPhotographerIdEdit(photographerId);
+                                updateField('photographer', {
+                                  id: photographerId,
+                                  name: photographer.name,
+                                  email: photographer.email,
+                                });
+                                setPhotographerSearchOpen(false);
+                              }}
+                            >
+                              <div className="flex flex-col">
+                                <span className="font-medium">{photographer.name}</span>
+                                {photographer.email && (
+                                  <span className="text-[10px] text-muted-foreground">{photographer.email}</span>
+                                )}
+                              </div>
+                              {selectedPhotographerIdEdit === photographer.id && (
+                                <Check className="ml-auto h-4 w-4" />
                               )}
-                            </div>
-                            {selectedPhotographerIdEdit === photographer.id && (
-                              <Check className="ml-auto h-4 w-4" />
-                            )}
-                          </CommandItem>
-                        )) : null}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
+                            </CommandItem>
+                          )) : null}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              )
             ) : hasMultiplePhotographers ? (
               <div className="space-y-1.5">
                 {catEntries.map(group => {

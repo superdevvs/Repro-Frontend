@@ -420,15 +420,9 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(80, 80, 80);
       
-      // Property address
-      if (propertyAddress && propertyAddress !== 'N/A') {
-        const addressLines = doc.splitTextToSize(propertyAddress, 70);
-        doc.text(addressLines, margin + 8, yPos + 25);
-      }
-      
       // Client email
       if (clientEmail) {
-        doc.text(clientEmail, margin + 8, yPos + 38);
+        doc.text(clientEmail, margin + 8, yPos + 25);
       }
 
       yPos += blueBoxHeight + 10;
@@ -442,7 +436,19 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
       doc.setFont('helvetica', 'bold');
       doc.text(displayInvoiceNumber || invoiceNumber, headerRightX, yPos, { align: 'right' });
       
-      yPos += 12;
+      yPos += 7;
+
+      // Property address below date row
+      if (propertyAddress && propertyAddress !== 'N/A') {
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(80, 80, 80);
+        const addressLines = doc.splitTextToSize(propertyAddress, contentWidth);
+        doc.text(addressLines, margin, yPos);
+        yPos += addressLines.length * 5 + 5;
+        doc.setTextColor(0, 0, 0);
+      } else {
+        yPos += 5;
+      }
 
       // ===== TABLE SECTION =====
       // Table Header
@@ -654,6 +660,9 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
               <div>
                 <span className="text-sm">{formatDate(issueDate)}</span>
               </div>
+              {propertyAddress && propertyAddress !== 'N/A' && (
+                <p className="text-xs text-muted-foreground mt-1">{propertyAddress}</p>
+              )}
             </div>
           </div>
 
@@ -667,13 +676,6 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
               )}
             </div>
           </div>
-
-          {/* Shoot Address - Blue Bar */}
-          {propertyAddress && propertyAddress !== 'N/A' && (
-            <div className="bg-muted/40 border border-border px-5 py-3 rounded-md">
-              <p className="font-medium text-sm text-foreground">{propertyAddress}</p>
-            </div>
-          )}
 
           {canEditInvoice && (
             <div className="rounded-md border border-dashed border-border bg-muted/20 px-5 py-4 space-y-3">

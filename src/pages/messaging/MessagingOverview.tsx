@@ -68,7 +68,7 @@ export default function MessagingOverview() {
 
   return (
     <DashboardLayout>
-      <div className="container mx-auto py-6 space-y-8">
+      <div className="space-y-4 px-2 pt-3 pb-3 sm:space-y-6 sm:p-6">
         <div className="grid gap-4 lg:grid-cols-3">
           <Card className="relative overflow-hidden border border-border bg-gradient-to-br from-indigo-50 via-purple-50 to-rose-50 dark:from-indigo-600 dark:via-purple-600 dark:to-rose-500 lg:col-span-2">
             <div className="absolute inset-y-0 right-0 opacity-10 dark:opacity-20">

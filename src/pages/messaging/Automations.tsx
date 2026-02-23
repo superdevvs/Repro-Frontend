@@ -112,7 +112,7 @@ export default function Automations() {
   return (
     <DashboardLayout>
       <EmailNavigation />
-      <div className="container mx-auto py-6">
+      <div className="space-y-4 px-2 pt-3 pb-3 sm:space-y-6 sm:p-6">
         {/* Header */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-4">
