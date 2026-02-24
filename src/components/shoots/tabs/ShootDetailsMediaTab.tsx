@@ -2094,8 +2094,8 @@ export function ShootDetailsMediaTab({
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
-            {/* Upload More button - shown when files exist and user can upload */}
-            {showUploadTab && (rawFiles.length > 0 || editedFiles.length > 0) && (
+            {/* Upload button - always shown on desktop when user can upload */}
+            {showUploadTab && (
               <Button
                 variant="default"
                 size="sm"
@@ -2103,7 +2103,7 @@ export function ShootDetailsMediaTab({
                 onClick={() => setActiveSubTab('upload')}
               >
                 <Upload className="h-3 w-3 mr-1" />
-                <span>Upload More</span>
+                <span>{(rawFiles.length > 0 || editedFiles.length > 0) ? 'Upload More' : 'Upload Files'}</span>
               </Button>
             )}
             {/* AI Edit, Download, Create Request, and Delete buttons for selected files */}

@@ -57,6 +57,7 @@ import {
   Video,
   Info,
   Star,
+  Tag,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useForm, type FieldErrors } from 'react-hook-form';
@@ -231,6 +232,7 @@ const clientAccountPropertyFormSchema = z.object({
   bathRooms: z.number().min(0, "Bathrooms must be 0 or more").optional(),
   sqft: z.number().min(0, "SQFT must be 0 or more").optional(),
   propertyType: z.enum(["residential", "commercial"]),
+  listingType: z.enum(["for_sale", "for_rent"]).optional(),
   propertyInfo: z.string().optional(),
   companyNotes: z.string().optional(),
   shootNotes: z.string().optional(),
@@ -258,6 +260,7 @@ const adminPropertyFormSchema = z.object({
   bathRooms: z.number().min(0, "Bathrooms must be 0 or more").optional(),
   sqft: z.number().min(0, "SQFT must be 0 or more").optional(),
   propertyType: z.enum(["residential", "commercial"]),
+  listingType: z.enum(["for_sale", "for_rent"]).optional(),
   propertyInfo: z.string().optional(),
   companyNotes: z.string().optional(),
   shootNotes: z.string().optional(),
@@ -392,6 +395,7 @@ export const ClientPropertyForm = ({
         bathRooms: initialData.bathRooms || 0,
         sqft: initialData.sqft || 0,
         propertyType: initialData.propertyType || 'residential',
+        listingType: (initialData as any).listingType || undefined,
         propertyInfo: initialData.propertyInfo || '',
         accessContactName: initialData.accessContactName || '',
         accessContactPhone: initialData.accessContactPhone || '',
@@ -414,6 +418,7 @@ export const ClientPropertyForm = ({
         bathRooms: initialData.bathRooms || 0,
         sqft: initialData.sqft || 0,
         propertyType: initialData.propertyType || 'residential',
+        listingType: (initialData as any).listingType || undefined,
         propertyInfo: initialData.propertyInfo || '',
         accessContactName: initialData.accessContactName || '',
         accessContactPhone: initialData.accessContactPhone || '',
@@ -687,6 +692,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
       ...data,
       completeAddress: normalizedComplete || undefined,
       property_details: Object.keys(mergedPropertyDetails).length > 0 ? mergedPropertyDetails : undefined,
+      listingType: (data as any).listingType || undefined,
     };
 
     if (isClientAccount) {
@@ -1218,6 +1224,45 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                         >
                           <Building2 className="h-4 w-4" />
                           Commercial
+                        </Label>
+                      </div>
+                    </RadioGroup>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name={"listingType" as any}
+              render={({ field }) => (
+                <FormItem className="space-y-2">
+                  <FormLabel>Listing Type</FormLabel>
+                  <FormControl>
+                    <RadioGroup
+                      onValueChange={field.onChange}
+                      value={field.value || ''}
+                      className="grid gap-3 sm:grid-cols-2"
+                    >
+                      <div className="relative">
+                        <RadioGroupItem value="for_sale" id="for_sale" className="peer sr-only" />
+                        <Label
+                          htmlFor="for_sale"
+                          className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/20 px-4 py-3 text-sm font-medium transition hover:border-green-500/60 hover:bg-green-500/5 peer-data-[state=checked]:border-green-500/70 peer-data-[state=checked]:bg-green-500/10 peer-data-[state=checked]:text-green-700 dark:peer-data-[state=checked]:text-green-400"
+                        >
+                          <Tag className="h-4 w-4" />
+                          For Sale
+                        </Label>
+                      </div>
+                      <div className="relative">
+                        <RadioGroupItem value="for_rent" id="for_rent" className="peer sr-only" />
+                        <Label
+                          htmlFor="for_rent"
+                          className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/20 px-4 py-3 text-sm font-medium transition hover:border-blue-500/60 hover:bg-blue-500/5 peer-data-[state=checked]:border-blue-500/70 peer-data-[state=checked]:bg-blue-500/10 peer-data-[state=checked]:text-blue-700 dark:peer-data-[state=checked]:text-blue-400"
+                        >
+                          <Tag className="h-4 w-4" />
+                          For Rent
                         </Label>
                       </div>
                     </RadioGroup>

@@ -22,6 +22,7 @@ import {
   Send,
   Home,
   Tag,
+  UserCircle,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -97,6 +98,7 @@ export function ClientPortal() {
     twitter_url?: string;
     linkedin_url?: string;
     pinterest_url?: string;
+    rep?: { id: string; name: string; email?: string; phone?: string; avatar?: string } | null;
   } | null>(null);
   const [contactForm, setContactForm] = useState({ name: '', email: '', message: '' });
   const [isSubmittingContact, setIsSubmittingContact] = useState(false);
@@ -161,6 +163,7 @@ export function ClientPortal() {
           twitter_url: c.twitter_url,
           linkedin_url: c.linkedin_url,
           pinterest_url: c.pinterest_url,
+          rep: c.rep || null,
         });
 
         const items: PortfolioItem[] = (data.shoots || []).map((s: any) => {
@@ -600,6 +603,25 @@ export function ClientPortal() {
                     <div>
                       <p className="text-sm text-muted-foreground">Address</p>
                       <p className="text-base font-medium whitespace-pre-line">{clientInfo.address}</p>
+                    </div>
+                  </div>
+                )}
+
+                {clientInfo?.rep && (
+                  <div className="flex items-center gap-3 rounded-2xl border p-4 bg-background/60">
+                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
+                      {clientInfo.rep.avatar ? (
+                        <img src={clientInfo.rep.avatar} alt={clientInfo.rep.name} className="h-full w-full object-cover" />
+                      ) : (
+                        <UserCircle className="h-5 w-5 text-primary" />
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Sales Representative</p>
+                      <p className="text-base font-medium">{clientInfo.rep.name}</p>
+                      {clientInfo.rep.email && (
+                        <a href={`mailto:${clientInfo.rep.email}`} className="text-xs text-primary hover:underline">{clientInfo.rep.email}</a>
+                      )}
                     </div>
                   </div>
                 )}
