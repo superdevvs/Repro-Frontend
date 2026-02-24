@@ -182,6 +182,120 @@ export function ShootDetailsMediaTab({
   const showUploadTab = isAdmin || isPhotographer || isEditor;
   const canDownload = isAdmin || isClient || isEditor;
 
+  // ── Drag-and-drop upload directly on tab content ──
+  const [dragOverTab, setDragOverTab] = useState<'uploaded' | 'edited' | null>(null);
+  const [directUploading, setDirectUploading] = useState(false);
+  const [directUploadProgress, setDirectUploadProgress] = useState(0);
+  const [directUploadTotal, setDirectUploadTotal] = useState(0);
+  const [directUploadCompleted, setDirectUploadCompleted] = useState(0);
+  const dragCounterRef = useRef(0);
+
+  const handleDirectDrop = async (e: React.DragEvent<HTMLDivElement>, uploadType: 'raw' | 'edited') => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current = 0;
+    setDragOverTab(null);
+
+    if (!showUploadTab) return;
+    const files = Array.from(e.dataTransfer.files || []);
+    if (files.length === 0) return;
+
+    setDirectUploading(true);
+    setDirectUploadProgress(0);
+    setDirectUploadTotal(files.length);
+    setDirectUploadCompleted(0);
+
+    const apiHeaders = getApiHeaders();
+    const authHeader = apiHeaders.Authorization;
+    const impersonateHeader = apiHeaders['X-Impersonate-User-Id'];
+    const CONCURRENT = 3;
+    let completed = 0;
+    const errors: string[] = [];
+
+    const uploadOne = (file: File): Promise<{ success: boolean; error?: string }> =>
+      new Promise((resolve) => {
+        const fd = new FormData();
+        const isVideo = isVideoUpload(file);
+        fd.append('files[]', file);
+        fd.append('upload_type', uploadType);
+        if (isVideo) fd.append('service_category', 'video');
+
+        const xhr = new XMLHttpRequest();
+        xhr.addEventListener('load', () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve({ success: true });
+          } else {
+            let msg = 'Upload failed';
+            try { msg = JSON.parse(xhr.responseText).message || msg; } catch {}
+            resolve({ success: false, error: `${file.name}: ${msg}` });
+          }
+        });
+        xhr.addEventListener('error', () => resolve({ success: false, error: `${file.name}: Network error` }));
+        xhr.open('POST', `${API_BASE_URL}/api/shoots/${shoot.id}/upload`);
+        if (authHeader) xhr.setRequestHeader('Authorization', authHeader);
+        if (impersonateHeader) xhr.setRequestHeader('X-Impersonate-User-Id', impersonateHeader);
+        xhr.send(fd);
+      });
+
+    try {
+      for (let i = 0; i < files.length; i += CONCURRENT) {
+        const batch = files.slice(i, Math.min(i + CONCURRENT, files.length));
+        const results = await Promise.all(batch.map(uploadOne));
+        results.forEach((r) => {
+          completed++;
+          if (!r.success && r.error) errors.push(r.error);
+        });
+        setDirectUploadCompleted(completed);
+        setDirectUploadProgress(Math.round((completed / files.length) * 100));
+      }
+
+      if (errors.length === files.length) {
+        toast({ title: 'Upload Failed', description: 'All files failed to upload.', variant: 'destructive' });
+      } else if (errors.length > 0) {
+        toast({ title: 'Partial Success', description: `${files.length - errors.length}/${files.length} files uploaded.`, variant: 'destructive' });
+      } else {
+        toast({ title: 'Upload Complete', description: `${files.length} file(s) uploaded successfully.` });
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'raw'] });
+      queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'edited'] });
+      onShootUpdate();
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message || 'Upload failed', variant: 'destructive' });
+    } finally {
+      setTimeout(() => {
+        setDirectUploading(false);
+        setDirectUploadProgress(0);
+        setDirectUploadTotal(0);
+        setDirectUploadCompleted(0);
+      }, 600);
+    }
+  };
+
+  const handleTabDragEnter = (e: React.DragEvent<HTMLDivElement>, tab: 'uploaded' | 'edited') => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current++;
+    if (showUploadTab && e.dataTransfer.types.includes('Files')) {
+      setDragOverTab(tab);
+    }
+  };
+
+  const handleTabDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current--;
+    if (dragCounterRef.current <= 0) {
+      dragCounterRef.current = 0;
+      setDragOverTab(null);
+    }
+  };
+
+  const handleTabDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
   const normalizedShootStatus = String(shoot?.workflowStatus || (shoot as any)?.status || '').toLowerCase();
   
   // Determine if delete is allowed (before delivered status - admin, photographer, editor can delete)
@@ -2331,7 +2445,33 @@ export function ShootDetailsMediaTab({
             
             {/* Uploaded Media Tab - Hidden for clients */}
             {!isClient && displayTab === 'uploaded' && (
-              <div className="flex-1" style={{ minHeight: 0, display: 'flex', flexDirection: 'column', height: '100%', width: '100%' }}>
+              <div
+                className="flex-1 relative"
+                style={{ minHeight: 0, display: 'flex', flexDirection: 'column', height: '100%', width: '100%' }}
+                onDragEnter={(e) => handleTabDragEnter(e, 'uploaded')}
+                onDragLeave={handleTabDragLeave}
+                onDragOver={handleTabDragOver}
+                onDrop={(e) => handleDirectDrop(e, 'raw')}
+              >
+                {/* Drag overlay */}
+                {dragOverTab === 'uploaded' && showUploadTab && (
+                  <div className="absolute inset-0 z-30 bg-primary/10 border-2 border-dashed border-primary rounded-lg flex items-center justify-center pointer-events-none">
+                    <div className="flex flex-col items-center gap-2 text-primary">
+                      <CloudUpload className="h-12 w-12" />
+                      <span className="text-sm font-medium">Drop files to upload as Raw</span>
+                    </div>
+                  </div>
+                )}
+                {/* Direct upload progress bar */}
+                {directUploading && displayTab === 'uploaded' && (
+                  <div className="px-2.5 py-1.5 border-b bg-background flex-shrink-0">
+                    <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                      <span>Uploading {directUploadCompleted}/{directUploadTotal} file(s)...</span>
+                      <span>{directUploadProgress}%</span>
+                    </div>
+                    <Progress value={directUploadProgress} className="h-1.5" />
+                  </div>
+                )}
                 {/* Sub-tabs for Photos/Videos/iGuide/Floorplans */}
                 <div className="sticky top-0 z-10 px-2.5 py-0.5 border-b bg-background" style={{ flexShrink: 0 }}>
                   <div className="flex items-center justify-between gap-2">
@@ -2398,6 +2538,17 @@ export function ShootDetailsMediaTab({
                           <p className="text-sm text-muted-foreground mb-6">
                             Upload property photos and videos to get started. Our AI will automatically analyze assets for quality and categorization.
                           </p>
+                          {showUploadTab && (
+                            <Button
+                              variant="default"
+                              size="lg"
+                              className="bg-blue-600 hover:bg-blue-700 text-white"
+                              onClick={() => setActiveSubTab('upload')}
+                            >
+                              <Upload className="h-4 w-4 mr-2" />
+                              Upload Files
+                            </Button>
+                          )}
                         </div>
                       </div>
                     ) : (
@@ -2443,6 +2594,17 @@ export function ShootDetailsMediaTab({
                           <p className="text-sm text-muted-foreground mb-6">
                             Upload property videos to get started. Our AI will automatically analyze assets for quality and categorization.
                           </p>
+                          {showUploadTab && (
+                            <Button
+                              variant="default"
+                              size="lg"
+                              className="bg-blue-600 hover:bg-blue-700 text-white"
+                              onClick={() => setActiveSubTab('upload')}
+                            >
+                              <Upload className="h-4 w-4 mr-2" />
+                              Upload Videos
+                            </Button>
+                          )}
                         </div>
                       </div>
                     ) : (
@@ -2526,7 +2688,33 @@ export function ShootDetailsMediaTab({
 
             {/* Edited Media Tab - Hidden for photographers */}
             {!isPhotographer && displayTab === 'edited' && (
-              <div className="flex-1" style={{ minHeight: 0, display: 'flex', flexDirection: 'column', height: '100%', width: '100%' }}>
+              <div
+                className="flex-1 relative"
+                style={{ minHeight: 0, display: 'flex', flexDirection: 'column', height: '100%', width: '100%' }}
+                onDragEnter={(e) => handleTabDragEnter(e, 'edited')}
+                onDragLeave={handleTabDragLeave}
+                onDragOver={handleTabDragOver}
+                onDrop={(e) => handleDirectDrop(e, 'edited')}
+              >
+                {/* Drag overlay */}
+                {dragOverTab === 'edited' && showUploadTab && (
+                  <div className="absolute inset-0 z-30 bg-primary/10 border-2 border-dashed border-primary rounded-lg flex items-center justify-center pointer-events-none">
+                    <div className="flex flex-col items-center gap-2 text-primary">
+                      <CloudUpload className="h-12 w-12" />
+                      <span className="text-sm font-medium">Drop files to upload as Edited</span>
+                    </div>
+                  </div>
+                )}
+                {/* Direct upload progress bar */}
+                {directUploading && displayTab === 'edited' && (
+                  <div className="px-2.5 py-1.5 border-b bg-background flex-shrink-0">
+                    <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                      <span>Uploading {directUploadCompleted}/{directUploadTotal} file(s)...</span>
+                      <span>{directUploadProgress}%</span>
+                    </div>
+                    <Progress value={directUploadProgress} className="h-1.5" />
+                  </div>
+                )}
                 {/* Sub-tabs for Photos/Videos/iGuide/Floorplans */}
                 <div className="sticky top-0 z-10 px-2.5 py-0.5 border-b bg-background" style={{ flexShrink: 0 }}>
                   <div className="flex items-center justify-between gap-2">
@@ -2593,6 +2781,17 @@ export function ShootDetailsMediaTab({
                           <p className="text-sm text-muted-foreground mb-6">
                             Upload edited photos and videos to get started. Our AI will automatically analyze assets for quality and categorization.
                           </p>
+                          {showUploadTab && (
+                            <Button
+                              variant="default"
+                              size="lg"
+                              className="bg-blue-600 hover:bg-blue-700 text-white"
+                              onClick={() => setActiveSubTab('upload')}
+                            >
+                              <Upload className="h-4 w-4 mr-2" />
+                              Upload Files
+                            </Button>
+                          )}
                         </div>
                       </div>
                     ) : (
@@ -2638,6 +2837,17 @@ export function ShootDetailsMediaTab({
                           <p className="text-sm text-muted-foreground mb-6">
                             Upload edited videos to get started. Our AI will automatically analyze assets for quality and categorization.
                           </p>
+                          {showUploadTab && (
+                            <Button
+                              variant="default"
+                              size="lg"
+                              className="bg-blue-600 hover:bg-blue-700 text-white"
+                              onClick={() => setActiveSubTab('upload')}
+                            >
+                              <Upload className="h-4 w-4 mr-2" />
+                              Upload Videos
+                            </Button>
+                          )}
                         </div>
                       </div>
                     ) : (
