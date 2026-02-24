@@ -349,7 +349,7 @@ export function ShootDetailsModal({
       'pending_review': { label: 'In review', className: 'bg-orange-500/10 text-orange-600 border-orange-500/20' },
       'delivered': { label: 'Delivered', className: 'bg-green-600/10 text-green-700 border-green-600/20' },
       'ready_for_client': { label: 'Delivered', className: 'bg-green-600/10 text-green-700 border-green-600/20' },
-      'ready': { label: 'Delivered', className: 'bg-green-600/10 text-green-700 border-green-600/20' },
+      'ready': { label: 'Ready', className: 'bg-blue-600/10 text-blue-700 border-blue-600/20' },
       'admin_verified': { label: 'Delivered', className: 'bg-green-600/10 text-green-700 border-green-600/20' },
       'on_hold': { label: 'On hold', className: 'bg-amber-500/10 text-amber-700 border-amber-500/20' },
       'hold_on': { label: 'On hold', className: 'bg-amber-500/10 text-amber-700 border-amber-500/20' },
@@ -699,7 +699,6 @@ export function ShootDetailsModal({
       pending_review: 'review',
       ready_for_review: 'review',
       qc: 'review',
-      ready: 'delivered',
       ready_for_client: 'delivered',
       admin_verified: 'delivered',
     };
@@ -725,7 +724,7 @@ export function ShootDetailsModal({
   const isEditingStatus = normalizedStatus === 'editing';
   const isCancelledOrDeclined = ['cancelled', 'canceled', 'declined'].includes(normalizedStatus);
   const canShowInvoiceButton = isUploadedStatus || isEditingStatus;
-  const canFinalise = isAdmin && !isDelivered && ['uploaded', 'editing'].includes(normalizedStatus);
+  const canFinalise = isAdmin && !isDelivered && ['uploaded', 'editing', 'ready'].includes(normalizedStatus);
   const canSendToEditing =
     isAdmin &&
     !isDelivered &&

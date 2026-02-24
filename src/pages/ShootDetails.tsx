@@ -85,7 +85,7 @@ const statusBadgeMap: Record<string, { label: string; variant: 'default' | 'seco
   delivered: { label: 'Delivered', variant: 'default' },
   ready_for_client: { label: 'Delivered', variant: 'default' },
   admin_verified: { label: 'Delivered', variant: 'default' },
-  ready: { label: 'Delivered', variant: 'default' },
+  ready: { label: 'Ready', variant: 'default' },
   on_hold: { label: 'On Hold', variant: 'destructive' },
   hold_on: { label: 'On Hold', variant: 'destructive' },
   cancelled: { label: 'Cancelled', variant: 'destructive' },
@@ -115,7 +115,6 @@ const normalizeStatusKey = (value?: string | null) => {
     pending_review: 'review',
     ready_for_review: 'review',
     qc: 'review',
-    ready: 'delivered',
     ready_for_client: 'delivered',
     admin_verified: 'delivered',
   };
@@ -956,29 +955,29 @@ const ShootDetails: React.FC = () => {
                       <span className="sm:hidden">Review hold</span>
                     </Button>
                   )}
-                  {isAdmin && !hasEditedWithoutRaw && (
-                    <>
-                      <Button
-                        variant="default"
-                        size="sm"
-                        className="bg-purple-600 hover:bg-purple-700 text-white w-full sm:w-auto"
-                        onClick={handleSendToEditing}
-                      >
-                        <Send className="h-3 w-3 mr-1.5" />
-                        <span className="hidden sm:inline">Send to Editing</span>
-                        <span className="sm:hidden">Send to Editing</span>
-                      </Button>
-                      <Button
-                        variant="default"
-                        size="sm"
-                        className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
-                        onClick={handleFinalise}
-                      >
-                        <CheckCircle className="h-3 w-3 mr-1.5" />
-                        <span className="hidden sm:inline">Finalize & Deliver</span>
-                        <span className="sm:hidden">Finalize</span>
-                      </Button>
-                    </>
+                  {isAdmin && !hasEditedWithoutRaw && ['uploaded', 'scheduled'].includes(workflowStatusKey) && (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="bg-purple-600 hover:bg-purple-700 text-white w-full sm:w-auto"
+                      onClick={handleSendToEditing}
+                    >
+                      <Send className="h-3 w-3 mr-1.5" />
+                      <span className="hidden sm:inline">Send to Editing</span>
+                      <span className="sm:hidden">Send to Editing</span>
+                    </Button>
+                  )}
+                  {isAdmin && ['uploaded', 'editing', 'ready'].includes(workflowStatusKey) && (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
+                      onClick={handleFinalise}
+                    >
+                      <CheckCircle className="h-3 w-3 mr-1.5" />
+                      <span className="hidden sm:inline">Finalize & Deliver</span>
+                      <span className="sm:hidden">Finalize</span>
+                    </Button>
                   )}
                   {isAdminOrSuperAdmin && !['cancelled', 'canceled', 'declined'].includes(workflowStatusKey) && (
                     <Button
