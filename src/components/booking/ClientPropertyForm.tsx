@@ -1077,7 +1077,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                   return (
                     <FormItem className="space-y-2">
                       <div className="space-y-2">
-                        <FormLabel>Choose client</FormLabel>
+                        <FormLabel className="text-sm font-semibold text-foreground">Choose client</FormLabel>
                         <div className="flex items-center gap-2 md:items-end md:gap-3 md:justify-start">
                           <div className="w-full min-w-0 md:flex-1">
                             {isMobile ? (
@@ -1199,7 +1199,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
               name="propertyType"
               render={({ field }) => (
                 <FormItem className="space-y-2">
-                  <FormLabel>Property Type</FormLabel>
+                  <FormLabel className="text-sm font-semibold text-foreground">Property Type</FormLabel>
                   <FormControl>
                     <RadioGroup
                       onValueChange={field.onChange}
@@ -1238,7 +1238,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
               name={"listingType" as any}
               render={({ field }) => (
                 <FormItem className="space-y-2">
-                  <FormLabel>Listing Type</FormLabel>
+                  <FormLabel className="text-sm font-semibold text-foreground">Listing Type</FormLabel>
                   <FormControl>
                     <RadioGroup
                       onValueChange={field.onChange}
@@ -1278,7 +1278,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                 name="propertyAddress"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Search Address</FormLabel>
+                    <FormLabel className="text-sm font-semibold text-foreground">Search Address</FormLabel>
                     <FormControl>
                       <AddressLookupField
                         value={field.value}
@@ -1364,7 +1364,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
               {/* Editable Street Address Field - always visible */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="completeAddress">Street Address</Label>
+                  <Label htmlFor="completeAddress" className="text-sm font-semibold text-foreground">Street Address</Label>
                   <Input
                     id="completeAddress"
                     value={completeAddress}
@@ -1381,7 +1381,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                   name="aptSuite"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Apt/Suite</FormLabel>
+                      <FormLabel className="text-xs font-medium text-muted-foreground">Apt/Suite</FormLabel>
                       <FormControl>
                         <Input placeholder="Unit #" {...field} />
                       </FormControl>
@@ -1397,7 +1397,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                   name="propertyCity"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>City</FormLabel>
+                      <FormLabel className="text-xs font-medium text-muted-foreground">City</FormLabel>
                       <FormControl>
                         <Input placeholder="City" {...field} />
                       </FormControl>
@@ -1411,7 +1411,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                   name="propertyState"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>State</FormLabel>
+                      <FormLabel className="text-xs font-medium text-muted-foreground">State</FormLabel>
                       <FormControl>
                         {isMobile ? (
                           <Drawer open={stateDrawerOpen} onOpenChange={setStateDrawerOpen}>
@@ -1485,7 +1485,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                   name="propertyZip"
                   render={({ field }) => (
                     <FormItem className="sm:col-span-1 col-span-2">
-                      <FormLabel>ZIP Code</FormLabel>
+                      <FormLabel className="text-xs font-medium text-muted-foreground">ZIP Code</FormLabel>
                       <FormControl>
                         <Input placeholder="ZIP Code" {...field} />
                       </FormControl>
@@ -1499,7 +1499,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                   name="bedRooms"
                   render={({ field }) => (
                     <FormItem className="sm:col-span-1 col-span-2">
-                      <FormLabel>Bedrooms</FormLabel>
+                      <FormLabel className="text-xs font-medium text-muted-foreground">Bedrooms</FormLabel>
                       <FormControl>
                         {/* <Input placeholder="Bedrooms" {...field} /> */}
                         <Input
@@ -1524,7 +1524,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                   name="bathRooms"
                   render={({ field }) => (
                     <FormItem className="sm:col-span-1 col-span-2">
-                      <FormLabel>Bathroom</FormLabel>
+                      <FormLabel className="text-xs font-medium text-muted-foreground">Bathroom</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
@@ -1545,7 +1545,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                   name="sqft"
                   render={({ field }) => (
                     <FormItem className="sm:col-span-1 col-span-2">
-                      <FormLabel>SQFT</FormLabel>
+                      <FormLabel className="text-xs font-medium text-muted-foreground">SQFT</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
@@ -1750,7 +1750,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                     name="accessContactName"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>On-site contact name</FormLabel>
+                        <FormLabel className="text-xs font-medium text-muted-foreground">On-site contact name</FormLabel>
                         <FormControl>
                           <Input placeholder="Full name" {...field} />
                         </FormControl>
@@ -1763,7 +1763,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                     name="accessContactPhone"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>On-site contact phone</FormLabel>
+                        <FormLabel className="text-xs font-medium text-muted-foreground">On-site contact phone</FormLabel>
                         <FormControl>
                           <Input placeholder="(555) 123-4567" {...field} />
                         </FormControl>
@@ -1787,7 +1787,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                     name="lockboxCode"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Lockbox code</FormLabel>
+                        <FormLabel className="text-xs font-medium text-muted-foreground">Lockbox code</FormLabel>
                         <FormControl>
                           <Input placeholder="####" {...field} />
                         </FormControl>
@@ -1800,7 +1800,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                     name="lockboxLocation"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Lockbox location / instructions</FormLabel>
+                        <FormLabel className="text-xs font-medium text-muted-foreground">Lockbox location / instructions</FormLabel>
                         <FormControl>
                           <Input placeholder="e.g., on the front gate" {...field} />
                         </FormControl>
@@ -1825,7 +1825,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
               name="shootNotes"
               render={({ field }) => (
                 <FormItem className="lg:col-span-2">
-                  <FormLabel>Shoot Notes</FormLabel>
+                  <FormLabel className="text-sm font-semibold text-foreground">Shoot Notes</FormLabel>
                   <FormControl>
                     <Textarea
                       placeholder="Provide any additional information to attach to this shoot that will be visible to the client."
@@ -1845,7 +1845,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                 name="companyNotes"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Company Notes</FormLabel>
+                    <FormLabel className="text-xs font-medium text-muted-foreground">Company Notes</FormLabel>
                     <FormControl>
                       <Textarea
                         placeholder="Provide any additional information to save for the selected client that will only be visible to company admins/photographer.."
@@ -1866,7 +1866,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                 name="photographerNotes"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Photographer Notes</FormLabel>
+                    <FormLabel className="text-xs font-medium text-muted-foreground">Photographer Notes</FormLabel>
                     <FormControl>
                       <Textarea
                         placeholder="Notes for the photographer (visible to photographer and admins)."
@@ -1887,7 +1887,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                 name="editorNotes"
                 render={({ field }) => (
                   <FormItem className="lg:col-span-2">
-                    <FormLabel>Editor Notes</FormLabel>
+                    <FormLabel className="text-xs font-medium text-muted-foreground">Editor Notes</FormLabel>
                     <FormControl>
                       <Textarea
                         placeholder="Notes for the editor (visible to editor and admins)."

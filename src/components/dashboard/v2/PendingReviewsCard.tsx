@@ -150,7 +150,7 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
               ) : (
                 <div className="flex-1 min-h-0 overflow-y-auto pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:pb-0" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                   <div className="space-y-1.5" style={{ WebkitOverflowScrolling: 'touch' }}>
-                    {safeClientRequests.map((request) => (
+                    {safeClientRequests.slice(0, 7).map((request) => (
                       <button
                         key={request.id}
                         onClick={() => openModal(safeClientRequests, String(request.id))}
@@ -181,7 +181,7 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
             ) : (
               <div className="flex-1 min-h-0 overflow-y-auto pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:pb-0" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                 <div className="space-y-1.5" style={{ WebkitOverflowScrolling: 'touch' }}>
-                  {visibleIssues.map((issue) => (
+                  {visibleIssues.slice(0, 7).map((issue) => (
                     <button
                       key={issue.id}
                       onClick={() => onClientIssueClick?.(issue)}
@@ -229,7 +229,7 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
               <div className="flex flex-col flex-1">
                 <div className="overflow-y-auto flex-1 min-h-0 pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:pb-0" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                   <div className="space-y-1.5">
-                    {activeEditingRequests.slice(0, 5).map((request) => (
+                    {activeEditingRequests.slice(0, 7).map((request) => (
                       <button
                         key={request.id}
                         onClick={() => onEditingRequestClick?.(request.id)}
