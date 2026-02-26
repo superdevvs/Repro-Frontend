@@ -110,6 +110,7 @@ import {
   Edit,
   X,
   PenLine,
+  ExternalLink,
 } from 'lucide-react'
 import { useTheme } from '@/hooks/useTheme'
 import {
@@ -2678,6 +2679,7 @@ const ShootHistory: React.FC = () => {
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false)
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null)
   const [invoiceLoading, setInvoiceLoading] = useState(false)
+  const [brightMlsRedirectUrl, setBrightMlsRedirectUrl] = useState<string | null>(null)
 
   useEffect(() => {
     if (!shouldHideClientDetails) return
@@ -3471,9 +3473,15 @@ const ShootHistory: React.FC = () => {
         )
 
         if (response.data.success) {
+          // Open the BrightMLS SSO redirect URL in an in-app modal
+          const redirectUrl = response.data.data?.redirect_url || response.data.redirect_url
+          if (redirectUrl) {
+            setBrightMlsRedirectUrl(redirectUrl)
+          }
+
           toast({
-            title: 'Published to Bright MLS',
-            description: 'Media manifest has been published successfully.',
+            title: 'Manifest Sent',
+            description: 'Complete the import by logging in to Bright MLS.',
           })
           // Refresh history data to show updated status
           await fetchHistoryData()
@@ -5663,6 +5671,33 @@ const ShootHistory: React.FC = () => {
           invoice={selectedInvoice}
         />
       )}
+
+      {/* BrightMLS SSO Redirect Modal */}
+      <Dialog open={!!brightMlsRedirectUrl} onOpenChange={(open) => { if (!open) setBrightMlsRedirectUrl(null) }}>
+        <DialogContent className="max-w-4xl w-[90vw] h-[80vh] p-0 gap-0 overflow-hidden">
+          <DialogHeader className="px-4 py-3 border-b flex-row items-center justify-between space-y-0">
+            <div>
+              <DialogTitle className="text-base">Bright MLS Import</DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground">Complete the import in the Bright MLS portal below</DialogDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => { if (brightMlsRedirectUrl) window.open(brightMlsRedirectUrl, '_blank') }}>
+                <ExternalLink className="h-3 w-3 mr-1" /> Open in Browser
+              </Button>
+            </div>
+          </DialogHeader>
+          {brightMlsRedirectUrl && (
+            <iframe
+              src={brightMlsRedirectUrl}
+              className="w-full flex-1 border-0"
+              style={{ height: 'calc(80vh - 60px)' }}
+              title="Bright MLS Import"
+              sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-storage-access-by-user-activation"
+              allow="clipboard-write"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

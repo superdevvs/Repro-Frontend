@@ -58,6 +58,7 @@ export function ShootIntegrationsSection({ shoot, onRefresh }: ShootIntegrations
   const [syncingIguide, setSyncingIguide] = useState(false);
   const [publishingBrightMls, setPublishingBrightMls] = useState(false);
   const [brightMlsDialogOpen, setBrightMlsDialogOpen] = useState(false);
+  const [brightMlsRedirectUrl, setBrightMlsRedirectUrl] = useState<string | null>(null);
   const [selectedPhotos, setSelectedPhotos] = useState<Set<number>>(new Set());
 
   const propertyDetails = shoot.property_details || {};
@@ -133,9 +134,15 @@ export function ShootIntegrationsSection({ shoot, onRefresh }: ShootIntegrations
       );
 
       if (response.data.success) {
+        // Open the BrightMLS SSO redirect URL in an in-app modal
+        const redirectUrl = response.data.data?.redirect_url || response.data.redirect_url;
+        if (redirectUrl) {
+          setBrightMlsRedirectUrl(redirectUrl);
+        }
+
         toast({
-          title: "Published to Bright MLS",
-          description: "Media manifest has been published successfully.",
+          title: "Manifest Sent",
+          description: "Complete the import by logging in to Bright MLS.",
         });
         setBrightMlsDialogOpen(false);
         onRefresh?.();
@@ -160,6 +167,7 @@ export function ShootIntegrationsSection({ shoot, onRefresh }: ShootIntegrations
   };
 
   return (
+    <>
     <div className="space-y-6">
       <div>
         <h3 className="text-lg font-semibold mb-4">External Integrations</h3>
@@ -467,6 +475,34 @@ export function ShootIntegrationsSection({ shoot, onRefresh }: ShootIntegrations
         </CardContent>
       </Card>
     </div>
+
+    {/* BrightMLS SSO Redirect Modal */}
+    <Dialog open={!!brightMlsRedirectUrl} onOpenChange={(open) => { if (!open) setBrightMlsRedirectUrl(null); }}>
+      <DialogContent className="max-w-4xl w-[90vw] h-[80vh] p-0 gap-0 overflow-hidden">
+        <DialogHeader className="px-4 py-3 border-b flex-row items-center justify-between space-y-0">
+          <div>
+            <DialogTitle className="text-base">Bright MLS Import</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">Complete the import in the Bright MLS portal below</DialogDescription>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => { if (brightMlsRedirectUrl) window.open(brightMlsRedirectUrl, '_blank'); }}>
+              <ExternalLink className="h-3 w-3 mr-1" /> Open in Browser
+            </Button>
+          </div>
+        </DialogHeader>
+        {brightMlsRedirectUrl && (
+          <iframe
+            src={brightMlsRedirectUrl}
+            className="w-full flex-1 border-0"
+            style={{ height: 'calc(80vh - 60px)' }}
+            title="Bright MLS Import"
+            sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-storage-access-by-user-activation"
+            allow="clipboard-write"
+          />
+        )}
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 
