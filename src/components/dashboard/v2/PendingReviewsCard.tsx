@@ -113,7 +113,7 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
   const isEmpty = totalRequests === 0;
 
   return (
-    <Card className={cn("flex flex-col min-h-0 overflow-hidden", isEmpty ? "h-auto" : "h-full flex-1")}>
+    <Card className={cn("flex flex-col min-h-0 overflow-hidden", isEmpty ? "h-auto" : "h-full flex-1 sm:h-auto sm:flex-none")}>
       <div className="flex flex-col h-full flex-1 min-h-0">
         <div className="flex items-center justify-between mb-2 flex-shrink-0">
           <h2 className="text-base sm:text-lg font-bold text-foreground">{title}</h2>
