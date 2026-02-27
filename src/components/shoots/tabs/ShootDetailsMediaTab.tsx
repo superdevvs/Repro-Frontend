@@ -43,6 +43,7 @@ import {
   Share2,
   LayoutGrid,
   List,
+  Play,
 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { ShootData } from '@/types/shoots';
@@ -2652,6 +2653,7 @@ export function ShootDetailsMediaTab({
                           getImageUrl={getImageUrl}
                           getSrcSet={getSrcSet}
                           isImage={isPreviewableImage}
+                          isVideo={isVideoFile}
                           viewMode={mediaViewMode}
                         />
                       </div>
@@ -2709,6 +2711,7 @@ export function ShootDetailsMediaTab({
                           getImageUrl={getImageUrl}
                           getSrcSet={getSrcSet}
                           isImage={isPreviewableImage}
+                          isVideo={isVideoFile}
                           viewMode={mediaViewMode}
                         />
                       </div>
@@ -2899,6 +2902,7 @@ export function ShootDetailsMediaTab({
                           getImageUrl={getImageUrl}
                           getSrcSet={getSrcSet}
                           isImage={isPreviewableImage}
+                          isVideo={isVideoFile}
                           viewMode={mediaViewMode}
                         />
                       </div>
@@ -2956,6 +2960,7 @@ export function ShootDetailsMediaTab({
                           getImageUrl={getImageUrl}
                           getSrcSet={getSrcSet}
                           isImage={isPreviewableImage}
+                          isVideo={isVideoFile}
                           viewMode={mediaViewMode}
                         />
                       </div>
@@ -3130,6 +3135,7 @@ interface MediaGridProps {
   getImageUrl: (file: MediaFile, size?: 'thumb' | 'medium' | 'large' | 'original') => string;
   getSrcSet: (file: MediaFile) => string;
   isImage: (file: MediaFile) => boolean;
+  isVideo?: (file: MediaFile) => boolean;
   viewMode?: 'list' | 'grid';
 }
 
@@ -3146,6 +3152,7 @@ function MediaGrid({
   getImageUrl,
   getSrcSet,
   isImage,
+  isVideo,
   viewMode = 'list',
 }: MediaGridProps) {
   const [draggedId, setDraggedId] = useState<string | null>(null);
@@ -3276,6 +3283,7 @@ function MediaGrid({
   const renderFileCard = (file: MediaFile, index: number, isExtraSection: boolean = false) => {
     const isSelected = selectedFiles.has(file.id);
     const isImg = isImage(file);
+    const isVid = isVideo?.(file) ?? false;
     const isRaw = isRawFile(file.filename);
     const imageUrl = getImageUrl(file, 'medium');
     const srcSet = getSrcSet(file);
@@ -3345,10 +3353,19 @@ function MediaGrid({
           })() }}
         >
           <div className="flex flex-col items-center gap-1 text-muted-foreground">
-            <ImageIcon className="h-6 w-6" />
+            {isVid ? <Play className="h-6 w-6" /> : <ImageIcon className="h-6 w-6" />}
             <span className="text-[10px] font-semibold uppercase">{ext || 'FILE'}</span>
           </div>
         </div>
+
+        {/* Video play overlay */}
+        {isVid && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="bg-black/50 rounded-full p-1.5">
+              <Play className="h-5 w-5 text-white fill-white" />
+            </div>
+          </div>
+        )}
         
         {/* Extra badge */}
         {file.isExtra && (
@@ -3395,6 +3412,7 @@ function MediaGrid({
   // List view row renderer
   const renderFileRow = (file: MediaFile, index: number, isExtraSection: boolean = false) => {
     const isSelected = selectedFiles.has(file.id);
+    const isVid = isVideo?.(file) ?? false;
     const isRaw = isRawFile(file.filename);
     const imageUrl = getImageUrl(file, 'thumb');
     const ext = file.filename.split('.').pop()?.toUpperCase();
@@ -3460,10 +3478,17 @@ function MediaGrid({
             style={{ display: !hasDisplayableImage ? 'flex' : 'none' }}
           >
             <div className="flex flex-col items-center gap-0.5 text-muted-foreground">
-              <ImageIcon className="h-4 w-4" />
+              {isVid ? <Play className="h-4 w-4" /> : <ImageIcon className="h-4 w-4" />}
               <span className="text-[8px] font-semibold uppercase">{ext || 'FILE'}</span>
             </div>
           </div>
+          {isVid && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="bg-black/50 rounded-full p-0.5">
+                <Play className="h-3 w-3 text-white fill-white" />
+              </div>
+            </div>
+          )}
           {file.isExtra && (
             <div className="absolute top-0.5 left-0.5 bg-orange-500 text-white text-[6px] px-0.5 py-0 rounded font-medium">
               EXTRA
@@ -3658,6 +3683,13 @@ function MediaViewer({
     if (mime.startsWith('image/')) return true;
     return /\.(jpg|jpeg|png|gif|webp|tiff|tif|heic|heif)$/.test(name);
   };
+  const isVideoFile = (file: MediaFile): boolean => {
+    if (file.media_type === 'video') return true;
+    const name = (file.filename || '').toLowerCase();
+    const mime = (file.fileType || '').toLowerCase();
+    if (mime.startsWith('video/')) return true;
+    return /\.(mp4|mov|avi|mkv|wmv|webm)$/.test(name);
+  };
   const [zoom, setZoom] = useState(1);
   const [showFlagDialog, setShowFlagDialog] = useState(false);
   const [flagReason, setFlagReason] = useState('');
@@ -3777,6 +3809,8 @@ function MediaViewer({
   const imageUrl = getImageUrl(currentFile, 'medium') || getImageUrl(currentFile, 'large');
   const srcSet = getSrcSet(currentFile);
   const isImg = isPreviewableImage(currentFile);
+  const isVid = isVideoFile(currentFile);
+  const videoUrl = isVid ? (getImageUrl(currentFile, 'original') || getImageUrl(currentFile, 'large')) : '';
   const fileExt = currentFile?.filename?.split('.')?.pop()?.toUpperCase();
 
   return (
@@ -3825,7 +3859,7 @@ function MediaViewer({
           )}
 
           {/* Top Metadata Bar */}
-          {isImg && currentFile && (
+          {(isImg || isVid) && currentFile && (
             <div className="absolute top-12 sm:top-4 left-1/2 -translate-x-1/2 z-20 bg-black/60 backdrop-blur-md rounded-lg px-3 sm:px-4 py-1.5 sm:py-2 flex items-center gap-2 sm:gap-4 text-white text-xs sm:text-sm max-w-[90vw]">
               <div className="flex items-center gap-2 min-w-0">
                 <span className="font-medium truncate">{currentFile.filename}</span>
@@ -3872,7 +3906,7 @@ function MediaViewer({
             </div>
           )}
 
-          <div className="flex items-center justify-center p-2 sm:p-8 overflow-auto" style={{ transform: `scale(${zoom})`, transformOrigin: 'center' }}>
+          <div className="flex items-center justify-center p-2 sm:p-8 overflow-auto" style={{ transform: isVid ? undefined : `scale(${zoom})`, transformOrigin: 'center' }}>
             {isImg ? (
               <img
                 src={imageUrl}
@@ -3882,6 +3916,15 @@ function MediaViewer({
                 className="max-w-full max-h-[60vh] sm:max-h-[70vh] object-contain select-none rounded-lg shadow-2xl"
                 loading="eager"
                 draggable={false}
+              />
+            ) : isVid ? (
+              <video
+                key={currentFile.id}
+                src={videoUrl}
+                controls
+                autoPlay
+                className="max-w-full max-h-[60vh] sm:max-h-[70vh] object-contain select-none rounded-lg shadow-2xl"
+                style={{ outline: 'none' }}
               />
             ) : (
               <div className="text-white text-center">
@@ -3972,6 +4015,7 @@ function MediaViewer({
                 const isActive = index === currentIndex;
                 const fileImageUrl = getImageUrl(file, 'thumb');
                 const fileIsImg = isImageFile(file);
+                const fileIsVid = isVideoFile(file);
                 const fileIsRaw = isRawFile(file.filename);
                 // For RAW files, only show thumbnail if processed (thumbnail_path exists)
                 const hasDisplayableThumb = fileIsRaw 
@@ -3985,7 +4029,7 @@ function MediaViewer({
                       onIndexChange(index);
                       setZoom(1);
                     }}
-                    className={`flex-shrink-0 w-12 h-12 sm:w-16 sm:h-16 rounded overflow-hidden border-2 transition-all ${
+                    className={`relative flex-shrink-0 w-12 h-12 sm:w-16 sm:h-16 rounded overflow-hidden border-2 transition-all ${
                       isActive 
                         ? 'border-white ring-2 ring-white/50 scale-105' 
                         : 'border-white/30 hover:border-white/60 opacity-70 hover:opacity-100'
@@ -4007,8 +4051,19 @@ function MediaViewer({
                       className="w-full h-full bg-muted items-center justify-center"
                       style={{ display: hasDisplayableThumb && fileImageUrl ? 'none' : 'flex' }}
                     >
-                      <FileIcon className="h-6 w-6 text-muted-foreground" />
+                      {fileIsVid ? (
+                        <Play className="h-6 w-6 text-muted-foreground" />
+                      ) : (
+                        <FileIcon className="h-6 w-6 text-muted-foreground" />
+                      )}
                     </div>
+                    {fileIsVid && (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="bg-black/50 rounded-full p-0.5">
+                          <Play className="h-3 w-3 sm:h-4 sm:w-4 text-white fill-white" />
+                        </div>
+                      </div>
+                    )}
                   </button>
                 );
               })}
