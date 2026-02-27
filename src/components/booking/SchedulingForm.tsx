@@ -810,6 +810,8 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
             isAvailableAtTime: p.is_available_at_time,
             hasAvailability: p.has_availability,
             shootsCountToday: p.shoots_count_today,
+            travel_range: p.travel_range ?? null,
+            travel_range_unit: p.travel_range_unit ?? 'miles',
           };
         });
 
@@ -1204,9 +1206,28 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
                 </Avatar>
 
                 <div className="flex-1 min-w-0">
-                  <p className={cn("font-semibold text-slate-900 dark:text-slate-100 truncate", mobileDrawer ? "text-base" : "text-sm") }>
-                    {photographerItem.name}
-                  </p>
+                  <div className="flex items-center gap-1.5">
+                    <p className={cn("font-semibold text-slate-900 dark:text-slate-100 truncate", mobileDrawer ? "text-base" : "text-sm") }>
+                      {photographerItem.name}
+                    </p>
+                    {(() => {
+                      const travelRange = (photographerItem as any).travel_range ?? (photographerItem as any).metadata?.travel_range;
+                      const travelUnit = (photographerItem as any).travel_range_unit ?? (photographerItem as any).metadata?.travel_range_unit ?? 'miles';
+                      const dist = (photographerItem as any).distance;
+                      if (travelRange != null && dist != null && Number.isFinite(dist)) {
+                        // Convert travel range to miles for comparison if in km
+                        const rangeInMiles = travelUnit === 'km' ? travelRange * 0.621371 : travelRange;
+                        if (dist > rangeInMiles) {
+                          return (
+                            <span className="shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
+                              Out of range
+                            </span>
+                          );
+                        }
+                      }
+                      return null;
+                    })()}
+                  </div>
 
                   <p className={cn("truncate text-slate-500 dark:text-slate-400", mobileDrawer ? "mt-0.5 text-sm" : "mt-0.5 text-xs") }>
                     {locationLabel || 'Location unavailable'}

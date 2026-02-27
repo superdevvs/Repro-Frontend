@@ -230,7 +230,7 @@ const clientAccountPropertyFormSchema = z.object({
   propertyZip: z.string().min(1, "ZIP code is required"),
   bedRooms: z.number().min(0, "Bedrooms must be 0 or more").optional(),
   bathRooms: z.number().min(0, "Bathrooms must be 0 or more").optional(),
-  sqft: z.number().min(0, "SQFT must be 0 or more").optional(),
+  sqft: z.number({ required_error: "Square footage is required" }).min(1, "Square footage is required"),
   propertyType: z.enum(["residential", "commercial"]),
   listingType: z.enum(["for_sale", "for_rent"]).optional(),
   propertyInfo: z.string().optional(),
@@ -258,7 +258,7 @@ const adminPropertyFormSchema = z.object({
   propertyZip: z.string().min(1, "ZIP code is required"),
   bedRooms: z.number().min(0, "Bedrooms must be 0 or more").optional(),
   bathRooms: z.number().min(0, "Bathrooms must be 0 or more").optional(),
-  sqft: z.number().min(0, "SQFT must be 0 or more").optional(),
+  sqft: z.number({ required_error: "Square footage is required" }).min(1, "Square footage is required"),
   propertyType: z.enum(["residential", "commercial"]),
   listingType: z.enum(["for_sale", "for_rent"]).optional(),
   propertyInfo: z.string().optional(),
@@ -1545,7 +1545,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                   name="sqft"
                   render={({ field }) => (
                     <FormItem className="sm:col-span-1 col-span-2">
-                      <FormLabel className="text-xs font-medium text-muted-foreground">SQFT</FormLabel>
+                      <FormLabel className="text-xs font-medium text-muted-foreground">SQFT <span className="text-destructive">*</span></FormLabel>
                       <FormControl>
                         <Input
                           type="number"
@@ -1554,7 +1554,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                           value={field.value ?? ''}
                           onChange={(e) => {
                             const value = e.target.value;
-                            field.onChange(value === '' ? 0 : Number(value));
+                            field.onChange(value === '' ? undefined : Number(value));
                           }} />
                       </FormControl>
                       <FormMessage />

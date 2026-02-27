@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { ImageUpload } from "@/components/profile/ImageUpload";
@@ -34,7 +35,9 @@ export function PhotographerProfile() {
     avatar: user?.avatar || "",
     portfolioWebsite: "",
     weeklyInvoice: true,
-    taxInfoSubmitted: false
+    taxInfoSubmitted: false,
+    travelRange: (user as any)?.metadata?.travel_range ?? 25,
+    travelRangeUnit: (user as any)?.metadata?.travel_range_unit ?? "miles",
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -105,6 +108,8 @@ export function PhotographerProfile() {
           city: formData.city || undefined,
           state: formData.state || undefined,
           zip: formData.zip || undefined,
+          travel_range: formData.travelRange !== "" ? Number(formData.travelRange) : null,
+          travel_range_unit: formData.travelRangeUnit || 'miles',
         }),
       });
 
@@ -272,6 +277,50 @@ export function PhotographerProfile() {
                         onChange={handleChange}
                         placeholder="ZIP"
                       />
+                    </div>
+                  </div>
+                  <div className="space-y-3 mt-6">
+                    <div className="flex items-center justify-between">
+                      <Label>Travel Range</Label>
+                      <div className="flex items-center gap-1 bg-muted rounded-md p-0.5">
+                        <button
+                          type="button"
+                          className={`px-2.5 py-1 text-xs rounded font-medium transition-colors ${
+                            formData.travelRangeUnit === 'miles'
+                              ? 'bg-primary text-primary-foreground shadow-sm'
+                              : 'text-muted-foreground hover:text-foreground'
+                          }`}
+                          onClick={() => setFormData(prev => ({ ...prev, travelRangeUnit: 'miles' }))}
+                        >
+                          Miles
+                        </button>
+                        <button
+                          type="button"
+                          className={`px-2.5 py-1 text-xs rounded font-medium transition-colors ${
+                            formData.travelRangeUnit === 'km'
+                              ? 'bg-primary text-primary-foreground shadow-sm'
+                              : 'text-muted-foreground hover:text-foreground'
+                          }`}
+                          onClick={() => setFormData(prev => ({ ...prev, travelRangeUnit: 'km' }))}
+                        >
+                          Km
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground">How far you're willing to travel from your address for shoots</p>
+                    <div className="pt-2 pb-1">
+                      <Slider
+                        min={1}
+                        max={100}
+                        step={1}
+                        value={[Number(formData.travelRange) || 25]}
+                        onValueChange={(value) => setFormData(prev => ({ ...prev, travelRange: value[0] }))}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>1 {formData.travelRangeUnit}</span>
+                      <span className="text-sm font-semibold text-foreground">{Number(formData.travelRange) || 25} {formData.travelRangeUnit}</span>
+                      <span>100 {formData.travelRangeUnit}</span>
                     </div>
                   </div>
                 </div>

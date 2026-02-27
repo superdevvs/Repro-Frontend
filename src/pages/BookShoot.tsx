@@ -1098,7 +1098,8 @@ const BookShoot = () => {
         }
         
         setIsComplete(true);
-        await fetchShoots();
+        // Refresh shoots list in the background — don't block the UI transition
+        fetchShoots().catch(() => {});
         
         // Clear form cache on successful submission
         if (shouldCacheForm) {

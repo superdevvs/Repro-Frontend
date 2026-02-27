@@ -68,7 +68,7 @@ export default function MessagingOverview() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-4 px-2 pt-3 pb-3 sm:space-y-6 sm:p-6">
+      <div className="space-y-4 px-2 pt-3 pb-24 sm:pb-6 sm:space-y-6 sm:p-6 overflow-hidden min-w-0">
         <div className="grid gap-4 lg:grid-cols-3">
           <Card className="relative overflow-hidden border border-border bg-gradient-to-br from-indigo-50 via-purple-50 to-rose-50 dark:from-indigo-600 dark:via-purple-600 dark:to-rose-500 lg:col-span-2">
             <div className="absolute inset-y-0 right-0 opacity-10 dark:opacity-20">
@@ -200,9 +200,9 @@ export default function MessagingOverview() {
           </div>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-3">
-          <Card className="lg:col-span-2">
-            <div className="flex items-center justify-between p-6 pb-4">
+        <div className="grid gap-4 lg:grid-cols-3 min-w-0">
+          <Card className="lg:col-span-2 overflow-hidden">
+            <div className="flex items-center justify-between p-4 sm:p-6 pb-3 sm:pb-4 gap-3">
               <div>
                 <h2 className="text-xl font-semibold">Recent Activity</h2>
                 <p className="text-sm text-muted-foreground">Latest outbound and inbound messages</p>
@@ -225,25 +225,25 @@ export default function MessagingOverview() {
             ) : (
               <div className="divide-y">
                 {messages.map((message) => (
-                  <Link key={message.id} to="/messaging/email/inbox" className="block p-4 hover:bg-muted/50 transition-colors">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium truncate">
+                  <Link key={message.id} to="/messaging/email/inbox" className="block p-3 sm:p-4 hover:bg-muted/50 transition-colors">
+                    <div className="flex items-start justify-between gap-2 sm:gap-4 min-w-0">
+                      <div className="flex-1 min-w-0 overflow-hidden">
+                        <div className="flex items-center gap-2 mb-1 min-w-0">
+                          <span className="font-medium truncate text-sm sm:text-base">
                             {message.direction === 'OUTBOUND' ? message.to_address : message.from_address}
                           </span>
-                          <Badge className={statusColors[message.status]}>
+                          <Badge className={`${statusColors[message.status]} flex-shrink-0`}>
                             {message.status}
                           </Badge>
                         </div>
                         <p className="text-sm font-medium truncate">
                           {message.subject || '(No Subject)'}
                         </p>
-                        <p className="text-sm text-muted-foreground truncate">
+                        <p className="text-xs sm:text-sm text-muted-foreground truncate">
                           {message.body_text?.substring(0, 80)}
                         </p>
                       </div>
-                      <div className="text-sm text-muted-foreground whitespace-nowrap">
+                      <div className="hidden sm:block text-sm text-muted-foreground whitespace-nowrap">
                         {format(new Date(message.created_at), 'MMM d, h:mm a')}
                       </div>
                     </div>

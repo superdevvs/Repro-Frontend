@@ -41,6 +41,8 @@ import {
   MinusCircle,
   Link2,
   Share2,
+  LayoutGrid,
+  List,
 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { ShootData } from '@/types/shoots';
@@ -108,6 +110,13 @@ export function ShootDetailsMediaTab({
   const [submittingAiEdit, setSubmittingAiEdit] = useState(false);
   const [sortOrder, setSortOrder] = useState<'name' | 'date' | 'time' | 'manual'>('time');
   const [manualOrder, setManualOrder] = useState<string[]>([]);
+  const [mediaViewMode, setMediaViewMode] = useState<'list' | 'grid'>(() => {
+    try { return (localStorage.getItem('media-view-mode') as 'list' | 'grid') || 'list'; } catch { return 'list'; }
+  });
+  const toggleMediaViewMode = (mode: 'list' | 'grid') => {
+    setMediaViewMode(mode);
+    try { localStorage.setItem('media-view-mode', mode); } catch {}
+  };
   const [requestManagerOpen, setRequestManagerOpen] = useState(false);
 
   useEffect(() => {
@@ -332,6 +341,18 @@ export function ShootDetailsMediaTab({
     if (normalizedShootStatus.includes('complete')) return 'Almost ready';
     return 'In progress';
   };
+
+  // Determine if shoot services include video
+  const shootHasVideoService = useMemo(() => {
+    const services = shoot.services || [];
+    const videoKeywords = ['video', 'walkthrough', 'cinematic', 'drone video', 'aerial video', 'reel'];
+    return services.some(s => videoKeywords.some(kw => s.toLowerCase().includes(kw)));
+  }, [shoot.services]);
+
+  // Build accept string based on services
+  const uploadAcceptPhotosOnly = "image/*,.raw,.cr2,.cr3,.nef,.arw,.dng,.raf,.orf,.pef,.rw2,.srw,.3fr,.fff,.iiq,.rwl,.x3f,.tiff,.tif,.heic,.heif";
+  const uploadAcceptAll = "image/*,video/*,.raw,.cr2,.cr3,.nef,.arw,.dng,.raf,.orf,.pef,.rw2,.srw,.3fr,.fff,.iiq,.rwl,.x3f,.tiff,.tif,.heic,.heif";
+  const uploadAccept = shootHasVideoService ? uploadAcceptAll : uploadAcceptPhotosOnly;
 
   const isVideoUpload = (file: File): boolean => {
     const name = file.name.toLowerCase();
@@ -1126,7 +1147,7 @@ export function ShootDetailsMediaTab({
             <input
               type="file"
               multiple
-              accept="image/*,video/*,.raw,.cr2,.nef,.arw,.dng,.raf,.orf,.pef,.rw2,.srw"
+              accept={uploadAccept}
               onChange={handleFileSelect}
               className="hidden"
               id="edited-file-upload"
@@ -1137,7 +1158,7 @@ export function ShootDetailsMediaTab({
               </div>
               <h3 className="text-lg font-semibold mb-2">No uploaded files yet</h3>
               <p className="text-sm text-muted-foreground text-center mb-6 max-w-md">
-                Upload photos and videos to get started. You can drag and drop files or use the upload button.
+                {shootHasVideoService ? 'Upload photos and videos to get started.' : 'Upload photos to get started.'} You can drag and drop files or use the upload button.
               </p>
               <Button
                 variant="default"
@@ -1163,7 +1184,7 @@ export function ShootDetailsMediaTab({
             <input
               type="file"
               multiple
-              accept="image/*,video/*,.raw,.cr2,.nef,.arw,.dng,.raf,.orf,.pef,.rw2,.srw"
+              accept={uploadAccept}
               onChange={handleFileSelect}
               className="hidden"
               id="edited-file-upload"
@@ -1831,7 +1852,7 @@ export function ShootDetailsMediaTab({
             <input
               type="file"
               multiple
-              accept="image/*,video/*,.raw,.cr2,.nef,.arw,.dng,.raf,.orf,.pef,.rw2,.srw,.3fr,.fff,.iiq,.rwl,.srw,.x3f"
+              accept={uploadAccept}
               onChange={handleFileSelect}
               className="hidden"
               id="file-upload"
@@ -1842,7 +1863,7 @@ export function ShootDetailsMediaTab({
               </div>
               <h3 className="text-lg font-semibold mb-2">No uploaded files yet</h3>
               <p className="text-sm text-muted-foreground text-center mb-6 max-w-md">
-                Upload photos and videos to get started. You can drag and drop files or use the upload button.
+                {shootHasVideoService ? 'Upload photos and videos to get started.' : 'Upload photos to get started.'} You can drag and drop files or use the upload button.
               </p>
               <Button
                 variant="default"
@@ -1868,7 +1889,7 @@ export function ShootDetailsMediaTab({
             <input
               type="file"
               multiple
-              accept="image/*,video/*,.raw,.cr2,.nef,.arw,.dng,.raf,.orf,.pef,.rw2,.srw,.3fr,.fff,.iiq,.rwl,.srw,.x3f"
+              accept={uploadAccept}
               onChange={handleFileSelect}
               className="hidden"
               id="file-upload"
@@ -2029,7 +2050,7 @@ export function ShootDetailsMediaTab({
       return (
         <div className="space-y-4 flex-1 flex flex-col min-h-0">
           <div className="text-sm text-muted-foreground mb-4">
-            Upload final, edited files ready for client delivery. Supported formats: JPG, PNG (photos), MP4 (videos).
+            Upload final, edited files ready for client delivery. Supported formats: JPG, PNG (photos){shootHasVideoService ? ', MP4 (videos)' : ''}.
           </div>
           <EditedUploadSection shoot={shoot} onUploadComplete={onEditedUploadComplete} isEditor={false} />
         </div>
@@ -2039,7 +2060,7 @@ export function ShootDetailsMediaTab({
     return (
       <div className="space-y-4 flex-1 flex flex-col min-h-0">
         <div className="text-sm text-muted-foreground mb-4">
-          Upload RAW, unedited files for processing. Supported formats: JPG, PNG, TIFF, NEF, CR2, CR3, ARW, DNG (photos), MP4, MOV (videos).
+          Upload RAW, unedited files for processing. Supported formats: JPG, PNG, TIFF, NEF, CR2, CR3, ARW, DNG (photos){shootHasVideoService ? ', MP4, MOV (videos)' : ''}.
         </div>
         <RawUploadSection shoot={shoot} onUploadComplete={onUploadComplete} />
       </div>
@@ -2181,6 +2202,26 @@ export function ShootDetailsMediaTab({
             </TabsList>
           </Tabs>
           
+          {/* List / Grid view toggle - visible on all screen sizes */}
+          {(rawFiles.length > 0 || editedFiles.length > 0) && (
+            <div className="flex sm:hidden items-center border rounded-md overflow-hidden flex-shrink-0">
+              <button
+                onClick={() => toggleMediaViewMode('list')}
+                className={`h-7 w-7 flex items-center justify-center transition-colors ${mediaViewMode === 'list' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'}`}
+                title="List view"
+              >
+                <List className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={() => toggleMediaViewMode('grid')}
+                className={`h-7 w-7 flex items-center justify-center transition-colors ${mediaViewMode === 'grid' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'}`}
+                title="Grid view"
+              >
+                <LayoutGrid className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+
           {/* Upload and Download buttons - Inline on desktop, below on mobile */}
           <div className="hidden sm:flex items-center gap-1.5 flex-shrink-0">
             {/* Sort dropdown - hidden for editors */}
@@ -2208,8 +2249,27 @@ export function ShootDetailsMediaTab({
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
-            {/* Upload button - always shown on desktop when user can upload */}
-            {showUploadTab && (
+            {/* List / Grid view toggle */}
+            {(rawFiles.length > 0 || editedFiles.length > 0) && (
+              <div className="flex items-center border rounded-md overflow-hidden">
+                <button
+                  onClick={() => toggleMediaViewMode('list')}
+                  className={`h-7 w-7 flex items-center justify-center transition-colors ${mediaViewMode === 'list' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'}`}
+                  title="List view"
+                >
+                  <List className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={() => toggleMediaViewMode('grid')}
+                  className={`h-7 w-7 flex items-center justify-center transition-colors ${mediaViewMode === 'grid' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'}`}
+                  title="Grid view"
+                >
+                  <LayoutGrid className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
+            {/* Upload More button - only shown when files already exist */}
+            {showUploadTab && (rawFiles.length > 0 || editedFiles.length > 0) && (
               <Button
                 variant="default"
                 size="sm"
@@ -2217,7 +2277,7 @@ export function ShootDetailsMediaTab({
                 onClick={() => setActiveSubTab('upload')}
               >
                 <Upload className="h-3 w-3 mr-1" />
-                <span>{(rawFiles.length > 0 || editedFiles.length > 0) ? 'Upload More' : 'Upload Files'}</span>
+                <span>Upload More</span>
               </Button>
             )}
             {/* AI Edit, Download, Create Request, and Delete buttons for selected files */}
@@ -2247,9 +2307,13 @@ export function ShootDetailsMediaTab({
                 )}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button size="sm" className="h-7 text-[11px] px-2" disabled={downloading}>
-                      <Download className="h-3 w-3 mr-1" />
-                      <span>Download ({selectedFiles.size})</span>
+                    <Button size="icon" className="h-7 w-7 relative" disabled={downloading} title={`Download ${selectedFiles.size} file(s)`}>
+                      <Download className="h-3.5 w-3.5" />
+                      {selectedFiles.size > 0 && (
+                        <span className="absolute -top-1.5 -right-1.5 bg-primary text-primary-foreground text-[9px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
+                          {selectedFiles.size}
+                        </span>
+                      )}
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
@@ -2271,13 +2335,18 @@ export function ShootDetailsMediaTab({
                 </DropdownMenu>
                 {canDelete && (
                   <Button
-                    size="sm"
+                    size="icon"
                     variant="destructive"
-                    className="h-7 text-[11px] px-2 bg-red-600 hover:bg-red-700 text-white"
+                    className="h-7 w-7 relative bg-red-600 hover:bg-red-700 text-white"
                     onClick={handleDeleteFiles}
+                    title={`Delete ${selectedFiles.size} file(s)`}
                   >
-                    <Trash2 className="h-3 w-3 mr-1" />
-                    <span>Delete ({selectedFiles.size})</span>
+                    <Trash2 className="h-3.5 w-3.5" />
+                    {selectedFiles.size > 0 && (
+                      <span className="absolute -top-1.5 -right-1.5 bg-white text-red-600 text-[9px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-1 border border-red-300">
+                        {selectedFiles.size}
+                      </span>
+                    )}
                   </Button>
                 )}
               </>
@@ -2330,9 +2399,13 @@ export function ShootDetailsMediaTab({
             )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button size="sm" className="h-7 text-[11px] px-2 w-full" disabled={downloading}>
-                  <Download className="h-3 w-3 mr-1" />
-                  <span>Download</span>
+                <Button size="icon" className="h-7 w-7 relative flex-shrink-0" disabled={downloading} title={`Download ${selectedFiles.size} file(s)`}>
+                  <Download className="h-3.5 w-3.5" />
+                  {selectedFiles.size > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 bg-primary text-primary-foreground text-[9px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
+                      {selectedFiles.size}
+                    </span>
+                  )}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -2354,13 +2427,18 @@ export function ShootDetailsMediaTab({
             </DropdownMenu>
             {canDelete && (
               <Button
-                size="sm"
+                size="icon"
                 variant="destructive"
-                className="h-7 text-[11px] px-2 w-full bg-red-600 hover:bg-red-700 text-white"
+                className="h-7 w-7 relative flex-shrink-0 bg-red-600 hover:bg-red-700 text-white"
                 onClick={handleDeleteFiles}
+                title={`Delete ${selectedFiles.size} file(s)`}
               >
-                <Trash2 className="h-3 w-3 mr-1" />
-                <span>Delete</span>
+                <Trash2 className="h-3.5 w-3.5" />
+                {selectedFiles.size > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 bg-white text-red-600 text-[9px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-1 border border-red-300">
+                    {selectedFiles.size}
+                  </span>
+                )}
               </Button>
             )}
           </div>
@@ -2482,12 +2560,14 @@ export function ShootDetailsMediaTab({
                       >
                         Photos ({uploadedPhotos.length})
                       </button>
-                      <button
-                        onClick={() => setUploadedMediaTab('videos')}
-                        className={`text-xs py-1 border-b-2 transition-colors whitespace-nowrap ${uploadedMediaTab === 'videos' ? 'border-foreground text-foreground font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
-                      >
-                        Video ({uploadedVideos.length})
-                      </button>
+                      {(shootHasVideoService || uploadedVideos.length > 0) && (
+                        <button
+                          onClick={() => setUploadedMediaTab('videos')}
+                          className={`text-xs py-1 border-b-2 transition-colors whitespace-nowrap ${uploadedMediaTab === 'videos' ? 'border-foreground text-foreground font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                        >
+                          Video ({uploadedVideos.length})
+                        </button>
+                      )}
                       {iguideUrl && (
                         <button
                           onClick={() => setUploadedMediaTab('iguide')}
@@ -2536,7 +2616,7 @@ export function ShootDetailsMediaTab({
                           </div>
                           <h3 className="text-xl font-semibold mb-2">No uploaded files yet</h3>
                           <p className="text-sm text-muted-foreground mb-6">
-                            Upload property photos and videos to get started. Our AI will automatically analyze assets for quality and categorization.
+                            {shootHasVideoService ? 'Upload property photos and videos to get started.' : 'Upload property photos to get started.'} Our AI will automatically analyze assets for quality and categorization.
                           </p>
                           {showUploadTab && (
                             <Button
@@ -2572,6 +2652,7 @@ export function ShootDetailsMediaTab({
                           getImageUrl={getImageUrl}
                           getSrcSet={getSrcSet}
                           isImage={isPreviewableImage}
+                          viewMode={mediaViewMode}
                         />
                       </div>
                     )
@@ -2628,6 +2709,7 @@ export function ShootDetailsMediaTab({
                           getImageUrl={getImageUrl}
                           getSrcSet={getSrcSet}
                           isImage={isPreviewableImage}
+                          viewMode={mediaViewMode}
                         />
                       </div>
                     )
@@ -2725,12 +2807,14 @@ export function ShootDetailsMediaTab({
                       >
                         Photos ({editedPhotos.length})
                       </button>
-                      <button
-                        onClick={() => setEditedMediaTab('videos')}
-                        className={`text-xs py-1 border-b-2 transition-colors whitespace-nowrap ${editedMediaTab === 'videos' ? 'border-foreground text-foreground font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
-                      >
-                        Video ({editedVideos.length})
-                      </button>
+                      {(shootHasVideoService || editedVideos.length > 0) && (
+                        <button
+                          onClick={() => setEditedMediaTab('videos')}
+                          className={`text-xs py-1 border-b-2 transition-colors whitespace-nowrap ${editedMediaTab === 'videos' ? 'border-foreground text-foreground font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                        >
+                          Video ({editedVideos.length})
+                        </button>
+                      )}
                       {iguideUrl && (
                         <button
                           onClick={() => setEditedMediaTab('iguide')}
@@ -2815,6 +2899,7 @@ export function ShootDetailsMediaTab({
                           getImageUrl={getImageUrl}
                           getSrcSet={getSrcSet}
                           isImage={isPreviewableImage}
+                          viewMode={mediaViewMode}
                         />
                       </div>
                     )
@@ -2871,6 +2956,7 @@ export function ShootDetailsMediaTab({
                           getImageUrl={getImageUrl}
                           getSrcSet={getSrcSet}
                           isImage={isPreviewableImage}
+                          viewMode={mediaViewMode}
                         />
                       </div>
                     )
@@ -3044,6 +3130,7 @@ interface MediaGridProps {
   getImageUrl: (file: MediaFile, size?: 'thumb' | 'medium' | 'large' | 'original') => string;
   getSrcSet: (file: MediaFile) => string;
   isImage: (file: MediaFile) => boolean;
+  viewMode?: 'list' | 'grid';
 }
 
 function MediaGrid({ 
@@ -3059,6 +3146,7 @@ function MediaGrid({
   getImageUrl,
   getSrcSet,
   isImage,
+  viewMode = 'list',
 }: MediaGridProps) {
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
@@ -3295,8 +3383,10 @@ function MediaGrid({
           </div>
         )}
         
-        <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] p-1 truncate opacity-0 group-hover:opacity-100 transition-opacity">
-          {file.filename}
+        <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] p-1 opacity-0 group-hover:opacity-100 transition-opacity overflow-hidden whitespace-nowrap">
+          <span className="inline-block group-hover:animate-marquee">
+            {file.filename}
+          </span>
         </div>
       </div>
     );
@@ -3406,6 +3496,55 @@ function MediaGrid({
       </div>
     );
   };
+
+  if (viewMode === 'grid') {
+    return (
+      <div className="space-y-2">
+        {/* Select all for grid view */}
+        {canSelect && files.length > 0 && (
+          <div className="flex items-center gap-2 px-1 py-1">
+            <div 
+              className="cursor-pointer hover:text-foreground transition-colors text-muted-foreground"
+              onClick={onSelectAll}
+              title={selectedFiles.size === files.length ? 'Deselect All' : 'Select All'}
+            >
+              {selectedFiles.size === files.length ? (
+                <CheckCircle2 className="h-4 w-4 text-primary" />
+              ) : selectedFiles.size > 0 ? (
+                <MinusCircle className="h-4 w-4" />
+              ) : (
+                <Circle className="h-4 w-4" />
+              )}
+            </div>
+            <span className="text-[10px] text-muted-foreground">
+              {selectedFiles.size > 0 ? `${selectedFiles.size} selected` : 'Select all'}
+            </span>
+          </div>
+        )}
+
+        {/* Regular files - grid */}
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-1.5 sm:gap-2">
+          {regularFiles.map((file, index) => renderFileCard(file, index, false))}
+        </div>
+
+        {/* Extra files section with separator */}
+        {extraFiles.length > 0 && (
+          <>
+            <div className="flex items-center gap-2 py-2">
+              <div className="flex-1 h-px bg-orange-500/30" />
+              <span className="text-xs font-medium text-orange-600 dark:text-orange-400 px-2">
+                Extras ({extraFiles.length})
+              </span>
+              <div className="flex-1 h-px bg-orange-500/30" />
+            </div>
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-1.5 sm:gap-2">
+              {extraFiles.map((file, index) => renderFileCard(file, index, true))}
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-2">

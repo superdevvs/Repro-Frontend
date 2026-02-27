@@ -415,6 +415,21 @@ const AccountingPage = () => {
                 )
               )}
 
+              {/* For client: show invoice list BEFORE spending overview */}
+              {accountingMode === 'client' && config.showInvoiceTable && (
+                <InvoiceList
+                  data={{ invoices: filteredInvoices }}
+                  onView={handleViewInvoice}
+                  onEdit={handleEditInvoice}
+                  onDownload={handleDownloadInvoice}
+                  onPay={handlePayInvoice}
+                  onSendReminder={handleSendReminder}
+                  isAdmin={isAdmin}
+                  isSuperAdmin={isSuperAdmin}
+                  role={role || ''}
+                />
+              )}
+
               {config.showRevenueChart && (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 items-stretch">
                   <div className="lg:col-span-2">
@@ -468,7 +483,8 @@ const AccountingPage = () => {
                 <WeeklyInvoiceReview />
               )}
 
-              {config.showInvoiceTable && (
+              {/* For non-client: show invoice table in original position (after charts) */}
+              {accountingMode !== 'client' && config.showInvoiceTable && (
                 <>
                   {accountingMode === 'photographer' ? (
                     <PhotographerShootsTable shoots={shoots} />

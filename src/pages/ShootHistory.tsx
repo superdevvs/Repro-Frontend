@@ -2066,9 +2066,6 @@ const HistoryRow = memo(({
               ) : 'Not Published'}
             </span>
           )}
-          {record.id && (
-            <span className="text-muted-foreground font-medium">ID #{record.id}</span>
-          )}
           <ChevronDown className={cn('h-4 w-4 text-muted-foreground ml-auto transition-transform', open && 'rotate-180')} />
         </div>
 

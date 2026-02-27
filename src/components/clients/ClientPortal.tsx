@@ -44,6 +44,7 @@ type PortfolioItem = {
   bedrooms?: number;
   bathrooms?: number;
   sqft?: number;
+  status?: string;
 };
 
 const extractUrls = (arr: any[] | undefined | null): string[] => {
@@ -103,6 +104,7 @@ export function ClientPortal() {
   const [contactForm, setContactForm] = useState({ name: '', email: '', message: '' });
   const [isSubmittingContact, setIsSubmittingContact] = useState(false);
   const [shoots, setShoots] = useState<PortfolioItem[]>([]);
+  const [listingsTab, setListingsTab] = useState<'current' | 'pending' | 'sold'>('current');
   const [activeGallery, setActiveGallery] = useState<string[]>([]);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [galleryTitle, setGalleryTitle] = useState("");
@@ -200,6 +202,7 @@ export function ClientPortal() {
             category: 'residential',
             photos: s.files_count || gallery.length || 0,
             badge: s.status || 'Completed',
+            status: (s.workflow_status || s.status || '').toLowerCase(),
             gallery: gallery.length ? gallery : (primaryImage ? [primaryImage] : []),
             iguideUrl: iguideUrl || undefined,
             listingType: s.listing_type || s.listingType,
@@ -386,7 +389,7 @@ export function ClientPortal() {
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-10 gap-4">
           <div className="space-y-2">
             <div>
-              <h2 className="text-3xl font-bold tracking-tight">Current Listings</h2>
+              <h2 className="text-3xl font-bold tracking-tight">Listings</h2>
               <p className="text-muted-foreground">High-resolution previews with quick gallery access.</p>
             </div>
           </div>
@@ -395,107 +398,185 @@ export function ClientPortal() {
           </Badge>
         </div>
 
-        {shoots.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-            {shoots.map((shoot) => (
-              <div
-                key={shoot.id}
-                className="group rounded-3xl overflow-hidden border bg-card shadow-sm hover:shadow-2xl transition-all duration-300"
-              >
-                <div className="relative aspect-[4/3] overflow-hidden">
-                  <img
-                    src={shoot.image}
-                    alt={shoot.title}
-                    className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-105"
-                    loading="lazy"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent pointer-events-none" />
-                  {/* Property Status Badge - top left */}
-                  <div className="absolute top-3 left-3 flex gap-2">
-                    {shoot.propertyStatus && shoot.propertyStatus !== 'available' && (
-                      <Badge className={`${
-                        shoot.propertyStatus === 'sold' || shoot.propertyStatus === 'rented' 
-                          ? 'bg-red-500 hover:bg-red-600' 
-                          : 'bg-amber-500 hover:bg-amber-600'
-                      } text-white border-0`}>
-                        {shoot.propertyStatus === 'sold' ? 'Sold' : 
-                         shoot.propertyStatus === 'rented' ? 'Rented' : 
-                         shoot.propertyStatus === 'pending' ? 'Pending' : 'Available'}
-                      </Badge>
+        {/* Tabs */}
+        {(() => {
+          const deliveredStatuses = ['delivered', 'ready_for_client', 'admin_verified', 'ready'];
+          const currentShoots = shoots.filter(s => {
+            const isDelivered = deliveredStatuses.includes(s.status || '');
+            const isSold = s.propertyStatus === 'sold' || s.propertyStatus === 'rented';
+            return isDelivered && !isSold;
+          });
+          const pendingShoots = shoots.filter(s => {
+            const isDelivered = deliveredStatuses.includes(s.status || '');
+            const isSold = s.propertyStatus === 'sold' || s.propertyStatus === 'rented';
+            return !isDelivered && !isSold;
+          });
+          const soldShoots = shoots.filter(s =>
+            s.propertyStatus === 'sold' || s.propertyStatus === 'rented'
+          );
+          const filteredShoots = listingsTab === 'current' ? currentShoots
+            : listingsTab === 'pending' ? pendingShoots
+            : soldShoots;
+          const tabs = [
+            { key: 'current' as const, label: 'Current Listings', count: currentShoots.length },
+            { key: 'pending' as const, label: 'Pending', count: pendingShoots.length },
+            { key: 'sold' as const, label: 'Sold', count: soldShoots.length },
+          ];
+
+          return (
+            <>
+              <div className="flex items-center gap-2 mb-8">
+                {tabs.map(tab => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setListingsTab(tab.key)}
+                    className={`px-5 py-2.5 text-sm font-medium rounded-full transition-colors ${
+                      listingsTab === tab.key
+                        ? 'bg-primary text-primary-foreground shadow-sm'
+                        : 'bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80'
+                    }`}
+                  >
+                    {tab.label}
+                    {tab.count > 0 && (
+                      <span className={`ml-2 inline-flex items-center justify-center h-5 min-w-[20px] px-1.5 rounded-full text-xs font-semibold ${
+                        listingsTab === tab.key
+                          ? 'bg-primary-foreground/20 text-primary-foreground'
+                          : 'bg-muted-foreground/15 text-muted-foreground'
+                      }`}>
+                        {tab.count}
+                      </span>
                     )}
-                    {shoot.listingType && (
-                      <Badge className={`${
-                        shoot.listingType === 'for_rent' 
-                          ? 'bg-blue-500 hover:bg-blue-600' 
-                          : 'bg-green-500 hover:bg-green-600'
-                      } text-white border-0`}>
-                        <Tag className="h-3 w-3 mr-1" />
-                        {shoot.listingType === 'for_rent' ? 'For Rent' : 'For Sale'}
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-white">
-                    <div>
-                      <p className="text-sm opacity-80">Preview</p>
-                      <p className="text-lg font-semibold line-clamp-1">{shoot.title}</p>
-                    </div>
-                    <Badge variant="secondary" className="bg-white/20 text-white backdrop-blur">
-                      {shoot.photos} Photos
-                    </Badge>
-                  </div>
-                </div>
-                <div className="p-5 space-y-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="space-y-1">
-                      <p className="text-lg font-semibold line-clamp-1">{shoot.title}</p>
-                      <p className="text-sm text-muted-foreground flex items-center gap-2 line-clamp-2">
-                        <MapPin className="h-4 w-4" />
-                        {shoot.subtitle}
-                      </p>
-                    </div>
-                  </div>
-                  {/* Property Info - Beds/Baths/Sqft */}
-                  {(shoot.bedrooms || shoot.bathrooms || shoot.sqft) && (
-                    <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                      {shoot.bedrooms && (
-                        <span className="flex items-center gap-1">
-                          <Home className="h-4 w-4" />
-                          {shoot.bedrooms} bed{shoot.bedrooms !== 1 ? 's' : ''}
-                        </span>
-                      )}
-                      {shoot.bathrooms && (
-                        <span>{shoot.bathrooms} bath{shoot.bathrooms !== 1 ? 's' : ''}</span>
-                      )}
-                      {shoot.sqft && (
-                        <span>{shoot.sqft.toLocaleString()} sqft</span>
-                      )}
-                    </div>
-                  )}
-                  <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
-                    <Badge variant="outline" className="rounded-full">{shoot.category}</Badge>
-                    <Badge variant="outline" className="rounded-full">Media Ready</Badge>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <Button className="w-full" size="sm" onClick={() => openGallery(shoot)}>
-                      View Gallery
-                    </Button>
-                    {shoot.iguideUrl && (
-                      <Button
-                        className="w-full"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => window.open(shoot.iguideUrl, '_blank', 'noopener,noreferrer')}
-                      >
-                        <ExternalLink className="h-3.5 w-3.5 mr-1" />
-                        iGUIDE Tour
-                      </Button>
-                    )}
-                  </div>
-                </div>
+                  </button>
+                ))}
               </div>
-            ))}
-          </div>
-        ) : (
+
+              {filteredShoots.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+                  {filteredShoots.map((shoot) => {
+                    const isDelivered = deliveredStatuses.includes(shoot.status || '');
+                    return (
+                    <div
+                      key={shoot.id}
+                      className="group rounded-3xl overflow-hidden border bg-card shadow-sm hover:shadow-2xl transition-all duration-300"
+                    >
+                      <div className="relative aspect-[4/3] overflow-hidden">
+                        {isDelivered ? (
+                          <img
+                            src={shoot.image}
+                            alt={shoot.title}
+                            className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-105"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex flex-col items-center justify-center bg-muted">
+                            <Camera className="h-12 w-12 text-muted-foreground/40 mb-2" />
+                            <p className="text-sm text-muted-foreground/60 font-medium">Media in progress</p>
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent pointer-events-none" />
+                        {/* Property Status Badge - top left */}
+                        <div className="absolute top-3 left-3 flex gap-2">
+                          {shoot.propertyStatus && shoot.propertyStatus !== 'available' && (
+                            <Badge className={`${
+                              shoot.propertyStatus === 'sold' || shoot.propertyStatus === 'rented' 
+                                ? 'bg-red-500 hover:bg-red-600' 
+                                : 'bg-amber-500 hover:bg-amber-600'
+                            } text-white border-0`}>
+                              {shoot.propertyStatus === 'sold' ? 'Sold' : 
+                               shoot.propertyStatus === 'rented' ? 'Rented' : 
+                               shoot.propertyStatus === 'pending' ? 'Pending' : 'Available'}
+                            </Badge>
+                          )}
+                          {shoot.listingType && (
+                            <Badge className={`${
+                              shoot.listingType === 'for_rent' 
+                                ? 'bg-blue-500 hover:bg-blue-600' 
+                                : 'bg-green-500 hover:bg-green-600'
+                            } text-white border-0`}>
+                              <Tag className="h-3 w-3 mr-1" />
+                              {shoot.listingType === 'for_rent' ? 'For Rent' : 'For Sale'}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-white">
+                          <div>
+                            <p className="text-sm opacity-80">{isDelivered ? 'Preview' : 'Upcoming'}</p>
+                            <p className="text-lg font-semibold line-clamp-1">{shoot.title}</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="p-5 space-y-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="space-y-1">
+                            <p className="text-lg font-semibold line-clamp-1">{shoot.title}</p>
+                            <p className="text-sm text-muted-foreground flex items-center gap-2 line-clamp-2">
+                              <MapPin className="h-4 w-4" />
+                              {shoot.subtitle}
+                            </p>
+                          </div>
+                        </div>
+                        {/* Property Info - Beds/Baths/Sqft */}
+                        {(shoot.bedrooms || shoot.bathrooms || shoot.sqft) && (
+                          <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                            {shoot.bedrooms && (
+                              <span className="flex items-center gap-1">
+                                <Home className="h-4 w-4" />
+                                {shoot.bedrooms} bed{shoot.bedrooms !== 1 ? 's' : ''}
+                              </span>
+                            )}
+                            {shoot.bathrooms && (
+                              <span>{shoot.bathrooms} bath{shoot.bathrooms !== 1 ? 's' : ''}</span>
+                            )}
+                            {shoot.sqft && (
+                              <span>{shoot.sqft.toLocaleString()} sqft</span>
+                            )}
+                          </div>
+                        )}
+                        <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
+                          <Badge variant="outline" className="rounded-full">{shoot.category}</Badge>
+                          <Badge variant="outline" className="rounded-full">{isDelivered ? 'Media Ready' : 'In Progress'}</Badge>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          {isDelivered && (
+                          <Button className="w-full" size="sm" onClick={() => openGallery(shoot)}>
+                            View Gallery
+                          </Button>
+                          )}
+                          {shoot.iguideUrl && (
+                            <Button
+                              className="w-full"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => window.open(shoot.iguideUrl, '_blank', 'noopener,noreferrer')}
+                            >
+                              <ExternalLink className="h-3.5 w-3.5 mr-1" />
+                              iGUIDE Tour
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-20 border-2 border-dashed rounded-xl bg-muted/10">
+                  <div className="mx-auto h-12 w-12 text-muted-foreground mb-4">
+                    <Camera className="h-12 w-12 opacity-20" />
+                  </div>
+                  <h3 className="text-lg font-semibold mb-2">
+                    {listingsTab === 'current' ? 'No current listings' : listingsTab === 'pending' ? 'No pending listings' : 'No sold listings'}
+                  </h3>
+                  <p className="text-muted-foreground max-w-sm mx-auto">
+                    {listingsTab === 'current' ? 'Delivered listings will appear here.' : listingsTab === 'pending' ? 'Shoots in progress will appear here.' : 'Sold or rented properties will appear here.'}
+                  </p>
+                </div>
+              )}
+            </>
+          );
+        })()}
+
+        {shoots.length === 0 && (
           <div className="text-center py-20 border-2 border-dashed rounded-xl bg-muted/10">
             <div className="mx-auto h-12 w-12 text-muted-foreground mb-4">
               <Camera className="h-12 w-12 opacity-20" />

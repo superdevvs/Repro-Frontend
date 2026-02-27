@@ -22,6 +22,8 @@ export interface DashboardPhotographerResponse {
   next_shoot_distance?: string | null;
   email?: string | null;
   phone?: string | null;
+  travel_range?: number | null;
+  travel_range_unit?: string | null;
 }
 
 export interface DashboardActivityResponse {
@@ -133,6 +135,8 @@ export interface DashboardPhotographerSummary {
   nextShootDistance?: string | null;
   email?: string | null;
   phone?: string | null;
+  travelRange?: number | null;
+  travelRangeUnit?: string | null;
 }
 
 export interface DashboardActivityItem {

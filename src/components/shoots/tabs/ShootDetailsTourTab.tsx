@@ -175,27 +175,12 @@ export function ShootDetailsTourTab({
     try {
       const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
       const shootId = shoot?.id || '';
-      const address = shoot.location?.address || '';
-      const city = shoot.location?.city || '';
-      const state = shoot.location?.state || '';
-      const zip = shoot.location?.zip || '';
-      const params = new URLSearchParams();
 
-      if (address && city && state) {
-        params.set('address', address);
-        params.set('city', city);
-        params.set('state', state);
-        if (zip) {
-          params.set('zip', zip);
-        }
-      } else if (shootId) {
-        params.set('shootId', shootId);
-      }
-
-      const query = params.toString();
-      if (!query) {
+      if (!shootId) {
         return '';
       }
+
+      const query = `shootId=${encodeURIComponent(shootId)}`;
 
       switch (type) {
         case 'branded':

@@ -62,10 +62,10 @@ export const AccountsPagination: React.FC<AccountsPaginationProps> = ({
   if (totalItems === 0) return null;
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 py-3 px-1">
+    <div className="flex flex-row items-center justify-between gap-2 sm:gap-3 py-3 pb-20 sm:pb-3 px-1">
       {/* Info and rows per page */}
       <div className="flex items-center gap-3 text-xs sm:text-sm text-muted-foreground">
-        <span>
+        <span className="whitespace-nowrap">
           Showing {startItem}-{endItem} of {totalItems}
         </span>
         <div className="flex items-center gap-1.5">
@@ -88,15 +88,15 @@ export const AccountsPagination: React.FC<AccountsPaginationProps> = ({
       </div>
 
       {/* Page navigation */}
-      <div className="flex items-center gap-0.5 sm:gap-1">
+      <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
         <Button
           variant="outline"
           size="icon"
-          className="h-7 w-7 sm:h-8 sm:w-8"
+          className="hidden sm:inline-flex h-8 w-8"
           onClick={() => onPageChange(1)}
           disabled={currentPage === 1}
         >
-          <ChevronsLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+          <ChevronsLeft className="h-4 w-4" />
         </Button>
         <Button
           variant="outline"
@@ -108,7 +108,7 @@ export const AccountsPagination: React.FC<AccountsPaginationProps> = ({
           <ChevronLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
         </Button>
 
-        <div className="flex items-center gap-0.5 sm:gap-1 mx-1">
+        <div className="hidden sm:flex items-center gap-1 mx-1">
           {getPageNumbers().map((page, index) =>
             page === '...' ? (
               <span key={`ellipsis-${index}`} className="px-1 text-muted-foreground">...</span>
@@ -117,7 +117,7 @@ export const AccountsPagination: React.FC<AccountsPaginationProps> = ({
                 key={`page-${page}`}
                 variant={currentPage === page ? 'default' : 'outline'}
                 size="icon"
-                className="h-7 w-7 sm:h-8 sm:w-8 text-xs sm:text-sm"
+                className="h-8 w-8 text-sm"
                 onClick={() => onPageChange(page as number)}
               >
                 {page}
@@ -125,6 +125,11 @@ export const AccountsPagination: React.FC<AccountsPaginationProps> = ({
             )
           )}
         </div>
+
+        {/* Mobile: show current page / total */}
+        <span className="sm:hidden text-xs text-muted-foreground px-1.5 whitespace-nowrap">
+          {currentPage}/{totalPages}
+        </span>
 
         <Button
           variant="outline"
@@ -138,11 +143,11 @@ export const AccountsPagination: React.FC<AccountsPaginationProps> = ({
         <Button
           variant="outline"
           size="icon"
-          className="h-7 w-7 sm:h-8 sm:w-8"
+          className="hidden sm:inline-flex h-8 w-8"
           onClick={() => onPageChange(totalPages)}
           disabled={currentPage === totalPages}
         >
-          <ChevronsRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+          <ChevronsRight className="h-4 w-4" />
         </Button>
       </div>
     </div>

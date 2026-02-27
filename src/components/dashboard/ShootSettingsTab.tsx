@@ -348,7 +348,7 @@ export function ShootSettingsTab({
             <div className="flex-1 min-w-0">
               <div className="text-sm font-medium">Private Exclusive</div>
               <div className="text-xs text-muted-foreground mt-0.5">
-                Mark this delivered shoot as Private Exclusive and hide it from public discovery
+                Share this Private Exclusive listing with R/E Pro Photos clients
               </div>
               {!eligibleForPrivateExclusive && (
                 <div className="text-xs text-muted-foreground mt-2">

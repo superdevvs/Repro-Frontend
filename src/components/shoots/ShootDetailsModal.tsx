@@ -759,8 +759,8 @@ export function ShootDetailsModal({
     !shoot.photographer?.id // Hold-on shoots (no photographer assigned)
   );
 
-  // Check if admin/superadmin can edit (allow editing for most statuses except delivered/cancelled)
-  const canAdminEdit = isAdmin && shoot && !['delivered', 'cancelled', 'declined'].includes(normalizedStatus);
+  // Check if admin/superadmin/rep can edit (allow editing for all statuses except cancelled/declined)
+  const canAdminEdit = isAdminOrRep && shoot && !['cancelled', 'declined'].includes(normalizedStatus);
 
   // Check if shoot is on hold (defined first as it's used in canPutOnHold)
   const isOnHold = shoot && (

@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { format, startOfMonth, startOfWeek } from 'date-fns';
-import { ChevronRight, Phone, Mail, MessageSquare } from 'lucide-react';
+import { ChevronRight, Phone, Mail, MessageSquare, MapPin } from 'lucide-react';
 import { DashboardPhotographerSummary } from '@/types/dashboard';
 import { Card, Avatar } from './SharedComponents';
 import { cn } from '@/lib/utils';
@@ -216,6 +216,12 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
                   </div>
                   <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-muted-foreground mt-1 gap-2">
                     <span>{photographer.loadToday}/5 jobs</span>
+                    {photographer.travelRange != null && (
+                      <span className="inline-flex items-center gap-0.5 text-muted-foreground/70">
+                        <MapPin size={10} className="sm:w-3 sm:h-3" />
+                        {photographer.travelRange} {photographer.travelRangeUnit === 'km' ? 'km' : 'mi'}
+                      </span>
+                    )}
                     <span className="text-muted-foreground/70 truncate">
                       Next slot {photographer.nextSlot ? photographer.nextSlot : 'N/A'}
                     </span>

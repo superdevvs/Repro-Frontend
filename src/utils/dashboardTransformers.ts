@@ -79,6 +79,8 @@ const normalizePhotographer = (
   nextShootDistance: photographer.next_shoot_distance ?? undefined,
   email: photographer.email ?? undefined,
   phone: photographer.phone ?? undefined,
+  travelRange: photographer.travel_range ?? undefined,
+  travelRangeUnit: photographer.travel_range_unit ?? undefined,
 });
 
 const normalizeActivity = (item: DashboardActivityResponse): DashboardActivityItem => ({
