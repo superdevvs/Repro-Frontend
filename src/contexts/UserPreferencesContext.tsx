@@ -12,7 +12,7 @@ interface UserPreferencesContextType {
   preferences: UserPreferences;
   setTemperatureUnit: (unit: TemperatureUnit) => void;
   setTimeFormat: (format: TimeFormat) => void;
-  formatTemperature: (fahrenheit: number) => string;
+  formatTemperature: (tempC: number, tempF?: number) => string;
   formatTime: (time: string) => string;
   formatDate: (date: Date | string | null | undefined) => string;
 }
@@ -55,12 +55,12 @@ export function UserPreferencesProvider({ children }: { children: React.ReactNod
     setPreferences(prev => ({ ...prev, timeFormat: format }));
   }, []);
 
-  const formatTemperature = useCallback((fahrenheit: number): string => {
+  const formatTemperature = useCallback((tempC: number, tempF?: number): string => {
     if (preferences.temperatureUnit === 'celsius') {
-      const celsius = Math.round((fahrenheit - 32) * 5 / 9);
-      return `${celsius}°C`;
+      return `${Math.round(tempC)}°C`;
     }
-    return `${Math.round(fahrenheit)}°F`;
+    const f = tempF !== undefined ? tempF : Math.round((tempC * 9) / 5 + 32);
+    return `${Math.round(f)}°F`;
   }, [preferences.temperatureUnit]);
 
   const formatTime = useCallback((time: string): string => {

@@ -859,8 +859,8 @@ const ShootDetails: React.FC = () => {
                       <span className="hidden sm:inline">•</span>
                       <span className="flex items-center gap-1 whitespace-nowrap">
                         <Cloud className="h-3 w-3" />
-                        <span className="hidden sm:inline">{formatTemperature(typeof shoot.weather.temperature === 'number' ? shoot.weather.temperature : parseInt(String(shoot.weather.temperature), 10))} {shoot.weather.summary}</span>
-                        <span className="sm:hidden">{formatTemperature(typeof shoot.weather.temperature === 'number' ? shoot.weather.temperature : parseInt(String(shoot.weather.temperature), 10))}</span>
+                        <span className="hidden sm:inline">{(() => { const num = typeof shoot.weather.temperature === 'number' ? shoot.weather.temperature : parseInt(String(shoot.weather.temperature), 10); return Number.isFinite(num) ? formatTemperature(num) : shoot.weather.temperature; })()} {shoot.weather.summary}</span>
+                        <span className="sm:hidden">{(() => { const num = typeof shoot.weather.temperature === 'number' ? shoot.weather.temperature : parseInt(String(shoot.weather.temperature), 10); return Number.isFinite(num) ? formatTemperature(num) : shoot.weather.temperature; })()}</span>
                       </span>
                     </>
                   )}

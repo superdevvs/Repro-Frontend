@@ -368,16 +368,17 @@ export function ShootDetailsModal({
     const weatherData = weather || shoot?.weather;
     if (!weatherData && !shoot?.weather?.temperature && !(shoot as any).temperature) return null;
     
-    // Use same unified fallback logic as dashboard
-    const temperature = weather?.temperature ?? shoot?.weather?.temperature ?? (shoot as any).temperature;
     const description = weather?.description;
     
-    // Format temperature using user preference
+    // Format temperature using user preference — prefer explicit C/F pair
     const formattedTemp = (() => {
+      if (weather && typeof weather.temperatureC === 'number') {
+        return formatTemperature(weather.temperatureC, weather.temperatureF);
+      }
+      const temperature = weather?.temperature ?? shoot?.weather?.temperature ?? (shoot as any).temperature;
       if (!temperature) return null;
-      if (typeof temperature === 'number') return formatTemperature(temperature);
-      const match = String(temperature).match(/^(-?\d+)/);
-      if (match) return formatTemperature(parseInt(match[1], 10));
+      const num = typeof temperature === 'number' ? temperature : parseInt(String(temperature).match(/^(-?\d+)/)?.[1] ?? '', 10);
+      if (Number.isFinite(num)) return formatTemperature(num);
       return `${temperature}°`;
     })();
     

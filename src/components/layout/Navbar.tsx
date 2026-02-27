@@ -332,8 +332,8 @@ export function Navbar() {
             </span>
             <CloudIcon className="h-4 w-4" />
             <span>
-              {typeof weather.temperatureF === 'number'
-                ? formatTemperature(weather.temperatureF)
+              {typeof weather.temperatureC === 'number'
+                ? formatTemperature(weather.temperatureC, weather.temperatureF)
                 : weather.temperature || '--°'}
               {weather.description ? ` · ${weather.description}` : ''}
             </span>

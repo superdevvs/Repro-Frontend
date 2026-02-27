@@ -351,12 +351,14 @@ export const RequestedShootsSection: React.FC<RequestedShootsSectionProps> = ({
                       <div className="flex items-center gap-1 rounded-full border border-border px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-semibold text-muted-foreground bg-background shadow-sm">
                         {renderWeatherIcon(weather?.icon)}
                         <span>{(() => {
+                          if (weather && typeof weather.temperatureC === 'number') {
+                            return formatTemperature(weather.temperatureC, weather.temperatureF);
+                          }
                           const temp = weather?.temperature ?? shoot.temperature;
                           if (!temp) return '--°';
-                          if (typeof temp === 'number') return formatTemperature(temp);
-                          const match = String(temp).match(/^(-?\d+)/);
-                          if (match) return formatTemperature(parseInt(match[1], 10));
-                          return temp;
+                          const num = typeof temp === 'number' ? temp : parseInt(String(temp).match(/^(-?\d+)/)?.[1] ?? '', 10);
+                          if (Number.isFinite(num)) return formatTemperature(num);
+                          return String(temp);
                         })()}</span>
                       </div>
                       <div className="text-[10px] sm:text-xs text-muted-foreground text-right sm:text-right">

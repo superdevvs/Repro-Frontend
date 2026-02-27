@@ -180,9 +180,11 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
             <div className="flex items-center gap-1.5 bg-background/90 backdrop-blur px-3 py-1.5 rounded-full shadow-md">
               <Sun className="h-4 w-4 text-orange-500" />
               <span className="font-semibold text-sm">
-                {typeof shoot.weather.temperature === 'number' 
-                  ? formatTemperature(shoot.weather.temperature)
-                  : shoot.weather.temperature}
+                {(() => {
+                  const raw = shoot.weather.temperature;
+                  const num = typeof raw === 'number' ? raw : parseFloat(String(raw));
+                  return Number.isFinite(num) ? formatTemperature(num) : raw;
+                })()}
               </span>
             </div>
           )}

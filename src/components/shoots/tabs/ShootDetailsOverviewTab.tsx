@@ -1440,16 +1440,15 @@ export function ShootDetailsOverviewTab({
   const weatherDescription = weather?.description ?? weatherSource?.description ?? (shoot as any).weather_description ?? null;
   const weatherIcon = (weather?.icon ?? weatherSource?.icon ?? (shoot as any).weather_icon) as WeatherInfo['icon'] | undefined;
   const formattedTemperature = useMemo(() => {
+    // Prefer explicit C/F pair from WeatherInfo
+    if (weather && typeof weather.temperatureC === 'number') {
+      return formatTemperature(weather.temperatureC, weather.temperatureF);
+    }
     if (rawTemperature === null || rawTemperature === undefined) return null;
-    if (typeof rawTemperature === 'number') {
-      return formatTemperature(rawTemperature);
-    }
-    const match = String(rawTemperature).match(/-?\d+/);
-    if (match) {
-      return formatTemperature(parseInt(match[0], 10));
-    }
+    const num = typeof rawTemperature === 'number' ? rawTemperature : parseInt(String(rawTemperature).match(/-?\d+/)?.[0] ?? '', 10);
+    if (Number.isFinite(num)) return formatTemperature(num);
     return `${rawTemperature}`;
-  }, [rawTemperature, formatTemperature]);
+  }, [weather, rawTemperature, formatTemperature]);
   const hasWeatherDetails = Boolean(formattedTemperature || weatherDescription);
 
   // Get location address - return only street address, not full address with city/state/zip

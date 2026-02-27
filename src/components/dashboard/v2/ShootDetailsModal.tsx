@@ -205,12 +205,14 @@ export const ShootDetailsModal: React.FC<ShootDetailsModalProps> = ({ shoot, onC
                   <div className="flex items-center gap-2 rounded-full border border-border px-3 py-1 text-[11px] text-muted-foreground">
                     <Sun size={14} />
                     <span>{(() => {
+                      if (weather && typeof weather.temperatureC === 'number') {
+                        return formatTemperature(weather.temperatureC, weather.temperatureF);
+                      }
                       const temp = weather?.temperature ?? shoot.temperature;
                       if (!temp) return '--°';
-                      if (typeof temp === 'number') return formatTemperature(temp);
-                      const match = String(temp).match(/^(-?\d+)/);
-                      if (match) return formatTemperature(parseInt(match[1], 10));
-                      return temp;
+                      const num = typeof temp === 'number' ? temp : parseInt(String(temp).match(/^(-?\d+)/)?.[1] ?? '', 10);
+                      if (Number.isFinite(num)) return formatTemperature(num);
+                      return String(temp);
                     })()}</span>
                   </div>
                 </div>

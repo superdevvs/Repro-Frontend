@@ -597,6 +597,11 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
   };
 
   const getShootTemperatureLabel = (shoot: DashboardShootSummary, weather?: WeatherInfo) => {
+    // Prefer explicit C/F pair from WeatherInfo
+    if (weather && typeof weather.temperatureC === 'number') {
+      return formatTemperature(weather.temperatureC, weather.temperatureF);
+    }
+
     const nestedWeather = (shoot as DashboardShootSummary & {
       weather?: {
         temperature?: string | number | null;
@@ -606,31 +611,31 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
       } | null;
     }).weather;
 
+    // Fallback: try nested weather C/F pair
+    if (nestedWeather?.temp_c != null && nestedWeather?.temp_f != null) {
+      const c = Number(nestedWeather.temp_c);
+      const f = Number(nestedWeather.temp_f);
+      if (Number.isFinite(c) && Number.isFinite(f)) return formatTemperature(c, f);
+    }
+
+    // Last resort: raw temperature string (treat as Celsius — weather service default)
     const candidates: Array<string | number | null | undefined> = [
       weather?.temperature,
-      typeof weather?.temperatureF === 'number' ? weather.temperatureF : undefined,
-      typeof weather?.temperatureC === 'number' ? weather.temperatureC : undefined,
       shoot.temperature,
       nestedWeather?.temperature,
       nestedWeather?.temp,
-      nestedWeather?.temp_f,
       nestedWeather?.temp_c,
     ];
 
     const value = candidates.find((candidate) => candidate !== null && candidate !== undefined && String(candidate).trim() !== '');
     if (value === undefined) return '--°';
 
-    if (typeof value === 'number' && Number.isFinite(value)) {
-      return formatTemperature(value);
+    const num = typeof value === 'number' ? value : Number(String(value).match(/-?\d+(?:\.\d+)?/)?.[0]);
+    if (typeof num === 'number' && Number.isFinite(num)) {
+      return formatTemperature(num);
     }
 
-    const stringValue = String(value).trim();
-    const numericMatch = stringValue.match(/-?\d+(?:\.\d+)?/);
-    if (numericMatch) {
-      return formatTemperature(Number(numericMatch[0]));
-    }
-
-    return stringValue;
+    return String(value).trim();
   };
 
   const renderShootCard = (shoot: DashboardShootSummary, isRequested: boolean) => {

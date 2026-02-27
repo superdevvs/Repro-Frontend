@@ -122,7 +122,7 @@ export function ShootCard(props: ShootCardProps) {
     const getRandomWeather = () => {
       const conditions = ['Sunny', 'Partly Cloudy', 'Cloudy', 'Light Rain', 'Snow'];
       const randomCondition = conditions[Math.floor(Math.random() * conditions.length)];
-      const randomTemp = Math.floor(Math.random() * 23) + 10; // Random temp between 50-90°F
+      const randomTemp = Math.floor(Math.random() * 23) + 10; // Random temp in °C (10-32)
       
       return {
         temp: randomTemp,
