@@ -678,8 +678,8 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
 
         {/* ── Mobile layout ── */}
         <div className="sm:hidden space-y-2.5">
-          {/* Row 1: Time + Status pill + Weather pill (all same height) */}
-          <div className="flex items-center gap-2">
+          {/* Row 1: Time + Status pill + Weather (right-aligned) */}
+          <div className="flex items-center gap-2 -ml-1.5">
             <div className="rounded-xl border border-border/80 bg-muted/40 dark:bg-muted/20 px-4 py-2 shadow-sm flex-shrink-0">
               {(() => {
                 const rawTime =
@@ -709,7 +709,7 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
             >
               {formatWorkflowStatus(shoot.workflowStatus || shoot.status)}
             </span>
-            <div className="inline-flex items-center h-5 gap-1 rounded-full border border-border px-2 text-[10px] font-semibold text-muted-foreground bg-background shadow-sm">
+            <div className="ml-auto inline-flex items-center h-5 gap-1 rounded-full border border-border px-2 text-[10px] font-semibold text-muted-foreground bg-background shadow-sm flex-shrink-0">
               {renderWeatherIcon(weather?.icon)}
               <span>{getShootTemperatureLabel(shoot, weather)}</span>
             </div>
@@ -953,7 +953,7 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
       <div className="flex flex-wrap items-center justify-between mb-2 gap-3 pr-10 sm:pr-0">
         <div className="flex items-center gap-4">
           <h2 className="hidden sm:block text-lg font-bold text-foreground">Shoots</h2>
-          <div className="flex items-center gap-1 border-b border-transparent">
+          <div className="flex items-center gap-1 border-b border-transparent pl-1 sm:pl-0">
             <button
               onClick={() => setActiveTab('upcoming')}
               className={cn(

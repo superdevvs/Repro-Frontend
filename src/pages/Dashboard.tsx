@@ -1051,16 +1051,16 @@ const Dashboard = () => {
         <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 uppercase tracking-[0.3em]">
           Pipeline
         </h2>
-        <div className="flex gap-1 bg-muted/50 rounded-lg p-0.5">
+        <div className="flex gap-1">
           {pipelineFilterButtons.map((btn) => (
             <button
               key={btn.key}
               onClick={() => setPipelineFilter(btn.key)}
               className={cn(
-                'px-3 py-1 text-xs font-medium rounded-md transition-colors',
+                'px-3 py-1 text-xs font-medium transition-all border-b-2',
                 pipelineFilter === btn.key
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
+                  ? 'text-foreground border-primary'
+                  : 'text-muted-foreground border-transparent hover:text-foreground'
               )}
             >
               {btn.label}
