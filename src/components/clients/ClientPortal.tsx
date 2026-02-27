@@ -385,9 +385,8 @@ export function ClientPortal() {
       <section id="listings" className="container px-4 md:px-6 py-20">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-10 gap-4">
           <div className="space-y-2">
-            <Badge variant="secondary" className="uppercase tracking-wide">Portfolio</Badge>
             <div>
-              <h2 className="text-3xl font-bold tracking-tight">Our Listings</h2>
+              <h2 className="text-3xl font-bold tracking-tight">Current Listings</h2>
               <p className="text-muted-foreground">High-resolution previews with quick gallery access.</p>
             </div>
           </div>
