@@ -631,7 +631,7 @@ export function SquarePaymentForm({
 
       {/* Stripe Embedded Checkout Dialog */}
       <Dialog open={showCheckoutDialog} onOpenChange={(open) => { if (!open) handleCloseCheckoutDialog(); }}>
-        <DialogContent className="sm:max-w-[520px] md:max-w-[600px] p-0 gap-0 overflow-hidden [&>button]:z-10" style={{ height: '80vh', maxHeight: '700px' }}>
+        <DialogContent className="sm:max-w-[640px] md:max-w-[750px] lg:max-w-[800px] p-0 gap-0 overflow-hidden [&>button]:z-10" style={{ height: '85vh', maxHeight: '750px' }}>
           <DialogHeader className="px-4 py-3 border-b">
             <DialogTitle className="text-base">Complete Payment</DialogTitle>
             <DialogDescription>Complete your payment securely via Stripe</DialogDescription>
