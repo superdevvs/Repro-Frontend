@@ -75,7 +75,7 @@ export function SquarePaymentDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className={`${dialogWidth} transition-all duration-300 h-[90dvh] flex flex-col`}>
+      <DialogContent className={`${dialogWidth} transition-all duration-300 flex flex-col ${checkoutActive ? 'lg:h-[90dvh]' : ''} max-h-[90dvh]`}>
         <DialogHeader>
           <DialogTitle>Process Payment</DialogTitle>
           <DialogDescription>
