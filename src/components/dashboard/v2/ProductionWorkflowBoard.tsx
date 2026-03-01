@@ -1,8 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { format, startOfDay, startOfWeek, endOfWeek, subWeeks } from 'date-fns';
 import { DashboardShootSummary, DashboardWorkflow, DashboardWorkflowColumn } from '@/types/dashboard';
-import { ArrowRightCircle, ChevronDown, ChevronUp } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 type PipelineFilter = 'today' | 'this_week' | 'month';
 
@@ -56,11 +54,6 @@ export const ProductionWorkflowBoard: React.FC<ProductionWorkflowBoardProps> = (
   loading,
   filter = 'this_week',
 }) => {
-  const [expandedCards, setExpandedCards] = useState<Record<number, boolean>>({});
-
-  const toggleCard = (id: number) => {
-    setExpandedCards((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full min-h-[320px] sm:min-h-[16rem] border border-dashed border-border rounded-3xl text-muted-foreground">
@@ -146,7 +139,6 @@ export const ProductionWorkflowBoard: React.FC<ProductionWorkflowBoardProps> = (
           </div>
           <div className="space-y-2 sm:space-y-3 overflow-y-auto max-h-[400px] sm:max-h-[500px] min-h-0 flex-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
             {filteredShoots.slice(0, 6).map(shoot => {
-              const expanded = expandedCards[shoot.id];
               return (
               <div
                 key={shoot.id}
@@ -181,17 +173,6 @@ export const ProductionWorkflowBoard: React.FC<ProductionWorkflowBoardProps> = (
                           {shoot.clientName || 'Client TBD'}
                         </p>
                       </div>
-                      <span
-                        role="button"
-                        aria-label="Toggle details"
-                        className="text-muted-foreground hover:text-foreground cursor-pointer flex-shrink-0"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          toggleCard(shoot.id);
-                        }}
-                      >
-                        {expanded ? <ChevronUp size={14} className="sm:w-4 sm:h-4" /> : <ChevronDown size={14} className="sm:w-4 sm:h-4" />}
-                      </span>
                     </div>
                     {shoot.cityStateZip &&
                       shoot.addressLine &&
@@ -200,21 +181,11 @@ export const ProductionWorkflowBoard: React.FC<ProductionWorkflowBoardProps> = (
                       !shoot.addressLine.toLowerCase().includes(shoot.cityStateZip.toLowerCase()) && (
                         <p className="text-[10px] sm:text-[11px] text-muted-foreground/70 truncate">{shoot.cityStateZip}</p>
                       )}
+                    <p className="text-[10px] sm:text-[11px] text-muted-foreground truncate">
+                      {shoot.photographer?.name || 'Unassigned'}
+                    </p>
                   </div>
                 </button>
-                {expanded && (
-                  <div className="mt-3 space-y-2 text-xs text-muted-foreground">
-                    <div className="flex justify-between gap-2">
-                      <span className="font-semibold text-foreground">Photographer</span>
-                      <span className="text-right">{shoot.photographer?.name || 'Unassigned'}</span>
-                    </div>
-                    {shoot.adminIssueNotes && (
-                      <p className="text-[11px] text-destructive/80">
-                        {shoot.adminIssueNotes}
-                      </p>
-                    )}
-                  </div>
-                )}
               </div>
             );
             })}
