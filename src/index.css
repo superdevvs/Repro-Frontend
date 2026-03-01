@@ -569,11 +569,10 @@ body {
 .masonry-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-  grid-auto-rows: min-content;
   gap: 1rem;
-  align-items: start;
   width: 100%;
   align-self: stretch;
+  flex: 1;
 }
 
 .masonry-grid--equal-cards {

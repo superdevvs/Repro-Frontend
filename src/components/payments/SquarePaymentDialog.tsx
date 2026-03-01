@@ -87,7 +87,7 @@ export function SquarePaymentDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="pt-2 flex-1 min-h-0">
+        <div className="pt-2 flex-1 min-h-0 overflow-y-auto lg:overflow-visible">
           {paymentCompleted ? (
             <div className="text-center py-8">
               <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
