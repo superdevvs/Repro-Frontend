@@ -329,6 +329,15 @@ export function ShootDetailsModal({
     return null;
   };
 
+  // Refresh shoot data AND notify parent to update its list/cards
+  const refreshShootAndParent = async (): Promise<ShootData | null> => {
+    const result = await refreshShoot();
+    if (onShootUpdate) {
+      try { onShootUpdate(); } catch (e) { /* ignore */ }
+    }
+    return result;
+  };
+
   // Get status badge
   const getStatusBadge = (status: string) => {
     const key = status.toLowerCase();
@@ -2609,7 +2618,7 @@ export function ShootDetailsModal({
                     isClient={isClient}
                     shouldHideClientDetails={shouldHideClientDetails}
                     role={currentUserRole}
-                    onShootUpdate={refreshShoot}
+                    onShootUpdate={refreshShootAndParent}
                     weather={weather || null}
                     isEditMode={isEditMode}
                     onSave={handleSaveRequest}
@@ -2625,7 +2634,7 @@ export function ShootDetailsModal({
                     isPhotographer={isPhotographer}
                     isEditor={isEditor}
                     role={currentUserRole}
-                    onShootUpdate={refreshShoot}
+                    onShootUpdate={refreshShootAndParent}
                   />
                 </TabsContent>
 
@@ -2637,7 +2646,7 @@ export function ShootDetailsModal({
                     isEditor={isEditor}
                     isClient={isClient}
                     role={currentUserRole}
-                    onShootUpdate={refreshShoot}
+                    onShootUpdate={refreshShootAndParent}
                   />
                 </TabsContent>
 
@@ -2647,7 +2656,7 @@ export function ShootDetailsModal({
                       shoot={shoot}
                       isAdmin={isAdmin}
                       isClient={isClient}
-                      onShootUpdate={refreshShoot}
+                      onShootUpdate={refreshShootAndParent}
                     />
                   </TabsContent>
                 )}
@@ -2656,7 +2665,7 @@ export function ShootDetailsModal({
                     <ShootDetailsSettingsTab
                       shoot={shoot}
                       isAdmin={isAdmin}
-                      onShootUpdate={refreshShoot}
+                      onShootUpdate={refreshShootAndParent}
                     />
                   </TabsContent>
                 )}
@@ -2707,7 +2716,7 @@ export function ShootDetailsModal({
                 isEditor={isEditor}
                 isClient={isClient}
                 role={currentUserRole}
-                onShootUpdate={refreshShoot}
+                onShootUpdate={refreshShootAndParent}
                 onSelectionChange={setSelectedFileIds}
                 isExpanded={true}
               />
@@ -2724,7 +2733,7 @@ export function ShootDetailsModal({
                 isEditor={isEditor}
                 isClient={isClient}
                 role={currentUserRole}
-                onShootUpdate={refreshShoot}
+                onShootUpdate={refreshShootAndParent}
                 onSelectionChange={setSelectedFileIds}
                 isExpanded={isMediaExpanded}
                 onToggleExpand={() => setIsMediaExpanded(!isMediaExpanded)}

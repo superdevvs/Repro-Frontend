@@ -354,14 +354,14 @@ const LazyMapView = lazy(() =>
 )
 
 // Payment Button Component for Super Admin
-const PaymentButton = ({ shoot }: { shoot: ShootData }) => {
+const PaymentButton = ({ shoot, onViewInvoice }: { shoot: ShootData; onViewInvoice?: (shoot: ShootData) => void }) => {
   const { toast } = useToast()
-  const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
 
   const handleInvoice = () => {
-    // Navigate to invoice or open invoice dialog
-    navigate(`/invoices?shoot_id=${shoot.id}`)
+    if (onViewInvoice) {
+      onViewInvoice(shoot)
+    }
   }
 
   const handlePayment = async () => {
@@ -891,7 +891,7 @@ const ScheduledShootListRow = ({
             )}
             {isSuperAdmin && paymentStatus === 'Unpaid' && (
               <div className="relative" onClick={(e) => e.stopPropagation()}>
-                <PaymentButton shoot={shoot} />
+                <PaymentButton shoot={shoot} onViewInvoice={onViewInvoice} />
               </div>
             )}
             {canSendToEditing && (
@@ -1412,7 +1412,7 @@ const CompletedShootListRow = ({
               )}
               {isSuperAdmin && !isPaid && (
                 <div onClick={(e) => e.stopPropagation()}>
-                  <PaymentButton shoot={shoot} />
+                  <PaymentButton shoot={shoot} onViewInvoice={onViewInvoice} />
                 </div>
               )}
             </div>
