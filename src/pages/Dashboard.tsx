@@ -1089,24 +1089,22 @@ const Dashboard = () => {
   );
 
   // Optimize workflow filtering
-  // Show all shoots in pipeline regardless of date - only exclude delivered shoots
-  // The date range filter is removed so uploaded/editing shoots from past dates remain visible
+  // Only strip delivered shoots from non-delivered columns.
+  // The 'ready' column IS the delivered/ready column and must keep its shoots.
   const filteredWorkflow = useMemo(() => {
     if (!data?.workflow || !Array.isArray(data.workflow.columns)) return null;
 
-    // Return all workflow columns without date filtering
-    // This ensures scheduled, uploaded, and editing shoots are visible until delivered
     const columns = data.workflow.columns.map((column) => {
-      // Ensure shoots is an array
       const shoots = Array.isArray(column.shoots) ? column.shoots : [];
-      
-      // Filter out delivered shoots only (they should not appear in pipeline)
-      const filteredShoots = shoots.filter((shoot) => {
-        const statusKey = (shoot.workflowStatus || shoot.status || '').toLowerCase();
-        // Exclude delivered/finalized shoots
-        return !matchesStatus(shoot, DELIVERED_STATUS_KEYWORDS);
-      });
-      
+      const colKey = (column.key || '').toLowerCase();
+
+      // The 'ready' column is the delivered column – don't strip its shoots
+      const isDeliveredColumn = colKey === 'ready' || colKey === 'delivered';
+
+      const filteredShoots = isDeliveredColumn
+        ? shoots
+        : shoots.filter((shoot) => !matchesStatus(shoot, DELIVERED_STATUS_KEYWORDS));
+
       return {
         ...column,
         shoots: filteredShoots,

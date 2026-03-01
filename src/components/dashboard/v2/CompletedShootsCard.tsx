@@ -152,14 +152,31 @@ export const CompletedShootsCard: React.FC<CompletedShootsCardProps> = ({
                 className="rounded-3xl border border-border/60 overflow-hidden hover:border-primary/40 transition-colors bg-card group relative cursor-pointer"
                 onClick={() => onSelect?.(shoot)}
               >
-                  {/* Invoice available in shoot details modal */}
-                <Slideshow
-                  images={images}
-                  shootId={shoot.id}
-                  addressLine={shoot.addressLine}
-                  clientName={shoot.clientName}
-                  startTime={shoot.startTime}
-                />
+                <div className="relative h-48 sm:h-56 w-full overflow-hidden">
+                  <img
+                    src={images[0]}
+                    alt={shoot.addressLine}
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                  />
+                  <div 
+                    className="absolute inset-0 pointer-events-none z-[5]"
+                    style={{
+                      background: 'linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.8) 15%, rgba(0, 0, 0, 0.6) 30%, rgba(0, 0, 0, 0.3) 45%, rgba(0, 0, 0, 0) 55%)'
+                    }}
+                  />
+                  <div className="absolute left-3 sm:left-4 bottom-3 sm:bottom-4 right-3 sm:right-4 text-white space-y-1 z-10">
+                    <p className="text-xs sm:text-sm font-semibold truncate">{shoot.addressLine}</p>
+                    <div className="text-[10px] sm:text-[11px] text-white/80 flex flex-col">
+                      <span>{shoot.clientName || 'Client TBD'}</span>
+                      {shoot.startTime && (
+                        <span className="text-white/60">
+                          {format(new Date(shoot.startTime), 'MMM d • h:mm a')}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
             );
           })}

@@ -122,11 +122,9 @@ export const ProductionWorkflowBoard: React.FC<ProductionWorkflowBoardProps> = (
       {visibleColumns.map(column => {
         const safeShoots = Array.isArray(column.shoots) ? column.shoots : [];
         const columnKey = column.key || 'unknown';
-        // Only apply date filtering to the scheduled/booked column.
-        // Other stages (uploaded, editing, etc.) should show ALL active shoots
-        // regardless of when they were originally scheduled.
-        const isScheduledColumn = columnKey === 'booked' || columnKey === 'scheduled';
-        const filteredShoots = isScheduledColumn ? filterShootsByDate(safeShoots) : safeShoots;
+        // Backend already pre-filters each column's shoots, so show them all.
+        // No additional frontend date filtering needed.
+        const filteredShoots = safeShoots;
         const count = filteredShoots.length;
         const columnLabel = column.label || columnKey;
         const columnAccent = column.accent || '#6b7280';
@@ -215,35 +213,6 @@ export const ProductionWorkflowBoard: React.FC<ProductionWorkflowBoardProps> = (
                         {shoot.adminIssueNotes}
                       </p>
                     )}
-                    <div className="flex gap-2">
-                      {onAdvanceStage && (
-                        <button
-                          onClick={() => onAdvanceStage(shoot)}
-                          className={cn(
-                            'flex-1 flex items-center justify-center gap-1 text-[11px] font-semibold rounded-lg py-1.5 border',
-                            'text-muted-foreground border-border hover:border-primary/40 hover:text-primary transition-colors',
-                          )}
-                        >
-                          Advance
-                          <ArrowRightCircle size={14} />
-                        </button>
-                      )}
-                      <button
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          window.dispatchEvent(
-                            new CustomEvent('pipeline:move-back', { detail: shoot }),
-                          );
-                        }}
-                        className={cn(
-                          'flex-1 flex items-center justify-center gap-1 text-[11px] font-semibold rounded-lg py-1.5 border',
-                          'text-muted-foreground border-border hover:border-primary/40 hover:text-primary transition-colors',
-                        )}
-                      >
-                        Back
-                        <ArrowRightCircle className="rotate-180" size={14} />
-                      </button>
-                    </div>
                   </div>
                 )}
               </div>
