@@ -14,6 +14,7 @@ interface SquarePaymentDialogProps {
   amount: number;
   currency?: string;
   shootId?: string;
+  shootIds?: string[];
   shootAddress?: string;
   shootServices?: string[];
   shootDate?: string;
@@ -32,6 +33,7 @@ export function SquarePaymentDialog({
   amount,
   currency = 'USD',
   shootId,
+  shootIds,
   shootAddress,
   shootServices,
   shootDate,
@@ -127,6 +129,7 @@ export function SquarePaymentDialog({
               amount={amount}
               currency={currency}
               shootId={shootId}
+              shootIds={shootIds}
               clientEmail={clientEmail}
               clientName={clientName}
               shootAddress={shootAddress}

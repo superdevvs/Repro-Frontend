@@ -646,6 +646,7 @@ export function BulkActionsDialog({
           isOpen={squarePaymentOpen}
           onClose={() => setSquarePaymentOpen(false)}
           amount={totalDue}
+          shootIds={eligibleShoots.map((shoot) => String(shoot.id))}
           shootAddress={`${eligibleShoots.length} shoots selected`}
           shootServices={eligibleShoots.map((shoot) => resolveAddress(shoot)).slice(0, 5)}
           totalQuote={eligibleShoots.reduce((sum, shoot) => sum + (shoot.payment?.totalQuote ?? 0), 0)}

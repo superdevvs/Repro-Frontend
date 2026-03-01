@@ -290,7 +290,7 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
                 )}
               </div>
               {services.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-1.5">
                   {services.map((service, index) => {
                     const serviceName = typeof service === 'string' 
                       ? service 
@@ -300,7 +300,7 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
                       <Badge 
                         key={index} 
                         variant="secondary" 
-                        className="bg-primary/10 text-primary hover:bg-primary/20 font-medium px-3 py-1.5 text-sm rounded-md border border-primary/20"
+                        className="bg-primary/10 text-primary hover:bg-primary/20 font-medium px-2 py-0.5 text-xs rounded-md border border-primary/20"
                       >
                         {serviceName}
                       </Badge>

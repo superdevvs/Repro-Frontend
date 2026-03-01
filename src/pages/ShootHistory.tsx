@@ -4054,23 +4054,38 @@ const ShootHistory: React.FC = () => {
     const paginatedData = filteredOperationalData.slice(startIndex, endIndex)
 
     if (viewMode === 'grid') {
+      // Sort by scheduled date descending so latest shoots come first
+      const sortedData = [...paginatedData].sort((a, b) => {
+        const dateA = a.scheduledDate ? new Date(a.scheduledDate).getTime() : 0
+        const dateB = b.scheduledDate ? new Date(b.scheduledDate).getTime() : 0
+        return dateB - dateA
+      })
+      // Distribute items round-robin into columns for masonry with correct L-R order
+      const w = typeof window !== 'undefined' ? window.innerWidth : 1024
+      const numCols = w <= 479 ? 1 : w <= 719 ? 2 : 4
+      const columns: ShootData[][] = Array.from({ length: numCols }, () => [])
+      sortedData.forEach((shoot, i) => columns[i % numCols].push(shoot))
+
       return (
         <div className="masonry-grid">
-          {paginatedData.map((shoot) => (
-            <div key={shoot.id}>
-              <SharedShootCard
-                shoot={shoot}
-                role={role}
-                onSelect={handleShootSelect}
-                onPrimaryAction={(action) => handlePrimaryAction(action, shoot)}
-                onOpenWorkflow={(selected) => navigate(`/shoots/${selected.id}#workflow`)}
-                onApprove={(s) => setApprovalModalShoot(s)}
-                onDecline={(s) => setDeclineModalShoot(s)}
-                onModify={(s) => setEditModalShoot(s)}
-                onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
-                onViewInvoice={canViewInvoice ? handleViewInvoice : undefined}
-                onSendToEditing={handleSendToEditing}
-              />
+          {columns.map((colItems, colIdx) => (
+            <div key={colIdx} className="masonry-grid-col">
+              {colItems.map((shoot) => (
+                <SharedShootCard
+                  key={shoot.id}
+                  shoot={shoot}
+                  role={role}
+                  onSelect={handleShootSelect}
+                  onPrimaryAction={(action) => handlePrimaryAction(action, shoot)}
+                  onOpenWorkflow={(selected) => navigate(`/shoots/${selected.id}#workflow`)}
+                  onApprove={(s) => setApprovalModalShoot(s)}
+                  onDecline={(s) => setDeclineModalShoot(s)}
+                  onModify={(s) => setEditModalShoot(s)}
+                  onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
+                  onViewInvoice={canViewInvoice ? handleViewInvoice : undefined}
+                  onSendToEditing={handleSendToEditing}
+                />
+              ))}
             </div>
           ))}
         </div>

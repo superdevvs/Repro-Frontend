@@ -567,25 +567,15 @@ body {
 }
 
 .masonry-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  display: flex;
   gap: 1rem;
-  align-items: start;
   width: 100%;
 }
 
-.masonry-grid > * {
-  width: 100%;
-}
-
-@media (max-width: 719px) {
-  .masonry-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  }
-}
-
-@media (max-width: 479px) {
-  .masonry-grid {
-    grid-template-columns: 1fr !important;
-  }
+.masonry-grid-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
 }

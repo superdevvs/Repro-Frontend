@@ -23,6 +23,7 @@ interface SquarePaymentFormProps {
   paymentAmount?: number;
   currency?: string;
   shootId?: string;
+  shootIds?: string[];
   clientEmail?: string;
   clientName?: string;
   shootAddress?: string;
@@ -48,6 +49,7 @@ export function SquarePaymentForm({
   paymentAmount: paymentAmountOverride,
   currency = 'USD',
   shootId,
+  shootIds,
   clientEmail,
   clientName,
   shootAddress,
@@ -144,16 +146,20 @@ export function SquarePaymentForm({
     try {
       const authToken = localStorage.getItem('authToken') || localStorage.getItem('token');
 
-      const response = await axios.post(
-        `${API_BASE_URL}/api/shoots/${shootId}/create-stripe-embedded-checkout`,
-        { amount: effectivePaymentAmount },
-        {
-          headers: {
-            ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
-            'Content-Type': 'application/json',
-          },
-        }
-      );
+      const isBulk = shootIds && shootIds.length > 0;
+      const url = isBulk
+        ? `${API_BASE_URL}/api/payments/stripe-multiple-shoots-embedded`
+        : `${API_BASE_URL}/api/shoots/${shootId}/create-stripe-embedded-checkout`;
+      const body = isBulk
+        ? { shoot_ids: shootIds }
+        : { amount: effectivePaymentAmount };
+
+      const response = await axios.post(url, body, {
+        headers: {
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+          'Content-Type': 'application/json',
+        },
+      });
 
       if (!response.data?.clientSecret) {
         setStripeLoading(false);
@@ -218,39 +224,57 @@ export function SquarePaymentForm({
 
   const startPaymentPolling = () => {
     if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+    const isBulk = shootIds && shootIds.length > 0;
 
     pollingIntervalRef.current = setInterval(async () => {
       try {
         const token = authTokenRef.current;
-        const statusRes = await axios.get(
-          `${API_BASE_URL}/api/shoots/${shootId}/payment-details`,
-          { headers: token ? { Authorization: `Bearer ${token}` } : {} }
-        );
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-        const shootData = statusRes.data?.data || statusRes.data;
-        const totalPaid = shootData?.payments
-          ?.filter((p: any) => p.status === 'completed')
-          .reduce((sum: number, p: any) => sum + (p.amount || 0), 0) || 0;
-        const currentDue = (shootData?.total_quote || 0) - totalPaid;
-
-        if (currentDue < outstandingAmount) {
-          if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
-          pollingIntervalRef.current = null;
-          setStripeLoading(false);
-          setShowCheckoutDialog(false);
-          onCheckoutActiveChange?.(false);
-          if (embeddedCheckoutRef.current) {
-            embeddedCheckoutRef.current.destroy();
-            embeddedCheckoutRef.current = null;
+        if (isBulk) {
+          // Poll each shoot and check if any payment was made
+          const results = await Promise.all(
+            shootIds.map((id) =>
+              axios.get(`${API_BASE_URL}/api/shoots/${id}/payment-details`, { headers }).catch(() => null)
+            )
+          );
+          let totalCurrentDue = 0;
+          for (const res of results) {
+            if (!res) continue;
+            const d = res.data?.data || res.data;
+            const paid = d?.payments?.filter((p: any) => p.status === 'completed').reduce((s: number, p: any) => s + (p.amount || 0), 0) || 0;
+            totalCurrentDue += Math.max((d?.total_quote || 0) - paid, 0);
           }
+          if (totalCurrentDue < outstandingAmount) {
+            if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+            pollingIntervalRef.current = null;
+            setStripeLoading(false);
+            setShowCheckoutDialog(false);
+            onCheckoutActiveChange?.(false);
+            if (embeddedCheckoutRef.current) { embeddedCheckoutRef.current.destroy(); embeddedCheckoutRef.current = null; }
+            toast({ title: 'Payment Successful', description: `Bulk payment has been processed via Stripe.` });
+            if (onPaymentSuccess) onPaymentSuccess({ status: 'success', amount: effectivePaymentAmount });
+          }
+        } else {
+          const statusRes = await axios.get(
+            `${API_BASE_URL}/api/shoots/${shootId}/payment-details`,
+            { headers }
+          );
+          const shootData = statusRes.data?.data || statusRes.data;
+          const totalPaid = shootData?.payments
+            ?.filter((p: any) => p.status === 'completed')
+            .reduce((sum: number, p: any) => sum + (p.amount || 0), 0) || 0;
+          const currentDue = (shootData?.total_quote || 0) - totalPaid;
 
-          toast({
-            title: 'Payment Successful',
-            description: `Payment of $${effectivePaymentAmount.toFixed(2)} has been processed via Stripe.`,
-          });
-
-          if (onPaymentSuccess) {
-            onPaymentSuccess({ status: 'success', amount: effectivePaymentAmount });
+          if (currentDue < outstandingAmount) {
+            if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+            pollingIntervalRef.current = null;
+            setStripeLoading(false);
+            setShowCheckoutDialog(false);
+            onCheckoutActiveChange?.(false);
+            if (embeddedCheckoutRef.current) { embeddedCheckoutRef.current.destroy(); embeddedCheckoutRef.current = null; }
+            toast({ title: 'Payment Successful', description: `Payment of $${effectivePaymentAmount.toFixed(2)} has been processed via Stripe.` });
+            if (onPaymentSuccess) onPaymentSuccess({ status: 'success', amount: effectivePaymentAmount });
           }
         }
       } catch {
