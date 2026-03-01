@@ -1502,19 +1502,20 @@ export default function Availability() {
   }, [isMobile, loadingPhotographers, viewMode, selectedPhotographer]);
 
   return (
-    <DashboardLayout className="!min-h-0 !overflow-hidden">
-      <div className={cn("flex-1 min-h-0 flex flex-col overflow-hidden", isMobile && "pb-6")}>
-        <div className={cn("flex-1 flex flex-col", isMobile ? "h-full min-h-0 p-3 sm:p-4 overflow-hidden" : "h-full min-h-0 p-6 overflow-hidden")}>
-          <PageHeader
-            badge={isDesktop ? "Availability" : undefined}
-            title="Photographer Availability"
-            description="Manage and schedule photographer availability"
-            action={
-              <div className="flex items-center gap-2 self-end sm:self-auto">
+    <DashboardLayout className={cn("!min-h-0", !isMobile && "!overflow-hidden")}>
+      <div className={cn("flex-1 flex flex-col", isMobile ? "overflow-y-auto pb-6" : "min-h-0 overflow-hidden")}>
+        <div className={cn("flex-1 flex flex-col", isMobile ? "p-3 sm:p-4" : "h-full min-h-0 p-6 overflow-hidden")}>
+          {isMobile ? (
+            <div className="flex items-center justify-between gap-2">
+              <h1 className="text-lg font-bold truncate">
+                <span className="font-light">Photographer</span>{" "}
+                <span className="font-bold">Availability</span>
+              </h1>
+              <div className="flex items-center gap-1.5 flex-shrink-0">
                 <Button
                   variant="outline"
                   size="sm"
-                  className="rounded-md whitespace-nowrap h-9 px-3 text-sm"
+                  className="rounded-md whitespace-nowrap h-8 px-2.5 text-xs"
                   onClick={() => {
                     const today = new Date();
                     setDate(today);
@@ -1524,10 +1525,9 @@ export default function Availability() {
                 >
                   Today
                 </Button>
-                {!isMobile && renderViewModeButtons("header")}
                 {canEditAvailability && (
                   <Button
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-md whitespace-nowrap h-9 px-3 text-sm"
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-md whitespace-nowrap h-8 px-2.5 text-xs"
                     onClick={() => {
                       if (!date) {
                         toast({
@@ -1547,22 +1547,79 @@ export default function Availability() {
                       setIsBlockDialogOpen(true);
                     }}
                   >
-                    <Ban className="h-4 w-4 mr-2" />
-                    Block Calendar
+                    <Ban className="h-4 w-4" />
                   </Button>
                 )}
                 <Button
                   variant="outline"
                   size="sm"
-                  className="rounded-md whitespace-nowrap h-9 px-3 text-sm"
+                  className="rounded-md whitespace-nowrap h-8 px-2.5 text-xs"
                   onClick={() => setIsSyncModalOpen(true)}
                 >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Sync
+                  <RefreshCw className="h-4 w-4" />
                 </Button>
               </div>
-            }
-          />
+            </div>
+          ) : (
+            <PageHeader
+              badge={isDesktop ? "Availability" : undefined}
+              title="Photographer Availability"
+              description="Manage and schedule photographer availability"
+              action={
+                <div className="flex items-center gap-2 self-end sm:self-auto">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-md whitespace-nowrap h-9 px-3 text-sm"
+                    onClick={() => {
+                      const today = new Date();
+                      setDate(today);
+                      setCurrentMonth(startOfMonth(today));
+                      setSelectedSlotId(null);
+                    }}
+                  >
+                    Today
+                  </Button>
+                  {renderViewModeButtons("header")}
+                  {canEditAvailability && (
+                    <Button
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-md whitespace-nowrap h-9 px-3 text-sm"
+                      onClick={() => {
+                        if (!date) {
+                          toast({
+                            title: "Select a date",
+                            description: "Please select a date before blocking calendar.",
+                            variant: "destructive"
+                          });
+                          return;
+                        }
+                        setBlockSchedule({
+                          date: date,
+                          startTime: "09:00",
+                          endTime: "17:00",
+                        });
+                        setBlockPhotographer(selectedPhotographer === "all" ? "" : selectedPhotographer);
+                        setBlockPhotographerSearch("");
+                        setIsBlockDialogOpen(true);
+                      }}
+                    >
+                      <Ban className="h-4 w-4 mr-2" />
+                      Block Calendar
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-md whitespace-nowrap h-9 px-3 text-sm"
+                    onClick={() => setIsSyncModalOpen(true)}
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Sync
+                  </Button>
+                </div>
+              }
+            />
+          )}
           {/* Loading Indicator */}
           {loadingPhotographers && (
             <div className="py-3">
@@ -1574,15 +1631,15 @@ export default function Availability() {
           )}
 
           {/* Top Section: Date Selection and Layout Controls */}
-          <div className="mt-6 mb-4 space-y-3 flex-shrink-0">
+          <div className="mt-3 sm:mt-6 mb-2 sm:mb-4 space-y-2 sm:space-y-3 flex-shrink-0">
 
             {/* Month Navigation with Gradient Fade */}
             <div className="relative">
-              <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-background via-background/90 via-background/70 to-transparent z-10 pointer-events-none" />
-              <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-background via-background/90 via-background/70 to-transparent z-10 pointer-events-none" />
+              <div className="absolute left-0 top-0 bottom-0 w-16 sm:w-32 bg-gradient-to-r from-background via-background/90 via-background/70 to-transparent z-10 pointer-events-none" />
+              <div className="absolute right-0 top-0 bottom-0 w-16 sm:w-32 bg-gradient-to-l from-background via-background/90 via-background/70 to-transparent z-10 pointer-events-none" />
               <div
                 ref={monthNavScrollRef}
-                className="flex items-center gap-2 overflow-x-auto pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] px-8"
+                className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1.5 sm:pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] px-4 sm:px-8"
               >
                 {months.map((month, idx) => {
                   const monthName = format(month, 'MMMM');
@@ -1610,7 +1667,7 @@ export default function Availability() {
                           }
                         }}
                         className={cn(
-                          "px-3 py-1.5 rounded-md whitespace-nowrap font-medium transition-colors text-sm flex-shrink-0",
+                          "px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-md whitespace-nowrap font-medium transition-colors text-xs sm:text-sm flex-shrink-0",
                           isCurrentMonth
                             ? "border-2 border-primary font-semibold text-foreground"
                             : isSelectedMonth
@@ -1628,11 +1685,11 @@ export default function Availability() {
 
             {/* Date Navigation with Gradient Fade */}
             <div className="relative">
-              <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-background via-background/90 via-background/70 to-transparent z-10 pointer-events-none" />
-              <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-background via-background/90 via-background/70 to-transparent z-10 pointer-events-none" />
+              <div className="absolute left-0 top-0 bottom-0 w-16 sm:w-32 bg-gradient-to-r from-background via-background/90 via-background/70 to-transparent z-10 pointer-events-none" />
+              <div className="absolute right-0 top-0 bottom-0 w-16 sm:w-32 bg-gradient-to-l from-background via-background/90 via-background/70 to-transparent z-10 pointer-events-none" />
               <div
                 ref={dateNavScrollRef}
-                className="flex items-center gap-2 overflow-x-auto pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] px-8"
+                className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1.5 sm:pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] px-4 sm:px-8"
               >
                 {monthDates.map((day, idx) => {
                   // Show month indicator when month changes
@@ -1703,7 +1760,7 @@ export default function Availability() {
                                 }
                               }}
                               className={cn(
-                                "flex flex-col items-center justify-center min-w-[56px] p-2 rounded-full transition-all flex-shrink-0 border",
+                                "flex flex-col items-center justify-center min-w-[44px] sm:min-w-[56px] p-1.5 sm:p-2 rounded-full transition-all flex-shrink-0 border",
                                 isTodayDate
                                   ? "border-2 border-primary font-semibold bg-primary/10"
                                   : isSelected
@@ -1743,19 +1800,19 @@ export default function Availability() {
             <Tabs
               value={mobileTab}
               onValueChange={(v) => setMobileTab(v as "calendar" | "details")}
-              className="flex flex-col gap-3 flex-1 min-h-0 overflow-hidden"
+              className="flex flex-col gap-2"
             >
-              <TabsList className="grid w-full grid-cols-2 rounded-xl bg-muted p-1 mb-3 flex-shrink-0">
-                <TabsTrigger value="calendar" className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow">
+              <TabsList className="grid w-full grid-cols-2 rounded-xl bg-muted p-1 mb-1 flex-shrink-0">
+                <TabsTrigger value="calendar" className="rounded-lg text-xs data-[state=active]:bg-background data-[state=active]:shadow">
                   Calendar
                 </TabsTrigger>
-                <TabsTrigger value="details" className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow">
+                <TabsTrigger value="details" className="rounded-lg text-xs data-[state=active]:bg-background data-[state=active]:shadow">
                   Details
                 </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="calendar" className="flex flex-col gap-3 flex-1 min-h-0 overflow-hidden">
-                <div className="flex flex-col gap-2 flex-1 min-h-0">
+              <TabsContent value="calendar" className="flex flex-col gap-2">
+                <div className="flex flex-col gap-2">
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <Select
                       value={selectedPhotographer}
@@ -1873,7 +1930,7 @@ export default function Availability() {
                       </Sheet>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden -mx-1 px-1 py-1">
+                  <div className="flex items-center gap-1.5 overflow-x-auto [&::-webkit-scrollbar]:hidden -mx-1 px-1 py-0.5">
                     {photographers.map((photographer) => {
                       const isActive = selectedPhotographer === photographer.id;
                       return (
@@ -1884,7 +1941,7 @@ export default function Availability() {
                             setEditingWeeklySchedule(false);
                           }}
                           className={cn(
-                            "flex-shrink-0 w-12 h-12 rounded-full border border-border bg-muted/40 flex items-center justify-center text-xs font-semibold transition-all",
+                            "flex-shrink-0 w-10 h-10 rounded-full border border-border bg-muted/40 flex items-center justify-center text-[10px] font-semibold transition-all",
                             isActive && "border-primary bg-primary/10 text-primary"
                           )}
                         >
@@ -1895,7 +1952,7 @@ export default function Availability() {
                   </div>
                 </div>
 
-                <Card className="p-2 flex-1 flex flex-col border shadow-sm rounded-md min-h-0 overflow-hidden">
+                <Card className="p-2 flex flex-col border shadow-sm rounded-md">
                   <div className="flex items-start justify-between mb-2 flex-shrink-0 gap-2">
                     <div className="min-w-0 flex-1">
                       <h2 className="text-xs sm:text-sm font-semibold mb-0.5 truncate">
@@ -1977,8 +2034,8 @@ export default function Availability() {
                     // Render calendar based on viewMode - this is the same content as desktop
                     if (selectedPhotographer === "all" && viewMode !== "month") {
                       return (
-                        <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-                          <div className="flex-1 flex items-center justify-center">
+                        <div className="flex flex-col">
+                          <div className="flex items-center justify-center py-8">
                             <PhotographerList
                               photographers={photographers}
                               onSelect={(id) => setSelectedPhotographer(id)}
@@ -1989,7 +2046,7 @@ export default function Availability() {
                     }
 
                     return (
-                      <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+                      <div className="flex flex-col overflow-x-auto">
                         {viewMode === "month" ? (
                           <div className="w-full flex flex-col flex-1 min-h-0 pb-2">
                             {/* Month Grid - same as desktop */}
@@ -2006,7 +2063,7 @@ export default function Availability() {
                               }
                               const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
                               return (
-                                <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                                <div className="flex flex-col">
                                   <div className="grid grid-cols-7 border-b flex-shrink-0 bg-muted/30">
                                     {weekDays.map((dayName) => (
                                       <div key={dayName} className="p-1.5 sm:p-2 text-center text-xs font-medium text-muted-foreground border-r last:border-r-0">
@@ -2014,9 +2071,9 @@ export default function Availability() {
                                       </div>
                                     ))}
                                   </div>
-                                  <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+                                  <div className="flex flex-col">
                                     {weeks.map((week, weekIdx) => (
-                                      <div key={weekIdx} className="grid grid-cols-7 border-b last:border-b-0 flex-1 min-h-0">
+                                      <div key={weekIdx} className="grid grid-cols-7 border-b last:border-b-0 min-h-[3rem]">
                                         {week.map((day, dayIdx) => {
                                           const dayStr = format(day, 'yyyy-MM-dd');
                                           const dow = day.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
@@ -2124,7 +2181,7 @@ export default function Availability() {
                             })()}
                           </div>
                         ) : viewMode === "week" ? (
-                          <div className="w-full h-full flex flex-col border rounded-md overflow-hidden bg-background flex-1 min-h-0">
+                          <div className="w-full flex flex-col border rounded-md bg-background">
                             <div className="flex-shrink-0 border-b bg-muted/30">
                               <div className="flex">
                                 <div className="w-14 sm:w-24 flex-shrink-0 border-r p-1.5 sm:p-2 text-[11px] sm:text-xs font-medium text-muted-foreground">Days</div>
@@ -2146,7 +2203,7 @@ export default function Availability() {
                                 </div>
                               </div>
                             </div>
-                            <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                            <div className="flex flex-col">
                                 {(() => {
                                   const weekStart = startOfWeek(date || new Date());
                                   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
@@ -2197,7 +2254,7 @@ export default function Availability() {
                                     return (
                                       <ContextMenu key={dayIdx}>
                                         <ContextMenuTrigger asChild>
-                                          <div className={cn("flex border-b last:border-b-0 flex-1 min-h-0 relative cursor-context-menu", isTodayDate && "bg-primary/5")}>
+                                          <div className={cn("flex border-b last:border-b-0 relative cursor-context-menu min-h-[3rem]", isTodayDate && "bg-primary/5")}>
                                             <div className={cn("w-14 sm:w-24 flex-shrink-0 border-r p-1.5 sm:p-2 flex flex-col items-start justify-center", isTodayDate && "bg-primary/10", isSelected && !isTodayDate && "bg-primary/5")}>
                                               <button
                                                 onClick={(e) => { e.stopPropagation(); setDate(day); if (isMobile) setMobileTab("details"); }}
@@ -2277,10 +2334,10 @@ export default function Availability() {
                               </div>
                             </div>
                         ) : (
-                          <div className="w-full h-full flex flex-col flex-1 min-h-0 overflow-hidden">
+                          <div className="w-full flex flex-col">
                             {date && (
-                              <div className="flex-1 grid grid-cols-5 gap-px border rounded-md overflow-hidden min-h-0">
-                                <div className="bg-muted/50 border-r flex flex-col min-h-0">
+                              <div className="grid grid-cols-5 gap-px border rounded-md overflow-hidden">
+                                <div className="bg-muted/50 border-r flex flex-col">
                                   <div className="h-10 sm:h-12 border-b flex items-center justify-start pl-1.5 sm:pl-2 text-[10px] sm:text-xs font-medium text-muted-foreground flex-shrink-0">
                                     <div className="text-left">
                                       <div className="font-semibold text-xs sm:text-sm">{format(date, 'EEE')}</div>
@@ -2289,7 +2346,7 @@ export default function Availability() {
                                   </div>
                                   <div
                                     ref={dayViewTimeScrollRef}
-                                    className="flex-1 min-h-0 flex flex-col overflow-hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+                                    className="flex flex-col [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
                                     onScroll={(e) => {
                                       if (!dayViewScrollRef.current) return;
                                       const nextScrollTop = e.currentTarget.scrollTop;
@@ -2309,7 +2366,7 @@ export default function Availability() {
                                       return Array.from({ length: dayViewHourCount }, (_, i) => i + dayViewStartHour).map((hour) => {
                                         const hourLabel = to12HourDisplay(`${hour.toString().padStart(2, '0')}:00`);
                                         return (
-                                          <div key={hour} className={cn("flex-1 min-h-0 border-b flex items-start justify-start pl-1.5 sm:pl-2 pt-1 text-[10px] sm:text-xs", hoursWithAvailability.has(hour) ? "text-foreground font-medium" : "text-muted-foreground")}>
+                                          <div key={hour} className={cn("min-h-[3rem] border-b flex items-start justify-start pl-1.5 sm:pl-2 pt-1 text-[10px] sm:text-xs", hoursWithAvailability.has(hour) ? "text-foreground font-medium" : "text-muted-foreground")}>
                                             {hourLabel}
                                           </div>
                                         );
@@ -2317,12 +2374,12 @@ export default function Availability() {
                                     })()}
                                   </div>
                                 </div>
-                                <div className="bg-background flex flex-col relative col-span-4 min-h-0">
+                                <div className="bg-background flex flex-col relative col-span-4">
                                   <div className="h-10 sm:h-12 border-b flex items-center justify-center text-[10px] sm:text-xs font-medium flex-shrink-0">
                                     Availability
                                     {date && isToday(date) && <span className="ml-1 sm:ml-2 px-1.5 sm:px-2 py-0.5 bg-primary/10 text-primary text-[9px] sm:text-[10px] rounded-md font-semibold">Today</span>}
                                   </div>
-                                  <div ref={dayViewScrollRef} className="flex-1 min-h-0 relative flex flex-col overflow-hidden" onScroll={(e) => {
+                                  <div ref={dayViewScrollRef} className="relative flex flex-col" onScroll={(e) => {
                                     if (dayViewTimeScrollRef.current) dayViewTimeScrollRef.current.scrollTop = e.currentTarget.scrollTop;
                                     if (dayViewIsProgrammaticScroll.current) { dayViewIsProgrammaticScroll.current = false; return; }
                                     if (dayViewScrollChanging.current) return;
@@ -2387,7 +2444,7 @@ export default function Availability() {
                                     {Array.from({ length: dayViewHourCount }, (_, i) => i + dayViewStartHour).map((hour) => {
                                       const timeStr = `${hour.toString().padStart(2, '0')}:00`;
                                       return (
-                                        <div key={hour} className="flex-1 min-h-0">
+                                        <div key={hour} className="min-h-[3rem]">
                                           <ContextMenu>
                                             <ContextMenuTrigger asChild>
                                               <div className="h-full border-b border-dashed border-muted cursor-context-menu" />
@@ -2479,9 +2536,9 @@ export default function Availability() {
                 </Card>
               </TabsContent>
 
-              <TabsContent value="details" className="flex-1 flex flex-col min-h-0 mt-0 overflow-hidden">
+              <TabsContent value="details" className="flex flex-col mt-0">
                 {/* Details View - Right Panel Content - Mobile */}
-                <Card className="p-3 sm:p-4 flex-1 flex flex-col border shadow-sm rounded-md min-h-0 overflow-hidden">
+                <Card className="p-3 sm:p-4 flex flex-col border shadow-sm rounded-md">
                   <div className="flex-1 min-h-0 overflow-y-auto">
                     {/* Right panel content - we'll render the same content as desktop but optimized for mobile */}
                     {selectedPhotographer !== "all" ? (

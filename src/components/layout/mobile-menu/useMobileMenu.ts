@@ -52,6 +52,13 @@ export const useMobileMenu = () => {
       roles: ['client', 'admin', 'superadmin', 'photographer', 'editor']
     },
     {
+      to: "/availability",
+      icon: "Calendar",
+      label: "Availability",
+      isActive: pathname === '/availability',
+      roles: ['admin', 'superadmin', 'photographer']
+    },
+    {
       to: "/chat-with-reproai",
       icon: "Robbie",
       label: "Robbie",
@@ -103,13 +110,6 @@ export const useMobileMenu = () => {
         { to: '/messaging/email/inbox', label: 'Emails' },
         { to: '/messaging/sms', label: 'SMS' },
       ]
-    },
-    {
-      to: "/availability",
-      icon: "Calendar",
-      label: "Availability",
-      isActive: pathname === '/availability',
-      roles: ['admin', 'photographer']
     },
     {
       to: "/settings",

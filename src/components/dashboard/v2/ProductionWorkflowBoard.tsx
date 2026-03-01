@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { format, startOfDay, startOfWeek, endOfWeek, subWeeks } from 'date-fns';
+import { CameraIcon } from 'lucide-react';
 import { DashboardShootSummary, DashboardWorkflow, DashboardWorkflowColumn } from '@/types/dashboard';
 
 type PipelineFilter = 'today' | 'this_week' | 'month';
@@ -157,10 +158,23 @@ export const ProductionWorkflowBoard: React.FC<ProductionWorkflowBoardProps> = (
                         <p className="text-[10px] sm:text-[11px] text-muted-foreground/80">
                           {(() => {
                             try {
-                              if (shoot.startTime) {
-                                const date = new Date(shoot.startTime);
+                              // Pick contextual timestamp based on column
+                              let ts: string | null = null;
+                              if (columnKey === 'booked' || columnKey === 'scheduled') {
+                                ts = shoot.startTime;
+                              } else if (columnKey === 'raw_upload') {
+                                ts = shoot.submittedForReviewAt || shoot.startTime;
+                              } else if (columnKey === 'editing') {
+                                ts = shoot.submittedForReviewAt || shoot.startTime;
+                              } else if (columnKey === 'ready' || columnKey === 'delivered') {
+                                ts = shoot.deliveryDeadline || shoot.startTime;
+                              } else {
+                                ts = shoot.startTime;
+                              }
+                              if (ts) {
+                                const date = new Date(ts);
                                 if (!isNaN(date.getTime())) {
-                                  return `${format(date, 'MMM d')} • ${shoot.timeLabel || 'TBD'}`;
+                                  return `${format(date, 'MMM d')} • ${format(date, 'h:mm a')}`;
                                 }
                               }
                               return shoot.timeLabel || 'TBD';
@@ -181,7 +195,8 @@ export const ProductionWorkflowBoard: React.FC<ProductionWorkflowBoardProps> = (
                       !shoot.addressLine.toLowerCase().includes(shoot.cityStateZip.toLowerCase()) && (
                         <p className="text-[10px] sm:text-[11px] text-muted-foreground/70 truncate">{shoot.cityStateZip}</p>
                       )}
-                    <p className="text-[10px] sm:text-[11px] text-muted-foreground truncate">
+                    <p className="text-[10px] sm:text-[11px] text-muted-foreground truncate flex items-center gap-1">
+                      <CameraIcon className="h-3 w-3 flex-shrink-0" />
                       {shoot.photographer?.name || 'Unassigned'}
                     </p>
                   </div>
