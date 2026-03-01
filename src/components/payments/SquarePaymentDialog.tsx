@@ -49,13 +49,12 @@ export function SquarePaymentDialog({
 
   const handleCheckoutActiveChange = useCallback((active: boolean) => {
     setCheckoutActive(active);
-    if (active && scrollContainerRef.current) {
-      // Auto-scroll to Stripe checkout on mobile
-      setTimeout(() => {
-        if (scrollContainerRef.current) {
-          scrollContainerRef.current.scrollTo({ top: scrollContainerRef.current.scrollHeight, behavior: 'smooth' });
-        }
-      }, 300);
+  }, []);
+
+  const handleCheckoutMounted = useCallback(() => {
+    // Auto-scroll to Stripe checkout on mobile after it actually renders
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({ top: scrollContainerRef.current.scrollHeight, behavior: 'smooth' });
     }
   }, []);
 
@@ -139,6 +138,7 @@ export function SquarePaymentDialog({
               onPaymentSuccess={handlePaymentSuccess}
               onPaymentError={onPaymentError}
               onCheckoutActiveChange={handleCheckoutActiveChange}
+              onCheckoutMounted={handleCheckoutMounted}
             />
           )}
         </div>

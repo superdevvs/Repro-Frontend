@@ -40,6 +40,7 @@ interface SquarePaymentFormProps {
   onTogglePartial?: () => void;
   isPartialOpen?: boolean;
   onCheckoutActiveChange?: (active: boolean) => void;
+  onCheckoutMounted?: () => void;
 }
 
 export function SquarePaymentForm({
@@ -64,6 +65,7 @@ export function SquarePaymentForm({
   onTogglePartial,
   isPartialOpen = false,
   onCheckoutActiveChange,
+  onCheckoutMounted,
 }: SquarePaymentFormProps) {
   const { toast } = useToast();
   const [isProcessing, setIsProcessing] = useState(false);
@@ -180,6 +182,8 @@ export function SquarePaymentForm({
             if (checkoutMountRef.current) {
               checkout.mount(checkoutMountRef.current);
               setEmbeddedCheckoutLoading(false);
+              // Notify parent after mount so it can scroll
+              setTimeout(() => onCheckoutMounted?.(), 100);
             } else {
               requestAnimationFrame(waitForMount);
             }
@@ -288,7 +292,7 @@ export function SquarePaymentForm({
       : 'grid-cols-1';
 
   return (
-    <div className={`grid gap-4 h-full ${gridCols}`}>
+    <div className={`grid gap-4 lg:h-full ${gridCols}`}>
       {/* Left Column - Shoot Details */}
       {hasShootDetails && (
         <div className="space-y-3">
