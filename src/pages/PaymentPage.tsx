@@ -1,13 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { Logo } from '@/components/layout/Logo';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Loader2, CheckCircle, AlertCircle, MapPin, Calendar, Camera, CreditCard, Lock } from 'lucide-react';
+import { Loader2, CheckCircle, AlertCircle, MapPin, Calendar, Camera, CreditCard, Lock, XCircle } from 'lucide-react';
 import { HorizontalLoader } from '@/components/ui/horizontal-loader';
 import axios from 'axios';
-import { API_BASE_URL } from '@/config/env';
+import { API_BASE_URL, STRIPE_PUBLISHABLE_KEY } from '@/config/env';
+import { loadStripe } from '@stripe/stripe-js';
 
 interface ShootDetails {
   id: number;
@@ -38,6 +39,11 @@ export default function PaymentPage() {
   const [lastPaymentAmount, setLastPaymentAmount] = useState<number | null>(null);
   const [stripeLoading, setStripeLoading] = useState(false);
   const [stripeError, setStripeError] = useState<string | null>(null);
+  const [showEmbeddedCheckout, setShowEmbeddedCheckout] = useState(false);
+  const [embeddedCheckoutLoading, setEmbeddedCheckoutLoading] = useState(false);
+  const embeddedCheckoutRef = useRef<any>(null);
+  const checkoutMountRef = useRef<HTMLDivElement>(null);
+  const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     const fetchShootDetails = async () => {
@@ -124,6 +130,16 @@ export default function PaymentPage() {
     setPaymentSuccess(true);
   };
 
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+      if (embeddedCheckoutRef.current) {
+        try { embeddedCheckoutRef.current.destroy(); } catch {}
+      }
+    };
+  }, []);
+
   const handleStripeCheckout = async () => {
     if (!id) return;
     setStripeLoading(true);
@@ -131,21 +147,97 @@ export default function PaymentPage() {
 
     try {
       const response = await axios.post(
-        `${API_BASE_URL}/api/shoots/${id}/create-stripe-checkout`,
+        `${API_BASE_URL}/api/shoots/${id}/create-stripe-embedded-checkout`,
         { amount: effectivePaymentAmount },
       );
 
-      if (response.data?.checkoutUrl) {
-        window.location.href = response.data.checkoutUrl;
-      } else {
-        throw new Error('No checkout URL returned');
+      if (!response.data?.clientSecret) {
+        throw new Error('No client secret returned');
       }
+
+      setShowEmbeddedCheckout(true);
+      setEmbeddedCheckoutLoading(true);
+
+      // Start polling for payment success
+      startPaymentPolling();
+
+      // Mount embedded checkout
+      requestAnimationFrame(async () => {
+        try {
+          const stripe = await loadStripe(STRIPE_PUBLISHABLE_KEY);
+          if (!stripe) throw new Error('Failed to load Stripe');
+
+          const checkout = await stripe.initEmbeddedCheckout({
+            clientSecret: response.data.clientSecret,
+          });
+          embeddedCheckoutRef.current = checkout;
+
+          const waitForMount = () => {
+            if (checkoutMountRef.current) {
+              checkout.mount(checkoutMountRef.current);
+              setEmbeddedCheckoutLoading(false);
+              setStripeLoading(false);
+            } else {
+              requestAnimationFrame(waitForMount);
+            }
+          };
+          waitForMount();
+        } catch (mountErr: any) {
+          console.error('Stripe embedded checkout mount error:', mountErr);
+          setEmbeddedCheckoutLoading(false);
+          setStripeLoading(false);
+        }
+      });
     } catch (err: any) {
       const message = err.response?.data?.error || err.message || 'Failed to create checkout session.';
       setStripeError(message);
-    } finally {
       setStripeLoading(false);
     }
+  };
+
+  const startPaymentPolling = () => {
+    if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+
+    pollingIntervalRef.current = setInterval(async () => {
+      try {
+        const statusRes = await axios.get(`${API_BASE_URL}/api/shoots/${id}/payment-details`);
+        const shootData = statusRes.data?.data || statusRes.data;
+        const paidSoFar = shootData?.payments
+          ?.filter((p: any) => p.status === 'completed')
+          .reduce((sum: number, p: any) => sum + (p.amount || 0), 0) || 0;
+        const currentDue = (shootData?.total_quote || 0) - paidSoFar;
+
+        if (currentDue < amountDue) {
+          if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+          pollingIntervalRef.current = null;
+          if (embeddedCheckoutRef.current) {
+            try { embeddedCheckoutRef.current.destroy(); } catch {}
+            embeddedCheckoutRef.current = null;
+          }
+          setShowEmbeddedCheckout(false);
+          setStripeLoading(false);
+          handlePaymentSuccess();
+        }
+      } catch {
+        // Ignore polling errors
+      }
+    }, 3000);
+  };
+
+  const handleCancelCheckout = () => {
+    setShowEmbeddedCheckout(false);
+    setStripeLoading(false);
+    if (embeddedCheckoutRef.current) {
+      try { embeddedCheckoutRef.current.destroy(); } catch {}
+      embeddedCheckoutRef.current = null;
+    }
+    // Keep polling for 10s in case webhook is processing
+    setTimeout(() => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    }, 10000);
   };
 
   if (loading) {
@@ -345,70 +437,98 @@ export default function PaymentPage() {
               <div className="hidden md:block w-px bg-gray-800" />
 
               <div className="p-6 md:p-8 space-y-6">
-                <div className="space-y-1">
-                  <p className="text-xs uppercase tracking-[0.3em] text-gray-500">Payment Details</p>
-                  <h2 className="text-xl font-semibold text-white">Pay securely with Stripe</h2>
-                  <p className="text-sm text-gray-400">You'll be redirected to Stripe's secure checkout page.</p>
-                </div>
+                {!showEmbeddedCheckout ? (
+                  <>
+                    <div className="space-y-1">
+                      <p className="text-xs uppercase tracking-[0.3em] text-gray-500">Payment Details</p>
+                      <h2 className="text-xl font-semibold text-white">Pay securely with Stripe</h2>
+                      <p className="text-sm text-gray-400">Complete your payment securely below.</p>
+                    </div>
 
-                <div className="space-y-4">
-                  <div className="rounded-xl border border-gray-800 bg-[#0f1524] p-4 space-y-2">
+                    <div className="space-y-4">
+                      <div className="rounded-xl border border-gray-800 bg-[#0f1524] p-4 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-400">Payment Amount</span>
+                          <span className="text-2xl font-bold text-white">${effectivePaymentAmount.toFixed(2)}</span>
+                        </div>
+                        {isPartialOpen && effectivePaymentAmount < amountDue && (
+                          <p className="text-xs text-gray-500">
+                            Remaining after payment: ${remainingAfterPartial.toFixed(2)}
+                          </p>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        className="w-full text-sm text-blue-400 hover:text-blue-300 transition-colors"
+                        onClick={handleTogglePartial}
+                      >
+                        {isPartialOpen ? 'Pay full amount' : 'Pay a partial amount instead'}
+                      </button>
+
+                      {stripeError && (
+                        <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3">
+                          <p className="text-sm text-red-400">{stripeError}</p>
+                        </div>
+                      )}
+
+                      <Button
+                        onClick={handleStripeCheckout}
+                        disabled={stripeLoading || effectivePaymentAmount <= 0}
+                        className="w-full h-12 bg-[#635BFF] hover:bg-[#5851DB] text-white font-semibold text-base rounded-lg transition-colors"
+                      >
+                        {stripeLoading ? (
+                          <>
+                            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                            Loading checkout...
+                          </>
+                        ) : (
+                          <>
+                            <CreditCard className="mr-2 h-5 w-5" />
+                            Pay ${effectivePaymentAmount.toFixed(2)}
+                          </>
+                        )}
+                      </Button>
+
+                      <div className="flex items-center justify-center gap-2 text-gray-500">
+                        <Lock className="h-3 w-3" />
+                        <span className="text-xs">256-bit SSL encrypted</span>
+                        <span className="text-xs">·</span>
+                        <span className="text-xs">Powered by</span>
+                        <svg className="h-3" viewBox="0 0 60 25" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M5 10.2c0-.7.6-1 1.5-1 1.4 0 3 .4 4.4 1.2V6.3c-1.5-.6-3-.8-4.4-.8C3.3 5.5.8 7.4.8 10.4c0 4.7 6.4 3.9 6.4 5.9 0 .8-.7 1.1-1.7 1.1-1.5 0-3.4-.6-4.9-1.4v4.2c1.7.7 3.3 1 4.9 1 3.3 0 5.6-1.6 5.6-4.7C11.1 11.6 5 12.5 5 10.2z" fill="#635BFF"/>
+                          <path d="M19.5 3.5l-4 .9V8h-1.7v3.7h1.7v4.7c0 3.2 1.5 4.3 4 4.3 1.2 0 2-.3 2-.3v-3.6s-.7.3-1.3.3c-.7 0-1.2-.3-1.2-1.2v-4.2h2.5V8h-2.5V3.5h.5z" fill="#635BFF"/>
+                          <path d="M27.2 5.5c-1.4 0-2.3.7-2.8 1.1l-.2-.9h-3.7v14.9l4.2-.9V17c.5.4 1.3.9 2.5.9 2.5 0 4.8-2 4.8-6.5-.1-4.1-2.4-5.9-4.8-5.9zm-.8 9.3c-.8 0-1.3-.3-1.7-.7v-5.3c.4-.4.9-.7 1.7-.7 1.3 0 2.2 1.4 2.2 3.4 0 2-.9 3.3-2.2 3.3z" fill="#635BFF"/>
+                          <path d="M35.7 5.5c-2.8 0-4.5 2.7-4.5 6.4 0 4.2 2 6.3 5.4 6.3 1.6 0 2.8-.4 3.7-.9v-3.3c-.9.5-1.9.7-3.2.7-1.3 0-2.4-.5-2.5-2h6.1c0-.2 0-.9 0-.9.1-3.9-1.8-6.3-5-6.3zm-1.2 5.2c0-1.5.9-2.1 1.7-2.1.8 0 1.6.6 1.6 2.1h-3.3z" fill="#635BFF"/>
+                        </svg>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-400">Payment Amount</span>
-                      <span className="text-2xl font-bold text-white">${effectivePaymentAmount.toFixed(2)}</span>
+                      <div className="space-y-1">
+                        <p className="text-xs uppercase tracking-[0.3em] text-gray-500">Checkout</p>
+                        <h2 className="text-xl font-semibold text-white">Complete Payment</h2>
+                      </div>
+                      <button
+                        type="button"
+                        className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition-colors"
+                        onClick={handleCancelCheckout}
+                      >
+                        <XCircle className="h-4 w-4" /> Cancel
+                      </button>
                     </div>
-                    {isPartialOpen && effectivePaymentAmount < amountDue && (
-                      <p className="text-xs text-gray-500">
-                        Remaining after payment: ${remainingAfterPartial.toFixed(2)}
-                      </p>
-                    )}
-                  </div>
-
-                  <button
-                    type="button"
-                    className="w-full text-sm text-blue-400 hover:text-blue-300 transition-colors"
-                    onClick={handleTogglePartial}
-                  >
-                    {isPartialOpen ? 'Pay full amount' : 'Pay a partial amount instead'}
-                  </button>
-
-                  {stripeError && (
-                    <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3">
-                      <p className="text-sm text-red-400">{stripeError}</p>
+                    <div className="rounded-xl border border-gray-800 bg-white overflow-hidden min-h-[400px]">
+                      {embeddedCheckoutLoading && (
+                        <div className="flex items-center justify-center py-12">
+                          <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                        </div>
+                      )}
+                      <div ref={checkoutMountRef} className="w-full" />
                     </div>
-                  )}
-
-                  <Button
-                    onClick={handleStripeCheckout}
-                    disabled={stripeLoading || effectivePaymentAmount <= 0}
-                    className="w-full h-12 bg-[#635BFF] hover:bg-[#5851DB] text-white font-semibold text-base rounded-lg transition-colors"
-                  >
-                    {stripeLoading ? (
-                      <>
-                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                        Redirecting to Stripe...
-                      </>
-                    ) : (
-                      <>
-                        <CreditCard className="mr-2 h-5 w-5" />
-                        Pay ${effectivePaymentAmount.toFixed(2)}
-                      </>
-                    )}
-                  </Button>
-
-                  <div className="flex items-center justify-center gap-2 text-gray-500">
-                    <Lock className="h-3 w-3" />
-                    <span className="text-xs">256-bit SSL encrypted</span>
-                    <span className="text-xs">·</span>
-                    <span className="text-xs">Powered by</span>
-                    <svg className="h-3" viewBox="0 0 60 25" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M5 10.2c0-.7.6-1 1.5-1 1.4 0 3 .4 4.4 1.2V6.3c-1.5-.6-3-.8-4.4-.8C3.3 5.5.8 7.4.8 10.4c0 4.7 6.4 3.9 6.4 5.9 0 .8-.7 1.1-1.7 1.1-1.5 0-3.4-.6-4.9-1.4v4.2c1.7.7 3.3 1 4.9 1 3.3 0 5.6-1.6 5.6-4.7C11.1 11.6 5 12.5 5 10.2z" fill="#635BFF"/>
-                      <path d="M19.5 3.5l-4 .9V8h-1.7v3.7h1.7v4.7c0 3.2 1.5 4.3 4 4.3 1.2 0 2-.3 2-.3v-3.6s-.7.3-1.3.3c-.7 0-1.2-.3-1.2-1.2v-4.2h2.5V8h-2.5V3.5h.5z" fill="#635BFF"/>
-                      <path d="M27.2 5.5c-1.4 0-2.3.7-2.8 1.1l-.2-.9h-3.7v14.9l4.2-.9V17c.5.4 1.3.9 2.5.9 2.5 0 4.8-2 4.8-6.5-.1-4.1-2.4-5.9-4.8-5.9zm-.8 9.3c-.8 0-1.3-.3-1.7-.7v-5.3c.4-.4.9-.7 1.7-.7 1.3 0 2.2 1.4 2.2 3.4 0 2-.9 3.3-2.2 3.3z" fill="#635BFF"/>
-                      <path d="M35.7 5.5c-2.8 0-4.5 2.7-4.5 6.4 0 4.2 2 6.3 5.4 6.3 1.6 0 2.8-.4 3.7-.9v-3.3c-.9.5-1.9.7-3.2.7-1.3 0-2.4-.5-2.5-2h6.1c0-.2 0-.9 0-.9.1-3.9-1.8-6.3-5-6.3zm-1.2 5.2c0-1.5.9-2.1 1.7-2.1.8 0 1.6.6 1.6 2.1h-3.3z" fill="#635BFF"/>
-                    </svg>
-                  </div>
-                </div>
+                  </>
+                )}
               </div>
             </div>
           </CardContent>
