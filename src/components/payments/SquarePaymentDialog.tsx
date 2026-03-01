@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -45,6 +45,19 @@ export function SquarePaymentDialog({
 }: SquarePaymentDialogProps) {
   const [paymentCompleted, setPaymentCompleted] = useState(false);
   const [checkoutActive, setCheckoutActive] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const handleCheckoutActiveChange = useCallback((active: boolean) => {
+    setCheckoutActive(active);
+    if (active && scrollContainerRef.current) {
+      // Auto-scroll to Stripe checkout on mobile
+      setTimeout(() => {
+        if (scrollContainerRef.current) {
+          scrollContainerRef.current.scrollTo({ top: scrollContainerRef.current.scrollHeight, behavior: 'smooth' });
+        }
+      }, 300);
+    }
+  }, []);
 
   const handlePaymentSuccess = (payment: any) => {
     setPaymentCompleted(true);
@@ -75,7 +88,7 @@ export function SquarePaymentDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className={`${dialogWidth} transition-all duration-300 flex flex-col ${checkoutActive ? 'lg:h-[90dvh]' : ''} max-h-[90dvh]`}>
+      <DialogContent className={`${dialogWidth} transition-all duration-300 flex flex-col h-[100dvh] sm:h-auto ${checkoutActive ? 'lg:h-[90dvh]' : ''} sm:max-h-[90dvh] rounded-none sm:rounded-lg`}>
         <DialogHeader>
           <DialogTitle>Process Payment</DialogTitle>
           <DialogDescription>
@@ -87,7 +100,7 @@ export function SquarePaymentDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="pt-2 flex-1 min-h-0 overflow-y-auto lg:overflow-visible">
+        <div ref={scrollContainerRef} className="pt-2 flex-1 min-h-0 overflow-y-auto lg:overflow-visible">
           {paymentCompleted ? (
             <div className="text-center py-8">
               <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
@@ -125,7 +138,7 @@ export function SquarePaymentDialog({
               totalPaid={totalPaid}
               onPaymentSuccess={handlePaymentSuccess}
               onPaymentError={onPaymentError}
-              onCheckoutActiveChange={setCheckoutActive}
+              onCheckoutActiveChange={handleCheckoutActiveChange}
             />
           )}
         </div>
