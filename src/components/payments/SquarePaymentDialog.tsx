@@ -44,6 +44,7 @@ export function SquarePaymentDialog({
   onPaymentError,
 }: SquarePaymentDialogProps) {
   const [paymentCompleted, setPaymentCompleted] = useState(false);
+  const [checkoutActive, setCheckoutActive] = useState(false);
 
   const handlePaymentSuccess = (payment: any) => {
     setPaymentCompleted(true);
@@ -66,9 +67,15 @@ export function SquarePaymentDialog({
   // Check if we have shoot details to display (determines dialog width)
   const hasShootDetails = shootAddress || (shootServices && shootServices.length > 0) || totalQuote !== undefined || clientName || shootDate;
 
+  const dialogWidth = checkoutActive
+    ? 'sm:max-w-[95vw] lg:max-w-[1300px]'
+    : hasShootDetails
+      ? 'sm:max-w-[850px]'
+      : 'sm:max-w-[450px]';
+
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className={`${hasShootDetails ? 'sm:max-w-[850px]' : 'sm:max-w-[450px]'}`}>
+      <DialogContent className={`${dialogWidth} transition-all duration-300`}>
         <DialogHeader>
           <DialogTitle>Process Payment</DialogTitle>
           <DialogDescription>
@@ -118,6 +125,7 @@ export function SquarePaymentDialog({
               totalPaid={totalPaid}
               onPaymentSuccess={handlePaymentSuccess}
               onPaymentError={onPaymentError}
+              onCheckoutActiveChange={setCheckoutActive}
             />
           )}
         </div>

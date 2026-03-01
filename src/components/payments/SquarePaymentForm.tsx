@@ -39,6 +39,7 @@ interface SquarePaymentFormProps {
   showPartialToggle?: boolean;
   onTogglePartial?: () => void;
   isPartialOpen?: boolean;
+  onCheckoutActiveChange?: (active: boolean) => void;
 }
 
 export function SquarePaymentForm({
@@ -62,6 +63,7 @@ export function SquarePaymentForm({
   showPartialToggle = false,
   onTogglePartial,
   isPartialOpen = false,
+  onCheckoutActiveChange,
 }: SquarePaymentFormProps) {
   const { toast } = useToast();
   const [isProcessing, setIsProcessing] = useState(false);
@@ -156,12 +158,13 @@ export function SquarePaymentForm({
         throw new Error('No client secret returned');
       }
 
-      // Open embedded checkout dialog and mount Stripe
+      // Show inline embedded checkout
       authTokenRef.current = authToken;
       setShowCheckoutDialog(true);
       setEmbeddedCheckoutLoading(true);
+      onCheckoutActiveChange?.(true);
 
-      // Mount embedded checkout after dialog renders
+      // Mount embedded checkout after the inline container renders
       requestAnimationFrame(async () => {
         try {
           const stripe = await loadStripe(STRIPE_PUBLISHABLE_KEY);
@@ -231,6 +234,7 @@ export function SquarePaymentForm({
           pollingIntervalRef.current = null;
           setStripeLoading(false);
           setShowCheckoutDialog(false);
+          onCheckoutActiveChange?.(false);
           if (embeddedCheckoutRef.current) {
             embeddedCheckoutRef.current.destroy();
             embeddedCheckoutRef.current = null;
@@ -253,6 +257,7 @@ export function SquarePaymentForm({
 
   const handleCloseCheckoutDialog = () => {
     setShowCheckoutDialog(false);
+    onCheckoutActiveChange?.(false);
     if (embeddedCheckoutRef.current) {
       embeddedCheckoutRef.current.destroy();
       embeddedCheckoutRef.current = null;
@@ -274,8 +279,16 @@ export function SquarePaymentForm({
       || clientName
       || shootDate);
 
+  const gridCols = showCheckoutDialog
+    ? hasShootDetails
+      ? 'grid-cols-1 lg:grid-cols-[1fr_1fr_1.2fr]'
+      : 'grid-cols-1 lg:grid-cols-[1fr_1.2fr]'
+    : hasShootDetails
+      ? 'grid-cols-1 lg:grid-cols-2'
+      : 'grid-cols-1';
+
   return (
-    <div className={`grid gap-4 ${hasShootDetails ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'}`}>
+    <div className={`grid gap-4 ${gridCols}`}>
       {/* Left Column - Shoot Details */}
       {hasShootDetails && (
         <div className="space-y-3">
@@ -629,14 +642,22 @@ export function SquarePaymentForm({
         </form>
       </div>
 
-      {/* Stripe Embedded Checkout Dialog */}
-      <Dialog open={showCheckoutDialog} onOpenChange={(open) => { if (!open) handleCloseCheckoutDialog(); }}>
-        <DialogContent className="w-[95vw] max-w-[800px] p-0 gap-0 overflow-hidden [&>button]:z-10 h-[95dvh] max-h-[95dvh]">
-          <DialogHeader className="px-4 py-3 border-b">
-            <DialogTitle className="text-base">Complete Payment</DialogTitle>
-            <DialogDescription>Complete your payment securely via Stripe</DialogDescription>
-          </DialogHeader>
-          <div className="flex-1 overflow-y-auto">
+      {/* Inline Stripe Embedded Checkout (third column) */}
+      {showCheckoutDialog && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-semibold">Stripe Checkout</h3>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={handleCloseCheckoutDialog}
+            >
+              <XCircle className="h-3 w-3 mr-1" /> Cancel
+            </Button>
+          </div>
+          <div className="border rounded-lg overflow-hidden bg-white dark:bg-background min-h-[400px]">
             {embeddedCheckoutLoading && (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -644,8 +665,8 @@ export function SquarePaymentForm({
             )}
             <div ref={checkoutMountRef} className="w-full" />
           </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
 
       {/* Confirmation Dialog */}
       <Dialog open={showConfirmationDialog} onOpenChange={setShowConfirmationDialog}>
