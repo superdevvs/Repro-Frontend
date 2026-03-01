@@ -66,10 +66,8 @@ export function SquarePaymentForm({
   const [isProcessing, setIsProcessing] = useState(false);
   const [stripeLoading, setStripeLoading] = useState(false);
   const [stripeError, setStripeError] = useState<string | null>(null);
-  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
-  const [showCheckoutDialog, setShowCheckoutDialog] = useState(false);
+  const checkoutWindowRef = useRef<Window | null>(null);
   const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const authTokenRef = useRef<string | null>(null);
   
   // Coupon state
   const [couponCode, setCouponCode] = useState('');
@@ -149,11 +147,19 @@ export function SquarePaymentForm({
         throw new Error('No checkout URL returned');
       }
 
-      // Open Stripe Checkout in an in-app dialog
-      authTokenRef.current = authToken;
-      setCheckoutUrl(response.data.checkoutUrl);
-      setShowCheckoutDialog(true);
-      startPaymentPolling();
+      // Open Stripe Checkout in a centered popup window
+      const width = 600;
+      const height = 700;
+      const left = window.screen.width / 2 - width / 2;
+      const top = window.screen.height / 2 - height / 2;
+      
+      const popup = window.open(
+        response.data.checkoutUrl,
+        'stripe_checkout',
+        `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`
+      );
+      checkoutWindowRef.current = popup;
+      startPaymentPolling(authToken);
     } catch (error: any) {
       setStripeLoading(false);
       const errorMessage =
@@ -174,15 +180,28 @@ export function SquarePaymentForm({
     }
   };
 
-  const startPaymentPolling = () => {
+  const startPaymentPolling = (authToken: string | null) => {
     if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+    let popupClosedAt: number | null = null;
 
     pollingIntervalRef.current = setInterval(async () => {
+      // Track when popup closes
+      if (checkoutWindowRef.current?.closed && !popupClosedAt) {
+        popupClosedAt = Date.now();
+      }
+
+      // Stop polling 10s after popup closed (give webhook time)
+      if (popupClosedAt && Date.now() - popupClosedAt > 10000) {
+        if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+        setStripeLoading(false);
+        return;
+      }
+
       try {
-        const token = authTokenRef.current;
         const statusRes = await axios.get(
           `${API_BASE_URL}/api/shoots/${shootId}/payment-details`,
-          { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+          { headers: authToken ? { Authorization: `Bearer ${authToken}` } : {} }
         );
 
         const shootData = statusRes.data?.data || statusRes.data;
@@ -195,14 +214,15 @@ export function SquarePaymentForm({
           if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
           pollingIntervalRef.current = null;
           setStripeLoading(false);
-          setShowCheckoutDialog(false);
-          setCheckoutUrl(null);
 
           toast({
             title: 'Payment Successful',
             description: `Payment of $${effectivePaymentAmount.toFixed(2)} has been processed via Stripe.`,
           });
 
+          if (checkoutWindowRef.current && !checkoutWindowRef.current.closed) {
+            checkoutWindowRef.current.close();
+          }
           if (onPaymentSuccess) {
             onPaymentSuccess({ status: 'success', amount: effectivePaymentAmount });
           }
@@ -211,19 +231,6 @@ export function SquarePaymentForm({
         // Ignore polling errors, will retry
       }
     }, 3000);
-  };
-
-  const handleCloseCheckoutDialog = () => {
-    setShowCheckoutDialog(false);
-    setCheckoutUrl(null);
-    // Keep polling for 10s after dialog closed in case webhook is processing
-    setTimeout(() => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-      }
-      setStripeLoading(false);
-    }, 10000);
   };
 
   const hasShootDetails = showShootDetails
@@ -587,24 +594,6 @@ export function SquarePaymentForm({
           </Button>
         </form>
       </div>
-
-      {/* Stripe Checkout Dialog */}
-      <Dialog open={showCheckoutDialog} onOpenChange={(open) => { if (!open) handleCloseCheckoutDialog(); }}>
-        <DialogContent className="sm:max-w-[520px] md:max-w-[600px] p-0 gap-0 overflow-hidden" style={{ height: '80vh', maxHeight: '700px' }}>
-          <DialogHeader className="px-4 py-3 border-b">
-            <DialogTitle className="text-base">Complete Payment</DialogTitle>
-            <DialogDescription>Complete your payment securely via Stripe</DialogDescription>
-          </DialogHeader>
-          {checkoutUrl && (
-            <iframe
-              src={checkoutUrl}
-              className="w-full flex-1 border-0"
-              style={{ height: 'calc(80vh - 60px)', maxHeight: '640px' }}
-              allow="payment"
-            />
-          )}
-        </DialogContent>
-      </Dialog>
 
       {/* Confirmation Dialog */}
       <Dialog open={showConfirmationDialog} onOpenChange={setShowConfirmationDialog}>
