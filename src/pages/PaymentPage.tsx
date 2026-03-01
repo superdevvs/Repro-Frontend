@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
-import { SquarePaymentForm } from '@/components/payments/SquarePaymentForm';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { Logo } from '@/components/layout/Logo';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Loader2, CheckCircle, AlertCircle, MapPin, Calendar, Camera } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Loader2, CheckCircle, AlertCircle, MapPin, Calendar, Camera, CreditCard, Lock } from 'lucide-react';
 import { HorizontalLoader } from '@/components/ui/horizontal-loader';
 import axios from 'axios';
 import { API_BASE_URL } from '@/config/env';
@@ -27,14 +27,17 @@ interface ShootDetails {
 
 export default function PaymentPage() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const [shoot, setShoot] = useState<ShootDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [paymentSuccess, setPaymentSuccess] = useState(searchParams.get('success') === 'true');
   const [isPartialOpen, setIsPartialOpen] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState(0);
   const [paymentAmountInput, setPaymentAmountInput] = useState('0.00');
   const [lastPaymentAmount, setLastPaymentAmount] = useState<number | null>(null);
+  const [stripeLoading, setStripeLoading] = useState(false);
+  const [stripeError, setStripeError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchShootDetails = async () => {
@@ -121,6 +124,30 @@ export default function PaymentPage() {
     setPaymentSuccess(true);
   };
 
+  const handleStripeCheckout = async () => {
+    if (!id) return;
+    setStripeLoading(true);
+    setStripeError(null);
+
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/api/shoots/${id}/create-stripe-checkout`,
+        { amount: effectivePaymentAmount },
+      );
+
+      if (response.data?.checkoutUrl) {
+        window.location.href = response.data.checkoutUrl;
+      } else {
+        throw new Error('No checkout URL returned');
+      }
+    } catch (err: any) {
+      const message = err.response?.data?.error || err.message || 'Failed to create checkout session.';
+      setStripeError(message);
+    } finally {
+      setStripeLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#060a0e] flex items-center justify-center">
@@ -185,7 +212,7 @@ export default function PaymentPage() {
       <div className="mx-auto w-full max-w-5xl px-4 py-10">
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <Logo variant="light" className="h-8 w-auto" />
-          <p className="text-sm text-gray-400">Secure payment powered by Square</p>
+          <p className="text-sm text-gray-400">Secure payment powered by Stripe</p>
         </div>
 
         <Card className="bg-[#0a0f1a] border-gray-800 shadow-xl">
@@ -298,25 +325,60 @@ export default function PaymentPage() {
               <div className="p-6 md:p-8 space-y-6">
                 <div className="space-y-1">
                   <p className="text-xs uppercase tracking-[0.3em] text-gray-500">Payment Details</p>
-                  <h2 className="text-xl font-semibold text-white">Enter card information</h2>
-                  <p className="text-sm text-gray-400">We accept all major credit cards via Square.</p>
+                  <h2 className="text-xl font-semibold text-white">Pay securely with Stripe</h2>
+                  <p className="text-sm text-gray-400">You'll be redirected to Stripe's secure checkout page.</p>
                 </div>
 
-                <SquarePaymentForm
-                  amount={amountDue}
-                  paymentAmount={effectivePaymentAmount}
-                  currency="USD"
-                  shootId={id}
-                  clientEmail={shoot?.client?.email}
-                  clientName={shoot?.client?.name}
-                  showShootDetails={false}
-                  showAmountControls={false}
-                  showPartialToggle
-                  isPartialOpen={isPartialOpen}
-                  onTogglePartial={handleTogglePartial}
-                  onPaymentSuccess={handlePaymentSuccess}
-                  onPaymentError={(err) => console.error('Payment error:', err)}
-                />
+                <div className="space-y-4">
+                  <div className="rounded-xl border border-gray-800 bg-[#0f1524] p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-400">Payment Amount</span>
+                      <span className="text-2xl font-bold text-white">${effectivePaymentAmount.toFixed(2)}</span>
+                    </div>
+                    {isPartialOpen && effectivePaymentAmount < amountDue && (
+                      <p className="text-xs text-gray-500">
+                        Remaining after payment: ${remainingAfterPartial.toFixed(2)}
+                      </p>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    className="w-full text-sm text-blue-400 hover:text-blue-300 transition-colors"
+                    onClick={handleTogglePartial}
+                  >
+                    {isPartialOpen ? 'Pay full amount' : 'Pay a partial amount instead'}
+                  </button>
+
+                  {stripeError && (
+                    <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3">
+                      <p className="text-sm text-red-400">{stripeError}</p>
+                    </div>
+                  )}
+
+                  <Button
+                    onClick={handleStripeCheckout}
+                    disabled={stripeLoading || effectivePaymentAmount <= 0}
+                    className="w-full h-12 bg-[#635BFF] hover:bg-[#5851DB] text-white font-semibold text-base rounded-lg transition-colors"
+                  >
+                    {stripeLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                        Redirecting to Stripe...
+                      </>
+                    ) : (
+                      <>
+                        <CreditCard className="mr-2 h-5 w-5" />
+                        Pay ${effectivePaymentAmount.toFixed(2)}
+                      </>
+                    )}
+                  </Button>
+
+                  <div className="flex items-center justify-center gap-2 text-gray-500">
+                    <Lock className="h-3 w-3" />
+                    <p className="text-xs">256-bit SSL encrypted. Powered by Stripe.</p>
+                  </div>
+                </div>
               </div>
             </div>
           </CardContent>

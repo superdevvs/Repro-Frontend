@@ -37,7 +37,7 @@ export function PayMultipleShootsDialog({
   const { toast } = useToast();
   const [selectedShoots, setSelectedShoots] = useState<Set<string>>(new Set());
   const [processing, setProcessing] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<'square' | 'mark-paid'>('square');
+  const [paymentMethod, setPaymentMethod] = useState<'stripe' | 'mark-paid'>('stripe');
   const [showConfirmationDialog, setShowConfirmationDialog] = useState(false);
   const [isMarkPaidDialogOpen, setIsMarkPaidDialogOpen] = useState(false);
 
@@ -50,7 +50,7 @@ export function PayMultipleShootsDialog({
   useEffect(() => {
     if (isOpen) {
       setSelectedShoots(new Set());
-      setPaymentMethod('square');
+      setPaymentMethod('stripe');
       setIsMarkPaidDialogOpen(false);
     }
   }, [isOpen]);
@@ -98,10 +98,10 @@ export function PayMultipleShootsDialog({
     setProcessing(true);
 
     try {
-      if (paymentMethod === 'square') {
+      if (paymentMethod === 'stripe') {
         const token = localStorage.getItem('authToken') || localStorage.getItem('token');
         const response = await axios.post(
-          `${API_BASE_URL}/api/payments/multiple-shoots`,
+          `${API_BASE_URL}/api/payments/stripe-multiple-shoots`,
           {
             shoot_ids: Array.from(selectedShoots),
           },
@@ -343,23 +343,23 @@ export function PayMultipleShootsDialog({
                 <div className="grid grid-cols-1 gap-3">
                   <Card
                     className={`cursor-pointer transition-all ${
-                      paymentMethod === 'square'
+                      paymentMethod === 'stripe'
                         ? 'border-primary bg-primary/5 ring-2 ring-inset ring-primary/20'
                         : 'hover:bg-muted/50'
                     }`}
-                    onClick={() => setPaymentMethod('square')}
+                    onClick={() => setPaymentMethod('stripe')}
                   >
                     <CardContent className="p-4 flex items-center gap-4">
                       <div className={`h-10 w-10 rounded-full flex items-center justify-center ${
-                        paymentMethod === 'square' ? 'bg-primary text-primary-foreground' : 'bg-muted'
+                        paymentMethod === 'stripe' ? 'bg-primary text-primary-foreground' : 'bg-muted'
                       }`}>
                         <CreditCard className="h-5 w-5" />
                       </div>
                       <div className="flex-1">
                         <p className="font-medium">Card Payment</p>
-                        <p className="text-sm text-muted-foreground">Pay via Square checkout</p>
+                        <p className="text-sm text-muted-foreground">Pay via Stripe checkout</p>
                       </div>
-                      {paymentMethod === 'square' && (
+                      {paymentMethod === 'stripe' && (
                         <CheckCircle2 className="h-5 w-5 text-primary" />
                       )}
                     </CardContent>
@@ -417,7 +417,7 @@ export function PayMultipleShootsDialog({
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                       Processing...
                     </>
-                  ) : paymentMethod === 'square' ? (
+                  ) : paymentMethod === 'stripe' ? (
                     <>
                       <CreditCard className="h-4 w-4 mr-2" />
                       Pay ${totalAmount.toFixed(2)}
@@ -462,15 +462,15 @@ export function PayMultipleShootsDialog({
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Payment Method:</span>
                 <span className="font-medium capitalize">
-                  {paymentMethod === 'square' ? 'Card (Square)' : 'Mark as Paid'}
+                  {paymentMethod === 'stripe' ? 'Card (Stripe)' : 'Mark as Paid'}
                 </span>
               </div>
             </div>
 
-            {paymentMethod === 'square' && (
+            {paymentMethod === 'stripe' && (
               <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
                 <p className="text-xs text-blue-700 dark:text-blue-300">
-                  You will be redirected to Square checkout to complete the payment.
+                  You will be redirected to Stripe checkout to complete the payment.
                 </p>
               </div>
             )}
@@ -497,7 +497,7 @@ export function PayMultipleShootsDialog({
                   Processing...
                 </>
               ) : (
-                `Confirm ${paymentMethod === 'square' ? 'Payment' : 'Mark as Paid'}`
+                `Confirm ${paymentMethod === 'stripe' ? 'Payment' : 'Mark as Paid'}`
               )}
             </Button>
           </DialogFooter>

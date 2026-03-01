@@ -343,7 +343,13 @@ export function ShootDetailsMediaTab({
     return 'In progress';
   };
 
-  // Determine if shoot services include video
+    const VIDEO_EXTENSION_REGEX = /\.(mp4|mov|m4v|avi|mkv|wmv|webm|mpg|mpeg|3gp)$/i;
+
+  const normalizeFilename = (value?: string | null): string => {
+    if (!value) return '';
+    return value.split('?')[0].trim().toLowerCase();
+  };
+
   const shootHasVideoService = useMemo(() => {
     const services = shoot.services || [];
     const videoKeywords = ['video', 'walkthrough', 'cinematic', 'drone video', 'aerial video', 'reel'];
@@ -365,11 +371,32 @@ export function ShootDetailsMediaTab({
 
   // Check if a MediaFile is a video
   const isVideoFile = (file: MediaFile): boolean => {
-    if (file.media_type === 'video') return true;
-    const name = (file.filename || '').toLowerCase();
-    const mime = (file.fileType || '').toLowerCase();
-    if (mime.startsWith('video/')) return true;
-    return /\.(mp4|mov|avi|mkv|wmv|webm)$/.test(name);
+    if (!file) return false;
+
+    const mediaType = (file.media_type || '').toLowerCase();
+    if (mediaType === 'video') return true;
+
+    const mimeCandidates = [
+      file.fileType,
+      (file as any)?.file_type,
+      (file as any)?.mime_type,
+    ]
+      .filter(Boolean)
+      .map((m) => (m || '').toLowerCase());
+
+    if (mimeCandidates.some((mime) => mime.startsWith('video/'))) {
+      return true;
+    }
+
+    const nameCandidates = [
+      file.filename,
+      (file as any)?.stored_filename,
+      file.original,
+      file.url,
+      file.path,
+    ];
+
+    return nameCandidates.some((name) => VIDEO_EXTENSION_REGEX.test(normalizeFilename(name)));
   };
 
   // Filter files into photos and videos
