@@ -44,7 +44,7 @@ type BulkAction = 'pay' | 'editing' | 'finalize' | 'delete';
 
 type FilterMode = 'all' | 'eligible' | 'unpaid' | 'uploaded' | 'editing';
 
-type PaymentMethod = 'square' | 'mark-paid';
+type PaymentMethod = 'stripe' | 'mark-paid';
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -97,7 +97,7 @@ export function BulkActionsDialog({
   const [searchTerm, setSearchTerm] = useState('');
   const [filterMode, setFilterMode] = useState<FilterMode>('eligible');
   const [activeAction, setActiveAction] = useState<BulkAction>('pay');
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('square');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('stripe');
   const [processing, setProcessing] = useState(false);
   const [detailShootId, setDetailShootId] = useState<string | number | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -115,7 +115,7 @@ export function BulkActionsDialog({
     setSearchTerm('');
     setFilterMode('eligible');
     setActiveAction('pay');
-    setPaymentMethod('square');
+    setPaymentMethod('stripe');
     setIsMarkPaidDialogOpen(false);
   }, [isOpen]);
 
@@ -213,7 +213,7 @@ export function BulkActionsDialog({
       }
     }
 
-    if (activeAction === 'pay' && paymentMethod === 'square') {
+    if (activeAction === 'pay' && paymentMethod === 'stripe') {
       setSquarePaymentOpen(true);
       return;
     }
@@ -325,7 +325,7 @@ export function BulkActionsDialog({
           const paid = shoot.payment?.totalPaid ?? 0;
           const amount = Math.max(quote - paid, 0);
           return apiClient.post(`/shoots/${shoot.id}/mark-paid`, {
-            payment_type: 'square',
+            payment_type: 'stripe',
             amount,
           });
         }),
@@ -547,17 +547,17 @@ export function BulkActionsDialog({
                 <div className="grid gap-2">
                   <Card
                     className={`cursor-pointer transition-all ${
-                      paymentMethod === 'square'
+                      paymentMethod === 'stripe'
                         ? 'border-primary bg-primary/5 ring-2 ring-inset ring-primary/20'
                         : 'hover:bg-muted/40'
                     }`}
-                    onClick={() => setPaymentMethod('square')}
+                    onClick={() => setPaymentMethod('stripe')}
                   >
                     <CardContent className="p-3 flex items-center gap-3">
                       <CreditCard className="h-4 w-4" />
                       <div>
                         <p className="text-sm font-medium">Card payment</p>
-                        <p className="text-xs text-muted-foreground">Square checkout</p>
+                        <p className="text-xs text-muted-foreground">Stripe checkout</p>
                       </div>
                     </CardContent>
                   </Card>
@@ -622,7 +622,7 @@ export function BulkActionsDialog({
                   'Delete Shoots'
                 ) : activeAction === 'finalize' ? (
                   'Finalize Shoots'
-                ) : paymentMethod === 'square' ? (
+                ) : paymentMethod === 'stripe' ? (
                   `Pay ${currencyFormatter.format(totalDue)}`
                 ) : (
                   'Mark as Paid'
