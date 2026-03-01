@@ -75,7 +75,7 @@ export function SquarePaymentDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className={`${dialogWidth} transition-all duration-300`}>
+      <DialogContent className={`${dialogWidth} transition-all duration-300 max-h-[90dvh] flex flex-col`}>
         <DialogHeader>
           <DialogTitle>Process Payment</DialogTitle>
           <DialogDescription>
@@ -87,7 +87,7 @@ export function SquarePaymentDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="pt-2">
+        <div className="pt-2 flex-1 overflow-y-auto min-h-0">
           {paymentCompleted ? (
             <div className="text-center py-8">
               <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">

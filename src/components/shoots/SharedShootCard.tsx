@@ -167,11 +167,6 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
           >
             {formatWorkflowStatus(shoot.workflowStatus || shoot.status)}
           </Badge>
-          {canShowEditingNotes && (
-            <Badge className="bg-purple-500/90 text-white border-purple-400 text-xs px-3 py-1 rounded-full shadow-lg">
-              Editing Notes
-            </Badge>
-          )}
         </div>
 
         {/* Weather & Pay Button - Right */}
@@ -436,6 +431,13 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
           </div>
         )}
       </div>
+      {/* Editing Notes - full-width bottom banner */}
+      {canShowEditingNotes && editingNotes && (
+        <div className="bg-gray-100 dark:bg-purple-900/30 px-3 sm:px-4 py-1.5 text-xs flex items-center gap-2 border-t border-gray-200 dark:border-purple-700/30 rounded-b-lg">
+          <span className="text-gray-700 dark:text-purple-400 font-medium">Editing notes :</span>
+          <span className="text-gray-600 dark:text-purple-300 truncate">{editingNotes}</span>
+        </div>
+      )}
     </Card>
   );
 };
