@@ -4189,23 +4189,32 @@ const ShootHistory: React.FC = () => {
     const displayData = filteredOperationalData.slice(startIndex, endIndex)
 
     if (viewMode === 'grid') {
+      const w = typeof window !== 'undefined' ? window.innerWidth : 1024
+      const numCols = w <= 479 ? 1 : w <= 719 ? 2 : 4
+      const cols: ShootData[][] = Array.from({ length: numCols }, () => [])
+      displayData.forEach((shoot, i) => cols[i % numCols].push(shoot))
+
       return (
         <div className="masonry-grid">
-          {displayData.map((shoot) => (
-            <CompletedAlbumCard
-              key={shoot.id}
-              shoot={shoot}
-              onSelect={handleShootSelect}
-              onDownload={handleDownloadShoot}
-              isSuperAdmin={isSuperAdmin}
-              isAdmin={isAdmin}
-              isEditingManager={isEditingManager}
-              isEditor={isEditor}
-              onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
-              onViewInvoice={canViewInvoice ? handleViewInvoice : undefined}
-              onSendToEditing={handleSendToEditing}
-              shouldHideClientDetails={shouldHideClientDetails}
-            />
+          {cols.map((colItems, colIdx) => (
+            <div key={colIdx} className="masonry-grid-col">
+              {colItems.map((shoot) => (
+                <CompletedAlbumCard
+                  key={shoot.id}
+                  shoot={shoot}
+                  onSelect={handleShootSelect}
+                  onDownload={handleDownloadShoot}
+                  isSuperAdmin={isSuperAdmin}
+                  isAdmin={isAdmin}
+                  isEditingManager={isEditingManager}
+                  isEditor={isEditor}
+                  onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
+                  onViewInvoice={canViewInvoice ? handleViewInvoice : undefined}
+                  onSendToEditing={handleSendToEditing}
+                  shouldHideClientDetails={shouldHideClientDetails}
+                />
+              ))}
+            </div>
           ))}
         </div>
       )
@@ -4279,22 +4288,31 @@ const ShootHistory: React.FC = () => {
     }
 
     if (viewMode === 'grid') {
+      const w = typeof window !== 'undefined' ? window.innerWidth : 1024
+      const numCols = w <= 479 ? 1 : w <= 719 ? 2 : 4
+      const cols: ShootData[][] = Array.from({ length: numCols }, () => [])
+      paginatedData.forEach((shoot, i) => cols[i % numCols].push(shoot))
+
       return (
         <div className="masonry-grid">
-          {paginatedData.map((shoot) => (
-            <HoldOnShootCard 
-              key={shoot.id} 
-              shoot={shoot} 
-              onSelect={handleShootSelect}
-              isSuperAdmin={isSuperAdmin}
-              isAdmin={isAdmin}
-              isEditingManager={isEditingManager}
-              isEditor={isEditor}
-              onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
-              onViewInvoice={canViewInvoice ? handleViewInvoice : undefined}
-              onSendToEditing={handleSendToEditing}
-              shouldHideClientDetails={shouldHideClientDetails}
-            />
+          {cols.map((colItems, colIdx) => (
+            <div key={colIdx} className="masonry-grid-col">
+              {colItems.map((shoot) => (
+                <HoldOnShootCard 
+                  key={shoot.id} 
+                  shoot={shoot} 
+                  onSelect={handleShootSelect}
+                  isSuperAdmin={isSuperAdmin}
+                  isAdmin={isAdmin}
+                  isEditingManager={isEditingManager}
+                  isEditor={isEditor}
+                  onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
+                  onViewInvoice={canViewInvoice ? handleViewInvoice : undefined}
+                  onSendToEditing={handleSendToEditing}
+                  shouldHideClientDetails={shouldHideClientDetails}
+                />
+              ))}
+            </div>
           ))}
         </div>
       )
@@ -4385,60 +4403,69 @@ const ShootHistory: React.FC = () => {
     const paginatedRecords = historyRecords
 
     if (historyFilters.viewAs === 'grid') {
+      const w = typeof window !== 'undefined' ? window.innerWidth : 1024
+      const numCols = w <= 479 ? 1 : w <= 719 ? 2 : 4
+      const histCols: ShootHistoryRecord[][] = Array.from({ length: numCols }, () => [])
+      paginatedRecords.forEach((record, i) => histCols[i % numCols].push(record))
+
       return (
         <div className="masonry-grid">
-          {paginatedRecords.map((record) => (
-            <Card key={record.id} className="overflow-hidden border hover:border-primary/40 transition-colors cursor-pointer" onClick={() => handleHistoryRecordSelect(record)}>
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="space-y-1">
-                    <CardTitle className="text-lg">
-                      {shouldHideClientDetails ? 'Shoot' : (record.client?.name ?? 'Unknown Client')}
-                    </CardTitle>
-                    <CardDescription>
-                      {record.address?.full || 'No address'}
-                    </CardDescription>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="capitalize">
-                      {record.status}
-                    </Badge>
-                    {(isAdmin || isSuperAdmin) && record.id && (
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        className="h-7 w-7 p-0 bg-red-500 hover:bg-red-600"
-                        onClick={(event) => {
-                          event.stopPropagation()
-                          handleDeleteHistoryRecord(record)
-                        }}
-                        title="Delete"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+          {histCols.map((colItems, colIdx) => (
+            <div key={colIdx} className="masonry-grid-col">
+              {colItems.map((record) => (
+                <Card key={record.id} className="overflow-hidden border hover:border-primary/40 transition-colors cursor-pointer" onClick={() => handleHistoryRecordSelect(record)}>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="space-y-1">
+                        <CardTitle className="text-lg">
+                          {shouldHideClientDetails ? 'Shoot' : (record.client?.name ?? 'Unknown Client')}
+                        </CardTitle>
+                        <CardDescription>
+                          {record.address?.full || 'No address'}
+                        </CardDescription>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="capitalize">
+                          {record.status}
+                        </Badge>
+                        {(isAdmin || isSuperAdmin) && record.id && (
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            className="h-7 w-7 p-0 bg-red-500 hover:bg-red-600"
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              handleDeleteHistoryRecord(record)
+                            }}
+                            title="Delete"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-sm">
+                    <div className="flex items-center gap-2">
+                      <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                      <span>{formatDisplayDatePref(record.scheduledDate)}</span>
+                    </div>
+                    {record.completedDate && (
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+                        <span>Completed: {formatDisplayDatePref(record.completedDate)}</span>
+                      </div>
                     )}
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm">
-                <div className="flex items-center gap-2">
-                  <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                  <span>{formatDisplayDatePref(record.scheduledDate)}</span>
-                </div>
-                {record.completedDate && (
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
-                    <span>Completed: {formatDisplayDatePref(record.completedDate)}</span>
-                  </div>
-                )}
-                {isSuperAdmin && record.financials && (
-                  <div className="flex items-center justify-between pt-2 border-t">
-                    <span className="text-muted-foreground">Total:</span>
-                    <span className="font-semibold">{formatCurrency(record.financials.totalQuote)}</span>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                    {isSuperAdmin && record.financials && (
+                      <div className="flex items-center justify-between pt-2 border-t">
+                        <span className="text-muted-foreground">Total:</span>
+                        <span className="font-semibold">{formatCurrency(record.financials.totalQuote)}</span>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           ))}
         </div>
       )

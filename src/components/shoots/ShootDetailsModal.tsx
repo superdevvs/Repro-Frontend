@@ -2078,7 +2078,7 @@ export function ShootDetailsModal({
   if (loading) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-6xl max-h-[90vh]">
+        <DialogContent className="w-[min(90vw,16rem)] sm:max-w-6xl max-h-[90vh] rounded-2xl sm:rounded-lg">
           <DialogHeader className="sr-only">
             <DialogTitle>
               {shoot ? (
@@ -2091,8 +2091,9 @@ export function ShootDetailsModal({
             </DialogTitle>
             <DialogDescription>Loading shoot details</DialogDescription>
           </DialogHeader>
-          <div className="flex items-center justify-center p-8">
-            <div className="text-muted-foreground">Loading shoot details...</div>
+          <div className="flex flex-col items-center justify-center py-12 sm:p-8 gap-3">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <div className="text-sm text-muted-foreground">Loading shoot details...</div>
           </div>
 
         {!isEditMode && !isRequestedStatus && (canUserPutOnHold || canResumeFromHold || canSendToEditing || canFinalise) && (

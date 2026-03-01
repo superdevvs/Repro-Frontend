@@ -314,8 +314,8 @@ export default function PaymentPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#060a0e] text-white">
-      <div className="mx-auto w-full max-w-5xl px-4 py-10">
+    <div className="min-h-screen bg-[#060a0e] text-white overflow-y-auto">
+      <div className={`mx-auto w-full px-4 py-6 sm:py-10 ${showEmbeddedCheckout ? 'max-w-6xl' : 'max-w-5xl'} transition-all duration-300`}>
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <Logo variant="light" className="h-8 w-auto" />
           <div className="flex items-center gap-2 text-sm text-gray-400">
@@ -331,7 +331,7 @@ export default function PaymentPage() {
 
         <Card className="bg-[#0a0f1a] border-gray-800 shadow-xl">
           <CardContent className="p-0">
-            <div className="grid gap-8 md:grid-cols-[1fr_auto_1fr]">
+            <div className={`grid gap-6 md:gap-8 ${showEmbeddedCheckout ? 'md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1.5fr)]' : 'md:grid-cols-[1fr_auto_1fr]'} transition-all duration-300`}>
               <div className="p-6 md:p-8 space-y-6">
                 <div className="space-y-1">
                   <p className="text-xs uppercase tracking-[0.3em] text-gray-500">Shoot Details</p>
@@ -410,28 +410,6 @@ export default function PaymentPage() {
                   </div>
                 </div>
 
-                {isPartialOpen && (
-                  <div className="rounded-xl border border-dashed border-blue-500/40 bg-[#0f1524] p-4">
-                    <p className="text-xs uppercase tracking-wide text-gray-500">Partial payment</p>
-                    <div className="mt-3 flex items-center gap-3">
-                      <span className="text-2xl font-semibold text-white">$</span>
-                      <Input
-                        type="text"
-                        inputMode="decimal"
-                        value={paymentAmountInput}
-                        onChange={(e) => handlePartialAmountChange(e.target.value)}
-                        onBlur={handlePartialAmountBlur}
-                        className="h-12 w-40 bg-[#0a0f1a] border-gray-700 text-white text-xl font-semibold"
-                      />
-                    </div>
-                    <p className="mt-2 text-xs text-gray-500">Pay any amount up to ${amountDue.toFixed(2)}.</p>
-                    {paymentAmount > 0 && paymentAmount < amountDue && (
-                      <p className="mt-2 text-xs text-gray-400">
-                        Remaining after payment: ${remainingAfterPartial.toFixed(2)}
-                      </p>
-                    )}
-                  </div>
-                )}
               </div>
 
               <div className="hidden md:block w-px bg-gray-800" />
@@ -465,6 +443,29 @@ export default function PaymentPage() {
                       >
                         {isPartialOpen ? 'Pay full amount' : 'Pay a partial amount instead'}
                       </button>
+
+                      {isPartialOpen && (
+                        <div className="rounded-xl border border-dashed border-blue-500/40 bg-[#0f1524] p-4">
+                          <p className="text-xs uppercase tracking-wide text-gray-500">Partial payment</p>
+                          <div className="mt-3 flex items-center gap-3">
+                            <span className="text-2xl font-semibold text-white">$</span>
+                            <Input
+                              type="text"
+                              inputMode="decimal"
+                              value={paymentAmountInput}
+                              onChange={(e) => handlePartialAmountChange(e.target.value)}
+                              onBlur={handlePartialAmountBlur}
+                              className="h-12 w-40 bg-[#0a0f1a] border-gray-700 text-white text-xl font-semibold"
+                            />
+                          </div>
+                          <p className="mt-2 text-xs text-gray-500">Pay any amount up to ${amountDue.toFixed(2)}.</p>
+                          {paymentAmount > 0 && paymentAmount < amountDue && (
+                            <p className="mt-2 text-xs text-gray-400">
+                              Remaining after payment: ${remainingAfterPartial.toFixed(2)}
+                            </p>
+                          )}
+                        </div>
+                      )}
 
                       {stripeError && (
                         <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3">
