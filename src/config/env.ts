@@ -80,3 +80,7 @@ export const SQUARE_APPLICATION_ID =
 export const SQUARE_LOCATION_ID =
   import.meta.env?.VITE_SQUARE_LOCATION_ID?.trim() || '';
 
+// Stripe Payment Configuration
+export const STRIPE_PUBLISHABLE_KEY =
+  import.meta.env?.VITE_STRIPE_PUBLISHABLE_KEY?.trim() || '';
+

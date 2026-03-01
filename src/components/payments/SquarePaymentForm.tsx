@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,8 +14,9 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, CreditCard as CreditCardIcon, MapPin, Package, User, Calendar, Tag, CheckCircle2, XCircle } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
-import { API_BASE_URL } from '@/config/env';
+import { API_BASE_URL, STRIPE_PUBLISHABLE_KEY } from '@/config/env';
 import axios from 'axios';
+import { loadStripe } from '@stripe/stripe-js';
 
 interface SquarePaymentFormProps {
   amount: number;
@@ -66,8 +67,12 @@ export function SquarePaymentForm({
   const [isProcessing, setIsProcessing] = useState(false);
   const [stripeLoading, setStripeLoading] = useState(false);
   const [stripeError, setStripeError] = useState<string | null>(null);
-  const checkoutWindowRef = useRef<Window | null>(null);
+  const [showCheckoutDialog, setShowCheckoutDialog] = useState(false);
+  const [embeddedCheckoutLoading, setEmbeddedCheckoutLoading] = useState(false);
   const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const authTokenRef = useRef<string | null>(null);
+  const embeddedCheckoutRef = useRef<any>(null);
+  const checkoutMountRef = useRef<HTMLDivElement>(null);
   
   // Coupon state
   const [couponCode, setCouponCode] = useState('');
@@ -91,11 +96,15 @@ export function SquarePaymentForm({
     setPaymentAmountInput(nextAmount.toFixed(2));
   }, [amount, paymentAmountOverride]);
 
-  // Cleanup polling on unmount
+  // Cleanup polling and embedded checkout on unmount
   useEffect(() => {
     return () => {
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
+      }
+      if (embeddedCheckoutRef.current) {
+        embeddedCheckoutRef.current.destroy();
+        embeddedCheckoutRef.current = null;
       }
     };
   }, []);
@@ -132,7 +141,7 @@ export function SquarePaymentForm({
       const authToken = localStorage.getItem('authToken') || localStorage.getItem('token');
 
       const response = await axios.post(
-        `${API_BASE_URL}/api/shoots/${shootId}/create-stripe-checkout`,
+        `${API_BASE_URL}/api/shoots/${shootId}/create-stripe-embedded-checkout`,
         { amount: effectivePaymentAmount },
         {
           headers: {
@@ -142,24 +151,44 @@ export function SquarePaymentForm({
         }
       );
 
-      if (!response.data?.checkoutUrl) {
+      if (!response.data?.clientSecret) {
         setStripeLoading(false);
-        throw new Error('No checkout URL returned');
+        throw new Error('No client secret returned');
       }
 
-      // Open Stripe Checkout in a centered popup window
-      const width = 600;
-      const height = 700;
-      const left = window.screen.width / 2 - width / 2;
-      const top = window.screen.height / 2 - height / 2;
-      
-      const popup = window.open(
-        response.data.checkoutUrl,
-        'stripe_checkout',
-        `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`
-      );
-      checkoutWindowRef.current = popup;
-      startPaymentPolling(authToken);
+      // Open embedded checkout dialog and mount Stripe
+      authTokenRef.current = authToken;
+      setShowCheckoutDialog(true);
+      setEmbeddedCheckoutLoading(true);
+
+      // Mount embedded checkout after dialog renders
+      requestAnimationFrame(async () => {
+        try {
+          const stripe = await loadStripe(STRIPE_PUBLISHABLE_KEY);
+          if (!stripe) throw new Error('Failed to load Stripe');
+
+          const checkout = await stripe.initEmbeddedCheckout({
+            clientSecret: response.data.clientSecret,
+          });
+          embeddedCheckoutRef.current = checkout;
+
+          // Wait for mount element to be ready
+          const waitForMount = () => {
+            if (checkoutMountRef.current) {
+              checkout.mount(checkoutMountRef.current);
+              setEmbeddedCheckoutLoading(false);
+            } else {
+              requestAnimationFrame(waitForMount);
+            }
+          };
+          waitForMount();
+        } catch (mountErr: any) {
+          console.error('Stripe embedded checkout mount error:', mountErr);
+          setEmbeddedCheckoutLoading(false);
+        }
+      });
+
+      startPaymentPolling();
     } catch (error: any) {
       setStripeLoading(false);
       const errorMessage =
@@ -180,28 +209,15 @@ export function SquarePaymentForm({
     }
   };
 
-  const startPaymentPolling = (authToken: string | null) => {
+  const startPaymentPolling = () => {
     if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
-    let popupClosedAt: number | null = null;
 
     pollingIntervalRef.current = setInterval(async () => {
-      // Track when popup closes
-      if (checkoutWindowRef.current?.closed && !popupClosedAt) {
-        popupClosedAt = Date.now();
-      }
-
-      // Stop polling 10s after popup closed (give webhook time)
-      if (popupClosedAt && Date.now() - popupClosedAt > 10000) {
-        if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-        setStripeLoading(false);
-        return;
-      }
-
       try {
+        const token = authTokenRef.current;
         const statusRes = await axios.get(
           `${API_BASE_URL}/api/shoots/${shootId}/payment-details`,
-          { headers: authToken ? { Authorization: `Bearer ${authToken}` } : {} }
+          { headers: token ? { Authorization: `Bearer ${token}` } : {} }
         );
 
         const shootData = statusRes.data?.data || statusRes.data;
@@ -214,15 +230,17 @@ export function SquarePaymentForm({
           if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
           pollingIntervalRef.current = null;
           setStripeLoading(false);
+          setShowCheckoutDialog(false);
+          if (embeddedCheckoutRef.current) {
+            embeddedCheckoutRef.current.destroy();
+            embeddedCheckoutRef.current = null;
+          }
 
           toast({
             title: 'Payment Successful',
             description: `Payment of $${effectivePaymentAmount.toFixed(2)} has been processed via Stripe.`,
           });
 
-          if (checkoutWindowRef.current && !checkoutWindowRef.current.closed) {
-            checkoutWindowRef.current.close();
-          }
           if (onPaymentSuccess) {
             onPaymentSuccess({ status: 'success', amount: effectivePaymentAmount });
           }
@@ -231,6 +249,22 @@ export function SquarePaymentForm({
         // Ignore polling errors, will retry
       }
     }, 3000);
+  };
+
+  const handleCloseCheckoutDialog = () => {
+    setShowCheckoutDialog(false);
+    if (embeddedCheckoutRef.current) {
+      embeddedCheckoutRef.current.destroy();
+      embeddedCheckoutRef.current = null;
+    }
+    // Keep polling for 10s after dialog closed in case webhook is processing
+    setTimeout(() => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+      setStripeLoading(false);
+    }, 10000);
   };
 
   const hasShootDetails = showShootDetails
@@ -594,6 +628,24 @@ export function SquarePaymentForm({
           </Button>
         </form>
       </div>
+
+      {/* Stripe Embedded Checkout Dialog */}
+      <Dialog open={showCheckoutDialog} onOpenChange={(open) => { if (!open) handleCloseCheckoutDialog(); }}>
+        <DialogContent className="sm:max-w-[520px] md:max-w-[600px] p-0 gap-0 overflow-hidden [&>button]:z-10" style={{ height: '80vh', maxHeight: '700px' }}>
+          <DialogHeader className="px-4 py-3 border-b">
+            <DialogTitle className="text-base">Complete Payment</DialogTitle>
+            <DialogDescription>Complete your payment securely via Stripe</DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto">
+            {embeddedCheckoutLoading && (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            )}
+            <div ref={checkoutMountRef} className="w-full" />
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Confirmation Dialog */}
       <Dialog open={showConfirmationDialog} onOpenChange={setShowConfirmationDialog}>
