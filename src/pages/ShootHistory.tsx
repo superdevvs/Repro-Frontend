@@ -4055,9 +4055,9 @@ const ShootHistory: React.FC = () => {
 
     if (viewMode === 'grid') {
       return (
-        <div className="masonry-grid masonry-grid--equal-cards">
+        <div className="masonry-grid">
           {paginatedData.map((shoot) => (
-            <div key={shoot.id} className="masonry-grid-item">
+            <div key={shoot.id}>
               <SharedShootCard
                 shoot={shoot}
                 role={role}

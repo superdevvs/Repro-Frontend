@@ -152,7 +152,7 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
 
   return (
     <Card
-      className="h-full overflow-hidden border border-border/70 hover:border-primary/50 transition-all hover:shadow-xl cursor-pointer bg-card/50 backdrop-blur-sm group flex flex-col"
+      className="overflow-hidden border border-border/70 hover:border-primary/50 transition-all hover:shadow-xl cursor-pointer bg-card/50 backdrop-blur-sm group flex flex-col"
       onClick={() => onSelect?.(shoot)}
     >
       {/* Hero Image */}
@@ -246,7 +246,7 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
       )}
 
       {/* Card Content */}
-      <div className="p-6 space-y-5 flex-1 flex flex-col">
+      <div className="p-6 space-y-5 flex flex-col">
         {/* Address & Date Header */}
         <div className="space-y-2">
           <div className="flex items-start justify-between gap-4">
@@ -267,6 +267,9 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
                   <Clock className="h-4 w-4" />
                   <span className="font-medium">{formatTime(shoot.time)}</span>
                 </div>
+              )}
+              {shoot.payment?.totalQuote && (isSuperAdmin || isClient) && (
+                <span className="font-semibold text-sm text-foreground">${shoot.payment.totalQuote.toLocaleString()}</span>
               )}
             </div>
           </div>
@@ -343,7 +346,7 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
         </div>
 
         {/* Additional Info & Metadata */}
-        <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border/50">
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border/50">
           <div className="flex flex-wrap items-center gap-2">
             {bracketSummary && (
               <Badge variant="secondary" className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium">
@@ -361,28 +364,23 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
                 Missing Finals · {shoot.editedMissingCount}
               </Badge>
             )}
-            {shoot.payment?.totalQuote && (isSuperAdmin || isClient) && (
-              <Badge variant="outline" className="rounded-md px-2.5 py-1 text-xs font-medium">
-                ${shoot.payment.totalQuote.toLocaleString()}
-              </Badge>
+            {/* Invoice Button */}
+            {onViewInvoice && (
+              <Button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onViewInvoice(shoot);
+                }}
+                size="sm"
+                variant="outline"
+                className="h-8 gap-1.5"
+                title="View Invoice"
+              >
+                <FileText className="h-3.5 w-3.5" />
+                Invoice
+              </Button>
             )}
           </div>
-          {/* Invoice Button - Show in card content when no hero image */}
-          {!heroImage && onViewInvoice && (
-            <Button 
-              onClick={(e) => {
-                e.stopPropagation();
-                onViewInvoice(shoot);
-              }}
-              size="sm"
-              variant="outline"
-              className="h-8 gap-1.5"
-              title="View Invoice"
-            >
-              <FileText className="h-3.5 w-3.5" />
-              Invoice
-            </Button>
-          )}
         </div>
 
         {/* Action buttons for requested shoots - Only visible to admin/superadmin */}

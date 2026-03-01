@@ -288,7 +288,7 @@ export function SquarePaymentForm({
       : 'grid-cols-1';
 
   return (
-    <div className={`grid gap-4 ${gridCols}`}>
+    <div className={`grid gap-4 h-full ${gridCols}`}>
       {/* Left Column - Shoot Details */}
       {hasShootDetails && (
         <div className="space-y-3">
@@ -644,8 +644,8 @@ export function SquarePaymentForm({
 
       {/* Inline Stripe Embedded Checkout (third column) */}
       {showCheckoutDialog && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
+        <div className="flex flex-col min-h-0 overflow-hidden">
+          <div className="flex items-center justify-between flex-shrink-0 mb-3">
             <h3 className="text-base font-semibold">Stripe Checkout</h3>
             <Button
               type="button"
@@ -657,7 +657,7 @@ export function SquarePaymentForm({
               <XCircle className="h-3 w-3 mr-1" /> Cancel
             </Button>
           </div>
-          <div className="border rounded-lg overflow-hidden bg-white dark:bg-background min-h-[400px]">
+          <div className="border rounded-lg overflow-y-auto bg-white dark:bg-background flex-1 min-h-0">
             {embeddedCheckoutLoading && (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
