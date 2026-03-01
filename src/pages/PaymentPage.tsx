@@ -173,6 +173,15 @@ export default function PaymentPage() {
   }
 
   if (paymentSuccess) {
+    const isPopup = !!window.opener;
+
+    // Auto-close popup after 3 seconds
+    if (isPopup) {
+      setTimeout(() => {
+        try { window.close(); } catch {}
+      }, 3000);
+    }
+
     return (
       <div className="min-h-screen bg-[#060a0e] flex items-center justify-center p-4">
         <Card className="max-w-md w-full bg-[#0a0f1a] border-green-500/30">
@@ -185,6 +194,11 @@ export default function PaymentPage() {
             <p className="text-sm text-gray-500">
               You will receive a confirmation email shortly.
             </p>
+            {isPopup && (
+              <p className="text-xs text-gray-600 mt-4">
+                This window will close automatically...
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>

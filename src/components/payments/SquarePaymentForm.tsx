@@ -3,7 +3,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { Skeleton } from '@/components/ui/skeleton';
 import {
   Dialog,
   DialogContent,
@@ -15,26 +14,8 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, CreditCard as CreditCardIcon, MapPin, Package, User, Calendar, Tag, CheckCircle2, XCircle } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
-import { API_BASE_URL, SQUARE_APPLICATION_ID, SQUARE_LOCATION_ID } from '@/config/env';
+import { API_BASE_URL } from '@/config/env';
 import axios from 'axios';
-
-// Declare Square types for TypeScript
-declare global {
-  interface Window {
-    Square?: {
-      payments: (appId: string, locationId: string) => {
-        card: (options?: any) => {
-          attach: (element: HTMLElement) => Promise<void>;
-          tokenize: (verificationDetails?: any) => Promise<any>;
-          destroy?: () => void;
-        };
-        paymentRequest: (options: any) => any;
-        applePay: (paymentRequest: any) => Promise<any>;
-        googlePay: (paymentRequest: any) => Promise<any>;
-      };
-    };
-  }
-}
 
 interface SquarePaymentFormProps {
   amount: number;
@@ -83,20 +64,10 @@ export function SquarePaymentForm({
 }: SquarePaymentFormProps) {
   const { toast } = useToast();
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isSDKLoaded, setIsSDKLoaded] = useState(false);
-  const [card, setCard] = useState<any>(null);
-  const [applePay, setApplePay] = useState<any>(null);
-  const [googlePay, setGooglePay] = useState<any>(null);
-  const [squareConfig, setSquareConfig] = useState<{ applicationId: string; locationId: string } | null>(null);
-  const [configLoading, setConfigLoading] = useState(true);
-  const cardElementRef = useRef<HTMLDivElement>(null);
-  const applePayRef = useRef<HTMLDivElement>(null);
-  const googlePayRef = useRef<HTMLDivElement>(null);
-  const paymentsRef = useRef<any>(null);
-  
-  // Form state
-  const [email, setEmail] = useState(clientEmail || '');
-  const [cardholderName, setCardholderName] = useState(clientName || '');
+  const [stripeLoading, setStripeLoading] = useState(false);
+  const [stripeError, setStripeError] = useState<string | null>(null);
+  const checkoutWindowRef = useRef<Window | null>(null);
+  const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
   // Coupon state
   const [couponCode, setCouponCode] = useState('');
@@ -109,275 +80,27 @@ export function SquarePaymentForm({
   const [paymentAmountInput, setPaymentAmountInput] = useState(amount.toFixed(2));
   const [isPartialPaymentMode, setIsPartialPaymentMode] = useState(false);
   const [showConfirmationDialog, setShowConfirmationDialog] = useState(false);
-  const [cardError, setCardError] = useState<string | null>(null);
   const paymentAmountInputRef = useRef<HTMLInputElement>(null);
   const outstandingAmount = amount;
   const effectivePaymentAmount = paymentAmountOverride ?? paymentAmount;
 
-  // Detect dark mode - check class on html element
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    // Initialize with current state immediately
-    if (typeof document !== 'undefined') {
-      return document.documentElement.classList.contains('dark');
-    }
-    return false;
-  });
-
+  // Update payment amount when props change
   useEffect(() => {
-    const checkDarkMode = () => {
-      const isDark = document.documentElement.classList.contains('dark');
-      setIsDarkMode(isDark);
-    };
-    
-    // Check immediately in case it changed
-    checkDarkMode();
-    
-    // Listen for class changes on html element
-    const observer = new MutationObserver(checkDarkMode);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-    
-    return () => observer.disconnect();
-  }, []);
-
-  // Update form fields when client data changes
-  useEffect(() => {
-    if (clientEmail) setEmail(clientEmail);
-    if (clientName) setCardholderName(clientName);
     const nextAmount = paymentAmountOverride ?? amount;
     setPaymentAmount(nextAmount);
     setPaymentAmountInput(nextAmount.toFixed(2));
-  }, [clientEmail, clientName, amount, paymentAmountOverride]);
-  
-  const remainingBalanceAfterPayment = outstandingAmount - effectivePaymentAmount;
+  }, [amount, paymentAmountOverride]);
 
-  // Fetch Square configuration from backend
-  useEffect(() => {
-    const fetchConfig = async () => {
-      if (SQUARE_APPLICATION_ID && SQUARE_APPLICATION_ID.trim() !== '' && 
-          SQUARE_LOCATION_ID && SQUARE_LOCATION_ID.trim() !== '') {
-        setSquareConfig({
-          applicationId: SQUARE_APPLICATION_ID,
-          locationId: SQUARE_LOCATION_ID,
-        });
-        setConfigLoading(false);
-        return;
-      }
-
-      try {
-        const authToken = localStorage.getItem('authToken') || localStorage.getItem('token');
-        const headers: Record<string, string> = {
-          'Content-Type': 'application/json',
-        };
-        if (authToken) {
-          headers.Authorization = `Bearer ${authToken}`;
-        }
-        const response = await axios.get(`${API_BASE_URL}/api/square/config`, {
-          headers,
-        });
-
-        if (response.data.success && response.data.config) {
-          const config = response.data.config;
-          if (config.application_id && config.location_id) {
-            setSquareConfig({
-              applicationId: config.application_id,
-              locationId: config.location_id,
-            });
-          } else {
-            throw new Error('Square configuration is incomplete');
-          }
-        } else {
-          throw new Error('Failed to fetch Square configuration');
-        }
-      } catch (error: any) {
-        console.error('Error fetching Square config:', error);
-      } finally {
-        setConfigLoading(false);
-      }
-    };
-
-    fetchConfig();
-  }, []);
-
-  // Load Square Web Payments SDK after config is loaded
-  useEffect(() => {
-    if (!squareConfig || configLoading) return;
-
-    if (window.Square) {
-      setIsSDKLoaded(true);
-      return;
-    }
-
-    const environment = squareConfig.applicationId?.startsWith('sandbox-') ? 'sandbox' : 'production';
-    const sdkUrl = environment === 'sandbox' 
-      ? 'https://sandbox.web.squarecdn.com/v1/square.js'
-      : 'https://web.squarecdn.com/v1/square.js';
-
-    const existingScript = document.querySelector(`script[src="${sdkUrl}"]`);
-    if (existingScript) {
-      existingScript.addEventListener('load', () => {
-        setIsSDKLoaded(true);
-      });
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.src = sdkUrl;
-    script.async = true;
-    script.onload = () => {
-      setIsSDKLoaded(true);
-    };
-    script.onerror = () => {
-      toast({
-        title: 'Error',
-        description: 'Failed to load Square Payment SDK. Please refresh the page.',
-        variant: 'destructive',
-      });
-    };
-    document.body.appendChild(script);
-  }, [squareConfig, configLoading]);
-
-  // Initialize card element after SDK is loaded
-  useEffect(() => {
-    if (isSDKLoaded && squareConfig && !card) {
-      const checkAndInitialize = () => {
-        if (cardElementRef.current) {
-          cardElementRef.current.innerHTML = '';
-          initializeSquare();
-        } else {
-          setTimeout(checkAndInitialize, 100);
-        }
-      };
-      
-      const timer = setTimeout(checkAndInitialize, 100);
-      
-      return () => {
-        clearTimeout(timer);
-      };
-    }
-  }, [isSDKLoaded, squareConfig, card]);
-
-  // Cleanup on unmount
+  // Cleanup polling on unmount
   useEffect(() => {
     return () => {
-      if (card) {
-        try {
-          card.destroy?.();
-        } catch (e) {
-          // Ignore cleanup errors
-        }
-        setCard(null);
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
       }
     };
   }, []);
-
-  // Monitor card element for error state
-  useEffect(() => {
-    if (!cardElementRef.current || !card) return;
-    
-    const checkForErrors = () => {
-      const container = cardElementRef.current;
-      if (!container) return;
-      
-      // Check if Square has added error styling (red border)
-      const hasError = container.innerHTML.includes('is-error') || 
-                       container.innerHTML.includes('sq-card-message-error') ||
-                       container.querySelector('[class*="error"]') !== null;
-      
-      if (hasError) {
-        // Try to determine which field has error
-        const html = container.innerHTML.toLowerCase();
-        if (html.includes('card number') || html.includes('cardnumber')) {
-          setCardError('Please enter a valid card number');
-        } else if (html.includes('expir')) {
-          setCardError('Please enter a valid expiration date');
-        } else if (html.includes('cvv') || html.includes('security')) {
-          setCardError('Please enter a valid CVV');
-        } else {
-          setCardError('Please check your card details');
-        }
-      } else {
-        setCardError(null);
-      }
-    };
-    
-    const observer = new MutationObserver(checkForErrors);
-    observer.observe(cardElementRef.current, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      characterData: true,
-    });
-    
-    return () => observer.disconnect();
-  }, [card]);
-
-  // Initialize Square Payments with theme-aware styling
-  const initializeSquare = async () => {
-    if (!window.Square || !squareConfig || !cardElementRef.current) {
-      return;
-    }
-
-    if (cardElementRef.current) {
-      cardElementRef.current.innerHTML = '';
-    }
-
-    try {
-      paymentsRef.current = window.Square.payments(
-        squareConfig.applicationId,
-        squareConfig.locationId
-      );
-      
-      // Create card without custom styling first (Square SDK handles its own styling)
-      const cardInstance = await paymentsRef.current.card();
-      
-      if (cardElementRef.current) {
-        await cardInstance.attach(cardElementRef.current);
-        setCard(cardInstance);
-      }
-
-      // Initialize Apple Pay (requires HTTPS + Safari)
-      try {
-        const paymentRequest = paymentsRef.current.paymentRequest({
-          countryCode: 'US',
-          currencyCode: currency,
-          total: {
-            amount: effectivePaymentAmount.toFixed(2),
-            label: 'REPro Photos',
-          },
-        });
-        const applePayInstance = await paymentsRef.current.applePay(paymentRequest);
-        setApplePay(applePayInstance);
-      } catch (e) {
-        console.log('Apple Pay not available:', (e as Error).message);
-      }
-
-      // Initialize Google Pay
-      try {
-        const paymentRequest = paymentsRef.current.paymentRequest({
-          countryCode: 'US',
-          currencyCode: currency,
-          total: {
-            amount: effectivePaymentAmount.toFixed(2),
-            label: 'REPro Photos',
-          },
-        });
-        const googlePayInstance = await paymentsRef.current.googlePay(paymentRequest);
-        if (googlePayRef.current) {
-          await googlePayInstance.attach(googlePayRef.current);
-        }
-        setGooglePay(googlePayInstance);
-      } catch (e) {
-        console.log('Google Pay not available:', (e as Error).message);
-      }
-    } catch (error) {
-      console.error('Error initializing Square card element:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to initialize payment form. Please try again.',
-        variant: 'destructive',
-      });
-    }
-  };
+  
+  const remainingBalanceAfterPayment = outstandingAmount - effectivePaymentAmount;
 
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
@@ -399,120 +122,96 @@ export function SquarePaymentForm({
     setShowConfirmationDialog(true);
   };
 
-  // Process payment after confirmation
+  // Process payment via Stripe Checkout after confirmation
   const handleConfirmPayment = async () => {
     setShowConfirmationDialog(false);
-    setIsProcessing(true);
+    setStripeLoading(true);
+    setStripeError(null);
 
     try {
       const authToken = localStorage.getItem('authToken') || localStorage.getItem('token');
 
-      if (!card) {
-        toast({
-          title: 'Payment Form Not Ready',
-          description: 'Please wait for the payment form to load completely before submitting.',
-          variant: 'destructive',
-        });
-        setIsProcessing(false);
-        return;
-      }
-
-      if (!cardholderName || !cardholderName.trim()) {
-        toast({
-          title: 'Cardholder Name Required',
-          description: 'Please enter the cardholder name.',
-          variant: 'destructive',
-        });
-        setIsProcessing(false);
-        return;
-      }
-
-      // Parse cardholder name
-      const nameParts = cardholderName.trim().split(' ');
-      const givenName = nameParts[0] || cardholderName;
-      const familyName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : cardholderName;
-      
-      // Build billing contact
-      const billingContact: any = {
-        givenName: givenName.trim(),
-        familyName: familyName.trim(),
-      };
-      if (email && email.trim()) {
-        billingContact.email = email.trim();
-      }
-      
-      const verificationDetails: any = {
-        amount: effectivePaymentAmount.toFixed(2),
-        currencyCode: currency,
-        intent: 'CHARGE',
-        customerInitiated: true,
-        sellerKeyedIn: false,
-      };
-      
-      verificationDetails.billingContact = billingContact;
-
-      let tokenResult;
-      try {
-        tokenResult = await card.tokenize(verificationDetails);
-      } catch (tokenizeError: any) {
-        console.error('Tokenization error:', tokenizeError);
-        throw new Error(tokenizeError.message || 'Card tokenization failed. Please check your card details.');
-      }
-
-      if (tokenResult.status === 'OK') {
-        const response = await axios.post(
-          `${API_BASE_URL}/api/payments/create`,
-          {
-            sourceId: tokenResult.token,
-            amount: effectivePaymentAmount,
-            currency: currency,
-            shoot_id: shootId,
-            payment_method: 'card',
-            buyer: tokenResult.details || undefined,
+      const response = await axios.post(
+        `${API_BASE_URL}/api/shoots/${shootId}/create-stripe-checkout`,
+        { amount: effectivePaymentAmount },
+        {
+          headers: {
+            ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+            'Content-Type': 'application/json',
           },
-          {
-            headers: {
-              Authorization: `Bearer ${authToken}`,
-              'Content-Type': 'application/json',
-            },
-          }
-        );
-
-        if (response.data && (response.data.status === 'success' || response.data.payment)) {
-          toast({
-            title: 'Payment Successful',
-            description: `Payment of $${effectivePaymentAmount.toFixed(2)} has been processed.${remainingBalanceAfterPayment > 0 ? ` Remaining: $${remainingBalanceAfterPayment.toFixed(2)}` : ''}`,
-          });
-
-          if (onPaymentSuccess) {
-            onPaymentSuccess(response.data);
-          }
-        } else {
-          throw new Error(response.data?.message || 'Payment failed');
         }
-      } else {
-        const errors = tokenResult.errors || [];
-        const firstError = errors[0] || {};
-        let userMessage = firstError.detail || firstError.message || 'Card tokenization failed';
-        
-        if (firstError.type === 'VALIDATION_ERROR') {
-          if (firstError.field === 'cardNumber') {
-            userMessage = 'Please enter a valid credit card number.';
-          } else if (firstError.field?.includes('expiration')) {
-            userMessage = 'Please enter a valid expiration date.';
-          } else if (firstError.field?.includes('cvv')) {
-            userMessage = 'Please enter a valid CVV.';
-          }
-        }
-        
-        throw new Error(userMessage);
+      );
+
+      if (!response.data?.checkoutUrl) {
+        setStripeLoading(false);
+        throw new Error('No checkout URL returned');
       }
-    } catch (error: any) {
-      const errorMessage =
-        error.response?.data?.message ||
-        error.message ||
-        'Payment processing failed. Please try again.';
 
+      // Open Stripe Checkout in a new popup window
+      const popup = window.open(
+        response.data.checkoutUrl,
+        'stripe_checkout',
+        'width=600,height=700,scrollbars=yes,resizable=yes'
+      );
+      checkoutWindowRef.current = popup;
+      let popupClosedAt: number | null = null;
+
+      // Start polling for payment completion
+      pollingIntervalRef.current = setInterval(async () => {
+        // Track when popup closes
+        if (checkoutWindowRef.current?.closed && !popupClosedAt) {
+          popupClosedAt = Date.now();
+        }
+
+        // Stop polling 10s after popup closed (give webhook time)
+        if (popupClosedAt && Date.now() - popupClosedAt > 10000) {
+          if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+          pollingIntervalRef.current = null;
+          setStripeLoading(false);
+          return;
+        }
+
+        try {
+          const statusRes = await axios.get(
+            `${API_BASE_URL}/api/shoots/${shootId}/payment-details`,
+            { headers: authToken ? { Authorization: `Bearer ${authToken}` } : {} }
+          );
+
+          const shootData = statusRes.data?.data || statusRes.data;
+          const totalPaid = shootData?.payments
+            ?.filter((p: any) => p.status === 'completed')
+            .reduce((sum: number, p: any) => sum + (p.amount || 0), 0) || 0;
+          const currentDue = (shootData?.total_quote || 0) - totalPaid;
+
+          if (currentDue < outstandingAmount) {
+            if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+            pollingIntervalRef.current = null;
+            setStripeLoading(false);
+
+            toast({
+              title: 'Payment Successful',
+              description: `Payment of $${effectivePaymentAmount.toFixed(2)} has been processed via Stripe.`,
+            });
+
+            if (checkoutWindowRef.current && !checkoutWindowRef.current.closed) {
+              checkoutWindowRef.current.close();
+            }
+            if (onPaymentSuccess) {
+              onPaymentSuccess({ status: 'success', amount: effectivePaymentAmount });
+            }
+          }
+        } catch {
+          // Ignore polling errors, will retry
+        }
+      }, 3000);
+    } catch (error: any) {
+      setStripeLoading(false);
+      const errorMessage =
+        error.response?.data?.error ||
+        error.message ||
+        'Failed to create Stripe checkout session.';
+
+      setStripeError(errorMessage);
       toast({
         title: 'Payment Error',
         description: errorMessage,
@@ -522,110 +221,8 @@ export function SquarePaymentForm({
       if (onPaymentError) {
         onPaymentError(error);
       }
-    } finally {
-      setIsProcessing(false);
     }
   };
-
-  // Handle digital wallet payment (Apple Pay / Google Pay)
-  const handleWalletPayment = async (walletInstance: any, walletName: string) => {
-    if (isProcessing || disabled) return;
-
-    if (effectivePaymentAmount <= 0 || effectivePaymentAmount > outstandingAmount) {
-      toast({
-        title: 'Invalid Payment Amount',
-        description: `Payment amount must be between $0.01 and $${outstandingAmount.toFixed(2)}`,
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setIsProcessing(true);
-
-    try {
-      const authToken = localStorage.getItem('authToken') || localStorage.getItem('token');
-
-      const tokenResult = await walletInstance.tokenize();
-
-      if (tokenResult.status === 'OK') {
-        const response = await axios.post(
-          `${API_BASE_URL}/api/payments/create`,
-          {
-            sourceId: tokenResult.token,
-            amount: effectivePaymentAmount,
-            currency: currency,
-            shoot_id: shootId,
-            payment_method: walletName.toLowerCase().replace(/\s/g, '_'),
-            buyer: tokenResult.details || undefined,
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${authToken}`,
-              'Content-Type': 'application/json',
-            },
-          }
-        );
-
-        if (response.data && (response.data.status === 'success' || response.data.payment)) {
-          toast({
-            title: 'Payment Successful',
-            description: `Payment of $${effectivePaymentAmount.toFixed(2)} via ${walletName} has been processed.${remainingBalanceAfterPayment > 0 ? ` Remaining: $${remainingBalanceAfterPayment.toFixed(2)}` : ''}`,
-          });
-
-          if (onPaymentSuccess) {
-            onPaymentSuccess(response.data);
-          }
-        } else {
-          throw new Error(response.data?.message || 'Payment failed');
-        }
-      } else {
-        const errors = tokenResult.errors || [];
-        const firstError = errors[0] || {};
-        throw new Error(firstError.detail || firstError.message || `${walletName} payment failed`);
-      }
-    } catch (error: any) {
-      const errorMessage =
-        error.response?.data?.message ||
-        error.message ||
-        `${walletName} payment failed. Please try again.`;
-
-      toast({
-        title: 'Payment Error',
-        description: errorMessage,
-        variant: 'destructive',
-      });
-
-      if (onPaymentError) {
-        onPaymentError(error);
-      }
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  // Loading state
-  if (configLoading) {
-    return (
-      <div className="p-4 border rounded-md bg-muted/50">
-        <div className="flex items-center gap-2">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          <p className="text-sm text-muted-foreground">Loading payment configuration...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Config validation
-  if (!squareConfig || !squareConfig.applicationId || !squareConfig.locationId) {
-    return (
-      <div className="p-4 border border-destructive rounded-md bg-destructive/10">
-        <p className="text-sm font-medium text-destructive mb-2">Square Configuration Error</p>
-        <p className="text-sm text-destructive">
-          Unable to load payment configuration. Please contact support.
-        </p>
-      </div>
-    );
-  }
 
   const hasShootDetails = showShootDetails
     && (shootAddress
@@ -835,69 +432,6 @@ export function SquarePaymentForm({
             </div>
           )}
 
-          {/* Digital Wallet Buttons (Apple Pay / Google Pay) */}
-          {(applePay || googlePay) && (
-            <div className="space-y-2">
-              {applePay && (
-                <button
-                  type="button"
-                  onClick={() => handleWalletPayment(applePay, 'Apple Pay')}
-                  disabled={isProcessing || disabled || effectivePaymentAmount <= 0}
-                  className="w-full h-11 rounded-md bg-black text-white flex items-center justify-center gap-2 hover:bg-black/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  style={{ WebkitAppearance: 'none' }}
-                >
-                  <svg viewBox="0 0 24 24" className="h-5 w-5 fill-current">
-                    <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
-                  </svg>
-                  <span className="font-medium text-sm">Pay with Apple Pay</span>
-                </button>
-              )}
-              {googlePay && (
-                <div
-                  ref={googlePayRef}
-                  id="sq-google-pay"
-                  className="w-full [&>button]:!w-full [&>button]:!h-11 [&>button]:!rounded-md"
-                />
-              )}
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <Separator className="w-full" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-background px-2 text-muted-foreground">or pay with card</span>
-                </div>
-              </div>
-            </div>
-          )}
-          
-          {/* Email & Cardholder - Compact Row */}
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <Label htmlFor="email" className="text-xs">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="email@example.com"
-                className="h-9 text-sm"
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="cardholderName" className="text-xs">Cardholder Name</Label>
-              <Input
-                id="cardholderName"
-                type="text"
-                value={cardholderName}
-                onChange={(e) => setCardholderName(e.target.value)}
-                placeholder="John Doe"
-                className="h-9 text-sm"
-                required
-              />
-            </div>
-          </div>
-
           {/* Coupon Code Input */}
           <div className="p-3 border rounded-lg bg-muted/30">
             <Label htmlFor="couponCode" className="text-xs flex items-center gap-1 mb-2">
@@ -994,61 +528,30 @@ export function SquarePaymentForm({
             )}
           </div>
 
-          {/* Square Card Element */}
-          <div className="relative">
-            <Label className="text-xs flex items-center gap-1 mb-1">
-              <CreditCardIcon className="h-3 w-3" />
-              Card Details
-            </Label>
-            <div className="relative">
-              {/* Skeleton loader overlay while SDK loads */}
-              {!card && (
-                <div 
-                  className="absolute inset-0 rounded-md border overflow-hidden p-3 space-y-3 z-10"
-                  style={{
-                    backgroundColor: isDarkMode ? '#1f2937' : '#f9fafb',
-                    borderColor: isDarkMode ? '#374151' : '#d1d5db',
-                  }}
-                >
-                  <div className="flex items-center gap-3">
-                    <Skeleton className="h-8 w-12 rounded" />
-                    <Skeleton className="h-4 flex-1 rounded" />
-                  </div>
-                  <div className="flex gap-4">
-                    <Skeleton className="h-4 w-20 rounded" />
-                    <Skeleton className="h-4 w-16 rounded" />
-                  </div>
-                </div>
-              )}
-              {/* Actual Square card element */}
-              <div
-                className="rounded-md border overflow-hidden"
-                style={{
-                  height: '90px',
-                  backgroundColor: isDarkMode ? '#0a0a0a' : '#ffffff',
-                  borderColor: isDarkMode ? '#374151' : '#d1d5db',
-                }}
-              >
-                <div
-                  ref={cardElementRef}
-                  id="sq-card"
-                  style={{
-                    filter: isDarkMode ? 'invert(1) hue-rotate(180deg)' : 'none',
-                  }}
-                />
-              </div>
+          {/* Stripe Error */}
+          {stripeError && (
+            <div className="p-2 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-md">
+              <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-2">
+                <XCircle className="h-3 w-3 flex-shrink-0" />
+                {stripeError}
+              </p>
             </div>
-            {cardError && (
-              <div className="mt-2 p-2 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-md">
-                <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-2">
-                  <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
-                  {cardError}
+          )}
+
+          {/* Stripe Waiting State */}
+          {stripeLoading && (
+            <div className="p-3 border rounded-lg bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
+              <div className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                <p className="text-sm text-blue-700 dark:text-blue-300">
+                  Waiting for payment to complete...
                 </p>
               </div>
-            )}
-          </div>
+              <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                Complete the payment in the Stripe checkout window.
+              </p>
+            </div>
+          )}
 
           {showPartialToggle && onTogglePartial && (
             <Button
@@ -1061,20 +564,23 @@ export function SquarePaymentForm({
             </Button>
           )}
 
-          {/* Submit Button */}
+          {/* Pay Now Button */}
           <Button
             type="submit"
             className="w-full"
             size="lg"
-            disabled={disabled || isProcessing || effectivePaymentAmount <= 0 || !email || !cardholderName || !card || !isSDKLoaded}
+            disabled={disabled || isProcessing || stripeLoading || effectivePaymentAmount <= 0}
           >
-            {isProcessing ? (
+            {stripeLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Processing...
+                Waiting for payment...
               </>
             ) : (
-              `Pay $${effectivePaymentAmount.toFixed(2)}`
+              <>
+                <CreditCardIcon className="mr-2 h-4 w-4" />
+                {`Pay $${effectivePaymentAmount.toFixed(2)} with Stripe`}
+              </>
             )}
           </Button>
         </form>
@@ -1085,7 +591,7 @@ export function SquarePaymentForm({
         <DialogContent className="sm:max-w-[400px]">
           <DialogHeader>
             <DialogTitle>Confirm Payment</DialogTitle>
-            <DialogDescription>Review before processing</DialogDescription>
+            <DialogDescription>You'll be redirected to Stripe to complete payment</DialogDescription>
           </DialogHeader>
           
           <div className="space-y-3 py-3">
@@ -1108,11 +614,11 @@ export function SquarePaymentForm({
           </div>
 
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setShowConfirmationDialog(false)} disabled={isProcessing}>
+            <Button variant="outline" onClick={() => setShowConfirmationDialog(false)} disabled={stripeLoading}>
               Cancel
             </Button>
-            <Button onClick={handleConfirmPayment} disabled={isProcessing}>
-              {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Confirm Payment'}
+            <Button onClick={handleConfirmPayment} disabled={stripeLoading}>
+              {stripeLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Pay with Stripe'}
             </Button>
           </DialogFooter>
         </DialogContent>
