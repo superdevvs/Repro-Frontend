@@ -226,7 +226,15 @@ export default function PaymentPage() {
       <div className="mx-auto w-full max-w-5xl px-4 py-10">
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <Logo variant="light" className="h-8 w-auto" />
-          <p className="text-sm text-gray-400">Secure payment powered by Stripe</p>
+          <div className="flex items-center gap-2 text-sm text-gray-400">
+            <span>Secure payment powered by</span>
+            <svg className="h-5" viewBox="0 0 60 25" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M5 10.2c0-.7.6-1 1.5-1 1.4 0 3 .4 4.4 1.2V6.3c-1.5-.6-3-.8-4.4-.8C3.3 5.5.8 7.4.8 10.4c0 4.7 6.4 3.9 6.4 5.9 0 .8-.7 1.1-1.7 1.1-1.5 0-3.4-.6-4.9-1.4v4.2c1.7.7 3.3 1 4.9 1 3.3 0 5.6-1.6 5.6-4.7C11.1 11.6 5 12.5 5 10.2z" fill="#635BFF"/>
+              <path d="M19.5 3.5l-4 .9V8h-1.7v3.7h1.7v4.7c0 3.2 1.5 4.3 4 4.3 1.2 0 2-.3 2-.3v-3.6s-.7.3-1.3.3c-.7 0-1.2-.3-1.2-1.2v-4.2h2.5V8h-2.5V3.5h.5z" fill="#635BFF"/>
+              <path d="M27.2 5.5c-1.4 0-2.3.7-2.8 1.1l-.2-.9h-3.7v14.9l4.2-.9V17c.5.4 1.3.9 2.5.9 2.5 0 4.8-2 4.8-6.5-.1-4.1-2.4-5.9-4.8-5.9zm-.8 9.3c-.8 0-1.3-.3-1.7-.7v-5.3c.4-.4.9-.7 1.7-.7 1.3 0 2.2 1.4 2.2 3.4 0 2-.9 3.3-2.2 3.3z" fill="#635BFF"/>
+              <path d="M35.7 5.5c-2.8 0-4.5 2.7-4.5 6.4 0 4.2 2 6.3 5.4 6.3 1.6 0 2.8-.4 3.7-.9v-3.3c-.9.5-1.9.7-3.2.7-1.3 0-2.4-.5-2.5-2h6.1c0-.2 0-.9 0-.9.1-3.9-1.8-6.3-5-6.3zm-1.2 5.2c0-1.5.9-2.1 1.7-2.1.8 0 1.6.6 1.6 2.1h-3.3z" fill="#635BFF"/>
+            </svg>
+          </div>
         </div>
 
         <Card className="bg-[#0a0f1a] border-gray-800 shadow-xl">
@@ -390,7 +398,15 @@ export default function PaymentPage() {
 
                   <div className="flex items-center justify-center gap-2 text-gray-500">
                     <Lock className="h-3 w-3" />
-                    <p className="text-xs">256-bit SSL encrypted. Powered by Stripe.</p>
+                    <span className="text-xs">256-bit SSL encrypted</span>
+                    <span className="text-xs">·</span>
+                    <span className="text-xs">Powered by</span>
+                    <svg className="h-3" viewBox="0 0 60 25" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M5 10.2c0-.7.6-1 1.5-1 1.4 0 3 .4 4.4 1.2V6.3c-1.5-.6-3-.8-4.4-.8C3.3 5.5.8 7.4.8 10.4c0 4.7 6.4 3.9 6.4 5.9 0 .8-.7 1.1-1.7 1.1-1.5 0-3.4-.6-4.9-1.4v4.2c1.7.7 3.3 1 4.9 1 3.3 0 5.6-1.6 5.6-4.7C11.1 11.6 5 12.5 5 10.2z" fill="#635BFF"/>
+                      <path d="M19.5 3.5l-4 .9V8h-1.7v3.7h1.7v4.7c0 3.2 1.5 4.3 4 4.3 1.2 0 2-.3 2-.3v-3.6s-.7.3-1.3.3c-.7 0-1.2-.3-1.2-1.2v-4.2h2.5V8h-2.5V3.5h.5z" fill="#635BFF"/>
+                      <path d="M27.2 5.5c-1.4 0-2.3.7-2.8 1.1l-.2-.9h-3.7v14.9l4.2-.9V17c.5.4 1.3.9 2.5.9 2.5 0 4.8-2 4.8-6.5-.1-4.1-2.4-5.9-4.8-5.9zm-.8 9.3c-.8 0-1.3-.3-1.7-.7v-5.3c.4-.4.9-.7 1.7-.7 1.3 0 2.2 1.4 2.2 3.4 0 2-.9 3.3-2.2 3.3z" fill="#635BFF"/>
+                      <path d="M35.7 5.5c-2.8 0-4.5 2.7-4.5 6.4 0 4.2 2 6.3 5.4 6.3 1.6 0 2.8-.4 3.7-.9v-3.3c-.9.5-1.9.7-3.2.7-1.3 0-2.4-.5-2.5-2h6.1c0-.2 0-.9 0-.9.1-3.9-1.8-6.3-5-6.3zm-1.2 5.2c0-1.5.9-2.1 1.7-2.1.8 0 1.6.6 1.6 2.1h-3.3z" fill="#635BFF"/>
+                    </svg>
                   </div>
                 </div>
               </div>
