@@ -28,6 +28,9 @@ interface TourBranding {
   secondary_color?: string;
   font_family?: string;
   custom_domain?: string;
+  facebook_url?: string;
+  linkedin_url?: string;
+  instagram_url?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -46,6 +49,9 @@ export default function TourBranding() {
     secondary_color: '#7e3af2',
     font_family: 'Inter',
     custom_domain: '',
+    facebook_url: '',
+    linkedin_url: '',
+    instagram_url: '',
   });
 
   const isAdmin = role === 'admin' || role === 'superadmin';
@@ -86,6 +92,9 @@ export default function TourBranding() {
         secondary_color: branding.secondary_color || '#7e3af2',
         font_family: branding.font_family || 'Inter',
         custom_domain: branding.custom_domain || '',
+        facebook_url: branding.facebook_url || '',
+        linkedin_url: branding.linkedin_url || '',
+        instagram_url: branding.instagram_url || '',
       });
     } else {
       setEditingBranding(null);
@@ -96,6 +105,9 @@ export default function TourBranding() {
         secondary_color: '#7e3af2',
         font_family: 'Inter',
         custom_domain: '',
+        facebook_url: '',
+        linkedin_url: '',
+        instagram_url: '',
       });
     }
     setIsDialogOpen(true);
@@ -111,6 +123,9 @@ export default function TourBranding() {
       secondary_color: '#7e3af2',
       font_family: 'Inter',
       custom_domain: '',
+      facebook_url: '',
+      linkedin_url: '',
+      instagram_url: '',
     });
   };
 
@@ -403,6 +418,45 @@ export default function TourBranding() {
                     }
                     placeholder="example.com"
                   />
+                </div>
+
+                <div className="border-t pt-4 mt-2">
+                  <h4 className="text-sm font-semibold mb-3">Social Links</h4>
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <Label htmlFor="facebook_url">Facebook URL</Label>
+                      <Input
+                        id="facebook_url"
+                        value={formData.facebook_url}
+                        onChange={(e) =>
+                          setFormData({ ...formData, facebook_url: e.target.value })
+                        }
+                        placeholder="https://facebook.com/yourpage"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="linkedin_url">LinkedIn URL</Label>
+                      <Input
+                        id="linkedin_url"
+                        value={formData.linkedin_url}
+                        onChange={(e) =>
+                          setFormData({ ...formData, linkedin_url: e.target.value })
+                        }
+                        placeholder="https://linkedin.com/in/yourprofile"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="instagram_url">Instagram URL</Label>
+                      <Input
+                        id="instagram_url"
+                        value={formData.instagram_url}
+                        onChange={(e) =>
+                          setFormData({ ...formData, instagram_url: e.target.value })
+                        }
+                        placeholder="https://instagram.com/yourhandle"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
 

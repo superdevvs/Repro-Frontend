@@ -94,6 +94,7 @@ export function ShootDetailsTourTab({
     tour_version: 'standard',
     realtor_info: '',
     autoplay: false,
+    show_garage: false,
   });
   const [isSavingTourSettings, setIsSavingTourSettings] = useState(false);
   const isClientView = Boolean(isClient && !isAdmin);
@@ -146,6 +147,7 @@ export function ShootDetailsTourTab({
       tour_version: (shoot.tourLinks as any)?.tour_version || 'standard',
       realtor_info: (shoot.tourLinks as any)?.realtor_info || '',
       autoplay: Boolean((shoot.tourLinks as any)?.autoplay),
+      show_garage: Boolean((shoot.tourLinks as any)?.show_garage),
     };
 
     setTourSettings(tourSettingsDefaults);
@@ -209,6 +211,7 @@ export function ShootDetailsTourTab({
         tour_version: nextSettings.tour_version,
         realtor_info: nextSettings.realtor_info,
         autoplay: nextSettings.autoplay,
+        show_garage: nextSettings.show_garage,
       };
 
       const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
@@ -1251,6 +1254,17 @@ export function ShootDetailsTourTab({
                 <Switch
                   checked={tourSettings.autoplay}
                   onCheckedChange={async (checked) => updateTourSetting('autoplay', checked)}
+                  disabled={!isAdmin || isSavingTourSettings}
+                />
+              </div>
+              <div className="flex items-center justify-between rounded-lg border border-border/60 p-3">
+                <div>
+                  <Label>Show Garage Info</Label>
+                  <p className="text-xs text-muted-foreground">Display garage details on public tour pages.</p>
+                </div>
+                <Switch
+                  checked={tourSettings.show_garage}
+                  onCheckedChange={async (checked) => updateTourSetting('show_garage', checked)}
                   disabled={!isAdmin || isSavingTourSettings}
                 />
               </div>

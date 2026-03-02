@@ -60,6 +60,9 @@ export function LinkClientBrandingDialog({
     secondaryColor: "#7e3af2",
     fontFamily: "Inter",
     customDomain: "",
+    facebookUrl: "",
+    linkedinUrl: "",
+    instagramUrl: "",
   });
 
   // Fetch clients from API
@@ -125,6 +128,9 @@ export function LinkClientBrandingDialog({
             secondaryColor: data.data.branding?.secondary_color || "#7e3af2",
             fontFamily: data.data.branding?.font_family || "Inter",
             customDomain: data.data.branding?.custom_domain || "",
+            facebookUrl: data.data.branding?.facebook_url || "",
+            linkedinUrl: data.data.branding?.linkedin_url || "",
+            instagramUrl: data.data.branding?.instagram_url || "",
           });
         }
       }
@@ -170,6 +176,9 @@ export function LinkClientBrandingDialog({
             secondary_color: brandingSettings.secondaryColor,
             font_family: brandingSettings.fontFamily,
             custom_domain: brandingSettings.customDomain,
+            facebook_url: brandingSettings.facebookUrl,
+            linkedin_url: brandingSettings.linkedinUrl,
+            instagram_url: brandingSettings.instagramUrl,
           },
         }),
       });
@@ -343,6 +352,39 @@ export function LinkClientBrandingDialog({
                 <p className="text-xs text-muted-foreground">
                   Configure a custom domain for this client's property tours
                 </p>
+              </div>
+
+              <div className="border-t pt-4 mt-2">
+                <h4 className="text-sm font-semibold mb-3">Social Links</h4>
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="facebookUrl">Facebook URL</Label>
+                    <Input
+                      id="facebookUrl"
+                      placeholder="https://facebook.com/yourpage"
+                      value={brandingSettings.facebookUrl}
+                      onChange={(e) => handleBrandingChange("facebookUrl", e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="linkedinUrl">LinkedIn URL</Label>
+                    <Input
+                      id="linkedinUrl"
+                      placeholder="https://linkedin.com/in/yourprofile"
+                      value={brandingSettings.linkedinUrl}
+                      onChange={(e) => handleBrandingChange("linkedinUrl", e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="instagramUrl">Instagram URL</Label>
+                    <Input
+                      id="instagramUrl"
+                      placeholder="https://instagram.com/yourhandle"
+                      value={brandingSettings.instagramUrl}
+                      onChange={(e) => handleBrandingChange("instagramUrl", e.target.value)}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           </TabsContent>

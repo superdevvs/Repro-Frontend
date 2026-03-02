@@ -1,49 +1,47 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { API_BASE_URL } from "@/config/env";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { motion, useScroll, useTransform } from "framer-motion";
-import { BedDouble, Bath, Maximize, ChevronDown, X, ChevronLeft, ChevronRight, Video, Layers, FileText, ExternalLink, Link2, Users } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  BedDouble, Bath, Maximize, Download, X, ChevronLeft, ChevronRight,
+  Link2, ExternalLink, Car, Tag,
+} from "lucide-react";
 import { NeoTour } from "./NeoTour";
 
 interface PropertyDetails {
   beds?: number;
+  bedrooms?: number;
   baths?: number;
+  bathrooms?: number;
   sqft?: number;
-  building?: Array<{ bedrooms?: number; baths?: number }>;
+  description?: string;
+  garage_cars?: number;
+  garage_sqft?: number;
+  building?: Array<{ bedrooms?: number; baths?: number; fullBaths?: number; halfBaths?: number }>;
   areas?: Array<{ areaSquareFeet?: number; type?: string }>;
+  garages?: Array<{ carCount?: number; areaSquareFeet?: number }>;
 }
-
-// Nav items will be built dynamically based on available data
 
 export function GenericMLS() {
   const [photos, setPhotos] = useState<string[]>([]);
   const [videos, setVideos] = useState<string[]>([]);
   const [videoLink, setVideoLink] = useState<string | null>(null);
   const [propertyDetails, setPropertyDetails] = useState<PropertyDetails | null>(null);
+  const [showGarage, setShowGarage] = useState(false);
   const [floorplans, setFloorplans] = useState<string[]>([]);
   const [matterportUrl, setMatterportUrl] = useState<string | null>(null);
   const [iguideUrl, setIguideUrl] = useState<string | null>(null);
   const [embeds, setEmbeds] = useState<Array<{ id: string; title: string; branded: string; mls: string }>>([]);
   const [featuredEmbedId, setFeaturedEmbedId] = useState<string>('');
-  const [tourSettings, setTourSettings] = useState({
-    header_position: 'center',
-    tour_version: 'standard',
-    realtor_info: '',
-    autoplay: false,
-  });
+  const [tourSettings, setTourSettings] = useState({ autoplay: false });
   const [loading, setLoading] = useState(true);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
-  const [activeSection, setActiveSection] = useState("photos");
   const [tourStyle, setTourStyle] = useState<string>('default');
-
-  const heroRef = useRef<HTMLDivElement>(null);
-  const { scrollY } = useScroll();
-  const heroOpacity = useTransform(scrollY, [0, 500], [1, 0]);
-  const heroScale = useTransform(scrollY, [0, 500], [1, 1.1]);
+  const [heroIndex, setHeroIndex] = useState(0);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -63,52 +61,42 @@ export function GenericMLS() {
           query.set('address', address as string);
           query.set('city', city as string);
           query.set('state', state as string);
-          if (zip) {
-            query.set('zip', zip);
-          }
+          if (zip) query.set('zip', zip);
         }
 
         const endpoint = query.toString()
           ? `${API_BASE_URL}/api/public/shoots/g-mls?${query.toString()}`
           : `${API_BASE_URL}/api/public/shoots/${shootId}/g-mls`;
-        
-        // Add cache-busting parameter to ensure fresh data
+
         const cacheBuster = new Date().getTime();
         const separator = endpoint.includes('?') ? '&' : '?';
         const res = await fetch(`${endpoint}${separator}t=${cacheBuster}`);
         const data = await res.json();
-        
+
         setPhotos(Array.isArray(data?.photos) ? data.photos : []);
         setVideos(Array.isArray(data?.videos) ? data.videos : []);
         if (data?.video_link || data?.tour_links?.video_link) setVideoLink(data.video_link || data.tour_links?.video_link);
         if (data?.property_details) setPropertyDetails(data.property_details);
+        setShowGarage(Boolean(data?.show_garage));
         if (data?.matterport_url) setMatterportUrl(data.matterport_url);
         if (data?.iguide_tour_url || data?.iguide_url) setIguideUrl(data.iguide_tour_url || data.iguide_url);
         if (data?.floorplans || data?.iguide_floorplans) {
           const fps = data.floorplans || data.iguide_floorplans || [];
           setFloorplans(Array.isArray(fps) ? fps.map((f: any) => typeof f === 'string' ? f : f.url || f.path) : []);
         }
-        // Check for tour style - check both locations
         const style = data?.tour_style || data?.tour_links?.tour_style || 'default';
         setTourStyle(style);
-        console.log('Tour style detected:', style, 'from data:', { tour_style: data?.tour_style, tour_links: data?.tour_links });
 
         const rawEmbeds = Array.isArray(data?.tour_links?.embeds) ? data.tour_links.embeds : [];
         const embedKey = shootId || [address, city, state, zip].filter(Boolean).join('-');
-        const normalizedEmbeds = rawEmbeds.map((embed: any, index: number) => ({
+        setEmbeds(rawEmbeds.map((embed: any, index: number) => ({
           id: embed?.id || `embed-${embedKey}-${index}`,
           title: embed?.title || `Embed ${index + 1}`,
           branded: embed?.branded || embed?.branded_embed || embed?.url || '',
           mls: embed?.mls || embed?.mls_embed || '',
-        }));
-        setEmbeds(normalizedEmbeds);
+        })));
         setFeaturedEmbedId(data?.tour_links?.featured_embed_id || data?.tour_links?.featured_embed || '');
-        setTourSettings({
-          header_position: data?.tour_links?.header_position || 'center',
-          tour_version: data?.tour_links?.tour_version || 'standard',
-          realtor_info: data?.tour_links?.realtor_info || '',
-          autoplay: Boolean(data?.tour_links?.autoplay),
-        });
+        setTourSettings({ autoplay: Boolean(data?.tour_links?.autoplay) });
       } catch (err) {
         console.error('Error fetching tour data:', err);
       } finally {
@@ -118,92 +106,90 @@ export function GenericMLS() {
     fetchData();
   }, []);
 
-  const getBeds = () => propertyDetails?.beds || propertyDetails?.building?.[0]?.bedrooms || null;
-  const getBaths = () => propertyDetails?.baths || propertyDetails?.building?.[0]?.baths || null;
+  // Ken Burns slideshow
+  useEffect(() => {
+    if (photos.length <= 1) return;
+    const timer = setInterval(() => {
+      setHeroIndex((prev) => (prev + 1) % Math.min(photos.length, 10));
+    }, 6000);
+    return () => clearInterval(timer);
+  }, [photos.length]);
+
+  // Derived values
+  const getBeds = () => {
+    const pd = propertyDetails;
+    return pd?.beds || pd?.bedrooms || pd?.building?.[0]?.bedrooms || null;
+  };
+  const getBaths = () => {
+    const pd = propertyDetails;
+    if (pd?.baths) return pd.baths;
+    if (pd?.bathrooms) return pd.bathrooms;
+    const b = pd?.building?.[0];
+    if (!b) return null;
+    const full = b.fullBaths ?? 0;
+    const half = (b.halfBaths ?? 0) * 0.5;
+    const total = full + half;
+    return total || b.baths || null;
+  };
   const getSqft = () => {
     if (propertyDetails?.sqft) return propertyDetails.sqft;
-    const area = propertyDetails?.areas?.find(a => a.type?.includes('Finished') || a.type?.includes('Building'));
+    const area = propertyDetails?.areas?.find(a => a.type?.includes('Living') || a.type?.includes('Finished') || a.type?.includes('Building'));
     return area?.areaSquareFeet || null;
   };
-
-  const scrollToSection = (id: string) => {
-    setActiveSection(id);
-    document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  const openLightbox = (index: number) => {
-    setLightboxIndex(index);
-    setLightboxOpen(true);
-  };
-
-  const navigateLightbox = (direction: "prev" | "next") => {
-    if (direction === "prev") {
-      setLightboxIndex((prev) => (prev === 0 ? photos.length - 1 : prev - 1));
-    } else {
-      setLightboxIndex((prev) => (prev === photos.length - 1 ? 0 : prev + 1));
-    }
+  const getGarageCars = () => {
+    if (!showGarage) return null;
+    if (propertyDetails?.garage_cars) return propertyDetails.garage_cars;
+    const garages = propertyDetails?.garages;
+    if (!garages?.length) return null;
+    let total = 0;
+    garages.forEach(g => { total += g.carCount || 0; });
+    return total || garages.length;
   };
 
   const beds = getBeds();
   const baths = getBaths();
   const sqft = getSqft();
+  const garageCars = getGarageCars();
+  const hasStats = beds || baths || sqft || garageCars;
+
   const orderedEmbeds = useMemo(() => {
     if (!embeds.length) return [];
-    const featured = embeds.find((embed) => embed.id === featuredEmbedId);
+    const featured = embeds.find((e) => e.id === featuredEmbedId);
     if (!featured) return embeds;
-    return [featured, ...embeds.filter((embed) => embed.id !== featuredEmbedId)];
+    return [featured, ...embeds.filter((e) => e.id !== featuredEmbedId)];
   }, [embeds, featuredEmbedId]);
-  const heroAlignment = tourSettings.header_position === 'left'
-    ? 'items-start text-left'
-    : tourSettings.header_position === 'right'
-      ? 'items-end text-right'
-      : 'items-center text-center';
-  const heroContentAlign = tourSettings.header_position === 'left'
-    ? 'items-start'
-    : tourSettings.header_position === 'right'
-      ? 'items-end'
-      : 'items-center';
-  const showVersionBadge = tourSettings.tour_version && tourSettings.tour_version !== 'standard';
 
-  // Build nav items dynamically based on available data
   const hasVideo = videos.length > 0 || !!videoLink;
-  const navItems = [
-    ...(photos.length > 0 ? [{ id: "photos", label: "Photos" }] : []),
-    ...(hasVideo ? [{ id: "video", label: "Video" }] : []),
-    ...((matterportUrl || iguideUrl) ? [{ id: "tour", label: "3D Tour" }] : []),
-    ...(orderedEmbeds.length > 0 ? [{ id: "embeds", label: "Embeds" }] : []),
-    ...(floorplans.length > 0 ? [{ id: "floorplan", label: "Floor Plan" }] : []),
-  ];
 
-  // Helper to convert YouTube/Vimeo URLs to embed URLs
-  const getEmbedUrl = (url: string): string | null => {
-    if (!url) return null;
-    // YouTube
-    const ytMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-    if (ytMatch) return `https://www.youtube.com/embed/${ytMatch[1]}`;
-    // Vimeo
-    const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
-    if (vimeoMatch) return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
-    // Direct video URL - return as-is
-    return url;
+  const openLightbox = (index: number) => { setLightboxIndex(index); setLightboxOpen(true); };
+  const navigateLightbox = (direction: "prev" | "next") => {
+    setLightboxIndex((prev) =>
+      direction === "prev" ? (prev === 0 ? photos.length - 1 : prev - 1) : (prev === photos.length - 1 ? 0 : prev + 1)
+    );
   };
 
+  // Embed helpers
+  const getEmbedUrl = (url: string): string | null => {
+    if (!url) return null;
+    const ytMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+    if (ytMatch) return `https://www.youtube.com/embed/${ytMatch[1]}`;
+    const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
+    if (vimeoMatch) return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
+    return url;
+  };
   const appendAutoplayParam = (url: string) => {
     if (!tourSettings.autoplay || !url) return url;
     if (url.includes('autoplay=')) return url;
-    const separator = url.includes('?') ? '&' : '?';
-    return `${url}${separator}autoplay=1&mute=1`;
+    const sep = url.includes('?') ? '&' : '?';
+    return `${url}${sep}autoplay=1&mute=1`;
   };
-
   const applyAutoplayToEmbedHtml = (html: string) => {
     if (!tourSettings.autoplay) return html;
     return html.replace(/src=["']([^"']+)["']/gi, (match, src) => {
       if (src.includes('autoplay=')) return match;
-      const updated = appendAutoplayParam(src);
-      return match.replace(src, updated);
+      return match.replace(src, appendAutoplayParam(src));
     });
   };
-
   const isEmbedHtml = (value: string) => value.includes('<') && value.includes('>');
   const getEmbedValue = (embed: { branded: string; mls: string }) => embed.mls || embed.branded || '';
 
@@ -218,358 +204,214 @@ export function GenericMLS() {
     );
   }
 
-  // Render Neo theme if tour style is 'neo'
   if (tourStyle === 'neo') {
     return <NeoTour />;
   }
 
   return (
-    <div className="fixed inset-0 overflow-auto bg-background text-foreground font-sans transition-colors duration-300">
-      {/* Floating Navigation */}
-      <motion.nav 
-        initial={{ y: -100 }}
-        animate={{ y: 0 }}
-        className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/40 shadow-sm"
-      >
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-center">
-          <div className="hidden md:flex items-center gap-1 bg-muted/50 rounded-full p-1 border border-border/50">
-            {navItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => scrollToSection(item.id)}
-                className={cn(
-                  "px-4 py-2 rounded-full text-sm font-medium transition-all duration-300",
-                  activeSection === item.id
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground hover:bg-background/50"
-                )}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-2" />
-        </div>
-      </motion.nav>
-
-      {/* Hero Section - NO ADDRESS */}
-      <section ref={heroRef} className="relative h-screen overflow-hidden">
-        <motion.div 
-          style={{ opacity: heroOpacity, scale: heroScale }}
-          className="absolute inset-0"
-        >
+    <div className="fixed inset-0 overflow-auto bg-background text-foreground font-sans">
+      {/* Hero — Ken Burns slideshow with padding */}
+      <div className="p-2.5">
+        <div className="rounded-2xl overflow-hidden relative" style={{ height: 'calc(100vh - 20px)', minHeight: '600px' }}>
           {photos.length > 0 ? (
-            <img
-              src={photos[0]}
-              alt="Hero Property"
-              className="w-full h-full object-cover"
-            />
+            <AnimatePresence mode="sync">
+              <motion.img
+                key={heroIndex}
+                src={photos[heroIndex % photos.length]}
+                alt="Hero"
+                className="absolute inset-0 w-full h-full object-cover"
+                initial={{ opacity: 0, scale: 1.05 }}
+                animate={{ opacity: 1, scale: 1.15 }}
+                exit={{ opacity: 0 }}
+                transition={{ opacity: { duration: 1.2 }, scale: { duration: 8, ease: 'linear' } }}
+              />
+            </AnimatePresence>
           ) : (
-            <div className="w-full h-full bg-muted flex items-center justify-center">
+            <div className="absolute inset-0 bg-muted flex items-center justify-center">
               <span className="text-muted-foreground">No Image Available</span>
             </div>
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
-        </motion.div>
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent z-[1]" />
 
-        <motion.div 
-          initial={{ opacity: 0, y: 40 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3, duration: 0.8 }}
-          className={cn("absolute inset-0 flex flex-col justify-end pb-24 px-6", heroAlignment)}
-        >
-          <div className={cn("max-w-7xl mx-auto w-full", heroContentAlign)}>
-            <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-6 text-foreground drop-shadow-2xl">
-              Property Tour
-            </h1>
+          {/* Floating nav pill */}
+          <nav className="absolute top-5 right-5 z-10 flex items-center gap-1 bg-white/15 backdrop-blur-md rounded-full px-2 py-1.5 border border-white/20">
+            {propertyDetails?.description && (
+              <a href="#about" className="px-4 py-1.5 text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors">About</a>
+            )}
+            {photos.length > 0 && (
+              <a href="#photos" className="px-4 py-1.5 text-sm font-medium text-white hover:bg-white/10 rounded-full transition-colors border-b-2 border-white">Photos</a>
+            )}
+            {(videos.length > 0 || videoLink) && (
+              <a href="#video" className="px-4 py-1.5 text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors">Videos</a>
+            )}
+            {(matterportUrl || iguideUrl) && (
+              <a href="#tour" className="px-4 py-1.5 text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors">3D Tour</a>
+            )}
+            {floorplans.length > 0 && (
+              <a href="#floorplan" className="px-4 py-1.5 text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors">Floor Plans</a>
+            )}
+          </nav>
 
-            {/* Property details removed for MLS - media only */}
-          </div>
-        </motion.div>
-
-        <motion.div
-          animate={{ y: [0, 10, 0] }}
-          transition={{ duration: 2, repeat: Infinity }}
-          className="absolute bottom-8 left-1/2 -translate-x-1/2"
-        >
-          <ChevronDown className="w-8 h-8 text-foreground/60" />
-        </motion.div>
-      </section>
-
-      {/* Photo Gallery Section - Only show if photos exist */}
-      {photos.length > 0 && (
-        <section id="photos" className="py-24 px-6 bg-background">
-          <div className="max-w-7xl mx-auto">
-            <motion.div
-              initial={{ opacity: 0, y: 40 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6 }}
-              className="text-center mb-16"
-            >
-              <h2 className="text-4xl md:text-5xl font-bold text-foreground">
-                Gallery
-              </h2>
-            </motion.div>
-
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {photos.map((photo, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, y: 40 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: index * 0.05, duration: 0.5 }}
-                  className={cn(
-                    "relative group cursor-pointer overflow-hidden rounded-2xl border border-border/40 shadow-sm",
-                    index === 0 && "col-span-2 row-span-2",
-                    index === 5 && "col-span-2"
-                  )}
-                  onClick={() => openLightbox(index)}
-                >
-                  <img
-                    src={photo}
-                    alt={`Property photo ${index + 1}`}
-                    className="w-full h-full object-cover aspect-square group-hover:scale-110 transition-transform duration-700"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                  <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    <span className="text-sm font-medium text-white">View Full</span>
-                    <Maximize className="w-4 h-4 text-white" />
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Realtor info removed for MLS - media only */}
-
-      {/* Embed Section */}
-      {orderedEmbeds.length > 0 && (
-        <section id="embeds" className="py-24 px-6 bg-muted/20">
-          <div className="max-w-7xl mx-auto">
-            <motion.div
-              initial={{ opacity: 0, y: 40 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6 }}
-              className="text-center mb-16"
-            >
-              <h2 className="text-4xl md:text-5xl font-bold text-foreground flex items-center justify-center gap-3">
-                <Link2 className="h-6 w-6 text-primary" />
-                Embeds
-              </h2>
-            </motion.div>
-
-            <div className="grid gap-8">
-              {orderedEmbeds.map((embed, index) => {
-                const value = getEmbedValue(embed);
-                if (!value) return null;
-                return (
-                  <motion.div
-                    key={embed.id}
-                    initial={{ opacity: 0, y: 30 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 0.5, delay: index * 0.05 }}
-                    className="rounded-3xl border border-border/40 bg-background shadow-lg overflow-hidden"
-                  >
-                    <div className="flex items-center justify-between px-6 py-4 border-b border-border/40">
-                      <div>
-                        <h3 className="text-lg font-semibold">{embed.title || `Embed ${index + 1}`}</h3>
-                        {featuredEmbedId === embed.id && (
-                          <Badge variant="outline" className="text-[10px] mt-1">Featured</Badge>
-                        )}
-                      </div>
-                      {!isEmbedHtml(value) && (
-                        <Button variant="outline" size="sm" asChild>
-                          <a href={value} target="_blank" rel="noopener noreferrer">
-                            <ExternalLink className="h-4 w-4 mr-2" />
-                            Open
-                          </a>
-                        </Button>
-                      )}
-                    </div>
-                    <div className="p-6">
-                      {isEmbedHtml(value) ? (
-                        <div
-                          className="w-full [&_iframe]:w-full [&_iframe]:min-h-[360px] [&_iframe]:rounded-2xl [&_iframe]:border [&_iframe]:border-border/40"
-                          dangerouslySetInnerHTML={{ __html: applyAutoplayToEmbedHtml(value) }}
-                        />
-                      ) : (
-                        <div className="relative w-full aspect-video rounded-2xl overflow-hidden border border-border/40">
-                          <iframe
-                            src={appendAutoplayParam(value)}
-                            className="w-full h-full border-0"
-                            allow="fullscreen; clipboard-write; autoplay"
-                            allowFullScreen
-                            title={embed.title || `Embed ${index + 1}`}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Video Section - Only show if videos or videoLink exist */}
-      {hasVideo && (
-        <section id="video" className="py-24 px-6 bg-muted/30">
-          <div className="max-w-7xl mx-auto">
-            <motion.div
-              initial={{ opacity: 0, y: 40 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6 }}
-              className="text-center mb-16"
-            >
-              <h2 className="text-4xl md:text-5xl font-bold text-foreground">
-                Video Tour
-              </h2>
-            </motion.div>
-
-            <div className="grid md:grid-cols-2 gap-8">
-              {/* Embedded Video Link (YouTube/Vimeo) */}
-              {videoLink && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  whileInView={{ opacity: 1, scale: 1 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.6 }}
-                  className="relative aspect-video rounded-3xl overflow-hidden group border border-border/40 shadow-xl col-span-full"
-                >
-                  {getEmbedUrl(videoLink)?.includes('youtube.com') || getEmbedUrl(videoLink)?.includes('vimeo.com') ? (
-                    <iframe
-                      src={`${getEmbedUrl(videoLink) || ''}${tourSettings.autoplay ? (getEmbedUrl(videoLink)?.includes('?') ? '&' : '?') + 'autoplay=1&mute=1' : ''}`}
-                      className="w-full h-full border-0"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                      title="Video Tour"
-                    />
-                  ) : (
-                    <video
-                      src={videoLink}
-                      controls
-                      autoPlay={tourSettings.autoplay}
-                      muted={tourSettings.autoplay}
-                      className="w-full h-full object-cover"
-                      poster={photos[0]}
-                    />
-                  )}
-                </motion.div>
-              )}
-              {/* Direct video files */}
-              {videos.map((video, idx) => (
-                <motion.div
-                  key={idx}
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  whileInView={{ opacity: 1, scale: 1 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.6 }}
-                  className="relative aspect-video rounded-3xl overflow-hidden group border border-border/40 shadow-xl"
-                >
-                  <video
-                    src={video}
-                    controls
-                    autoPlay={tourSettings.autoplay}
-                    muted={tourSettings.autoplay}
-                    className="w-full h-full object-cover"
-                    poster={photos[0]}
-                  />
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* 3D Tour Section - Only show if matterport or iguide exists */}
-      {(matterportUrl || iguideUrl) && (
-        <section id="tour" className="py-24 px-6 bg-background">
-          <div className="max-w-7xl mx-auto">
-            <motion.div
-              initial={{ opacity: 0, y: 40 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6 }}
-              className="text-center mb-16"
-            >
-              <h2 className="text-4xl md:text-5xl font-bold text-foreground">
-                3D Tour
-              </h2>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 40 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6 }}
-              className="relative aspect-video rounded-3xl overflow-hidden border border-border/40 shadow-2xl"
-            >
-              <iframe
-                src={appendAutoplayParam(matterportUrl || iguideUrl || '')}
-                className="w-full h-full border-0"
-                allow="fullscreen; vr; autoplay"
-                allowFullScreen
-                title="3D Tour"
-              />
+          {/* Title on hero */}
+          <div className="absolute bottom-6 md:bottom-10 left-0 right-0 px-8 md:px-12 z-[2]">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
+              <h1 className="text-3xl md:text-5xl font-extrabold text-white tracking-tight">
+                Property Tour
+              </h1>
             </motion.div>
           </div>
-        </section>
-      )}
+        </div>
+      </div>
 
-      {/* Floor Plan Section - Only show if floorplans exist */}
-      {floorplans.length > 0 && (
-        <section id="floorplan" className="py-24 px-6 bg-muted/30">
-          <div className="max-w-7xl mx-auto">
-            <motion.div
-              initial={{ opacity: 0, y: 40 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6 }}
-              className="text-center mb-16"
-            >
-              <h2 className="text-4xl md:text-5xl font-bold text-foreground">
-                Floor Plans
-              </h2>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 40 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6 }}
-              className="grid md:grid-cols-2 gap-8"
-            >
-              {floorplans.map((fp, index) => (
-                <div
-                  key={index}
-                  className="relative aspect-[4/3] rounded-3xl overflow-hidden bg-background border border-border/40 p-8 flex flex-col shadow-lg hover:shadow-xl transition-shadow"
-                >
-                  <h3 className="text-xl font-semibold mb-4 text-foreground">Level {index + 1}</h3>
-                  <div className="flex-1 flex items-center justify-center">
-                    <img src={fp} alt={`Floor Plan ${index + 1}`} className="max-w-full max-h-full object-contain" />
-                  </div>
+      {/* Stats Row — dividers */}
+      {hasStats && (() => {
+        const statItems: { icon: React.ReactNode; label: string; value: string }[] = [];
+        if (beds != null) statItems.push({ icon: <BedDouble className="w-7 h-7 text-muted-foreground" />, label: 'Beds', value: String(beds) });
+        if (baths != null) statItems.push({ icon: <Bath className="w-7 h-7 text-muted-foreground" />, label: 'Baths', value: String(baths) });
+        if (garageCars != null) statItems.push({ icon: <Car className="w-7 h-7 text-muted-foreground" />, label: 'Garage', value: `${garageCars} Cars` });
+        if (sqft != null) statItems.push({ icon: <Maximize className="w-7 h-7 text-muted-foreground" />, label: 'Square Feet', value: sqft.toLocaleString() });
+        return (
+          <section className="max-w-6xl mx-auto px-6 mt-8">
+            <div className="flex items-stretch border border-border/40 rounded-2xl bg-card overflow-hidden divide-x divide-border/40">
+              {statItems.map((item, i) => (
+                <div key={i} className="flex-1 flex flex-col items-center gap-1.5 py-5 px-2">
+                  {item.icon}
+                  <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">{item.label}</span>
+                  <span className="text-base md:text-lg font-extrabold text-foreground">{item.value}</span>
                 </div>
               ))}
-            </motion.div>
+            </div>
+          </section>
+        );
+      })()}
+
+      {/* Photo Gallery */}
+      {photos.length > 0 && (
+        <section id="photos" className="max-w-6xl mx-auto px-6 mt-10">
+          <h2 className="text-2xl font-bold text-foreground mb-6">Gallery</h2>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {photos.map((photo, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: Math.min(index * 0.03, 0.3), duration: 0.4 }}
+                className={cn(
+                  "relative group cursor-pointer overflow-hidden rounded-xl border border-border/30",
+                  index === 0 && "col-span-2 row-span-2"
+                )}
+                onClick={() => openLightbox(index)}
+              >
+                <img src={photo} alt={`Photo ${index + 1}`} className="w-full h-full object-cover aspect-square group-hover:scale-105 transition-transform duration-500" />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300" />
+              </motion.div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Embeds */}
+      {orderedEmbeds.length > 0 && (
+        <section id="embeds" className="max-w-6xl mx-auto px-6 mt-10">
+          <h2 className="text-2xl font-bold text-foreground mb-6">Virtual Tours</h2>
+          <div className="grid gap-6">
+            {orderedEmbeds.map((embed, index) => {
+              const value = getEmbedValue(embed);
+              if (!value) return null;
+              return (
+                <div key={embed.id} className="rounded-2xl border border-border/40 bg-card overflow-hidden shadow-sm">
+                  <div className="flex items-center justify-between px-5 py-3 border-b border-border/40">
+                    <div className="flex items-center gap-2">
+                      <Link2 className="w-4 h-4 text-muted-foreground" />
+                      <h3 className="font-semibold text-sm">{embed.title || `Embed ${index + 1}`}</h3>
+                      {featuredEmbedId === embed.id && <Badge variant="outline" className="text-[10px]">Featured</Badge>}
+                    </div>
+                    {!isEmbedHtml(value) && (
+                      <Button variant="ghost" size="sm" asChild>
+                        <a href={value} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-3.5 w-3.5" /></a>
+                      </Button>
+                    )}
+                  </div>
+                  <div className="p-4">
+                    {isEmbedHtml(value) ? (
+                      <div className="w-full [&_iframe]:w-full [&_iframe]:min-h-[360px] [&_iframe]:rounded-xl [&_iframe]:border [&_iframe]:border-border/40" dangerouslySetInnerHTML={{ __html: applyAutoplayToEmbedHtml(value) }} />
+                    ) : (
+                      <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-border/40">
+                        <iframe src={appendAutoplayParam(value)} className="w-full h-full border-0" allow="fullscreen; clipboard-write; autoplay" allowFullScreen title={embed.title || `Embed ${index + 1}`} />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* Video */}
+      {hasVideo && (
+        <section id="video" className="max-w-6xl mx-auto px-6 mt-10">
+          <h2 className="text-2xl font-bold text-foreground mb-6">Video Tour</h2>
+          <div className="grid md:grid-cols-2 gap-6">
+            {videoLink && (
+              <div className="relative aspect-video rounded-2xl overflow-hidden border border-border/40 shadow-md col-span-full">
+                {getEmbedUrl(videoLink)?.includes('youtube.com') || getEmbedUrl(videoLink)?.includes('vimeo.com') ? (
+                  <iframe
+                    src={`${getEmbedUrl(videoLink) || ''}${tourSettings.autoplay ? (getEmbedUrl(videoLink)?.includes('?') ? '&' : '?') + 'autoplay=1&mute=1' : ''}`}
+                    className="w-full h-full border-0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    title="Video Tour"
+                  />
+                ) : (
+                  <video src={videoLink} controls autoPlay={tourSettings.autoplay} muted={tourSettings.autoplay} className="w-full h-full object-cover" poster={photos[0]} />
+                )}
+              </div>
+            )}
+            {videos.map((video, idx) => (
+              <div key={idx} className="relative aspect-video rounded-2xl overflow-hidden border border-border/40 shadow-md">
+                <video src={video} controls autoPlay={tourSettings.autoplay} muted={tourSettings.autoplay} className="w-full h-full object-cover" poster={photos[0]} />
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* 3D Tour */}
+      {(matterportUrl || iguideUrl) && (
+        <section id="tour" className="max-w-6xl mx-auto px-6 mt-10">
+          <h2 className="text-2xl font-bold text-foreground mb-6">3D Tour</h2>
+          <div className="relative aspect-video rounded-2xl overflow-hidden border border-border/40 shadow-lg">
+            <iframe src={appendAutoplayParam(matterportUrl || iguideUrl || '')} className="w-full h-full border-0" allow="fullscreen; vr; autoplay" allowFullScreen title="3D Tour" />
+          </div>
+        </section>
+      )}
+
+      {/* Floor Plans */}
+      {floorplans.length > 0 && (
+        <section id="floorplan" className="max-w-6xl mx-auto px-6 mt-10 mb-12">
+          <h2 className="text-2xl font-bold text-foreground mb-6">Floor Plans</h2>
+          <div className="grid md:grid-cols-2 gap-6">
+            {floorplans.map((fp, index) => (
+              <div key={index} className="rounded-2xl overflow-hidden bg-card border border-border/40 p-6 flex flex-col shadow-sm">
+                <h3 className="font-semibold mb-3">Level {index + 1}</h3>
+                <div className="flex-1 flex items-center justify-center min-h-[200px]">
+                  <img src={fp} alt={`Floor Plan ${index + 1}`} className="max-w-full max-h-[300px] object-contain" />
+                </div>
+                <Button variant="outline" className="mt-4 rounded-full w-full" asChild>
+                  <a href={fp} download target="_blank" rel="noopener noreferrer"><Download className="w-4 h-4 mr-2" />Download</a>
+                </Button>
+              </div>
+            ))}
           </div>
         </section>
       )}
 
       {/* Footer */}
-      <footer className="py-8 px-6 border-t border-border/40 bg-muted/20">
-        <div className="max-w-7xl mx-auto flex flex-col items-center justify-center gap-4">
-          <p className="text-muted-foreground text-xs">
-            © 2026 R/E Pro Photos. All Rights Reserved.
-          </p>
+      <footer className="py-6 px-6 mt-10 border-t border-border/40 bg-muted/20">
+        <div className="max-w-6xl mx-auto flex flex-col items-center justify-center">
+          <p className="text-muted-foreground text-xs">&copy; {new Date().getFullYear()} R/E Pro Photos. All Rights Reserved.</p>
         </div>
       </footer>
 
@@ -577,43 +419,18 @@ export function GenericMLS() {
       <Dialog open={lightboxOpen} onOpenChange={setLightboxOpen}>
         <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 bg-black/95 border-none shadow-none sm:rounded-none overflow-hidden">
           <div className="relative w-full h-full flex items-center justify-center min-h-[80vh]">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute top-4 right-4 z-50 rounded-full bg-white/10 hover:bg-white/20 text-white"
-              onClick={() => setLightboxOpen(false)}
-            >
+            <Button variant="ghost" size="icon" className="absolute top-4 right-4 z-50 rounded-full bg-white/10 hover:bg-white/20 text-white" onClick={() => setLightboxOpen(false)}>
               <X className="w-5 h-5" />
             </Button>
-            
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute left-4 top-1/2 -translate-y-1/2 z-50 rounded-full bg-white/10 hover:bg-white/20 text-white h-12 w-12"
-              onClick={() => navigateLightbox("prev")}
-            >
+            <Button variant="ghost" size="icon" className="absolute left-4 top-1/2 -translate-y-1/2 z-50 rounded-full bg-white/10 hover:bg-white/20 text-white h-12 w-12" onClick={() => navigateLightbox("prev")}>
               <ChevronLeft className="w-8 h-8" />
             </Button>
-
-            <img
-              src={photos[lightboxIndex]}
-              alt={`Property photo ${lightboxIndex + 1}`}
-              className="max-w-full max-h-[90vh] object-contain"
-            />
-
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute right-4 top-1/2 -translate-y-1/2 z-50 rounded-full bg-white/10 hover:bg-white/20 text-white h-12 w-12"
-              onClick={() => navigateLightbox("next")}
-            >
+            <img src={photos[lightboxIndex]} alt={`Photo ${lightboxIndex + 1}`} className="max-w-full max-h-[90vh] object-contain" />
+            <Button variant="ghost" size="icon" className="absolute right-4 top-1/2 -translate-y-1/2 z-50 rounded-full bg-white/10 hover:bg-white/20 text-white h-12 w-12" onClick={() => navigateLightbox("next")}>
               <ChevronRight className="w-8 h-8" />
             </Button>
-
-            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 bg-black/50 rounded-full backdrop-blur-sm">
-              <span className="text-white text-sm font-medium">
-                {lightboxIndex + 1} / {photos.length}
-              </span>
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 px-4 py-2 bg-black/50 rounded-full backdrop-blur-sm">
+              <span className="text-white text-sm font-medium">{lightboxIndex + 1} / {photos.length}</span>
             </div>
           </div>
         </DialogContent>
