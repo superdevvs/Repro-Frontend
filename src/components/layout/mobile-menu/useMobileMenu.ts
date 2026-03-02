@@ -35,7 +35,7 @@ export const useMobileMenu = () => {
       icon: "Home",
       label: "Dashboard",
       isActive: pathname === '/dashboard',
-      roles: ['client', 'admin', 'superadmin', 'photographer', 'editor']
+      roles: ['client', 'admin', 'superadmin', 'photographer', 'editor', 'editing_manager']
     },
     {
       to: "/book-shoot",
@@ -49,7 +49,7 @@ export const useMobileMenu = () => {
       icon: "Calendar",
       label: "Shoots",
       isActive: pathname === '/shoot-history' || pathname.startsWith('/shoots'),
-      roles: ['client', 'admin', 'superadmin', 'photographer', 'editor']
+      roles: ['client', 'admin', 'superadmin', 'photographer', 'editor', 'editing_manager']
     },
     {
       to: "/availability",
@@ -63,21 +63,21 @@ export const useMobileMenu = () => {
       icon: "Robbie",
       label: "Robbie",
       isActive: pathname === '/chat-with-reproai',
-      roles: ['client', 'admin', 'superadmin']
+      roles: ['client', 'admin', 'superadmin', 'editing_manager']
     },
     {
       to: "/accounts",
       icon: "Building",
       label: "Accounts",
       isActive: pathname === '/accounts',
-      roles: ['admin', 'superadmin']
+      roles: ['admin', 'superadmin', 'editing_manager']
     },
     {
       to: "/scheduling-settings",
       icon: "Calendar",
       label: "Scheduling",
       isActive: pathname === '/scheduling-settings',
-      roles: ['admin', 'superadmin']
+      roles: ['admin', 'superadmin', 'editing_manager']
     },
     {
       to: "/portal",
@@ -91,7 +91,7 @@ export const useMobileMenu = () => {
       icon: "FileText",
       label: getAccountingLabel(),
       isActive: pathname === '/accounting',
-      roles: ['client', 'admin', 'superadmin', 'photographer', 'editor', 'salesRep']
+      roles: ['client', 'admin', 'superadmin', 'photographer', 'editor', 'salesRep', 'editing_manager']
     },
     {
       to: "/messaging/email/inbox",
@@ -116,7 +116,7 @@ export const useMobileMenu = () => {
       icon: "Settings",
       label: "Settings",
       isActive: pathname === '/settings',
-      roles: ['client', 'admin', 'superadmin', 'photographer', 'editor']
+      roles: ['client', 'admin', 'superadmin', 'photographer', 'editor', 'editing_manager']
     },
     {
       to: "/cubicasa-scanning",
@@ -130,7 +130,7 @@ export const useMobileMenu = () => {
       icon: "Sparkles",
       label: "AI Editing",
       isActive: pathname === '/ai-editing' || pathname.startsWith('/ai-editing'),
-      roles: ['admin', 'superadmin']
+      roles: ['admin', 'superadmin', 'editing_manager']
     }
   ];
 

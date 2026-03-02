@@ -178,7 +178,7 @@ export function getAccountingMode(role: Role | string | undefined): AccountingMo
   
   const roleLower = role.toLowerCase();
   
-  if (roleLower === 'admin' || roleLower === 'superadmin') {
+  if (roleLower === 'admin' || roleLower === 'superadmin' || roleLower === 'editing_manager') {
     return 'admin';
   }
   if (roleLower === 'photographer' || roleLower === 'photo') {

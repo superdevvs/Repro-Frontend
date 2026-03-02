@@ -113,8 +113,8 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
         />
       )}
       
-      {/* Accounting - Available to all roles except editing_manager */}
-      {role !== 'editing_manager' && (() => {
+      {/* Accounting */}
+      {(() => {
         const accountingMode = getAccountingMode(role);
         const config = accountingConfigs[accountingMode];
         return (
