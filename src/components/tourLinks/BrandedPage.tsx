@@ -306,9 +306,16 @@ export function BrandedPage() {
               <h1 className="text-xl font-extrabold text-white tracking-tight drop-shadow-lg leading-tight">
                 {shoot?.address || 'Property Tour'}
               </h1>
-              <p className="text-white/80 text-xs mt-0.5 drop-shadow">
-                {shoot?.city}{shoot?.state ? `, ${shoot.state}` : ''} {shoot?.zip}
-              </p>
+              {(() => {
+                const parts = [shoot?.city, shoot?.state, shoot?.zip].filter(Boolean);
+                const addressLower = (shoot?.address || '').toLowerCase();
+                const alreadyInAddress = parts.length > 0 && parts.every(p => addressLower.includes((p as string).toLowerCase()));
+                return !alreadyInAddress ? (
+                  <p className="text-white/80 text-xs mt-0.5 drop-shadow">
+                    {shoot?.city}{shoot?.state ? `, ${shoot.state}` : ''} {shoot?.zip}
+                  </p>
+                ) : null;
+              })()}
             </motion.div>
           </div>
         </div>
@@ -330,12 +337,18 @@ export function BrandedPage() {
             </div>
           )}
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="min-w-0 pb-5">
-            <h1 className="text-5xl font-extrabold text-white tracking-tight drop-shadow-lg leading-tight">
+            <h1 className="text-4xl font-bold text-white tracking-tight drop-shadow-lg leading-tight">
               {shoot?.address || 'Property Tour'}
             </h1>
-            <p className="text-white/80 text-lg mt-1 drop-shadow">
-              {shoot?.city}{shoot?.state ? `, ${shoot.state}` : ''} {shoot?.zip}
-            </p>
+            {(() => {
+              const parts = [shoot?.city, shoot?.state, shoot?.zip].filter(Boolean);
+              const subLine = [shoot?.city, shoot?.state ? `, ${shoot.state}` : '', shoot?.zip ? ` ${shoot.zip}` : ''].join('');
+              const addressLower = (shoot?.address || '').toLowerCase();
+              const alreadyInAddress = parts.length > 0 && parts.every(p => addressLower.includes((p as string).toLowerCase()));
+              return !alreadyInAddress && subLine.trim() ? (
+                <p className="text-white/80 text-lg mt-1 drop-shadow">{shoot?.city}{shoot?.state ? `, ${shoot.state}` : ''} {shoot?.zip}</p>
+              ) : null;
+            })()}
           </motion.div>
         </div>
         {/* Row 2: Name + Phone + Social (below hero, beside photo overflow) */}
