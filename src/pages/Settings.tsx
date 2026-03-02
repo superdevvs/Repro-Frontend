@@ -51,6 +51,9 @@ const Settings = () => {
   const [brandLogo, setBrandLogo] = React.useState('');
   const [brandBanner, setBrandBanner] = React.useState('');
   const [brandAbout, setBrandAbout] = React.useState('');
+  const [facebookUrl, setFacebookUrl] = React.useState('');
+  const [linkedinUrl, setLinkedinUrl] = React.useState('');
+  const [instagramUrl, setInstagramUrl] = React.useState('');
   const [showMap, setShowMap] = React.useState<boolean>(() => {
     const stored = localStorage.getItem(storageKey('showMap'));
     return stored ? stored === 'true' : false;
@@ -88,20 +91,30 @@ const Settings = () => {
   );
 
   React.useEffect(() => {
-    const storedAbout = localStorage.getItem(storageKey('brandAbout'));
-    if (storedAbout) setBrandAbout(storedAbout);
-
     const storedAvatar = localStorage.getItem(storageKey('avatar'));
     if (storedAvatar) setAvatar(storedAvatar);
 
-    const storedLogo = localStorage.getItem(storageKey('brandLogo'));
-    if (storedLogo) setBrandLogo(storedLogo);
-
-    const storedBanner = localStorage.getItem(storageKey('brandBanner'));
-    if (storedBanner) setBrandBanner(storedBanner);
-
     const storedShowMap = localStorage.getItem(storageKey('showMap'));
     if (storedShowMap) setShowMap(storedShowMap === 'true');
+
+    // Load branding from API
+    const userId = clientIdFromUrl || user?.id;
+    if (userId) {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      axios.get(`${API_BASE_URL}/api/users/${userId}/branding`, {
+        headers: { Authorization: `Bearer ${token}` },
+      }).then(({ data }) => {
+        const b = data?.data?.branding;
+        if (b) {
+          if (b.logo) setBrandLogo(b.logo);
+          if (b.banner) setBrandBanner(b.banner);
+          if (b.about) setBrandAbout(b.about);
+          if (b.facebook_url) setFacebookUrl(b.facebook_url);
+          if (b.linkedin_url) setLinkedinUrl(b.linkedin_url);
+          if (b.instagram_url) setInstagramUrl(b.instagram_url);
+        }
+      }).catch((err) => console.error('Failed to load branding:', err));
+    }
   }, [clientIdForStorage]);
 
   const [activeTab, setActiveTab] = React.useState<TabValue>(() => getValidTab(searchParams.get('tab')));
@@ -195,16 +208,46 @@ const Settings = () => {
     });
   };
 
-  const handleSaveBranding = (e: React.FormEvent) => {
+  const handleSaveBranding = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Persist locally so the client portal can read it until API wiring is added.
-    localStorage.setItem(storageKey('brandAbout'), brandAbout);
+    const userId = clientIdFromUrl || user?.id;
+    if (!userId) return;
 
-    toast({
-      title: "Branding Updated",
-      description: "Your branding settings have been saved.",
-    });
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      await axios.put(
+        `${API_BASE_URL}/api/users/${userId}/branding`,
+        {
+          branding: {
+            logo: brandLogo || null,
+            banner: brandBanner || null,
+            about: brandAbout || null,
+            facebook_url: facebookUrl || null,
+            linkedin_url: linkedinUrl || null,
+            instagram_url: instagramUrl || null,
+          },
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      toast({
+        title: "Branding Updated",
+        description: "Your branding settings have been saved.",
+      });
+    } catch (error: any) {
+      console.error('Error saving branding:', error);
+      toast({
+        title: "Error",
+        description: error.response?.data?.error || "Failed to save branding settings",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleAvatarChange = async (url: string) => {
@@ -588,6 +631,39 @@ const Settings = () => {
                         <p className="text-xs text-muted-foreground">
                           This text appears in the client-facing portfolio About section.
                         </p>
+                      </div>
+
+                      <div className="border-t pt-4 mt-2">
+                        <h3 className="text-lg font-medium mb-3">Social Links</h3>
+                        <div className="space-y-3">
+                          <div className="space-y-1">
+                            <label htmlFor="facebook_url" className="text-sm font-medium">Facebook URL</label>
+                            <Input
+                              id="facebook_url"
+                              value={facebookUrl}
+                              onChange={(e) => setFacebookUrl(e.target.value)}
+                              placeholder="https://facebook.com/yourpage"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label htmlFor="linkedin_url" className="text-sm font-medium">LinkedIn URL</label>
+                            <Input
+                              id="linkedin_url"
+                              value={linkedinUrl}
+                              onChange={(e) => setLinkedinUrl(e.target.value)}
+                              placeholder="https://linkedin.com/in/yourprofile"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label htmlFor="instagram_url" className="text-sm font-medium">Instagram URL</label>
+                            <Input
+                              id="instagram_url"
+                              value={instagramUrl}
+                              onChange={(e) => setInstagramUrl(e.target.value)}
+                              placeholder="https://instagram.com/yourhandle"
+                            />
+                          </div>
+                        </div>
                       </div>
 
                       <div className="space-y-2">
