@@ -258,8 +258,8 @@ export function BrandedPage() {
   return (
     <div className="fixed inset-0 overflow-auto bg-background text-foreground font-sans">
       {/* Hero — Ken Burns slideshow */}
-      <div className="px-2.5 pt-2.5">
-        <div className="rounded-2xl overflow-hidden relative" style={{ height: '85vh', minHeight: '600px' }}>
+      <div className="p-2.5">
+        <div className="rounded-2xl overflow-hidden relative h-[calc(100vh-110px)] md:h-[calc(100vh-120px)] min-h-[500px] md:min-h-[500px]">
           {photos.length > 0 ? (
             <AnimatePresence mode="sync">
               <motion.img
@@ -281,87 +281,91 @@ export function BrandedPage() {
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent z-[1]" />
 
           {/* Floating nav pill */}
-          <nav className="absolute top-5 right-5 z-10 flex items-center gap-1 bg-white/15 backdrop-blur-md rounded-full px-2 py-1.5 border border-white/20">
+          <nav className="absolute top-3 right-3 md:top-5 md:right-5 z-10 flex items-center gap-0.5 md:gap-1 bg-white/15 backdrop-blur-md rounded-full px-1.5 md:px-2 py-1 md:py-1.5 border border-white/20 overflow-x-auto no-scrollbar">
             {propertyDetails?.description && (
-              <a href="#about" className="px-4 py-1.5 text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors">About</a>
+              <a href="#about" className="px-2.5 md:px-4 py-1 md:py-1.5 text-xs md:text-sm font-medium bg-white text-black rounded-full transition-colors whitespace-nowrap">About</a>
             )}
-            <a href="#contact" className="px-4 py-1.5 text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors">Map</a>
             {photos.length > 0 && (
-              <a href="#photos" className="px-4 py-1.5 text-sm font-medium text-white hover:bg-white/10 rounded-full transition-colors border-b-2 border-white">Photos</a>
+              <a href="#photos" className="px-2.5 md:px-4 py-1 md:py-1.5 text-xs md:text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors whitespace-nowrap">Photos</a>
             )}
+            <a href="#contact" className="px-2.5 md:px-4 py-1 md:py-1.5 text-xs md:text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors whitespace-nowrap">Map</a>
             {(videos.length > 0 || videoLink) && (
-              <a href="#video" className="px-4 py-1.5 text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors">Videos</a>
+              <a href="#video" className="px-2.5 md:px-4 py-1 md:py-1.5 text-xs md:text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors whitespace-nowrap">Videos</a>
             )}
             {(matterportUrl || iguideUrl) && (
-              <a href="#tour" className="px-4 py-1.5 text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors">3D Tour</a>
+              <a href="#tour" className="px-2.5 md:px-4 py-1 md:py-1.5 text-xs md:text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors whitespace-nowrap">3D Tour</a>
             )}
             {floorplans.length > 0 && (
-              <a href="#floorplan" className="px-4 py-1.5 text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors">Floor Plans</a>
+              <a href="#floorplan" className="px-2.5 md:px-4 py-1 md:py-1.5 text-xs md:text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors whitespace-nowrap">Floor Plans</a>
             )}
           </nav>
+
+          {/* Address on hero — mobile only (desktop address is in the overlap section) */}
+          <div className="absolute bottom-4 left-0 right-0 px-4 z-[2] md:hidden">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
+              <h1 className="text-xl font-extrabold text-white tracking-tight drop-shadow-lg leading-tight">
+                {shoot?.address || 'Property Tour'}
+              </h1>
+              <p className="text-white/80 text-xs mt-0.5 drop-shadow">
+                {shoot?.city}{shoot?.state ? `, ${shoot.state}` : ''} {shoot?.zip}
+              </p>
+            </motion.div>
+          </div>
         </div>
       </div>
 
-      {/* Agent + Address overlay — pulled up into hero */}
-      <div className="relative z-10 max-w-6xl mx-auto px-4 md:px-6 -mt-28 md:-mt-32">
-        {/* Row 1: Photo + Address (on hero gradient area, white text) */}
+      {/* ===== DESKTOP: Overlapping agent photo + address on hero + name below ===== */}
+      <div className="hidden md:block relative z-10 max-w-6xl mx-auto px-6 -mt-32">
+        {/* Row 1: Photo + Address (on hero gradient, white text) */}
         <div className="flex items-end gap-5">
           {shoot?.client_name && (
             <div className="shrink-0" style={{ marginBottom: '-90px' }}>
               {shoot.client_avatar ? (
-                <img
-                  src={shoot.client_avatar}
-                  alt={shoot.client_name}
-                  className="w-[140px] h-[170px] md:w-[180px] md:h-[220px] rounded-lg object-cover border-4 border-background shadow-2xl"
-                />
+                <img src={shoot.client_avatar} alt={shoot.client_name} className="w-[180px] h-[220px] rounded-lg object-cover border-4 border-background" />
               ) : (
-                <div className="w-[140px] h-[170px] md:w-[180px] md:h-[220px] rounded-lg bg-gradient-to-br from-primary/80 to-primary flex items-center justify-center text-4xl md:text-5xl font-bold text-primary-foreground border-4 border-background shadow-2xl">
+                <div className="w-[180px] h-[220px] rounded-lg bg-gradient-to-br from-primary/80 to-primary flex items-center justify-center text-5xl font-bold text-primary-foreground border-4 border-background">
                   {getInitials(shoot.client_name)}
                 </div>
               )}
             </div>
           )}
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="min-w-0 pb-2">
-            <h1 className="text-3xl md:text-5xl font-extrabold text-white tracking-tight drop-shadow-lg leading-tight">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="min-w-0 pb-5">
+            <h1 className="text-5xl font-extrabold text-white tracking-tight drop-shadow-lg leading-tight">
               {shoot?.address || 'Property Tour'}
             </h1>
-            <p className="text-white/80 text-sm md:text-lg mt-1 drop-shadow">
+            <p className="text-white/80 text-lg mt-1 drop-shadow">
               {shoot?.city}{shoot?.state ? `, ${shoot.state}` : ''} {shoot?.zip}
             </p>
           </motion.div>
         </div>
-
         {/* Row 2: Name + Phone + Social (below hero, beside photo overflow) */}
         {shoot?.client_name && (
           <div className="flex items-start gap-5 pt-2">
-            {/* Spacer matching photo width */}
-            <div className="w-[140px] md:w-[180px] shrink-0 h-[80px] md:h-[90px]" />
+            <div className="w-[180px] shrink-0 h-[90px]" />
             <div className="flex-1 flex items-start justify-between gap-4 min-w-0">
               <div className="min-w-0">
-                <h2 className="text-2xl md:text-3xl font-extrabold text-foreground leading-tight">{shoot.client_name}</h2>
+                <h2 className="text-3xl font-extrabold text-foreground leading-tight">{shoot.client_name}</h2>
                 {shoot.client_phone && (
-                  <a href={`tel:${shoot.client_phone}`} className="text-muted-foreground text-base md:text-lg hover:text-primary transition-colors block mt-0.5">
-                    {shoot.client_phone}
-                  </a>
+                  <a href={`tel:${shoot.client_phone}`} className="text-primary text-lg hover:underline transition-colors block mt-0.5">{shoot.client_phone}</a>
                 )}
                 {shoot.client_company && (
                   <p className="text-sm text-muted-foreground mt-0.5">{shoot.client_company}</p>
                 )}
               </div>
-              <div className="flex items-center gap-1.5 shrink-0">
+              <div className="flex items-center gap-2 shrink-0">
                 {branding?.facebook_url && (
-                  <a href={branding.facebook_url} target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-foreground/10 flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-colors text-foreground">
-                    <Facebook className="w-4 h-4" />
+                  <a href={branding.facebook_url} target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full border-2 border-foreground/20 flex items-center justify-center hover:border-primary hover:text-primary transition-colors text-foreground">
+                    <Facebook className="w-[18px] h-[18px]" />
                   </a>
                 )}
                 {branding?.linkedin_url && (
-                  <a href={branding.linkedin_url} target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-foreground/10 flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-colors text-foreground">
-                    <Linkedin className="w-4 h-4" />
+                  <a href={branding.linkedin_url} target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full border-2 border-foreground/20 flex items-center justify-center hover:border-primary hover:text-primary transition-colors text-foreground">
+                    <Linkedin className="w-[18px] h-[18px]" />
                   </a>
                 )}
                 {branding?.instagram_url && (
-                  <a href={branding.instagram_url} target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-foreground/10 flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-colors text-foreground">
-                    <Instagram className="w-4 h-4" />
+                  <a href={branding.instagram_url} target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full border-2 border-foreground/20 flex items-center justify-center hover:border-primary hover:text-primary transition-colors text-foreground">
+                    <Instagram className="w-[18px] h-[18px]" />
                   </a>
                 )}
               </div>
@@ -369,6 +373,51 @@ export function BrandedPage() {
           </div>
         )}
       </div>
+
+      {/* ===== MOBILE: Agent info cleanly below hero ===== */}
+      {shoot?.client_name && (
+        <div className="md:hidden max-w-6xl mx-auto px-3">
+          <div className="flex items-start gap-3">
+            <div className="shrink-0">
+              {shoot.client_avatar ? (
+                <img src={shoot.client_avatar} alt={shoot.client_name} className="w-[80px] h-[80px] rounded-xl object-cover border-[3px] border-background" />
+              ) : (
+                <div className="w-[80px] h-[80px] rounded-xl bg-gradient-to-br from-primary/80 to-primary flex items-center justify-center text-2xl font-bold text-primary-foreground border-[3px] border-background">
+                  {getInitials(shoot.client_name)}
+                </div>
+              )}
+            </div>
+            <div className="flex-1 min-w-0 flex flex-col justify-between self-stretch">
+              <div className="min-w-0">
+                <h2 className="text-lg font-extrabold text-foreground leading-tight">{shoot.client_name}</h2>
+                {shoot.client_phone && (
+                  <a href={`tel:${shoot.client_phone}`} className="text-primary text-sm hover:underline transition-colors block mt-0.5">{shoot.client_phone}</a>
+                )}
+                {shoot.client_company && (
+                  <p className="text-xs text-muted-foreground mt-0.5">{shoot.client_company}</p>
+                )}
+              </div>
+              <div className="flex items-center gap-2 justify-end mt-1">
+                {branding?.facebook_url && (
+                  <a href={branding.facebook_url} target="_blank" rel="noopener noreferrer" className="w-9 h-9 rounded-full border-2 border-foreground/20 flex items-center justify-center hover:border-primary hover:text-primary transition-colors text-foreground">
+                    <Facebook className="w-4 h-4" />
+                  </a>
+                )}
+                {branding?.linkedin_url && (
+                  <a href={branding.linkedin_url} target="_blank" rel="noopener noreferrer" className="w-9 h-9 rounded-full border-2 border-foreground/20 flex items-center justify-center hover:border-primary hover:text-primary transition-colors text-foreground">
+                    <Linkedin className="w-4 h-4" />
+                  </a>
+                )}
+                {branding?.instagram_url && (
+                  <a href={branding.instagram_url} target="_blank" rel="noopener noreferrer" className="w-9 h-9 rounded-full border-2 border-foreground/20 flex items-center justify-center hover:border-primary hover:text-primary transition-colors text-foreground">
+                    <Instagram className="w-4 h-4" />
+                  </a>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Stats Row — icon above label above value, with dividers */}
       {(hasStats || propertyDetails?.price) && (() => {
@@ -379,13 +428,13 @@ export function BrandedPage() {
         if (garageCars != null) statItems.push({ icon: <Car className="w-7 h-7 text-muted-foreground" />, label: 'Garage', value: `${garageCars} Cars` });
         if (sqft != null) statItems.push({ icon: <Maximize className="w-7 h-7 text-muted-foreground" />, label: 'Square Feet', value: sqft.toLocaleString() });
         return (
-          <section className="max-w-6xl mx-auto px-6 mt-8">
-            <div className="flex items-stretch border border-border/40 rounded-2xl bg-card overflow-hidden divide-x divide-border/40">
+          <section className="max-w-6xl mx-auto px-4 md:px-6 mt-6 md:mt-8">
+            <div className="grid grid-cols-3 md:flex md:items-stretch border border-border/40 rounded-2xl bg-card overflow-hidden divide-x divide-border/40">
               {statItems.map((item, i) => (
-                <div key={i} className="flex-1 flex flex-col items-center gap-1.5 py-5 px-2">
-                  {item.icon}
-                  <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">{item.label}</span>
-                  <span className="text-base md:text-lg font-extrabold text-foreground">{item.value}</span>
+                <div key={i} className={cn("flex flex-col items-center gap-1 md:gap-1.5 py-3 md:py-5 px-1 md:px-2 md:flex-1", i >= 3 && "border-t border-border/40 md:border-t-0")}>
+                  <span className="[&>svg]:w-5 [&>svg]:h-5 md:[&>svg]:w-7 md:[&>svg]:h-7">{item.icon}</span>
+                  <span className="text-[8px] md:text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">{item.label}</span>
+                  <span className="text-xs md:text-lg font-extrabold text-foreground">{item.value}</span>
                 </div>
               ))}
             </div>

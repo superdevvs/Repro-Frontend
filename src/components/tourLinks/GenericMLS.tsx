@@ -234,28 +234,28 @@ export function GenericMLS() {
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent z-[1]" />
 
           {/* Floating nav pill */}
-          <nav className="absolute top-5 right-5 z-10 flex items-center gap-1 bg-white/15 backdrop-blur-md rounded-full px-2 py-1.5 border border-white/20">
+          <nav className="absolute top-3 left-3 right-3 md:left-auto md:top-5 md:right-5 z-10 flex items-center gap-0.5 md:gap-1 bg-white/15 backdrop-blur-md rounded-full px-1.5 md:px-2 py-1 md:py-1.5 border border-white/20 overflow-x-auto no-scrollbar">
             {propertyDetails?.description && (
-              <a href="#about" className="px-4 py-1.5 text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors">About</a>
+              <a href="#about" className="px-2.5 md:px-4 py-1 md:py-1.5 text-xs md:text-sm font-medium bg-white text-black rounded-full transition-colors whitespace-nowrap">About</a>
             )}
             {photos.length > 0 && (
-              <a href="#photos" className="px-4 py-1.5 text-sm font-medium text-white hover:bg-white/10 rounded-full transition-colors border-b-2 border-white">Photos</a>
+              <a href="#photos" className="px-2.5 md:px-4 py-1 md:py-1.5 text-xs md:text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors whitespace-nowrap">Photos</a>
             )}
             {(videos.length > 0 || videoLink) && (
-              <a href="#video" className="px-4 py-1.5 text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors">Videos</a>
+              <a href="#video" className="px-2.5 md:px-4 py-1 md:py-1.5 text-xs md:text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors whitespace-nowrap">Videos</a>
             )}
             {(matterportUrl || iguideUrl) && (
-              <a href="#tour" className="px-4 py-1.5 text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors">3D Tour</a>
+              <a href="#tour" className="px-2.5 md:px-4 py-1 md:py-1.5 text-xs md:text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors whitespace-nowrap">3D Tour</a>
             )}
             {floorplans.length > 0 && (
-              <a href="#floorplan" className="px-4 py-1.5 text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors">Floor Plans</a>
+              <a href="#floorplan" className="px-2.5 md:px-4 py-1 md:py-1.5 text-xs md:text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors whitespace-nowrap">Floor Plans</a>
             )}
           </nav>
 
           {/* Title on hero */}
-          <div className="absolute bottom-6 md:bottom-10 left-0 right-0 px-8 md:px-12 z-[2]">
+          <div className="absolute bottom-4 md:bottom-10 left-0 right-0 px-4 md:px-12 z-[2]">
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-              <h1 className="text-3xl md:text-5xl font-extrabold text-white tracking-tight">
+              <h1 className="text-2xl md:text-5xl font-extrabold text-white tracking-tight">
                 Property Tour
               </h1>
             </motion.div>
@@ -271,13 +271,13 @@ export function GenericMLS() {
         if (garageCars != null) statItems.push({ icon: <Car className="w-7 h-7 text-muted-foreground" />, label: 'Garage', value: `${garageCars} Cars` });
         if (sqft != null) statItems.push({ icon: <Maximize className="w-7 h-7 text-muted-foreground" />, label: 'Square Feet', value: sqft.toLocaleString() });
         return (
-          <section className="max-w-6xl mx-auto px-6 mt-8">
-            <div className="flex items-stretch border border-border/40 rounded-2xl bg-card overflow-hidden divide-x divide-border/40">
+          <section className="max-w-6xl mx-auto px-4 md:px-6 mt-6 md:mt-8">
+            <div className="grid grid-cols-3 md:flex md:items-stretch border border-border/40 rounded-2xl bg-card overflow-hidden divide-x divide-border/40">
               {statItems.map((item, i) => (
-                <div key={i} className="flex-1 flex flex-col items-center gap-1.5 py-5 px-2">
-                  {item.icon}
-                  <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">{item.label}</span>
-                  <span className="text-base md:text-lg font-extrabold text-foreground">{item.value}</span>
+                <div key={i} className={cn("flex flex-col items-center gap-1 md:gap-1.5 py-3 md:py-5 px-1 md:px-2 md:flex-1", i >= 3 && "border-t border-border/40 md:border-t-0")}>
+                  <span className="[&>svg]:w-5 [&>svg]:h-5 md:[&>svg]:w-7 md:[&>svg]:h-7">{item.icon}</span>
+                  <span className="text-[8px] md:text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">{item.label}</span>
+                  <span className="text-xs md:text-lg font-extrabold text-foreground">{item.value}</span>
                 </div>
               ))}
             </div>

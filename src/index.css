@@ -10,6 +10,14 @@
   display: none;
 }
 
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 /* Global root + body background setup (fixes iOS safe areas) */
 html,
 body {
