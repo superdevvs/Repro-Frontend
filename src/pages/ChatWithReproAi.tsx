@@ -700,7 +700,7 @@ const ChatWithReproAi = () => {
   return (
     <DashboardLayout hideNavbar={false} className="!p-0 !pb-0 !min-h-0">
       {/* Let content grow naturally so <main> scrolls */}
-      <div className="flex flex-col">
+      <div className="flex flex-col flex-1">
         {/* ── TOP AREA: sticky page header + controls ── */}
         <div className="sticky top-0 z-50 shrink-0 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85">
           <div className="mx-auto w-full max-w-5xl px-2 md:px-4 pt-2 md:pt-3 pb-2 md:pb-3">
@@ -821,7 +821,7 @@ const ChatWithReproAi = () => {
         <div
           ref={contentScrollRef}
           className={cn(
-            "relative flex flex-col",
+            "relative flex flex-col flex-1",
             tabMode === 'history'
               ? "pb-16 md:pb-0"
               : viewMode === 'chat'

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import {
   DollarSign,
   CheckCircle,
@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 /**
  * New: small SegmentedDays control (30 / 60 / 90)
  */
-function SegmentedDays({
+export function SegmentedDays({
   value,
   onChange,
   className = "",
@@ -55,11 +55,10 @@ interface OverviewCardsProps {
   timeFilter?: "day" | "week" | "month" | "quarter" | "year";
   // optional element to render on the left side of the filter row (e.g., tabs)
   leftElement?: React.ReactNode;
+  daysWindow?: number;
 }
 
-export function OverviewCards({ invoices, timeFilter, leftElement }: OverviewCardsProps) {
-  // selected days window for Outstanding Invoices (default 30)
-  const [daysWindow, setDaysWindow] = useState<number>(30);
+export function OverviewCards({ invoices, timeFilter, leftElement, daysWindow = 30 }: OverviewCardsProps) {
 
   // helper to get date from invoice (attempt common fields)
   const getInvoiceDate = (inv: any): Date | null => {
@@ -114,18 +113,7 @@ export function OverviewCards({ invoices, timeFilter, leftElement }: OverviewCar
   };
 
   return (
-    <div className="space-y-2">
-      {/* Segmented control row — aligned to Outstanding Invoices visually */}
-      <div className="flex items-center justify-between gap-4">
-        {/* Left element (e.g., tabs) */}
-        <div className="flex items-center">{leftElement}</div>
-        {/* Right side filters */}
-        <div className="flex items-center gap-4">
-          <div className="text-sm text-slate-600 dark:text-slate-400">Showing last {daysWindow} days</div>
-          <SegmentedDays value={daysWindow} onChange={setDaysWindow} />
-        </div>
-      </div>
-
+    <div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         <OverviewCard
           title="Total Revenue"

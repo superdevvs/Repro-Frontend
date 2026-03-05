@@ -61,6 +61,7 @@ const AccountingPage = () => {
   const [timeFilter, setTimeFilter] = useState<'day' | 'week' | 'month' | 'quarter' | 'year'>('month');
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<AccountingTab>('home');
+  const [daysWindow, setDaysWindow] = useState<number>(30);
   const [payoutActions, setPayoutActions] = useState<{
     refresh: () => void;
     download: () => Promise<void>;
@@ -392,6 +393,8 @@ const AccountingPage = () => {
             activeTab={activeTab}
             onTabChange={setActiveTab}
             showTabs={accountingMode === 'admin'}
+            daysWindow={daysWindow}
+            onDaysWindowChange={setDaysWindow}
             payoutActions={payoutActions}
           />
 
@@ -403,6 +406,7 @@ const AccountingPage = () => {
                   <OverviewCards 
                     invoices={filteredInvoices} 
                     timeFilter={timeFilter}
+                    daysWindow={daysWindow}
                   />
                 ) : (
                   <RoleBasedOverviewCards

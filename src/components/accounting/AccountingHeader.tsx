@@ -3,6 +3,7 @@ import React from 'react';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
 import { PlusIcon, Download, UsersIcon, BarChart3Icon, RefreshCw, Loader2, MoreVertical } from 'lucide-react';
+import { SegmentedDays } from './OverviewCards';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,6 +25,8 @@ interface AccountingHeaderProps {
   activeTab?: AccountingTab;
   onTabChange?: (tab: AccountingTab) => void;
   showTabs?: boolean;
+  daysWindow?: number;
+  onDaysWindowChange?: (v: number) => void;
   payoutActions?: {
     refresh: () => void;
     download: () => Promise<void>;
@@ -42,10 +45,13 @@ export function AccountingHeader({
   activeTab = 'home',
   onTabChange,
   showTabs = false,
+  daysWindow,
+  onDaysWindowChange,
   payoutActions,
 }: AccountingHeaderProps) {
   const showPayoutActions = activeTab === 'photographers' && Boolean(payoutActions);
   const showActionControls = showCreateButton || showPayoutActions;
+  const showDaysFilter = activeTab === 'home' && daysWindow != null && onDaysWindowChange != null;
 
   return (
     <div className="space-y-3">
@@ -196,7 +202,7 @@ export function AccountingHeader({
       />
 
       {showTabs && onTabChange && (
-        <div className="overflow-x-auto pb-1">
+        <div className="flex items-center justify-between gap-4 overflow-x-auto pb-1">
           <div className="inline-flex min-w-max items-center rounded-lg border bg-muted/30 p-1">
             <button
               type="button"
@@ -221,6 +227,13 @@ export function AccountingHeader({
               Photographers
             </button>
           </div>
+
+          {showDaysFilter && (
+            <div className="flex items-center gap-3 shrink-0">
+              <span className="hidden sm:inline text-sm text-slate-400">Showing last {daysWindow} days</span>
+              <SegmentedDays value={daysWindow!} onChange={onDaysWindowChange!} />
+            </div>
+          )}
         </div>
       )}
     </div>
