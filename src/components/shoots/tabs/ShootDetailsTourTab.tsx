@@ -1401,6 +1401,55 @@ export function ShootDetailsTourTab({
             {showIguideSection && (
               <div className="space-y-3">
                 <h4 className="font-semibold text-sm">iGuide</h4>
+                {/* iGuide sync info */}
+                {(() => {
+                  const iguideTourUrl = shoot.iguideTourUrl || shoot.tourLinks?.iGuide || shoot.tourLinks?.iguide_branded || shoot.tourLinks?.iguide_mls || (shoot as any).iguide_tour_url || '';
+                  const iguideFloorplans = shoot.iguideFloorplans || (shoot as any).iguide_floorplans || [];
+                  const iguidePropertyId = shoot.iguidePropertyId || (shoot as any).iguide_property_id;
+                  const iguideLastSyncedAt = shoot.iguideLastSyncedAt || (shoot as any).iguide_last_synced_at;
+                  if (!iguideTourUrl && !iguideFloorplans.length && !iguidePropertyId && !iguideLastSyncedAt) return null;
+                  return (
+                    <div className="border rounded-lg p-3 space-y-1.5 text-xs">
+                      {iguideTourUrl && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground">Tour:</span>
+                          <a href={iguideTourUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center gap-1">
+                            Open tour <ExternalLink className="h-3 w-3" />
+                          </a>
+                        </div>
+                      )}
+                      {iguidePropertyId && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground">Property ID:</span>
+                          <span className="font-medium">{iguidePropertyId}</span>
+                        </div>
+                      )}
+                      {iguideLastSyncedAt && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground">Last sync:</span>
+                          <span className="font-medium">{new Date(iguideLastSyncedAt).toLocaleDateString()}</span>
+                        </div>
+                      )}
+                      {iguideFloorplans.length > 0 && (
+                        <div className="space-y-1 pt-1">
+                          <span className="text-[10px] uppercase text-muted-foreground">Floorplans</span>
+                          <div className="space-y-1">
+                            {iguideFloorplans.map((floorplan: any, index: number) => {
+                              const url = typeof floorplan === 'string' ? floorplan : floorplan?.url;
+                              if (!url) return null;
+                              const label = typeof floorplan === 'string' ? `Floorplan ${index + 1}` : floorplan?.filename || `Floorplan ${index + 1}`;
+                              return (
+                                <a key={`${url}-${index}`} href={url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline block">
+                                  {label}
+                                </a>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
                 {visibleIguideKeys.map((key) => {
                   const label = key === 'iguide_branded' ? 'iGuide Branded Link' : 'iGuide MLS Link';
                   const url = tourLinks[key] || '';

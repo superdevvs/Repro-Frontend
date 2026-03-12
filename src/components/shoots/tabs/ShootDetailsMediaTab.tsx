@@ -2660,7 +2660,7 @@ export function ShootDetailsMediaTab({
                           onClick={() => setUploadedMediaTab('iguide')}
                           className={`text-xs py-1 border-b-2 transition-colors whitespace-nowrap ${uploadedMediaTab === 'iguide' ? 'border-foreground text-foreground font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
                         >
-                          iGuide zip file
+                          iGuide
                         </button>
                       )}
                       {!isEditor && iguideFloorplans.length > 0 && (
@@ -2909,7 +2909,7 @@ export function ShootDetailsMediaTab({
                           onClick={() => setEditedMediaTab('iguide')}
                           className={`text-xs py-1 border-b-2 transition-colors whitespace-nowrap ${editedMediaTab === 'iguide' ? 'border-foreground text-foreground font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
                         >
-                          iGuide zip file
+                          iGuide
                         </button>
                       )}
                       {!isEditor && iguideFloorplans.length > 0 && (
