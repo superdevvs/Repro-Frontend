@@ -115,6 +115,8 @@ const SERVICE_LABELS: Record<string, string> = {
   virtual_tour: 'Virtual Tour',
   twilight: 'Twilight',
   social_media: 'Social Media Reels',
+  iguide: 'iGuide',
+  iguide_zip_file: 'iGuide',
 };
 
 type FiltersState = {

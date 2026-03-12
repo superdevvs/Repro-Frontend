@@ -2818,7 +2818,7 @@ export function ShootDetailsMediaTab({
                             View 3D Tour <ChevronRight className="h-3 w-3" />
                           </a>
                         </div>
-                        <div className="aspect-video w-full max-w-2xl rounded-lg overflow-hidden border">
+                        <div className="aspect-video w-full rounded-lg overflow-hidden border">
                           <iframe
                             src={iguideUrl}
                             className="w-full h-full"
@@ -3067,7 +3067,7 @@ export function ShootDetailsMediaTab({
                             View 3D Tour <ChevronRight className="h-3 w-3" />
                           </a>
                         </div>
-                        <div className="aspect-video w-full max-w-2xl rounded-lg overflow-hidden border">
+                        <div className="aspect-video w-full rounded-lg overflow-hidden border">
                           <iframe
                             src={iguideUrl}
                             className="w-full h-full"
