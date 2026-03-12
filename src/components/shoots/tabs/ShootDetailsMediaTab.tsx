@@ -2722,7 +2722,7 @@ export function ShootDetailsMediaTab({
                       <div className="h-full m-0 sm:m-2.5 border-0 sm:border rounded-none sm:rounded-lg bg-card overflow-y-auto p-1 sm:p-2.5">
                         <MediaGrid
                           files={uploadedPhotos}
-                          onFileClick={(index) => openViewer(index, uploadedPhotos)}
+                          onFileClick={(index, sorted) => openViewer(index, sorted)}
                           selectedFiles={selectedFiles}
                           onSelectionChange={toggleSelection}
                           onSelectAll={() => {
@@ -2780,7 +2780,7 @@ export function ShootDetailsMediaTab({
                       <div className="h-full m-0 sm:m-2.5 border-0 sm:border rounded-none sm:rounded-lg bg-card overflow-y-auto p-1 sm:p-2.5">
                         <MediaGrid
                           files={uploadedVideos}
-                          onFileClick={(index) => openViewer(index, uploadedVideos)}
+                          onFileClick={(index, sorted) => openViewer(index, sorted)}
                           selectedFiles={selectedFiles}
                           onSelectionChange={toggleSelection}
                           onSelectAll={() => {
@@ -2971,7 +2971,7 @@ export function ShootDetailsMediaTab({
                       <div className="h-full m-0 sm:m-2.5 border-0 sm:border rounded-none sm:rounded-lg bg-card overflow-y-auto p-1 sm:p-2.5">
                         <MediaGrid
                           files={editedPhotos}
-                          onFileClick={(index) => openViewer(index, editedPhotos)}
+                          onFileClick={(index, sorted) => openViewer(index, sorted)}
                           selectedFiles={selectedFiles}
                           onSelectionChange={toggleSelection}
                           onSelectAll={() => {
@@ -3029,7 +3029,7 @@ export function ShootDetailsMediaTab({
                       <div className="h-full m-0 sm:m-2.5 border-0 sm:border rounded-none sm:rounded-lg bg-card overflow-y-auto p-1 sm:p-2.5">
                         <MediaGrid
                           files={editedVideos}
-                          onFileClick={(index) => openViewer(index, editedVideos)}
+                          onFileClick={(index, sorted) => openViewer(index, sorted)}
                           selectedFiles={selectedFiles}
                           onSelectionChange={toggleSelection}
                           onSelectAll={() => {
@@ -3210,7 +3210,7 @@ export function ShootDetailsMediaTab({
 // Media Grid Component
 interface MediaGridProps {
   files: MediaFile[];
-  onFileClick: (index: number) => void;
+  onFileClick: (index: number, sortedFiles: MediaFile[]) => void;
   selectedFiles: Set<string>;
   onSelectionChange: (fileId: string) => void;
   onSelectAll?: () => void;
@@ -3394,7 +3394,7 @@ function MediaGrid({
           isSelected ? 'border-primary ring-1 ring-primary' : 'border-border hover:border-primary/50'
         } ${isExtraSection ? 'opacity-90' : ''} ${isDragging ? 'opacity-50 scale-95' : ''} ${isDragOver ? 'ring-2 ring-blue-500 border-blue-500' : ''} ${sortOrder === 'manual' && !isExtraSection ? 'cursor-grab active:cursor-grabbing' : ''}`}
         onClick={() => {
-          onFileClick(actualIndex);
+          onFileClick(actualIndex, sortedFiles);
         }}
       >
         {/* Simple image display - backend generates thumbnails at upload time */}
@@ -3524,7 +3524,7 @@ function MediaGrid({
           isSelected ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-border'
         } ${isExtraSection ? 'opacity-90' : ''} ${isDragging ? 'opacity-50' : ''} ${isDragOver ? 'ring-2 ring-blue-500 border-blue-500' : ''} ${sortOrder === 'manual' && !isExtraSection ? 'cursor-grab active:cursor-grabbing' : ''}`}
         onClick={() => {
-          onFileClick(actualIndex);
+          onFileClick(actualIndex, sortedFiles);
         }}
       >
         {/* Selection indicator - moved to left */}
