@@ -21,6 +21,7 @@ import {
   X,
   Edit,
   Eye,
+  Clock,
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -546,6 +547,37 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
     };
   }, [filteredShoots, showPastDays, showRequestsFirst]);
 
+  const getRelativeGroupLabel = useCallback((group: { label: string; shoots: DashboardShootSummary[]; isToday?: boolean; dayTime?: number }) => {
+    const count = group.shoots.length;
+    const suffix = count === 1 ? '1 shoot' : `${count} shoots`;
+    const today = startOfDay(new Date());
+    const tomorrow = addDays(today, 1);
+
+    if (group.isToday) return `Today \u2022 ${suffix}`;
+
+    if (group.dayTime && Number.isFinite(group.dayTime)) {
+      const groupDate = new Date(group.dayTime);
+      if (isSameDay(groupDate, tomorrow)) return `Tomorrow \u2022 ${suffix}`;
+      const diffMs = startOfDay(groupDate).getTime() - today.getTime();
+      const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+      if (diffDays >= 2 && diffDays <= 6) {
+        return `${format(groupDate, 'EEEE')} \u2022 ${suffix}`;
+      }
+      if (diffDays === -1) return `Yesterday \u2022 ${suffix}`;
+      if (diffDays < -1) {
+        const absDays = Math.abs(diffDays);
+        return absDays > 10
+          ? `${Math.round(absDays / 7)} weeks ago \u2022 ${suffix}`
+          : `${absDays} days ago \u2022 ${suffix}`;
+      }
+      return diffDays > 10
+        ? `In ${Math.round(diffDays / 7)} weeks \u2022 ${suffix}`
+        : `In ${diffDays} days \u2022 ${suffix}`;
+    }
+
+    return `${group.label} \u2022 ${suffix}`;
+  }, []);
+
   // Calculate total shoots and paginated groups
   const { paginatedGroups, totalShootsCount, hasMore } = useMemo(() => {
     const allShoots = visibleGroups.flatMap(g => g.shoots);
@@ -1006,7 +1038,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
               <div className="flex items-center gap-2">
                 <span className="h-2 w-2 rounded-full bg-primary" />
                 <p className="text-xs font-semibold text-muted-foreground">
-                  {group.label}
+                  {getRelativeGroupLabel(group)}
                 </p>
               </div>
               {group.shoots.map((shoot) => {
@@ -1030,7 +1062,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                     key={shoot.id}
                     onClick={() => onSelect(shoot, weather)}
                     className={cn(
-                      "relative border rounded-3xl p-5 hover:shadow-lg transition-all cursor-pointer bg-card group",
+                      "relative border rounded-3xl px-5 pt-4 pb-3.5 sm:p-5 hover:shadow-lg transition-all cursor-pointer bg-card group",
                       isRequested 
                         ? "border-blue-400 bg-blue-50/30 dark:bg-blue-950/20 hover:border-blue-500" 
                         : "border-border hover:border-primary/40"
@@ -1042,81 +1074,38 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                         <Flag size={14} />
                       </div>
                     )}
-                    <div className="grid grid-cols-1 sm:grid-cols-[auto,1fr,auto] items-stretch gap-3 sm:gap-4">
-                      <div className="flex flex-row sm:flex-col items-center sm:items-center gap-2 sm:gap-2">
-                        {/* For requested shoots, show status ABOVE time */}
-                        {isRequested && (
-                          <span
-                            className={cn(
-                              'px-2 sm:px-3 py-1 rounded-full text-[10px] sm:text-[11px] font-semibold border whitespace-nowrap order-first sm:order-first',
-                              statusClass,
-                            )}
-                          >
-                            {formatWorkflowStatus(shoot.workflowStatus || shoot.status)}
-                          </span>
-                        )}
-                        <div className="w-16 sm:w-20 rounded-xl sm:rounded-2xl border border-border bg-background text-center py-2 sm:py-3 shadow-sm flex-shrink-0">
+                    {/* ── Mobile layout ── */}
+                    <div className="sm:hidden space-y-2.5">
+                      {/* Row 1: Date+time badge + Weather (right-aligned) */}
+                      <div className="flex items-start gap-2">
+                        <div className="rounded-xl border border-border bg-background px-2.5 py-1.5 shadow-sm flex-shrink-0 flex items-center gap-2">
                           {(() => {
                             const shootDate = shoot.startTime ? new Date(shoot.startTime) : null;
-                            const monthStr = shootDate ? shootDate.toLocaleDateString('en-US', { month: 'short' }) : '--';
+                            const monthStr = shootDate ? shootDate.toLocaleDateString('en-US', { month: 'short' }).toUpperCase() : '--';
                             const dayStr = shootDate ? String(shootDate.getDate()) : '';
-                            const formattedTime = shoot.timeLabel ? formatTime(shoot.timeLabel) : '--';
+                            const rawTime =
+                              shoot.timeLabel ||
+                              (shoot.startTime
+                                ? (() => {
+                                    const date = new Date(shoot.startTime);
+                                    if (isNaN(date.getTime())) return null;
+                                    const hh = date.getHours().toString().padStart(2, '0');
+                                    const mm = date.getMinutes().toString().padStart(2, '0');
+                                    return `${hh}:${mm}`;
+                                  })()
+                                : null);
+                            const formattedTime = rawTime ? formatTime(rawTime) : '--';
                             return (
                               <>
-                                <p className="text-[10px] sm:text-xs text-muted-foreground uppercase font-medium">{monthStr}</p>
-                                <p className="text-lg sm:text-xl font-semibold text-foreground leading-none">{dayStr}</p>
-                                <p className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5">{formattedTime}</p>
+                                <span className="text-[11px] font-bold text-foreground whitespace-nowrap">{monthStr} {dayStr}</span>
+                                <span className="text-border/80 text-[10px]">|</span>
+                                <span className="text-[11px] font-semibold text-primary whitespace-nowrap">{formattedTime}</span>
                               </>
                             );
                           })()}
                         </div>
-                        {/* For non-requested shoots, show status BELOW time */}
-                        {!isRequested && (
-                          <span
-                            className={cn(
-                              'px-2 sm:px-3 py-1 rounded-full text-[10px] sm:text-[11px] font-semibold border whitespace-nowrap',
-                              statusClass,
-                            )}
-                          >
-                            {formatWorkflowStatus(shoot.workflowStatus || shoot.status)}
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="space-y-2 sm:space-y-3 min-w-0">
-                        <div>
-                          <h3 className="text-sm sm:text-base font-semibold text-foreground break-words">{shoot.addressLine}</h3>
-                          <p className="text-[10px] sm:text-xs text-muted-foreground flex items-center gap-1">
-                            <MapPin size={10} className="sm:w-3 sm:h-3" />
-                            {shoot.cityStateZip}
-                          </p>
-                        </div>
-                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] sm:text-xs text-muted-foreground">
-                          {!hideClientInfo && (
-                            <span>Client <span className="font-semibold text-foreground">• {shoot.clientName || 'Client TBD'}</span></span>
-                          )}
-                          <span>Shoot ID <span className="font-semibold text-foreground">• #{shoot.id}</span></span>
-                        </div>
-                        <div className="flex gap-1.5 sm:gap-2 flex-wrap text-[10px] sm:text-xs text-muted-foreground transition-all">
-                          {serviceList.map((tag, index) => {
-                            const key = getServiceKey(tag.label, tag.type);
-                            const icon = SERVICE_ICON_MAP[key] || <Camera size={10} className="sm:w-3 sm:h-3" />;
-                            return (
-                              <span
-                                key={`${shoot.id}-${key}-${index}`}
-                                className="inline-flex items-center gap-1 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full border border-border/70 bg-background text-[10px] sm:text-[11px] font-semibold text-muted-foreground"
-                              >
-                                {icon}
-                                {SERVICE_LABELS[key] || tag.label}
-                              </span>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      <div className="flex flex-row sm:flex-col items-center sm:items-end gap-2 sm:gap-3 sm:min-w-[120px] justify-between sm:justify-between">
                         {!hideWeather && (
-                          <div className="flex items-center gap-1 rounded-full border border-border px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-semibold text-muted-foreground bg-background shadow-sm">
+                          <div className="ml-auto inline-flex items-center h-5 gap-1 rounded-full border border-border px-2 text-[10px] font-semibold text-muted-foreground bg-background shadow-sm flex-shrink-0">
                             {renderWeatherIcon(weather?.icon)}
                             <span>{(() => {
                               if (weather && typeof weather.temperatureC === 'number') {
@@ -1130,7 +1119,170 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                             })()}</span>
                           </div>
                         )}
-                        <div className="text-[10px] sm:text-xs text-muted-foreground text-right sm:text-right">
+                      </div>
+                      {/* Row 2: Address */}
+                      <div>
+                        <h3 className="text-sm font-semibold text-foreground break-words">{shoot.addressLine}</h3>
+                        <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                          <MapPin size={10} />
+                          {shoot.cityStateZip}
+                        </p>
+                      </div>
+                      {/* Row 3: Client + Shoot ID */}
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-muted-foreground">
+                        {!hideClientInfo && (
+                          <span>Client <span className="font-semibold text-foreground">• {shoot.clientName || 'Client TBD'}</span></span>
+                        )}
+                        <span>Shoot ID <span className="font-semibold text-foreground">• #{shoot.id}</span></span>
+                      </div>
+                      {/* Row 4: Service tags */}
+                      <div className="flex gap-1.5 flex-wrap">
+                        {serviceList.map((tag, index) => {
+                          const key = getServiceKey(tag.label, tag.type);
+                          const icon = SERVICE_ICON_MAP[key] || <Camera size={10} />;
+                          return (
+                            <span
+                              key={`${shoot.id}-${key}-${index}`}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-border/70 bg-muted/30 text-[10px] font-semibold text-muted-foreground"
+                            >
+                              {icon}
+                              {SERVICE_LABELS[key] || tag.label}
+                            </span>
+                          );
+                        })}
+                      </div>
+                      {/* Row 5: Status left + Photographer/Client right */}
+                      <hr className="border-border" />
+                      <div className="flex items-center justify-between">
+                        <span
+                          className={cn(
+                            'inline-flex items-center h-5 px-2 rounded-full text-[10px] font-semibold border whitespace-nowrap',
+                            statusClass,
+                          )}
+                        >
+                          {formatWorkflowStatus(shoot.workflowStatus || shoot.status)}
+                        </span>
+                        <div className="text-[10px] text-muted-foreground">
+                          {isPhotographerRole ? (
+                            <span>Client <span className="font-semibold text-foreground">• {shoot.clientName || 'Client TBD'}</span>
+                              {(() => {
+                                if (!shoot.clientPhone || !shoot.startTime) return null;
+                                const shootStart = new Date(shoot.startTime).getTime();
+                                const now = Date.now();
+                                const oneHourBefore = shootStart - 60 * 60 * 1000;
+                                if (now >= oneHourBefore && now <= shootStart) {
+                                  return <span className="ml-2 font-semibold text-primary">📞 {shoot.clientPhone}</span>;
+                                }
+                                return null;
+                              })()}
+                            </span>
+                          ) : (
+                            <span>Photographer <span className="font-semibold text-foreground">• {shoot.photographer?.name || 'Unassigned'}</span></span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* ── Desktop layout ── */}
+                    <div className="hidden sm:grid sm:grid-cols-[auto,1fr,auto] items-stretch gap-4">
+                      <div className="flex flex-col items-center gap-2">
+                        {isRequested && (
+                          <span
+                            className={cn(
+                              'px-3 py-1 rounded-full text-[11px] font-semibold border whitespace-nowrap',
+                              statusClass,
+                            )}
+                          >
+                            {formatWorkflowStatus(shoot.workflowStatus || shoot.status)}
+                          </span>
+                        )}
+                        <div className="w-20 rounded-2xl border border-border bg-background text-center pt-3 pb-2 shadow-sm flex-shrink-0">
+                          {(() => {
+                            const shootDate = shoot.startTime ? new Date(shoot.startTime) : null;
+                            const monthStr = shootDate ? shootDate.toLocaleDateString('en-US', { month: 'short' }) : '--';
+                            const dayStr = shootDate ? String(shootDate.getDate()) : '';
+                            const rawTime =
+                              shoot.timeLabel ||
+                              (shoot.startTime
+                                ? (() => {
+                                    const date = new Date(shoot.startTime);
+                                    if (isNaN(date.getTime())) return null;
+                                    const hh = date.getHours().toString().padStart(2, '0');
+                                    const mm = date.getMinutes().toString().padStart(2, '0');
+                                    return `${hh}:${mm}`;
+                                  })()
+                                : null);
+                            const formattedTime = rawTime ? formatTime(rawTime) : '--';
+                            return (
+                              <>
+                                <p className="text-xs text-muted-foreground uppercase font-medium">{monthStr}</p>
+                                <p className="text-xl font-semibold text-foreground leading-none">{dayStr}</p>
+                                <hr className="my-1.5 border-border/60" />
+                                <p className="text-xs font-semibold text-primary">{formattedTime}</p>
+                              </>
+                            );
+                          })()}
+                        </div>
+                        {!isRequested && (
+                          <span
+                            className={cn(
+                              'px-3 py-1 rounded-full text-[11px] font-semibold border whitespace-nowrap',
+                              statusClass,
+                            )}
+                          >
+                            {formatWorkflowStatus(shoot.workflowStatus || shoot.status)}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="space-y-3 min-w-0">
+                        <div>
+                          <h3 className="text-base font-semibold text-foreground break-words">{shoot.addressLine}</h3>
+                          <p className="text-xs text-muted-foreground flex items-center gap-1">
+                            <MapPin size={12} />
+                            {shoot.cityStateZip}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                          {!hideClientInfo && (
+                            <span>Client <span className="font-semibold text-foreground">• {shoot.clientName || 'Client TBD'}</span></span>
+                          )}
+                          <span>Shoot ID <span className="font-semibold text-foreground">• #{shoot.id}</span></span>
+                        </div>
+                        <div className="flex gap-2 flex-wrap text-xs text-muted-foreground transition-all">
+                          {serviceList.map((tag, index) => {
+                            const key = getServiceKey(tag.label, tag.type);
+                            const icon = SERVICE_ICON_MAP[key] || <Camera size={12} />;
+                            return (
+                              <span
+                                key={`${shoot.id}-${key}-${index}`}
+                                className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-border/70 bg-background text-[11px] font-semibold text-muted-foreground"
+                              >
+                                {icon}
+                                {SERVICE_LABELS[key] || tag.label}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col items-end gap-3 min-w-[120px] justify-between">
+                        {!hideWeather && (
+                          <div className="flex items-center gap-1 rounded-full border border-border px-3 py-1 text-xs font-semibold text-muted-foreground bg-background shadow-sm">
+                            {renderWeatherIcon(weather?.icon)}
+                            <span>{(() => {
+                              if (weather && typeof weather.temperatureC === 'number') {
+                                return formatTemperature(weather.temperatureC, weather.temperatureF);
+                              }
+                              const temp = weather?.temperature ?? shoot.temperature;
+                              if (!temp) return '--°';
+                              const num = typeof temp === 'number' ? temp : parseInt(String(temp).match(/^(-?\d+)/)?.[1] ?? '', 10);
+                              if (Number.isFinite(num)) return formatTemperature(num);
+                              return String(temp);
+                            })()}</span>
+                          </div>
+                        )}
+                        <div className="text-xs text-muted-foreground text-right">
                           {isPhotographerRole ? (
                             <>
                               Client{' '}

@@ -23,6 +23,7 @@ import {
   Eye,
   MoreVertical,
   ChevronsDown,
+  Clock,
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -486,6 +487,37 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
     };
   }, [formatDate, showPastDays]);
 
+  const getRelativeGroupLabel = useCallback((group: { label: string; shoots: DashboardShootSummary[]; isToday?: boolean; dayTime?: number }) => {
+    const count = group.shoots.length;
+    const suffix = count === 1 ? '1 shoot' : `${count} shoots`;
+    const today = startOfDay(new Date());
+    const tomorrow = addDays(today, 1);
+
+    if (group.isToday) return `Today \u2022 ${suffix}`;
+
+    if (group.dayTime && Number.isFinite(group.dayTime)) {
+      const groupDate = new Date(group.dayTime);
+      if (isSameDay(groupDate, tomorrow)) return `Tomorrow \u2022 ${suffix}`;
+      const diffMs = startOfDay(groupDate).getTime() - today.getTime();
+      const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+      if (diffDays >= 2 && diffDays <= 6) {
+        return `${format(groupDate, 'EEEE')} \u2022 ${suffix}`;
+      }
+      if (diffDays === -1) return `Yesterday \u2022 ${suffix}`;
+      if (diffDays < -1) {
+        const absDays = Math.abs(diffDays);
+        return absDays > 10
+          ? `${Math.round(absDays / 7)} weeks ago \u2022 ${suffix}`
+          : `${absDays} days ago \u2022 ${suffix}`;
+      }
+      return diffDays > 10
+        ? `In ${Math.round(diffDays / 7)} weeks \u2022 ${suffix}`
+        : `In ${diffDays} days \u2022 ${suffix}`;
+    }
+
+    return `${group.label} \u2022 ${suffix}`;
+  }, []);
+
   const { groups: upcomingGroups, hasPastDays } = useMemo(
     () => groupShootsByDay(filteredUpcomingShoots),
     [groupShootsByDay, filteredUpcomingShoots]
@@ -660,7 +692,7 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
         key={shoot.id}
         onClick={() => onSelect(shoot, weather)}
         className={cn(
-          "relative border rounded-3xl p-5 hover:shadow-lg transition-all cursor-pointer bg-card group",
+          "relative border rounded-3xl px-5 pt-4 pb-3.5 sm:p-5 hover:shadow-lg transition-all cursor-pointer bg-card group",
           isRequested 
             ? "border-blue-400 bg-blue-50/30 dark:bg-blue-950/20 hover:border-blue-500" 
             : "border-border hover:border-primary/40"
@@ -675,12 +707,12 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
 
         {/* ── Mobile layout ── */}
         <div className="sm:hidden space-y-2.5">
-          {/* Row 1: Time + Status pill + Weather (right-aligned) */}
-          <div className="flex items-center gap-2 -ml-1.5">
-            <div className="rounded-xl border border-border/80 bg-muted/40 dark:bg-muted/20 px-3 py-1.5 shadow-sm flex-shrink-0 text-center">
+          {/* Row 1: Date+time badge + Weather (right-aligned) */}
+          <div className="flex items-start gap-2">
+            <div className="rounded-xl border border-border/80 bg-muted/40 dark:bg-muted/20 px-2.5 py-1.5 shadow-sm flex-shrink-0 flex items-center gap-2">
               {(() => {
                 const shootDate = shoot.startTime ? new Date(shoot.startTime) : null;
-                const monthStr = shootDate ? shootDate.toLocaleDateString('en-US', { month: 'short' }) : '--';
+                const monthStr = shootDate ? shootDate.toLocaleDateString('en-US', { month: 'short' }).toUpperCase() : '--';
                 const dayStr = shootDate ? String(shootDate.getDate()) : '';
                 const rawTime =
                   shoot.timeLabel ||
@@ -696,21 +728,13 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
                 const formattedTime = rawTime ? formatTime(rawTime) : '--';
                 return (
                   <>
-                    <p className="text-[9px] text-muted-foreground uppercase font-medium">{monthStr}</p>
-                    <p className="text-[15px] font-bold text-foreground leading-none tracking-tight">{dayStr}</p>
-                    <p className="text-[9px] text-muted-foreground mt-0.5">{formattedTime}</p>
+                    <span className="text-[11px] font-bold text-foreground whitespace-nowrap">{monthStr} {dayStr}</span>
+                    <span className="text-border/80 text-[10px]">|</span>
+                    <span className="text-[11px] font-semibold text-primary whitespace-nowrap">{formattedTime}</span>
                   </>
                 );
               })()}
             </div>
-            <span
-              className={cn(
-                'inline-flex items-center h-5 px-2 rounded-full text-[10px] font-semibold border whitespace-nowrap',
-                statusClass,
-              )}
-            >
-              {formatWorkflowStatus(shoot.workflowStatus || shoot.status)}
-            </span>
             <div className="ml-auto inline-flex items-center h-5 gap-1 rounded-full border border-border px-2 text-[10px] font-semibold text-muted-foreground bg-background shadow-sm flex-shrink-0">
               {renderWeatherIcon(weather?.icon)}
               <span>{getShootTemperatureLabel(shoot, weather)}</span>
@@ -749,24 +773,35 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
             })}
           </div>
 
-          {/* Row 5: Photographer — bottom right */}
-          <div className="flex justify-end text-[10px] text-muted-foreground">
-            {isPhotographerRole ? (
-              <span>Client <span className="font-semibold text-foreground">• {shoot.clientName || 'Client TBD'}</span>
-                {(() => {
-                  if (!shoot.clientPhone || !shoot.startTime) return null;
-                  const shootStart = new Date(shoot.startTime).getTime();
-                  const now = Date.now();
-                  const oneHourBefore = shootStart - 60 * 60 * 1000;
-                  if (now >= oneHourBefore && now <= shootStart) {
-                    return <span className="ml-2 font-semibold text-primary">📞 {shoot.clientPhone}</span>;
-                  }
-                  return null;
-                })()}
-              </span>
-            ) : (
-              <span>Photographer <span className="font-semibold text-foreground">• {shoot.photographer?.name || 'Unassigned'}</span></span>
-            )}
+          {/* Row 5: Status left + Photographer right */}
+          <hr className="border-border" />
+          <div className="flex items-center justify-between">
+            <span
+              className={cn(
+                'inline-flex items-center h-5 px-2 rounded-full text-[10px] font-semibold border whitespace-nowrap',
+                statusClass,
+              )}
+            >
+              {formatWorkflowStatus(shoot.workflowStatus || shoot.status)}
+            </span>
+            <div className="text-[10px] text-muted-foreground">
+              {isPhotographerRole ? (
+                <span>Client <span className="font-semibold text-foreground">• {shoot.clientName || 'Client TBD'}</span>
+                  {(() => {
+                    if (!shoot.clientPhone || !shoot.startTime) return null;
+                    const shootStart = new Date(shoot.startTime).getTime();
+                    const now = Date.now();
+                    const oneHourBefore = shootStart - 60 * 60 * 1000;
+                    if (now >= oneHourBefore && now <= shootStart) {
+                      return <span className="ml-2 font-semibold text-primary">📞 {shoot.clientPhone}</span>;
+                    }
+                    return null;
+                  })()}
+                </span>
+              ) : (
+                <span>Photographer <span className="font-semibold text-foreground">• {shoot.photographer?.name || 'Unassigned'}</span></span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -783,7 +818,7 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
                 {formatWorkflowStatus(shoot.workflowStatus || shoot.status)}
               </span>
             )}
-            <div className="w-20 rounded-2xl border border-border/80 bg-muted/40 dark:bg-muted/20 text-center py-3 shadow-sm flex-shrink-0">
+            <div className="w-20 rounded-2xl border border-border/80 bg-muted/40 dark:bg-muted/20 text-center pt-3 pb-2 shadow-sm flex-shrink-0">
               {(() => {
                 const shootDate = shoot.startTime ? new Date(shoot.startTime) : null;
                 const monthStr = shootDate ? shootDate.toLocaleDateString('en-US', { month: 'short' }) : '--';
@@ -804,7 +839,8 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
                   <>
                     <p className="text-xs text-muted-foreground uppercase font-medium tracking-wide">{monthStr}</p>
                     <p className="text-xl font-bold text-foreground leading-tight tracking-tight">{dayStr}</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">{formattedTime}</p>
+                    <hr className="my-1.5 border-border/60" />
+                    <p className="text-xs font-semibold text-primary">{formattedTime}</p>
                   </>
                 );
               })()}
@@ -1412,7 +1448,7 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
                   <div className="flex items-center gap-2">
                     <span className="h-2 w-2 rounded-full bg-primary" />
                     <p className="text-xs font-semibold text-muted-foreground">
-                      {group.label}
+                      {getRelativeGroupLabel(group)}
                     </p>
                   </div>
                   {group.shoots.map((shoot) => renderShootCard(shoot, false))}
@@ -1439,7 +1475,7 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
                   <div className="flex items-center gap-2">
                     <span className="h-2 w-2 rounded-full bg-blue-500" />
                     <p className="text-xs font-semibold text-muted-foreground">
-                      {group.label}
+                      {getRelativeGroupLabel(group)}
                     </p>
                   </div>
                   {group.shoots.map((shoot) => renderShootCard(shoot, true))}
