@@ -898,7 +898,7 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
 
       {/* Add New Category Dialog */}
       <Dialog open={isAddCategoryOpen} onOpenChange={setIsAddCategoryOpen}>
-        <DialogContent className="w-[calc(100vw-1rem)] rounded-2xl sm:max-w-[420px] sm:rounded-2xl">
+        <DialogContent className="w-[calc(100vw-1rem)] rounded-2xl sm:max-w-[420px] sm:rounded-2xl" onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Add New Category</DialogTitle>
           </DialogHeader>
@@ -940,7 +940,7 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
 
       {/* Edit Category Dialog */}
       <Dialog open={isEditCategoryOpen} onOpenChange={setIsEditCategoryOpen}>
-        <DialogContent className="w-[calc(100vw-1rem)] rounded-2xl sm:max-w-[420px] sm:rounded-2xl">
+        <DialogContent className="w-[calc(100vw-1rem)] rounded-2xl sm:max-w-[420px] sm:rounded-2xl" onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Edit Category</DialogTitle>
           </DialogHeader>

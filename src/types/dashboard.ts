@@ -8,6 +8,7 @@ export interface DashboardStatsResponse {
 export interface DashboardShootServiceTagResponse {
   label: string;
   type: string;
+  icon?: string | null;
 }
 
 export interface DashboardPhotographerResponse {
@@ -122,6 +123,7 @@ export interface DashboardStats {
 export interface DashboardShootServiceTag {
   label: string;
   type: string;
+  icon?: string | null;
 }
 
 export interface DashboardPhotographerSummary {

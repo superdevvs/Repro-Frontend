@@ -21,6 +21,8 @@ import {
   Edit,
   Clock,
 } from 'lucide-react';
+import { DroneIcon3 } from '@/components/icons/DroneIcon3';
+import { getIconComponent } from '@/components/scheduling/IconPicker';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { getWeatherForLocation, WeatherInfo } from '@/services/weatherService';
@@ -61,8 +63,8 @@ const SERVICE_ICON_MAP: Record<string, React.ReactNode> = {
   hdr: <Camera size={12} />,
   hdr_photos: <Camera size={12} />,
   hdr_photo: <Camera size={12} />,
-  drone: <Plane size={12} />,
-  drone_shots: <Plane size={12} />,
+  drone: <DroneIcon3 className="w-3 h-3" />,
+  drone_shots: <DroneIcon3 className="w-3 h-3" />,
   floorplan: <MapIcon size={12} />,
   floor_plan: <MapIcon size={12} />,
   hd_video: <Film size={12} />,
@@ -261,9 +263,9 @@ export const RequestedShootsSection: React.FC<RequestedShootsSectionProps> = ({
                   .map((part) => part.trim())
                   .filter(Boolean);
                 if (parts.length <= 1) {
-                  return [{ label: service.label.trim(), type: service.type }];
+                  return [{ label: service.label.trim(), type: service.type, icon: service.icon }];
                 }
-                return parts.map((part) => ({ label: part, type: service.type }));
+                return parts.map((part) => ({ label: part, type: service.type, icon: service.icon }));
               });
               const isHovered = hoveredShoot === shoot.id;
               const visibleServices = isHovered ? serviceList : serviceList.slice(0, 3);
@@ -327,7 +329,8 @@ export const RequestedShootsSection: React.FC<RequestedShootsSectionProps> = ({
                       <div className="flex gap-1.5 sm:gap-2 flex-wrap text-[10px] sm:text-xs text-muted-foreground transition-all">
                         {visibleServices.map((tag, index) => {
                           const key = getServiceKey(tag.label, tag.type);
-                          const icon = SERVICE_ICON_MAP[key] || <Camera size={10} className="sm:w-3 sm:h-3" />;
+                          const IconComp = tag.icon ? getIconComponent(tag.icon) : null;
+                          const icon = IconComp ? <IconComp className="w-2.5 h-2.5 sm:w-3 sm:h-3" /> : (SERVICE_ICON_MAP[key] || <Camera size={10} className="sm:w-3 sm:h-3" />);
                           return (
                             <span
                               key={`${shoot.id}-${key}-${index}`}

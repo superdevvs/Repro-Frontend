@@ -39,6 +39,7 @@ const normalizeShoot = (shoot: DashboardShootSummaryResponse): DashboardShootSum
     ? shoot.services.map(tag => ({
         label: tag.label,
         type: tag.type,
+        icon: tag.icon ?? null,
       }))
     : [defaultTag('Standard Package')],
   photographer: shoot.photographer

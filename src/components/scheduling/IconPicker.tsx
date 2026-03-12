@@ -26,6 +26,7 @@ import {
   Globe,
   Package
 } from 'lucide-react';
+import { DroneIcon3 } from '@/components/icons/DroneIcon3';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -34,6 +35,7 @@ export const AVAILABLE_ICONS = [
   { name: 'Camera', icon: Camera },
   { name: 'Video', icon: Video },
   { name: 'Film', icon: Film },
+  { name: 'Drone', icon: DroneIcon3 },
   { name: 'Plane', icon: Plane },
   { name: 'Box', icon: Box },
   { name: 'LayoutTemplate', icon: LayoutTemplate },
@@ -70,14 +72,14 @@ export function IconPicker({ value, onChange }: IconPickerProps) {
   const SelectedIcon = AVAILABLE_ICONS.find(i => i.name === value)?.icon || Camera;
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setOpen} modal={false}>
       <PopoverTrigger asChild>
         <Button variant="outline" role="combobox" aria-expanded={open} className="w-full justify-start gap-2">
-          <SelectedIcon className="h-4 w-4" />
+          <SelectedIcon className="h-5 w-5" />
           <span>{value || 'Select Icon'}</span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[300px] p-0" align="start">
+      <PopoverContent className="w-[300px] p-0 z-[9999]" align="start" onOpenAutoFocus={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
         <ScrollArea className="h-[300px] p-4">
           <div className="grid grid-cols-4 gap-4">
             {AVAILABLE_ICONS.map(({ name, icon: Icon }) => (
@@ -90,7 +92,7 @@ export function IconPicker({ value, onChange }: IconPickerProps) {
                   setOpen(false);
                 }}
               >
-                <Icon className="h-6 w-6" />
+                <Icon className="h-8 w-8" />
                 <span className="text-xs truncate w-full text-center">{name}</span>
               </Button>
             ))}
