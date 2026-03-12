@@ -674,6 +674,7 @@ const mapShootApiToShootData = (item: Record<string, unknown>): ShootData => {
     primaryAction: primaryAction ?? undefined,
     files: toArrayValue<ShootFileData>(item.files),
     tourPurchased: toBooleanValue(item.tourPurchased ?? item.tour_purchased),
+    tourLinks: (item.tour_links ?? item.tourLinks) as ShootData['tourLinks'],
   }
 }
 
@@ -2574,7 +2575,7 @@ const ShootHistory: React.FC = () => {
   const canViewInvoice = !isPhotographer && !isEditor && !isEditingManager // Hide invoice for photographers, editors, and editing managers
   
   // Linked accounts should only be available for non-super admin users
-  const canViewLinkedAccounts = !isSuperAdmin && !isAdmin && !isEditingManager // Only clients can have linked accounts
+  const canViewLinkedAccounts = !isSuperAdmin && !isAdmin && !isEditingManager && !isPhotographer // Only clients can have linked accounts
   
   // Linked accounts state
   const [linkedAccounts, setLinkedAccounts] = useState<any[]>([])

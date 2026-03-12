@@ -788,7 +788,7 @@ export function ShootDetailsModal({
   );
 
   const isHoldRequested = Boolean(shoot?.holdRequestedAt);
-  const canDirectHold = isAdminOrRep && canPutOnHold && !isHoldRequested;
+  const canDirectHold = isAdminOrRep && !isEditor && !isEditingManager && canPutOnHold && !isHoldRequested;
   const canRequestHold = isClient && canPutOnHold && !isHoldRequested;
   const canUserPutOnHold = canDirectHold || canRequestHold;
   const holdActionLabel = isClient ? 'Request hold' : 'Mark on hold';
@@ -2072,9 +2072,9 @@ export function ShootDetailsModal({
 
   // Mobile bottom bar: show all relevant actions (parity with desktop)
   const canMarkPaidOnMobile =
-    (currentUserRole === 'superadmin' || currentUserRole === 'admin') &&
+    (currentUserRole === 'superadmin' || currentUserRole === 'admin') && !isEditingManager &&
     !((shoot?.payment?.totalPaid ?? 0) >= (shoot?.payment?.totalQuote ?? 0));
-  const canProcessPaymentOnMobile = (isAdmin || isRep) && !isPaid && !isPhotographer && !isEditor;
+  const canProcessPaymentOnMobile = (isAdmin || isRep) && !isPaid && !isPhotographer && !isEditor && !isEditingManager;
   const showMobilePaymentActions =
     !isEditMode && !isRequestedStatus && !isCancelledOrDeclined && (canMarkPaidOnMobile || canProcessPaymentOnMobile);
   const showMobileSendToEditingAction =
@@ -2672,8 +2672,8 @@ export function ShootDetailsModal({
               </Tabs>
             </div>
 
-            {/* Payment buttons section - desktop (hidden for cancelled/declined shoots) */}
-            {!isCancelledOrDeclined && (isAdmin || isRep) && !isPhotographer && !isEditor && (
+            {/* Payment buttons section - desktop (hidden for cancelled/declined shoots, editors, editing managers) */}
+            {!isCancelledOrDeclined && (isAdmin || isRep) && !isPhotographer && !isEditor && !isEditingManager && (
               ((currentUserRole === 'superadmin' || currentUserRole === 'admin') && !((shoot.payment?.totalPaid ?? 0) >= (shoot.payment?.totalQuote ?? 0))) ||
               ((isAdmin || isRep) && !isPaid)
             ) && (

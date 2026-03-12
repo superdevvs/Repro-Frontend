@@ -1036,6 +1036,7 @@ const Dashboard = () => {
         onDecline={(shoot) => setDeclineModalShoot(shoot)}
         onModify={(shoot) => setEditModalShoot(shoot)}
         onViewInvoice={handleViewInvoice}
+        role={role}
       />
     );
 

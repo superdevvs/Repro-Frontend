@@ -60,6 +60,7 @@ export interface DashboardShootSummaryResponse {
   workflow_status?: string | null;
   client_name?: string | null;
   client_id?: number | null;
+  client_phone?: string | null;
   temperature?: string | null;
   services: DashboardShootServiceTagResponse[];
   photographer?: {
@@ -194,6 +195,7 @@ export interface DashboardShootSummary {
   workflowStatus: string | null;
   clientName: string | null;
   clientId?: string | number | null;
+  clientPhone?: string | null;
   temperature?: string | null;
   services: DashboardShootServiceTag[];
   photographer?: {

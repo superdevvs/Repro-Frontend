@@ -45,6 +45,7 @@ interface ShootDetailsSidebarProps {
   isAdmin: boolean;
   isPhotographer?: boolean;
   isEditor?: boolean;
+  isEditingManager?: boolean;
   onMarkPaid: () => void;
   onShootUpdate?: () => void;
 }
@@ -55,6 +56,7 @@ export function ShootDetailsSidebar({
   isAdmin,
   isPhotographer = false,
   isEditor = false,
+  isEditingManager = false,
   onMarkPaid,
   onShootUpdate,
 }: ShootDetailsSidebarProps) {
@@ -488,8 +490,8 @@ export function ShootDetailsSidebar({
         );
       })()}
 
-      {/* Billing Summary Card */}
-      {(isAdmin || isSuperAdmin) && (
+      {/* Billing Summary Card - hidden for editor/editing_manager */}
+      {(isAdmin || isSuperAdmin) && !isEditor && !isEditingManager && (
         <Card className="shadow-sm border-2 hover:shadow-md transition-shadow">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">

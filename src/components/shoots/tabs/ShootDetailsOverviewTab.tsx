@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { ShootNotesTab } from '@/components/dashboard/ShootNotesTab';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
@@ -2592,6 +2593,14 @@ export function ShootDetailsOverviewTab({
           </div>
         )}
       </div>
+      )}
+
+      {/* Notes section - only for photographer */}
+      {isPhotographer && (
+        <div className="p-2.5 border rounded-lg bg-card">
+          <span className="text-[11px] font-semibold text-muted-foreground uppercase mb-1.5 block">Notes</span>
+          <ShootNotesTab shoot={shoot} isAdmin={false} isPhotographer={true} role="photographer" />
+        </div>
       )}
 
       {/* Assign Photographer Dialog - Matching Book Shoot selector */}

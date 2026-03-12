@@ -44,6 +44,7 @@ interface ShootsTabsCardProps {
   onDecline?: (shoot: DashboardShootSummary) => void;
   onModify?: (shoot: DashboardShootSummary) => void;
   onViewInvoice?: (shoot: DashboardShootSummary) => void;
+  role?: string;
 }
 
 type TabType = 'upcoming' | 'requested';
@@ -248,7 +249,9 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
   onDecline,
   onModify,
   onViewInvoice,
+  role,
 }) => {
+  const isPhotographerRole = role === 'photographer';
   const { formatTemperature, formatTime, formatDate } = useUserPreferences();
   const [activeTab, setActiveTab] = useState<TabType>('upcoming');
   const [hasUnreadRequests, setHasUnreadRequests] = useState(requestedShoots.length > 0);
@@ -260,7 +263,6 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
   const [weatherMap, setWeatherMap] = useState<Record<number, WeatherInfo>>({});
   const weatherMapRef = useRef<Map<number, WeatherInfo>>(new Map());
   const [providerVersion, setProviderVersion] = useState(0);
-  const [hoveredShoot, setHoveredShoot] = useState<number | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const lastRequestedCountRef = useRef<number>(requestedShoots.length);
   
@@ -651,17 +653,12 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
       }
       return parts.map((part) => ({ label: part, type: service.type }));
     });
-    const isHovered = hoveredShoot === shoot.id;
-    const visibleServices = isHovered ? serviceList : serviceList.slice(0, 3);
-    const hidden = isHovered ? 0 : serviceList.length - visibleServices.length;
     const weather = weatherMap[shoot.id];
 
     return (
       <div
         key={shoot.id}
         onClick={() => onSelect(shoot, weather)}
-        onMouseEnter={() => setHoveredShoot(shoot.id)}
-        onMouseLeave={() => setHoveredShoot(null)}
         className={cn(
           "relative border rounded-3xl p-5 hover:shadow-lg transition-all cursor-pointer bg-card group",
           isRequested 
@@ -680,8 +677,11 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
         <div className="sm:hidden space-y-2.5">
           {/* Row 1: Time + Status pill + Weather (right-aligned) */}
           <div className="flex items-center gap-2 -ml-1.5">
-            <div className="rounded-xl border border-border/80 bg-muted/40 dark:bg-muted/20 px-4 py-2 shadow-sm flex-shrink-0">
+            <div className="rounded-xl border border-border/80 bg-muted/40 dark:bg-muted/20 px-3 py-1.5 shadow-sm flex-shrink-0 text-center">
               {(() => {
+                const shootDate = shoot.startTime ? new Date(shoot.startTime) : null;
+                const monthStr = shootDate ? shootDate.toLocaleDateString('en-US', { month: 'short' }) : '--';
+                const dayStr = shootDate ? String(shootDate.getDate()) : '';
                 const rawTime =
                   shoot.timeLabel ||
                   (shoot.startTime
@@ -695,9 +695,11 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
                     : null);
                 const formattedTime = rawTime ? formatTime(rawTime) : '--';
                 return (
-                  <p className="text-[15px] font-bold text-foreground leading-none tracking-tight whitespace-nowrap">
-                    {formattedTime}
-                  </p>
+                  <>
+                    <p className="text-[9px] text-muted-foreground uppercase font-medium">{monthStr}</p>
+                    <p className="text-[15px] font-bold text-foreground leading-none tracking-tight">{dayStr}</p>
+                    <p className="text-[9px] text-muted-foreground mt-0.5">{formattedTime}</p>
+                  </>
                 );
               })()}
             </div>
@@ -732,7 +734,7 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
 
           {/* Row 4: Service tags + Photographer bottom-right */}
           <div className="flex gap-1.5 flex-wrap">
-            {visibleServices.map((tag, index) => {
+            {serviceList.map((tag, index) => {
               const key = getServiceKey(tag.label, tag.type);
               const icon = SERVICE_ICON_MAP[key] || <Camera size={10} />;
               return (
@@ -745,19 +747,26 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
                 </span>
               );
             })}
-            {hidden > 0 && (
-              <Badge
-                variant="outline"
-                className="rounded-full border-dashed text-muted-foreground px-2 py-0.5 text-[10px]"
-              >
-                +{hidden} more
-              </Badge>
-            )}
           </div>
 
           {/* Row 5: Photographer — bottom right */}
           <div className="flex justify-end text-[10px] text-muted-foreground">
-            <span>Photographer <span className="font-semibold text-foreground">• {shoot.photographer?.name || 'Unassigned'}</span></span>
+            {isPhotographerRole ? (
+              <span>Client <span className="font-semibold text-foreground">• {shoot.clientName || 'Client TBD'}</span>
+                {(() => {
+                  if (!shoot.clientPhone || !shoot.startTime) return null;
+                  const shootStart = new Date(shoot.startTime).getTime();
+                  const now = Date.now();
+                  const oneHourBefore = shootStart - 60 * 60 * 1000;
+                  if (now >= oneHourBefore && now <= shootStart) {
+                    return <span className="ml-2 font-semibold text-primary">📞 {shoot.clientPhone}</span>;
+                  }
+                  return null;
+                })()}
+              </span>
+            ) : (
+              <span>Photographer <span className="font-semibold text-foreground">• {shoot.photographer?.name || 'Unassigned'}</span></span>
+            )}
           </div>
         </div>
 
@@ -776,6 +785,9 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
             )}
             <div className="w-20 rounded-2xl border border-border/80 bg-muted/40 dark:bg-muted/20 text-center py-3 shadow-sm flex-shrink-0">
               {(() => {
+                const shootDate = shoot.startTime ? new Date(shoot.startTime) : null;
+                const monthStr = shootDate ? shootDate.toLocaleDateString('en-US', { month: 'short' }) : '--';
+                const dayStr = shootDate ? String(shootDate.getDate()) : '';
                 const rawTime =
                   shoot.timeLabel ||
                   (shoot.startTime
@@ -787,17 +799,12 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
                         return `${hh}:${mm}`;
                       })()
                     : null);
-
                 const formattedTime = rawTime ? formatTime(rawTime) : '--';
-                const parts = formattedTime.split(' ');
                 return (
                   <>
-                    <p className="text-xl font-bold text-foreground leading-tight tracking-tight">
-                      {parts[0] || '--'}
-                    </p>
-                    <p className="text-xs text-muted-foreground uppercase font-medium tracking-wide">
-                      {parts[1] || ''}
-                    </p>
+                    <p className="text-xs text-muted-foreground uppercase font-medium tracking-wide">{monthStr}</p>
+                    <p className="text-xl font-bold text-foreground leading-tight tracking-tight">{dayStr}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{formattedTime}</p>
                   </>
                 );
               })()}
@@ -827,7 +834,7 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
               <span>Shoot ID <span className="font-semibold text-foreground">• #{shoot.id}</span></span>
             </div>
             <div className="flex gap-2 flex-wrap text-xs text-muted-foreground transition-all">
-              {visibleServices.map((tag, index) => {
+              {serviceList.map((tag, index) => {
                 const key = getServiceKey(tag.label, tag.type);
                 const icon = SERVICE_ICON_MAP[key] || <Camera size={12} />;
                 return (
@@ -840,14 +847,6 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
                   </span>
                 );
               })}
-              {hidden > 0 && (
-                <Badge
-                  variant="outline"
-                  className="rounded-full border-dashed text-muted-foreground px-3 py-1 text-[11px]"
-                >
-                  +{hidden} more
-                </Badge>
-              )}
             </div>
           </div>
 
@@ -857,10 +856,31 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
               <span>{getShootTemperatureLabel(shoot, weather)}</span>
             </div>
             <div className="text-xs text-muted-foreground text-right">
-              Photographer{' '}
-              <span className="font-semibold text-foreground">
-                • {shoot.photographer?.name || 'Unassigned'}
-              </span>
+              {isPhotographerRole ? (
+                <>
+                  Client{' '}
+                  <span className="font-semibold text-foreground">
+                    • {shoot.clientName || 'Client TBD'}
+                  </span>
+                  {(() => {
+                    if (!shoot.clientPhone || !shoot.startTime) return null;
+                    const shootStart = new Date(shoot.startTime).getTime();
+                    const now = Date.now();
+                    const oneHourBefore = shootStart - 60 * 60 * 1000;
+                    if (now >= oneHourBefore && now <= shootStart) {
+                      return <span className="ml-2 font-semibold text-primary">📞 {shoot.clientPhone}</span>;
+                    }
+                    return null;
+                  })()}
+                </>
+              ) : (
+                <>
+                  Photographer{' '}
+                  <span className="font-semibold text-foreground">
+                    • {shoot.photographer?.name || 'Unassigned'}
+                  </span>
+                </>
+              )}
             </div>
           </div>
         </div>

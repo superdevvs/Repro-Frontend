@@ -33,6 +33,7 @@ const normalizeShoot = (shoot: DashboardShootSummaryResponse): DashboardShootSum
   workflowStatus: shoot.workflow_status ?? null,
   clientName: shoot.client_name ?? null,
   clientId: shoot.client_id ?? null,
+  clientPhone: shoot.client_phone ?? null,
   temperature: shoot.temperature ?? null,
   services: (shoot.services && shoot.services.length > 0)
     ? shoot.services.map(tag => ({

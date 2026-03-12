@@ -39,7 +39,8 @@ import { useToast } from "@/hooks/use-toast";
 import { API_BASE_URL } from "@/config/env";
 import type { RepDetails } from "@/types/auth";
 import { STATE_OPTIONS } from "@/utils/stateUtils";
-import { Upload, FileText, X, Camera, Loader2 } from "lucide-react";
+import { Upload, FileText, X, Camera, Loader2, MapPin } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
 import { useServices } from "@/hooks/useServices";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { usePermission } from "@/hooks/usePermission";
@@ -81,6 +82,8 @@ const createAccountFormSchema = (viewerRole?: string) => z.object({
   bio: z.string().optional(),
   isActive: z.boolean().default(true),
   specialties: z.array(z.string()).optional(),
+  travelRange: z.number().optional(),
+  travelRangeUnit: z.enum(['miles', 'km']).optional(),
   pilotLicenseFile: z.string().optional(),
   pilotLicenseFileName: z.string().optional(),
   insuranceNumber: z.string().optional(),
@@ -195,6 +198,8 @@ export function AccountForm({
           companyNotes: "",
           isActive: true,
           specialties: [],
+          travelRange: 25,
+          travelRangeUnit: 'miles' as const,
           pilotLicenseFile: "",
           pilotLicenseFileName: "",
           insuranceNumber: "",
@@ -249,6 +254,8 @@ export function AccountForm({
           companyNotes: initialData.companyNotes || "",
           isActive: initialData.isActive !== undefined ? initialData.isActive : true,
           specialties: (initialData.metadata?.specialties as string[]) ?? (initialData as any).specialties ?? [],
+          travelRange: Number(initialData.metadata?.travel_range) || 25,
+          travelRangeUnit: (initialData.metadata?.travel_range_unit as 'miles' | 'km') || 'miles',
           pilotLicenseFile: initialData.metadata?.pilotLicenseFile || "",
           pilotLicenseFileName: initialData.metadata?.pilotLicenseFileName || "",
           insuranceNumber: initialData.metadata?.insuranceNumber || "",
@@ -287,6 +294,8 @@ export function AccountForm({
           companyNotes: "",
           isActive: true,
           specialties: [],
+          travelRange: 25,
+          travelRangeUnit: 'miles' as const,
           pilotLicenseFile: "",
           pilotLicenseFileName: "",
           insuranceNumber: "",
@@ -482,6 +491,12 @@ export function AccountForm({
       }
       if (values.specialties && Array.isArray(values.specialties) && values.specialties.length > 0) {
         metadataPayload.specialties = values.specialties;
+      }
+      if (values.travelRange !== undefined) {
+        metadataPayload.travel_range = values.travelRange;
+      }
+      if (values.travelRangeUnit) {
+        metadataPayload.travel_range_unit = values.travelRangeUnit;
       }
     }
 
@@ -1498,6 +1513,61 @@ export function AccountForm({
                     );
                   }}
                 />
+
+                {/* Travel Range */}
+                <div className="space-y-3 rounded-lg border border-border/60 bg-muted/30 p-4">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-muted-foreground" />
+                    <h3 className="text-sm font-semibold">Travel Range</h3>
+                  </div>
+                  <FormField
+                    control={form.control}
+                    name="travelRange"
+                    render={({ field }) => (
+                      <FormItem>
+                        <div className="flex items-center justify-between">
+                          <FormLabel className="text-xs text-muted-foreground">Max Distance</FormLabel>
+                          <span className="text-sm font-semibold">{field.value || 25} {form.watch('travelRangeUnit') || 'miles'}</span>
+                        </div>
+                        <FormControl>
+                          <Slider
+                            value={[field.value || 25]}
+                            onValueChange={([val]) => field.onChange(val)}
+                            min={5}
+                            max={150}
+                            step={5}
+                            className="mt-2"
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="travelRangeUnit"
+                    render={({ field }) => (
+                      <FormItem>
+                        <div className="flex gap-2">
+                          {(['miles', 'km'] as const).map((unit) => (
+                            <button
+                              key={unit}
+                              type="button"
+                              onClick={() => field.onChange(unit)}
+                              className={cn(
+                                "px-3 py-1 rounded-full text-xs border transition",
+                                field.value === unit
+                                  ? "bg-primary/10 text-primary border-primary/30"
+                                  : "bg-background text-muted-foreground border-border/70 hover:bg-muted/60"
+                              )}
+                            >
+                              {unit === 'miles' ? 'Miles' : 'Kilometers'}
+                            </button>
+                          ))}
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </>
             )}
 

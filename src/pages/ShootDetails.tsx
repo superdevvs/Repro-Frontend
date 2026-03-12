@@ -588,7 +588,7 @@ const ShootDetails: React.FC = () => {
 
   const isHoldRequested = Boolean(shoot?.holdRequestedAt);
   // Check if user can put shoot on hold
-  const canDirectHold = isAdminOrRep && canPutOnHold && !isHoldRequested;
+  const canDirectHold = isAdminOrRep && !isEditor && !isEditingManager && canPutOnHold && !isHoldRequested;
   const canRequestHold = isClient && canPutOnHold && !isHoldRequested;
   const canReviewHoldRequest = isAdminOrRep && isHoldRequested;
 
@@ -979,7 +979,7 @@ const ShootDetails: React.FC = () => {
                       <span className="sm:hidden">Finalize</span>
                     </Button>
                   )}
-                  {isAdminOrSuperAdmin && !['cancelled', 'canceled', 'declined'].includes(workflowStatusKey) && (
+                  {isAdminOrSuperAdmin && !isEditor && !isEditingManager && !['cancelled', 'canceled', 'declined'].includes(workflowStatusKey) && (
                     <Button
                       variant="default"
                       size="sm"
@@ -1274,6 +1274,7 @@ const ShootDetails: React.FC = () => {
                 isAdmin={isAdmin}
                 isPhotographer={isPhotographer}
                 isEditor={isEditor}
+                isEditingManager={isEditingManager}
                 onShootUpdate={loadShoot}
                 onMarkPaid={() => setIsMarkPaidDialogOpen(true)}
               />

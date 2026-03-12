@@ -44,6 +44,7 @@ import {
   LayoutGrid,
   List,
   Play,
+  ExternalLink,
 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { ShootData } from '@/types/shoots';
@@ -109,6 +110,10 @@ export function ShootDetailsMediaTab({
   const [editingTypes, setEditingTypes] = useState<EditingType[]>([]);
   const [selectedEditingType, setSelectedEditingType] = useState<string>('');
   const [submittingAiEdit, setSubmittingAiEdit] = useState(false);
+  const [editingNotesValue, setEditingNotesValue] = useState(() => {
+    const anyShoot = shoot as any;
+    return String(anyShoot?.editor_notes || anyShoot?.editorNotes || (typeof shoot.notes === 'object' && shoot.notes?.editingNotes) || '');
+  });
   const [sortOrder, setSortOrder] = useState<'name' | 'date' | 'time' | 'manual'>('time');
   const [manualOrder, setManualOrder] = useState<string[]>([]);
   const [mediaViewMode, setMediaViewMode] = useState<'list' | 'grid'>(() => {
@@ -2214,8 +2219,24 @@ export function ShootDetailsMediaTab({
                   Raw Uploads ({rawFiles.length})
                 </TabsTrigger>
               )}
-              {/* Edited tab - hidden for photographers (they only see raw/uploaded media) */}
-              {!isPhotographer && (
+              {/* Edited tab - for photographers, show "View Edited Media" that opens MLS compliant link */}
+              {isPhotographer ? (
+                <button
+                  type="button"
+                  className="text-[11px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 h-7 sm:h-8 text-primary font-medium hover:bg-primary/10 rounded-md transition-colors whitespace-nowrap inline-flex items-center gap-1"
+                  onClick={() => {
+                    const mlsLink = shoot?.tourLinks?.mls || shoot?.tourLinks?.genericMls || shoot?.tourLinks?.matterport_mls || shoot?.tourLinks?.iguide_mls || (shoot as any)?.mls_compliant_link;
+                    if (mlsLink) {
+                      window.open(mlsLink, '_blank', 'noopener,noreferrer');
+                    } else {
+                      toast({ title: 'No link available', description: 'MLS compliant tour link is not available yet.', variant: 'destructive' });
+                    }
+                  }}
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  View Edited Media
+                </button>
+              ) : (
                 <TabsTrigger 
                   value="edited" 
                   className="text-[11px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 h-7 sm:h-8 data-[state=active]:bg-primary/10 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:rounded-none data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground whitespace-nowrap"
@@ -2544,6 +2565,44 @@ export function ShootDetailsMediaTab({
                 />
               )}
             </div>
+            {/* Notes for Editing - photographer only */}
+            {isPhotographer && (
+              <div className="border rounded-lg bg-card p-3 mt-2.5">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-xs font-semibold text-purple-700 dark:text-purple-400">Notes for Editing</h4>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="h-6 text-[10px] px-2"
+                    onClick={async () => {
+                      try {
+                        const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+                        const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/notes`, {
+                          method: 'PATCH',
+                          headers: {
+                            'Content-Type': 'application/json',
+                            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                          },
+                          body: JSON.stringify({ editor_notes: editingNotesValue }),
+                        });
+                        if (!res.ok) throw new Error('Failed to save');
+                        toast({ title: 'Saved', description: 'Editing notes saved successfully' });
+                      } catch {
+                        toast({ title: 'Error', description: 'Failed to save editing notes', variant: 'destructive' });
+                      }
+                    }}
+                  >
+                    Save
+                  </Button>
+                </div>
+                <textarea
+                  className="w-full resize-none min-h-[80px] rounded-md border-2 border-purple-200 dark:border-purple-700 bg-purple-50/60 dark:bg-purple-900/10 text-purple-800 dark:text-purple-300 text-sm p-2 focus:outline-none focus:ring-2 focus:ring-purple-500/40"
+                  placeholder="Add instructions for the editor..."
+                  value={editingNotesValue}
+                  onChange={(e) => setEditingNotesValue(e.target.value)}
+                />
+              </div>
+            )}
           </div>
         ) : (
           <div className="flex-1 flex flex-col min-h-0 w-full h-full bg-background" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -2604,7 +2663,7 @@ export function ShootDetailsMediaTab({
                           iGuide zip file
                         </button>
                       )}
-                      {iguideFloorplans.length > 0 && (
+                      {!isEditor && iguideFloorplans.length > 0 && (
                         <button
                           onClick={() => setUploadedMediaTab('floorplans')}
                           className={`text-xs py-1 border-b-2 transition-colors whitespace-nowrap ${uploadedMediaTab === 'floorplans' ? 'border-foreground text-foreground font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
@@ -2853,7 +2912,7 @@ export function ShootDetailsMediaTab({
                           iGuide zip file
                         </button>
                       )}
-                      {iguideFloorplans.length > 0 && (
+                      {!isEditor && iguideFloorplans.length > 0 && (
                         <button
                           onClick={() => setEditedMediaTab('floorplans')}
                           className={`text-xs py-1 border-b-2 transition-colors whitespace-nowrap ${editedMediaTab === 'floorplans' ? 'border-foreground text-foreground font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}

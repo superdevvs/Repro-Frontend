@@ -264,8 +264,9 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
   emptyStateText,
   defaultShowPastDays,
 }) => {
-  // Hide client info for photographers and editors
-  const hideClientInfo = role === 'photographer' || role === 'editor';
+  // Hide client info for editors only; photographers see client info
+  const hideClientInfo = role === 'editor';
+  const isPhotographerRole = role === 'photographer';
   // Hide weather for editors (they don't need it)
   const hideWeather = role === 'editor';
   const { formatTemperature, formatTime, formatDate } = useUserPreferences();
@@ -277,7 +278,6 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
   const [weatherMap, setWeatherMap] = useState<Record<number, WeatherInfo>>({});
   const weatherMapRef = useRef<Map<number, WeatherInfo>>(new Map());
   const [providerVersion, setProviderVersion] = useState(0);
-  const [hoveredShoot, setHoveredShoot] = useState<number | null>(null);
   
   // Pagination state - show 5 shoots at a time
   const SHOOTS_PER_PAGE = 5;
@@ -1023,17 +1023,12 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                   }
                   return parts.map((part) => ({ label: part, type: service.type }));
                 });
-                const isHovered = hoveredShoot === shoot.id;
-                const visibleServices = isHovered ? serviceList : serviceList.slice(0, 3);
-                const hidden = isHovered ? 0 : serviceList.length - visibleServices.length;
                 const weather = weatherMap[shoot.id];
 
                 return (
                   <div
                     key={shoot.id}
                     onClick={() => onSelect(shoot, weather)}
-                    onMouseEnter={() => setHoveredShoot(shoot.id)}
-                    onMouseLeave={() => setHoveredShoot(null)}
                     className={cn(
                       "relative border rounded-3xl p-5 hover:shadow-lg transition-all cursor-pointer bg-card group",
                       isRequested 
@@ -1062,16 +1057,15 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                         )}
                         <div className="w-16 sm:w-20 rounded-xl sm:rounded-2xl border border-border bg-background text-center py-2 sm:py-3 shadow-sm flex-shrink-0">
                           {(() => {
+                            const shootDate = shoot.startTime ? new Date(shoot.startTime) : null;
+                            const monthStr = shootDate ? shootDate.toLocaleDateString('en-US', { month: 'short' }) : '--';
+                            const dayStr = shootDate ? String(shootDate.getDate()) : '';
                             const formattedTime = shoot.timeLabel ? formatTime(shoot.timeLabel) : '--';
-                            const parts = formattedTime.split(' ');
                             return (
                               <>
-                                <p className="text-lg sm:text-xl font-semibold text-foreground leading-none">
-                                  {parts[0] || '--'}
-                                </p>
-                                <p className="text-[10px] sm:text-xs text-muted-foreground uppercase">
-                                  {parts[1] || ''}
-                                </p>
+                                <p className="text-[10px] sm:text-xs text-muted-foreground uppercase font-medium">{monthStr}</p>
+                                <p className="text-lg sm:text-xl font-semibold text-foreground leading-none">{dayStr}</p>
+                                <p className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5">{formattedTime}</p>
                               </>
                             );
                           })()}
@@ -1104,7 +1098,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                           <span>Shoot ID <span className="font-semibold text-foreground">• #{shoot.id}</span></span>
                         </div>
                         <div className="flex gap-1.5 sm:gap-2 flex-wrap text-[10px] sm:text-xs text-muted-foreground transition-all">
-                          {visibleServices.map((tag, index) => {
+                          {serviceList.map((tag, index) => {
                             const key = getServiceKey(tag.label, tag.type);
                             const icon = SERVICE_ICON_MAP[key] || <Camera size={10} className="sm:w-3 sm:h-3" />;
                             return (
@@ -1117,14 +1111,6 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                               </span>
                             );
                           })}
-                          {hidden > 0 && (
-                            <Badge
-                              variant="outline"
-                              className="rounded-full border-dashed text-muted-foreground px-2 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-[11px]"
-                            >
-                              +{hidden} more
-                            </Badge>
-                          )}
                         </div>
                       </div>
 
@@ -1145,10 +1131,35 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                           </div>
                         )}
                         <div className="text-[10px] sm:text-xs text-muted-foreground text-right sm:text-right">
-                          Photographer{' '}
-                          <span className="font-semibold text-foreground">
-                            • {shoot.photographer?.name || 'Unassigned'}
-                          </span>
+                          {isPhotographerRole ? (
+                            <>
+                              Client{' '}
+                              <span className="font-semibold text-foreground">
+                                • {shoot.clientName || 'Client TBD'}
+                              </span>
+                              {(() => {
+                                if (!shoot.clientPhone || !shoot.startTime) return null;
+                                const shootStart = new Date(shoot.startTime).getTime();
+                                const now = Date.now();
+                                const oneHourBefore = shootStart - 60 * 60 * 1000;
+                                if (now >= oneHourBefore && now <= shootStart) {
+                                  return (
+                                    <span className="ml-2 font-semibold text-primary">
+                                      📞 {shoot.clientPhone}
+                                    </span>
+                                  );
+                                }
+                                return null;
+                              })()}
+                            </>
+                          ) : (
+                            <>
+                              Photographer{' '}
+                              <span className="font-semibold text-foreground">
+                                • {shoot.photographer?.name || 'Unassigned'}
+                              </span>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>

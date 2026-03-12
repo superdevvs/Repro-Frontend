@@ -53,6 +53,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
             <PageTransition className="flex flex-col min-h-full">
               {children || <Outlet />}
             </PageTransition>
+            <footer className="border-t border-border/40 mt-8 py-4 text-center text-[11px] text-muted-foreground">
+              © {new Date().getFullYear()} R/E Pro Photos · Terms of Use · Privacy Policy
+            </footer>
           </main>
         </ErrorBoundary>
         {isMobile && <MobileMenu />}

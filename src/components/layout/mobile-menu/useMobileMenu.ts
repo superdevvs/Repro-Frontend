@@ -91,7 +91,7 @@ export const useMobileMenu = () => {
       icon: "FileText",
       label: getAccountingLabel(),
       isActive: pathname === '/accounting',
-      roles: ['client', 'admin', 'superadmin', 'photographer', 'editor', 'salesRep', 'editing_manager']
+      roles: ['client', 'admin', 'superadmin', 'photographer', 'salesRep', 'editing_manager']
     },
     {
       to: "/messaging/email/inbox",

@@ -113,8 +113,8 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
         />
       )}
       
-      {/* Accounting */}
-      {(() => {
+      {/* Accounting - hidden for editor */}
+      {role !== 'editor' && (() => {
         const accountingMode = getAccountingMode(role);
         const config = accountingConfigs[accountingMode];
         return (

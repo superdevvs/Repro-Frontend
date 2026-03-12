@@ -306,6 +306,7 @@ export const shootDataToSummary = (shoot: ShootData): DashboardShootSummary => {
     workflowStatus: shoot.workflowStatus || shoot.status || null,
     clientName: shoot.client?.name || null,
     clientId: shoot.client?.id,
+    clientPhone: shoot.client?.phone || (shoot.client as any)?.phonenumber || null,
     temperature: undefined,
     services: normalizeServices(shoot.services),
     photographer: shoot.photographer?.name
