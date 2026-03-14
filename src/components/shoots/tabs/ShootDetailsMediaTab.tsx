@@ -173,7 +173,7 @@ export function ShootDetailsMediaTab({
   // This prevents infinite loops from new array references with same content
   const rawFilesRef = useRef<string>('');
   useEffect(() => {
-    const newRawFilesJson = JSON.stringify(rawFilesData.map(f => ({ id: f.id, url: f.url })));
+    const newRawFilesJson = JSON.stringify(rawFilesData.map(f => ({ id: f.id, url: f.url, mt: f.media_type })));
     if (rawFilesRef.current !== newRawFilesJson) {
       rawFilesRef.current = newRawFilesJson;
       setRawFiles(rawFilesData);
@@ -182,7 +182,7 @@ export function ShootDetailsMediaTab({
 
   const editedFilesRef = useRef<string>('');
   useEffect(() => {
-    const newEditedFilesJson = JSON.stringify(editedFilesData.map(f => ({ id: f.id, url: f.url })));
+    const newEditedFilesJson = JSON.stringify(editedFilesData.map(f => ({ id: f.id, url: f.url, mt: f.media_type })));
     if (editedFilesRef.current !== newEditedFilesJson) {
       editedFilesRef.current = newEditedFilesJson;
       setEditedFiles(editedFilesData);
@@ -921,9 +921,8 @@ export function ShootDetailsMediaTab({
         throw new Error(errorData.message || 'Failed to reclassify');
       }
       toast({ title: 'Success', description: `Reclassified ${fileIds.length} file(s) as ${mediaType}` });
-      await queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'raw'] });
-      await queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'edited'] });
-      await queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'all'] });
+      // Force refetch all shoot file queries for this shoot
+      await queryClient.refetchQueries({ queryKey: ['shootFiles', shoot.id] });
       setSelectedFiles(new Set());
       onShootUpdate();
     } catch (error: any) {

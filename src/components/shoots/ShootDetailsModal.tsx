@@ -2594,7 +2594,7 @@ export function ShootDetailsModal({
         </div>
 
         {/* Split Pane Layout - mobile task sheet + desktop split view */}
-        <div className="flex flex-col sm:flex-row overflow-hidden pb-14 sm:pb-0 sm:flex-1 sm:min-h-0">
+        <div className={`flex flex-col sm:flex-row overflow-hidden ${showMobileBottomActionBar ? 'pb-14' : 'pb-0'} sm:pb-0 sm:flex-1 sm:min-h-0`}>
           {/* Left Pane - non-media tabs on mobile, full left column on desktop */}
           <div
             className={`relative w-full sm:w-[37.5%] border-r sm:border-r border-b sm:border-b-0 ${activeTab === 'media' ? 'hidden sm:flex' : 'flex'} flex-col sm:min-h-0 overflow-hidden bg-muted/30 flex-1 sm:flex-none`}
