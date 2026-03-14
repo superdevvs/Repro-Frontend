@@ -227,6 +227,12 @@ export function ShootDetailsMediaTab({
     let completed = 0;
     const errors: string[] = [];
 
+    const FLOORPLAN_PATTERNS = ['floorplan', 'floor-plan', 'floor_plan', 'fp_', 'fp-', 'layout', 'blueprint'];
+    const isFloorplanUpload = (f: File): boolean => {
+      const lower = f.name.toLowerCase();
+      return FLOORPLAN_PATTERNS.some(p => lower.includes(p));
+    };
+
     const uploadOne = (file: File): Promise<{ success: boolean; error?: string }> =>
       new Promise((resolve) => {
         const fd = new FormData();
@@ -234,6 +240,7 @@ export function ShootDetailsMediaTab({
         fd.append('files[]', file);
         fd.append('upload_type', uploadType);
         if (isVideo) fd.append('service_category', 'video');
+        if (!isVideo && isFloorplanUpload(file)) fd.append('media_type', 'floorplan');
 
         const xhr = new XMLHttpRequest();
         xhr.addEventListener('load', () => {
@@ -404,12 +411,16 @@ export function ShootDetailsMediaTab({
     return nameCandidates.some((name) => VIDEO_EXTENSION_REGEX.test(normalizeFilename(name)));
   };
 
-  // Filter files into photos and videos
+  // Filter files into photos, videos, and floorplans
+  const isFloorplanFile = (f: MediaFile): boolean => (f.media_type || '').toLowerCase() === 'floorplan';
   const filterPhotoFiles = (files: MediaFile[]): MediaFile[] => 
-    files.filter(f => !isVideoFile(f));
+    files.filter(f => !isVideoFile(f) && !isFloorplanFile(f));
   
   const filterVideoFiles = (files: MediaFile[]): MediaFile[] => 
     files.filter(f => isVideoFile(f));
+
+  const filterFloorplanFiles = (files: MediaFile[]): MediaFile[] =>
+    files.filter(f => isFloorplanFile(f));
 
   // Computed filtered lists for uploaded (raw) files
   const uploadedPhotos = useMemo(() => filterPhotoFiles(rawFiles), [rawFiles]);
@@ -418,6 +429,10 @@ export function ShootDetailsMediaTab({
   // Computed filtered lists for edited files
   const editedPhotos = useMemo(() => filterPhotoFiles(editedFiles), [editedFiles]);
   const editedVideos = useMemo(() => filterVideoFiles(editedFiles), [editedFiles]);
+
+  // Computed filtered lists for floorplans (uploaded files with media_type=floorplan)
+  const uploadedFloorplans = useMemo(() => filterFloorplanFiles(rawFiles), [rawFiles]);
+  const editedFloorplans = useMemo(() => filterFloorplanFiles(editedFiles), [editedFiles]);
 
   // Get iGuide and floorplan data from shoot
   const iguideUrl =
@@ -449,10 +464,12 @@ export function ShootDetailsMediaTab({
     if (displayTab === 'uploaded') {
       if (uploadedMediaTab === 'photos') return uploadedPhotos;
       if (uploadedMediaTab === 'videos') return uploadedVideos;
+      if (uploadedMediaTab === 'floorplans') return uploadedFloorplans;
       return rawFiles;
     } else {
       if (editedMediaTab === 'photos') return editedPhotos;
       if (editedMediaTab === 'videos') return editedVideos;
+      if (editedMediaTab === 'floorplans') return editedFloorplans;
       return editedFiles;
     }
   };
@@ -887,6 +904,41 @@ export function ShootDetailsMediaTab({
       });
     }
   };
+
+  // Reclassify selected files (e.g. mark as floorplan or revert to photo)
+  const handleReclassify = async (mediaType: 'floorplan' | 'raw' | 'edited') => {
+    if (selectedFiles.size === 0) return;
+    try {
+      const headers = getApiHeaders();
+      const fileIds = Array.from(selectedFiles).map(id => parseInt(id));
+      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/files/reclassify`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({ file_ids: fileIds, media_type: mediaType }),
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ message: 'Failed to reclassify' }));
+        throw new Error(errorData.message || 'Failed to reclassify');
+      }
+      toast({ title: 'Success', description: `Reclassified ${fileIds.length} file(s) as ${mediaType}` });
+      queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'raw'] });
+      queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'edited'] });
+      setSelectedFiles(new Set());
+      onShootUpdate();
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message || 'Failed to reclassify', variant: 'destructive' });
+    }
+  };
+
+  // Check if all selected files are floorplans (to show correct reclassify action)
+  const allSelectedAreFloorplans = useMemo(() => {
+    if (selectedFiles.size === 0) return false;
+    const allFiles = [...rawFiles, ...editedFiles];
+    return Array.from(selectedFiles).every(id => {
+      const file = allFiles.find(f => f.id === id);
+      return file && isFloorplanFile(file);
+    });
+  }, [selectedFiles, rawFiles, editedFiles]);
 
   // Get current files based on active tab
   const currentFiles = activeSubTab === 'uploaded' ? rawFiles : editedFiles;
@@ -1534,9 +1586,16 @@ export function ShootDetailsMediaTab({
     const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
     const [uploading, setUploading] = useState(false);
     const [extraFiles, setExtraFiles] = useState<Set<string>>(new Set());
+    const [floorplanFiles, setFloorplanFiles] = useState<Set<string>>(new Set());
     const [editingNotes, setEditingNotes] = useState('');
     const [uploadProgress, setUploadProgress] = useState(0);
     const [fileProgress, setFileProgress] = useState<Record<number, number>>({});
+
+    const RAW_FP_PATTERNS = ['floorplan', 'floor-plan', 'floor_plan', 'fp_', 'fp-', 'layout', 'blueprint'];
+    const isFloorplanByName = (name: string) => {
+      const lower = name.toLowerCase();
+      return RAW_FP_PATTERNS.some(p => lower.includes(p));
+    };
 
     // Check if this is an HDR shoot (requires brackets) vs standard/flash (no brackets)
     const shootRequiresBrackets = isHdrShoot(shoot.services || []);
@@ -1618,6 +1677,19 @@ export function ShootDetailsMediaTab({
 
     const toggleExtra = (index: number) => {
       setExtraFiles(prev => {
+        const newSet = new Set(prev);
+        const fileId = String(index);
+        if (newSet.has(fileId)) {
+          newSet.delete(fileId);
+        } else {
+          newSet.add(fileId);
+        }
+        return newSet;
+      });
+    };
+
+    const toggleFloorplan = (index: number) => {
+      setFloorplanFiles(prev => {
         const newSet = new Set(prev);
         const fileId = String(index);
         if (newSet.has(fileId)) {
@@ -2343,6 +2415,19 @@ export function ShootDetailsMediaTab({
                     <span>AI Edit ({selectedFiles.size})</span>
                   </Button>
                 )}
+                {/* Reclassify as floorplan / photo - admin only */}
+                {!isClient && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-[11px] px-2"
+                    onClick={() => handleReclassify(allSelectedAreFloorplans ? (displayTab === 'edited' ? 'edited' : 'raw') : 'floorplan')}
+                    title={allSelectedAreFloorplans ? 'Mark as Photo' : 'Mark as Floorplan'}
+                  >
+                    <FileIcon className="h-3 w-3 mr-1" />
+                    <span>{allSelectedAreFloorplans ? 'Mark Photo' : 'Mark FP'}</span>
+                  </Button>
+                )}
                 {/* Show Create Request button for clients when photos are selected */}
                 {isClient && (
                   <Button
@@ -2433,6 +2518,18 @@ export function ShootDetailsMediaTab({
               >
                 <Sparkles className="h-3 w-3 mr-1" />
                 <span>AI Edit</span>
+              </Button>
+            )}
+            {/* Reclassify as floorplan / photo - mobile */}
+            {!isClient && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-[11px] px-2 flex-shrink-0"
+                onClick={() => handleReclassify(allSelectedAreFloorplans ? (displayTab === 'edited' ? 'edited' : 'raw') : 'floorplan')}
+              >
+                <FileIcon className="h-3 w-3 mr-1" />
+                <span>{allSelectedAreFloorplans ? 'Mark Photo' : 'Mark FP'}</span>
               </Button>
             )}
             {/* Show Create Request button for clients when photos are selected */}
@@ -2663,12 +2760,12 @@ export function ShootDetailsMediaTab({
                           iGuide
                         </button>
                       )}
-                      {!isEditor && iguideFloorplans.length > 0 && (
+                      {!isEditor && (uploadedFloorplans.length > 0 || iguideFloorplans.length > 0) && (
                         <button
                           onClick={() => setUploadedMediaTab('floorplans')}
                           className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${uploadedMediaTab === 'floorplans' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
                         >
-                          Floorplans ({iguideFloorplans.length})
+                          Floorplans ({uploadedFloorplans.length + iguideFloorplans.length})
                         </button>
                       )}
                     </div>
@@ -2830,27 +2927,59 @@ export function ShootDetailsMediaTab({
                     </div>
                   )}
                   
-                  {uploadedMediaTab === 'floorplans' && iguideFloorplans.length > 0 && (
-                    <div className="h-full m-2.5 border rounded-lg bg-card overflow-y-auto p-4">
-                      <h4 className="font-medium mb-3">Floorplans ({iguideFloorplans.length})</h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {iguideFloorplans.map((fp, idx) => (
-                          <div key={idx} className="border rounded-lg p-3 flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <FileIcon className="h-5 w-5 text-muted-foreground" />
-                              <span className="text-sm">{fp.filename || `Floorplan ${idx + 1}`}</span>
-                            </div>
-                            <a
-                              href={fp.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-xs text-primary hover:underline"
-                            >
-                              View
-                            </a>
+                  {uploadedMediaTab === 'floorplans' && (uploadedFloorplans.length > 0 || iguideFloorplans.length > 0) && (
+                    <div className="h-full overflow-y-auto">
+                      {/* Uploaded floorplan images */}
+                      {uploadedFloorplans.length > 0 && (
+                        <div className="m-0 sm:m-2.5 border-0 sm:border rounded-none sm:rounded-lg bg-card p-1 sm:p-2.5">
+                          <MediaGrid
+                            files={uploadedFloorplans}
+                            onFileClick={(index, sorted) => openViewer(index, sorted)}
+                            selectedFiles={selectedFiles}
+                            onSelectionChange={toggleSelection}
+                            onSelectAll={() => {
+                              if (selectedFiles.size === uploadedFloorplans.length) {
+                                setSelectedFiles(new Set());
+                              } else {
+                                setSelectedFiles(new Set(uploadedFloorplans.map(f => f.id)));
+                              }
+                            }}
+                            canSelect={canDownload}
+                            sortOrder={sortOrder}
+                            manualOrder={manualOrder}
+                            onManualOrderChange={setManualOrder}
+                            getImageUrl={getImageUrl}
+                            getSrcSet={getSrcSet}
+                            isImage={isPreviewableImage}
+                            isVideo={isVideoFile}
+                            viewMode={mediaViewMode}
+                          />
+                        </div>
+                      )}
+                      {/* iGuide floorplan links */}
+                      {iguideFloorplans.length > 0 && (
+                        <div className="m-2.5 border rounded-lg bg-card p-4">
+                          <h4 className="font-medium mb-3 text-sm">iGuide Floorplans ({iguideFloorplans.length})</h4>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {iguideFloorplans.map((fp, idx) => (
+                              <div key={idx} className="border rounded-lg p-3 flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <FileIcon className="h-5 w-5 text-muted-foreground" />
+                                  <span className="text-sm">{fp.filename || `Floorplan ${idx + 1}`}</span>
+                                </div>
+                                <a
+                                  href={fp.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-primary hover:underline"
+                                >
+                                  View
+                                </a>
+                              </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -2912,12 +3041,12 @@ export function ShootDetailsMediaTab({
                           iGuide
                         </button>
                       )}
-                      {!isEditor && iguideFloorplans.length > 0 && (
+                      {!isEditor && (editedFloorplans.length > 0 || iguideFloorplans.length > 0) && (
                         <button
                           onClick={() => setEditedMediaTab('floorplans')}
                           className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'floorplans' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
                         >
-                          Floorplans ({iguideFloorplans.length})
+                          Floorplans ({editedFloorplans.length + iguideFloorplans.length})
                         </button>
                       )}
                     </div>
@@ -3079,27 +3208,59 @@ export function ShootDetailsMediaTab({
                     </div>
                   )}
                   
-                  {editedMediaTab === 'floorplans' && iguideFloorplans.length > 0 && (
-                    <div className="h-full m-2.5 border rounded-lg bg-card overflow-y-auto p-4">
-                      <h4 className="font-medium mb-3">Floorplans ({iguideFloorplans.length})</h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {iguideFloorplans.map((fp, idx) => (
-                          <div key={idx} className="border rounded-lg p-3 flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <FileIcon className="h-5 w-5 text-muted-foreground" />
-                              <span className="text-sm">{fp.filename || `Floorplan ${idx + 1}`}</span>
-                            </div>
-                            <a
-                              href={fp.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-xs text-primary hover:underline"
-                            >
-                              View
-                            </a>
+                  {editedMediaTab === 'floorplans' && (editedFloorplans.length > 0 || iguideFloorplans.length > 0) && (
+                    <div className="h-full overflow-y-auto">
+                      {/* Edited floorplan images */}
+                      {editedFloorplans.length > 0 && (
+                        <div className="m-0 sm:m-2.5 border-0 sm:border rounded-none sm:rounded-lg bg-card p-1 sm:p-2.5">
+                          <MediaGrid
+                            files={editedFloorplans}
+                            onFileClick={(index, sorted) => openViewer(index, sorted)}
+                            selectedFiles={selectedFiles}
+                            onSelectionChange={toggleSelection}
+                            onSelectAll={() => {
+                              if (selectedFiles.size === editedFloorplans.length) {
+                                setSelectedFiles(new Set());
+                              } else {
+                                setSelectedFiles(new Set(editedFloorplans.map(f => f.id)));
+                              }
+                            }}
+                            canSelect={canDownload}
+                            sortOrder={sortOrder}
+                            manualOrder={manualOrder}
+                            onManualOrderChange={setManualOrder}
+                            getImageUrl={getImageUrl}
+                            getSrcSet={getSrcSet}
+                            isImage={isPreviewableImage}
+                            isVideo={isVideoFile}
+                            viewMode={mediaViewMode}
+                          />
+                        </div>
+                      )}
+                      {/* iGuide floorplan links */}
+                      {iguideFloorplans.length > 0 && (
+                        <div className="m-2.5 border rounded-lg bg-card p-4">
+                          <h4 className="font-medium mb-3 text-sm">iGuide Floorplans ({iguideFloorplans.length})</h4>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {iguideFloorplans.map((fp, idx) => (
+                              <div key={idx} className="border rounded-lg p-3 flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <FileIcon className="h-5 w-5 text-muted-foreground" />
+                                  <span className="text-sm">{fp.filename || `Floorplan ${idx + 1}`}</span>
+                                </div>
+                                <a
+                                  href={fp.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-primary hover:underline"
+                                >
+                                  View
+                                </a>
+                              </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
