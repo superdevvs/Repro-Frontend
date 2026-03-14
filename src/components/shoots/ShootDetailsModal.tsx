@@ -2567,8 +2567,8 @@ export function ShootDetailsModal({
             )}
           </div>
 
-          <div className="sm:hidden px-2 pb-1 overflow-x-auto scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-            <div className="flex gap-1 rounded-xl bg-muted/50 p-0.5 min-w-max">
+          <div className="sm:hidden px-2 pb-0.5 overflow-x-auto scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            <div className="flex gap-0.5 rounded-lg bg-muted/50 p-0.5 min-w-max">
               {(() => {
                 const tabs = visibleTabs.filter(t => t.id !== 'media');
                 const mediaTab = { id: 'media', label: 'Media' };
@@ -2580,7 +2580,7 @@ export function ShootDetailsModal({
                   key={tab.id}
                   type="button"
                   onClick={() => setActiveTab(tab.id as typeof activeTab)}
-                  className={`rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition whitespace-nowrap ${
+                  className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition whitespace-nowrap ${
                     activeTab === tab.id
                       ? 'bg-blue-600/10 text-blue-500 ring-1 ring-blue-500/50'
                       : 'text-muted-foreground'

@@ -2848,17 +2848,6 @@ export function ShootDetailsMediaTab({
                         </button>
                       )}
                     </div>
-                    {showUploadTab && (
-                      <Button
-                        variant="default"
-                        size="sm"
-                        className="sm:hidden h-7 px-2.5 text-[11px] bg-blue-600 hover:bg-blue-700 text-white"
-                        onClick={() => setActiveSubTab('upload')}
-                      >
-                        <Upload className="h-3 w-3 mr-1" />
-                        Upload Files
-                      </Button>
-                    )}
                   </div>
                 </div>
                 
@@ -2918,6 +2907,19 @@ export function ShootDetailsMediaTab({
                           isVideo={isVideoFile}
                           viewMode={mediaViewMode}
                         />
+                        {showUploadTab && (
+                          <div className="sm:hidden sticky bottom-2 z-20 flex justify-center pointer-events-none mt-2 pb-2">
+                            <Button
+                              variant="default"
+                              size="sm"
+                              className="pointer-events-auto h-9 px-4 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg"
+                              onClick={() => setActiveSubTab('upload')}
+                            >
+                              <Upload className="h-3.5 w-3.5 mr-1.5" />
+                              Upload More
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     )
                   )}
@@ -3129,17 +3131,6 @@ export function ShootDetailsMediaTab({
                         </button>
                       )}
                     </div>
-                    {showUploadTab && (
-                      <Button
-                        variant="default"
-                        size="sm"
-                        className="sm:hidden h-7 px-2.5 text-[11px] bg-blue-600 hover:bg-blue-700 text-white"
-                        onClick={() => setActiveSubTab('upload')}
-                      >
-                        <Upload className="h-3 w-3 mr-1" />
-                        Upload Files
-                      </Button>
-                    )}
                   </div>
                 </div>
                 
@@ -3199,6 +3190,19 @@ export function ShootDetailsMediaTab({
                           isVideo={isVideoFile}
                           viewMode={mediaViewMode}
                         />
+                        {showUploadTab && (
+                          <div className="sm:hidden sticky bottom-2 z-20 flex justify-center pointer-events-none mt-2 pb-2">
+                            <Button
+                              variant="default"
+                              size="sm"
+                              className="pointer-events-auto h-9 px-4 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg"
+                              onClick={() => setActiveSubTab('upload')}
+                            >
+                              <Upload className="h-3.5 w-3.5 mr-1.5" />
+                              Upload More
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     )
                   )}
