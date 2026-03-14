@@ -415,6 +415,8 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
     files: shoot.files || undefined,
     tourPurchased: shoot.tour_purchased ? Boolean(shoot.tour_purchased) : undefined,
     isPrivateListing,
+    photographerPay: toNumber((shoot as any).total_photographer_pay),
+    totalPhotographerPay: toNumber((shoot as any).total_photographer_pay),
     propertyDetails: (shoot as any).property_details || undefined,
     cancellationRequestedAt: (shoot as any).cancellationRequestedAt || (shoot as any).cancellation_requested_at || undefined,
     cancellationReason: (shoot as any).cancellationReason || (shoot as any).cancellation_reason || undefined,
