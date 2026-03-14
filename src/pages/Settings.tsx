@@ -22,7 +22,7 @@ import { IntegrationsGrid } from '@/components/integrations/IntegrationsGrid';
 import { IntegrationsHeader } from '@/components/integrations/IntegrationsHeader';
 import { CouponsList } from '@/components/coupons/CouponsList';
 import { CreateCouponDialog } from '@/components/coupons/CreateCouponDialog';
-import { User, Settings as SettingsIcon, Palette, Bell, Plug, MessageSquare, Droplets, Ticket, Plus, Bot, ExternalLink } from 'lucide-react';
+import { User, Settings as SettingsIcon, Palette, Bell, Plug, MessageSquare, Droplets, Ticket, Plus, Bot, ExternalLink, Camera } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { API_BASE_URL } from '@/config/env';
@@ -383,28 +383,23 @@ const Settings = () => {
             />
 
             <TabsContent value="profile" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Profile</CardTitle>
-                  <CardDescription>
-                    Update your profile information
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <form onSubmit={handleSaveProfile} className="space-y-6">
-                    <div className="space-y-4">
-                      <div className="flex flex-col items-center gap-4 mb-4">
-                        <Avatar className="h-20 w-20 border-2 border-muted">
+              <form onSubmit={handleSaveProfile} className="space-y-4">
+                {/* Avatar + Identity Card */}
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
+                      <div className="relative group shrink-0">
+                        <Avatar className="h-24 w-24 border-2 border-muted ring-4 ring-background shadow-lg">
                           <AvatarImage src={avatar || user?.avatar} alt={user?.name} />
-                          <AvatarFallback>{user?.name?.charAt(0) || 'U'}</AvatarFallback>
+                          <AvatarFallback className="text-2xl">{user?.name?.charAt(0) || 'U'}</AvatarFallback>
                         </Avatar>
-                        <Button
-                          variant="outline"
-                          size="sm"
+                        <button
+                          type="button"
                           onClick={() => setAvatarDrawerOpen(true)}
+                          className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
                         >
-                          Change Avatar
-                        </Button>
+                          <Camera className="h-5 w-5 text-white" />
+                        </button>
                         <Drawer open={avatarDrawerOpen} onOpenChange={setAvatarDrawerOpen}>
                           <DrawerContent className="max-h-[80dvh]">
                             <DrawerHeader className="pb-2">
@@ -419,50 +414,65 @@ const Settings = () => {
                           </DrawerContent>
                         </Drawer>
                       </div>
-
-                      <div className="space-y-4 w-full">
-                        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
-                          <div className="space-y-2">
-                            <label htmlFor="name" className="text-sm font-medium">
-                              Full Name
-                            </label>
-                            <Input 
-                              id="name" 
-                              value={name}
-                              onChange={(e) => setName(e.target.value)}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <label htmlFor="email" className="text-sm font-medium">
-                              Email
-                            </label>
-                            <Input id="email" type="email" defaultValue={user?.email} />
-                          </div>
-                        </div>
-
-                        <div className="space-y-2">
-                          <label htmlFor="bio" className="text-sm font-medium">
-                            Bio
-                          </label>
-                          <Textarea
-                            id="bio"
-                            rows={4}
-                            value={bio}
-                            placeholder="Write a short bio about yourself"
-                            onChange={(e) => setBio(e.target.value)}
-                          />
-                        </div>
+                      <div className="flex-1 text-center sm:text-left space-y-1 min-w-0">
+                        <h2 className="text-xl font-semibold truncate">{name || user?.name || 'Your Name'}</h2>
+                        <p className="text-sm text-muted-foreground truncate">{user?.email}</p>
+                        <span className="inline-block mt-1 text-xs font-medium px-2.5 py-0.5 rounded-full bg-primary/10 text-primary capitalize">
+                          {role || 'user'}
+                        </span>
                       </div>
                     </div>
+                  </CardContent>
+                </Card>
 
-                    <div className="flex justify-end">
-                      <Button type="submit" disabled={isSaving}>
-                        {isSaving ? 'Saving...' : 'Save Changes'}
-                      </Button>
+                {/* Details Card */}
+                <Card>
+                  <CardHeader className="pb-4">
+                    <CardTitle className="text-base">Personal Information</CardTitle>
+                    <CardDescription>
+                      Update your name, email, and bio visible to your team.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <label htmlFor="name" className="text-sm font-medium">
+                          Full Name
+                        </label>
+                        <Input 
+                          id="name" 
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label htmlFor="email" className="text-sm font-medium">
+                          Email
+                        </label>
+                        <Input id="email" type="email" defaultValue={user?.email} />
+                      </div>
                     </div>
-                  </form>
-                </CardContent>
-              </Card>
+                    <div className="space-y-2">
+                      <label htmlFor="bio" className="text-sm font-medium">
+                        Bio
+                      </label>
+                      <Textarea
+                        id="bio"
+                        rows={3}
+                        value={bio}
+                        placeholder="Write a short bio about yourself"
+                        onChange={(e) => setBio(e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">Brief description for your profile. Max 300 characters.</p>
+                    </div>
+                  </CardContent>
+                  <CardFooter className="border-t pt-4 flex justify-end">
+                    <Button type="submit" disabled={isSaving}>
+                      {isSaving ? 'Saving...' : 'Save Changes'}
+                    </Button>
+                  </CardFooter>
+                </Card>
+              </form>
             </TabsContent>
 
             <TabsContent value="account" className="space-y-4">
