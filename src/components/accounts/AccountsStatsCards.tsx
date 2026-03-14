@@ -30,14 +30,14 @@ interface AccountsStatsCardsProps {
 }
 
 const roleConfig = [
-  { key: 'total', label: 'Total', shortLabel: 'All', icon: Users, color: 'text-slate-600 dark:text-slate-400', bg: 'bg-slate-100 dark:bg-slate-800' },
-  { key: 'superadmin', label: 'Super Admin', shortLabel: 'Super', icon: ShieldCheck, color: 'text-red-600 dark:text-red-400', bg: 'bg-red-100 dark:bg-red-900/30' },
-  { key: 'admin', label: 'Admin', shortLabel: 'Admin', icon: Shield, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-100 dark:bg-blue-900/30' },
-  { key: 'editing_manager', label: 'Editing Mgr', shortLabel: 'Ed. Mgr', icon: Briefcase, color: 'text-violet-600 dark:text-violet-400', bg: 'bg-violet-100 dark:bg-violet-900/30' },
-  { key: 'photographer', label: 'Photographers', shortLabel: 'Photo', icon: Camera, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-100 dark:bg-amber-900/30' },
-  { key: 'editor', label: 'Editors', shortLabel: 'Edit', icon: Paintbrush, color: 'text-green-600 dark:text-green-400', bg: 'bg-green-100 dark:bg-green-900/30' },
-  { key: 'client', label: 'Clients', shortLabel: 'Client', icon: User, color: 'text-cyan-600 dark:text-cyan-400', bg: 'bg-cyan-100 dark:bg-cyan-900/30' },
-  { key: 'salesRep', label: 'Sales Reps', shortLabel: 'Sales', icon: UserCheck, color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-100 dark:bg-purple-900/30' },
+  { key: 'total', label: 'Total', shortLabel: 'All', icon: Users, activeBg: 'bg-slate-600', activeText: 'text-white', badgeBg: 'bg-white/20 text-white' },
+  { key: 'superadmin', label: 'Super Admin', shortLabel: 'Super', icon: ShieldCheck, activeBg: 'bg-red-600', activeText: 'text-white', badgeBg: 'bg-white/20 text-white' },
+  { key: 'admin', label: 'Admin', shortLabel: 'Admin', icon: Shield, activeBg: 'bg-blue-600', activeText: 'text-white', badgeBg: 'bg-white/20 text-white' },
+  { key: 'editing_manager', label: 'Editing Mgr', shortLabel: 'Ed. Mgr', icon: Briefcase, activeBg: 'bg-violet-600', activeText: 'text-white', badgeBg: 'bg-white/20 text-white' },
+  { key: 'photographer', label: 'Photographers', shortLabel: 'Photo', icon: Camera, activeBg: 'bg-amber-600', activeText: 'text-white', badgeBg: 'bg-white/20 text-white' },
+  { key: 'editor', label: 'Editors', shortLabel: 'Edit', icon: Paintbrush, activeBg: 'bg-green-600', activeText: 'text-white', badgeBg: 'bg-white/20 text-white' },
+  { key: 'client', label: 'Clients', shortLabel: 'Client', icon: User, activeBg: 'bg-cyan-600', activeText: 'text-white', badgeBg: 'bg-white/20 text-white' },
+  { key: 'salesRep', label: 'Sales Reps', shortLabel: 'Sales', icon: UserCheck, activeBg: 'bg-purple-600', activeText: 'text-white', badgeBg: 'bg-white/20 text-white' },
 ];
 
 export const AccountsStatsCards: React.FC<AccountsStatsCardsProps> = ({
@@ -55,7 +55,7 @@ export const AccountsStatsCards: React.FC<AccountsStatsCardsProps> = ({
   });
 
   return (
-    <div className="overflow-x-auto pb-1 -mx-1 px-1 touch-manipulation scrollbar-hide [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+    <div className="overflow-x-auto pt-1 pb-1 -mx-1 px-1 touch-manipulation scrollbar-hide [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
       <div className="flex gap-1.5 sm:gap-2 min-w-max">
         {visibleRoles.map((role) => {
           const Icon = role.icon;
@@ -68,22 +68,22 @@ export const AccountsStatsCards: React.FC<AccountsStatsCardsProps> = ({
               key={role.key}
               onClick={() => onRoleSelect(role.key === 'total' ? null : role.key)}
               className={cn(
-                'flex items-center gap-2 px-4 py-2 rounded-full transition-all touch-manipulation',
+                'flex items-center gap-2 px-3 py-1.5 rounded-full transition-all touch-manipulation',
                 'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
                 isSelected
-                  ? 'bg-primary text-primary-foreground'
+                  ? `${role.activeBg} ${role.activeText}`
                   : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'
               )}
             >
-              <Icon className="h-4 w-4 flex-shrink-0" />
-              <span className="text-sm font-medium whitespace-nowrap">
+              <Icon className="h-3.5 w-3.5 flex-shrink-0" />
+              <span className="text-xs font-medium whitespace-nowrap">
                 <span className="hidden sm:inline">{role.label}</span>
                 <span className="sm:hidden">{role.shortLabel}</span>
               </span>
               <span className={cn(
-                'flex items-center justify-center h-5 min-w-[1.25rem] px-1.5 rounded-full text-xs font-semibold tabular-nums',
+                'flex items-center justify-center h-4.5 min-w-[1.125rem] px-1 rounded-full text-[10px] font-semibold tabular-nums',
                 isSelected
-                  ? 'bg-primary-foreground/20 text-primary-foreground'
+                  ? role.badgeBg
                   : 'bg-foreground/10 text-foreground'
               )}>
                 {count}
