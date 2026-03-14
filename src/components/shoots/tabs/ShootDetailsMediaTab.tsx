@@ -921,8 +921,9 @@ export function ShootDetailsMediaTab({
         throw new Error(errorData.message || 'Failed to reclassify');
       }
       toast({ title: 'Success', description: `Reclassified ${fileIds.length} file(s) as ${mediaType}` });
-      queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'raw'] });
-      queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'edited'] });
+      await queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'raw'] });
+      await queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'edited'] });
+      await queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'all'] });
       setSelectedFiles(new Set());
       onShootUpdate();
     } catch (error: any) {
@@ -2487,14 +2488,18 @@ export function ShootDetailsMediaTab({
                 {/* Reclassify as floorplan / photo - admin only */}
                 {!isClient && (
                   <Button
-                    size="sm"
+                    size="icon"
                     variant="outline"
-                    className="h-7 text-[11px] px-2"
+                    className="h-7 w-7 relative"
                     onClick={() => handleReclassify(allSelectedAreFloorplans ? (displayTab === 'edited' ? 'edited' : 'raw') : 'floorplan')}
                     title={allSelectedAreFloorplans ? 'Mark as Photo' : 'Mark as Floorplan'}
                   >
-                    <FileIcon className="h-3 w-3 mr-1" />
-                    <span>{allSelectedAreFloorplans ? 'Mark Photo' : 'Mark FP'}</span>
+                    <FileIcon className="h-3.5 w-3.5" />
+                    {selectedFiles.size > 0 && (
+                      <span className="absolute -top-1.5 -right-1.5 bg-primary text-primary-foreground text-[9px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
+                        {selectedFiles.size}
+                      </span>
+                    )}
                   </Button>
                 )}
                 {/* Show Create Request button for clients when photos are selected */}
@@ -2592,13 +2597,18 @@ export function ShootDetailsMediaTab({
             {/* Reclassify as floorplan / photo - mobile */}
             {!isClient && (
               <Button
-                size="sm"
+                size="icon"
                 variant="outline"
-                className="h-7 text-[11px] px-2 flex-shrink-0"
+                className="h-7 w-7 relative flex-shrink-0"
                 onClick={() => handleReclassify(allSelectedAreFloorplans ? (displayTab === 'edited' ? 'edited' : 'raw') : 'floorplan')}
+                title={allSelectedAreFloorplans ? 'Mark as Photo' : 'Mark as Floorplan'}
               >
-                <FileIcon className="h-3 w-3 mr-1" />
-                <span>{allSelectedAreFloorplans ? 'Mark Photo' : 'Mark FP'}</span>
+                <FileIcon className="h-3.5 w-3.5" />
+                {selectedFiles.size > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 bg-primary text-primary-foreground text-[9px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
+                    {selectedFiles.size}
+                  </span>
+                )}
               </Button>
             )}
             {/* Show Create Request button for clients when photos are selected */}
