@@ -1246,13 +1246,13 @@ export default function Accounts() {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           {/* Tabs row with inline controls */}
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-3">
-            <TabsList className="inline-flex gap-1.5 bg-transparent p-0 h-auto">
-              <TabsTrigger value="accounts" className="rounded-full px-4 py-1.5 text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-none data-[state=inactive]:bg-muted data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:bg-muted/80 data-[state=inactive]:hover:text-foreground">Accounts</TabsTrigger>
+            <TabsList className={`grid w-fit ${gridCols}`}>
+              <TabsTrigger value="accounts">Accounts</TabsTrigger>
               {showPermissionsTab && (
-                <TabsTrigger value="permissions" className="rounded-full px-4 py-1.5 text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-none data-[state=inactive]:bg-muted data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:bg-muted/80 data-[state=inactive]:hover:text-foreground">Permissions</TabsTrigger>
+                <TabsTrigger value="permissions">Permissions</TabsTrigger>
               )}
               {showLinkingTab && (
-                <TabsTrigger value="linking" className="rounded-full px-4 py-1.5 text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-none data-[state=inactive]:bg-muted data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:bg-muted/80 data-[state=inactive]:hover:text-foreground">Linking</TabsTrigger>
+                <TabsTrigger value="linking">Linking</TabsTrigger>
               )}
             </TabsList>
 

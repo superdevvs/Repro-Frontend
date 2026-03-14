@@ -68,28 +68,25 @@ export const AccountsStatsCards: React.FC<AccountsStatsCardsProps> = ({
               key={role.key}
               onClick={() => onRoleSelect(role.key === 'total' ? null : role.key)}
               className={cn(
-                'flex items-center gap-1.5 sm:gap-2 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg border transition-all touch-manipulation',
-                'hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary/50',
+                'flex items-center gap-2 px-4 py-2 rounded-full transition-all touch-manipulation',
+                'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
                 isSelected
-                  ? 'border-primary bg-primary/5 ring-2 ring-inset ring-primary shadow-sm'
-                  : 'border-border bg-card hover:bg-muted/50'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'
               )}
             >
-              <div className={cn('p-1 rounded', role.bg)}>
-                <Icon className={cn('h-3.5 w-3.5 sm:h-4 sm:w-4', role.color)} />
-              </div>
-              <span className={cn(
-                'text-sm sm:text-base font-semibold tabular-nums',
-                isSelected ? 'text-primary' : 'text-foreground'
-              )}>
-                {count}
-              </span>
-              <span className={cn(
-                'text-xs sm:text-sm whitespace-nowrap',
-                isSelected ? 'text-primary/80' : 'text-muted-foreground'
-              )}>
+              <Icon className="h-4 w-4 flex-shrink-0" />
+              <span className="text-sm font-medium whitespace-nowrap">
                 <span className="hidden sm:inline">{role.label}</span>
                 <span className="sm:hidden">{role.shortLabel}</span>
+              </span>
+              <span className={cn(
+                'flex items-center justify-center h-5 min-w-[1.25rem] px-1.5 rounded-full text-xs font-semibold tabular-nums',
+                isSelected
+                  ? 'bg-primary-foreground/20 text-primary-foreground'
+                  : 'bg-foreground/10 text-foreground'
+              )}>
+                {count}
               </span>
             </button>
           );
