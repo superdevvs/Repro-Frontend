@@ -22,7 +22,7 @@ import { IntegrationsGrid } from '@/components/integrations/IntegrationsGrid';
 import { IntegrationsHeader } from '@/components/integrations/IntegrationsHeader';
 import { CouponsList } from '@/components/coupons/CouponsList';
 import { CreateCouponDialog } from '@/components/coupons/CreateCouponDialog';
-import { User, Settings as SettingsIcon, Palette, Bell, Plug, MessageSquare, Droplets, Ticket, Plus, Bot } from 'lucide-react';
+import { User, Settings as SettingsIcon, Palette, Bell, Plug, MessageSquare, Droplets, Ticket, Plus, Bot, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { API_BASE_URL } from '@/config/env';
@@ -51,6 +51,9 @@ const Settings = () => {
   const [brandLogo, setBrandLogo] = React.useState('');
   const [brandBanner, setBrandBanner] = React.useState('');
   const [brandAbout, setBrandAbout] = React.useState('');
+  const [heroHeadline, setHeroHeadline] = React.useState('');
+  const [heroSubtitle, setHeroSubtitle] = React.useState('');
+  const [heroImage, setHeroImage] = React.useState('');
   const [facebookUrl, setFacebookUrl] = React.useState('');
   const [linkedinUrl, setLinkedinUrl] = React.useState('');
   const [instagramUrl, setInstagramUrl] = React.useState('');
@@ -109,6 +112,9 @@ const Settings = () => {
           if (b.logo) setBrandLogo(b.logo);
           if (b.banner) setBrandBanner(b.banner);
           if (b.about) setBrandAbout(b.about);
+          if (b.hero_headline) setHeroHeadline(b.hero_headline);
+          if (b.hero_subtitle) setHeroSubtitle(b.hero_subtitle);
+          if (b.hero_image) setHeroImage(b.hero_image);
           if (b.facebook_url) setFacebookUrl(b.facebook_url);
           if (b.linkedin_url) setLinkedinUrl(b.linkedin_url);
           if (b.instagram_url) setInstagramUrl(b.instagram_url);
@@ -223,6 +229,9 @@ const Settings = () => {
             logo: brandLogo || null,
             banner: brandBanner || null,
             about: brandAbout || null,
+            hero_headline: heroHeadline || null,
+            hero_subtitle: heroSubtitle || null,
+            hero_image: heroImage || null,
             facebook_url: facebookUrl || null,
             linkedin_url: linkedinUrl || null,
             instagram_url: instagramUrl || null,
@@ -545,10 +554,28 @@ const Settings = () => {
             <TabsContent value="branding" className="space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle>Branding</CardTitle>
-                  <CardDescription>
-                    Upload your company logo and branding images
-                  </CardDescription>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>Branding</CardTitle>
+                      <CardDescription>
+                        Upload your company logo and branding images
+                      </CardDescription>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const cid = clientIdFromUrl || user?.id;
+                        if (cid) {
+                          window.open(`/client-portal?clientId=${cid}`, '_blank');
+                        }
+                      }}
+                    >
+                      <ExternalLink className="mr-2 h-4 w-4" />
+                      View Portfolio
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <form onSubmit={handleSaveBranding} className="space-y-6">
@@ -631,6 +658,85 @@ const Settings = () => {
                         <p className="text-xs text-muted-foreground">
                           This text appears in the client-facing portfolio About section.
                         </p>
+                      </div>
+
+                      <div className="border-t pt-4 mt-2">
+                        <h3 className="text-lg font-medium mb-3">Portfolio Hero Section</h3>
+                        <p className="text-sm text-muted-foreground mb-3">
+                          Customize the headline, subtitle, and background image on your portfolio page.
+                        </p>
+                        <div className="space-y-3">
+                          <div className="space-y-1">
+                            <label htmlFor="hero_headline" className="text-sm font-medium">Hero Headline</label>
+                            <Input
+                              id="hero_headline"
+                              value={heroHeadline}
+                              onChange={(e) => setHeroHeadline(e.target.value)}
+                              placeholder="Welcome, {name}"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Use <code className="bg-muted px-1 rounded">{'{name}'}</code> to insert the client's name. Leave blank for default.
+                            </p>
+                          </div>
+                          <div className="space-y-1">
+                            <label htmlFor="hero_subtitle" className="text-sm font-medium">Hero Subtitle</label>
+                            <Textarea
+                              id="hero_subtitle"
+                              value={heroSubtitle}
+                              onChange={(e) => setHeroSubtitle(e.target.value)}
+                              placeholder="Browse every listing in one elegant view. Preview media instantly and dive into full galleries without leaving the page."
+                              rows={2}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">Hero Background Image</label>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                              {[
+                                { id: '', label: 'None (Gradient)' },
+                                { id: 'header-1', label: 'Harbor Beach' },
+                                { id: 'header-2', label: 'Coastal Aerial' },
+                                { id: 'header-3', label: 'Residential Aerial' },
+                                { id: 'header-4', label: 'Suburban Homes' },
+                                { id: 'header-5', label: 'Luxury Hillside' },
+                                { id: 'header-6', label: 'Colorful Townhouses' },
+                                { id: 'header-7', label: 'Modern Office' },
+                                { id: 'header-8', label: 'Highland Houses' },
+                                { id: 'header-9', label: 'City Skyline' },
+                                { id: 'header-10', label: 'Family Home' },
+                                { id: 'header-11', label: 'Real Estate Agent' },
+                                { id: 'header-12', label: 'Modern Architecture' },
+                                { id: 'header-13', label: 'Neighborhood' },
+                              ].map((img) => (
+                                <button
+                                  key={img.id}
+                                  type="button"
+                                  onClick={() => setHeroImage(img.id)}
+                                  className={`relative rounded-lg overflow-hidden border-2 transition-all ${
+                                    heroImage === img.id
+                                      ? 'border-primary ring-2 ring-primary/30'
+                                      : 'border-border hover:border-muted-foreground/50'
+                                  }`}
+                                >
+                                  {img.id ? (
+                                    <img
+                                      src={`/images/portfolio-headers/${img.id}.jpg`}
+                                      alt={img.label}
+                                      className="w-full aspect-[16/9] object-cover"
+                                      loading="lazy"
+                                    />
+                                  ) : (
+                                    <div className="w-full aspect-[16/9] bg-gradient-to-br from-background via-muted/30 to-primary/5 flex items-center justify-center">
+                                      <span className="text-xs text-muted-foreground">Default</span>
+                                    </div>
+                                  )}
+                                  <span className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[10px] py-1 text-center truncate px-1">
+                                    {img.label}
+                                  </span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
                       </div>
 
                       <div className="border-t pt-4 mt-2">

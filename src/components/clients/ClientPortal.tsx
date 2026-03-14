@@ -94,6 +94,9 @@ export function ClientPortal() {
     address?: string;
     logo?: string;
     about?: string;
+    hero_headline?: string;
+    hero_subtitle?: string;
+    hero_image?: string;
     phone?: string;
     facebook_url?: string;
     twitter_url?: string;
@@ -160,6 +163,9 @@ export function ClientPortal() {
           address: c.address || c.location,
           logo: c.logo || c.avatar,
           about: c.about,
+          hero_headline: c.hero_headline || '',
+          hero_subtitle: c.hero_subtitle || '',
+          hero_image: c.hero_image || 'header-1',
           phone: c.phone,
           facebook_url: c.facebook_url,
           twitter_url: c.twitter_url,
@@ -344,15 +350,34 @@ export function ClientPortal() {
       </header>
 
       {/* Hero Section */}
-      <section className="py-12 md:py-20 bg-gradient-to-br from-background via-muted/30 to-primary/5 relative overflow-hidden">
-        <div className="absolute inset-0 pointer-events-none opacity-20 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-primary/30 via-transparent to-transparent" />
+      <section className="py-12 md:py-20 relative overflow-hidden">
+        {clientInfo?.hero_image ? (
+          <>
+            <div className="absolute inset-0">
+              <img
+                src={`/images/portfolio-headers/${clientInfo.hero_image}.jpg`}
+                alt=""
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-black/60" />
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="absolute inset-0 bg-gradient-to-br from-background via-muted/30 to-primary/5" />
+            <div className="absolute inset-0 pointer-events-none opacity-20 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-primary/30 via-transparent to-transparent" />
+          </>
+        )}
         <div className="container px-4 md:px-6 relative z-10">
           <div className="max-w-4xl mx-auto text-center space-y-6">
-            <h1 className="text-4xl md:text-5xl font-bold leading-tight">
-              Welcome, <span className="text-primary">{clientName}</span>
+            <h1 className={`text-4xl md:text-5xl font-bold leading-tight ${clientInfo?.hero_image ? 'text-white' : ''}`}>
+              {clientInfo?.hero_headline
+                ? clientInfo.hero_headline.replace('{name}', clientName)
+                : <>Welcome, <span className={clientInfo?.hero_image ? 'text-blue-400' : 'text-primary'}>{clientName}</span></>
+              }
             </h1>
-            <p className="text-muted-foreground text-lg leading-relaxed max-w-3xl mx-auto">
-              Browse every listing in one elegant view. Preview media instantly and dive into full galleries without leaving the page.
+            <p className={`text-lg leading-relaxed max-w-3xl mx-auto ${clientInfo?.hero_image ? 'text-gray-200' : 'text-muted-foreground'}`}>
+              {clientInfo?.hero_subtitle || 'Browse every listing in one elegant view. Preview media instantly and dive into full galleries without leaving the page.'}
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3">
               <Button size="lg" onClick={() => scrollToSection('listings')}>

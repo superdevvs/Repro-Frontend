@@ -20,7 +20,7 @@ interface DashboardLayoutProps {
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, className, hideNavbar = false }) => {
   const isMobile = useIsMobile();
   const { isImpersonating, user, stopImpersonating, role } = useAuth();
-  const contentPadding = isMobile ? 'p-2 pb-20' : 'p-3 pb-10';
+  const contentPadding = isMobile ? 'p-3 pb-20' : 'p-3';
   
   // Photographers and editors get a simplified layout without sidebar
   const isSimplifiedLayout = role === 'photographer' || role === 'editor';
