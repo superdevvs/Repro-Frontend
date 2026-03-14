@@ -204,6 +204,7 @@ const DevProfiler: React.FC<{ id: string; children: React.ReactNode }> = ({ id, 
   );
 
 type MobileDashboardTab = "shoots" | "assign" | "requests" | "completed" | "pipeline";
+type MobileClientDashboardTab = "shoots" | "invoices" | "actions";
 
 type CommandBarState = {
   openRequestManager?: boolean;
@@ -231,6 +232,7 @@ const Dashboard = () => {
   const [selectedRequestId, setSelectedRequestId] = useState<number | null>(null);
   const [cancellationDialogOpen, setCancellationDialogOpen] = useState(false);
   const [mobileDashboardTab, setMobileDashboardTab] = useState<MobileDashboardTab>("shoots");
+  const [mobileClientTab, setMobileClientTab] = useState<MobileClientDashboardTab>("shoots");
   const canCustomizeQuickActions = Boolean(user) && (role === 'admin' || role === 'superadmin');
   const quickActionsStorageKey = useMemo(
     () => buildQuickActionsStorageKey(role, user?.id),
@@ -1175,50 +1177,103 @@ const Dashboard = () => {
         openSupportEmail("Shoot assistance needed");
       };
 
+      const clientShootsContent = (
+        <ClientMyShoots
+          upcoming={clientUpcomingRecords}
+          completed={clientCompletedRecords}
+          onHold={clientOnHoldRecords}
+          onSelect={(record) => setSelectedShoot(record.summary)}
+          onReschedule={handleReschedule}
+          onCancel={handleCancelShoot}
+          onContactSupport={() => handleContactSupport()}
+          onDownload={handleDownloadShoot}
+          onRebook={handleRebookShoot}
+          onRequestRevision={handleRequestRevision}
+          onHoldAction={handleHoldAction}
+          onPayment={(record) => {
+            setShootToPay(record);
+            setPaymentModalOpen(true);
+          }}
+          onBookNewShoot={() => navigate("/book-shoot")}
+        />
+      );
+
+      const clientInvoicesContent = (
+        <ClientInvoicesCard
+          summary={clientInvoiceSummary}
+          onViewAll={() => navigate("/invoices")}
+          onDownload={() => navigate("/invoices")}
+          onPay={() => {
+            setSelectedShootsForPayment([]);
+            setPaymentSelectionOpen(true);
+          }}
+        />
+      );
+
+      const clientActionsContent = (
+        <QuickActionsCard
+          actions={withCustomQuickActions(clientQuickActions)}
+          eyebrow="Quick actions"
+          columns={1}
+          onEdit={canCustomizeQuickActions ? handleOpenQuickActionsEditor : undefined}
+        />
+      );
+
+      const clientMobileTabs = [
+        { id: "shoots" as const, label: "Shoots", content: clientShootsContent },
+        { id: "invoices" as const, label: "Invoices", content: clientInvoicesContent },
+        { id: "actions" as const, label: "Actions", content: clientActionsContent },
+      ];
+
+      const clientMobileContent = (
+        <Tabs
+          value={mobileClientTab}
+          onValueChange={(val) => setMobileClientTab(val as MobileClientDashboardTab)}
+          className="space-y-2 flex-1 flex flex-col dashboard-mobile-tabs"
+        >
+          <div className="sticky top-[-0.25rem] z-20 pb-1 -mx-2 px-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+            <div className="overflow-x-auto hidden-scrollbar">
+              <TabsList className="inline-flex gap-2 rounded-full border border-border/50 bg-muted/30 pl-1.5 pr-3 py-1.5">
+                {clientMobileTabs.map((tab) => (
+                  <TabsTrigger
+                    key={tab.id}
+                    value={tab.id}
+                    className="shrink-0 rounded-full px-3 py-1.5 text-sm font-semibold tracking-tight transition-all duration-150 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=inactive]:text-muted-foreground/80"
+                  >
+                    {tab.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
+          </div>
+          {clientMobileTabs.map((tab) => (
+            <TabsContent key={tab.id} value={tab.id} className="focus-visible:outline-none flex-1 flex flex-col min-h-0">
+              <div className="flex-1 flex flex-col min-h-0 pt-1">
+                {tab.content}
+              </div>
+            </TabsContent>
+          ))}
+        </Tabs>
+      );
+
+      const clientDesktopContent = (
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-6">
+          <div className="md:col-span-3 flex flex-col gap-4 sm:gap-6">
+            {clientActionsContent}
+            {clientInvoicesContent}
+          </div>
+          <div className="md:col-span-9">
+            {clientShootsContent}
+          </div>
+        </div>
+      );
+
       return (
         <>
           <DashboardLayout>
-            <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
+            <div className="px-2 pt-3 pb-3 sm:p-6 flex flex-col min-h-full gap-4 sm:gap-6">
               <PageHeader title={greetingTitle} description={DASHBOARD_DESCRIPTION} />
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-6">
-                <div className="md:col-span-3 flex flex-col gap-4 sm:gap-6">
-                  <QuickActionsCard
-                    actions={withCustomQuickActions(clientQuickActions)}
-                    eyebrow="Quick actions"
-                    columns={1}
-                    onEdit={canCustomizeQuickActions ? handleOpenQuickActionsEditor : undefined}
-                  />
-                  <ClientInvoicesCard
-                    summary={clientInvoiceSummary}
-                    onViewAll={() => navigate("/invoices")}
-                    onDownload={() => navigate("/invoices")}
-                    onPay={() => {
-                      setSelectedShootsForPayment([]);
-                      setPaymentSelectionOpen(true);
-                    }}
-                  />
-                </div>
-                <div className="md:col-span-9">
-                  <ClientMyShoots
-                    upcoming={clientUpcomingRecords}
-                    completed={clientCompletedRecords}
-                    onHold={clientOnHoldRecords}
-                    onSelect={(record) => setSelectedShoot(record.summary)}
-                    onReschedule={handleReschedule}
-                    onCancel={handleCancelShoot}
-                    onContactSupport={() => handleContactSupport()}
-                    onDownload={handleDownloadShoot}
-                    onRebook={handleRebookShoot}
-                    onRequestRevision={handleRequestRevision}
-                    onHoldAction={handleHoldAction}
-                    onPayment={(record) => {
-                      setShootToPay(record);
-                      setPaymentModalOpen(true);
-                    }}
-                    onBookNewShoot={() => navigate("/book-shoot")}
-                  />
-                </div>
-              </div>
+              {isMobile ? clientMobileContent : clientDesktopContent}
             </div>
           </DashboardLayout>
           {shootDetailsModal}
