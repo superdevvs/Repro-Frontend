@@ -595,16 +595,16 @@ const Settings = () => {
                       </div>
 
                       <div className="space-y-4">
-                        <h3 className="text-lg font-medium">Brand Banner</h3>
+                        <h3 className="text-lg font-medium">About Image</h3>
                         <p className="text-sm text-muted-foreground">
-                          This banner will be used in client-facing materials.
+                          This image appears in the About section of your portfolio.
                         </p>
                         <BrandingImageUpload
                           onChange={handleBannerChange}
                           initialImage={brandBanner}
-                          aspectRatio="16/9"
-                          maxWidth={600}
-                          helperText="Recommended size: 1200x675px (16:9)"
+                          aspectRatio="4/3"
+                          maxWidth={300}
+                          helperText="Recommended size: 600x450px (4:3)"
                         />
                       </div>
                     </div>
