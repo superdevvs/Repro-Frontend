@@ -1204,7 +1204,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                     <RadioGroup
                       onValueChange={field.onChange}
                       value={field.value}
-                      className="grid gap-3 sm:grid-cols-2"
+                      className="grid grid-cols-2 gap-2 sm:gap-3"
                     >
                       <div className="relative">
                         <RadioGroupItem value="residential" id="residential" className="peer sr-only" />
@@ -1243,7 +1243,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                     <RadioGroup
                       onValueChange={field.onChange}
                       value={field.value || ''}
-                      className="grid gap-3 sm:grid-cols-2"
+                      className="grid grid-cols-2 gap-2 sm:gap-3"
                     >
                       <div className="relative">
                         <RadioGroupItem value="for_sale" id="for_sale" className="peer sr-only" />
