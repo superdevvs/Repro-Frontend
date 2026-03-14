@@ -1563,8 +1563,8 @@ export default function Availability() {
           ) : (
             <PageHeader
               badge={isDesktop ? "Availability" : undefined}
-              title="Photographer Availability"
-              description="Manage and schedule photographer availability"
+              title={isDesktop ? "Photographer Availability" : "Availability"}
+              description={isDesktop ? "Manage and schedule photographer availability" : undefined}
               action={
                 <div className="flex items-center gap-2 self-end sm:self-auto">
                   <Button
