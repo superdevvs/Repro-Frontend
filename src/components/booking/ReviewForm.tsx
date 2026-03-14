@@ -260,7 +260,7 @@ export function ReviewForm({
           <div>
             <span className="text-sm text-slate-500 dark:text-slate-400">Services:</span>
             {selectedServices.length ? (
-              <ul className="mt-2 space-y-1 text-sm text-slate-900 dark:text-slate-100">
+              <ul className="mt-1 space-y-0.5 text-sm text-slate-900 dark:text-slate-100">
                 {selectedServices.map(service => (
                   <li key={service.id} className="flex items-center justify-between">
                     <span>{service.name}</span>

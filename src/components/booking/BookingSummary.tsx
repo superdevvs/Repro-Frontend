@@ -143,16 +143,16 @@ export function BookingSummary({
                 <span className="font-bold">{summaryInfo.packagePrice.toFixed(2)}</span>
               </div>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {selectedServices.map(service => (
                 <div
                   key={service.id}
-                  className="flex items-center justify-between rounded-md border border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2"
+                  className="flex items-center justify-between rounded-md border border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5"
                 >
                   <div>
                     <p className="text-sm font-medium text-slate-900 dark:text-white">{service.name}</p>
                     {service.description && (
-                      <p className="text-xs text-muted-foreground mt-1">{service.description}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{service.description}</p>
                     )}
                   </div>
                   <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">

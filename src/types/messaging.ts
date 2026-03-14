@@ -12,6 +12,8 @@ export type AutomationTriggerType =
   | 'ACCOUNT_VERIFIED'
   | 'PASSWORD_RESET'
   | 'TERMS_ACCEPTED'
+  | 'SHOOT_REQUESTED'
+  | 'SHOOT_REQUEST_APPROVED'
   | 'SHOOT_BOOKED'
   | 'SHOOT_SCHEDULED'
   | 'SHOOT_UPDATED'
@@ -32,7 +34,9 @@ export type AutomationTriggerType =
   | 'WEEKLY_AUTOMATED_INVOICING'
   | 'PHOTO_UPLOADED'
   | 'MEDIA_UPLOAD_COMPLETE'
-  | 'PHOTOGRAPHER_ASSIGNED';
+  | 'PHOTOGRAPHER_ASSIGNED'
+  | 'EDITING_COMPLETE'
+  | 'PROPERTY_CONTACT_REMINDER';
 
 export interface MessageChannelConfig {
   id: number;

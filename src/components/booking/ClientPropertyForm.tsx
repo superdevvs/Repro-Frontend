@@ -887,7 +887,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
               return (
                 <div
                   key={service.id}
-                  className={`group relative overflow-hidden rounded-lg sm:rounded-2xl border border-l-4 p-3 sm:p-4 cursor-pointer transition-all duration-200 ${
+                  className={`group relative overflow-hidden rounded-lg sm:rounded-2xl border border-l-4 p-2.5 sm:p-3 cursor-pointer transition-all duration-200 ${
                     isSelected
                       ? 'border-primary/55 border-l-primary bg-primary/[0.08] shadow-[0_6px_18px_-12px_rgba(59,130,246,0.65)]'
                       : 'border-border/70 border-l-border/80 bg-background hover:border-primary/35 hover:border-l-primary/40'
@@ -897,7 +897,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <p className="text-[15px] sm:text-base font-semibold leading-tight line-clamp-1">{service.name}</p>
-                      <p className="mt-1 text-xs sm:text-sm text-muted-foreground line-clamp-2">
+                      <p className="mt-0.5 text-xs sm:text-sm text-muted-foreground line-clamp-2">
                         {service.description}
                       </p>
                       {sqftContext && (
@@ -926,7 +926,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                     </div>
                   </div>
                   {service.category?.name && (
-                    <div className="mt-2.5 flex items-center justify-between gap-2">
+                    <div className="mt-1.5 flex items-center justify-between gap-2">
                       <Badge variant="outline" className="uppercase text-[10px] tracking-wide">
                         {service.category.name}
                         {supportsVariablePricing && matchedRange && (

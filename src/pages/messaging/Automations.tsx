@@ -23,6 +23,8 @@ const triggerLabels: Record<string, string> = {
   ACCOUNT_VERIFIED: 'Account Verified',
   PASSWORD_RESET: 'Password Reset',
   TERMS_ACCEPTED: 'Terms Accepted',
+  SHOOT_REQUESTED: 'Shoot Requested',
+  SHOOT_REQUEST_APPROVED: 'Shoot Request Approved',
   SHOOT_BOOKED: 'Shoot Booked',
   SHOOT_SCHEDULED: 'Shoot Scheduled',
   SHOOT_UPDATED: 'Shoot Updated',
@@ -44,6 +46,7 @@ const triggerLabels: Record<string, string> = {
   PHOTO_UPLOADED: 'Photo Uploaded',
   MEDIA_UPLOAD_COMPLETE: 'Media Upload Complete',
   PHOTOGRAPHER_ASSIGNED: 'Photographer Assigned',
+  EDITING_COMPLETE: 'Editing Complete',
   PROPERTY_CONTACT_REMINDER: 'Property Contact Reminder',
 };
 
@@ -56,14 +59,6 @@ export default function Automations() {
   const { data: automations, isLoading } = useQuery({
     queryKey: ['automations'],
     queryFn: () => getAutomations(),
-    onSuccess: (data) => {
-      // Debug: Log automations to console
-      console.log('Automations fetched:', data);
-      console.log('System automations:', data?.filter((a) => a.scope === 'SYSTEM'));
-      console.log('Weekly automations:', data?.filter((a) => 
-        a.trigger_type === 'WEEKLY_SALES_REPORT' || a.trigger_type === 'WEEKLY_AUTOMATED_INVOICING'
-      ));
-    },
   });
 
   // Delete mutation
@@ -103,11 +98,6 @@ export default function Automations() {
 
   const systemAutomations = automations?.filter((a) => a.scope === 'SYSTEM') || [];
   const customAutomations = automations?.filter((a) => a.scope !== 'SYSTEM') || [];
-  
-  // Debug: Check for weekly automations specifically
-  const weeklyAutomations = automations?.filter((a) => 
-    a.trigger_type === 'WEEKLY_SALES_REPORT' || a.trigger_type === 'WEEKLY_AUTOMATED_INVOICING'
-  ) || [];
 
   return (
     <DashboardLayout>
@@ -128,23 +118,6 @@ export default function Automations() {
             </Button>
           </div>
         </div>
-
-        {/* Debug Info - Remove in production */}
-        {import.meta.env.DEV && automations && (
-          <Card className="p-4 mb-4 bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800">
-            <p className="text-xs text-yellow-800 dark:text-yellow-200">
-              <strong>Debug:</strong> Total: {automations.length} | 
-              System: {systemAutomations.length} | 
-              Weekly: {weeklyAutomations.length} | 
-              Custom: {customAutomations.length}
-            </p>
-            {weeklyAutomations.length === 0 && automations.length > 0 && (
-              <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                ⚠️ Weekly automations not found in response. Check console for details.
-              </p>
-            )}
-          </Card>
-        )}
 
         {/* System Automations */}
         <div className="mb-8">
@@ -197,8 +170,11 @@ export default function Automations() {
                             : 'Custom'}
                         </span>
                       )}
-                      {automation.recipients_json && automation.recipients_json.roles && (
+                      {automation.recipients_json && !Array.isArray(automation.recipients_json) && automation.recipients_json.roles && (
                         <span>Recipients: {automation.recipients_json.roles.join(', ')}</span>
+                      )}
+                      {automation.recipients_json && Array.isArray(automation.recipients_json) && (
+                        <span>Recipients: {automation.recipients_json.join(', ')}</span>
                       )}
                     </div>
                   </div>

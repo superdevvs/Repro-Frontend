@@ -17,7 +17,9 @@ import {
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
@@ -29,14 +31,66 @@ interface AutomationEditorDialogProps {
   onSuccess: () => void;
 }
 
-const triggers = [
-  { value: 'ACCOUNT_CREATED', label: 'Account Created' },
-  { value: 'SHOOT_BOOKED', label: 'Shoot Booked' },
-  { value: 'SHOOT_SCHEDULED', label: 'Shoot Scheduled' },
-  { value: 'SHOOT_REMINDER', label: 'Shoot Reminder' },
-  { value: 'SHOOT_COMPLETED', label: 'Shoot Completed' },
-  { value: 'PAYMENT_COMPLETED', label: 'Payment Completed' },
-  { value: 'PHOTO_UPLOADED', label: 'Photo Uploaded' },
+const triggerGroups = [
+  {
+    label: 'Account',
+    triggers: [
+      { value: 'ACCOUNT_CREATED', label: 'Account Created' },
+      { value: 'ACCOUNT_VERIFIED', label: 'Account Verified' },
+      { value: 'PASSWORD_RESET', label: 'Password Reset' },
+      { value: 'TERMS_ACCEPTED', label: 'Terms Accepted' },
+    ],
+  },
+  {
+    label: 'Shoot Lifecycle',
+    triggers: [
+      { value: 'SHOOT_REQUESTED', label: 'Shoot Requested' },
+      { value: 'SHOOT_REQUEST_APPROVED', label: 'Shoot Request Approved' },
+      { value: 'SHOOT_BOOKED', label: 'Shoot Booked' },
+      { value: 'SHOOT_SCHEDULED', label: 'Shoot Scheduled' },
+      { value: 'SHOOT_UPDATED', label: 'Shoot Updated' },
+      { value: 'SHOOT_REMINDER', label: 'Shoot Reminder' },
+      { value: 'SHOOT_COMPLETED', label: 'Shoot Completed' },
+      { value: 'SHOOT_CANCELED', label: 'Shoot Canceled' },
+      { value: 'SHOOT_REMOVED', label: 'Shoot Removed' },
+    ],
+  },
+  {
+    label: 'Payment',
+    triggers: [
+      { value: 'PAYMENT_COMPLETED', label: 'Payment Completed' },
+      { value: 'PAYMENT_FAILED', label: 'Payment Failed' },
+      { value: 'PAYMENT_REFUNDED', label: 'Payment Refunded' },
+    ],
+  },
+  {
+    label: 'Invoice',
+    triggers: [
+      { value: 'INVOICE_DUE', label: 'Invoice Due' },
+      { value: 'INVOICE_OVERDUE', label: 'Invoice Overdue' },
+      { value: 'INVOICE_SUMMARY', label: 'Invoice Summary' },
+      { value: 'INVOICE_PAID', label: 'Invoice Paid' },
+      { value: 'WEEKLY_PHOTOGRAPHER_INVOICE', label: 'Weekly Photographer Invoice' },
+      { value: 'WEEKLY_REP_INVOICE', label: 'Weekly Rep Invoice' },
+      { value: 'WEEKLY_AUTOMATED_INVOICING', label: 'Weekly Automated Invoicing' },
+    ],
+  },
+  {
+    label: 'Media & Workflow',
+    triggers: [
+      { value: 'PHOTO_UPLOADED', label: 'Photo Uploaded' },
+      { value: 'MEDIA_UPLOAD_COMPLETE', label: 'Media Upload Complete' },
+      { value: 'EDITING_COMPLETE', label: 'Editing Complete' },
+    ],
+  },
+  {
+    label: 'Assignment & Reports',
+    triggers: [
+      { value: 'PHOTOGRAPHER_ASSIGNED', label: 'Photographer Assigned' },
+      { value: 'WEEKLY_SALES_REPORT', label: 'Weekly Sales Report' },
+      { value: 'PROPERTY_CONTACT_REMINDER', label: 'Property Contact Reminder' },
+    ],
+  },
 ];
 
 const recipients = [
@@ -80,7 +134,7 @@ export function AutomationEditorDialog({ automation, open, onClose, onSuccess }:
         trigger_type: automation.trigger_type,
         template_id: automation.template_id?.toString() || '',
         channel_id: automation.channel_id?.toString() || '',
-        recipients_json: automation.recipients_json || ['client'],
+        recipients_json: (Array.isArray(automation.recipients_json) ? automation.recipients_json : automation.recipients_json?.roles || ['client']) as string[],
         is_active: automation.is_active,
         scope: automation.scope,
       });
@@ -168,10 +222,15 @@ export function AutomationEditorDialog({ automation, open, onClose, onSuccess }:
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {triggers.map((trigger) => (
-                  <SelectItem key={trigger.value} value={trigger.value}>
-                    {trigger.label}
-                  </SelectItem>
+                {triggerGroups.map((group) => (
+                  <SelectGroup key={group.label}>
+                    <SelectLabel>{group.label}</SelectLabel>
+                    {group.triggers.map((trigger) => (
+                      <SelectItem key={trigger.value} value={trigger.value}>
+                        {trigger.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
                 ))}
               </SelectContent>
             </Select>
