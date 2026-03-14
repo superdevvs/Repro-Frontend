@@ -672,10 +672,10 @@ const Settings = () => {
                               id="hero_headline"
                               value={heroHeadline}
                               onChange={(e) => setHeroHeadline(e.target.value)}
-                              placeholder="Welcome, {name}"
+                              placeholder="Your Real Estate Portfolio"
                             />
                             <p className="text-xs text-muted-foreground">
-                              Use <code className="bg-muted px-1 rounded">{'{name}'}</code> to insert the client's name. Leave blank for default.
+                              This headline is shown to visitors on your portfolio page. Use <code className="bg-muted px-1 rounded">{'{name}'}</code> to insert the visitor's name.
                             </p>
                           </div>
                           <div className="space-y-1">
@@ -684,7 +684,7 @@ const Settings = () => {
                               id="hero_subtitle"
                               value={heroSubtitle}
                               onChange={(e) => setHeroSubtitle(e.target.value)}
-                              placeholder="Browse every listing in one elegant view. Preview media instantly and dive into full galleries without leaving the page."
+                              placeholder="Explore our latest property listings with high-resolution photography and virtual tours."
                               rows={2}
                             />
                           </div>

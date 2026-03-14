@@ -377,7 +377,7 @@ export function ClientPortal() {
               }
             </h1>
             <p className={`text-lg leading-relaxed max-w-3xl mx-auto ${clientInfo?.hero_image ? 'text-gray-200' : 'text-muted-foreground'}`}>
-              {clientInfo?.hero_subtitle || 'Browse every listing in one elegant view. Preview media instantly and dive into full galleries without leaving the page.'}
+              {clientInfo?.hero_subtitle || 'Explore our latest property listings with high-resolution photography and virtual tours.'}
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3">
               <Button size="lg" onClick={() => scrollToSection('listings')}>
