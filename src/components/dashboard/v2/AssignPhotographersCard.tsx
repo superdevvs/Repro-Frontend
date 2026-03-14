@@ -117,21 +117,19 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
     const filtered = photographers.filter(p => {
       if (!p) return false;
       
-      // Determine availability: if availability data is loaded, use that; otherwise use status
+      // Determine availability: if availability data is loaded, use that; otherwise all are available
       const isAvailable = hasAvailabilityData 
         ? availabilitySet.has(p.id) 
-        : p.status !== 'busy' && p.status !== 'offline';
+        : true;
       
       if (tab === 'available') {
-        // Show photographers who are available (based on availability data or status)
         return isAvailable;
       }
       if (tab === 'booked') {
-        // Show photographers who are busy/editing or not in availability set when data is loaded
         if (hasAvailabilityData) {
           return !availabilitySet.has(p.id) && (p.status === 'busy' || p.status === 'editing');
         }
-        return p.status === 'busy' || p.status === 'editing';
+        return false;
       }
       // 'all' tab shows everyone
       return true;
