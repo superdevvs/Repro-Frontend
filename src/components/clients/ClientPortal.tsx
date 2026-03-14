@@ -601,17 +601,6 @@ export function ClientPortal() {
           );
         })()}
 
-        {shoots.length === 0 && (
-          <div className="text-center py-20 border-2 border-dashed rounded-xl bg-muted/10">
-            <div className="mx-auto h-12 w-12 text-muted-foreground mb-4">
-              <Camera className="h-12 w-12 opacity-20" />
-            </div>
-            <h3 className="text-lg font-semibold mb-2">No listings found</h3>
-            <p className="text-muted-foreground max-w-sm mx-auto mb-6">
-              It looks like you don't have any completed listings yet. Once your listings are ready, they will appear here.
-            </p>
-          </div>
-        )}
       </section>
 
       <Separator />

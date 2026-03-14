@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import {
   Dialog,
@@ -77,6 +78,7 @@ export function ShootDetailsModal({
   shouldHideClientDetails: shouldHideClientDetailsProp = false,
 }: ShootDetailsModalProps) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { role: authRole, user } = useAuth();
   const { toast } = useToast();
   const { updateShoot } = useShoots();
@@ -617,6 +619,9 @@ export function ShootDetailsModal({
     }
 
     refreshShoot();
+    // Invalidate cached file queries so watermarked URLs are replaced with clean ones
+    queryClient.invalidateQueries({ queryKey: ['shootFiles', String(shoot.id)] });
+    queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id] });
     toast({
       title: 'Success',
       description: 'Shoot marked as paid successfully.',
@@ -628,7 +633,12 @@ export function ShootDetailsModal({
       title: 'Payment Successful',
       description: 'Payment has been processed successfully.',
     });
-    refreshShoot(); // Reload shoot data to update payment status
+    refreshShoot();
+    // Invalidate cached file queries so watermarked URLs are replaced with clean ones
+    if (shoot) {
+      queryClient.invalidateQueries({ queryKey: ['shootFiles', String(shoot.id)] });
+      queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id] });
+    }
   };
 
   const handleShowInvoice = async () => {
