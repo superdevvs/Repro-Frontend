@@ -2638,19 +2638,19 @@ export function ShootDetailsMediaTab({
                   </div>
                 )}
                 {/* Sub-tabs for Photos/Videos/iGuide/Floorplans */}
-                <div className="sticky top-0 z-10 px-2.5 py-0.5 border-b bg-background" style={{ flexShrink: 0 }}>
+                <div className="sticky top-0 z-10 px-2.5 py-1.5 border-b bg-background" style={{ flexShrink: 0 }}>
                   <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-4 overflow-x-auto">
+                    <div className="flex items-center gap-1.5 overflow-x-auto">
                       <button
                         onClick={() => setUploadedMediaTab('photos')}
-                        className={`text-xs py-1 border-b-2 transition-colors whitespace-nowrap ${uploadedMediaTab === 'photos' ? 'border-foreground text-foreground font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                        className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${uploadedMediaTab === 'photos' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
                       >
                         Photos ({uploadedPhotos.length})
                       </button>
                       {(shootHasVideoService || uploadedVideos.length > 0) && (
                         <button
                           onClick={() => setUploadedMediaTab('videos')}
-                          className={`text-xs py-1 border-b-2 transition-colors whitespace-nowrap ${uploadedMediaTab === 'videos' ? 'border-foreground text-foreground font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                          className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${uploadedMediaTab === 'videos' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
                         >
                           Video ({uploadedVideos.length})
                         </button>
@@ -2658,7 +2658,7 @@ export function ShootDetailsMediaTab({
                       {iguideUrl && (
                         <button
                           onClick={() => setUploadedMediaTab('iguide')}
-                          className={`text-xs py-1 border-b-2 transition-colors whitespace-nowrap ${uploadedMediaTab === 'iguide' ? 'border-foreground text-foreground font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                          className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${uploadedMediaTab === 'iguide' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
                         >
                           iGuide
                         </button>
@@ -2666,7 +2666,7 @@ export function ShootDetailsMediaTab({
                       {!isEditor && iguideFloorplans.length > 0 && (
                         <button
                           onClick={() => setUploadedMediaTab('floorplans')}
-                          className={`text-xs py-1 border-b-2 transition-colors whitespace-nowrap ${uploadedMediaTab === 'floorplans' ? 'border-foreground text-foreground font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                          className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${uploadedMediaTab === 'floorplans' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
                         >
                           Floorplans ({iguideFloorplans.length})
                         </button>
@@ -2887,19 +2887,19 @@ export function ShootDetailsMediaTab({
                   </div>
                 )}
                 {/* Sub-tabs for Photos/Videos/iGuide/Floorplans */}
-                <div className="sticky top-0 z-10 px-2.5 py-0.5 border-b bg-background" style={{ flexShrink: 0 }}>
+                <div className="sticky top-0 z-10 px-2.5 py-1.5 border-b bg-background" style={{ flexShrink: 0 }}>
                   <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-4 overflow-x-auto">
+                    <div className="flex items-center gap-1.5 overflow-x-auto">
                       <button
                         onClick={() => setEditedMediaTab('photos')}
-                        className={`text-xs py-1 border-b-2 transition-colors whitespace-nowrap ${editedMediaTab === 'photos' ? 'border-foreground text-foreground font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                        className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'photos' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
                       >
                         Photos ({editedPhotos.length})
                       </button>
                       {(shootHasVideoService || editedVideos.length > 0) && (
                         <button
                           onClick={() => setEditedMediaTab('videos')}
-                          className={`text-xs py-1 border-b-2 transition-colors whitespace-nowrap ${editedMediaTab === 'videos' ? 'border-foreground text-foreground font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                          className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'videos' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
                         >
                           Video ({editedVideos.length})
                         </button>
@@ -2907,7 +2907,7 @@ export function ShootDetailsMediaTab({
                       {iguideUrl && (
                         <button
                           onClick={() => setEditedMediaTab('iguide')}
-                          className={`text-xs py-1 border-b-2 transition-colors whitespace-nowrap ${editedMediaTab === 'iguide' ? 'border-foreground text-foreground font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                          className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'iguide' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
                         >
                           iGuide
                         </button>
@@ -2915,7 +2915,7 @@ export function ShootDetailsMediaTab({
                       {!isEditor && iguideFloorplans.length > 0 && (
                         <button
                           onClick={() => setEditedMediaTab('floorplans')}
-                          className={`text-xs py-1 border-b-2 transition-colors whitespace-nowrap ${editedMediaTab === 'floorplans' ? 'border-foreground text-foreground font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                          className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'floorplans' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
                         >
                           Floorplans ({iguideFloorplans.length})
                         </button>
