@@ -30,14 +30,14 @@ interface AccountsStatsCardsProps {
 }
 
 const roleConfig = [
-  { key: 'total', label: 'Total', shortLabel: 'All', icon: Users, activeBg: 'bg-gray-700 dark:bg-gray-600', activeText: 'text-white', inactiveBorder: 'border-gray-300 dark:border-gray-600', inactiveText: 'text-gray-600 dark:text-gray-400' },
-  { key: 'superadmin', label: 'Super Admin', shortLabel: 'Super', icon: ShieldCheck, activeBg: 'bg-red-600 dark:bg-red-700', activeText: 'text-white', inactiveBorder: 'border-red-300 dark:border-red-700', inactiveText: 'text-red-600 dark:text-red-400' },
-  { key: 'admin', label: 'Admin', shortLabel: 'Admin', icon: Shield, activeBg: 'bg-purple-600 dark:bg-purple-700', activeText: 'text-white', inactiveBorder: 'border-purple-300 dark:border-purple-700', inactiveText: 'text-purple-600 dark:text-purple-400' },
-  { key: 'editing_manager', label: 'Editing Mgr', shortLabel: 'Ed. Mgr', icon: Briefcase, activeBg: 'bg-violet-600 dark:bg-violet-700', activeText: 'text-white', inactiveBorder: 'border-violet-300 dark:border-violet-700', inactiveText: 'text-violet-600 dark:text-violet-400' },
-  { key: 'photographer', label: 'Photographers', shortLabel: 'Photo', icon: Camera, activeBg: 'bg-blue-600 dark:bg-blue-700', activeText: 'text-white', inactiveBorder: 'border-blue-300 dark:border-blue-700', inactiveText: 'text-blue-600 dark:text-blue-400' },
-  { key: 'editor', label: 'Editors', shortLabel: 'Edit', icon: Paintbrush, activeBg: 'bg-amber-600 dark:bg-amber-700', activeText: 'text-white', inactiveBorder: 'border-amber-300 dark:border-amber-700', inactiveText: 'text-amber-600 dark:text-amber-400' },
-  { key: 'client', label: 'Clients', shortLabel: 'Client', icon: User, activeBg: 'bg-green-600 dark:bg-green-700', activeText: 'text-white', inactiveBorder: 'border-green-300 dark:border-green-700', inactiveText: 'text-green-600 dark:text-green-400' },
-  { key: 'salesRep', label: 'Sales Reps', shortLabel: 'Sales', icon: UserCheck, activeBg: 'bg-indigo-600 dark:bg-indigo-700', activeText: 'text-white', inactiveBorder: 'border-indigo-300 dark:border-indigo-700', inactiveText: 'text-indigo-600 dark:text-indigo-400' },
+  { key: 'total', label: 'Total', shortLabel: 'All', icon: Users, activeBg: 'bg-gray-700 dark:bg-gray-600', activeText: 'text-white', inactiveBorder: 'border-gray-400/30 dark:border-gray-500/20', inactiveText: 'text-gray-500 dark:text-gray-400' },
+  { key: 'superadmin', label: 'Super Admin', shortLabel: 'Super', icon: ShieldCheck, activeBg: 'bg-red-600 dark:bg-red-700', activeText: 'text-white', inactiveBorder: 'border-red-400/30 dark:border-red-500/20', inactiveText: 'text-gray-500 dark:text-gray-400' },
+  { key: 'admin', label: 'Admin', shortLabel: 'Admin', icon: Shield, activeBg: 'bg-purple-600 dark:bg-purple-700', activeText: 'text-white', inactiveBorder: 'border-purple-400/30 dark:border-purple-500/20', inactiveText: 'text-gray-500 dark:text-gray-400' },
+  { key: 'editing_manager', label: 'Editing Mgr', shortLabel: 'Ed. Mgr', icon: Briefcase, activeBg: 'bg-violet-600 dark:bg-violet-700', activeText: 'text-white', inactiveBorder: 'border-violet-400/30 dark:border-violet-500/20', inactiveText: 'text-gray-500 dark:text-gray-400' },
+  { key: 'photographer', label: 'Photographers', shortLabel: 'Photo', icon: Camera, activeBg: 'bg-blue-600 dark:bg-blue-700', activeText: 'text-white', inactiveBorder: 'border-blue-400/30 dark:border-blue-500/20', inactiveText: 'text-gray-500 dark:text-gray-400' },
+  { key: 'editor', label: 'Editors', shortLabel: 'Edit', icon: Paintbrush, activeBg: 'bg-amber-600 dark:bg-amber-700', activeText: 'text-white', inactiveBorder: 'border-amber-400/30 dark:border-amber-500/20', inactiveText: 'text-gray-500 dark:text-gray-400' },
+  { key: 'client', label: 'Clients', shortLabel: 'Client', icon: User, activeBg: 'bg-green-600 dark:bg-green-700', activeText: 'text-white', inactiveBorder: 'border-green-400/30 dark:border-green-500/20', inactiveText: 'text-gray-500 dark:text-gray-400' },
+  { key: 'salesRep', label: 'Sales Reps', shortLabel: 'Sales', icon: UserCheck, activeBg: 'bg-indigo-600 dark:bg-indigo-700', activeText: 'text-white', inactiveBorder: 'border-indigo-400/30 dark:border-indigo-500/20', inactiveText: 'text-gray-500 dark:text-gray-400' },
 ];
 
 export const AccountsStatsCards: React.FC<AccountsStatsCardsProps> = ({

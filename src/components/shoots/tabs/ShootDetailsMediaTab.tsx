@@ -951,6 +951,12 @@ export function ShootDetailsMediaTab({
     const [showChecklistDialog, setShowChecklistDialog] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
     const [fileProgress, setFileProgress] = useState<Record<number, number>>({});
+
+    const EDITED_FP_PATTERNS = ['floorplan', 'floor-plan', 'floor_plan', 'fp_', 'fp-', 'layout', 'blueprint'];
+    const isEditedFloorplanByName = (name: string) => {
+      const lower = name.toLowerCase();
+      return EDITED_FP_PATTERNS.some(p => lower.includes(p));
+    };
     const [checklistItems, setChecklistItems] = useState<Record<string, boolean>>({
       'interior_exposure': false,
       'interior_white_balance': false,
@@ -1047,6 +1053,10 @@ export function ShootDetailsMediaTab({
         formData.append('upload_type', 'edited');
         if (isVideo) {
           formData.append('service_category', 'video');
+        }
+        // Auto-detect floorplan by filename for edited uploads
+        if (!isVideo && isEditedFloorplanByName(file.name)) {
+          formData.append('media_type', 'floorplan');
         }
         
         // Only send metadata with first file
@@ -1640,7 +1650,16 @@ export function ShootDetailsMediaTab({
       }
       
       if (validFiles.length > 0) {
+        const startIdx = uploadedFiles.length;
         setUploadedFiles(prev => [...prev, ...validFiles]);
+        // Auto-detect floorplans by filename
+        setFloorplanFiles(prev => {
+          const newSet = new Set(prev);
+          validFiles.forEach((f, i) => {
+            if (isFloorplanByName(f.name)) newSet.add(String(startIdx + i));
+          });
+          return newSet;
+        });
       }
     };
 
@@ -1667,7 +1686,16 @@ export function ShootDetailsMediaTab({
       }
       
       if (validFiles.length > 0) {
+        const startIdx = uploadedFiles.length;
         setUploadedFiles(prev => [...prev, ...validFiles]);
+        // Auto-detect floorplans by filename
+        setFloorplanFiles(prev => {
+          const newSet = new Set(prev);
+          validFiles.forEach((f, i) => {
+            if (isFloorplanByName(f.name)) newSet.add(String(startIdx + i));
+          });
+          return newSet;
+        });
       }
     };
 
@@ -1730,6 +1758,11 @@ export function ShootDetailsMediaTab({
         formData.append('upload_type', 'raw');
         if (isVideo) {
           formData.append('service_category', 'video');
+        }
+        
+        // Mark as floorplan if flagged (or auto-detected)
+        if (floorplanFiles.has(String(fileIndex)) && !isVideo) {
+          formData.append('media_type', 'floorplan');
         }
         
         // Only send metadata with first file to avoid duplicate updates
@@ -2011,7 +2044,7 @@ export function ShootDetailsMediaTab({
           <div className="space-y-2">
             <div className="text-sm font-medium flex items-center gap-2">
               {uploading ? `Uploading Files (${uploadProgress}%)` : `Selected Files (${uploadedFiles.length})`}
-              {!uploading && <span className="text-xs text-muted-foreground font-normal">(mark extras by clicking on the checkmark)</span>}
+              {!uploading && <span className="text-xs text-muted-foreground font-normal">(check = extra, FP = floorplan)</span>}
             </div>
             <div className="max-h-48 overflow-y-auto space-y-1 border rounded p-2">
               {uploadedFiles.map((file, index) => (
@@ -2032,6 +2065,17 @@ export function ShootDetailsMediaTab({
                     <label htmlFor={`extra-${index}`} className="text-xs cursor-pointer flex-1 truncate">
                       {file.name}
                     </label>
+                    {/* Floorplan toggle badge */}
+                    {!uploading && (
+                      <button
+                        type="button"
+                        className={`text-[9px] px-1.5 py-0.5 rounded font-medium flex-shrink-0 transition-colors ${floorplanFiles.has(String(index)) ? 'bg-blue-600 text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
+                        onClick={() => toggleFloorplan(index)}
+                        title={floorplanFiles.has(String(index)) ? 'Unmark as floorplan' : 'Mark as floorplan'}
+                      >
+                        FP
+                      </button>
+                    )}
                     {/* Show percentage during upload */}
                     {uploading && (
                       <span className="text-[10px] text-muted-foreground flex-shrink-0 w-8 text-right">
@@ -2047,6 +2091,11 @@ export function ShootDetailsMediaTab({
                       onClick={() => {
                         setUploadedFiles(prev => prev.filter((_, i) => i !== index));
                         setExtraFiles(prev => {
+                          const newSet = new Set(prev);
+                          newSet.delete(String(index));
+                          return newSet;
+                        });
+                        setFloorplanFiles(prev => {
                           const newSet = new Set(prev);
                           newSet.delete(String(index));
                           return newSet;
@@ -2081,6 +2130,26 @@ export function ShootDetailsMediaTab({
                   <div key={index} className="flex items-center justify-between p-1.5 text-xs">
                     <span className="truncate flex-1">{file.name}</span>
                     <Badge variant="secondary" className="text-[10px]">Extra</Badge>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Floorplans Section - Show below extras */}
+        {floorplanFiles.size > 0 && uploadedFiles.length > 0 && !uploading && (
+          <div className="space-y-2 border-t pt-2">
+            <div className="text-sm font-medium text-blue-600 dark:text-blue-400">Floorplans ({floorplanFiles.size})</div>
+            <div className="max-h-24 overflow-y-auto space-y-1 border border-blue-200 dark:border-blue-800 rounded p-2 bg-blue-50/30 dark:bg-blue-900/10">
+              {Array.from(floorplanFiles).map((fileId) => {
+                const index = parseInt(fileId);
+                const file = uploadedFiles[index];
+                if (!file) return null;
+                return (
+                  <div key={index} className="flex items-center justify-between p-1.5 text-xs">
+                    <span className="truncate flex-1">{file.name}</span>
+                    <Badge className="text-[10px] bg-blue-600 text-white">FP</Badge>
                   </div>
                 );
               })}
