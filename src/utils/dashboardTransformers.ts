@@ -179,6 +179,14 @@ export const transformDashboardOverview = (
         ? response.issues.map(normalizeIssue)
         : [],
       workflow,
+      pendingCancellations: Array.isArray(response.pending_cancellations)
+        ? response.pending_cancellations.map((s) => ({
+            id: s.id,
+            address: s.address_line || `Shoot #${s.id}`,
+            clientName: s.client_name || undefined,
+            cancellationReason: (s as any).cancellation_reason || undefined,
+          }))
+        : [],
     };
   } catch (error) {
     console.error('Error transforming dashboard overview:', error, response);
@@ -191,6 +199,7 @@ export const transformDashboardOverview = (
       activityLog: [],
       issues: [],
       workflow: { columns: [] },
+      pendingCancellations: [],
     };
   }
 };

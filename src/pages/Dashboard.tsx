@@ -72,6 +72,7 @@ import {
   DashboardPhotographerSummary,
   DashboardShootSummary,
   DashboardClientRequest,
+  DashboardCancellationItem,
 } from "@/types/dashboard";
 import { useToast } from "@/hooks/use-toast";
 import type { ShootData } from "@/types/shoots";
@@ -99,7 +100,6 @@ import { ShootsTabsCard } from "@/components/dashboard/v2/ShootsTabsCard";
 import { ErrorBoundary, withErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { InvoiceViewDialog } from "@/components/invoices/InvoiceViewDialog";
 import { CancellationRequestsDialog } from "@/components/dashboard/CancellationRequestsDialog";
-import type { CancellationShootItem } from "@/components/dashboard/v2/PendingReviewsCard";
 
 const LazyAssignPhotographersCard = lazy(() =>
   import("@/components/dashboard/v2/AssignPhotographersCard").then((module) => ({
@@ -560,46 +560,11 @@ const Dashboard = () => {
     fetchClientRequests();
   }, [isAdminExperience]);
 
-  const [cancellationShoots, setCancellationShoots] = useState<CancellationShootItem[]>([]);
-  
-  const fetchPendingCancellationShoots = useCallback(async () => {
-    if (!isAdminExperience) {
-      setCancellationShoots([]);
-      return;
-    }
-
-    try {
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      const res = await fetch(`${API_BASE_URL}/api/shoots/pending-cancellations`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-        },
-      });
-
-      if (res.ok) {
-        const json = await res.json();
-        const data = Array.isArray(json.data) ? json.data : [];
-        setCancellationShoots(
-          data.map((s: any) => ({
-            id: Number(s.id),
-            address: s.location?.fullAddress || s.location?.address || s.address || `Shoot #${s.id}`,
-            clientName: s.client?.name || undefined,
-            cancellationReason: s.cancellationReason || s.cancellation_reason || undefined,
-          })),
-        );
-      } else {
-        setCancellationShoots([]);
-      }
-    } catch (error) {
-      console.error('Error fetching pending cancellations:', error);
-      setCancellationShoots([]);
-    }
-  }, [isAdminExperience]);
-
-  useEffect(() => {
-    fetchPendingCancellationShoots();
-  }, [fetchPendingCancellationShoots]);
+  // Cancellation shoots come from the dashboard overview response (already fetched)
+  const cancellationShoots: DashboardCancellationItem[] = useMemo(() => {
+    if (!isAdminExperience || !data?.pendingCancellations) return [];
+    return data.pendingCancellations;
+  }, [isAdminExperience, data?.pendingCancellations]);
 
   const cancellationRequestCount = cancellationShoots.length;
 
@@ -611,7 +576,6 @@ const Dashboard = () => {
     });
     if (res.ok) {
       toast({ title: 'Cancellation approved', description: 'Shoot has been cancelled.' });
-      fetchPendingCancellationShoots().catch(() => {});
       refresh();
       if (fetchShoots) fetchShoots().catch(() => {});
     } else {
@@ -628,7 +592,6 @@ const Dashboard = () => {
     });
     if (res.ok) {
       toast({ title: 'Cancellation rejected', description: 'Request has been dismissed.' });
-      fetchPendingCancellationShoots().catch(() => {});
       refresh();
       if (fetchShoots) fetchShoots().catch(() => {});
     } else {

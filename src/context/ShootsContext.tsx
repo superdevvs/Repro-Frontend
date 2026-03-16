@@ -553,7 +553,7 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       
       if (isAdmin || isPhotographer || isEditor) {
         const headers = buildFetchHeaders(token);
-        if (isEditor) {
+        if (isEditor || isPhotographer) {
           const [scheduledResponse, completedResponse, deliveredResponse] = await Promise.all([
             fetch(`${API_BASE_URL}/api/shoots?tab=scheduled&page=${page}&per_page=${perPage}&include_files=${includeFiles ? 'true' : 'false'}`, {
               headers,

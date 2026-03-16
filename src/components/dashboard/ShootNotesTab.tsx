@@ -268,9 +268,9 @@ export function ShootNotesTab({
       return false; // Already handled above for admin/superadmin
     }
     
-    // Editing notes: Super Admin, Admin, Editor (NOT Photographer, NOT Client)
+    // Editing notes: Super Admin, Admin, Editor, Photographer (NOT Client)
     if (noteType === 'editingNotes') {
-      return role === 'editor' || role === 'admin' || role === 'superadmin';
+      return role === 'editor' || role === 'admin' || role === 'superadmin' || role === 'photographer';
     }
     
     // Photographer notes: Super Admin, Admin, Editor, Photographer (NOT Client)

@@ -682,7 +682,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
   };
 
   return (
-    <Card className="flex flex-col">
+    <Card className="flex flex-col h-full">
       <div className="flex flex-wrap items-start justify-between mb-4 gap-3">
         <div>
           <h2 className="text-lg font-bold text-foreground">{displayTitle}</h2>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { DashboardIssueItem, DashboardShootSummary, DashboardClientRequest } from '@/types/dashboard';
+import { DashboardIssueItem, DashboardShootSummary, DashboardClientRequest, DashboardCancellationItem } from '@/types/dashboard';
 import { Card } from './SharedComponents';
 import { cn } from '@/lib/utils';
 import { useIssueManager } from '@/context/IssueManagerContext';
@@ -10,12 +10,7 @@ import { Check, X, Loader2, MapPin, User } from 'lucide-react';
 
 type RequestsTab = 'client' | 'editing' | 'cancellation';
 
-export interface CancellationShootItem {
-  id: number;
-  address?: string;
-  clientName?: string;
-  cancellationReason?: string;
-}
+export type CancellationShootItem = DashboardCancellationItem;
 
 interface PendingReviewsCardProps {
   reviews: DashboardShootSummary[];
@@ -38,7 +33,7 @@ interface PendingReviewsCardProps {
   showEditingTab?: boolean;
   showClientTab?: boolean;
   // Cancellation requests props
-  cancellationShoots?: CancellationShootItem[];
+  cancellationShoots?: DashboardCancellationItem[];
   showCancellationTab?: boolean;
   onApproveCancellation?: (shootId: number) => Promise<void>;
   onRejectCancellation?: (shootId: number) => Promise<void>;

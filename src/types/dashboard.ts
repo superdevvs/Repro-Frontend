@@ -110,6 +110,7 @@ export interface DashboardOverviewResponse {
   activity_log: DashboardActivityResponse[];
   issues: DashboardIssueResponse[];
   workflow: DashboardWorkflowResponse;
+  pending_cancellations?: DashboardShootSummaryResponse[];
 }
 
 // Normalized UI-friendly types
@@ -243,6 +244,13 @@ export interface DashboardWorkflow {
   columns: DashboardWorkflowColumn[];
 }
 
+export interface DashboardCancellationItem {
+  id: number;
+  address?: string;
+  clientName?: string;
+  cancellationReason?: string;
+}
+
 export interface DashboardOverview {
   stats: DashboardStats;
   upcomingShoots: DashboardShootSummary[];
@@ -251,5 +259,6 @@ export interface DashboardOverview {
   activityLog: DashboardActivityItem[];
   issues: DashboardIssueItem[];
   workflow: DashboardWorkflow;
+  pendingCancellations: DashboardCancellationItem[];
 }
 

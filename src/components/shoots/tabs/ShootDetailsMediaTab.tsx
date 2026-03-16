@@ -44,6 +44,7 @@ import {
   LayoutGrid,
   List,
   Play,
+  ExternalLink,
   EyeOff,
   Eye,
 } from 'lucide-react';
@@ -2070,7 +2071,7 @@ export function ShootDetailsMediaTab({
     };
 
     return (
-      <div className="space-y-3 flex flex-col">
+      <div className="space-y-3 flex flex-col flex-1">
         {/* Bracket Type Selector - Only show for HDR shoots */}
         {shootRequiresBrackets && (
           <div className="space-y-2">
@@ -2300,8 +2301,8 @@ export function ShootDetailsMediaTab({
           </div>
         )}
 
-        {/* Editing Notes - Inline (hidden for photographers) */}
-        {uploadedFiles.length > 0 && !uploading && !isPhotographer && (
+        {/* Editing Notes - Inline */}
+        {uploadedFiles.length > 0 && !uploading && (
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Notes for Editor (Optional)</label>
             <textarea
@@ -2518,7 +2519,7 @@ export function ShootDetailsMediaTab({
             } else if (v === 'uploaded' && !isClient) {
               setActiveSubTab('uploaded');
               setDisplayTab('uploaded');
-            } else if (v === 'edited') {
+            } else if (v === 'edited' && !isPhotographer) {
               setActiveSubTab('edited');
               setDisplayTab('edited');
             }
@@ -2554,7 +2555,26 @@ export function ShootDetailsMediaTab({
                   Raw Uploads ({rawFiles.length})
                 </TabsTrigger>
               )}
-              <TabsTrigger 
+              {isPhotographer ? (
+                <button
+                  type="button"
+                  className="text-[11px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 h-7 sm:h-8 text-primary font-medium hover:bg-primary/10 rounded-md transition-colors whitespace-nowrap inline-flex items-center gap-1"
+                  onClick={() => {
+                    const mlsLink = shoot?.tourLinks?.mls || shoot?.tourLinks?.genericMls || shoot?.tourLinks?.matterport_mls || shoot?.tourLinks?.iguide_mls || (shoot as any)?.mls_compliant_link;
+                    if (mlsLink) {
+                      window.open(mlsLink, '_blank', 'noopener,noreferrer');
+                    } else {
+                      // Open the app's MLS tour page for this shoot
+                      const baseUrl = window.location.origin;
+                      window.open(`${baseUrl}/tour/mls?shootId=${shoot.id}`, '_blank', 'noopener,noreferrer');
+                    }
+                  }}
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  Edited Media
+                </button>
+              ) : (
+                <TabsTrigger 
                   value="edited" 
                   className="text-[11px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 h-7 sm:h-8 data-[state=active]:bg-primary/10 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:rounded-none data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground whitespace-nowrap"
                   onClick={() => {
@@ -2562,8 +2582,9 @@ export function ShootDetailsMediaTab({
                     setDisplayTab('edited');
                   }}
                 >
-                  Edited Media{!isPhotographer ? ` (${editedFiles.length})` : ''}
+                  Edited ({editedFiles.length})
                 </TabsTrigger>
+              )}
             </TabsList>
           </Tabs>
           
@@ -3218,8 +3239,8 @@ export function ShootDetailsMediaTab({
               </div>
             )}
 
-            {/* Edited Media Tab */}
-            {displayTab === 'edited' && (
+            {/* Edited Media Tab - Hidden for photographers (they use MLS link) */}
+            {!isPhotographer && displayTab === 'edited' && (
               <div
                 className="flex-1 relative"
                 style={{ minHeight: 0, display: 'flex', flexDirection: 'column', height: '100%', width: '100%' }}

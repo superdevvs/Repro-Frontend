@@ -1977,9 +1977,9 @@ export function ShootDetailsModal({
       setIsDownloadDialogOpen(false);
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       
-      // Use the download-zip endpoint with edited type (final images)
-      // Size parameter is passed but backend may not use it yet
-      const response = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/media/download-zip?type=edited&size=${size}`, {
+      // Photographers download raw files; others download edited (final images)
+      const downloadType = isPhotographer ? 'raw' : 'edited';
+      const response = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/media/download-zip?type=${downloadType}&size=${size}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -2298,7 +2298,7 @@ export function ShootDetailsModal({
                   </Button>
                 )}
                 {/* Download button for delivered shoots */}
-                {isDelivered && !isEditor && (
+                {isDelivered && !isEditor && !isPhotographer && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -2308,6 +2308,19 @@ export function ShootDetailsModal({
                   >
                     <Download className="h-3 w-3 mr-1" />
                     <span>{isDownloading ? 'Downloading...' : 'Download'}</span>
+                  </Button>
+                )}
+                {/* Download RAW button for photographers */}
+                {isDelivered && isPhotographer && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs px-3 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 dark:bg-green-950 dark:hover:bg-green-900 dark:text-green-300 dark:border-green-800"
+                    onClick={() => handleDownloadMedia('original')}
+                    disabled={isDownloading}
+                  >
+                    <Download className="h-3 w-3 mr-1" />
+                    <span>{isDownloading ? 'Downloading...' : 'Download RAW'}</span>
                   </Button>
                 )}
                 {/* Publish to Bright MLS button (hidden from editors and photographers) */}
@@ -3095,7 +3108,7 @@ export function ShootDetailsModal({
         </DialogContent>
       </Dialog>
 
-      {/* Download Media Size Selection Dialog - Client only */}
+      {/* Download Media Size Selection Dialog - Client only (photographers download RAW directly) */}
       {isClient && (
         <Dialog open={isDownloadDialogOpen} onOpenChange={setIsDownloadDialogOpen}>
           <DialogContent className="sm:max-w-md">
