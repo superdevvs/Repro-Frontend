@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -116,6 +116,9 @@ export function ShootDetailsMediaTab({
   });
   const [sortOrder, setSortOrder] = useState<'name' | 'date' | 'time' | 'manual'>('time');
   const [manualOrder, setManualOrder] = useState<string[]>([]);
+  const [sortSaveStatus, setSortSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const sortSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sortSavedResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [mediaViewMode, setMediaViewMode] = useState<'list' | 'grid'>(() => {
     try { return (localStorage.getItem('media-view-mode') as 'list' | 'grid') || 'list'; } catch { return 'list'; }
   });
@@ -124,6 +127,40 @@ export function ShootDetailsMediaTab({
     try { localStorage.setItem('media-view-mode', mode); } catch {}
   };
   const [requestManagerOpen, setRequestManagerOpen] = useState(false);
+
+  // Auto-save manual sort order to backend (debounced 800ms)
+  useEffect(() => {
+    if (sortOrder !== 'manual' || manualOrder.length === 0) return;
+
+    // Clear any pending save timer
+    if (sortSaveTimerRef.current) clearTimeout(sortSaveTimerRef.current);
+    if (sortSavedResetRef.current) clearTimeout(sortSavedResetRef.current);
+
+    sortSaveTimerRef.current = setTimeout(async () => {
+      setSortSaveStatus('saving');
+      try {
+        const headers = getApiHeaders();
+        const fileIds = manualOrder.map(id => parseInt(id, 10)).filter(n => !isNaN(n));
+        if (fileIds.length === 0) { setSortSaveStatus('idle'); return; }
+        const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/files/reorder`, {
+          method: 'PATCH',
+          headers,
+          body: JSON.stringify({ file_ids: fileIds }),
+        });
+        if (!res.ok) throw new Error('Failed to save order');
+        setSortSaveStatus('saved');
+        sortSavedResetRef.current = setTimeout(() => setSortSaveStatus('idle'), 2000);
+      } catch {
+        setSortSaveStatus('idle');
+        toast({ title: 'Error', description: 'Failed to save sort order', variant: 'destructive' });
+      }
+    }, 800);
+
+    return () => {
+      if (sortSaveTimerRef.current) clearTimeout(sortSaveTimerRef.current);
+      if (sortSavedResetRef.current) clearTimeout(sortSavedResetRef.current);
+    };
+  }, [manualOrder, sortOrder, shoot.id, toast]);
 
   useEffect(() => {
     if (isClient) {
@@ -188,6 +225,21 @@ export function ShootDetailsMediaTab({
       setEditedFiles(editedFilesData);
     }
   }, [editedFilesData]);
+
+  // Restore manual order from saved sort_order when files load
+  const manualOrderInitRef = useRef(false);
+  useEffect(() => {
+    if (manualOrderInitRef.current) return;
+    const allFiles = [...rawFiles, ...editedFiles];
+    if (allFiles.length === 0) return;
+    // Check if any file has a non-zero sort_order (meaning order was previously saved)
+    const hasSavedOrder = allFiles.some(f => (f.sort_order ?? 0) > 0);
+    if (hasSavedOrder) {
+      const sorted = [...allFiles].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+      setManualOrder(sorted.map(f => f.id));
+      manualOrderInitRef.current = true;
+    }
+  }, [rawFiles, editedFiles]);
 
   // Don't invalidate queries on every render - this causes infinite loops
   // The queries will automatically refetch when shoot.id changes due to React Query's queryKey
@@ -2421,6 +2473,12 @@ export function ShootDetailsMediaTab({
                   <Button variant="outline" size="sm" className="h-7 text-[11px] px-2">
                     <ArrowUpDown className="h-3 w-3 mr-1" />
                     <span>Sort: {sortOrder === 'name' ? 'Name' : sortOrder === 'date' ? 'Date' : sortOrder === 'manual' ? 'Manual' : 'Time'}</span>
+                    {sortOrder === 'manual' && sortSaveStatus === 'saving' && (
+                      <Loader2 className="h-3 w-3 ml-1 animate-spin text-muted-foreground" />
+                    )}
+                    {sortOrder === 'manual' && sortSaveStatus === 'saved' && (
+                      <Check className="h-3 w-3 ml-1 text-green-500" />
+                    )}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">

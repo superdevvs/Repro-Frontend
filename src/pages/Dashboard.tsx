@@ -22,8 +22,6 @@ import {
   FileDown,
   Sun,
   Download,
-  Edit3,
-  RefreshCw,
   Calendar,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
@@ -2454,196 +2452,91 @@ const ClientShootTile: React.FC<ClientShootTileProps> = React.memo(({
     return allPhotos;
   };
 
-  // Delivered variant - new layout with info on left and photos on right
-  // Photo cycling state
-  const [photoIndex, setPhotoIndex] = useState(0);
-  const allPhotosRef = React.useRef<string[]>([]);
-  
-  // Auto-cycle photos every 3 seconds for delivered shoots
-  useEffect(() => {
-    if (variant !== "completed") return;
-    const photos = allPhotosRef.current;
-    if (photos.length <= 3) return; // No need to cycle if 3 or fewer photos
-    
-    const interval = setInterval(() => {
-      setPhotoIndex((prev) => (prev + 1) % photos.length);
-    }, 3000);
-    
-    return () => clearInterval(interval);
-  }, [variant]);
-  
   if (variant === "completed") {
     const allPhotos = getDeliveredPhotos();
-    allPhotosRef.current = allPhotos;
+    const coverPhoto = allPhotos[0] || null;
     const totalCount = allPhotos.length;
-    
-    // Get 3 photos starting from current index, cycling through
-    const getDisplayPhotos = () => {
-      if (allPhotos.length === 0) return [];
-      if (allPhotos.length <= 3) return allPhotos;
-      const photos: string[] = [];
-      for (let i = 0; i < 3; i++) {
-        photos.push(allPhotos[(photoIndex + i) % allPhotos.length]);
-      }
-      return photos;
-    };
-    const displayPhotos = getDisplayPhotos();
 
     return (
-      <div className="border border-border rounded-2xl sm:rounded-3xl overflow-hidden hover:border-primary/40 transition-colors bg-card">
-        <div className="flex flex-col lg:flex-row">
-          {/* Left side - Info */}
-          <div className="flex-1 p-4 sm:p-6 space-y-3 sm:space-y-4">
-            <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
-              <Calendar className="w-3.5 h-3.5" />
-              <span>{dateLabel}</span>
-              <span>•</span>
-              <span>{timeLabel}</span>
-            </div>
-            
-            <button onClick={() => onSelect(record)} className="text-lg sm:text-xl font-semibold text-left hover:underline break-words block">
-              {summary.addressLine}
-            </button>
-            
-            <div className="flex flex-wrap gap-2">
-              {serviceBadges.map((service) => (
-                <Badge key={service} variant="secondary" className="rounded-full text-[10px] sm:text-xs bg-muted/50">
-                  {service}
-                </Badge>
-              ))}
-              {overflow > 0 && (
-                <Badge variant="secondary" className="rounded-full text-[10px] sm:text-xs bg-muted/50">
-                  +{overflow}
-                </Badge>
-              )}
-            </div>
-
-            <div className="text-sm text-muted-foreground space-y-2">
-              <p className="flex items-center gap-2">
-                <span className="uppercase text-[10px] tracking-wider">Photographer</span>
-                {data.photographer?.avatar && (
-                  <img src={data.photographer.avatar} alt="" className="w-5 h-5 rounded-full" />
-                )}
-                <span className="text-foreground font-medium">{photographerLabel}</span>
-              </p>
-              {instructions && (
-                <p>
-                  <span className="uppercase text-[10px] tracking-wider">Notes</span>
-                  <span className="block text-foreground/80 italic line-clamp-2">"{instructions}"</span>
-                </p>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Badge className="bg-green-600/20 text-green-500 border-green-600/30 hover:bg-green-600/30">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-500 mr-1.5" />
-                DELIVERED
-              </Badge>
-            </div>
-
-            {/* Action buttons */}
-            <div className="flex flex-wrap gap-2 pt-2">
-              {hasPendingPayment && onPayment && (
-                <Button 
-                  size="sm"
-                  className="bg-green-600 hover:bg-green-700 text-white"
-                  onClick={() => onPayment(record)}
-                >
-                  <CreditCard className="w-3.5 h-3.5 mr-1.5" />
-                  Pay ${balanceDue.toFixed(0)}
-                </Button>
-              )}
-              <Button size="sm" variant="outline" onClick={() => onDownload(record)}>
-                <Download className="w-3.5 h-3.5 mr-1.5" />
-                Download
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => onRequestRevision(record)}>
-                <Edit3 className="w-3.5 h-3.5 mr-1.5" />
-                Revision
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => onRebook(record)}>
-                <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
-                Rebook
-              </Button>
-            </div>
-          </div>
-
-          {/* Right side - Photo stack */}
-          {displayPhotos.length > 0 && (
-            <div className="relative w-full lg:w-[280px] h-[200px] lg:h-auto lg:min-h-[260px] bg-gradient-to-br from-muted/20 to-transparent overflow-hidden">
-              {/* Background blur photos */}
-              {displayPhotos[0] && (
-                <div 
-                  className="absolute inset-0 opacity-20 blur-2xl scale-125"
-                  style={{ 
-                    backgroundImage: `url(${displayPhotos[0]})`,
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center'
-                  }}
-                />
-              )}
-              
-              {/* Stacked photos */}
-              <div className="absolute inset-0 flex items-center justify-center p-6">
-                <div className="relative w-full h-full max-w-[320px] max-h-[240px]">
-                  {/* Back photo (left) - lower, floating down animation */}
-                  <div 
-                    className="absolute left-0 w-[45%] aspect-[4/3] rounded-lg overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.4)] -rotate-12 opacity-85 animate-float-down"
-                    style={{ zIndex: 1, top: '75%' }}
-                  >
-                    {displayPhotos[2] && (
-                      <img 
-                        src={displayPhotos[2]} 
-                        alt="Preview 3"
-                        className="w-full h-full object-cover transition-all duration-1000 ease-in-out"
-                        style={{ opacity: 1 }}
-                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                      />
-                    )}
-                  </div>
-                  
-                  {/* Back photo (right) - higher, floating up animation */}
-                  <div 
-                    className="absolute right-0 w-[45%] aspect-[4/3] rounded-lg overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.4)] rotate-12 opacity-85 animate-float-up"
-                    style={{ zIndex: 2, top: '25%' }}
-                  >
-                    {displayPhotos[1] && (
-                      <img 
-                        src={displayPhotos[1]} 
-                        alt="Preview 2"
-                        className="w-full h-full object-cover transition-all duration-1000 ease-in-out"
-                        style={{ opacity: 1 }}
-                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                      />
-                    )}
-                  </div>
-                  
-                  {/* Front photo (center) - larger */}
-                  <div 
-                    className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[70%] aspect-[4/3] rounded-lg overflow-hidden shadow-[0_16px_50px_rgba(0,0,0,0.5)]"
-                    style={{ zIndex: 3 }}
-                  >
-                    {displayPhotos[0] && (
-                      <img 
-                        src={displayPhotos[0]} 
-                        alt="Preview 1"
-                        className="w-full h-full object-cover transition-all duration-1000 ease-in-out"
-                        style={{ opacity: 1 }}
-                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                      />
-                    )}
-                  </div>
-                </div>
-              </div>
-              
-              {/* Photo count badge */}
+      <div
+        className="border border-border rounded-xl overflow-hidden hover:border-primary/40 transition-colors bg-card cursor-pointer"
+        onClick={() => onSelect(record)}
+      >
+        <div className="flex flex-row">
+          {/* Left - single static cover photo */}
+          {coverPhoto ? (
+            <div className="relative w-[140px] sm:w-[180px] flex-shrink-0">
+              <img
+                src={coverPhoto}
+                alt={summary.addressLine}
+                className="w-full h-full object-cover"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
               {totalCount > 0 && (
-                <div className="absolute bottom-3 right-3 bg-black/60 backdrop-blur-sm text-white text-xs px-2.5 py-1 rounded-full">
+                <div className="absolute bottom-1.5 right-1.5 bg-black/60 backdrop-blur-sm text-white text-[10px] px-2 py-0.5 rounded-full">
                   {totalCount} photo{totalCount !== 1 ? 's' : ''}
                 </div>
               )}
             </div>
+          ) : (
+            <div className="w-[140px] sm:w-[180px] flex-shrink-0 bg-muted flex items-center justify-center">
+              <ImageIcon className="w-8 h-8 text-muted-foreground/40" />
+            </div>
           )}
+
+          {/* Right - compact info */}
+          <div className="flex-1 p-3 sm:p-4 flex flex-col justify-between gap-1.5 min-w-0">
+            <div className="space-y-1">
+              <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                <Calendar className="w-3 h-3 flex-shrink-0" />
+                <span className="truncate">{dateLabel} • {timeLabel}</span>
+              </div>
+
+              <h3 className="text-sm sm:text-base font-semibold truncate">{summary.addressLine}</h3>
+
+              <div className="flex flex-wrap gap-1">
+                {serviceBadges.map((service) => (
+                  <Badge key={service} variant="secondary" className="rounded-full text-[9px] sm:text-[10px] px-1.5 py-0 h-4 bg-muted/50">
+                    {service}
+                  </Badge>
+                ))}
+                {overflow > 0 && (
+                  <Badge variant="secondary" className="rounded-full text-[9px] sm:text-[10px] px-1.5 py-0 h-4 bg-muted/50">
+                    +{overflow}
+                  </Badge>
+                )}
+              </div>
+
+              {instructions && (
+                <p className="text-[11px] text-muted-foreground italic truncate">"{instructions}"</p>
+              )}
+            </div>
+
+            {/* Bottom row: status + actions */}
+            <div className="flex items-center justify-between gap-2 pt-1">
+              <Badge className="bg-green-600/20 text-green-500 border-green-600/30 hover:bg-green-600/30 text-[10px] h-5">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-500 mr-1" />
+                DELIVERED
+              </Badge>
+
+              <div className="flex gap-1.5" onClick={(e) => e.stopPropagation()}>
+                {hasPendingPayment && onPayment && (
+                  <Button
+                    size="sm"
+                    className="h-7 text-[11px] px-2.5 bg-green-600 hover:bg-green-700 text-white"
+                    onClick={() => onPayment(record)}
+                  >
+                    <CreditCard className="w-3 h-3 mr-1" />
+                    Pay ${balanceDue.toFixed(0)}
+                  </Button>
+                )}
+                <Button size="sm" variant="outline" className="h-7 text-[11px] px-2.5" onClick={() => onDownload(record)}>
+                  <Download className="w-3 h-3 mr-1" />
+                  Download
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );

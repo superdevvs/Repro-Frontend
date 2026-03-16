@@ -109,6 +109,7 @@ export function ShootDetailsModal({
   const [isDownloading, setIsDownloading] = useState(false);
   const [isGeneratingShareLink, setIsGeneratingShareLink] = useState(false);
   const [isStartingMmmPunchout, setIsStartingMmmPunchout] = useState(false);
+  const [printComingSoonOpen, setPrintComingSoonOpen] = useState(false);
   const [rawFileCount, setRawFileCount] = useState<number>(0);
   const [selectedFileIds, setSelectedFileIds] = useState<string[]>([]);
   const [editActions, setEditActions] = useState<{ save: () => void; cancel: () => void } | null>(null);
@@ -2333,15 +2334,10 @@ export function ShootDetailsModal({
                         variant="outline"
                         size="sm"
                         className="h-7 text-xs px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:hover:bg-emerald-900 dark:text-emerald-300 dark:border-emerald-800"
-                        onClick={handleStartMmmPunchout}
-                        disabled={isStartingMmmPunchout}
+                        onClick={() => setPrintComingSoonOpen(true)}
                       >
-                        {isStartingMmmPunchout ? (
-                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                        ) : (
-                          <Printer className="h-3 w-3 mr-1" />
-                        )}
-                        <span>{isStartingMmmPunchout ? 'Starting...' : 'Print'}</span>
+                        <Printer className="h-3 w-3 mr-1" />
+                        <span>Print</span>
                       </Button>
                     )}
                   </>
@@ -3244,6 +3240,65 @@ export function ShootDetailsModal({
             allow="clipboard-write"
           />
         )}
+      </DialogContent>
+    </Dialog>
+
+    {/* Print — Coming Soon Dialog */}
+    <Dialog open={printComingSoonOpen} onOpenChange={setPrintComingSoonOpen}>
+      <DialogContent className="max-w-lg w-[90vw] p-0 gap-0 overflow-hidden">
+        <DialogHeader className="px-4 py-3 border-b flex-row items-center justify-between space-y-0">
+          <div>
+            <DialogTitle className="text-base">Print Marketing Materials</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">Order professional print materials for your listing</DialogDescription>
+          </div>
+        </DialogHeader>
+        <div className="relative">
+          {/* Partially visible blurred UI */}
+          <div className="p-5 space-y-4 blur-[2px] opacity-60 pointer-events-none select-none" aria-hidden="true">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="border rounded-lg p-3 space-y-1.5">
+                <div className="h-20 bg-muted rounded flex items-center justify-center">
+                  <FileText className="h-8 w-8 text-muted-foreground/40" />
+                </div>
+                <p className="text-xs font-medium">Property Flyer</p>
+                <p className="text-[10px] text-muted-foreground">8.5" × 11" full color</p>
+              </div>
+              <div className="border rounded-lg p-3 space-y-1.5">
+                <div className="h-20 bg-muted rounded flex items-center justify-center">
+                  <FileText className="h-8 w-8 text-muted-foreground/40" />
+                </div>
+                <p className="text-xs font-medium">Postcards</p>
+                <p className="text-[10px] text-muted-foreground">4" × 6" double-sided</p>
+              </div>
+              <div className="border rounded-lg p-3 space-y-1.5">
+                <div className="h-20 bg-muted rounded flex items-center justify-center">
+                  <FileText className="h-8 w-8 text-muted-foreground/40" />
+                </div>
+                <p className="text-xs font-medium">Brochure</p>
+                <p className="text-[10px] text-muted-foreground">Tri-fold, premium stock</p>
+              </div>
+              <div className="border rounded-lg p-3 space-y-1.5">
+                <div className="h-20 bg-muted rounded flex items-center justify-center">
+                  <FileText className="h-8 w-8 text-muted-foreground/40" />
+                </div>
+                <p className="text-xs font-medium">Yard Sign</p>
+                <p className="text-[10px] text-muted-foreground">18" × 24" weatherproof</p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <div className="flex-1 h-9 bg-muted rounded" />
+              <div className="w-24 h-9 bg-emerald-200 dark:bg-emerald-800 rounded" />
+            </div>
+          </div>
+          {/* Coming Soon overlay */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/60 backdrop-blur-[1px]">
+            <div className="bg-card border shadow-lg rounded-xl px-6 py-4 text-center space-y-2">
+              <Printer className="h-8 w-8 mx-auto text-emerald-500" />
+              <h3 className="text-lg font-semibold">Coming Soon</h3>
+              <p className="text-sm text-muted-foreground max-w-[260px]">Print marketing materials will be available in a future update.</p>
+            </div>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
     </>

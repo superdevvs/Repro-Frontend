@@ -3088,7 +3088,7 @@ const ShootHistory: React.FC = () => {
         }
       }
 
-      const params: Record<string, unknown> = { tab: backendTab, page: currentPage, per_page: 9, include_files: 'true' }
+      const params: Record<string, unknown> = { tab: backendTab, page: currentPage, per_page: 12, include_files: 'true' }
       if (currentFilters.search) params.search = currentFilters.search
       if (!currentHideClient && currentFilters.clientId) params.client_id = currentFilters.clientId
       if (currentFilters.photographerId) params.photographer_id = currentFilters.photographerId
@@ -3176,15 +3176,15 @@ const ShootHistory: React.FC = () => {
       if (meta && (meta.current_page !== undefined || meta.total !== undefined || meta.count !== undefined)) {
         setOperationalMeta({
           current_page: meta.current_page ?? currentPage,
-          per_page: 9, // Always use 9 for display consistency
-          total: meta.total ?? meta.count ?? 0, // Backend returns 'count', but we use 'total' for consistency
+          per_page: 12,
+          total: meta.total ?? meta.count ?? 0,
         })
       } else {
         // Fallback: create meta from current data - but this shouldn't happen if backend returns proper meta
         setOperationalMeta({
           current_page: currentPage,
-          per_page: 9,
-          total: 0, // Don't use filteredByStatus.length as it's only current page items
+          per_page: 12,
+          total: 0,
         })
       }
 
@@ -3314,7 +3314,7 @@ const ShootHistory: React.FC = () => {
       const params: Record<string, unknown> = {
         group_by: currentFilters.groupBy,
         page: currentPage,
-        per_page: 9,
+        per_page: 12,
       }
       if (currentFilters.search) params.search = currentFilters.search
       if (!currentHideClient && currentFilters.clientId) params.client_id = currentFilters.clientId
@@ -3362,8 +3362,8 @@ const ShootHistory: React.FC = () => {
           payload.meta
             ? {
                 current_page: payload.meta.current_page ?? 1,
-                per_page: 9, // Always use 9 for display consistency
-                total: payload.meta.total ?? 0, // Only use backend total, don't fallback to rows.length
+                per_page: 12,
+                total: payload.meta.total ?? 0,
               }
             : null,
         )
@@ -3894,7 +3894,7 @@ const ShootHistory: React.FC = () => {
     const params: Record<string, unknown> = {
       group_by: historyFilters.groupBy,
       page: historyPage,
-      per_page: 9,
+      per_page: 12,
     }
     if (historyFilters.search) params.search = historyFilters.search
     if (!shouldHideClientDetails && historyFilters.clientId) params.client_id = historyFilters.clientId
@@ -4047,16 +4047,9 @@ const ShootHistory: React.FC = () => {
       )
     }
 
-    // Apply client-side pagination - always show 9 items per page
-    const perPage = viewMode === 'grid' ? 15 : 9
-    const currentPage = operationalMeta?.current_page ?? 1
-    const startIndex = (currentPage - 1) * perPage
-    const endIndex = startIndex + perPage
-    const paginatedData = filteredOperationalData.slice(startIndex, endIndex)
-
     if (viewMode === 'grid') {
       // Sort by scheduled date descending so latest shoots come first
-      const sortedData = [...paginatedData].sort((a, b) => {
+      const sortedData = [...filteredOperationalData].sort((a, b) => {
         const dateA = a.scheduledDate ? new Date(a.scheduledDate).getTime() : 0
         const dateB = b.scheduledDate ? new Date(b.scheduledDate).getTime() : 0
         return dateB - dateA
@@ -4099,7 +4092,7 @@ const ShootHistory: React.FC = () => {
 
     return (
       <div className="space-y-3">
-        {paginatedData.map((shoot) => (
+        {filteredOperationalData.map((shoot) => (
           <ScheduledShootListRow 
             key={shoot.id} 
             shoot={shoot} 
@@ -4182,18 +4175,11 @@ const ShootHistory: React.FC = () => {
       )
     }
 
-    // Apply client-side pagination - always show 9 items per page
-    const perPage = viewMode === 'grid' ? 15 : 9
-    const currentPage = operationalMeta?.current_page ?? 1
-    const startIndex = (currentPage - 1) * perPage
-    const endIndex = startIndex + perPage
-    const displayData = filteredOperationalData.slice(startIndex, endIndex)
-
     if (viewMode === 'grid') {
       const w = typeof window !== 'undefined' ? window.innerWidth : 1024
       const numCols = w <= 479 ? 1 : w <= 719 ? 2 : 4
       const cols: ShootData[][] = Array.from({ length: numCols }, () => [])
-      displayData.forEach((shoot, i) => cols[i % numCols].push(shoot))
+      filteredOperationalData.forEach((shoot, i) => cols[i % numCols].push(shoot))
 
       return (
         <div className="masonry-grid">
@@ -4227,7 +4213,7 @@ const ShootHistory: React.FC = () => {
 
     return (
       <div className="space-y-3">
-        {displayData.map((shoot) => (
+        {filteredOperationalData.map((shoot) => (
           <CompletedShootListRow
             key={shoot.id}
             shoot={shoot}
@@ -4259,13 +4245,6 @@ const ShootHistory: React.FC = () => {
       )
     }
 
-    // Apply client-side pagination - always show 9 items per page
-    const perPage = viewMode === 'grid' ? 15 : 9
-    const currentPage = operationalMeta?.current_page ?? 1
-    const startIndex = (currentPage - 1) * perPage
-    const endIndex = startIndex + perPage
-    const paginatedData = filteredOperationalData.slice(startIndex, endIndex)
-
     if (!filteredOperationalData.length) {
       // Determine the message based on sub-tab
       let message = 'No hold-on shoots'
@@ -4292,7 +4271,7 @@ const ShootHistory: React.FC = () => {
       const w = typeof window !== 'undefined' ? window.innerWidth : 1024
       const numCols = w <= 479 ? 1 : w <= 719 ? 2 : 4
       const cols: ShootData[][] = Array.from({ length: numCols }, () => [])
-      paginatedData.forEach((shoot, i) => cols[i % numCols].push(shoot))
+      filteredOperationalData.forEach((shoot, i) => cols[i % numCols].push(shoot))
 
       return (
         <div className="masonry-grid">
@@ -4325,7 +4304,7 @@ const ShootHistory: React.FC = () => {
 
     return (
       <div className="space-y-3">
-        {paginatedData.map((shoot) => (
+        {filteredOperationalData.map((shoot) => (
           <HoldOnShootCard 
             key={shoot.id} 
             shoot={shoot} 
