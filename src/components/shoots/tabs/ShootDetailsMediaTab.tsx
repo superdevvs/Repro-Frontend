@@ -2675,8 +2675,8 @@ export function ShootDetailsMediaTab({
             {/* AI Edit, Download, Create Request, and Delete buttons for selected files */}
             {canDownload && selectedFiles.size > 0 && (
               <>
-                {/* Hide AI Edit button for clients */}
-                {!isClient && (
+                {/* Hide AI Edit button for clients and editors */}
+                {!isClient && !isEditor && (
                   <Button
                     size="sm"
                     className="h-7 text-[11px] px-2 bg-purple-600 hover:bg-purple-700 text-white"
@@ -2687,7 +2687,7 @@ export function ShootDetailsMediaTab({
                   </Button>
                 )}
                 {/* Reclassify as floorplan / photo - admin only */}
-                {!isClient && (
+                {!isClient && !isEditor && (
                   <Button
                     size="icon"
                     variant="outline"
@@ -2784,8 +2784,8 @@ export function ShootDetailsMediaTab({
         <div className="mb-1.5 pb-1 border-b flex-shrink-0 sm:hidden">
           <div className="flex items-center justify-end gap-1.5">
             {/* AI Edit, Download, and Delete buttons for selected files */}
-            {/* Hide AI Edit button for clients */}
-            {!isClient && (
+            {/* Hide AI Edit button for clients and editors */}
+            {!isClient && !isEditor && (
               <Button
                 size="sm"
                 className="h-7 text-[11px] px-2 w-full bg-purple-600 hover:bg-purple-700 text-white"
@@ -2796,7 +2796,7 @@ export function ShootDetailsMediaTab({
               </Button>
             )}
             {/* Reclassify as floorplan / photo - mobile */}
-            {!isClient && (
+            {!isClient && !isEditor && (
               <Button
                 size="icon"
                 variant="outline"
@@ -2994,7 +2994,7 @@ export function ShootDetailsMediaTab({
                           Video ({uploadedVideos.length})
                         </button>
                       )}
-                      {iguideUrl && (
+                      {!isEditor && iguideUrl && (
                         <button
                           onClick={() => setUploadedMediaTab('iguide')}
                           className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${uploadedMediaTab === 'iguide' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
@@ -3286,7 +3286,7 @@ export function ShootDetailsMediaTab({
                           Video ({editedVideos.length})
                         </button>
                       )}
-                      {iguideUrl && (
+                      {!isEditor && iguideUrl && (
                         <button
                           onClick={() => setEditedMediaTab('iguide')}
                           className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'iguide' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}

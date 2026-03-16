@@ -1852,6 +1852,7 @@ const Dashboard = () => {
                   title="Delivered edits"
                   subtitle="Recently published"
                   emptyStateText="No delivered edits yet."
+                  onSelect={handleSelectShoot}
                   onViewAll={() => navigate('/shoot-history?tab=delivered')}
                 />
               </Suspense>,
@@ -1863,6 +1864,26 @@ const Dashboard = () => {
             upcomingEmptyStateText="No edits in progress yet."
             upcomingDefaultShowPastDays
             pendingReviews={editorPendingReviews}
+            pendingCard={
+              <PendingReviewsCard
+                title="Requests"
+                reviews={[]}
+                issues={[]}
+                onSelect={handleSelectShoot}
+                emptyRequestsText="No active requests."
+                editingRequests={editingRequests}
+                editingRequestsLoading={editingRequestsLoading}
+                showEditingTab={true}
+                onCreateEditingRequest={() => {
+                  setSelectedRequestId(null);
+                  setSpecialRequestOpen(true);
+                }}
+                onEditingRequestClick={(requestId) => {
+                  setSelectedRequestId(requestId);
+                  setSpecialRequestOpen(true);
+                }}
+              />
+            }
             onSelectShoot={handleSelectShoot}
             role="editor"
           />

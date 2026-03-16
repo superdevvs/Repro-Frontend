@@ -2370,7 +2370,7 @@ export function ShootDetailsModal({
                       size="sm"
                       className="h-7 text-xs px-3 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 dark:bg-green-950 dark:hover:bg-green-900 dark:text-green-300 dark:border-green-800"
                       onClick={handleEditorDownloadRaw}
-                      disabled={isDownloading || rawFileCount === 0}
+                      disabled={isDownloading || (rawFileCount === 0 && selectedFileIds.length === 0)}
                     >
                       <Download className="h-3 w-3 mr-1" />
                       <span>
@@ -2386,7 +2386,7 @@ export function ShootDetailsModal({
                       size="sm"
                       className="h-7 text-xs px-3 bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-950 dark:hover:bg-purple-900 dark:text-purple-300 dark:border-purple-800"
                       onClick={handleGenerateShareLink}
-                      disabled={isGeneratingShareLink || rawFileCount === 0}
+                      disabled={isGeneratingShareLink || (rawFileCount === 0 && selectedFileIds.length === 0)}
                     >
                       <Share2 className="h-3 w-3 mr-1" />
                       <span>

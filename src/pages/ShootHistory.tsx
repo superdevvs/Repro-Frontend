@@ -3237,7 +3237,7 @@ const ShootHistory: React.FC = () => {
   }, [toast])
 
   const fetchBulkShoots = useCallback(async () => {
-    if (!(isSuperAdmin || isAdmin)) return
+    if (!(isSuperAdmin || isAdmin || isEditingManager)) return
     setBulkShootsLoading(true)
 
     try {
@@ -3279,7 +3279,7 @@ const ShootHistory: React.FC = () => {
     } finally {
       setBulkShootsLoading(false)
     }
-  }, [isAdmin, isSuperAdmin, toast])
+  }, [isAdmin, isSuperAdmin, isEditingManager, toast])
 
   useEffect(() => {
     if (!isBulkActionsOpen) return
@@ -4573,7 +4573,7 @@ const ShootHistory: React.FC = () => {
               </p>
             </div>
             <div className="flex items-center gap-2 md:justify-end">
-              {(isSuperAdmin || isAdmin) && (
+              {(isSuperAdmin || isAdmin || isEditingManager) && (
                 <Button
                   onClick={() => setIsBulkActionsOpen(true)}
                   variant="outline"
@@ -5582,7 +5582,7 @@ const ShootHistory: React.FC = () => {
           shouldHideClientDetails={shouldHideClientDetails}
         />
       )}
-      {(isSuperAdmin || isAdmin) && (
+      {(isSuperAdmin || isAdmin || isEditingManager) && (
         <BulkActionsDialog
           isOpen={isBulkActionsOpen}
           onClose={() => setIsBulkActionsOpen(false)}

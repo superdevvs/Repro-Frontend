@@ -324,6 +324,11 @@ export const shootDataToSummary = (shoot: ShootData): DashboardShootSummary => {
     holdRequestedBy: shoot.holdRequestedBy ?? null,
     holdReason: shoot.holdReason ?? null,
     paymentStatus,
+    heroImage: shoot.heroImage || null,
+    previewImages: shoot.files
+      ?.slice(0, 6)
+      .map((f: any) => f.thumbnail_path || f.web_path || f.url || f.path)
+      .filter(Boolean) || [],
   };
 
   // Cache the result for this shoot object reference
