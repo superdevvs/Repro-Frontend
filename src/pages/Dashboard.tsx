@@ -227,6 +227,7 @@ const Dashboard = () => {
   const { data, loading, error, refresh } = useDashboardOverview();
   const [selectedShoot, setSelectedShoot] = useState<DashboardShootSummary | null>(null);
   const [selectedShootWeather, setSelectedShootWeather] = useState<WeatherInfo | null>(null);
+  const [openDownloadOnSelect, setOpenDownloadOnSelect] = useState(false);
   const [selectedPhotographer, setSelectedPhotographer] =
     useState<DashboardPhotographerSummary | null>(null);
   const [specialRequestOpen, setSpecialRequestOpen] = useState(false);
@@ -389,10 +390,11 @@ const Dashboard = () => {
       <Suspense fallback={null}>
         <LazyShootDetailsModal 
           shoot={selectedShoot} 
-          onClose={() => { setSelectedShoot(null); setSelectedShootWeather(null); }} 
+          onClose={() => { setSelectedShoot(null); setSelectedShootWeather(null); setOpenDownloadOnSelect(false); }} 
           weather={selectedShootWeather}
           onShootUpdate={handleShootUpdate}
           onViewInvoice={handleViewInvoice}
+          openDownloadDialog={openDownloadOnSelect}
         />
       </Suspense>
       {/* Invoice View Dialog */}
@@ -1161,7 +1163,10 @@ const Dashboard = () => {
         }
       };
       const handleContactSupport = () => openSupportEmail("Client dashboard support");
-      const handleDownloadShoot = (record: ClientShootRecord) => setSelectedShoot(record.summary);
+      const handleDownloadShoot = (record: ClientShootRecord) => {
+        setOpenDownloadOnSelect(true);
+        setSelectedShoot(record.summary);
+      };
       const handleRebookShoot = (record: ClientShootRecord) =>
         navigate(`/book-shoot?template=${record.data.id}`);
       const handleRequestRevision = (record: ClientShootRecord) =>
@@ -2616,14 +2621,6 @@ const ClientShootTile: React.FC<ClientShootTileProps> = React.memo(({
                 {totalCount} photo{totalCount !== 1 ? 's' : ''}
               </div>
             )}
-            {/* Download quick-action (hover reveal) */}
-            <button
-              className="absolute top-3 right-3 h-9 w-9 rounded-full bg-white/15 backdrop-blur-md flex items-center justify-center text-white hover:bg-white/30 transition-all duration-200 opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0"
-              onClick={(e) => { e.stopPropagation(); onDownload(record); }}
-              title="Download all"
-            >
-              <Download className="h-4 w-4" />
-            </button>
           </div>
 
           {/* Right - property details */}

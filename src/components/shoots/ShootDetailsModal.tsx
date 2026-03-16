@@ -92,6 +92,7 @@ export function ShootDetailsModal({
   const [weather, setWeather] = useState<WeatherInfo | null>(null);
   const [providerVersion, setProviderVersion] = useState(0);
   const [isMediaExpanded, setIsMediaExpanded] = useState(false);
+  const [showHidden, setShowHidden] = useState(false);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [isMarkPaidDialogOpen, setIsMarkPaidDialogOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -2296,6 +2297,19 @@ export function ShootDetailsModal({
                     <span>{isDelivered ? 'Delete Shoot' : 'Cancel Shoot'}</span>
                   </Button>
                 )}
+                {/* Download button for delivered shoots */}
+                {isDelivered && !isEditor && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs px-3 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 dark:bg-green-950 dark:hover:bg-green-900 dark:text-green-300 dark:border-green-800"
+                    onClick={() => setIsDownloadDialogOpen(true)}
+                    disabled={isDownloading}
+                  >
+                    <Download className="h-3 w-3 mr-1" />
+                    <span>{isDownloading ? 'Downloading...' : 'Download'}</span>
+                  </Button>
+                )}
                 {/* Publish to Bright MLS button (hidden from editors) */}
                 {isDelivered && !isEditor && (
                   <Button
@@ -2640,6 +2654,8 @@ export function ShootDetailsModal({
                       shoot={shoot}
                       isAdmin={isAdmin}
                       onShootUpdate={refreshShootAndParent}
+                      showHidden={showHidden}
+                      onShowHiddenChange={setShowHidden}
                     />
                   </TabsContent>
                 )}
@@ -2693,6 +2709,8 @@ export function ShootDetailsModal({
                 onShootUpdate={refreshShootAndParent}
                 onSelectionChange={setSelectedFileIds}
                 isExpanded={true}
+                showHidden={showHidden}
+                onShowHiddenChange={setShowHidden}
               />
             </div>
           </div>
@@ -2711,6 +2729,8 @@ export function ShootDetailsModal({
                 onSelectionChange={setSelectedFileIds}
                 isExpanded={isMediaExpanded}
                 onToggleExpand={() => setIsMediaExpanded(!isMediaExpanded)}
+                showHidden={showHidden}
+                onShowHiddenChange={setShowHidden}
               />
             </div>
             {/* Bottom Action Buttons - Desktop only, inside right pane */}

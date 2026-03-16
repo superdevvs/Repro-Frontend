@@ -6,6 +6,8 @@ interface ShootDetailsSettingsTabProps {
   shoot: ShootData;
   isAdmin: boolean;
   onShootUpdate: () => void;
+  showHidden?: boolean;
+  onShowHiddenChange?: (val: boolean) => void;
 }
 
 export function ShootDetailsSettingsTab(props: ShootDetailsSettingsTabProps) {
@@ -22,6 +24,8 @@ export function ShootDetailsSettingsTab(props: ShootDetailsSettingsTabProps) {
     onDelete={() => {}}
     onProcessPayment={() => {}}
     currentInvoice={null}
+    showHidden={props.showHidden}
+    onShowHiddenChange={props.onShowHiddenChange}
   />;
 }
 

@@ -27,6 +27,8 @@ interface ShootSettingsTabProps {
   onDelete?: () => void;
   onProcessPayment?: (invoice: InvoiceData) => void;
   currentInvoice?: InvoiceData | null;
+  showHidden?: boolean;
+  onShowHiddenChange?: (val: boolean) => void;
 }
 
 export function ShootSettingsTab({
@@ -37,6 +39,8 @@ export function ShootSettingsTab({
   onDelete,
   onProcessPayment,
   currentInvoice = null,
+  showHidden = false,
+  onShowHiddenChange,
 }: ShootSettingsTabProps) {
   // ---------- local state ----------
   const [isSavingSettings, setIsSavingSettings] = useState(false);
@@ -544,6 +548,25 @@ export function ShootSettingsTab({
                   checked={(shoot as any)?.hide_proof || false}
                   onCheckedChange={(checked: boolean) => {
                     toggleSetting("hide_proof", checked);
+                  }}
+                  className="flex-shrink-0"
+                />
+              </div>
+            </div>
+
+            {/* Show Hidden Images */}
+            <div className="border rounded-lg p-3.5">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium">Show Hidden Images</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    Reveal images hidden from tours and portfolio
+                  </div>
+                </div>
+                <Switch
+                  checked={showHidden}
+                  onCheckedChange={(checked: boolean) => {
+                    onShowHiddenChange?.(checked);
                   }}
                   className="flex-shrink-0"
                 />

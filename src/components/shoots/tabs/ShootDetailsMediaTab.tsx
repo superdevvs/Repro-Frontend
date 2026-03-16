@@ -76,6 +76,8 @@ interface ShootDetailsMediaTabProps {
   isExpanded?: boolean;
   onToggleExpand?: () => void;
   onSelectionChange?: (selectedIds: string[]) => void;
+  showHidden?: boolean;
+  onShowHiddenChange?: (val: boolean) => void;
 }
 
 type MediaSubTab = 'photos' | 'videos' | 'iguide' | 'floorplans';
@@ -93,6 +95,8 @@ export function ShootDetailsMediaTab({
   isExpanded = false,
   onToggleExpand,
   onSelectionChange,
+  showHidden = false,
+  onShowHiddenChange,
 }: ShootDetailsMediaTabProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -109,6 +113,14 @@ export function ShootDetailsMediaTab({
   const [viewerIndex, setViewerIndex] = useState(0);
   const [viewerFiles, setViewerFiles] = useState<MediaFile[]>([]);
   const [downloading, setDownloading] = useState(false);
+  const [downloadPopup, setDownloadPopup] = useState<{
+    visible: boolean;
+    status: 'processing' | 'ready' | 'error';
+    blobUrl: string | null;
+    filename: string;
+    fileCount: number;
+    sizeLabel: string;
+  }>({ visible: false, status: 'processing', blobUrl: null, filename: '', fileCount: 0, sizeLabel: '' });
   const [showAiEditDialog, setShowAiEditDialog] = useState(false);
   const [editingTypes, setEditingTypes] = useState<EditingType[]>([]);
   const [selectedEditingType, setSelectedEditingType] = useState<string>('');
@@ -137,7 +149,6 @@ export function ShootDetailsMediaTab({
     try { localStorage.setItem('media-view-mode', mode); } catch {}
   };
   const [requestManagerOpen, setRequestManagerOpen] = useState(false);
-  const [showHidden, setShowHidden] = useState(false);
 
   // Toggle hide/unhide for a single file
   const toggleFileHidden = useCallback(async (fileId: string, hidden: boolean) => {
@@ -768,7 +779,7 @@ export function ShootDetailsMediaTab({
     }
   };
 
-  // Download selected files
+  // Download selected files — with progress popup
   const handleDownload = async (size: 'original' | 'small') => {
     if (selectedFiles.size === 0) {
       toast({
@@ -779,49 +790,74 @@ export function ShootDetailsMediaTab({
       return;
     }
 
+    const fileCount = selectedFiles.size;
+    const sizeLabel = size === 'small' ? 'Small (1800×1200)' : 'Full Size';
+    const filename = `shoot-${shoot.id}-${size === 'small' ? 'small' : 'full'}-${Date.now()}.zip`;
+
+    // Show processing popup
+    setDownloadPopup({ visible: true, status: 'processing', blobUrl: null, filename, fileCount, sizeLabel });
     setDownloading(true);
+
     try {
       const headers = getApiHeaders();
       const fileIds = Array.from(selectedFiles);
       
-      // Request download from backend
       const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/files/download`, {
         method: 'POST',
         headers,
         body: JSON.stringify({
           file_ids: fileIds,
-          size: size === 'small' ? 'small' : 'original', // small = 1800x1200, original = full size
+          size: size === 'small' ? 'small' : 'original',
         }),
       });
 
       if (!res.ok) throw new Error('Download failed');
 
-      // Get download URL or blob
       const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
+      const blobUrl = window.URL.createObjectURL(blob);
+
+      // Update popup to ready state
+      setDownloadPopup(prev => ({ ...prev, status: 'ready', blobUrl }));
+
+      // Auto-trigger download
       const a = document.createElement('a');
-      a.href = url;
-      a.download = `shoot-${shoot.id}-${size === 'small' ? 'small' : 'full'}-${Date.now()}.zip`;
+      a.href = blobUrl;
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-
-      toast({
-        title: 'Download started',
-        description: `Downloading ${selectedFiles.size} file(s) as ${size === 'small' ? 'small (1800x1200)' : 'full size'}`,
-      });
 
       setSelectedFiles(new Set());
     } catch (error) {
+      setDownloadPopup(prev => ({ ...prev, status: 'error' }));
       toast({
         title: 'Download failed',
-        description: 'Failed to download files',
+        description: 'Failed to download files. Please try again.',
         variant: 'destructive',
       });
     } finally {
       setDownloading(false);
     }
+  };
+
+  // Manual download trigger from popup (in case auto-download was blocked)
+  const handleManualDownload = () => {
+    if (downloadPopup.blobUrl) {
+      const a = document.createElement('a');
+      a.href = downloadPopup.blobUrl;
+      a.download = downloadPopup.filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+  };
+
+  // Close download popup and clean up blob URL
+  const closeDownloadPopup = () => {
+    if (downloadPopup.blobUrl) {
+      window.URL.revokeObjectURL(downloadPopup.blobUrl);
+    }
+    setDownloadPopup({ visible: false, status: 'processing', blobUrl: null, filename: '', fileCount: 0, sizeLabel: '' });
   };
 
   // Editor-specific download raw files (with activity logging and admin notification)
@@ -2416,6 +2452,57 @@ export function ShootDetailsMediaTab({
 
   return (
     <div className="flex flex-col h-full min-h-0 bg-background px-1 sm:px-4 lg:px-6" style={{ height: '100%', minHeight: '100%' }}>
+      {/* Download progress popup */}
+      {downloadPopup.visible && (
+        <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center pointer-events-none">
+          <div className="pointer-events-auto mb-4 sm:mb-0 mx-4 w-full max-w-xs bg-card border rounded-2xl shadow-2xl p-4 animate-in slide-in-from-bottom-4 duration-300">
+            <div className="flex items-start gap-3">
+              {downloadPopup.status === 'processing' && (
+                <div className="flex-shrink-0 h-9 w-9 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center">
+                  <Loader2 className="h-4.5 w-4.5 text-blue-600 dark:text-blue-400 animate-spin" />
+                </div>
+              )}
+              {downloadPopup.status === 'ready' && (
+                <div className="flex-shrink-0 h-9 w-9 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center">
+                  <Download className="h-4.5 w-4.5 text-green-600 dark:text-green-400" />
+                </div>
+              )}
+              {downloadPopup.status === 'error' && (
+                <div className="flex-shrink-0 h-9 w-9 rounded-full bg-red-100 dark:bg-red-900/40 flex items-center justify-center">
+                  <AlertCircle className="h-4.5 w-4.5 text-red-600 dark:text-red-400" />
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold">
+                  {downloadPopup.status === 'processing' && 'Processing images…'}
+                  {downloadPopup.status === 'ready' && 'Download ready!'}
+                  {downloadPopup.status === 'error' && 'Download failed'}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {downloadPopup.status === 'processing' && `Preparing ${downloadPopup.fileCount} image${downloadPopup.fileCount > 1 ? 's' : ''} · ${downloadPopup.sizeLabel}`}
+                  {downloadPopup.status === 'ready' && `${downloadPopup.fileCount} image${downloadPopup.fileCount > 1 ? 's' : ''} · ${downloadPopup.sizeLabel}`}
+                  {downloadPopup.status === 'error' && 'Something went wrong. Please try again.'}
+                </p>
+                {downloadPopup.status === 'ready' && (
+                  <button
+                    onClick={handleManualDownload}
+                    className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+                  >
+                    <Download className="h-3 w-3" />
+                    Download again
+                  </button>
+                )}
+              </div>
+              <button
+                onClick={closeDownloadPopup}
+                className="flex-shrink-0 h-6 w-6 rounded-full hover:bg-muted flex items-center justify-center transition-colors"
+              >
+                <X className="h-3.5 w-3.5 text-muted-foreground" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Header - Tabs with Upload button inline on desktop, expand/collapse button */}
       <div className="border-b flex-shrink-0 bg-background pt-1 sm:pt-2">
         <div className="flex items-center justify-between gap-2">
@@ -2571,18 +2658,6 @@ export function ShootDetailsMediaTab({
                   <LayoutGrid className="h-3.5 w-3.5" />
                 </button>
               </div>
-            )}
-            {/* Show hidden toggle - only for non-clients when hidden files exist */}
-            {!isClient && [...rawFiles, ...editedFiles].some(f => f.is_hidden) && (
-              <Button
-                variant={showHidden ? 'default' : 'outline'}
-                size="sm"
-                className={`h-7 text-[11px] px-2 ${showHidden ? 'bg-yellow-600 hover:bg-yellow-700 text-white' : ''}`}
-                onClick={() => setShowHidden(prev => !prev)}
-              >
-                {showHidden ? <Eye className="h-3 w-3 mr-1" /> : <EyeOff className="h-3 w-3 mr-1" />}
-                <span>Hidden ({[...rawFiles, ...editedFiles].filter(f => f.is_hidden).length})</span>
-              </Button>
             )}
             {/* Upload More button - only shown when files already exist */}
             {showUploadTab && (rawFiles.length > 0 || editedFiles.length > 0) && (
