@@ -44,7 +44,6 @@ import {
   LayoutGrid,
   List,
   Play,
-  ExternalLink,
   EyeOff,
   Eye,
 } from 'lucide-react';
@@ -314,7 +313,7 @@ export function ShootDetailsMediaTab({
 
   // Determine which tabs to show
   const showUploadTab = isAdmin || isPhotographer || isEditor;
-  const canDownload = isAdmin || isClient || isEditor;
+  const canDownload = isAdmin || isClient || isEditor || isPhotographer;
 
   // ── Drag-and-drop upload directly on tab content ──
   const [dragOverTab, setDragOverTab] = useState<'uploaded' | 'edited' | null>(null);
@@ -2129,7 +2128,7 @@ export function ShootDetailsMediaTab({
           <div
             onDrop={handleDrop}
             onDragOver={handleDragOver}
-            className="border-2 border-dashed border-border/50 rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer bg-card flex items-center justify-center min-h-[250px] shadow-sm"
+            className="border-2 border-dashed border-border/50 rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer bg-card flex-1 flex items-center justify-center min-h-[250px] shadow-sm"
           >
             <input
               type="file"
@@ -2519,7 +2518,7 @@ export function ShootDetailsMediaTab({
             } else if (v === 'uploaded' && !isClient) {
               setActiveSubTab('uploaded');
               setDisplayTab('uploaded');
-            } else if (v === 'edited' && !isPhotographer) {
+            } else if (v === 'edited') {
               setActiveSubTab('edited');
               setDisplayTab('edited');
             }
@@ -2555,25 +2554,7 @@ export function ShootDetailsMediaTab({
                   Raw Uploads ({rawFiles.length})
                 </TabsTrigger>
               )}
-              {isPhotographer ? (
-                <button
-                  type="button"
-                  className="text-[11px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 h-7 sm:h-8 text-primary font-medium hover:bg-primary/10 rounded-md transition-colors whitespace-nowrap inline-flex items-center gap-1"
-                  onClick={() => {
-                    const mlsLink = shoot?.tourLinks?.mls || shoot?.tourLinks?.genericMls || shoot?.tourLinks?.matterport_mls || shoot?.tourLinks?.iguide_mls || (shoot as any)?.mls_compliant_link;
-                    if (mlsLink) {
-                      window.open(mlsLink, '_blank', 'noopener,noreferrer');
-                    } else {
-                      // Fallback: open the app's own MLS tour page for this shoot
-                      window.open(`/tour/mls?shootId=${shoot.id}`, '_blank', 'noopener,noreferrer');
-                    }
-                  }}
-                >
-                  <ExternalLink className="h-3 w-3" />
-                  Edited Media
-                </button>
-              ) : (
-                <TabsTrigger 
+              <TabsTrigger 
                   value="edited" 
                   className="text-[11px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 h-7 sm:h-8 data-[state=active]:bg-primary/10 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:rounded-none data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground whitespace-nowrap"
                   onClick={() => {
@@ -2581,9 +2562,8 @@ export function ShootDetailsMediaTab({
                     setDisplayTab('edited');
                   }}
                 >
-                  Edited ({editedFiles.length})
+                  Edited Media{!isPhotographer ? ` (${editedFiles.length})` : ''}
                 </TabsTrigger>
-              )}
             </TabsList>
           </Tabs>
           
@@ -3238,8 +3218,8 @@ export function ShootDetailsMediaTab({
               </div>
             )}
 
-            {/* Edited Media Tab - Hidden for photographers */}
-            {!isPhotographer && displayTab === 'edited' && (
+            {/* Edited Media Tab */}
+            {displayTab === 'edited' && (
               <div
                 className="flex-1 relative"
                 style={{ minHeight: 0, display: 'flex', flexDirection: 'column', height: '100%', width: '100%' }}
