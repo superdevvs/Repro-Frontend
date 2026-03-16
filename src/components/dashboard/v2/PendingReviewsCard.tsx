@@ -6,8 +6,16 @@ import { useIssueManager } from '@/context/IssueManagerContext';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EditingRequest } from '@/services/editingRequestService';
+import { Check, X, Loader2, MapPin, User } from 'lucide-react';
 
-type RequestsTab = 'client' | 'editing';
+type RequestsTab = 'client' | 'editing' | 'cancellation';
+
+export interface CancellationShootItem {
+  id: number;
+  address?: string;
+  clientName?: string;
+  cancellationReason?: string;
+}
 
 interface PendingReviewsCardProps {
   reviews: DashboardShootSummary[];
@@ -29,6 +37,11 @@ interface PendingReviewsCardProps {
   // Show tabs
   showEditingTab?: boolean;
   showClientTab?: boolean;
+  // Cancellation requests props
+  cancellationShoots?: CancellationShootItem[];
+  showCancellationTab?: boolean;
+  onApproveCancellation?: (shootId: number) => Promise<void>;
+  onRejectCancellation?: (shootId: number) => Promise<void>;
 }
 
 const severityBadge = (severity: DashboardIssueItem['severity']) => {
@@ -83,10 +96,15 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
   onClientRequestClick,
   showEditingTab = false,
   showClientTab = false,
+  cancellationShoots = [],
+  showCancellationTab = false,
+  onApproveCancellation,
+  onRejectCancellation,
 }) => {
   const { openModal } = useIssueManager();
   const [resolvedIssues, setResolvedIssues] = useState<Set<number>>(new Set());
   const [activeTab, setActiveTab] = useState<RequestsTab>('client');
+  const [cancellationActionLoading, setCancellationActionLoading] = useState<number | null>(null);
 
   const safeIssues = Array.isArray(issues) ? issues : [];
   const visibleIssues = safeIssues.filter(issue => issue && !resolvedIssues.has(issue.id));
@@ -107,6 +125,11 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
   
   if (showEditingTab) {
     tabs.push({ id: 'editing', label: 'Editing', count: activeEditingRequests.length });
+  }
+
+  const safeCancellationShoots = Array.isArray(cancellationShoots) ? cancellationShoots : [];
+  if (showCancellationTab) {
+    tabs.push({ id: 'cancellation', label: 'Cancellation', count: safeCancellationShoots.length });
   }
 
   const totalRequests = tabs.reduce((sum, t) => sum + t.count, 0);
@@ -259,6 +282,79 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
                     </Button>
                   </div>
                 )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Cancellation Tab Content */}
+        {activeTab === 'cancellation' && showCancellationTab && (
+          <div className="flex-1 flex flex-col min-h-0">
+            {safeCancellationShoots.length === 0 ? (
+              <div className="flex-1 flex items-center justify-center text-center text-sm text-muted-foreground pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:pb-3">
+                No pending cancellations.
+              </div>
+            ) : (
+              <div className="flex-1 min-h-0 overflow-y-auto pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:pb-0" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                <div className="space-y-1.5" style={{ WebkitOverflowScrolling: 'touch' }}>
+                  {safeCancellationShoots.slice(0, 7).map((shoot) => {
+                    const isActioning = cancellationActionLoading === shoot.id;
+                    return (
+                      <div
+                        key={shoot.id}
+                        className="rounded-lg border border-border/60 bg-muted/20 p-2.5 space-y-1.5"
+                      >
+                        <div className="flex items-start gap-2">
+                          <MapPin className="h-3 w-3 text-muted-foreground mt-0.5 flex-shrink-0" strokeWidth={1.5} />
+                          <span className="text-xs font-medium text-foreground leading-tight line-clamp-1">
+                            {shoot.address || `Shoot #${shoot.id}`}
+                          </span>
+                        </div>
+                        {shoot.clientName && (
+                          <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                            <User className="h-2.5 w-2.5" strokeWidth={1.5} />
+                            {shoot.clientName}
+                          </div>
+                        )}
+                        {shoot.cancellationReason && (
+                          <p className="text-[10px] text-muted-foreground italic border-l-2 border-rose-300 dark:border-rose-700 pl-2 line-clamp-2">
+                            {shoot.cancellationReason}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-1.5 pt-0.5">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-6 text-[10px] gap-1 px-2 text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-800 dark:hover:bg-emerald-950/30"
+                            disabled={isActioning}
+                            onClick={async () => {
+                              if (!onApproveCancellation) return;
+                              setCancellationActionLoading(shoot.id);
+                              try { await onApproveCancellation(shoot.id); } finally { setCancellationActionLoading(null); }
+                            }}
+                          >
+                            {isActioning ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Check className="h-2.5 w-2.5" strokeWidth={2} />}
+                            Accept
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-6 text-[10px] gap-1 px-2 text-rose-600 border-rose-200 hover:bg-rose-50 dark:text-rose-400 dark:border-rose-800 dark:hover:bg-rose-950/30"
+                            disabled={isActioning}
+                            onClick={async () => {
+                              if (!onRejectCancellation) return;
+                              setCancellationActionLoading(shoot.id);
+                              try { await onRejectCancellation(shoot.id); } finally { setCancellationActionLoading(null); }
+                            }}
+                          >
+                            {isActioning ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <X className="h-2.5 w-2.5" strokeWidth={2} />}
+                            Reject
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>

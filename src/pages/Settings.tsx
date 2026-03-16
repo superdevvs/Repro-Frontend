@@ -69,7 +69,9 @@ const Settings = () => {
   const isSuperAdmin = role === 'superadmin';
   
   const availableTabs = React.useMemo<TabValue[]>(() => {
-    const tabs: TabValue[] = [...BASE_TABS];
+    // Hide branding tab for photographer, editor, and editing_manager roles
+    const hideBranding = ['photographer', 'editor', 'editing_manager'].includes(role || '');
+    const tabs: TabValue[] = [...BASE_TABS].filter(tab => !(tab === 'branding' && hideBranding));
     if (canViewCoupons) {
       tabs.push('coupons');
     }
@@ -81,7 +83,7 @@ const Settings = () => {
       tabs.push('robbie');
     }
     return tabs;
-  }, [canViewCoupons, canViewIntegrations, isSuperAdmin]);
+  }, [canViewCoupons, canViewIntegrations, isSuperAdmin, role]);
 
   const getValidTab = React.useCallback(
     (tabParam: string | null): TabValue => {

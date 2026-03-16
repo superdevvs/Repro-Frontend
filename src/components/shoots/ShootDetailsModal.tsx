@@ -2310,8 +2310,8 @@ export function ShootDetailsModal({
                     <span>{isDownloading ? 'Downloading...' : 'Download'}</span>
                   </Button>
                 )}
-                {/* Publish to Bright MLS button (hidden from editors) */}
-                {isDelivered && !isEditor && (
+                {/* Publish to Bright MLS button (hidden from editors and photographers) */}
+                {isDelivered && !isEditor && !isPhotographer && (
                   <Button
                     variant="outline"
                     size="sm"

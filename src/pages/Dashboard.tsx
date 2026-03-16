@@ -570,6 +570,56 @@ const Dashboard = () => {
     }).length;
   }, [shoots, isAdminExperience]);
 
+  // Build cancellation shoots list for inline Requests card tab
+  const cancellationShoots = useMemo(() => {
+    if (!isAdminExperience) return [];
+    return shoots
+      .filter(s => {
+        const hasRequest = !!(s.cancellationRequestedAt || (s as any).cancellation_requested_at);
+        if (!hasRequest) return false;
+        const status = (s.workflowStatus || s.status || '').toLowerCase();
+        return !status.includes('canceled') && !status.includes('cancelled');
+      })
+      .map(s => ({
+        id: Number(s.id),
+        address: s.location?.fullAddress || s.location?.address || (s as any).address || `Shoot #${s.id}`,
+        clientName: s.client?.name || undefined,
+        cancellationReason: (s as any).cancellationReason || (s as any).cancellation_reason || undefined,
+      }));
+  }, [shoots, isAdminExperience]);
+
+  const handleApproveCancellation = async (shootId: number) => {
+    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+    const res = await fetch(`${API_BASE_URL}/api/shoots/${shootId}/approve-cancellation`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    });
+    if (res.ok) {
+      toast({ title: 'Cancellation approved', description: 'Shoot has been cancelled.' });
+      refresh();
+      if (fetchShoots) fetchShoots().catch(() => {});
+    } else {
+      const err = await res.json().catch(() => ({}));
+      toast({ title: 'Error', description: err.message || 'Failed to approve', variant: 'destructive' });
+    }
+  };
+
+  const handleRejectCancellation = async (shootId: number) => {
+    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+    const res = await fetch(`${API_BASE_URL}/api/shoots/${shootId}/reject-cancellation`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    });
+    if (res.ok) {
+      toast({ title: 'Cancellation rejected', description: 'Request has been dismissed.' });
+      refresh();
+      if (fetchShoots) fetchShoots().catch(() => {});
+    } else {
+      const err = await res.json().catch(() => ({}));
+      toast({ title: 'Error', description: err.message || 'Failed to reject', variant: 'destructive' });
+    }
+  };
+
   useEffect(() => {
     const state = location.state as CommandBarState | null;
     if (!state) return;
@@ -982,6 +1032,10 @@ const Dashboard = () => {
         clientRequests={clientRequests}
         clientRequestsLoading={clientRequestsLoading}
         showClientTab={isAdminExperience}
+        cancellationShoots={cancellationShoots}
+        showCancellationTab={isAdminExperience}
+        onApproveCancellation={handleApproveCancellation}
+        onRejectCancellation={handleRejectCancellation}
       />
     );
 
@@ -1608,17 +1662,9 @@ const Dashboard = () => {
           <RoleDashboardLayout
             title={greetingTitle}
             description="Field schedule, quick actions, and delivery milestones."
-            quickActions={withCustomQuickActions(quickActions)}
-            quickActionsEyebrow="Workflow"
-            leftColumnCard={
-              <PendingReviewsCard
-                title="Requests"
-                reviews={[]}
-                issues={[]}
-                onSelect={(shoot) => handleSelectShoot(shoot)}
-                emptyRequestsText="No active requests."
-              />
-            }
+            quickActions={[]}
+            hideLeftColumn
+            leftColumnCard={null}
             rightColumnCards={[
               <Suspense key="completed-shoots" fallback={<CompletedShootsCardSkeleton />}>
                 <LazyCompletedShootsCard
@@ -1634,8 +1680,6 @@ const Dashboard = () => {
             pendingReviews={photographerPendingReviews}
             pendingCard={null}
             onSelectShoot={handleSelectShoot}
-            canCustomizeQuickActions={canCustomizeQuickActions}
-            onEditQuickActions={handleOpenQuickActionsEditor}
             role="photographer"
           />
           {shootDetailsModal}
@@ -2085,6 +2129,7 @@ interface RoleDashboardLayoutProps {
   canCustomizeQuickActions?: boolean;
   onEditQuickActions?: () => void;
   role?: UserRole;
+  hideLeftColumn?: boolean;
 }
 
 const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
@@ -2107,6 +2152,7 @@ const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
   canCustomizeQuickActions,
   onEditQuickActions,
   role,
+  hideLeftColumn = false,
 }) => {
   const pendingContent =
     pendingCard ||
@@ -2123,9 +2169,10 @@ const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
   return (
     <DevProfiler id={`RoleDashboardLayout:${role ?? "default"}`}>
       <DashboardLayout>
-        <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
+        <div className={cn("p-3 sm:p-6 space-y-4 sm:space-y-6", hideLeftColumn && "min-h-[calc(100vh-4rem)]")}>
           <PageHeader title={title} description={description} />
           <div className="grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-6 items-stretch">
+          {!hideLeftColumn && (
           <div className="md:col-span-3 flex flex-col gap-4 sm:gap-6 h-full order-1 md:order-none">
               <div className="order-1 md:order-none">
                 <ErrorBoundary
@@ -2159,7 +2206,8 @@ const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
                 </ErrorBoundary>
               </div>
             </div>
-            <div className="md:col-span-6 flex flex-col h-full order-2 md:order-none">
+          )}
+            <div className={cn("flex flex-col h-full order-2 md:order-none", hideLeftColumn ? "md:col-span-9" : "md:col-span-6")}>
               <ErrorBoundary
                 fallback={
                   <div className="rounded-2xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
@@ -2179,6 +2227,7 @@ const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
               </ErrorBoundary>
             </div>
             {/* Left Column Card - Mobile only, appears after Upcoming Shoots */}
+            {!hideLeftColumn && (
             <div className="md:hidden order-3">
               <ErrorBoundary
                 fallback={
@@ -2190,7 +2239,9 @@ const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
                 {leftColumnCard}
               </ErrorBoundary>
             </div>
+            )}
           <div className="md:col-span-3 flex flex-col gap-4 sm:gap-6 h-full order-4 md:order-none">
+            {!hideLeftColumn && (
             <ErrorBoundary
               fallback={
                 <div className="rounded-2xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
@@ -2200,6 +2251,7 @@ const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
             >
               {pendingContent}
             </ErrorBoundary>
+            )}
             {rightColumnCards
               .filter((card): card is React.ReactNode => Boolean(card))
               .map((card, index) => (

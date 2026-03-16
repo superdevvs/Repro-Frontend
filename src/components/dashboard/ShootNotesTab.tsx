@@ -239,7 +239,7 @@ export function ShootNotesTab({
     
     switch (noteType) {
       case 'photographerNotes': 
-        return isPhotographer;
+        return false; // Photographers can no longer edit notes
       case 'editingNotes': 
         return role === 'editor';
       default: 
@@ -334,7 +334,7 @@ export function ShootNotesTab({
   };
 
   return (
-    <div className="space-y-6 w-full mt-0">
+    <div className="space-y-3 w-full mt-0">
       {canView('shootNotes') && (
       <div>
         <div className="flex items-center justify-between mb-2">
@@ -363,7 +363,7 @@ export function ShootNotesTab({
           value={displayNoteValue('shootNotes')}
           onChange={(e) => handleNoteChange(e, 'shootNotes')}
           readOnly={!activeEdits.shootNotes}
-          className={`resize-none min-h-[100px] ${getNoteBackgroundClass('shootNotes')} ${getNoteTextClass('shootNotes')} border-2 ${getNoteBorderClass('shootNotes')} focus:ring-green-500/40`}
+          className={`resize-none min-h-[60px] ${getNoteBackgroundClass('shootNotes')} ${getNoteTextClass('shootNotes')} border-2 ${getNoteBorderClass('shootNotes')} focus:ring-green-500/40`}
           style={{
             boxShadow: "inset 0 1px 3px rgba(0,0,0,0.04)",
             transition: "all 0.2s ease"
@@ -400,7 +400,7 @@ export function ShootNotesTab({
           value={displayNoteValue('photographerNotes')}
           onChange={(e) => handleNoteChange(e, 'photographerNotes')}
           readOnly={!activeEdits.photographerNotes}
-          className={`resize-none min-h-[100px] ${getNoteBackgroundClass('photographerNotes')} ${getNoteTextClass('photographerNotes')} border-2 ${getNoteBorderClass('photographerNotes')} focus:ring-blue-500/40`}
+          className={`resize-none min-h-[60px] ${getNoteBackgroundClass('photographerNotes')} ${getNoteTextClass('photographerNotes')} border-2 ${getNoteBorderClass('photographerNotes')} focus:ring-blue-500/40`}
           style={{
             boxShadow: "inset 0 1px 3px rgba(0,0,0,0.04)",
             transition: "all 0.2s ease"
@@ -437,7 +437,7 @@ export function ShootNotesTab({
           value={displayNoteValue('companyNotes')}
           onChange={(e) => handleNoteChange(e, 'companyNotes')}
           readOnly={!activeEdits.companyNotes}
-          className={`resize-none min-h-[100px] ${getNoteBackgroundClass('companyNotes')} ${getNoteTextClass('companyNotes')} border-2 ${getNoteBorderClass('companyNotes')} focus:ring-amber-500/40`}
+          className={`resize-none min-h-[60px] ${getNoteBackgroundClass('companyNotes')} ${getNoteTextClass('companyNotes')} border-2 ${getNoteBorderClass('companyNotes')} focus:ring-amber-500/40`}
           style={{
             boxShadow: "inset 0 1px 3px rgba(0,0,0,0.04)",
             transition: "all 0.2s ease"
@@ -474,7 +474,7 @@ export function ShootNotesTab({
           value={displayNoteValue('editingNotes')}
           onChange={(e) => handleNoteChange(e, 'editingNotes')}
           readOnly={!activeEdits.editingNotes}
-          className={`resize-none min-h-[100px] ${getNoteBackgroundClass('editingNotes')} ${getNoteTextClass('editingNotes')} border-2 ${getNoteBorderClass('editingNotes')} focus:ring-purple-500/40`}
+          className={`resize-none min-h-[60px] ${getNoteBackgroundClass('editingNotes')} ${getNoteTextClass('editingNotes')} border-2 ${getNoteBorderClass('editingNotes')} focus:ring-purple-500/40`}
           style={{
             boxShadow: "inset 0 1px 3px rgba(0,0,0,0.04)",
             transition: "all 0.2s ease"

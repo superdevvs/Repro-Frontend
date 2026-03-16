@@ -1298,13 +1298,15 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                           // Extract only street address by removing city/state/zip from full address
                           let streetAddress = address.address || address.formatted_address || '';
                           if (streetAddress && (city || normalizedState || zip)) {
-                            // Remove city, state, zip from the address string
-                            if (city) streetAddress = streetAddress.replace(new RegExp(`\\s*,?\\s*${city}\\s*,?`, 'gi'), '');
-                            if (normalizedState) streetAddress = streetAddress.replace(new RegExp(`\\s*,?\\s*${normalizedState}\\s*,?`, 'gi'), '');
+                            // Escape special regex characters in values
+                            const escRx = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                            // Remove city, state, zip from the address string (word-boundary safe)
+                            if (city) streetAddress = streetAddress.replace(new RegExp(`\\s*,?\\s*\\b${escRx(city)}\\b\\s*,?`, 'gi'), '');
+                            if (normalizedState) streetAddress = streetAddress.replace(new RegExp(`\\s*,?\\s*\\b${escRx(normalizedState)}\\b\\s*,?`, 'gi'), '');
                             if (address.state && address.state !== normalizedState) {
-                              streetAddress = streetAddress.replace(new RegExp(`\\s*,?\\s*${address.state}\\s*,?`, 'gi'), '');
+                              streetAddress = streetAddress.replace(new RegExp(`\\s*,?\\s*\\b${escRx(address.state)}\\b\\s*,?`, 'gi'), '');
                             }
-                            if (zip) streetAddress = streetAddress.replace(new RegExp(`\\s*,?\\s*${zip}\\s*`, 'gi'), '');
+                            if (zip) streetAddress = streetAddress.replace(new RegExp(`\\s*,?\\s*\\b${escRx(zip)}\\b\\s*`, 'gi'), '');
                             // Clean up trailing/leading commas and spaces
                             streetAddress = streetAddress.replace(/^[,\s]+|[,\s]+$/g, '').trim();
                           }

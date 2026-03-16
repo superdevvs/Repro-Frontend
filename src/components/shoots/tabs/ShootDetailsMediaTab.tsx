@@ -2555,7 +2555,6 @@ export function ShootDetailsMediaTab({
                   Raw Uploads ({rawFiles.length})
                 </TabsTrigger>
               )}
-              {/* Edited tab - for photographers, show "View Edited Media" that opens MLS compliant link */}
               {isPhotographer ? (
                 <button
                   type="button"
@@ -2565,12 +2564,12 @@ export function ShootDetailsMediaTab({
                     if (mlsLink) {
                       window.open(mlsLink, '_blank', 'noopener,noreferrer');
                     } else {
-                      toast({ title: 'No link available', description: 'MLS compliant tour link is not available yet.', variant: 'destructive' });
+                      toast({ title: 'No link available', description: 'MLS tour link is not available yet.', variant: 'destructive' });
                     }
                   }}
                 >
                   <ExternalLink className="h-3 w-3" />
-                  View Edited Media
+                  Edited Media
                 </button>
               ) : (
                 <TabsTrigger 
@@ -2875,7 +2874,45 @@ export function ShootDetailsMediaTab({
         {activeSubTab === 'upload' ? (
           /* Upload Tab Content */
           <div className="flex-1 flex flex-col min-h-0 p-2.5">
-            <div className="border rounded-lg bg-card p-3 pb-6 flex flex-col">
+            {/* Notes for Editing - photographer only, placed above upload for better layout */}
+            {isPhotographer && (
+              <div className="border rounded-lg bg-card p-3 mb-2.5 flex-shrink-0">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-xs font-semibold text-purple-700 dark:text-purple-400">Notes for Editing</h4>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="h-6 text-[10px] px-2"
+                    onClick={async () => {
+                      try {
+                        const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+                        const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/notes`, {
+                          method: 'PATCH',
+                          headers: {
+                            'Content-Type': 'application/json',
+                            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                          },
+                          body: JSON.stringify({ editor_notes: editingNotesValue }),
+                        });
+                        if (!res.ok) throw new Error('Failed to save');
+                        toast({ title: 'Saved', description: 'Editing notes saved successfully' });
+                      } catch {
+                        toast({ title: 'Error', description: 'Failed to save editing notes', variant: 'destructive' });
+                      }
+                    }}
+                  >
+                    Save
+                  </Button>
+                </div>
+                <textarea
+                  className="w-full resize-none min-h-[60px] rounded-md border-2 border-purple-200 dark:border-purple-700 bg-purple-50/60 dark:bg-purple-900/10 text-purple-800 dark:text-purple-300 text-sm p-2 focus:outline-none focus:ring-2 focus:ring-purple-500/40"
+                  placeholder="Add instructions for the editor..."
+                  value={editingNotesValue}
+                  onChange={(e) => setEditingNotesValue(e.target.value)}
+                />
+              </div>
+            )}
+            <div className="border rounded-lg bg-card p-3 pb-6 flex flex-col flex-1">
               {isAdmin ? (
                 /* Admins upload raw or edited files based on which tab they're on */
                 <AdminUploadSection
@@ -2941,44 +2978,6 @@ export function ShootDetailsMediaTab({
                 />
               )}
             </div>
-            {/* Notes for Editing - photographer only */}
-            {isPhotographer && (
-              <div className="border rounded-lg bg-card p-3 mt-2.5">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-xs font-semibold text-purple-700 dark:text-purple-400">Notes for Editing</h4>
-                  <Button
-                    variant="default"
-                    size="sm"
-                    className="h-6 text-[10px] px-2"
-                    onClick={async () => {
-                      try {
-                        const token = localStorage.getItem('token') || localStorage.getItem('authToken');
-                        const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/notes`, {
-                          method: 'PATCH',
-                          headers: {
-                            'Content-Type': 'application/json',
-                            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                          },
-                          body: JSON.stringify({ editor_notes: editingNotesValue }),
-                        });
-                        if (!res.ok) throw new Error('Failed to save');
-                        toast({ title: 'Saved', description: 'Editing notes saved successfully' });
-                      } catch {
-                        toast({ title: 'Error', description: 'Failed to save editing notes', variant: 'destructive' });
-                      }
-                    }}
-                  >
-                    Save
-                  </Button>
-                </div>
-                <textarea
-                  className="w-full resize-none min-h-[80px] rounded-md border-2 border-purple-200 dark:border-purple-700 bg-purple-50/60 dark:bg-purple-900/10 text-purple-800 dark:text-purple-300 text-sm p-2 focus:outline-none focus:ring-2 focus:ring-purple-500/40"
-                  placeholder="Add instructions for the editor..."
-                  value={editingNotesValue}
-                  onChange={(e) => setEditingNotesValue(e.target.value)}
-                />
-              </div>
-            )}
           </div>
         ) : (
           <div className="flex-1 flex flex-col min-h-0 w-full h-full bg-background" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -3840,8 +3839,7 @@ function MediaGrid({
     const isImg = isImage(file);
     const isVid = isVideo?.(file) ?? false;
     const isRaw = isRawFile(file.filename);
-    const imageUrl = getImageUrl(file, 'medium');
-    const srcSet = getSrcSet(file);
+    const thumbUrl = getImageUrl(file, 'thumb');
     const ext = file.filename.split('.').pop()?.toUpperCase();
     
     // Find the actual index in the full sorted array for viewer
@@ -3866,17 +3864,14 @@ function MediaGrid({
           onFileClick(actualIndex, sortedFiles);
         }}
       >
-        {/* Simple image display - backend generates thumbnails at upload time */}
-        {/* For RAW files, only show image if we have a processed thumbnail (thumbnail_path set by backend) */}
-        {/* For non-RAW files, show the image URL */}
+        {/* Grid thumbnails use the smallest available size (thumb/placeholder) */}
+        {/* No srcSet — avoids browser loading medium/web images for small grid cells */}
         {(() => {
-          // For RAW files, we need an actual processed thumbnail (thumbnail_path is only set on success)
-          // Don't try to display original RAW file URLs - browsers can't render them
           const hasProcessedThumb = isRaw 
             ? !!(file.thumbnail_path || file.web_path)
             : true;
-          const hasDisplayableImage = hasProcessedThumb && (file.thumb || imageUrl);
-          const thumbSrc = file.thumb || getImageUrl(file, 'thumb');
+          const hasDisplayableImage = hasProcessedThumb && (file.thumb || thumbUrl);
+          const thumbSrc = file.thumb || thumbUrl;
           
           // For videos without a backend thumbnail, generate one client-side
           if (isVid && !hasDisplayableImage) {
@@ -3893,8 +3888,6 @@ function MediaGrid({
           return hasDisplayableImage ? (
             <img
               src={thumbSrc}
-              srcSet={!isRaw ? srcSet : undefined}
-              sizes={!isRaw ? "(max-width: 640px) 33vw, (max-width: 768px) 25vw, 20vw" : undefined}
               alt={file.filename}
               className="w-full h-full object-cover"
               loading="lazy"
@@ -3915,7 +3908,7 @@ function MediaGrid({
             const hasProcessedThumb = isRaw 
               ? !!(file.thumbnail_path || file.web_path)
               : true;
-            const hasDisplayableImage = hasProcessedThumb && (file.thumb || imageUrl);
+            const hasDisplayableImage = hasProcessedThumb && (file.thumb || thumbUrl);
             return !hasDisplayableImage ? 'flex' : 'none';
           })() }}
         >

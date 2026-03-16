@@ -79,8 +79,8 @@ export function ShootDetailsIssuesTab({
   const shootHasRequests = shoot.isFlagged || 
     ['on_hold', 'raw_issue', 'editing_issue'].includes(shoot.workflowStatus || '');
   
-  // Can mark as resolved if photographer/editor and shoot has requests
-  const canMarkResolved = (isPhotographer || isEditor) && shootHasRequests;
+  // Can mark as resolved if editor and shoot has requests (not photographer)
+  const canMarkResolved = isEditor && shootHasRequests;
   
   // Handle marking requests as resolved
   const handleMarkRequestsResolved = async () => {

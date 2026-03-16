@@ -2094,8 +2094,8 @@ export function ShootDetailsOverviewTab({
         </div>
       )}
 
-      {/* Photographer Card — per-service or single */}
-      {(shoot.photographer || isEditMode) && (() => {
+      {/* Photographer Card — per-service or single (hidden from photographer viewing their own details) */}
+      {!isPhotographer && (shoot.photographer || isEditMode) && (() => {
         // Detect per-service photographer assignments
         const svcList = Array.isArray(shoot.services) ? shoot.services : [];
         const normCat = (name: string) => name.trim().toLowerCase().replace(/s$/, '');
@@ -2280,7 +2280,7 @@ export function ShootDetailsOverviewTab({
             ) : (
               <div className="space-y-1 text-xs">
                 <div className="font-medium">{shoot.photographer?.name || 'Not assigned'}</div>
-                {shoot.photographer?.email && (
+                {!isClient && shoot.photographer?.email && (
                   <div className="text-muted-foreground truncate">{shoot.photographer.email}</div>
                 )}
               </div>

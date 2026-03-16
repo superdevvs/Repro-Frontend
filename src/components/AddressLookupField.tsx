@@ -265,14 +265,14 @@ const searchBridgeDataByAddress = async (addressQuery: string, suggestion?: Addr
           const firstResult = results[0];
           const listingKey = firstResult.ListingKey || firstResult['@odata.id']?.split('/').pop();
           
-          // Extract property data from RESO response
+          // Extract property data from RESO response (keep undefined for missing values so fallbacks can run)
           const propertyData = {
-            bedrooms: firstResult.BedroomsTotal || 0,
-            bathrooms: firstResult.BathroomsTotalInteger || 0,
-            sqft: firstResult.LivingArea || 0,
-            garage: firstResult.GarageSpaces || 0,
-            yearBuilt: firstResult.YearBuilt || 0,
-            lotSize: firstResult.LotSizeSquareFeet || 0,
+            bedrooms: firstResult.BedroomsTotal || undefined,
+            bathrooms: firstResult.BathroomsTotalInteger || undefined,
+            sqft: firstResult.LivingArea || undefined,
+            garage: firstResult.GarageSpaces || undefined,
+            yearBuilt: firstResult.YearBuilt || undefined,
+            lotSize: firstResult.LotSizeSquareFeet || undefined,
             address: firstResult.UnparsedAddress || '',
             city: firstResult.City || '',
             state: firstResult.StateOrProvince || '',
@@ -399,10 +399,12 @@ const AddressLookupField: React.FC<AddressLookupFieldProps> = ({
   const suggestionsRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<NodeJS.Timeout>();
 
-  // Debug: Log Bridge Data token on mount
+  // Sync internal inputValue when parent value prop changes (e.g., edit mode initialization)
   useEffect(() => {
-    // Bridge Data config initialized
-  }, []);
+    if (value && value !== inputValue && !selectedAddress) {
+      setInputValue(value);
+    }
+  }, [value]);
 
   // Mock data for testing when API is not available
   const getMockSuggestions = (query: string): AddressSuggestion[] => {
@@ -540,12 +542,12 @@ const AddressLookupField: React.FC<AddressLookupFieldProps> = ({
           zip: property.PostalCode || '',
           source: 'bridge_reso',
           raw: {
-            bedrooms: property.BedroomsTotal || 0,
-            bathrooms: property.BathroomsTotalInteger || 0,
-            sqft: property.LivingArea || 0,
-            garage: property.GarageSpaces || 0,
-            yearBuilt: property.YearBuilt || 0,
-            lotSize: property.LotSizeSquareFeet || 0,
+            bedrooms: property.BedroomsTotal || undefined,
+            bathrooms: property.BathroomsTotalInteger || undefined,
+            sqft: property.LivingArea || undefined,
+            garage: property.GarageSpaces || undefined,
+            yearBuilt: property.YearBuilt || undefined,
+            lotSize: property.LotSizeSquareFeet || undefined,
           },
         }));
 
@@ -708,14 +710,20 @@ const AddressLookupField: React.FC<AddressLookupFieldProps> = ({
       // Check if suggestion came from Bridge API with pre-populated property data
       if (suggestion.source === 'bridge_reso' && suggestion.raw) {
         console.log('✅ Using pre-populated Bridge RESO data:', suggestion.raw);
-        backendDetails = {
-          bedrooms: normalizeNumber(suggestion.raw.bedrooms),
-          bathrooms: normalizeNumber(suggestion.raw.bathrooms),
-          sqft: normalizeNumber(suggestion.raw.sqft),
-          garage_cars: normalizeNumber(suggestion.raw.garage),
-          property_details: suggestion.raw,
-          zpid: suggestion.place_id,
-        };
+        const rawBeds = normalizeNumber(suggestion.raw.bedrooms);
+        const rawBaths = normalizeNumber(suggestion.raw.bathrooms);
+        const rawSqft = normalizeNumber(suggestion.raw.sqft);
+        // Only use Bridge RESO data if at least one metric is a real positive value (not 0)
+        if ((rawBeds && rawBeds > 0) || (rawBaths && rawBaths > 0) || (rawSqft && rawSqft > 0)) {
+          backendDetails = {
+            bedrooms: rawBeds,
+            bathrooms: rawBaths,
+            sqft: rawSqft,
+            garage_cars: normalizeNumber(suggestion.raw.garage),
+            property_details: suggestion.raw,
+            zpid: suggestion.place_id,
+          };
+        }
         console.log('✅ Extracted backendDetails:', backendDetails);
       } else if (suggestion.source === 'bridge_parcels' && suggestion.raw) {
         // Parse parcel data using deriveBridgeMetrics
