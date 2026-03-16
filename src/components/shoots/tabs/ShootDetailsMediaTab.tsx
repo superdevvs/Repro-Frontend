@@ -114,7 +114,13 @@ export function ShootDetailsMediaTab({
     const anyShoot = shoot as any;
     return String(anyShoot?.editor_notes || anyShoot?.editorNotes || (typeof shoot.notes === 'object' && shoot.notes?.editingNotes) || '');
   });
-  const [sortOrder, setSortOrder] = useState<'name' | 'date' | 'time' | 'manual'>('time');
+  const [sortOrder, setSortOrderRaw] = useState<'name' | 'date' | 'time' | 'manual'>(() => {
+    try {
+      const saved = localStorage.getItem(`media-sort-${shoot.id}`);
+      if (saved && ['name', 'date', 'time', 'manual'].includes(saved)) return saved as any;
+    } catch {}
+    return 'time';
+  });
   const [manualOrder, setManualOrder] = useState<string[]>([]);
   const [sortSaveStatus, setSortSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const sortSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -128,6 +134,20 @@ export function ShootDetailsMediaTab({
     try { localStorage.setItem('media-view-mode', mode); } catch {}
   };
   const [requestManagerOpen, setRequestManagerOpen] = useState(false);
+
+  // Wrapper to persist sort selection and show save indicator
+  const changeSortOrder = useCallback((newOrder: 'name' | 'date' | 'time' | 'manual') => {
+    setSortOrderRaw(newOrder);
+    try { localStorage.setItem(`media-sort-${shoot.id}`, newOrder); } catch {}
+    // Show brief saving → saved indicator
+    if (sortSavedResetRef.current) clearTimeout(sortSavedResetRef.current);
+    setSortSaveStatus('saving');
+    // Simulate a brief save cycle for the preference
+    setTimeout(() => {
+      setSortSaveStatus('saved');
+      sortSavedResetRef.current = setTimeout(() => setSortSaveStatus('idle'), 1500);
+    }, 300);
+  }, [shoot.id]);
 
   // Auto-save manual sort order to backend (debounced 800ms)
   useEffect(() => {
@@ -154,7 +174,7 @@ export function ShootDetailsMediaTab({
         // Invalidate React Query cache so next modal open fetches fresh sort_order
         queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id] });
         setSortSaveStatus('saved');
-        sortSavedResetRef.current = setTimeout(() => setSortSaveStatus('idle'), 2000);
+        sortSavedResetRef.current = setTimeout(() => setSortSaveStatus('idle'), 1500);
       } catch {
         setSortSaveStatus('idle');
         toast({ title: 'Error', description: 'Failed to save sort order', variant: 'destructive' });
@@ -2483,25 +2503,25 @@ export function ShootDetailsMediaTab({
                   <Button variant="outline" size="sm" className="h-7 text-[11px] px-2">
                     <ArrowUpDown className="h-3 w-3 mr-1" />
                     <span>Sort: {sortOrder === 'name' ? 'Name' : sortOrder === 'date' ? 'Date' : sortOrder === 'manual' ? 'Manual' : 'Time'}</span>
-                    {sortOrder === 'manual' && sortSaveStatus === 'saving' && (
+                    {sortSaveStatus === 'saving' && (
                       <Loader2 className="h-3 w-3 ml-1 animate-spin text-muted-foreground" />
                     )}
-                    {sortOrder === 'manual' && sortSaveStatus === 'saved' && (
+                    {sortSaveStatus === 'saved' && (
                       <Check className="h-3 w-3 ml-1 text-green-500" />
                     )}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => setSortOrder('time')}>
+                  <DropdownMenuItem onClick={() => changeSortOrder('time')}>
                     <span className={sortOrder === 'time' ? 'font-medium' : ''}>Time Captured</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortOrder('name')}>
+                  <DropdownMenuItem onClick={() => changeSortOrder('name')}>
                     <span className={sortOrder === 'name' ? 'font-medium' : ''}>File Name</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortOrder('date')}>
+                  <DropdownMenuItem onClick={() => changeSortOrder('date')}>
                     <span className={sortOrder === 'date' ? 'font-medium' : ''}>Date Added</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortOrder('manual')}>
+                  <DropdownMenuItem onClick={() => changeSortOrder('manual')}>
                     <span className={sortOrder === 'manual' ? 'font-medium' : ''}>Manual (Drag & Drop)</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>

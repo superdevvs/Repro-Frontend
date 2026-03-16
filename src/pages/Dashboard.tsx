@@ -2565,79 +2565,99 @@ const ClientShootTile: React.FC<ClientShootTileProps> = React.memo(({
 
     return (
       <div
-        className="border border-border rounded-xl overflow-hidden hover:border-primary/40 transition-colors bg-card cursor-pointer"
+        className="group relative rounded-2xl overflow-hidden border border-border/50 hover:border-primary/50 transition-all duration-300 bg-card cursor-pointer hover:shadow-xl hover:shadow-primary/5"
         onClick={() => onSelect(record)}
       >
-        <div className="flex flex-row">
-          {/* Left - single static cover photo */}
-          {coverPhoto ? (
-            <div className="relative w-[140px] sm:w-[180px] flex-shrink-0">
-              <img
-                src={coverPhoto}
-                alt={summary.addressLine}
-                className="w-full h-full object-cover"
-                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-              />
-              {totalCount > 0 && (
-                <div className="absolute bottom-1.5 right-1.5 bg-black/60 backdrop-blur-sm text-white text-[10px] px-2 py-0.5 rounded-full">
-                  {totalCount} photo{totalCount !== 1 ? 's' : ''}
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="w-[140px] sm:w-[180px] flex-shrink-0 bg-muted flex items-center justify-center">
-              <ImageIcon className="w-8 h-8 text-muted-foreground/40" />
-            </div>
-          )}
+        <div className="flex flex-col sm:flex-row">
+          {/* Left - large cover photo with gradient overlay */}
+          <div className="relative w-full sm:w-[280px] md:w-[320px] flex-shrink-0">
+            {coverPhoto ? (
+              <>
+                <img
+                  src={coverPhoto}
+                  alt={summary.addressLine}
+                  className="w-full h-[180px] sm:h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-background/30 hidden sm:block" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent sm:hidden" />
+              </>
+            ) : (
+              <div className="w-full h-[180px] sm:h-full bg-muted flex items-center justify-center">
+                <ImageIcon className="w-12 h-12 text-muted-foreground/20" />
+              </div>
+            )}
+            {/* Photo count pill */}
+            {totalCount > 0 && (
+              <div className="absolute top-3 left-3 bg-black/50 backdrop-blur-md text-white text-[11px] font-medium px-2.5 py-1 rounded-full flex items-center gap-1.5">
+                <ImageIcon className="w-3 h-3" />
+                {totalCount} photo{totalCount !== 1 ? 's' : ''}
+              </div>
+            )}
+            {/* Download quick-action (hover reveal) */}
+            <button
+              className="absolute top-3 right-3 h-9 w-9 rounded-full bg-white/15 backdrop-blur-md flex items-center justify-center text-white hover:bg-white/30 transition-all duration-200 opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0"
+              onClick={(e) => { e.stopPropagation(); onDownload(record); }}
+              title="Download all"
+            >
+              <Download className="h-4 w-4" />
+            </button>
+          </div>
 
-          {/* Right - compact info */}
-          <div className="flex-1 p-3 sm:p-4 flex flex-col justify-between gap-1.5 min-w-0">
-            <div className="space-y-1">
-              <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                <Calendar className="w-3 h-3 flex-shrink-0" />
-                <span className="truncate">{dateLabel} • {timeLabel}</span>
+          {/* Right - property details */}
+          <div className="flex-1 p-4 sm:p-5 flex flex-col justify-between gap-3 min-w-0">
+            <div className="space-y-2.5">
+              {/* Address */}
+              <div>
+                <h3 className="text-base sm:text-lg font-bold tracking-tight truncate group-hover:text-primary transition-colors">
+                  {summary.addressLine}
+                </h3>
+                <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                  <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
+                  <span>{dateLabel} &middot; {timeLabel}</span>
+                </div>
               </div>
 
-              <h3 className="text-sm sm:text-base font-semibold truncate">{summary.addressLine}</h3>
-
-              <div className="flex flex-wrap gap-1">
+              {/* Service tags */}
+              <div className="flex flex-wrap gap-1.5">
                 {serviceBadges.map((service) => (
-                  <Badge key={service} variant="secondary" className="rounded-full text-[9px] sm:text-[10px] px-1.5 py-0 h-4 bg-muted/50">
+                  <span key={service} className="inline-flex items-center rounded-md bg-muted/60 px-2 py-0.5 text-[10px] sm:text-[11px] font-medium text-muted-foreground ring-1 ring-inset ring-border/50">
                     {service}
-                  </Badge>
+                  </span>
                 ))}
                 {overflow > 0 && (
-                  <Badge variant="secondary" className="rounded-full text-[9px] sm:text-[10px] px-1.5 py-0 h-4 bg-muted/50">
-                    +{overflow}
-                  </Badge>
+                  <span className="inline-flex items-center rounded-md bg-muted/60 px-2 py-0.5 text-[10px] sm:text-[11px] font-medium text-muted-foreground ring-1 ring-inset ring-border/50">
+                    +{overflow} more
+                  </span>
                 )}
               </div>
 
+              {/* Instructions (if any) */}
               {instructions && (
-                <p className="text-[11px] text-muted-foreground italic truncate">"{instructions}"</p>
+                <p className="text-xs text-muted-foreground/80 italic line-clamp-1">&ldquo;{instructions}&rdquo;</p>
               )}
             </div>
 
             {/* Bottom row: status + actions */}
-            <div className="flex items-center justify-between gap-2 pt-1">
-              <Badge className="bg-green-600/20 text-green-500 border-green-600/30 hover:bg-green-600/30 text-[10px] h-5">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-500 mr-1" />
-                DELIVERED
+            <div className="flex items-center justify-between gap-3 pt-1 border-t border-border/30">
+              <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20 text-[10px] sm:text-[11px] h-6 px-2.5 font-semibold">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 animate-pulse" />
+                Delivered
               </Badge>
 
-              <div className="flex gap-1.5" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                 {hasPendingPayment && onPayment && (
                   <Button
                     size="sm"
-                    className="h-7 text-[11px] px-2.5 bg-green-600 hover:bg-green-700 text-white"
+                    className="h-8 text-xs px-3 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
                     onClick={() => onPayment(record)}
                   >
-                    <CreditCard className="w-3 h-3 mr-1" />
+                    <CreditCard className="w-3.5 h-3.5 mr-1.5" />
                     Pay ${balanceDue.toFixed(0)}
                   </Button>
                 )}
-                <Button size="sm" variant="outline" className="h-7 text-[11px] px-2.5" onClick={() => onDownload(record)}>
-                  <Download className="w-3 h-3 mr-1" />
+                <Button size="sm" variant="outline" className="h-8 text-xs px-3 shadow-sm" onClick={() => onDownload(record)}>
+                  <Download className="w-3.5 h-3.5 mr-1.5" />
                   Download
                 </Button>
               </div>
