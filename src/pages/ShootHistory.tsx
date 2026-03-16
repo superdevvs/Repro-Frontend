@@ -3720,6 +3720,24 @@ const ShootHistory: React.FC = () => {
       return operationalData
     }
     
+    // Editor "Editing" tab — backend sends tab=completed, filter to editing-status only
+    if (activeTab === 'editing') {
+      const allowed = STATUS_FILTERS_BY_TAB['editing']
+      return operationalData.filter(s => {
+        const status = (s.workflowStatus || s.status || '').toLowerCase()
+        return allowed.some(a => status.includes(a))
+      })
+    }
+
+    // Editor "Edited" tab — backend sends tab=delivered, filter to delivered-status only
+    if (activeTab === 'edited') {
+      const allowed = STATUS_FILTERS_BY_TAB['edited']
+      return operationalData.filter(s => {
+        const status = (s.workflowStatus || s.status || '').toLowerCase()
+        return allowed.some(a => status.includes(a))
+      })
+    }
+
     // Hold tab filtering
     if (activeTab === 'hold') {
       if (holdSubTab === 'all') return operationalData
