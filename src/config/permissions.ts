@@ -196,6 +196,10 @@ export const permissionsConfig: PermissionsMap = {
       { id: 'tours-view', resource: 'tours', action: 'view' },
       { id: 'tours-update', resource: 'tours', action: 'update' },
       
+      // Invoice/Accounting permissions - view only for assigned shoots
+      { id: 'invoices-view', resource: 'invoices', action: 'view', conditions: { assignedOnly: true } },
+      { id: 'accounting-view', resource: 'accounting', action: 'view' },
+      
       // Notes permissions - can see shoot notes, editing notes, photographer notes
       { id: 'notes-view', resource: 'notes', action: 'view' },
       { id: 'editing-notes-view', resource: 'editing-notes', action: 'view' },

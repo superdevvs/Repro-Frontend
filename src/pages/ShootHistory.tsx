@@ -2572,7 +2572,7 @@ const ShootHistory: React.FC = () => {
   const shouldHideClientDetails = isEditor
   const canViewAllShoots = isSuperAdmin || isAdmin || isEditingManager // Super Admin, Admin, and Editing Manager can see all shoots
   const canViewHistory = HISTORY_ALLOWED_ROLES.has((role as string) ?? '')
-  const canViewInvoice = !isPhotographer && !isEditor && !isEditingManager // Hide invoice for photographers, editors, and editing managers
+  const canViewInvoice = !isPhotographer && !isEditingManager // Hide invoice for photographers and editing managers
   
   // Linked accounts should only be available for non-super admin users
   const canViewLinkedAccounts = !isSuperAdmin && !isAdmin && !isEditingManager && !isPhotographer // Only clients can have linked accounts

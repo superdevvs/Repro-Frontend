@@ -48,9 +48,10 @@ export const AccountsStatsCards: React.FC<AccountsStatsCardsProps> = ({
   const { role: viewerRole } = useAuth();
   const isSuperAdmin = viewerRole === 'superadmin';
 
-  // Filter out superadmin card for non-superadmin users
+  // Filter out superadmin card for non-superadmin users, and hide editing_manager
   const visibleRoles = roleConfig.filter(role => {
     if (role.key === 'superadmin' && !isSuperAdmin) return false;
+    if (role.key === 'editing_manager') return false;
     return true;
   });
 

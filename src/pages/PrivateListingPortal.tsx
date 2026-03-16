@@ -6,7 +6,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import {
   Dialog,
   DialogContent,
@@ -17,7 +16,7 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
-import { Home, Search, MapPin, Calendar, Camera, Lock, ChevronRight, Plus, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
+import { Home, Search, MapPin, Calendar, Camera, Lock, ChevronRight, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 import { API_BASE_URL } from '@/config/env';
 
@@ -346,138 +345,18 @@ const PrivateListingPortal = () => {
     return filteredListings.find((l) => l.id === id) || listings.find((l) => l.id === id) || null;
   }, [filteredListings, listings, selectedListingId]);
 
-  const isPaid = (listing: PrivateListing | null) => {
-    const paid = Number(listing?.payment?.totalPaid ?? 0);
-    const quote = Number(listing?.payment?.totalQuote ?? 0);
-    if (!quote) return false;
-    return paid >= quote;
-  };
-
-  const hasTour = (listing: PrivateListing | null) =>
-    Boolean(listing?.tourLinks?.branded || listing?.tourLinks?.mls || listing?.tourLinks?.genericMls);
-
-  const isDeliveredListing = (listing: PrivateListing | null) => {
-    const status = String(listing?.status || '').toLowerCase();
-    return Boolean(
-      listing?.completedDate ||
-        ['delivered', 'ready', 'ready_for_client', 'admin_verified', 'completed'].includes(status)
-    );
-  };
-
-  const getListingTimestamp = (listing: PrivateListing) => {
-    const value = listing.completedDate || listing.scheduledDate;
-    if (!value) return 0;
-    const timestamp = Date.parse(value);
-    return Number.isNaN(timestamp) ? 0 : timestamp;
-  };
-
-  const getListingAgeDays = (listing: PrivateListing) => {
-    const timestamp = getListingTimestamp(listing);
-    if (!timestamp) return 0;
-    return Math.floor((Date.now() - timestamp) / (1000 * 60 * 60 * 24));
-  };
-
-  const getReadiness = (listing: PrivateListing | null) => {
-    const delivered = isDeliveredListing(listing);
-    const paid = isPaid(listing);
-    const tour = hasTour(listing);
-    const score = Math.round(((Number(delivered) + Number(paid) + Number(tour)) / 3) * 100);
-    return { delivered, paid, tour, score };
-  };
-
-  const getNextAction = (listing: PrivateListing | null) => {
-    if (!listing) return null;
-    const readiness = getReadiness(listing);
-    const shareLink = listing.tourLinks?.branded || listing.tourLinks?.mls || listing.tourLinks?.genericMls;
-
-    if (!readiness.delivered) {
-      return {
-        tone: 'neutral',
-        kicker: 'Awaiting Delivery',
-        title: 'Waiting on delivery',
-        description: 'This shoot is not marked delivered yet. Track production to unlock pre-market steps.',
-        actionLabel: 'View Shoot Details',
-        action: 'details',
-      };
-    }
-
-    if (!readiness.paid) {
-      return {
-        tone: 'warning',
-        kicker: 'Action Required',
-        title: 'Payment pending',
-        description: 'Payment is outstanding. Resolve payment to remove watermarks and unlock sharing.',
-        actionLabel: 'Resolve Payment',
-        action: 'details',
-      };
-    }
-
-    if (!readiness.tour) {
-      return {
-        tone: 'warning',
-        kicker: 'Action Required',
-        title: 'Tour missing',
-        description: 'No tour link detected yet. Upload or generate the branded tour to enable sharing.',
-        actionLabel: 'Add Tour',
-        action: 'details',
-      };
-    }
-
-    return {
-      tone: 'success',
-      kicker: 'Ready to Share',
-      title: 'Pre-market ready',
-      description: 'All readiness checks passed. Share the private link whenever you’re ready.',
-      actionLabel: shareLink ? 'Share Private Link' : 'View Shoot Details',
-      action: shareLink ? 'share' : 'details',
-    };
-  };
-
-  const listingBuckets = useMemo(() => {
-    const needsAction: PrivateListing[] = [];
-    const ready: PrivateListing[] = [];
-    const archived: PrivateListing[] = [];
-
-    filteredListings.forEach((listing) => {
-      const readiness = getReadiness(listing);
-      const ageDays = getListingAgeDays(listing);
-      const isReady = readiness.delivered && readiness.paid && readiness.tour;
-
-      if (ageDays >= 45) {
-        archived.push(listing);
-        return;
-      }
-
-      if (!isReady) {
-        needsAction.push(listing);
-      } else {
-        ready.push(listing);
-      }
+  const sortedListings = useMemo(() => {
+    return [...filteredListings].sort((a, b) => {
+      const tsA = Date.parse(a.completedDate || a.scheduledDate || '') || 0;
+      const tsB = Date.parse(b.completedDate || b.scheduledDate || '') || 0;
+      return tsB - tsA;
     });
-
-    const sortByLatest = (a: PrivateListing, b: PrivateListing) => getListingTimestamp(b) - getListingTimestamp(a);
-
-    return {
-      needsAction: needsAction.sort(sortByLatest),
-      ready: ready.sort(sortByLatest),
-      archived: archived.sort(sortByLatest),
-    };
   }, [filteredListings]);
 
   const activeListingId = selectedListing?.id ?? null;
 
-  const renderListingRow = (listing: PrivateListing, variant: 'action' | 'ready' | 'archived') => {
+  const renderListingRow = (listing: PrivateListing) => {
     const active = listing.id === activeListingId;
-    const paid = isPaid(listing);
-    const tour = hasTour(listing);
-    const delivered = isDeliveredListing(listing);
-    const badgeVariant = variant === 'ready' ? 'outline' : 'outline';
-    const accentClass =
-      variant === 'action'
-        ? 'border-l-4 border-amber-400/70'
-        : variant === 'ready'
-          ? 'border-l-4 border-emerald-400/70'
-          : 'border-l-4 border-border/40 opacity-70';
 
     return (
       <button
@@ -485,7 +364,7 @@ const PrivateListingPortal = () => {
         type="button"
         onClick={() => setSelectedListingId(listing.id)}
         className={
-          `w-full text-left px-4 py-3 border-b border-border/60 transition-colors ${accentClass} ` +
+          `w-full text-left px-4 py-3 border-b border-border/60 transition-colors ` +
           (active ? 'bg-accent/40' : 'hover:bg-accent/20')
         }
       >
@@ -506,31 +385,6 @@ const PrivateListingPortal = () => {
             )}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            {variant === 'ready' && (
-              <Badge variant={badgeVariant} className="text-[10px] border-emerald-400/50 text-emerald-500">
-                Ready
-              </Badge>
-            )}
-            {!delivered && (
-              <Badge variant={badgeVariant} className="text-[10px] border-amber-400/50 text-amber-500">
-                Pending
-              </Badge>
-            )}
-            {delivered && !paid && (
-              <Badge variant="destructive" className="text-[10px]">
-                Unpaid
-              </Badge>
-            )}
-            {delivered && paid && !tour && (
-              <Badge variant={badgeVariant} className="text-[10px] border-border/70">
-                Tour Missing
-              </Badge>
-            )}
-            {variant === 'archived' && (
-              <Badge variant={badgeVariant} className="text-[10px] border-border/60 text-muted-foreground">
-                Archived
-              </Badge>
-            )}
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </div>
         </div>
@@ -550,12 +404,6 @@ const PrivateListingPortal = () => {
       </button>
     );
   };
-
-  const readiness = selectedListing ? getReadiness(selectedListing) : null;
-  const nextAction = selectedListing ? getNextAction(selectedListing) : null;
-  const shareLink = selectedListing
-    ? selectedListing.tourLinks?.branded || selectedListing.tourLinks?.mls || selectedListing.tourLinks?.genericMls
-    : null;
 
   if (loading) {
     return (
@@ -732,43 +580,17 @@ const PrivateListingPortal = () => {
                     </div>
                   </div>
                   <CardDescription>
-                    High-signal view of what’s private, what’s ready, and what needs action.
+                    Your private, pre-market properties.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="p-0">
                   <div className="max-h-[70vh] overflow-auto">
-                    <div className="px-4 py-2 text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border/60 flex items-center justify-between">
-                      <span>Needs Action</span>
-                      <span>{listingBuckets.needsAction.length}</span>
-                    </div>
-                    {listingBuckets.needsAction.length ? (
-                      listingBuckets.needsAction.map((listing) => renderListingRow(listing, 'action'))
+                    {sortedListings.length ? (
+                      sortedListings.map((listing) => renderListingRow(listing))
                     ) : (
                       <div className="px-4 py-3 text-xs text-muted-foreground border-b border-border/60">
-                        Nothing blocking right now.
+                        No listings found.
                       </div>
-                    )}
-
-                    <div className="px-4 py-2 text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border/60 flex items-center justify-between">
-                      <span>Ready (Private)</span>
-                      <span>{listingBuckets.ready.length}</span>
-                    </div>
-                    {listingBuckets.ready.length ? (
-                      listingBuckets.ready.map((listing) => renderListingRow(listing, 'ready'))
-                    ) : (
-                      <div className="px-4 py-3 text-xs text-muted-foreground border-b border-border/60">
-                        No listings fully ready yet.
-                      </div>
-                    )}
-
-                    {listingBuckets.archived.length > 0 && (
-                      <>
-                        <div className="px-4 py-2 text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border/60 flex items-center justify-between">
-                          <span>Archived / Older</span>
-                          <span>{listingBuckets.archived.length}</span>
-                        </div>
-                        {listingBuckets.archived.map((listing) => renderListingRow(listing, 'archived'))}
-                      </>
                     )}
                   </div>
                 </CardContent>
@@ -790,11 +612,6 @@ const PrivateListingPortal = () => {
                       <Lock className="h-3 w-3 mr-1" />
                       Private Exclusive
                     </Badge>
-                    {nextAction?.tone === 'warning' && (
-                      <Badge className="bg-amber-500/90 text-black border border-amber-400/60" variant="outline">
-                        Action Required
-                      </Badge>
-                    )}
                   </div>
 
                   <div className="absolute bottom-4 left-4 right-4">
@@ -810,129 +627,48 @@ const PrivateListingPortal = () => {
                 </div>
 
                 <CardContent className="p-5 space-y-4">
-                  {nextAction && (
-                    <div
-                      className={
-                        `rounded-xl border px-4 py-3 flex flex-col gap-2 ` +
-                        (nextAction.tone === 'warning'
-                          ? 'border-amber-500/30 bg-amber-500/10'
-                          : nextAction.tone === 'success'
-                            ? 'border-emerald-500/30 bg-emerald-500/10'
-                            : 'border-border/60 bg-background/40')
-                      }
-                    >
-                      <div className="text-xs uppercase tracking-wider text-muted-foreground">
-                        {nextAction.kicker}
-                      </div>
-                      <div className="text-sm font-semibold text-foreground flex items-center gap-2">
-                        {nextAction.tone === 'warning' ? (
-                          <AlertTriangle className="h-4 w-4 text-amber-500" />
-                        ) : nextAction.tone === 'success' ? (
-                          <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                        ) : (
-                          <Lock className="h-4 w-4 text-muted-foreground" />
-                        )}
-                        {nextAction.title}
-                      </div>
-                      <div className="text-xs text-muted-foreground">{nextAction.description}</div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            if (!selectedListing) return;
-                            if (nextAction.action === 'share' && shareLink) {
-                              window.open(shareLink, '_blank');
-                              return;
-                            }
-                            navigate(`/shoots/${selectedListing.id}`);
-                          }}
-                        >
-                          {nextAction.actionLabel}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={!selectedListing}
-                          onClick={() => {
-                            if (!selectedListing) return;
-                            navigate(`/exclusive-listings/${selectedListing.id}`);
-                          }}
-                        >
-                          View Details
-                        </Button>
-                        {selectedListing?.tourLinks?.branded && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              window.open(selectedListing.tourLinks!.branded!, '_blank');
-                            }}
-                          >
-                            Open Tour
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
                   <div className="flex items-center justify-between gap-3 flex-wrap">
                     <div className="flex items-center gap-2">
                       {selectedListing ? getStatusBadge(selectedListing.status) : null}
                       <div className="text-xs text-muted-foreground">Ref ID: {selectedListing?.id || '—'}</div>
                     </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={!selectedListing}
+                        onClick={() => {
+                          if (!selectedListing) return;
+                          navigate(`/exclusive-listings/${selectedListing.id}`);
+                        }}
+                      >
+                        View Details
+                      </Button>
+                      <Button
+                        size="sm"
+                        disabled={!selectedListing}
+                        onClick={() => {
+                          if (!selectedListing) return;
+                          navigate(`/shoots/${selectedListing.id}`);
+                        }}
+                      >
+                        View Shoot
+                      </Button>
+                      {selectedListing?.tourLinks?.branded && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            window.open(selectedListing.tourLinks!.branded!, '_blank');
+                          }}
+                        >
+                          Open Tour
+                        </Button>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="grid gap-4 sm:grid-cols-3">
-                    <Card className="border-border/70 bg-background/40">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm">Readiness</CardTitle>
-                      </CardHeader>
-                      <CardContent className="text-xs text-muted-foreground space-y-3">
-                        <div className="flex items-center justify-between">
-                          <span>Pre-market readiness</span>
-                          <span className="text-foreground font-medium">{readiness?.score ?? 0}%</span>
-                        </div>
-                        <Progress value={readiness?.score ?? 0} className="h-2" />
-                        <div className="space-y-1">
-                          <div className="flex items-center justify-between">
-                            <span className="flex items-center gap-1.5">
-                              {readiness?.delivered ? (
-                                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                              ) : (
-                                <XCircle className="h-3.5 w-3.5 text-amber-500" />
-                              )}
-                              Delivered
-                            </span>
-                            <span className="text-foreground font-medium">{readiness?.delivered ? 'Yes' : 'No'}</span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="flex items-center gap-1.5">
-                              {readiness?.paid ? (
-                                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                              ) : (
-                                <XCircle className="h-3.5 w-3.5 text-amber-500" />
-                              )}
-                              Payment
-                            </span>
-                            <span className={readiness?.paid ? 'text-foreground font-medium' : 'text-destructive font-medium'}>
-                              {readiness?.paid ? 'Paid' : 'Unpaid'}
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="flex items-center gap-1.5">
-                              {readiness?.tour ? (
-                                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                              ) : (
-                                <XCircle className="h-3.5 w-3.5 text-amber-500" />
-                              )}
-                              Tour
-                            </span>
-                            <span className="text-foreground font-medium">{readiness?.tour ? 'Ready' : 'Missing'}</span>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-
+                  <div className="grid gap-4 sm:grid-cols-2">
                     <Card className="border-border/70 bg-background/40">
                       <CardHeader className="pb-2">
                         <CardTitle className="text-sm">Client</CardTitle>

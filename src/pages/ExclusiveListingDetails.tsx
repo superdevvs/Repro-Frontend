@@ -170,11 +170,6 @@ export default function ExclusiveListingDetails() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  const isPaid = useMemo(() => {
-    if (!shoot?.payment) return false;
-    return (shoot.payment.totalPaid ?? 0) >= (shoot.payment.totalQuote ?? 0);
-  }, [shoot]);
-
   const statusKey = normalizeStatusKey(shoot?.workflowStatus || shoot?.status);
   const statusCfg = statusBadgeMap[statusKey] || { label: statusKey || 'Unknown', variant: 'outline' as const };
 
@@ -182,57 +177,6 @@ export default function ExclusiveListingDetails() {
     const firstMedia = resolvePreviewUrl(shoot?.heroImage);
     return firstMedia || '/placeholder.svg';
   }, [shoot]);
-
-  const privateShareLink = useMemo(() => {
-    if (!shoot?.tourLinks) return null;
-    const links = shoot.tourLinks as Record<string, string | undefined>;
-    return (
-      links.branded ||
-      links.mls ||
-      links.genericMls ||
-      links.matterport_branded ||
-      links.iguide_branded ||
-      links.matterport ||
-      links.iGuide ||
-      null
-    );
-  }, [shoot]);
-
-  const hasTour = Boolean(privateShareLink);
-  const isDelivered = statusKey === 'delivered';
-  const canGoPublic = Boolean(shoot && isDelivered && isPaid && hasTour);
-  const primaryActionLabel = !isPaid ? 'Resolve Payment' : !hasTour ? 'Add Tour' : 'Share Private Link';
-  const goPublicHint = !canGoPublic
-    ? 'Complete delivery, payment, and tour readiness before going public.'
-    : 'Go public flow is not connected yet.';
-
-  const handlePrimaryAction = () => {
-    if (!shoot) return;
-    if (!isPaid) {
-      navigate(`/shoots/${shoot.id}?action=pay`);
-      return;
-    }
-    if (!hasTour) {
-      navigate(`/shoots/${shoot.id}#tour`);
-      return;
-    }
-    if (privateShareLink) {
-      window.open(privateShareLink, '_blank', 'noopener,noreferrer');
-      return;
-    }
-    toast({
-      title: 'Link unavailable',
-      description: 'Add a branded tour link to share this listing.',
-    });
-  };
-
-  const handleGoPublic = () => {
-    if (!canGoPublic) return;
-    toast({
-      title: 'Not implemented',
-      description: 'Public release flow is not connected yet.',
-    });
-  };
 
   const handleGenerateShareLink = async () => {
     if (!shoot) return;
@@ -339,13 +283,6 @@ export default function ExclusiveListingDetails() {
                   loading="lazy"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-transparent" />
-                {!isPaid && (
-                  <div className="absolute top-4 left-4">
-                    <div className="px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-500/90 text-black shadow">
-                      Payment Required to remove watermark
-                    </div>
-                  </div>
-                )}
                 <div className="absolute bottom-4 left-4 right-4">
                   <div className="text-white">
                     <div className="font-display text-2xl leading-tight">
@@ -430,48 +367,20 @@ export default function ExclusiveListingDetails() {
 
                 <Separator />
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Card className="border-border/70 bg-background/40">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm">Visibility</CardTitle>
-                    </CardHeader>
-                    <CardContent className="text-sm text-muted-foreground space-y-2">
-                      <div>Visible to assigned Client / Rep and Admin team.</div>
-                      <div className="text-foreground">
-                        <span className="font-medium">Client:</span> {shoot.client?.name || 'Unknown'}
-                      </div>
-                      <div className="text-foreground">
-                        <span className="font-medium">Photographer:</span> {shoot.photographer?.name || 'Unassigned'}
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="border-border/70 bg-background/40">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm">Pre‑Market Readiness</CardTitle>
-                    </CardHeader>
-                    <CardContent className="text-sm text-muted-foreground space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span>Delivered</span>
-                        <span className="text-foreground font-medium">{statusKey === 'delivered' ? 'Yes' : '—'}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>Payment</span>
-                        <span className={isPaid ? 'text-foreground font-medium' : 'text-destructive font-medium'}>
-                          {isPaid ? 'Paid' : 'Unpaid'}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>Tour</span>
-                        <span className="text-foreground font-medium">
-                          {shoot.tourLinks?.matterport_branded || shoot.tourLinks?.iguide_branded || shoot.tourLinks?.matterport || shoot.tourLinks?.iGuide
-                            ? 'Available'
-                            : '—'}
-                        </span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
+                <Card className="border-border/70 bg-background/40">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">Visibility</CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-sm text-muted-foreground space-y-2">
+                    <div>Visible to assigned Client / Rep and Admin team.</div>
+                    <div className="text-foreground">
+                      <span className="font-medium">Client:</span> {shoot.client?.name || 'Unknown'}
+                    </div>
+                    <div className="text-foreground">
+                      <span className="font-medium">Photographer:</span> {shoot.photographer?.name || 'Unassigned'}
+                    </div>
+                  </CardContent>
+                </Card>
               </CardContent>
             </Card>
 
