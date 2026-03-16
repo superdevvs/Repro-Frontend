@@ -1244,24 +1244,26 @@ export default function Accounts() {
         />
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          {/* Hidden TabsList for programmatic tab switching */}
-          <TabsList className="hidden">
-            <TabsTrigger value="accounts">Accounts</TabsTrigger>
-            {showPermissionsTab && (
-              <TabsTrigger value="permissions">Permissions</TabsTrigger>
+          {/* Tabs row with inline controls */}
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-3">
+            {/* Show top-level tabs for admin/superadmin, role pills for editing_manager */}
+            {isAdminOrSuperAdmin ? (
+              <TabsList className={`grid w-fit ${gridCols}`}>
+                <TabsTrigger value="accounts">Accounts</TabsTrigger>
+                {showPermissionsTab && (
+                  <TabsTrigger value="permissions">Permissions</TabsTrigger>
+                )}
+                {showLinkingTab && (
+                  <TabsTrigger value="linking">Linking</TabsTrigger>
+                )}
+              </TabsList>
+            ) : (
+              <AccountsStatsCards
+                stats={roleStats}
+                selectedRole={filterRole === 'all' ? null : filterRole}
+                onRoleSelect={(role) => setFilterRole(role as Role | 'all' ?? 'all')}
+              />
             )}
-            {showLinkingTab && (
-              <TabsTrigger value="linking">Linking</TabsTrigger>
-            )}
-          </TabsList>
-
-          {/* Role filter pills + inline controls row */}
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-3">
-            <AccountsStatsCards
-              stats={roleStats}
-              selectedRole={filterRole === 'all' ? null : filterRole}
-              onRoleSelect={(role) => setFilterRole(role as Role | 'all' ?? 'all')}
-            />
 
             {/* Inline controls - only show on accounts tab */}
             {activeTab === 'accounts' && (
@@ -1284,6 +1286,15 @@ export default function Accounts() {
           </div>
 
           <TabsContent value="accounts" className="space-y-3 sm:space-y-6">
+            {/* Stats Cards - show inside content only for admin/superadmin */}
+            {isAdminOrSuperAdmin && (
+              <AccountsStatsCards
+                stats={roleStats}
+                selectedRole={filterRole === 'all' ? null : filterRole}
+                onRoleSelect={(role) => setFilterRole(role as Role | 'all' ?? 'all')}
+              />
+            )}
+
             {loading ? (
               <HorizontalLoader message="Loading accounts..." />
             ) : viewMode === 'grid' ? (
@@ -1420,8 +1431,8 @@ export default function Accounts() {
         open={clientDetailsOpen}
         onOpenChange={setClientDetailsOpen}
         client={selectedClient}
-        onDelete={handleDeleteClient}
         onEdit={handleEditClient}
+        onBookShoot={handleBookShoot}
       />
 
       <ClientForm
@@ -1468,14 +1479,14 @@ export default function Accounts() {
             open={notificationSettingsDialogOpen}
             onOpenChange={setNotificationSettingsDialogOpen}
             user={selectedUser}
-            onSave={handleUpdateNotifications}
+            onSubmit={handleUpdateNotifications}
           />
 
           <LinkClientBrandingDialog
             open={linkClientBrandingDialogOpen}
             onOpenChange={setLinkClientBrandingDialogOpen}
             user={selectedUser}
-            onSave={handleUpdateClientBranding}
+            onSubmit={handleUpdateClientBranding}
           />
         </>
       )}

@@ -16,6 +16,9 @@ import {
   DollarSign,
   Tag,
   Ruler,
+  ExternalLink,
+  CheckCircle2,
+  XCircle,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
@@ -176,6 +179,17 @@ export default function ExclusiveListingDetails() {
   const heroImage = useMemo(() => {
     const firstMedia = resolvePreviewUrl(shoot?.heroImage);
     return firstMedia || '/placeholder.svg';
+  }, [shoot]);
+
+  const isPaid = useMemo(() => {
+    if (!shoot?.payment) return false;
+    return (shoot.payment.totalPaid ?? 0) >= (shoot.payment.totalQuote ?? 0);
+  }, [shoot]);
+
+  const tourLink = useMemo(() => {
+    if (!shoot?.tourLinks) return null;
+    const links = shoot.tourLinks as Record<string, string | undefined>;
+    return links.branded || links.mls || links.genericMls || links.matterport_branded || links.iguide_branded || links.matterport || links.iGuide || null;
   }, [shoot]);
 
   const handleGenerateShareLink = async () => {
@@ -367,20 +381,66 @@ export default function ExclusiveListingDetails() {
 
                 <Separator />
 
-                <Card className="border-border/70 bg-background/40">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">Visibility</CardTitle>
-                  </CardHeader>
-                  <CardContent className="text-sm text-muted-foreground space-y-2">
-                    <div>Visible to assigned Client / Rep and Admin team.</div>
-                    <div className="text-foreground">
-                      <span className="font-medium">Client:</span> {shoot.client?.name || 'Unknown'}
-                    </div>
-                    <div className="text-foreground">
-                      <span className="font-medium">Photographer:</span> {shoot.photographer?.name || 'Unassigned'}
-                    </div>
-                  </CardContent>
-                </Card>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <Card className="border-border/70 bg-background/40">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm">Visibility</CardTitle>
+                    </CardHeader>
+                    <CardContent className="text-sm text-muted-foreground space-y-2">
+                      <div>Visible to assigned Client / Rep and Admin team.</div>
+                      <div className="text-foreground">
+                        <span className="font-medium">Client:</span> {shoot.client?.name || 'Unknown'}
+                      </div>
+                      <div className="text-foreground">
+                        <span className="font-medium">Photographer:</span> {shoot.photographer?.name || 'Unassigned'}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-border/70 bg-background/40">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm">Payment</CardTitle>
+                    </CardHeader>
+                    <CardContent className="text-sm text-muted-foreground space-y-2">
+                      <div className="flex items-center gap-2">
+                        {isPaid ? (
+                          <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-destructive" />
+                        )}
+                        <span className={isPaid ? 'text-foreground font-medium' : 'text-destructive font-medium'}>
+                          {isPaid ? 'Paid' : 'Unpaid'}
+                        </span>
+                      </div>
+                      {shoot.payment && (
+                        <div className="text-xs">
+                          ${Number(shoot.payment.totalPaid ?? 0).toLocaleString()} / ${Number(shoot.payment.totalQuote ?? 0).toLocaleString()}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-border/70 bg-background/40">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm">Tour</CardTitle>
+                    </CardHeader>
+                    <CardContent className="text-sm text-muted-foreground space-y-2">
+                      {tourLink ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5"
+                          onClick={() => window.open(tourLink, '_blank', 'noopener,noreferrer')}
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          Open Tour
+                        </Button>
+                      ) : (
+                        <div className="text-xs">No tour link available</div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
               </CardContent>
             </Card>
 
