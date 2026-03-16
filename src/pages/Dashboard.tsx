@@ -23,6 +23,9 @@ import {
   Sun,
   Download,
   Calendar,
+  LayoutGrid,
+  List,
+  Image as ImageIcon,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 
@@ -2252,6 +2255,13 @@ const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
     ...(onHold.length > 0 ? [{ key: "hold" as const, label: "On hold", count: onHold.length }] : []),
   ];
   const [activeTab, setActiveTab] = useState<(typeof tabs)[number]["key"]>("upcoming");
+  const [deliveredViewMode, setDeliveredViewMode] = useState<'grid' | 'list'>(() => {
+    try { return (localStorage.getItem('client-delivered-view') as 'grid' | 'list') || 'grid'; } catch { return 'grid'; }
+  });
+  const toggleDeliveredView = (mode: 'grid' | 'list') => {
+    setDeliveredViewMode(mode);
+    try { localStorage.setItem('client-delivered-view', mode); } catch {}
+  };
   const list =
     activeTab === "upcoming" ? upcoming : activeTab === "completed" ? completed : onHold;
 
@@ -2263,25 +2273,45 @@ const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
             <h2 className="text-base sm:text-lg font-bold text-foreground">My shoots</h2>
             <p className="text-xs sm:text-sm text-muted-foreground">Track everything from booking to delivery.</p>
           </div>
-          <div className="flex gap-2 sm:gap-4 text-xs sm:text-sm font-semibold overflow-visible pb-2 pt-2">
-            {tabs.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`pb-1 border-b-2 transition-colors whitespace-nowrap flex items-center gap-1.5 ${
-                  activeTab === tab.key ? "border-foreground text-foreground" : "border-transparent text-muted-foreground"
-                }`}
-              >
-                {tab.label}
-                {tab.key === "completed" && tab.count > 0 ? (
-                  <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[10px] font-bold text-white bg-blue-500 rounded-full animate-bounce">
-                    {tab.count}
-                  </span>
-                ) : (
-                  <span>({tab.count})</span>
-                )}
-              </button>
-            ))}
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="flex gap-2 sm:gap-4 text-xs sm:text-sm font-semibold overflow-visible pb-2 pt-2">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`pb-1 border-b-2 transition-colors whitespace-nowrap flex items-center gap-1.5 ${
+                    activeTab === tab.key ? "border-foreground text-foreground" : "border-transparent text-muted-foreground"
+                  }`}
+                >
+                  {tab.label}
+                  {tab.key === "completed" && tab.count > 0 ? (
+                    <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[10px] font-bold text-white bg-blue-500 rounded-full animate-bounce">
+                      {tab.count}
+                    </span>
+                  ) : (
+                    <span>({tab.count})</span>
+                  )}
+                </button>
+              ))}
+            </div>
+            {activeTab === "completed" && list.length > 0 && (
+              <div className="flex items-center border rounded-md overflow-hidden ml-auto">
+                <button
+                  onClick={() => toggleDeliveredView('grid')}
+                  className={`h-7 w-7 flex items-center justify-center transition-colors ${deliveredViewMode === 'grid' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'}`}
+                  title="Grid view"
+                >
+                  <LayoutGrid className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={() => toggleDeliveredView('list')}
+                  className={`h-7 w-7 flex items-center justify-center transition-colors ${deliveredViewMode === 'list' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'}`}
+                  title="List view"
+                >
+                  <List className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
         <div className="space-y-4">
@@ -2306,6 +2336,82 @@ const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
                   Book New Shoot
                 </Button>
               )}
+            </div>
+          ) : activeTab === "completed" && deliveredViewMode === "grid" ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {list.map((record) => {
+                const summary = shootDataToSummary(record.data);
+                const deliveredPhotos = (() => {
+                  const d = record.data as any;
+                  const urls: string[] = [];
+                  if (d.files && Array.isArray(d.files)) {
+                    d.files.forEach((f: any) => {
+                      const u = f.large_url || f.medium_url || f.url || f.original_url || f.thumb_url || f.path;
+                      if (u) urls.push(u);
+                    });
+                  }
+                  if (urls.length === 0 && d.deliveredPhotos) {
+                    (Array.isArray(d.deliveredPhotos) ? d.deliveredPhotos : []).forEach((p: any) => {
+                      const u = typeof p === 'string' ? p : (p?.large_url || p?.medium_url || p?.url || p?.path);
+                      if (u) urls.push(u);
+                    });
+                  }
+                  return urls;
+                })();
+                const coverPhoto = deliveredPhotos[0] || null;
+                const photoCount = deliveredPhotos.length;
+                const dateLabel = summary.startTime
+                  ? format(new Date(summary.startTime), "d MMM yyyy")
+                  : "No date";
+                return (
+                  <div
+                    key={record.data.id}
+                    className="group relative rounded-xl overflow-hidden cursor-pointer border border-border hover:border-primary/40 transition-all hover:shadow-lg"
+                    onClick={() => onSelect(record)}
+                  >
+                    {/* Image */}
+                    {coverPhoto ? (
+                      <img
+                        src={coverPhoto}
+                        alt={summary.addressLine}
+                        className="w-full aspect-[4/3] object-cover transition-transform group-hover:scale-105"
+                        onError={(e) => { (e.target as HTMLImageElement).src = ''; (e.target as HTMLImageElement).className = 'w-full aspect-[4/3] bg-muted'; }}
+                      />
+                    ) : (
+                      <div className="w-full aspect-[4/3] bg-muted flex items-center justify-center">
+                        <ImageIcon className="w-12 h-12 text-muted-foreground/30" />
+                      </div>
+                    )}
+                    {/* Gradient overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                    {/* Photo count badge */}
+                    {photoCount > 0 && (
+                      <div className="absolute top-2 left-2 bg-black/50 backdrop-blur-sm text-white text-[10px] px-2 py-0.5 rounded-full">
+                        {photoCount} photo{photoCount !== 1 ? 's' : ''}
+                      </div>
+                    )}
+                    {/* Download button */}
+                    <button
+                      className="absolute top-2 right-2 h-8 w-8 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white hover:bg-white/40 transition-colors opacity-0 group-hover:opacity-100"
+                      onClick={(e) => { e.stopPropagation(); onDownload(record); }}
+                      title="Download"
+                    >
+                      <Download className="h-4 w-4" />
+                    </button>
+                    {/* Text overlay */}
+                    <div className="absolute bottom-0 left-0 right-0 p-3">
+                      <h3 className="text-white font-semibold text-sm truncate">{summary.addressLine}</h3>
+                      <p className="text-white/70 text-[11px] mt-0.5">{dateLabel}</p>
+                      <div className="flex items-center justify-between mt-1.5">
+                        <Badge className="bg-green-500/30 text-green-300 border-green-500/40 text-[9px] h-4 px-1.5">
+                          <span className="w-1 h-1 rounded-full bg-green-400 mr-1" />
+                          DELIVERED
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           ) : (
             list.map((record) => (

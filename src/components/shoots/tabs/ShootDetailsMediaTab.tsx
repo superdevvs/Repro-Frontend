@@ -119,6 +119,7 @@ export function ShootDetailsMediaTab({
   const [sortSaveStatus, setSortSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const sortSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sortSavedResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isRestoringOrder = useRef(false);
   const [mediaViewMode, setMediaViewMode] = useState<'list' | 'grid'>(() => {
     try { return (localStorage.getItem('media-view-mode') as 'list' | 'grid') || 'list'; } catch { return 'list'; }
   });
@@ -131,6 +132,8 @@ export function ShootDetailsMediaTab({
   // Auto-save manual sort order to backend (debounced 800ms)
   useEffect(() => {
     if (sortOrder !== 'manual' || manualOrder.length === 0) return;
+    // Skip save when we're just restoring order from backend sort_order values
+    if (isRestoringOrder.current) { isRestoringOrder.current = false; return; }
 
     // Clear any pending save timer
     if (sortSaveTimerRef.current) clearTimeout(sortSaveTimerRef.current);
@@ -148,6 +151,8 @@ export function ShootDetailsMediaTab({
           body: JSON.stringify({ file_ids: fileIds }),
         });
         if (!res.ok) throw new Error('Failed to save order');
+        // Invalidate React Query cache so next modal open fetches fresh sort_order
+        queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id] });
         setSortSaveStatus('saved');
         sortSavedResetRef.current = setTimeout(() => setSortSaveStatus('idle'), 2000);
       } catch {
@@ -160,7 +165,7 @@ export function ShootDetailsMediaTab({
       if (sortSaveTimerRef.current) clearTimeout(sortSaveTimerRef.current);
       if (sortSavedResetRef.current) clearTimeout(sortSavedResetRef.current);
     };
-  }, [manualOrder, sortOrder, shoot.id, toast]);
+  }, [manualOrder, sortOrder, shoot.id, toast, queryClient]);
 
   useEffect(() => {
     if (isClient) {
@@ -227,17 +232,22 @@ export function ShootDetailsMediaTab({
   }, [editedFilesData]);
 
   // Restore manual order from saved sort_order when files load
-  const manualOrderInitRef = useRef(false);
+  const lastSortFingerprint = useRef('');
   useEffect(() => {
-    if (manualOrderInitRef.current) return;
     const allFiles = [...rawFiles, ...editedFiles];
     if (allFiles.length === 0) return;
     // Check if any file has a non-zero sort_order (meaning order was previously saved)
     const hasSavedOrder = allFiles.some(f => (f.sort_order ?? 0) > 0);
     if (hasSavedOrder) {
       const sorted = [...allFiles].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
-      setManualOrder(sorted.map(f => f.id));
-      manualOrderInitRef.current = true;
+      const newOrder = sorted.map(f => f.id);
+      // Only update if the order fingerprint changed (avoids infinite loops)
+      const fingerprint = newOrder.join(',');
+      if (fingerprint !== lastSortFingerprint.current) {
+        lastSortFingerprint.current = fingerprint;
+        isRestoringOrder.current = true;
+        setManualOrder(newOrder);
+      }
     }
   }, [rawFiles, editedFiles]);
 
