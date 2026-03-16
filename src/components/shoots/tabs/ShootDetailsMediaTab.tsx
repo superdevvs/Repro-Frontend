@@ -2301,8 +2301,8 @@ export function ShootDetailsMediaTab({
           </div>
         )}
 
-        {/* Editing Notes - Inline */}
-        {uploadedFiles.length > 0 && !uploading && (
+        {/* Editing Notes - Inline (hidden for photographers) */}
+        {uploadedFiles.length > 0 && !uploading && !isPhotographer && (
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Notes for Editor (Optional)</label>
             <textarea
@@ -2564,7 +2564,8 @@ export function ShootDetailsMediaTab({
                     if (mlsLink) {
                       window.open(mlsLink, '_blank', 'noopener,noreferrer');
                     } else {
-                      toast({ title: 'No link available', description: 'MLS tour link is not available yet.', variant: 'destructive' });
+                      // Fallback: open the app's own MLS tour page for this shoot
+                      window.open(`/tour/mls?shootId=${shoot.id}`, '_blank', 'noopener,noreferrer');
                     }
                   }}
                 >
@@ -2874,44 +2875,6 @@ export function ShootDetailsMediaTab({
         {activeSubTab === 'upload' ? (
           /* Upload Tab Content */
           <div className="flex-1 flex flex-col min-h-0 p-2.5">
-            {/* Notes for Editing - photographer only, placed above upload for better layout */}
-            {isPhotographer && (
-              <div className="border rounded-lg bg-card p-3 mb-2.5 flex-shrink-0">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-xs font-semibold text-purple-700 dark:text-purple-400">Notes for Editing</h4>
-                  <Button
-                    variant="default"
-                    size="sm"
-                    className="h-6 text-[10px] px-2"
-                    onClick={async () => {
-                      try {
-                        const token = localStorage.getItem('token') || localStorage.getItem('authToken');
-                        const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/notes`, {
-                          method: 'PATCH',
-                          headers: {
-                            'Content-Type': 'application/json',
-                            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                          },
-                          body: JSON.stringify({ editor_notes: editingNotesValue }),
-                        });
-                        if (!res.ok) throw new Error('Failed to save');
-                        toast({ title: 'Saved', description: 'Editing notes saved successfully' });
-                      } catch {
-                        toast({ title: 'Error', description: 'Failed to save editing notes', variant: 'destructive' });
-                      }
-                    }}
-                  >
-                    Save
-                  </Button>
-                </div>
-                <textarea
-                  className="w-full resize-none min-h-[60px] rounded-md border-2 border-purple-200 dark:border-purple-700 bg-purple-50/60 dark:bg-purple-900/10 text-purple-800 dark:text-purple-300 text-sm p-2 focus:outline-none focus:ring-2 focus:ring-purple-500/40"
-                  placeholder="Add instructions for the editor..."
-                  value={editingNotesValue}
-                  onChange={(e) => setEditingNotesValue(e.target.value)}
-                />
-              </div>
-            )}
             <div className="border rounded-lg bg-card p-3 pb-6 flex flex-col flex-1">
               {isAdmin ? (
                 /* Admins upload raw or edited files based on which tab they're on */

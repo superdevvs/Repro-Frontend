@@ -99,6 +99,7 @@ import { ShootsTabsCard } from "@/components/dashboard/v2/ShootsTabsCard";
 import { ErrorBoundary, withErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { InvoiceViewDialog } from "@/components/invoices/InvoiceViewDialog";
 import { CancellationRequestsDialog } from "@/components/dashboard/CancellationRequestsDialog";
+import type { CancellationShootItem } from "@/components/dashboard/v2/PendingReviewsCard";
 
 const LazyAssignPhotographersCard = lazy(() =>
   import("@/components/dashboard/v2/AssignPhotographersCard").then((module) => ({
@@ -559,34 +560,48 @@ const Dashboard = () => {
     fetchClientRequests();
   }, [isAdminExperience]);
 
-  // Count shoots with pending cancellation requests (requested but not yet cancelled)
-  const cancellationRequestCount = useMemo(() => {
-    if (!isAdminExperience) return 0;
-    return shoots.filter(s => {
-      const hasRequest = !!(s.cancellationRequestedAt || (s as any).cancellation_requested_at);
-      if (!hasRequest) return false;
-      const status = (s.workflowStatus || s.status || '').toLowerCase();
-      return !status.includes('canceled') && !status.includes('cancelled');
-    }).length;
-  }, [shoots, isAdminExperience]);
+  const [cancellationShoots, setCancellationShoots] = useState<CancellationShootItem[]>([]);
+  
+  const fetchPendingCancellationShoots = useCallback(async () => {
+    if (!isAdminExperience) {
+      setCancellationShoots([]);
+      return;
+    }
 
-  // Build cancellation shoots list for inline Requests card tab
-  const cancellationShoots = useMemo(() => {
-    if (!isAdminExperience) return [];
-    return shoots
-      .filter(s => {
-        const hasRequest = !!(s.cancellationRequestedAt || (s as any).cancellation_requested_at);
-        if (!hasRequest) return false;
-        const status = (s.workflowStatus || s.status || '').toLowerCase();
-        return !status.includes('canceled') && !status.includes('cancelled');
-      })
-      .map(s => ({
-        id: Number(s.id),
-        address: s.location?.fullAddress || s.location?.address || (s as any).address || `Shoot #${s.id}`,
-        clientName: s.client?.name || undefined,
-        cancellationReason: (s as any).cancellationReason || (s as any).cancellation_reason || undefined,
-      }));
-  }, [shoots, isAdminExperience]);
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/api/shoots/pending-cancellations`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+        },
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        const data = Array.isArray(json.data) ? json.data : [];
+        setCancellationShoots(
+          data.map((s: any) => ({
+            id: Number(s.id),
+            address: s.location?.fullAddress || s.location?.address || s.address || `Shoot #${s.id}`,
+            clientName: s.client?.name || undefined,
+            cancellationReason: s.cancellationReason || s.cancellation_reason || undefined,
+          })),
+        );
+      } else {
+        setCancellationShoots([]);
+      }
+    } catch (error) {
+      console.error('Error fetching pending cancellations:', error);
+      setCancellationShoots([]);
+    }
+  }, [isAdminExperience]);
+
+  useEffect(() => {
+    fetchPendingCancellationShoots();
+  }, [fetchPendingCancellationShoots]);
+
+  const cancellationRequestCount = cancellationShoots.length;
 
   const handleApproveCancellation = async (shootId: number) => {
     const token = localStorage.getItem('authToken') || localStorage.getItem('token');
@@ -596,6 +611,7 @@ const Dashboard = () => {
     });
     if (res.ok) {
       toast({ title: 'Cancellation approved', description: 'Shoot has been cancelled.' });
+      fetchPendingCancellationShoots().catch(() => {});
       refresh();
       if (fetchShoots) fetchShoots().catch(() => {});
     } else {
@@ -612,6 +628,7 @@ const Dashboard = () => {
     });
     if (res.ok) {
       toast({ title: 'Cancellation rejected', description: 'Request has been dismissed.' });
+      fetchPendingCancellationShoots().catch(() => {});
       refresh();
       if (fetchShoots) fetchShoots().catch(() => {});
     } else {
@@ -2169,9 +2186,9 @@ const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
   return (
     <DevProfiler id={`RoleDashboardLayout:${role ?? "default"}`}>
       <DashboardLayout>
-        <div className={cn("p-3 sm:p-6 space-y-4 sm:space-y-6", hideLeftColumn && "min-h-[calc(100vh-4rem)]")}>
+        <div className={cn("p-3 sm:p-6 flex flex-col gap-4 sm:gap-6", hideLeftColumn && "min-h-[calc(100vh-4rem)]")}>
           <PageHeader title={title} description={description} />
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-6 items-stretch">
+          <div className={cn("grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-6 items-stretch", hideLeftColumn && "flex-1")}>
           {!hideLeftColumn && (
           <div className="md:col-span-3 flex flex-col gap-4 sm:gap-6 h-full order-1 md:order-none">
               <div className="order-1 md:order-none">
@@ -2241,7 +2258,6 @@ const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
             </div>
             )}
           <div className="md:col-span-3 flex flex-col gap-4 sm:gap-6 h-full order-4 md:order-none">
-            {!hideLeftColumn && (
             <ErrorBoundary
               fallback={
                 <div className="rounded-2xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
@@ -2251,7 +2267,6 @@ const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
             >
               {pendingContent}
             </ErrorBoundary>
-            )}
             {rightColumnCards
               .filter((card): card is React.ReactNode => Boolean(card))
               .map((card, index) => (
