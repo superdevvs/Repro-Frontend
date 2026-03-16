@@ -359,7 +359,7 @@ export function ClientPortal() {
                 alt=""
                 className="w-full h-full object-cover"
               />
-              <div className="absolute inset-0 bg-black/60" />
+              <div className="absolute inset-0 bg-black/70" />
             </div>
           </>
         ) : (
@@ -370,14 +370,14 @@ export function ClientPortal() {
         )}
         <div className="container px-4 md:px-6 relative z-10">
           <div className="max-w-4xl mx-auto text-center space-y-6">
-            <h1 className={`text-4xl md:text-5xl font-bold leading-tight ${clientInfo?.hero_image ? 'text-white' : ''}`}>
+            <h1 className={`text-4xl md:text-5xl font-bold leading-tight drop-shadow-lg ${clientInfo?.hero_image ? 'text-white' : ''}`}>
               {clientInfo?.hero_headline
                 ? clientInfo.hero_headline.replace('{name}', clientName)
-                : <>Welcome, <span className={clientInfo?.hero_image ? 'text-blue-400' : 'text-primary'}>{clientName}</span></>
+                : <>{clientName}<span className={clientInfo?.hero_image ? 'text-blue-400' : 'text-primary'}> Real Estate</span></>
               }
             </h1>
-            <p className={`text-lg leading-relaxed max-w-3xl mx-auto ${clientInfo?.hero_image ? 'text-gray-200' : 'text-muted-foreground'}`}>
-              {clientInfo?.hero_subtitle || 'Explore our latest property listings with high-resolution photography and virtual tours.'}
+            <p className={`text-lg leading-relaxed max-w-3xl mx-auto drop-shadow-md ${clientInfo?.hero_image ? 'text-white/90' : 'text-muted-foreground'}`}>
+              {clientInfo?.hero_subtitle || 'Browse stunning property photography, virtual tours, and listing details — all in one place.'}
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3">
               <Button size="lg" onClick={() => scrollToSection('listings')}>
@@ -386,24 +386,6 @@ export function ClientPortal() {
               <Button size="lg" variant="outline" onClick={() => scrollToSection('about')}>
                 About
               </Button>
-            </div>
-            <div className="grid sm:grid-cols-3 gap-3 pt-4">
-              <div className="rounded-2xl border bg-card p-4 shadow-sm">
-                <p className="text-xs uppercase text-muted-foreground tracking-[0.2em] mb-1">Listings</p>
-                <p className="text-2xl font-semibold">{shoots.length || 0}</p>
-              </div>
-              <div className="rounded-2xl border bg-card p-4 shadow-sm">
-                <p className="text-xs uppercase text-muted-foreground tracking-[0.2em] mb-1">Latest</p>
-                <p className="text-base text-muted-foreground line-clamp-2">
-                  {shoots[0]?.title || "Ready for your next shoot"}
-                </p>
-              </div>
-              <div className="rounded-2xl border bg-card p-4 shadow-sm">
-                <p className="text-xs uppercase text-muted-foreground tracking-[0.2em] mb-1">Contact</p>
-                <p className="text-base text-muted-foreground line-clamp-2">
-                  {clientInfo?.email || "Email not set"}
-                </p>
-              </div>
             </div>
           </div>
         </div>

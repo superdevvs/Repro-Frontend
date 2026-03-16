@@ -627,8 +627,12 @@ export function ShootDetailsOverviewTab({
             setServicesList(servicesData);
             
             // Initialize selected services from current shoot
-            if (shoot.services && Array.isArray(shoot.services) && servicesData.length > 0) {
-              const currentServiceIds = shoot.services.map((s: any) => {
+            // Prefer serviceObjects (full data with prices) over services (name strings)
+            const serviceSource: any[] = shoot.serviceObjects && shoot.serviceObjects.length > 0
+              ? shoot.serviceObjects
+              : (Array.isArray(shoot.services) ? shoot.services : []);
+            if (serviceSource.length > 0 && servicesData.length > 0) {
+              const currentServiceIds = serviceSource.map((s: any) => {
                 if (typeof s === 'string') {
                   // If it's a string, try to find matching service by name
                   const found = servicesData.find((sv: any) => sv.name === s);
@@ -645,7 +649,7 @@ export function ShootDetailsOverviewTab({
               // Initialize prices and photographer pays from current services
               const prices: Record<string, string> = {};
               const photographerPays: Record<string, string> = {};
-              shoot.services.forEach((s: any) => {
+              serviceSource.forEach((s: any) => {
                 if (s && typeof s === 'object') {
                   const serviceId = String(s.id || s.service_id || '');
                   if (serviceId && currentServiceIds.includes(serviceId)) {
@@ -1972,6 +1976,15 @@ export function ShootDetailsOverviewTab({
                 })}
               </div>
             )}
+          </div>
+        ) : shoot.serviceObjects && shoot.serviceObjects.length > 0 ? (
+          <div className="space-y-1">
+            {shoot.serviceObjects.map((svc) => (
+              <div key={svc.id} className="flex items-center justify-between gap-2 text-xs">
+                <span className="truncate">{svc.name}</span>
+                <span className="font-medium text-muted-foreground whitespace-nowrap">${Number(svc.price).toFixed(2)}</span>
+              </div>
+            ))}
           </div>
         ) : (
           <div className="flex flex-wrap gap-1">

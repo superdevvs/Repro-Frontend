@@ -341,6 +341,28 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
     return [] as string[];
   })();
 
+  const serviceObjects = (() => {
+    if (Array.isArray(shoot.services)) {
+      const objs = shoot.services
+        .filter((s): s is Record<string, any> => s !== null && typeof s === 'object' && 'id' in s)
+        .map((s) => ({
+          id: String(s.id),
+          name: String(s.name || ''),
+          price: Number(s.pivot?.price ?? s.price ?? 0),
+          quantity: Number(s.pivot?.quantity ?? s.quantity ?? 1),
+          category: s.category || s.category_name ? {
+            id: String(s.category?.id || ''),
+            name: String(s.category?.name || s.category_name || ''),
+          } : null,
+          photographer_pay: (s.pivot?.photographer_pay ?? s.photographer_pay) != null
+            ? Number(s.pivot?.photographer_pay ?? s.photographer_pay)
+            : null,
+        }));
+      if (objs.length > 0) return objs;
+    }
+    return undefined;
+  })();
+
   return {
     id: String(shoot.id),
     scheduledDate: shoot.scheduled_date || '',
@@ -380,16 +402,17 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
       : undefined,
     editorId,
     services: normalizedServices,
+    serviceObjects,
     payment: {
-      baseQuote: toNumber(shoot.base_quote),
+      baseQuote: toNumber(shoot.base_quote) || toNumber((shoot as any).payment?.baseQuote) || toNumber((shoot as any).payment?.base_quote),
       taxRate: toNumber(rawTaxRate),
-      taxAmount: toNumber(shoot.tax_amount),
-      totalQuote: toNumber(shoot.total_quote),
+      taxAmount: toNumber(shoot.tax_amount) || toNumber((shoot as any).payment?.taxAmount) || toNumber((shoot as any).payment?.tax_amount),
+      totalQuote: toNumber(shoot.total_quote) || toNumber((shoot as any).payment?.totalQuote) || toNumber((shoot as any).payment?.total_quote),
       totalPaid:
-        toNumber(shoot.total_paid) ||
+        toNumber(shoot.total_paid) || toNumber((shoot as any).payment?.totalPaid) || toNumber((shoot as any).payment?.total_paid) ||
         payments.reduce((sum: number, payment) => sum + toNumber(payment.amount), 0),
       lastPaymentDate: payments[0]?.paid_at ?? undefined,
-      lastPaymentType: shoot.payment_type ?? undefined,
+      lastPaymentType: shoot.payment_type ?? (shoot as any).payment?.paymentStatus ?? undefined,
     },
     status: shoot.status || 'booked',
     workflowStatus: shoot.workflow_status || undefined,

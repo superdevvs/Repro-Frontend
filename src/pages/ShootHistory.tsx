@@ -3156,13 +3156,12 @@ const ShootHistory: React.FC = () => {
             return true
           })
 
-      // Hide private-exclusive listings from default views
-      const visibleShoots = roleFilteredShoots.filter((shoot) => !shoot.isPrivateListing)
-
       // Backend already filters by tab scope (applyTabScope) — trust backend results
       // No additional frontend status filtering needed; it was causing data loss
       // when shoot status strings didn't exactly match the frontend allowlist.
-      setOperationalData(visibleShoots)
+      // Private listing filtering is also handled by the backend — no need to re-filter here
+      // as it causes a mismatch between pagination meta and displayed records.
+      setOperationalData(roleFilteredShoots)
 
       // Set pagination meta if available
       const meta = payload.meta as any
@@ -3339,17 +3338,13 @@ const ShootHistory: React.FC = () => {
       const isServiceGrouping = currentFilters.groupBy === 'services'
 
       const rows = Array.isArray(payload.data) ? payload.data : []
-      const visibleRows = rows.filter((record) => {
-        const recordAny = record as any
-        return !(recordAny?.is_private_listing || recordAny?.isPrivateListing)
-      })
 
       if (isServiceGrouping) {
-        setHistoryAggregates(visibleRows as ShootHistoryServiceAggregate[])
+        setHistoryAggregates(rows as ShootHistoryServiceAggregate[])
         setHistoryRecords([])
         setHistoryMeta(null)
       } else {
-        setHistoryRecords(visibleRows as ShootHistoryRecord[])
+        setHistoryRecords(rows as ShootHistoryRecord[])
         setHistoryAggregates([])
         setHistoryMeta(
           payload.meta

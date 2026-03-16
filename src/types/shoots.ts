@@ -158,6 +158,14 @@ export interface ShootData {
     email?: string;
   };
   services: string[];
+  serviceObjects?: Array<{
+    id: string;
+    name: string;
+    price: number;
+    quantity: number;
+    category?: { id: string; name: string } | null;
+    photographer_pay?: number | null;
+  }>;
   payment: {
     baseQuote: number;
     taxRate: number;
