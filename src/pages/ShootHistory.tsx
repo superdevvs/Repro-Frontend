@@ -3159,17 +3159,10 @@ const ShootHistory: React.FC = () => {
       // Hide private-exclusive listings from default views
       const visibleShoots = roleFilteredShoots.filter((shoot) => !shoot.isPrivateListing)
 
-      // Apply status filter per active tab (using status or workflowStatus)
-      const filterTab = (['scheduled', 'completed', 'delivered', 'hold', 'editing', 'edited'] as const).includes(currentTab as any)
-        ? (currentTab as ActiveOperationalTab)
-        : backendTab
-      const allowedStatuses = STATUS_FILTERS_BY_TAB[filterTab] ?? STATUS_FILTERS_BY_TAB.scheduled
-      const filteredByStatus = visibleShoots.filter((shoot) => {
-        const status = (shoot.workflowStatus || shoot.status || '').toLowerCase()
-        return allowedStatuses.some((allowed) => status.includes(allowed))
-      })
-
-      setOperationalData(filteredByStatus)
+      // Backend already filters by tab scope (applyTabScope) — trust backend results
+      // No additional frontend status filtering needed; it was causing data loss
+      // when shoot status strings didn't exactly match the frontend allowlist.
+      setOperationalData(visibleShoots)
 
       // Set pagination meta if available
       const meta = payload.meta as any

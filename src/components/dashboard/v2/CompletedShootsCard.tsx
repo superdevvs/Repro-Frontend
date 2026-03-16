@@ -22,6 +22,12 @@ const resolveImageUrl = (value?: string | null): string | null => {
   return withApiBase(trimmed);
 };
 
+const FLOORPLAN_PATTERNS = ['floorplan', 'floor-plan', 'floor_plan', 'fp_', 'fp-', 'layout', 'blueprint'];
+const isFloorplanUrl = (url: string): boolean => {
+  const lower = url.toLowerCase();
+  return FLOORPLAN_PATTERNS.some(p => lower.includes(p));
+};
+
 const getShootImages = (shoot: DashboardShootSummary): string[] => {
   const candidates = [
     ...(Array.isArray(shoot.previewImages) ? shoot.previewImages : []),
@@ -30,7 +36,8 @@ const getShootImages = (shoot: DashboardShootSummary): string[] => {
 
   const resolved = candidates
     .map(resolveImageUrl)
-    .filter((image): image is string => Boolean(image));
+    .filter((image): image is string => Boolean(image))
+    .filter(image => !isFloorplanUrl(image));
 
   const unique = Array.from(new Set(resolved));
   if (unique.length > 0) {

@@ -2344,14 +2344,23 @@ const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
                 const deliveredPhotos = (() => {
                   const d = record.data as any;
                   const urls: string[] = [];
+                  const fpPatterns = ['floorplan', 'floor-plan', 'floor_plan', 'fp_', 'fp-', 'layout', 'blueprint'];
+                  const isFP = (item: any) => {
+                    const mt = (item?.media_type || item?.mediaType || '').toLowerCase();
+                    if (mt === 'floorplan') return true;
+                    const nm = (item?.filename || item?.name || item?.path || '').toLowerCase();
+                    return fpPatterns.some(p => nm.includes(p));
+                  };
                   if (d.files && Array.isArray(d.files)) {
                     d.files.forEach((f: any) => {
+                      if (isFP(f)) return;
                       const u = f.large_url || f.medium_url || f.url || f.original_url || f.thumb_url || f.path;
                       if (u) urls.push(u);
                     });
                   }
                   if (urls.length === 0 && d.deliveredPhotos) {
                     (Array.isArray(d.deliveredPhotos) ? d.deliveredPhotos : []).forEach((p: any) => {
+                      if (typeof p !== 'string' && isFP(p)) return;
                       const u = typeof p === 'string' ? p : (p?.large_url || p?.medium_url || p?.url || p?.path);
                       if (u) urls.push(u);
                     });
@@ -2519,11 +2528,19 @@ const ClientShootTile: React.FC<ClientShootTileProps> = React.memo(({
   const serviceBadges = services.slice(0, 4);
   const overflow = services.length - serviceBadges.length;
 
-  // Get photos for delivered shoots
+  // Get photos for delivered shoots (excludes floorplans, prioritizes hero image)
   const getDeliveredPhotos = () => {
     const allPhotos: string[] = [];
     const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+    const FP_PATTERNS = ['floorplan', 'floor-plan', 'floor_plan', 'fp_', 'fp-', 'layout', 'blueprint'];
     
+    const isFloorplan = (item: any): boolean => {
+      const mediaType = (item.media_type || item.mediaType || '').toLowerCase();
+      if (mediaType === 'floorplan') return true;
+      const name = (item.filename || item.name || item.path || '').toLowerCase();
+      return FP_PATTERNS.some(p => name.includes(p));
+    };
+
     // Helper to resolve URL - prefix with API URL if relative path
     const resolveUrl = (url: string | null | undefined): string | null => {
       if (!url) return null;
@@ -2533,26 +2550,31 @@ const ClientShootTile: React.FC<ClientShootTileProps> = React.memo(({
       if (url.startsWith('/')) return `${API_URL}${url}`;
       return `${API_URL}/${url}`;
     };
+
+    // First priority: explicitly set hero image from backend
+    const heroUrl = resolveUrl(data.heroImage || (data as any).hero_image);
+    if (heroUrl && !FP_PATTERNS.some(p => heroUrl.toLowerCase().includes(p))) {
+      allPhotos.push(heroUrl);
+    }
     
-    // Check media.images first
+    // Check media.images
     if (data.media?.images) {
       data.media.images.forEach((img: any) => {
-        // Try resolved URLs first, then fall back to paths
+        if (isFloorplan(img)) return;
         const url = img.thumbnail_url || img.web_url || resolveUrl(img.thumbnail_path || img.web_path || img.url || img.path);
-        if (url) allPhotos.push(url);
+        if (url && !allPhotos.includes(url)) allPhotos.push(url);
       });
     }
-    // Fallback to files - only include edited/final files (not raw)
-    if (allPhotos.length === 0 && data.files) {
+    // Fallback to files - only include edited/final files (not raw, not floorplans)
+    if (allPhotos.length <= 1 && data.files) {
       data.files.forEach((file: any) => {
+        if (isFloorplan(file)) return;
         const stage = (file.workflow_stage || file.workflowStage || '').toLowerCase();
-        // Only include edited, completed, final, or delivered files - NOT raw/todo
         if (stage === 'raw' || stage === 'todo' || stage === 'uploaded') return;
         
-        // Try resolved URLs first (from backend), then fall back to paths
         const url = file.thumbnail_url || file.web_url || file.placeholder_url || 
                     resolveUrl(file.thumbnail_path || file.web_path || file.url || file.path);
-        if (url) allPhotos.push(url);
+        if (url && !allPhotos.includes(url)) allPhotos.push(url);
       });
     }
     return allPhotos;
@@ -2634,7 +2656,7 @@ const ClientShootTile: React.FC<ClientShootTileProps> = React.memo(({
 
               {/* Instructions (if any) */}
               {instructions && (
-                <p className="text-xs text-muted-foreground/80 italic line-clamp-1">&ldquo;{instructions}&rdquo;</p>
+                <p className="text-xs text-muted-foreground/80 line-clamp-1"><span className="font-medium text-muted-foreground not-italic">Notes: </span><span className="italic">&ldquo;{instructions}&rdquo;</span></p>
               )}
             </div>
 

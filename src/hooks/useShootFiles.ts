@@ -43,6 +43,7 @@ export interface MediaFile {
   created_at?: string;
   is_cover?: boolean;
   is_favorite?: boolean;
+  is_hidden?: boolean;
   sort_order?: number;
 }
 
@@ -107,6 +108,7 @@ const fetchShootFiles = async (
         created_at: f.created_at,
         is_cover: f.is_cover || false,
         is_favorite: f.is_favorite || false,
+        is_hidden: f.is_hidden || false,
         sort_order: f.sort_order ?? 0,
       }));
 
@@ -147,6 +149,7 @@ const fetchShootFiles = async (
       created_at: f.created_at,
       is_cover: f.is_cover || false,
       is_favorite: f.is_favorite || false,
+      is_hidden: f.is_hidden || false,
       sort_order: f.sort_order ?? 0,
     }));
   }

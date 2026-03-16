@@ -2041,13 +2041,6 @@ export function ShootDetailsModal({
     }
   };
 
-  // Full page path
-  const fullPagePath = useMemo(() => {
-    if (!shoot?.id) return null;
-    const parsedId = Number(shoot.id);
-    return Number.isFinite(parsedId) ? `/shoots/${parsedId}` : null;
-  }, [shoot?.id]);
-
   // Check if shoot is in requested status (awaiting approval)
   const isRequestedStatus = useMemo(() => {
     const status = (shoot?.status || shoot?.workflowStatus || '').toLowerCase();
@@ -2201,7 +2194,7 @@ export function ShootDetailsModal({
           </DialogDescription>
         </DialogHeader>
         
-        {/* Action buttons - Top right: Edit, Send to editing, Finalise, View full page (before close) - Desktop only */}
+        {/* Action buttons - Top right: Edit, Send to editing, Finalise (before close) - Desktop only */}
         <div className="hidden sm:flex absolute top-4 z-[80] flex-col items-end right-14">
           <div className="flex items-center gap-1.5">
             {isEditMode ? (
@@ -2303,7 +2296,7 @@ export function ShootDetailsModal({
                     <span>{isDelivered ? 'Delete Shoot' : 'Cancel Shoot'}</span>
                   </Button>
                 )}
-                {/* Publish to Bright MLS button - before View full page (hidden from editors) */}
+                {/* Publish to Bright MLS button (hidden from editors) */}
                 {isDelivered && !isEditor && (
                   <Button
                     variant="outline"
@@ -2379,20 +2372,6 @@ export function ShootDetailsModal({
                     </Button>
                   </>
                 )}
-                {fullPagePath && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-xs px-3"
-                    onClick={() => {
-                      onClose();
-                      navigate(fullPagePath);
-                    }}
-                  >
-                    <ExternalLink className="h-3 w-3 mr-1" />
-                    <span>View full page</span>
-                  </Button>
-                )}
               </>
             )}
           </div>
@@ -2450,17 +2429,6 @@ export function ShootDetailsModal({
                     <Send className="h-4 w-4 text-violet-600 dark:text-violet-400" />
                   </div>
                   Send to Editing
-                </button>
-              )}
-              {fullPagePath && !isEditMode && (
-                <button
-                  className="flex items-center gap-3 w-full rounded-xl px-3 py-3 text-sm font-medium hover:bg-muted transition-colors"
-                  onClick={() => { setIsMobileActionsOpen(false); onClose(); navigate(fullPagePath); }}
-                >
-                  <div className="flex items-center justify-center h-9 w-9 rounded-full bg-sky-100 dark:bg-sky-900/40">
-                    <ExternalLink className="h-4 w-4 text-sky-600 dark:text-sky-400" />
-                  </div>
-                  View full page
                 </button>
               )}
               {canCancelShoot && !isEditMode && (

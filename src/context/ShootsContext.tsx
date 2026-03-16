@@ -406,6 +406,7 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
     rawPhotoCount: toNumber(shoot.raw_photo_count),
     editedPhotoCount: toNumber(shoot.edited_photo_count),
     extraPhotoCount: toNumber(shoot.extra_photo_count),
+    heroImage: (shoot as any).hero_image || (shoot as any).heroImage || undefined,
     media: shoot.media || undefined,
     tourLinks: shoot.tour_links || undefined,
     iguideTourUrl: (shoot as any).iguide_tour_url || undefined,

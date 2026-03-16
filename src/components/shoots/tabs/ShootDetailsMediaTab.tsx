@@ -45,6 +45,8 @@ import {
   List,
   Play,
   ExternalLink,
+  EyeOff,
+  Eye,
 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { ShootData } from '@/types/shoots';
@@ -61,6 +63,7 @@ import { isRawFile } from '@/services/rawPreviewService';
 import { useShootFiles, type MediaFile } from '@/hooks/useShootFiles';
 import { useQueryClient } from '@tanstack/react-query';
 import { ShootIssueManager } from './ShootIssueManager';
+import VideoThumbnail from '../VideoThumbnail';
 
 interface ShootDetailsMediaTabProps {
   shoot: ShootData;
@@ -134,6 +137,29 @@ export function ShootDetailsMediaTab({
     try { localStorage.setItem('media-view-mode', mode); } catch {}
   };
   const [requestManagerOpen, setRequestManagerOpen] = useState(false);
+  const [showHidden, setShowHidden] = useState(false);
+
+  // Toggle hide/unhide for a single file
+  const toggleFileHidden = useCallback(async (fileId: string, hidden: boolean) => {
+    try {
+      const headers = getApiHeaders();
+      const numId = parseInt(fileId, 10);
+      if (isNaN(numId)) return;
+      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/files/toggle-hidden`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({ file_ids: [numId], hidden }),
+      });
+      if (!res.ok) throw new Error('Failed');
+      // Update local state
+      setRawFiles(prev => prev.map(f => f.id === fileId ? { ...f, is_hidden: hidden } : f));
+      setEditedFiles(prev => prev.map(f => f.id === fileId ? { ...f, is_hidden: hidden } : f));
+      queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id] });
+      toast({ title: hidden ? 'Image hidden' : 'Image visible', description: hidden ? 'This image will be hidden from tours and portfolio.' : 'This image is now visible again.' });
+    } catch {
+      toast({ title: 'Error', description: 'Failed to update image visibility', variant: 'destructive' });
+    }
+  }, [shoot.id, toast, queryClient]);
 
   // Wrapper to persist sort selection and show save indicator
   const changeSortOrder = useCallback((newOrder: 'name' | 'date' | 'time' | 'manual') => {
@@ -2546,6 +2572,18 @@ export function ShootDetailsMediaTab({
                 </button>
               </div>
             )}
+            {/* Show hidden toggle - only for non-clients when hidden files exist */}
+            {!isClient && [...rawFiles, ...editedFiles].some(f => f.is_hidden) && (
+              <Button
+                variant={showHidden ? 'default' : 'outline'}
+                size="sm"
+                className={`h-7 text-[11px] px-2 ${showHidden ? 'bg-yellow-600 hover:bg-yellow-700 text-white' : ''}`}
+                onClick={() => setShowHidden(prev => !prev)}
+              >
+                {showHidden ? <Eye className="h-3 w-3 mr-1" /> : <EyeOff className="h-3 w-3 mr-1" />}
+                <span>Hidden ({[...rawFiles, ...editedFiles].filter(f => f.is_hidden).length})</span>
+              </Button>
+            )}
             {/* Upload More button - only shown when files already exist */}
             {showUploadTab && (rawFiles.length > 0 || editedFiles.length > 0) && (
               <Button
@@ -2993,6 +3031,9 @@ export function ShootDetailsMediaTab({
                           isImage={isPreviewableImage}
                           isVideo={isVideoFile}
                           viewMode={mediaViewMode}
+                          showHidden={showHidden}
+                          isClient={isClient}
+                          toggleFileHidden={toggleFileHidden}
                         />
                         {showUploadTab && (
                           <div className="sm:hidden sticky bottom-2 z-20 flex justify-center pointer-events-none mt-2 pb-2">
@@ -3064,6 +3105,9 @@ export function ShootDetailsMediaTab({
                           isImage={isPreviewableImage}
                           isVideo={isVideoFile}
                           viewMode={mediaViewMode}
+                          showHidden={showHidden}
+                          isClient={isClient}
+                          toggleFileHidden={toggleFileHidden}
                         />
                       </div>
                     )
@@ -3121,6 +3165,9 @@ export function ShootDetailsMediaTab({
                             isImage={isPreviewableImage}
                             isVideo={isVideoFile}
                             viewMode={mediaViewMode}
+                            showHidden={showHidden}
+                            isClient={isClient}
+                            toggleFileHidden={toggleFileHidden}
                           />
                         </div>
                       )}
@@ -3276,6 +3323,9 @@ export function ShootDetailsMediaTab({
                           isImage={isPreviewableImage}
                           isVideo={isVideoFile}
                           viewMode={mediaViewMode}
+                          showHidden={showHidden}
+                          isClient={isClient}
+                          toggleFileHidden={toggleFileHidden}
                         />
                         {showUploadTab && (
                           <div className="sm:hidden sticky bottom-2 z-20 flex justify-center pointer-events-none mt-2 pb-2">
@@ -3347,6 +3397,9 @@ export function ShootDetailsMediaTab({
                           isImage={isPreviewableImage}
                           isVideo={isVideoFile}
                           viewMode={mediaViewMode}
+                          showHidden={showHidden}
+                          isClient={isClient}
+                          toggleFileHidden={toggleFileHidden}
                         />
                       </div>
                     )
@@ -3404,6 +3457,9 @@ export function ShootDetailsMediaTab({
                             isImage={isPreviewableImage}
                             isVideo={isVideoFile}
                             viewMode={mediaViewMode}
+                            showHidden={showHidden}
+                            isClient={isClient}
+                            toggleFileHidden={toggleFileHidden}
                           />
                         </div>
                       )}
@@ -3554,6 +3610,9 @@ interface MediaGridProps {
   isImage: (file: MediaFile) => boolean;
   isVideo?: (file: MediaFile) => boolean;
   viewMode?: 'list' | 'grid';
+  showHidden?: boolean;
+  isClient?: boolean;
+  toggleFileHidden?: (fileId: string, hidden: boolean) => void;
 }
 
 function MediaGrid({ 
@@ -3571,6 +3630,9 @@ function MediaGrid({
   isImage,
   isVideo,
   viewMode = 'list',
+  showHidden = false,
+  isClient = false,
+  toggleFileHidden,
 }: MediaGridProps) {
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
@@ -3659,8 +3721,9 @@ function MediaGrid({
     setDragOverId(null);
   };
   
-  const regularFiles = sortedFiles.filter(f => !f.isExtra);
-  const extraFiles = sortedFiles.filter(f => f.isExtra);
+  const visibleSorted = showHidden ? sortedFiles : sortedFiles.filter(f => !f.is_hidden);
+  const regularFiles = visibleSorted.filter(f => !f.isExtra);
+  const extraFiles = visibleSorted.filter(f => f.isExtra);
 
   // Helper function to format file size
   const formatFileSize = (bytes?: number): string => {
@@ -3740,6 +3803,18 @@ function MediaGrid({
           const hasDisplayableImage = hasProcessedThumb && (file.thumb || imageUrl);
           const thumbSrc = file.thumb || getImageUrl(file, 'thumb');
           
+          // For videos without a backend thumbnail, generate one client-side
+          if (isVid && !hasDisplayableImage) {
+            const videoSrc = file.original || file.large || file.medium || file.url || getImageUrl(file, 'original');
+            return videoSrc ? (
+              <VideoThumbnail
+                src={videoSrc}
+                alt={file.filename}
+                className="w-full h-full object-cover"
+              />
+            ) : null;
+          }
+          
           return hasDisplayableImage ? (
             <img
               src={thumbSrc}
@@ -3784,6 +3859,28 @@ function MediaGrid({
           </div>
         )}
         
+        {/* Hidden overlay */}
+        {file.is_hidden && (
+          <div className="absolute inset-0 bg-black/50 z-[2] flex items-center justify-center pointer-events-none">
+            <EyeOff className="h-5 w-5 text-white/70" />
+          </div>
+        )}
+
+        {/* Hide/Unhide toggle button (hover reveal) */}
+        {!isClient && (
+          <button
+            className={`absolute bottom-1 right-1 z-[3] h-6 w-6 rounded-full flex items-center justify-center transition-all ${
+              file.is_hidden
+                ? 'bg-yellow-500/90 text-white opacity-100'
+                : 'bg-black/50 backdrop-blur-sm text-white opacity-0 group-hover:opacity-100'
+            }`}
+            onClick={(e) => { e.stopPropagation(); toggleFileHidden(file.id, !file.is_hidden); }}
+            title={file.is_hidden ? 'Unhide image' : 'Hide from tours & portfolio'}
+          >
+            {file.is_hidden ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+          </button>
+        )}
+
         {/* Extra badge */}
         {file.isExtra && (
           <div className="absolute top-1 left-1 bg-orange-500 text-white text-[8px] px-1 py-0.5 rounded font-medium">
@@ -3889,6 +3986,12 @@ function MediaGrid({
                 if (fallback) fallback.style.display = 'flex';
               }}
             />
+          ) : isVid ? (
+            <VideoThumbnail
+              src={file.original || file.large || file.medium || file.url || getImageUrl(file, 'original')}
+              alt={file.filename}
+              className="w-full h-full object-cover"
+            />
           ) : null}
           <div 
             className="file-fallback w-full h-full items-center justify-center bg-muted absolute inset-0"
@@ -3934,6 +4037,28 @@ function MediaGrid({
           <p className="text-[10px] text-muted-foreground">Size</p>
           <p className="text-xs">{formatFileSize(file.fileSize)}</p>
         </div>
+
+        {/* Hide/Unhide toggle */}
+        {!isClient && toggleFileHidden && (
+          <button
+            className={`flex-shrink-0 h-7 w-7 rounded-full flex items-center justify-center transition-all ${
+              file.is_hidden
+                ? 'bg-yellow-500/20 text-yellow-500 hover:bg-yellow-500/30'
+                : 'text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground hover:bg-muted'
+            }`}
+            onClick={(e) => { e.stopPropagation(); toggleFileHidden(file.id, !file.is_hidden); }}
+            title={file.is_hidden ? 'Unhide image' : 'Hide from tours & portfolio'}
+          >
+            {file.is_hidden ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+          </button>
+        )}
+
+        {/* Hidden indicator overlay on thumbnail */}
+        {file.is_hidden && (
+          <div className="absolute left-0 top-0 bottom-0 w-20 sm:w-28 bg-black/40 rounded-l flex items-center justify-center pointer-events-none">
+            <EyeOff className="h-4 w-4 text-white/60" />
+          </div>
+        )}
 
       </div>
     );
