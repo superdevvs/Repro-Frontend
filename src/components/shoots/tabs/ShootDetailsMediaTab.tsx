@@ -3941,10 +3941,10 @@ function MediaGrid({
           </div>
         )}
 
-        {/* Hide/Unhide toggle button (hover reveal) */}
+        {/* Hide/Unhide toggle button (top-right, hover reveal) */}
         {!isClient && (
           <button
-            className={`absolute bottom-1 right-1 z-[3] h-6 w-6 rounded-full flex items-center justify-center transition-all ${
+            className={`absolute top-1 right-1 z-[3] h-6 w-6 rounded-full flex items-center justify-center transition-all ${
               file.is_hidden
                 ? 'bg-yellow-500/90 text-white opacity-100'
                 : 'bg-black/50 backdrop-blur-sm text-white opacity-0 group-hover:opacity-100'
@@ -3971,7 +3971,7 @@ function MediaGrid({
         )}
         
         {isSelected && (
-          <div className="absolute top-1 right-1 bg-primary text-primary-foreground rounded-full p-0.5">
+          <div className="absolute top-8 right-1 bg-primary text-primary-foreground rounded-full p-0.5 z-[3]">
             <CheckCircle2 className="h-3 w-3" />
           </div>
         )}
@@ -3989,8 +3989,22 @@ function MediaGrid({
           </div>
         )}
         
-        <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] p-1 opacity-0 group-hover:opacity-100 transition-opacity overflow-hidden whitespace-nowrap">
-          <span className="inline-block group-hover:animate-marquee">
+        <div
+          className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] p-1 opacity-0 group-hover:opacity-100 transition-opacity overflow-hidden whitespace-nowrap"
+          ref={(el) => {
+            if (!el) return;
+            const span = el.firstElementChild as HTMLElement;
+            if (!span) return;
+            requestAnimationFrame(() => {
+              const overflow = span.scrollWidth - el.clientWidth;
+              span.style.setProperty('--scroll-dist', `${overflow > 0 ? -overflow : 0}px`);
+            });
+          }}
+        >
+          <span
+            className="inline-block group-hover:animate-marquee"
+            style={{ animationDuration: `${Math.max(2, file.filename.length * 0.12)}s`, '--scroll-dist': '0px' } as React.CSSProperties}
+          >
             {file.filename}
           </span>
         </div>
@@ -4165,7 +4179,7 @@ function MediaGrid({
         )}
 
         {/* Regular files - grid */}
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-1.5 sm:gap-2">
+        <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
           {regularFiles.map((file, index) => renderFileCard(file, index, false))}
         </div>
 
@@ -4179,7 +4193,7 @@ function MediaGrid({
               </span>
               <div className="flex-1 h-px bg-orange-500/30" />
             </div>
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-1.5 sm:gap-2">
+            <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
               {extraFiles.map((file, index) => renderFileCard(file, index, true))}
             </div>
           </>
