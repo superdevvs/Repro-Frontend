@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -16,8 +16,22 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
-import { Home, Search, MapPin, Calendar, Camera, Lock, ChevronRight, Plus } from 'lucide-react';
-import { format } from 'date-fns';
+import {
+  Home,
+  Search,
+  MapPin,
+  Lock,
+  Plus,
+  LayoutGrid,
+  List,
+  BedDouble,
+  Bath,
+  Ruler,
+  User,
+  ExternalLink,
+  Clock,
+  X,
+} from 'lucide-react';
 import { API_BASE_URL } from '@/config/env';
 
 interface PrivateListing {
@@ -57,23 +71,6 @@ interface PrivateListing {
   mls_number?: string;
 }
 
-const buildListingAlias = (listing: PrivateListing) => {
-  const raw = listing.address || listing.fullAddress || '';
-  if (!raw) return 'Exclusive Listing';
-  const cleaned = raw
-    .replace(/^\d+\s*/, '')
-    .replace(/\b(avenue|ave|street|st|road|rd|drive|dr|boulevard|blvd|lane|ln|court|ct|circle|cir|way|place|pl|terrace|ter|trail|trl|parkway|pkwy)\b/gi, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-  const words = cleaned.split(' ').filter(Boolean);
-  if (!words.length) return 'Exclusive Listing';
-  const title = words
-    .slice(0, 2)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(' ');
-  return title.toLowerCase().includes('house') ? title : `${title} House`;
-};
-
 const resolvePreviewUrl = (value: string | null | undefined): string | null => {
   if (!value) return null;
   const trimmed = String(value).trim();
@@ -90,6 +87,11 @@ const resolvePreviewUrl = (value: string | null | undefined): string | null => {
   }
 };
 
+const formatPrice = (price: number | undefined | null): string => {
+  if (!price) return '';
+  return `$${Number(price).toLocaleString()}`;
+};
+
 const PrivateListingPortal = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -97,8 +99,7 @@ const PrivateListingPortal = () => {
   const [listings, setListings] = useState<PrivateListing[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filteredListings, setFilteredListings] = useState<PrivateListing[]>([]);
-  const [selectedListingId, setSelectedListingId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [deliveredLoading, setDeliveredLoading] = useState(false);
@@ -116,23 +117,27 @@ const PrivateListingPortal = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [addDialogOpen]);
 
-  useEffect(() => {
-    if (searchQuery.trim() === '') {
-      setFilteredListings(listings);
-    } else {
-      const query = searchQuery.toLowerCase();
-      const filtered = listings.filter((listing) => {
-        const addressMatch = listing.fullAddress.toLowerCase().includes(query);
-        const cityMatch = listing.city.toLowerCase().includes(query);
-        const stateMatch = listing.state.toLowerCase().includes(query);
-        const zipMatch = listing.zip.includes(query);
-        const clientMatch = listing.client.name.toLowerCase().includes(query);
-        const servicesMatch = listing.services.some((s) => s.toLowerCase().includes(query));
-        return addressMatch || cityMatch || stateMatch || zipMatch || clientMatch || servicesMatch;
-      });
-      setFilteredListings(filtered);
-    }
+  const filteredListings = useMemo(() => {
+    if (searchQuery.trim() === '') return listings;
+    const query = searchQuery.toLowerCase().replace(/[$,]/g, '');
+    return listings.filter((listing) => {
+      const addressMatch = listing.fullAddress.toLowerCase().includes(query);
+      const cityMatch = listing.city.toLowerCase().includes(query);
+      const stateMatch = listing.state.toLowerCase().includes(query);
+      const zipMatch = listing.zip.includes(query);
+      const clientMatch = listing.client.name.toLowerCase().includes(query);
+      const priceMatch = listing.price ? String(listing.price).includes(query) : false;
+      return addressMatch || cityMatch || stateMatch || zipMatch || clientMatch || priceMatch;
+    });
   }, [searchQuery, listings]);
+
+  const sortedListings = useMemo(() => {
+    return [...filteredListings].sort((a, b) => {
+      const tsA = Date.parse(a.completedDate || a.scheduledDate || '') || 0;
+      const tsB = Date.parse(b.completedDate || b.scheduledDate || '') || 0;
+      return tsB - tsA;
+    });
+  }, [filteredListings]);
 
   const fetchPrivateListings = async () => {
     try {
@@ -141,11 +146,11 @@ const PrivateListingPortal = () => {
       const response = await fetch(
         `${API_BASE_URL}/api/shoots?tab=delivered&private_listing=1&no_cache=1&per_page=200`,
         {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      }
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
       );
 
       if (!response.ok) throw new Error('Failed to fetch listings');
@@ -161,7 +166,7 @@ const PrivateListingPortal = () => {
           city: shoot.city || shoot.location?.city || '',
           state: shoot.state || shoot.location?.state || '',
           zip: shoot.zip || shoot.location?.zip || '',
-          fullAddress: shoot.location?.fullAddress || shoot.fullAddress || 
+          fullAddress: shoot.location?.fullAddress || shoot.fullAddress ||
             `${shoot.address || ''}, ${shoot.city || ''}, ${shoot.state || ''} ${shoot.zip || ''}`.trim(),
           heroImage: shoot.heroImage || shoot.hero_image || undefined,
           scheduledDate: shoot.scheduledDate || shoot.scheduled_date,
@@ -182,7 +187,7 @@ const PrivateListingPortal = () => {
             totalPaid: shoot.total_paid,
             totalQuote: shoot.total_quote,
           },
-          tourLinks: shoot.tourLinks || {},
+          tourLinks: shoot.tourLinks || shoot.tour_links || {},
           isPrivateListing: shoot.is_private_listing || shoot.isPrivateListing || false,
           listing_type: shoot.listing_type || shoot.listingType || undefined,
           bedrooms: shoot.bedrooms || shoot.property_details?.bedrooms || undefined,
@@ -193,11 +198,6 @@ const PrivateListingPortal = () => {
         }));
 
       setListings(formattedListings);
-      setFilteredListings(formattedListings);
-
-      if (formattedListings.length && !selectedListingId) {
-        setSelectedListingId(formattedListings[0].id);
-      }
     } catch (error: any) {
       console.error('Error fetching private listings:', error);
       toast({
@@ -323,88 +323,194 @@ const PrivateListingPortal = () => {
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    const statusMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
-      completed: { label: 'Completed', variant: 'default' },
-      scheduled: { label: 'Scheduled', variant: 'secondary' },
-      booked: { label: 'Booked', variant: 'outline' },
-      delivered: { label: 'Delivered', variant: 'default' },
-    };
-
-    const config = statusMap[status.toLowerCase()] || { label: status, variant: 'outline' as const };
-    return (
-      <Badge variant={config.variant} className="capitalize">
-        {config.label}
-      </Badge>
-    );
+  const handleCardClick = (listing: PrivateListing) => {
+    const branded = listing.tourLinks?.branded;
+    if (branded) {
+      window.open(branded, '_blank', 'noopener,noreferrer');
+    } else {
+      toast({
+        title: 'Tour Coming Soon',
+        description: 'The branded agent tour for this property is not yet available. Check back soon.',
+      });
+    }
   };
 
-  const selectedListing = useMemo(() => {
-    const id = selectedListingId || (filteredListings[0]?.id ?? null);
-    if (!id) return null;
-    return filteredListings.find((l) => l.id === id) || listings.find((l) => l.id === id) || null;
-  }, [filteredListings, listings, selectedListingId]);
-
-  const sortedListings = useMemo(() => {
-    return [...filteredListings].sort((a, b) => {
-      const tsA = Date.parse(a.completedDate || a.scheduledDate || '') || 0;
-      const tsB = Date.parse(b.completedDate || b.scheduledDate || '') || 0;
-      return tsB - tsA;
-    });
-  }, [filteredListings]);
-
-  const activeListingId = selectedListing?.id ?? null;
-
-  const renderListingRow = (listing: PrivateListing) => {
-    const active = listing.id === activeListingId;
+  // ─── Grid Card ─────────────────────────────────────────────
+  const renderGridCard = (listing: PrivateListing) => {
+    const heroUrl = resolvePreviewUrl(listing.heroImage) || '/placeholder.svg';
+    const hasTour = !!listing.tourLinks?.branded;
 
     return (
-      <button
+      <Card
         key={listing.id}
-        type="button"
-        onClick={() => setSelectedListingId(listing.id)}
-        className={
-          `w-full text-left px-4 py-3 border-b border-border/60 transition-colors ` +
-          (active ? 'bg-accent/40' : 'hover:bg-accent/20')
-        }
+        className="group overflow-hidden border-border/60 bg-card/60 backdrop-blur-sm cursor-pointer transition-all duration-200 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/20 hover:-translate-y-0.5"
+        onClick={() => handleCardClick(listing)}
       >
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="font-medium truncate">{buildListingAlias(listing)}</div>
-            <div className="text-xs text-muted-foreground truncate flex items-center gap-1.5">
-              <MapPin className="h-3 w-3" />
-              {listing.city}, {listing.state}
-            </div>
-            {/* Property details row */}
-            {(listing.bedrooms || listing.bathrooms || listing.sqft) && (
-              <div className="text-[10px] text-muted-foreground mt-1 flex items-center gap-2">
-                {listing.bedrooms && <span>{listing.bedrooms} bed</span>}
-                {listing.bathrooms && <span>{listing.bathrooms} bath</span>}
-                {listing.sqft && <span>{listing.sqft.toLocaleString()} sqft</span>}
+        {/* Hero Image */}
+        <div className="relative aspect-[16/10] overflow-hidden bg-muted">
+          <img
+            src={heroUrl}
+            alt={listing.address}
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+            loading="lazy"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+
+          {/* Private Exclusive badge */}
+          <div className="absolute top-3 left-3">
+            <Badge variant="outline" className="border-white/20 bg-black/40 text-white backdrop-blur-sm text-[10px] px-2 py-0.5">
+              <Lock className="h-2.5 w-2.5 mr-1" />
+              Private Exclusive
+            </Badge>
+          </div>
+
+          {/* Tour indicator */}
+          <div className="absolute top-3 right-3">
+            {hasTour ? (
+              <div className="h-7 w-7 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white transition-colors group-hover:bg-primary/80">
+                <ExternalLink className="h-3.5 w-3.5" />
+              </div>
+            ) : (
+              <div className="h-7 w-7 rounded-full bg-black/30 backdrop-blur-sm flex items-center justify-center text-white/60">
+                <Clock className="h-3.5 w-3.5" />
               </div>
             )}
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          </div>
+
+          {/* Price overlay */}
+          {listing.price && (
+            <div className="absolute bottom-3 right-3">
+              <span className="text-white font-semibold text-lg drop-shadow-md">
+                {formatPrice(listing.price)}
+              </span>
+            </div>
+          )}
         </div>
 
-        <div className="mt-2 flex items-center justify-between gap-2">
-          <div className="text-[11px] text-muted-foreground truncate">
-            Client: <span className="text-foreground">{listing.client.name}</span>
+        {/* Card Body */}
+        <CardContent className="p-4 space-y-3">
+          {/* Address */}
+          <div>
+            <h3 className="font-semibold text-sm leading-tight truncate">
+              {listing.address}
+            </h3>
+            <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
+              <MapPin className="h-3 w-3 flex-shrink-0" />
+              <span className="truncate">{listing.city}, {listing.state} {listing.zip}</span>
+            </div>
           </div>
-          <div className="text-[11px] text-muted-foreground">
-            {listing.completedDate
-              ? `Marked · ${format(new Date(listing.completedDate), 'MMM d')}`
-              : listing.scheduledDate
-                ? `Scheduled · ${format(new Date(listing.scheduledDate), 'MMM d')}`
-                : ''}
+
+          {/* Property Details */}
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            {listing.bedrooms && (
+              <div className="flex items-center gap-1">
+                <BedDouble className="h-3.5 w-3.5" />
+                <span>{listing.bedrooms} Bed</span>
+              </div>
+            )}
+            {listing.bathrooms && (
+              <div className="flex items-center gap-1">
+                <Bath className="h-3.5 w-3.5" />
+                <span>{listing.bathrooms} Bath</span>
+              </div>
+            )}
+            {listing.sqft && (
+              <div className="flex items-center gap-1">
+                <Ruler className="h-3.5 w-3.5" />
+                <span>{listing.sqft.toLocaleString()} sqft</span>
+              </div>
+            )}
           </div>
-        </div>
-      </button>
+
+          {/* Client / Agent */}
+          <div className="flex items-center gap-1.5 pt-1 border-t border-border/40">
+            <User className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+            <span className="text-xs text-muted-foreground truncate">{listing.client.name}</span>
+          </div>
+        </CardContent>
+      </Card>
     );
   };
 
+  // ─── List Row ──────────────────────────────────────────────
+  const renderListRow = (listing: PrivateListing) => {
+    const heroUrl = resolvePreviewUrl(listing.heroImage) || '/placeholder.svg';
+    const hasTour = !!listing.tourLinks?.branded;
+
+    return (
+      <div
+        key={listing.id}
+        className="group flex items-center gap-4 p-3 sm:p-4 rounded-lg border border-border/50 bg-card/40 backdrop-blur-sm cursor-pointer transition-all duration-200 hover:shadow-md hover:border-primary/20 hover:bg-accent/30"
+        onClick={() => handleCardClick(listing)}
+      >
+        {/* Thumbnail */}
+        <div className="relative h-16 w-24 sm:h-20 sm:w-32 flex-shrink-0 rounded-md overflow-hidden bg-muted">
+          <img
+            src={heroUrl}
+            alt={listing.address}
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+            loading="lazy"
+          />
+          {hasTour ? (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/20 transition-colors">
+              <ExternalLink className="h-4 w-4 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow" />
+            </div>
+          ) : (
+            <div className="absolute bottom-1 right-1">
+              <div className="h-5 w-5 rounded-full bg-black/40 flex items-center justify-center">
+                <Clock className="h-2.5 w-2.5 text-white/70" />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Info */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <h3 className="font-semibold text-sm truncate">{listing.address}</h3>
+              <div className="flex items-center gap-1 mt-0.5 text-xs text-muted-foreground">
+                <MapPin className="h-3 w-3 flex-shrink-0" />
+                <span className="truncate">{listing.city}, {listing.state} {listing.zip}</span>
+              </div>
+            </div>
+            {listing.price && (
+              <span className="text-sm font-semibold text-foreground whitespace-nowrap">
+                {formatPrice(listing.price)}
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+            {listing.bedrooms && (
+              <div className="flex items-center gap-1">
+                <BedDouble className="h-3 w-3" />
+                <span>{listing.bedrooms} Bed</span>
+              </div>
+            )}
+            {listing.bathrooms && (
+              <div className="flex items-center gap-1">
+                <Bath className="h-3 w-3" />
+                <span>{listing.bathrooms} Bath</span>
+              </div>
+            )}
+            {listing.sqft && (
+              <div className="flex items-center gap-1">
+                <Ruler className="h-3 w-3" />
+                <span>{listing.sqft.toLocaleString()} sqft</span>
+              </div>
+            )}
+            <div className="hidden sm:flex items-center gap-1 ml-auto">
+              <User className="h-3 w-3" />
+              <span className="truncate max-w-[140px]">{listing.client.name}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ─── Loading ───────────────────────────────────────────────
   if (loading) {
     return (
       <DashboardLayout>
@@ -414,17 +520,32 @@ const PrivateListingPortal = () => {
             title="Exclusive Listings"
             description="Private, pre-market properties — invitation only"
           />
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">Loading listings...</p>
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <Card key={i} className="overflow-hidden border-border/60 animate-pulse">
+                <div className="aspect-[16/10] bg-muted" />
+                <CardContent className="p-4 space-y-3">
+                  <div className="h-4 bg-muted rounded w-3/4" />
+                  <div className="h-3 bg-muted rounded w-1/2" />
+                  <div className="flex gap-3">
+                    <div className="h-3 bg-muted rounded w-16" />
+                    <div className="h-3 bg-muted rounded w-16" />
+                    <div className="h-3 bg-muted rounded w-16" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
         </div>
       </DashboardLayout>
     );
   }
 
+  // ─── Main Render ───────────────────────────────────────────
   return (
     <DashboardLayout>
       <div className="space-y-4 px-2 pt-3 pb-3 sm:space-y-6 sm:p-6">
+        {/* Header */}
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <PageHeader
             badge="Exclusive"
@@ -437,272 +558,179 @@ const PrivateListingPortal = () => {
               size="sm"
               onClick={() => setAddDialogOpen(true)}
             >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Listing
+              <Plus className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Add Listing</span>
             </Button>
           </div>
         </div>
 
-          <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-            <DialogContent className="sm:max-w-[680px]">
-              <DialogHeader>
-                <DialogTitle>Add to Exclusive Listings</DialogTitle>
-                <DialogDescription>
-                  Select delivered shoots and mark them as Private Exclusive.
-                </DialogDescription>
-              </DialogHeader>
+        {/* Search + View Toggle */}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by address, city, state, zip, price, or client..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 pr-9 h-10"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          <div className="flex items-center border rounded-md overflow-hidden bg-card/50">
+            <button
+              type="button"
+              onClick={() => setViewMode('grid')}
+              className={`p-2 transition-colors ${viewMode === 'grid' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'}`}
+              title="Grid view"
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('list')}
+              className={`p-2 transition-colors ${viewMode === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'}`}
+              title="List view"
+            >
+              <List className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
 
-              <div className="space-y-3">
-                <Input
-                  placeholder="Search delivered shoots (address, city, client)"
-                  value={deliveredSearch}
-                  onChange={(e) => setDeliveredSearch(e.target.value)}
-                />
+        {/* Count */}
+        {sortedListings.length > 0 && (
+          <div className="text-xs text-muted-foreground">
+            {sortedListings.length} {sortedListings.length === 1 ? 'listing' : 'listings'}
+            {searchQuery && ` matching "${searchQuery}"`}
+          </div>
+        )}
 
-                <div className="border rounded-md overflow-hidden">
-                  <div className="max-h-[360px] overflow-auto">
-                    {deliveredLoading ? (
-                      <div className="p-4 text-sm text-muted-foreground">Loading delivered shoots…</div>
-                    ) : (
-                      (deliveredShoots
-                        .filter((s: any) => {
-                          if (!deliveredSearch.trim()) return true;
-                          const q = deliveredSearch.toLowerCase();
-                          const addr = String(s?.location?.fullAddress || s?.fullAddress || s?.address || '').toLowerCase();
-                          const city = String(s?.location?.city || s?.city || '').toLowerCase();
-                          const client = String(s?.client?.name || '').toLowerCase();
-                          return addr.includes(q) || city.includes(q) || client.includes(q);
-                        })
-                        .slice(0, 80)
-                      ).map((s: any) => {
-                        const id = String(s?.id);
-                        const checked = selectedShootIds.has(id);
-                        const title = s?.location?.fullAddress || s?.fullAddress || `${s?.address || ''}, ${s?.city || ''}`;
-                        const subtitle = `${s?.client?.name || 'Unknown'} · ${String(s?.workflowStatus || s?.workflow_status || s?.status || '').toLowerCase()}`;
-                        return (
-                          <button
-                            key={id}
-                            type="button"
-                            onClick={() => toggleShootSelected(id)}
-                            className={
-                              `w-full text-left px-4 py-3 border-b border-border/60 transition-colors ` +
-                              (checked ? 'bg-accent/40' : 'hover:bg-accent/20')
-                            }
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <div className="font-medium truncate">{title}</div>
-                                <div className="text-xs text-muted-foreground truncate">{subtitle}</div>
-                              </div>
-                              <div className="flex-shrink-0 text-xs text-muted-foreground">
-                                {checked ? 'Selected' : 'Select'}
-                              </div>
-                            </div>
-                          </button>
-                        );
+        {/* Add Dialog */}
+        <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+          <DialogContent className="sm:max-w-[680px]">
+            <DialogHeader>
+              <DialogTitle>Add to Exclusive Listings</DialogTitle>
+              <DialogDescription>
+                Select delivered shoots and mark them as Private Exclusive.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-3">
+              <Input
+                placeholder="Search delivered shoots (address, city, client)"
+                value={deliveredSearch}
+                onChange={(e) => setDeliveredSearch(e.target.value)}
+              />
+
+              <div className="border rounded-md overflow-hidden">
+                <div className="max-h-[360px] overflow-auto">
+                  {deliveredLoading ? (
+                    <div className="p-4 text-sm text-muted-foreground">Loading delivered shoots…</div>
+                  ) : (
+                    (deliveredShoots
+                      .filter((s: any) => {
+                        if (!deliveredSearch.trim()) return true;
+                        const q = deliveredSearch.toLowerCase();
+                        const addr = String(s?.location?.fullAddress || s?.fullAddress || s?.address || '').toLowerCase();
+                        const city = String(s?.location?.city || s?.city || '').toLowerCase();
+                        const client = String(s?.client?.name || '').toLowerCase();
+                        return addr.includes(q) || city.includes(q) || client.includes(q);
                       })
-                    )}
+                      .slice(0, 80)
+                    ).map((s: any) => {
+                      const id = String(s?.id);
+                      const checked = selectedShootIds.has(id);
+                      const title = s?.location?.fullAddress || s?.fullAddress || `${s?.address || ''}, ${s?.city || ''}`;
+                      const subtitle = `${s?.client?.name || 'Unknown'} · ${String(s?.workflowStatus || s?.workflow_status || s?.status || '').toLowerCase()}`;
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => toggleShootSelected(id)}
+                          className={
+                            `w-full text-left px-4 py-3 border-b border-border/60 transition-colors ` +
+                            (checked ? 'bg-accent/40' : 'hover:bg-accent/20')
+                          }
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="font-medium truncate">{title}</div>
+                              <div className="text-xs text-muted-foreground truncate">{subtitle}</div>
+                            </div>
+                            <div className="flex-shrink-0 text-xs text-muted-foreground">
+                              {checked ? 'Selected' : 'Select'}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
 
-                    {!deliveredLoading && deliveredShoots.length === 0 && (
-                      <div className="p-4 text-sm text-muted-foreground">No delivered shoots available to add.</div>
-                    )}
-                  </div>
+                  {!deliveredLoading && deliveredShoots.length === 0 && (
+                    <div className="p-4 text-sm text-muted-foreground">No delivered shoots available to add.</div>
+                  )}
                 </div>
               </div>
+            </div>
 
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setAddDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={addSelectedToExclusive} disabled={deliveredLoading}>
-                  Add Selected
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setAddDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={addSelectedToExclusive} disabled={deliveredLoading}>
+                Add Selected
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-          <Card className="border-border/70 bg-card/50 backdrop-blur-sm">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2">
-                <Search className="h-5 w-5 text-muted-foreground" />
-                <Input
-                  placeholder="Smart Search (address, city, client, services)"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="flex-1"
-                />
-                {searchQuery && (
-                  <Button variant="ghost" size="sm" onClick={() => setSearchQuery('')}>
-                    Clear
+        {/* Empty State */}
+        {sortedListings.length === 0 ? (
+          <Card>
+            <CardContent className="py-24 text-center">
+              <Home className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+              <h3 className="text-lg font-semibold mb-2">No exclusive listings found</h3>
+              <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                {searchQuery
+                  ? 'Try adjusting your search terms'
+                  : 'Private listings are created by marking a delivered shoot as Private Exclusive.'}
+              </p>
+              {!searchQuery && (
+                <div className="mt-6 flex items-center justify-center gap-2 flex-wrap">
+                  <Button
+                    variant="default"
+                    onClick={() => navigate('/shoot-history')}
+                  >
+                    View Delivered Shoots
                   </Button>
-                )}
-              </div>
+                  <Button
+                    variant="outline"
+                    onClick={() => navigate('/dashboard')}
+                  >
+                    Go to Dashboard
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
-
-          {filteredListings.length === 0 ? (
-            <Card>
-              <CardContent className="py-24 text-center">
-                <Home className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                <h3 className="text-lg font-semibold mb-2">No exclusive listings found</h3>
-                <p className="text-muted-foreground">
-                  {searchQuery
-                    ? 'Try adjusting your search terms'
-                    : 'Private listings are created by marking a delivered shoot as Private Exclusive.'}
-                </p>
-                {!searchQuery && (
-                  <div className="mt-6 flex items-center justify-center gap-2 flex-wrap">
-                    <Button
-                      variant="default"
-                      onClick={() => navigate('/shoot-history')}
-                    >
-                      View Delivered Shoots
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => navigate('/dashboard')}
-                    >
-                      Go to Dashboard
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid gap-6 lg:grid-cols-12">
-              {/* LEFT: Exclusive Ledger */}
-              <Card className="lg:col-span-4 border-border/70 bg-card/50 backdrop-blur-sm">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <CardTitle className="text-sm">Exclusive Ledger</CardTitle>
-                    <div className="text-xs text-muted-foreground">
-                      {filteredListings.length} {filteredListings.length === 1 ? 'listing' : 'listings'}
-                    </div>
-                  </div>
-                  <CardDescription>
-                    Your private, pre-market properties.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <div className="max-h-[70vh] overflow-auto">
-                    {sortedListings.length ? (
-                      sortedListings.map((listing) => renderListingRow(listing))
-                    ) : (
-                      <div className="px-4 py-3 text-xs text-muted-foreground border-b border-border/60">
-                        No listings found.
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* RIGHT: Property Spotlight */}
-              <Card className="lg:col-span-8 overflow-hidden border-border/70 bg-card/50 backdrop-blur-sm">
-                <div className="relative h-[360px] w-full overflow-hidden bg-muted">
-                  <img
-                    src={resolvePreviewUrl(selectedListing?.heroImage) || '/placeholder.svg'}
-                    alt={selectedListing ? buildListingAlias(selectedListing) : 'Listing'}
-                    className="h-full w-full object-cover"
-                    loading="lazy"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
-
-                  <div className="absolute top-4 left-4 flex items-center gap-2">
-                    <Badge variant="outline" className="border-white/20 bg-black/30 text-white">
-                      <Lock className="h-3 w-3 mr-1" />
-                      Private Exclusive
-                    </Badge>
-                  </div>
-
-                  <div className="absolute bottom-4 left-4 right-4">
-                    <div className="text-white">
-                      <div className="font-display text-2xl leading-tight">
-                        {selectedListing ? buildListingAlias(selectedListing) : 'Exclusive Listing'}
-                      </div>
-                      <div className="text-white/80 text-sm">
-                        {selectedListing?.city}, {selectedListing?.state}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <CardContent className="p-5 space-y-4">
-                  <div className="flex items-center justify-between gap-3 flex-wrap">
-                    <div className="flex items-center gap-2">
-                      {selectedListing ? getStatusBadge(selectedListing.status) : null}
-                      <div className="text-xs text-muted-foreground">Ref ID: {selectedListing?.id || '—'}</div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={!selectedListing}
-                        onClick={() => {
-                          if (!selectedListing) return;
-                          navigate(`/exclusive-listings/${selectedListing.id}`);
-                        }}
-                      >
-                        View Details
-                      </Button>
-                      <Button
-                        size="sm"
-                        disabled={!selectedListing}
-                        onClick={() => {
-                          if (!selectedListing) return;
-                          navigate(`/shoots/${selectedListing.id}`);
-                        }}
-                      >
-                        View Shoot
-                      </Button>
-                      {selectedListing?.tourLinks?.branded && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            window.open(selectedListing.tourLinks!.branded!, '_blank');
-                          }}
-                        >
-                          Open Tour
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <Card className="border-border/70 bg-background/40">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm">Client</CardTitle>
-                      </CardHeader>
-                      <CardContent className="text-xs text-muted-foreground space-y-2">
-                        <div className="text-foreground font-medium truncate">{selectedListing?.client?.name || '—'}</div>
-                        <div className="truncate">{selectedListing?.client?.email || ''}</div>
-                      </CardContent>
-                    </Card>
-
-                    <Card className="border-border/70 bg-background/40">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm">Production</CardTitle>
-                      </CardHeader>
-                      <CardContent className="text-xs text-muted-foreground space-y-2">
-                        <div className="flex items-center gap-2">
-                          <Camera className="h-3.5 w-3.5" />
-                          <span className="truncate">{selectedListing?.photographer?.name || 'Unassigned'}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Calendar className="h-3.5 w-3.5" />
-                          <span className="truncate">
-                            {selectedListing?.scheduledDate
-                              ? format(new Date(selectedListing.scheduledDate), 'MMM d, yyyy')
-                              : '—'}
-                          </span>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
+        ) : viewMode === 'grid' ? (
+          /* ─── Grid View ─── */
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+            {sortedListings.map((listing) => renderGridCard(listing))}
+          </div>
+        ) : (
+          /* ─── List View ─── */
+          <div className="space-y-2">
+            {sortedListings.map((listing) => renderListRow(listing))}
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );
