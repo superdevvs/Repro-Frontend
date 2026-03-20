@@ -10,6 +10,7 @@ import {
   Link2, ExternalLink, Car, Tag,
 } from "lucide-react";
 import { NeoTour } from "./NeoTour";
+import { trackPageView, trackMediaView, trackLinkClick, trackDownload } from '@/lib/tourTracking';
 
 interface ShootData {
   id: number;
@@ -107,6 +108,7 @@ export function MlsCompliant() {
         })));
         setFeaturedEmbedId(data?.tour_links?.featured_embed_id || data?.tour_links?.featured_embed || '');
         setTourSettings({ autoplay: Boolean(data?.tour_links?.autoplay) });
+        if (data?.shoot?.id) trackPageView(data.shoot.id, 'mls');
       } catch (err) {
         console.error('Error fetching tour data:', err);
       } finally {
@@ -173,7 +175,11 @@ export function MlsCompliant() {
 
   const hasVideo = videos.length > 0 || !!videoLink;
 
-  const openLightbox = (index: number) => { setLightboxIndex(index); setLightboxOpen(true); };
+  const openLightbox = (index: number) => {
+    setLightboxIndex(index);
+    setLightboxOpen(true);
+    if (shoot?.id) trackMediaView(shoot.id, 'mls', index, photos[index]);
+  };
   const navigateLightbox = (direction: "prev" | "next") => {
     setLightboxIndex((prev) =>
       direction === "prev" ? (prev === 0 ? photos.length - 1 : prev - 1) : (prev === photos.length - 1 ? 0 : prev + 1)

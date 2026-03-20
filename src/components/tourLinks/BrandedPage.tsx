@@ -11,6 +11,7 @@ import {
   Car, Facebook, Linkedin, Instagram, Tag, DollarSign,
 } from "lucide-react";
 import { NeoTour } from "./NeoTour";
+import { trackPageView, trackMediaView, trackLinkClick, trackDownload } from '@/lib/tourTracking';
 
 interface ShootData {
   id: number;
@@ -136,6 +137,10 @@ export function BrandedPage() {
           realtor_info: data?.tour_links?.realtor_info || '',
           autoplay: Boolean(data?.tour_links?.autoplay),
         });
+      // Track page view after successful load
+      if (data?.shoot?.id) {
+        trackPageView(data.shoot.id, 'branded');
+      }
       } catch (err) {
         console.error('Error fetching tour data:', err);
       } finally {
@@ -200,7 +205,11 @@ export function BrandedPage() {
 
   const hasVideo = videos.length > 0 || !!videoLink;
 
-  const openLightbox = (index: number) => { setLightboxIndex(index); setLightboxOpen(true); };
+  const openLightbox = (index: number) => {
+    setLightboxIndex(index);
+    setLightboxOpen(true);
+    if (shoot?.id) trackMediaView(shoot.id, 'branded', index, photos[index]);
+  };
   const navigateLightbox = (direction: "prev" | "next") => {
     setLightboxIndex((prev) =>
       direction === "prev" ? (prev === 0 ? photos.length - 1 : prev - 1) : (prev === photos.length - 1 ? 0 : prev + 1)

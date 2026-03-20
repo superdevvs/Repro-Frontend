@@ -41,6 +41,7 @@ import { ShootDetailsMediaTab } from './tabs/ShootDetailsMediaTab';
 import { ShootDetailsNotesTab } from './tabs/ShootDetailsNotesTab';
 import { ShootDetailsIssuesTab } from './tabs/ShootDetailsIssuesTab';
 import { ShootDetailsSettingsTab } from './tabs/ShootDetailsSettingsTab';
+import { TourAnalyticsPanel } from './TourAnalyticsPanel';
 import { ShootDetailsTourTab } from './tabs/ShootDetailsTourTab';
 import { ShootDetailsQuickActions } from './tabs/ShootDetailsQuickActions';
 import { SquarePaymentDialog } from '@/components/payments/SquarePaymentDialog';
@@ -93,6 +94,7 @@ export function ShootDetailsModal({
   const [providerVersion, setProviderVersion] = useState(0);
   const [isMediaExpanded, setIsMediaExpanded] = useState(false);
   const [showHidden, setShowHidden] = useState(false);
+  const [showTourAnalytics, setShowTourAnalytics] = useState(false);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [isMarkPaidDialogOpen, setIsMarkPaidDialogOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -302,6 +304,7 @@ export function ShootDetailsModal({
 
   const handleTabChange = (value: string) => {
     setActiveTab(value as typeof activeTab);
+    if (value !== 'tours') setShowTourAnalytics(false);
   };
 
   useEffect(() => {
@@ -2658,6 +2661,7 @@ export function ShootDetailsModal({
                       isAdmin={isAdmin}
                       isClient={isClient}
                       onShootUpdate={refreshShootAndParent}
+                      onShowAnalytics={() => setShowTourAnalytics(true)}
                     />
                   </TabsContent>
                 )}
@@ -2728,23 +2732,30 @@ export function ShootDetailsModal({
             </div>
           </div>
 
-          {/* Desktop media pane */}
+          {/* Desktop media pane / Tour Analytics pane */}
           <div className="hidden sm:flex w-[62.5%] min-h-0 flex-1 flex-col bg-background border-t sm:border-t-0">
             <div className="flex-1 min-h-0 overflow-y-auto px-2 sm:px-3">
-              <ShootDetailsMediaTab
-                shoot={shoot}
-                isAdmin={isAdmin}
-                isPhotographer={isPhotographer}
-                isEditor={isEditor}
-                isClient={isClient}
-                role={currentUserRole}
-                onShootUpdate={refreshShootAndParent}
-                onSelectionChange={setSelectedFileIds}
-                isExpanded={isMediaExpanded}
-                onToggleExpand={() => setIsMediaExpanded(!isMediaExpanded)}
-                showHidden={showHidden}
-                onShowHiddenChange={setShowHidden}
-              />
+              {showTourAnalytics && shoot ? (
+                <TourAnalyticsPanel
+                  shootId={shoot.id}
+                  onBack={() => setShowTourAnalytics(false)}
+                />
+              ) : (
+                <ShootDetailsMediaTab
+                  shoot={shoot}
+                  isAdmin={isAdmin}
+                  isPhotographer={isPhotographer}
+                  isEditor={isEditor}
+                  isClient={isClient}
+                  role={currentUserRole}
+                  onShootUpdate={refreshShootAndParent}
+                  onSelectionChange={setSelectedFileIds}
+                  isExpanded={isMediaExpanded}
+                  onToggleExpand={() => setIsMediaExpanded(!isMediaExpanded)}
+                  showHidden={showHidden}
+                  onShowHiddenChange={setShowHidden}
+                />
+              )}
             </div>
             {/* Bottom Action Buttons - Desktop only, inside right pane */}
             {!isEditMode && !isRequestedStatus && (canResumeFromHold || canSendToEditing || canFinalise || (canShowInvoiceButton && !isPhotographer && !isEditor)) && (

@@ -83,6 +83,7 @@ export function UserProfileDialog({
 
   const { role: viewerRole } = useAuth();
   const canSeeSensitiveRepData = viewerRole === 'superadmin';
+  const canSeeActivityLog = ['admin', 'superadmin', 'editing_manager', 'salesRep'].includes(viewerRole);
   const repDetails = (user.metadata?.repDetails as RepDetails | undefined) || undefined;
 
   const getInitials = (name: string) => {
@@ -160,9 +161,9 @@ export function UserProfileDialog({
 
           <div className="flex-1">
             <Tabs defaultValue="info">
-              <TabsList className="grid h-12 grid-cols-3 rounded-xl p-1">
+              <TabsList className={`grid h-12 rounded-xl p-1 ${canSeeActivityLog ? 'grid-cols-3' : 'grid-cols-2'}`}>
                 <TabsTrigger value="info">Profile Info</TabsTrigger>
-                <TabsTrigger value="activity">Activity Log</TabsTrigger>
+                {canSeeActivityLog && <TabsTrigger value="activity">Activity Log</TabsTrigger>}
                 <TabsTrigger value="stats">Stats</TabsTrigger>
               </TabsList>
               
@@ -323,24 +324,26 @@ export function UserProfileDialog({
                 )}
               </TabsContent>
               
-              <TabsContent value="activity" className="pt-4">
-                <div className="space-y-4">
-                  <h3 className="font-medium">Recent Activity</h3>
+              {canSeeActivityLog && (
+                <TabsContent value="activity" className="pt-4">
                   <div className="space-y-4">
-                    {mockActivities.map(activity => (
-                      <div key={activity.id} className="border-b pb-3">
-                        <div className="flex justify-between">
-                          <p className="font-medium">{activity.description}</p>
-                          <Badge variant="outline">{activity.type}</Badge>
+                    <h3 className="font-medium">Recent Activity</h3>
+                    <div className="space-y-4">
+                      {mockActivities.map(activity => (
+                        <div key={activity.id} className="border-b pb-3">
+                          <div className="flex justify-between">
+                            <p className="font-medium">{activity.description}</p>
+                            <Badge variant="outline">{activity.type}</Badge>
+                          </div>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {format(new Date(activity.timestamp), "PPP 'at' p")}
+                          </p>
                         </div>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {format(new Date(activity.timestamp), "PPP 'at' p")}
-                        </p>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              </TabsContent>
+                </TabsContent>
+              )}
               
               <TabsContent value="stats" className="pt-4">
                 <div className="space-y-4">

@@ -24,6 +24,7 @@ import {
   Info,
   Loader2,
   Sparkles,
+  BarChart3,
 } from 'lucide-react';
 import { ShootData } from '@/types/shoots';
 import { useToast } from '@/hooks/use-toast';
@@ -52,6 +53,7 @@ interface ShootDetailsTourTabProps {
   isAdmin: boolean;
   isClient?: boolean;
   onShootUpdate: () => void;
+  onShowAnalytics?: () => void;
 }
 
 export function ShootDetailsTourTab({
@@ -59,6 +61,7 @@ export function ShootDetailsTourTab({
   isAdmin,
   isClient = false,
   onShootUpdate,
+  onShowAnalytics,
 }: ShootDetailsTourTabProps) {
   const { toast } = useToast();
   const [tourLinks, setTourLinks] = useState<Record<string, string>>({});
@@ -904,8 +907,23 @@ export function ShootDetailsTourTab({
       {/* Tour Links Section */}
       <Card>
         <CardHeader>
-          <CardTitle>Tour Links</CardTitle>
-          <CardDescription>Manage and share tour links for this shoot</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Tour Links</CardTitle>
+              <CardDescription>Manage and share tour links for this shoot</CardDescription>
+            </div>
+            {onShowAnalytics && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onShowAnalytics}
+                className="h-8 text-xs gap-1.5"
+              >
+                <BarChart3 className="h-3.5 w-3.5" />
+                Analytics
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Branded Tour Link */}
@@ -1571,35 +1589,36 @@ export function ShootDetailsTourTab({
                   const isEditing = editing3DKey === key;
 
                   return (
-                    <div key={key} className="border rounded-lg p-3 flex flex-col">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="text-muted-foreground">—</div>
-                          <div>
+                    <div key={key} className="border rounded-lg p-3 flex flex-col overflow-hidden">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <div className="text-muted-foreground flex-shrink-0">—</div>
+                          <div className="min-w-0">
                             <div className="font-medium text-sm">{label}</div>
-                            <div className="text-xs text-muted-foreground">{url || 'Not set'}</div>
+                            <div className="text-xs text-muted-foreground truncate">{url || 'Not set'}</div>
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1 flex-shrink-0">
                           {url && !isEditing && (
-                            <Button variant="ghost" size="sm" onClick={() => window.open(url, '_blank')}>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => window.open(url, '_blank')}>
                               <ExternalLink className="h-3.5 w-3.5" />
                             </Button>
                           )}
                           {!isEditing && isAdmin && (
-                            <Button variant="ghost" size="sm" onClick={() => startEdit3D(key)}>
-                              <Edit className="h-4 w-4" />
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => startEdit3D(key)}>
+                              <Edit className="h-3.5 w-3.5" />
                             </Button>
                           )}
                           {!isEditing && isAdmin && url && (
                             <Button
-                              variant="destructive"
+                              variant="ghost"
                               size="sm"
+                              className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
                               onClick={() => confirmDelete3D(key)}
                               disabled={isDeleting3D === key}
                             >
-                              <Trash className="h-4 w-4" />
+                              <Trash className="h-3.5 w-3.5" />
                             </Button>
                           )}
                         </div>
@@ -1689,35 +1708,36 @@ export function ShootDetailsTourTab({
                   const isEditing = editing3DKey === key;
 
                   return (
-                    <div key={key} className="border rounded-lg p-3 flex flex-col">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="text-muted-foreground">—</div>
-                          <div>
+                    <div key={key} className="border rounded-lg p-3 flex flex-col overflow-hidden">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <div className="text-muted-foreground flex-shrink-0">—</div>
+                          <div className="min-w-0">
                             <div className="font-medium text-sm">{label}</div>
-                            <div className="text-xs text-muted-foreground">{url || 'Not set'}</div>
+                            <div className="text-xs text-muted-foreground truncate">{url || 'Not set'}</div>
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1 flex-shrink-0">
                           {url && !isEditing && (
-                            <Button variant="ghost" size="sm" onClick={() => window.open(url, '_blank')}>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => window.open(url, '_blank')}>
                               <ExternalLink className="h-3.5 w-3.5" />
                             </Button>
                           )}
                           {!isEditing && isAdmin && (
-                            <Button variant="ghost" size="sm" onClick={() => startEdit3D(key)}>
-                              <Edit className="h-4 w-4" />
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => startEdit3D(key)}>
+                              <Edit className="h-3.5 w-3.5" />
                             </Button>
                           )}
                           {!isEditing && isAdmin && url && (
                             <Button
-                              variant="destructive"
+                              variant="ghost"
                               size="sm"
+                              className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
                               onClick={() => confirmDelete3D(key)}
                               disabled={isDeleting3D === key}
                             >
-                              <Trash className="h-4 w-4" />
+                              <Trash className="h-3.5 w-3.5" />
                             </Button>
                           )}
                         </div>
@@ -1759,35 +1779,36 @@ export function ShootDetailsTourTab({
                   const isEditing = editing3DKey === key;
 
                   return (
-                    <div key={key} className="border rounded-lg p-3 flex flex-col">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="text-muted-foreground">—</div>
-                          <div>
+                    <div key={key} className="border rounded-lg p-3 flex flex-col overflow-hidden">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <div className="text-muted-foreground flex-shrink-0">—</div>
+                          <div className="min-w-0">
                             <div className="font-medium text-sm">{label}</div>
-                            <div className="text-xs text-muted-foreground">{url || 'Not set'}</div>
+                            <div className="text-xs text-muted-foreground truncate">{url || 'Not set'}</div>
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1 flex-shrink-0">
                           {url && !isEditing && (
-                            <Button variant="ghost" size="sm" onClick={() => window.open(url, '_blank')}>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => window.open(url, '_blank')}>
                               <ExternalLink className="h-3.5 w-3.5" />
                             </Button>
                           )}
                           {!isEditing && isAdmin && (
-                            <Button variant="ghost" size="sm" onClick={() => startEdit3D(key)}>
-                              <Edit className="h-4 w-4" />
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => startEdit3D(key)}>
+                              <Edit className="h-3.5 w-3.5" />
                             </Button>
                           )}
                           {!isEditing && isAdmin && url && (
                             <Button
-                              variant="destructive"
+                              variant="ghost"
                               size="sm"
+                              className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
                               onClick={() => confirmDelete3D(key)}
                               disabled={isDeleting3D === key}
                             >
-                              <Trash className="h-4 w-4" />
+                              <Trash className="h-3.5 w-3.5" />
                             </Button>
                           )}
                         </div>

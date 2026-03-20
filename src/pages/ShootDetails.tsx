@@ -1088,7 +1088,7 @@ const ShootDetails: React.FC = () => {
                       </TabsTrigger>
                     </>
                   )}
-                  {!isPhotographer && (
+                  {(isAdmin || isRep) && (
                     <TabsTrigger 
                       value="activity" 
                       className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-semibold data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-10 sm:h-12 px-3 sm:px-4 text-xs sm:text-sm whitespace-nowrap"
@@ -1237,7 +1237,7 @@ const ShootDetails: React.FC = () => {
                     </div>
                   </TabsContent>
 
-                  {!isPhotographer && (
+                  {(isAdmin || isRep) && (
                     <TabsContent value="activity" className="!mt-0 !pt-0 px-4 sm:px-6 pb-4 sm:pb-6 overflow-y-auto" style={{ marginTop: 0, paddingTop: 0, flex: '0 0 auto', height: 'auto' }}>
                       <div className="max-w-7xl mx-auto !pt-0 !mt-0" style={{ paddingTop: 0, marginTop: 0 }}>
                         <ShootDetailsActivityLogTab

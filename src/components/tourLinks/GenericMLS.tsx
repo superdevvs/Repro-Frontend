@@ -10,6 +10,7 @@ import {
   Link2, ExternalLink, Car, Tag,
 } from "lucide-react";
 import { NeoTour } from "./NeoTour";
+import { trackPageView, trackMediaView, trackLinkClick, trackDownload } from '@/lib/tourTracking';
 
 interface PropertyDetails {
   beds?: number;
@@ -42,6 +43,7 @@ export function GenericMLS() {
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [tourStyle, setTourStyle] = useState<string>('default');
   const [heroIndex, setHeroIndex] = useState(0);
+  const [shootId, setShootId] = useState<number | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -97,6 +99,11 @@ export function GenericMLS() {
         })));
         setFeaturedEmbedId(data?.tour_links?.featured_embed_id || data?.tour_links?.featured_embed || '');
         setTourSettings({ autoplay: Boolean(data?.tour_links?.autoplay) });
+        const resolvedShootId = data?.shoot?.id || shootId;
+        if (resolvedShootId) {
+          setShootId(resolvedShootId);
+          trackPageView(resolvedShootId, 'generic_mls');
+        }
       } catch (err) {
         console.error('Error fetching tour data:', err);
       } finally {
@@ -161,7 +168,11 @@ export function GenericMLS() {
 
   const hasVideo = videos.length > 0 || !!videoLink;
 
-  const openLightbox = (index: number) => { setLightboxIndex(index); setLightboxOpen(true); };
+  const openLightbox = (index: number) => {
+    setLightboxIndex(index);
+    setLightboxOpen(true);
+    if (shootId) trackMediaView(shootId, 'generic_mls', index, photos[index]);
+  };
   const navigateLightbox = (direction: "prev" | "next") => {
     setLightboxIndex((prev) =>
       direction === "prev" ? (prev === 0 ? photos.length - 1 : prev - 1) : (prev === photos.length - 1 ? 0 : prev + 1)
