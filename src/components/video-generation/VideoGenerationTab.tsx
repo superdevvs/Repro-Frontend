@@ -20,27 +20,32 @@ export function VideoGenerationTab() {
 
   return (
     <div className="space-y-4">
-      {/* Sub-view toggle */}
+      {/* Inline header with sub-view toggle */}
       {subView !== 'job-detail' && (
-        <div className={`flex gap-2 ${isMobile ? 'w-full' : ''}`}>
-          <Button
-            variant={subView === 'create' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setSubView('create')}
-            className={isMobile ? 'flex-1' : ''}
-          >
-            <Plus className="h-4 w-4 mr-1.5" />
-            Create Video
-          </Button>
-          <Button
-            variant={subView === 'dashboard' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setSubView('dashboard')}
-            className={isMobile ? 'flex-1' : ''}
-          >
-            <Film className="h-4 w-4 mr-1.5" />
-            My Videos
-          </Button>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+            {subView === 'create' ? 'Create Video' : 'My Videos'}
+          </h2>
+          <div className="flex gap-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5">
+            <Button
+              variant={subView === 'create' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setSubView('create')}
+              className={`h-8 ${subView === 'create' ? '' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
+            >
+              <Plus className="h-3.5 w-3.5 mr-1" />
+              Create
+            </Button>
+            <Button
+              variant={subView === 'dashboard' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setSubView('dashboard')}
+              className={`h-8 ${subView === 'dashboard' ? '' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
+            >
+              <Film className="h-3.5 w-3.5 mr-1" />
+              My Videos
+            </Button>
+          </div>
         </div>
       )}
 
