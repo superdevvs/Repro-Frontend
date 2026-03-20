@@ -55,8 +55,12 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { FileUploader } from '@/components/media/FileUploader';
+import { VideoGenerationTab } from '@/components/video-generation/VideoGenerationTab';
+import { PresetManagement } from '@/components/video-generation/PresetManagement';
+import { VideoErrorBoundary } from '@/components/video-generation/VideoErrorBoundary';
 
 type ViewMode = 'list' | 'detail' | 'edit' | 'upload' | 'preferences';
+type TopTab = 'image-editing' | 'video-generation' | 'settings';
 
 interface ShootWithEditing {
   id: number;
@@ -99,6 +103,7 @@ interface MediaFile {
 const AiEditing = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [topTab, setTopTab] = useState<TopTab>('image-editing');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedShoot, setSelectedShoot] = useState<ShootWithEditing | null>(null);
   const [shoots, setShoots] = useState<ShootWithEditing[]>([]);
@@ -1959,20 +1964,76 @@ const AiEditing = () => {
   return (
     <DashboardLayout>
       <div className="space-y-4 px-2 pt-3 pb-3 sm:space-y-6 sm:p-6">
-          {viewMode === 'list' && (
+          {/* Top-level tab navigation */}
+          <div className="flex items-center justify-between">
+            <PageHeader
+              badge="AI Studio"
+              title="AI Studio"
+              description="AI-powered photo editing and video generation"
+            />
+          </div>
+          <div className="flex gap-1 border-b border-slate-200 dark:border-slate-700 overflow-x-auto">
+            <button
+              onClick={() => setTopTab('image-editing')}
+              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                topTab === 'image-editing'
+                  ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+              }`}
+            >
+              Image Editing
+            </button>
+            <button
+              onClick={() => setTopTab('video-generation')}
+              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                topTab === 'video-generation'
+                  ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+              }`}
+            >
+              Video Generation
+            </button>
+            {(user?.role === 'admin' || user?.role === 'superadmin') && (
+              <button
+                onClick={() => setTopTab('settings')}
+                className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                  topTab === 'settings'
+                    ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                    : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                }`}
+              >
+                Settings
+              </button>
+            )}
+          </div>
+
+          {/* Image Editing tab (existing functionality) */}
+          {topTab === 'image-editing' && (
             <>
-              <PageHeader
-                badge="AI Editing"
-                title="AI Photo Editing"
-                description="Enhance your photos with AI-powered editing tools"
-              />
-              {renderListView()}
+              {viewMode === 'list' && renderListView()}
+              {viewMode === 'detail' && renderDetailView()}
+              {viewMode === 'edit' && renderEditView()}
+              {viewMode === 'upload' && renderUploadView()}
+              {viewMode === 'preferences' && renderPreferencesView()}
             </>
           )}
-          {viewMode === 'detail' && renderDetailView()}
-          {viewMode === 'edit' && renderEditView()}
-          {viewMode === 'upload' && renderUploadView()}
-          {viewMode === 'preferences' && renderPreferencesView()}
+
+          {/* Video Generation tab */}
+          {topTab === 'video-generation' && (
+            <VideoErrorBoundary fallbackTitle="Video generation encountered an error">
+              <VideoGenerationTab />
+            </VideoErrorBoundary>
+          )}
+
+          {/* Settings tab (admin only) */}
+          {topTab === 'settings' && (
+            <div className="space-y-8">
+              <VideoErrorBoundary fallbackTitle="Failed to load preset management">
+                <PresetManagement />
+              </VideoErrorBoundary>
+              {renderPreferencesView()}
+            </div>
+          )}
 
           {/* Edit Configuration Modal */}
           <Dialog open={showEditConfigModal} onOpenChange={setShowEditConfigModal}>
