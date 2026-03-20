@@ -29,7 +29,6 @@ import {
   Ruler,
   User,
   ExternalLink,
-  Clock,
   X,
 } from 'lucide-react';
 import { API_BASE_URL } from '@/config/env';
@@ -88,47 +87,9 @@ const formatPrice = (price: number | undefined | null): string => {
   return `$${Number(price).toLocaleString()}`;
 };
 
-const isHtml = (v: string) => v.includes('<') && v.includes('>');
-
-const extractUrlFromHtml = (html: string): string | null => {
-  const match = html.match(/src=["']([^"']+)["']/i);
-  return match?.[1] || null;
-};
-
-const pickUrl = (raw: string | undefined | null): string | null => {
-  if (!raw || typeof raw !== 'string') return null;
-  const v = raw.trim();
-  if (!v) return null;
-  if (isHtml(v)) return extractUrlFromHtml(v);
-  return v;
-};
-
-const extractBrandedTourUrl = (tourLinks: any, shootId?: string): string | null => {
-  if (!tourLinks || typeof tourLinks !== 'object') return null;
-
-  // Flat top-level keys
-  const flatBranded = pickUrl(tourLinks.branded) || pickUrl(tourLinks.branded_embed);
-  if (flatBranded) return flatBranded;
-
-  // Embeds array (most common structure from API)
-  const embeds = tourLinks.embeds;
-  if (Array.isArray(embeds) && embeds.length > 0) {
-    for (const embed of embeds) {
-      const url = pickUrl(embed?.branded) || pickUrl(embed?.branded_embed) || pickUrl(embed?.url);
-      if (url) return url;
-    }
-  }
-
-  // Other branded-related keys
-  const matterport = pickUrl(tourLinks.matterport_branded) || pickUrl(tourLinks.iguide_branded) || pickUrl(tourLinks.matterport);
-  if (matterport) return matterport;
-
-  // Fallback: if tour_links has any embeds at all, open the app's branded page
-  if (shootId && Array.isArray(embeds) && embeds.length > 0) {
-    return `/tour/branded?shootId=${shootId}`;
-  }
-
-  return null;
+const getBrandedTourUrl = (shootId: string): string => {
+  const base = typeof window !== 'undefined' ? window.location.origin : '';
+  return `${base}/tour/branded?shootId=${encodeURIComponent(shootId)}`;
 };
 
 const PrivateListingPortal = () => {
@@ -363,22 +324,13 @@ const PrivateListingPortal = () => {
   };
 
   const handleCardClick = (listing: PrivateListing) => {
-    const branded = extractBrandedTourUrl(listing.tourLinks, listing.id);
-    if (branded) {
-      window.open(branded, '_blank', 'noopener,noreferrer');
-    } else {
-      toast({
-        title: 'Tour Coming Soon',
-        description: 'The branded agent tour for this property is not yet available. Check back soon.',
-      });
-    }
+    const url = getBrandedTourUrl(listing.id);
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   // ─── Grid Card ─────────────────────────────────────────────
   const renderGridCard = (listing: PrivateListing) => {
     const heroUrl = resolvePreviewUrl(listing.heroImage) || '/placeholder.svg';
-    const hasTour = !!extractBrandedTourUrl(listing.tourLinks, listing.id);
-
     return (
       <Card
         key={listing.id}
@@ -405,15 +357,9 @@ const PrivateListingPortal = () => {
 
           {/* Tour indicator */}
           <div className="absolute top-3 right-3">
-            {hasTour ? (
-              <div className="h-7 w-7 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white transition-colors group-hover:bg-primary/80">
-                <ExternalLink className="h-3.5 w-3.5" />
-              </div>
-            ) : (
-              <div className="h-7 w-7 rounded-full bg-black/30 backdrop-blur-sm flex items-center justify-center text-white/60">
-                <Clock className="h-3.5 w-3.5" />
-              </div>
-            )}
+            <div className="h-7 w-7 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white transition-colors group-hover:bg-primary/80">
+              <ExternalLink className="h-3.5 w-3.5" />
+            </div>
           </div>
 
           {/* Price overlay */}
@@ -474,8 +420,6 @@ const PrivateListingPortal = () => {
   // ─── List Row ──────────────────────────────────────────────
   const renderListRow = (listing: PrivateListing) => {
     const heroUrl = resolvePreviewUrl(listing.heroImage) || '/placeholder.svg';
-    const hasTour = !!extractBrandedTourUrl(listing.tourLinks, listing.id);
-
     return (
       <div
         key={listing.id}
@@ -490,17 +434,9 @@ const PrivateListingPortal = () => {
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
             loading="lazy"
           />
-          {hasTour ? (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/20 transition-colors">
-              <ExternalLink className="h-4 w-4 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow" />
-            </div>
-          ) : (
-            <div className="absolute bottom-1 right-1">
-              <div className="h-5 w-5 rounded-full bg-black/40 flex items-center justify-center">
-                <Clock className="h-2.5 w-2.5 text-white/70" />
-              </div>
-            </div>
-          )}
+          <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/20 transition-colors">
+            <ExternalLink className="h-4 w-4 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow" />
+          </div>
         </div>
 
         {/* Info */}
