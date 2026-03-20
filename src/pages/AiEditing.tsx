@@ -2031,7 +2031,6 @@ const AiEditing = () => {
               <VideoErrorBoundary fallbackTitle="Failed to load preset management">
                 <PresetManagement />
               </VideoErrorBoundary>
-              {renderPreferencesView()}
             </div>
           )}
 
