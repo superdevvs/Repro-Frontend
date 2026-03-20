@@ -176,6 +176,10 @@ export interface ShootData {
     lastPaymentType?: string;
   };
   isPrivateListing?: boolean;
+  listingType?: 'for_sale' | 'for_rent';
+  listing_type?: 'for_sale' | 'for_rent';
+  propertyStatus?: 'available' | 'sold' | 'rented';
+  property_status?: 'available' | 'sold' | 'rented';
   status: string;
   workflowStatus?: string;
   notes?: string | {

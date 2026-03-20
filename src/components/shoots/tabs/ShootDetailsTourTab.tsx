@@ -22,6 +22,8 @@ import {
   X,
   Plus,
   Info,
+  Loader2,
+  Sparkles,
 } from 'lucide-react';
 import { ShootData } from '@/types/shoots';
 import { useToast } from '@/hooks/use-toast';
@@ -43,6 +45,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { ReproAiIcon } from '@/components/icons/ReproAiIcon';
 
 interface ShootDetailsTourTabProps {
   shoot: ShootData;
@@ -97,6 +100,19 @@ export function ShootDetailsTourTab({
     show_garage: false,
   });
   const [isSavingTourSettings, setIsSavingTourSettings] = useState(false);
+  
+  // Property info state
+  const [propertyDescription, setPropertyDescription] = useState('');
+  const [isSavingDescription, setIsSavingDescription] = useState(false);
+  const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
+  const [propertyMls, setPropertyMls] = useState('');
+  const [propertyPrice, setPropertyPrice] = useState('');
+  const [propertyLotSize, setPropertyLotSize] = useState('');
+  const [listingType, setListingType] = useState<string>('');
+  const [propertyStatus, setPropertyStatus] = useState<string>('available');
+  const [isSavingListingType, setIsSavingListingType] = useState(false);
+  const [isSavingPropertyStatus, setIsSavingPropertyStatus] = useState(false);
+  
   const isClientView = Boolean(isClient && !isAdmin);
 
   useEffect(() => {
@@ -151,6 +167,15 @@ export function ShootDetailsTourTab({
     };
 
     setTourSettings(tourSettingsDefaults);
+    
+    // Initialize property info fields
+    const tl = shoot.tourLinks as any;
+    setPropertyDescription(tl?.property_description || '');
+    setPropertyMls(tl?.property_mls || (shoot as any)?.mls_id || '');
+    setPropertyPrice(tl?.property_price || '');
+    setPropertyLotSize(tl?.property_lot_size || '');
+    setListingType((shoot as any)?.listing_type || (shoot as any)?.listingType || '');
+    setPropertyStatus((shoot as any)?.property_status || (shoot as any)?.propertyStatus || 'available');
   }, [shoot]);
 
   const hasVideoLink = Boolean(tourLinks.video_link?.trim());
@@ -786,6 +811,94 @@ export function ShootDetailsTourTab({
     }
   };
 
+  // Save a property info field to tour_links
+  const savePropertyField = async (field: string, value: string) => {
+    if (!isAdmin) return;
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const updatedTourLinks = {
+        ...(shoot.tourLinks || {}),
+        [field]: value || null,
+      };
+      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({ tour_links: updatedTourLinks }),
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ message: 'Failed to save' }));
+        throw new Error(errorData.message || 'Failed to save');
+      }
+      onShootUpdate();
+    } catch (err: any) {
+      toast({ title: 'Error', description: err?.message || 'Failed to save property info.', variant: 'destructive' });
+    }
+  };
+
+  // Save listing_type or property_status as a direct shoot column
+  const saveShootField = async (field: string, value: string, setLoading: (v: boolean) => void) => {
+    if (!isAdmin) return;
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({ [field]: value }),
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ message: 'Failed to save' }));
+        throw new Error(errorData.message || 'Failed to save');
+      }
+      toast({ title: 'Saved', description: `${field.replace('_', ' ')} updated.` });
+      onShootUpdate();
+    } catch (err: any) {
+      toast({ title: 'Error', description: err?.message || 'Failed to save.', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // AI generate property description
+  const handleGenerateDescription = async () => {
+    if (!isAdmin) return;
+    setIsGeneratingDescription(true);
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/generate-description`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+        },
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ message: 'Failed to generate description' }));
+        throw new Error(errorData.message || 'Failed to generate description');
+      }
+      const data = await res.json();
+      if (data.description) {
+        setPropertyDescription(data.description);
+        // Auto-save the generated description
+        await savePropertyField('property_description', data.description);
+        toast({ title: 'Generated', description: `AI description generated using ${data.images_used || 0} images.` });
+      }
+    } catch (err: any) {
+      toast({ title: 'Error', description: err?.message || 'Failed to generate description.', variant: 'destructive' });
+    } finally {
+      setIsGeneratingDescription(false);
+    }
+  };
+
   return (
     <div className="space-y-6 w-full">
       {/* Tour Links Section */}
@@ -1298,21 +1411,141 @@ export function ShootDetailsTourTab({
             </CollapsibleTrigger>
             <CollapsibleContent>
               <CardContent className="space-y-4">
+                {/* Listing Type */}
+                <div className="space-y-2">
+                  <Label>Listing Type</Label>
+                  <Select
+                    value={listingType || 'for_sale'}
+                    onValueChange={(value) => {
+                      setListingType(value);
+                      saveShootField('listing_type', value, setIsSavingListingType);
+                    }}
+                    disabled={!isAdmin || isSavingListingType}
+                  >
+                    <SelectTrigger className="h-9 text-sm">
+                      <SelectValue placeholder="Select listing type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="for_sale">For Sale</SelectItem>
+                      <SelectItem value="for_rent">For Rent</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {isSavingListingType && <p className="text-xs text-blue-500">Saving...</p>}
+                </div>
+
+                {/* Property Status Toggle (Sold/Rented) */}
+                <div className="flex items-center justify-between rounded-lg border border-border/60 p-3">
+                  <div>
+                    <Label>{listingType === 'for_rent' ? 'Mark as Rented' : 'Mark as Sold'}</Label>
+                    <p className="text-xs text-muted-foreground">
+                      {listingType === 'for_rent'
+                        ? 'Toggle when property has been rented.'
+                        : 'Toggle when property has been sold.'}
+                    </p>
+                  </div>
+                  <Switch
+                    checked={propertyStatus === 'sold' || propertyStatus === 'rented'}
+                    onCheckedChange={(checked) => {
+                      const newStatus = checked
+                        ? (listingType === 'for_rent' ? 'rented' : 'sold')
+                        : 'available';
+                      setPropertyStatus(newStatus);
+                      saveShootField('property_status', newStatus, setIsSavingPropertyStatus);
+                    }}
+                    disabled={!isAdmin || isSavingPropertyStatus}
+                  />
+                </div>
+                {isSavingPropertyStatus && <p className="text-xs text-blue-500">Saving status...</p>}
+
+                <Separator />
+
+                {/* Description with AI Generate */}
                 <div className="space-y-2">
                   <Label>Description</Label>
-                  <Input placeholder="Property description" />
+                  <div className="relative">
+                    <Textarea
+                      value={propertyDescription}
+                      onChange={(e) => setPropertyDescription(e.target.value)}
+                      onBlur={() => {
+                        if (isAdmin && propertyDescription !== ((shoot.tourLinks as any)?.property_description || '')) {
+                          setIsSavingDescription(true);
+                          savePropertyField('property_description', propertyDescription).finally(() => setIsSavingDescription(false));
+                        }
+                      }}
+                      placeholder="Enter or generate a property description..."
+                      disabled={!isAdmin}
+                      className="min-h-[120px] pb-12 text-sm"
+                    />
+                    {isAdmin && (
+                      <div className="absolute bottom-2 left-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleGenerateDescription}
+                          disabled={isGeneratingDescription}
+                          className="h-8 text-xs gap-1.5 bg-background/80 backdrop-blur-sm border-primary/20 hover:border-primary/40 hover:bg-primary/5"
+                        >
+                          {isGeneratingDescription ? (
+                            <>
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              Generating...
+                            </>
+                          ) : (
+                            <>
+                              <ReproAiIcon className="h-4 w-4" />
+                              AI Generate
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                  {isSavingDescription && <p className="text-xs text-blue-500">Saving...</p>}
+                  <p className="text-xs text-muted-foreground">
+                    Property description displayed on tour pages. Use AI Generate to auto-create from edited photos.
+                  </p>
                 </div>
+
+                {/* MLS Number */}
                 <div className="space-y-2">
                   <Label>MLS Number</Label>
-                  <Input placeholder="MLS #" />
+                  <Input
+                    value={propertyMls}
+                    onChange={(e) => setPropertyMls(e.target.value)}
+                    onBlur={() => {
+                      if (isAdmin) savePropertyField('property_mls', propertyMls);
+                    }}
+                    placeholder="MLS #"
+                    disabled={!isAdmin}
+                  />
                 </div>
+
+                {/* Price */}
                 <div className="space-y-2">
                   <Label>Price</Label>
-                  <Input placeholder="Property price" />
+                  <Input
+                    value={propertyPrice}
+                    onChange={(e) => setPropertyPrice(e.target.value)}
+                    onBlur={() => {
+                      if (isAdmin) savePropertyField('property_price', propertyPrice);
+                    }}
+                    placeholder="Property price"
+                    disabled={!isAdmin}
+                  />
                 </div>
+
+                {/* Lot Size */}
                 <div className="space-y-2">
                   <Label>Lot Size</Label>
-                  <Input placeholder="Lot size" />
+                  <Input
+                    value={propertyLotSize}
+                    onChange={(e) => setPropertyLotSize(e.target.value)}
+                    onBlur={() => {
+                      if (isAdmin) savePropertyField('property_lot_size', propertyLotSize);
+                    }}
+                    placeholder="Lot size"
+                    disabled={!isAdmin}
+                  />
                 </div>
               </CardContent>
             </CollapsibleContent>

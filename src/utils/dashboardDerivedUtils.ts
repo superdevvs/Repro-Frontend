@@ -355,7 +355,7 @@ export const filterUpcomingShoots = (shoots: DashboardShootSummary[], userRole?:
   return shoots
     .filter((shoot) => {
       const statusKey = getStatusKey(shoot);
-      const isAdmin = userRole === "admin" || userRole === "superadmin";
+      const isAdmin = userRole === "admin" || userRole === "superadmin" || userRole === "editing_manager";
 
       // Admins should see all shoots including delivered ones
       if (isAdmin) {

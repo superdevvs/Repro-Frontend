@@ -57,11 +57,7 @@ interface PrivateListing {
     totalPaid?: number;
     totalQuote?: number;
   };
-  tourLinks?: {
-    branded?: string;
-    mls?: string;
-    genericMls?: string;
-  };
+  tourLinks?: Record<string, any>;
   isPrivateListing: boolean;
   listing_type?: 'for_sale' | 'for_rent';
   bedrooms?: number;
@@ -90,6 +86,49 @@ const resolvePreviewUrl = (value: string | null | undefined): string | null => {
 const formatPrice = (price: number | undefined | null): string => {
   if (!price) return '';
   return `$${Number(price).toLocaleString()}`;
+};
+
+const isHtml = (v: string) => v.includes('<') && v.includes('>');
+
+const extractUrlFromHtml = (html: string): string | null => {
+  const match = html.match(/src=["']([^"']+)["']/i);
+  return match?.[1] || null;
+};
+
+const pickUrl = (raw: string | undefined | null): string | null => {
+  if (!raw || typeof raw !== 'string') return null;
+  const v = raw.trim();
+  if (!v) return null;
+  if (isHtml(v)) return extractUrlFromHtml(v);
+  return v;
+};
+
+const extractBrandedTourUrl = (tourLinks: any, shootId?: string): string | null => {
+  if (!tourLinks || typeof tourLinks !== 'object') return null;
+
+  // Flat top-level keys
+  const flatBranded = pickUrl(tourLinks.branded) || pickUrl(tourLinks.branded_embed);
+  if (flatBranded) return flatBranded;
+
+  // Embeds array (most common structure from API)
+  const embeds = tourLinks.embeds;
+  if (Array.isArray(embeds) && embeds.length > 0) {
+    for (const embed of embeds) {
+      const url = pickUrl(embed?.branded) || pickUrl(embed?.branded_embed) || pickUrl(embed?.url);
+      if (url) return url;
+    }
+  }
+
+  // Other branded-related keys
+  const matterport = pickUrl(tourLinks.matterport_branded) || pickUrl(tourLinks.iguide_branded) || pickUrl(tourLinks.matterport);
+  if (matterport) return matterport;
+
+  // Fallback: if tour_links has any embeds at all, open the app's branded page
+  if (shootId && Array.isArray(embeds) && embeds.length > 0) {
+    return `/tour/branded?shootId=${shootId}`;
+  }
+
+  return null;
 };
 
 const PrivateListingPortal = () => {
@@ -324,7 +363,7 @@ const PrivateListingPortal = () => {
   };
 
   const handleCardClick = (listing: PrivateListing) => {
-    const branded = listing.tourLinks?.branded;
+    const branded = extractBrandedTourUrl(listing.tourLinks, listing.id);
     if (branded) {
       window.open(branded, '_blank', 'noopener,noreferrer');
     } else {
@@ -338,7 +377,7 @@ const PrivateListingPortal = () => {
   // ─── Grid Card ─────────────────────────────────────────────
   const renderGridCard = (listing: PrivateListing) => {
     const heroUrl = resolvePreviewUrl(listing.heroImage) || '/placeholder.svg';
-    const hasTour = !!listing.tourLinks?.branded;
+    const hasTour = !!extractBrandedTourUrl(listing.tourLinks, listing.id);
 
     return (
       <Card
@@ -435,7 +474,7 @@ const PrivateListingPortal = () => {
   // ─── List Row ──────────────────────────────────────────────
   const renderListRow = (listing: PrivateListing) => {
     const heroUrl = resolvePreviewUrl(listing.heroImage) || '/placeholder.svg';
-    const hasTour = !!listing.tourLinks?.branded;
+    const hasTour = !!extractBrandedTourUrl(listing.tourLinks, listing.id);
 
     return (
       <div
