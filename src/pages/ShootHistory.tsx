@@ -3602,14 +3602,18 @@ const ShootHistory: React.FC = () => {
         description: 'Shoot deleted successfully',
       })
 
-      // Refresh the data
+      // Close detail if the deleted shoot was selected
       if (selectedShoot?.id && String(selectedShoot.id) === String(deleteShootId)) {
         setSelectedShoot(null)
         setIsDetailOpen(false)
       }
+
+      // Remove from local state immediately so card disappears instantly
+      const deletedId = String(deleteShootId)
+      setOperationalData(prev => prev.filter(s => String(s.id) !== deletedId))
       
-      // Trigger refresh
-      await refreshActiveTabData()
+      // Also refresh from server in background for consistency
+      refreshActiveTabData()
     } catch (error: any) {
       toast({
         title: 'Error',

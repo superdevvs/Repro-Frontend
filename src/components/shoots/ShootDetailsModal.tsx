@@ -1498,13 +1498,8 @@ export function ShootDetailsModal({
         );
       }
 
-      const result = await response.json();
-      
-      // Update the shoot data
-      if (result.data) {
-        setShoot(result.data);
-        updateShoot(shoot.id.toString(), result.data);
-      }
+      // Refresh shoot data from server to get properly formatted data
+      await refreshShoot();
 
       toast({
         title: isHoldRequest ? 'Hold request submitted' : 'Shoot put on hold',
@@ -1581,13 +1576,8 @@ export function ShootDetailsModal({
         throw new Error(error.message || 'Failed to cancel shoot');
       }
 
-      const result = await response.json();
-      
-      // Update the shoot data
-      if (result.data) {
-        setShoot(result.data);
-        updateShoot(shoot.id.toString(), result.data);
-      }
+      // Refresh shoot data from server to get properly formatted data
+      await refreshShoot();
 
       toast({
         title: 'Shoot cancelled',
@@ -1723,7 +1713,7 @@ export function ShootDetailsModal({
         }
         
         setShoot(updatedShootData);
-        updateShoot(shoot.id.toString(), updatedShootData);
+        updateShoot(shoot.id.toString(), updatedShootData, { skipApi: true });
       }
 
       toast({
