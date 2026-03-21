@@ -57,6 +57,7 @@ interface Service {
   price?: number;
   pricing_type?: 'fixed' | 'variable';
   sqft_ranges?: SqftRange[];
+  category?: { id: number | string; name: string } | string;
 }
 
 interface Photographer {
@@ -138,6 +139,7 @@ export function ShootEditModal({
   const [scheduledTime, setScheduledTime] = useState<string>('10:00');
   const [selectedServiceIds, setSelectedServiceIds] = useState<Set<string>>(new Set());
   const [photographerId, setPhotographerId] = useState<string>('');
+  const [perCategoryPhotographers, setPerCategoryPhotographers] = useState<Record<string, string>>({});
   
   // Notes fields (role-based visibility)
   const [shootNotes, setShootNotes] = useState(''); // All: client, admin, rep
@@ -182,6 +184,7 @@ export function ShootEditModal({
           name: s.name,
           price: Number(s.price || 0),
           pricing_type: s.pricing_type || 'fixed',
+          category: s.category ? { id: s.category.id, name: s.category.name } : undefined,
           sqft_ranges: (s.sqft_ranges || s.sqftRanges || []).map((r: any) => ({
             ...r,
             sqft_from: Number(r.sqft_from) || 0,
@@ -283,6 +286,20 @@ export function ShootEditModal({
               (s.id || s.service_id)?.toString()
             ).filter((id): id is string => Boolean(id)));
             setSelectedServiceIds(ids);
+
+            // Initialize per-category photographer assignments from shoot services
+            const normCat = (name: string) => name.trim().toLowerCase().replace(/s$/, '');
+            const catPhotogMap: Record<string, string> = {};
+            for (const s of shoot.services) {
+              if (typeof s !== 'object' || !s) continue;
+              const catName = (s as any).category?.name || (s as any).category_name || 'Other';
+              const key = normCat(catName);
+              const svcPhotogId = (s as any).resolved_photographer_id || (s as any).photographer_id || (s as any).photographer?.id;
+              if (svcPhotogId && !catPhotogMap[key]) {
+                catPhotogMap[key] = String(svcPhotogId);
+              }
+            }
+            setPerCategoryPhotographers(catPhotogMap);
           }
         }
       } catch (error: any) {
@@ -424,6 +441,28 @@ export function ShootEditModal({
     // Add photographer if selected (admin/rep only)
     if (isAdminOrRep && photographerId && photographerId !== 'unassigned') {
       payload.photographer_id = Number(photographerId);
+    }
+
+    // Add per-service photographer assignments
+    const normCatKey = (name: string) => name.trim().toLowerCase().replace(/s$/, '');
+    if (Object.keys(perCategoryPhotographers).length > 0) {
+      const servicePhotographerAssignments: Array<{ service_id: number; photographer_id: number }> = [];
+      for (const svcId of selectedServiceIds) {
+        const service = availableServices.find(s => s.id?.toString() === svcId);
+        if (!service) continue;
+        const catName = typeof service.category === 'string' ? service.category : service.category?.name || 'Other';
+        const catKey = normCatKey(catName);
+        const photogId = perCategoryPhotographers[catKey];
+        if (photogId && photogId !== 'unassigned') {
+          servicePhotographerAssignments.push({
+            service_id: Number(svcId),
+            photographer_id: Number(photogId),
+          });
+        }
+      }
+      if (servicePhotographerAssignments.length > 0) {
+        payload.service_photographers = servicePhotographerAssignments;
+      }
     }
 
     // Add role-based notes
@@ -777,28 +816,80 @@ export function ShootEditModal({
                   </div>
                 </div>
 
-                {/* Photographer */}
-                {isAdminOrRep && (
-                  <div className="space-y-1">
-                    <Label className="text-[10px]">Photographer</Label>
-                    <Select value={photographerId} onValueChange={setPhotographerId}>
-                      <SelectTrigger className="h-8 text-xs">
-                        <div className="flex items-center gap-1.5">
-                          <Camera className="h-3 w-3 text-muted-foreground" />
-                          <SelectValue placeholder="Select (optional)" />
-                        </div>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="unassigned">Leave Unassigned</SelectItem>
-                        {photographers.map((photographer) => (
-                          <SelectItem key={photographer.id} value={String(photographer.id)}>
-                            {photographer.name}
-                          </SelectItem>
+                {/* Photographer — per-category or single */}
+                {isAdminOrRep && (() => {
+                  const normCat = (name: string) => name.trim().toLowerCase().replace(/s$/, '');
+                  const categoryGroups: Record<string, { name: string; serviceIds: string[] }> = {};
+                  for (const svcId of selectedServiceIds) {
+                    const service = availableServices.find(s => s.id?.toString() === svcId);
+                    if (!service) continue;
+                    const catName = typeof service.category === 'string' ? service.category : service.category?.name || 'Other';
+                    const key = normCat(catName);
+                    if (!categoryGroups[key]) categoryGroups[key] = { name: catName, serviceIds: [] };
+                    categoryGroups[key].serviceIds.push(svcId);
+                  }
+                  const categories = Object.entries(categoryGroups);
+                  const isMultiCategory = categories.length > 1;
+
+                  if (isMultiCategory) {
+                    return (
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px]">Photographers (per category)</Label>
+                        {categories.map(([catKey, group]) => (
+                          <div key={catKey} className="space-y-0.5">
+                            <span className="text-[9px] font-medium text-muted-foreground uppercase">{group.name}</span>
+                            <Select
+                              value={perCategoryPhotographers[catKey] || 'unassigned'}
+                              onValueChange={(val) => {
+                                setPerCategoryPhotographers(prev => ({ ...prev, [catKey]: val }));
+                                if (!photographerId || photographerId === 'unassigned') {
+                                  setPhotographerId(val);
+                                }
+                              }}
+                            >
+                              <SelectTrigger className="h-7 text-xs">
+                                <div className="flex items-center gap-1.5">
+                                  <Camera className="h-3 w-3 text-muted-foreground" />
+                                  <SelectValue placeholder="Select..." />
+                                </div>
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="unassigned">Unassigned</SelectItem>
+                                {photographers.map((p) => (
+                                  <SelectItem key={p.id} value={String(p.id)}>
+                                    {p.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
                         ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="space-y-1">
+                      <Label className="text-[10px]">Photographer</Label>
+                      <Select value={photographerId} onValueChange={setPhotographerId}>
+                        <SelectTrigger className="h-8 text-xs">
+                          <div className="flex items-center gap-1.5">
+                            <Camera className="h-3 w-3 text-muted-foreground" />
+                            <SelectValue placeholder="Select (optional)" />
+                          </div>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="unassigned">Leave Unassigned</SelectItem>
+                          {photographers.map((photographer) => (
+                            <SelectItem key={photographer.id} value={String(photographer.id)}>
+                              {photographer.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Shoot Notes */}

@@ -428,8 +428,18 @@ export function ShootDetailsSidebar({
           }
         }
         const catEntries = Object.values(catGroups).filter(g => g.services.length > 0);
-        // Show per-category view when there are multiple categories
-        const hasMultiplePhotographers = catEntries.length > 1;
+        // Collect distinct per-service photographer IDs
+        const perServicePhotographerIds = new Set(
+          svcList
+            .filter((s: any) => typeof s === 'object' && s)
+            .map((s: any) => {
+              const svcPhotogId = (s as any).resolved_photographer_id || (s as any).photographer_id || (s as any).photographer?.id;
+              return svcPhotogId ? String(svcPhotogId) : null;
+            })
+            .filter(Boolean)
+        );
+        // Show per-category view when there are distinct per-service photographer IDs or multiple categories with assignments
+        const hasMultiplePhotographers = perServicePhotographerIds.size > 1 || (catEntries.length > 1 && catEntries.some(g => g.photographer !== null));
 
         return (
           <Card className="shadow-sm border-2 hover:shadow-md transition-shadow">

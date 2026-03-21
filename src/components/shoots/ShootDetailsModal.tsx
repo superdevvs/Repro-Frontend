@@ -1116,6 +1116,12 @@ export function ShootDetailsModal({
           console.log('💾 Services update:', servicesPayload);
         }
       }
+
+      // Per-service photographer assignments
+      if ((updates as any).service_photographers && Array.isArray((updates as any).service_photographers)) {
+        payload.service_photographers = (updates as any).service_photographers;
+        console.log('💾 Service photographers update:', payload.service_photographers);
+      }
       
       // Don't send empty payloads
       if (Object.keys(payload).length === 0) {

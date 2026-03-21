@@ -922,6 +922,28 @@ export function ShootDetailsOverviewTab({
           return serviceData;
         });
       }
+
+      // Build per-service photographer assignments from perCategoryPhotographers
+      const normCatKey = (name: string) => name.trim().toLowerCase().replace(/s$/, '');
+      const servicePhotographerAssignments: Array<{ service_id: number; photographer_id: number }> = [];
+      if (Object.keys(perCategoryPhotographers).length > 0 && selectedServiceIds.length > 0) {
+        for (const svcId of selectedServiceIds) {
+          const service = servicesList.find(s => s.id === svcId);
+          if (!service) continue;
+          const catName = deriveServiceCategoryName(service);
+          const catKey = normCatKey(catName);
+          const photogId = perCategoryPhotographers[catKey];
+          if (photogId) {
+            servicePhotographerAssignments.push({
+              service_id: Number(svcId),
+              photographer_id: Number(photogId),
+            });
+          }
+        }
+      }
+      if (servicePhotographerAssignments.length > 0) {
+        (updates as any).service_photographers = servicePhotographerAssignments;
+      }
       
       onSave(updates);
     }
@@ -2124,8 +2146,8 @@ export function ShootDetailsOverviewTab({
             })
             .filter(Boolean)
         );
-        // Show per-category view when there are multiple categories (even if same photographer, it's clearer)
-        const hasMultiplePhotographers = catEntries.length > 1;
+        // Show per-category view when there are distinct per-service photographer IDs or multiple categories with assignments
+        const hasMultiplePhotographers = perServicePhotographerIds.size > 1 || (catEntries.length > 1 && catEntries.some(g => g.photographer !== null));
 
         return (
           <div className="p-2.5 border rounded-lg bg-card">
