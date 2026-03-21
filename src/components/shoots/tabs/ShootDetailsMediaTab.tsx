@@ -55,6 +55,7 @@ import { API_BASE_URL } from '@/config/env';
 import { getApiHeaders } from '@/services/api';
 // FileUploader import removed - using RawUploadSection and EditedUploadSection instead
 import { useAuth } from '@/components/auth/AuthProvider';
+import { useUpload } from '@/context/UploadContext';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { fotelloService, type EditingType } from '@/services/fotelloService';
@@ -99,6 +100,7 @@ export function ShootDetailsMediaTab({
   onShowHiddenChange,
 }: ShootDetailsMediaTabProps) {
   const { toast } = useToast();
+  const { trackUpload } = useUpload();
   const queryClient = useQueryClient();
   // Default tab based on role: clients see edited, others see uploaded
   const defaultTab = isClient ? 'edited' : 'uploaded';
@@ -334,17 +336,10 @@ export function ShootDetailsMediaTab({
     const files = Array.from(e.dataTransfer.files || []);
     if (files.length === 0) return;
 
-    setDirectUploading(true);
-    setDirectUploadProgress(0);
-    setDirectUploadTotal(files.length);
-    setDirectUploadCompleted(0);
-
+    // Capture auth headers before delegating
     const apiHeaders = getApiHeaders();
     const authHeader = apiHeaders.Authorization;
     const impersonateHeader = apiHeaders['X-Impersonate-User-Id'];
-    const CONCURRENT = 3;
-    let completed = 0;
-    const errors: string[] = [];
 
     const FLOORPLAN_PATTERNS = ['floorplan', 'floor-plan', 'floor_plan', 'fp_', 'fp-', 'layout', 'blueprint'];
     const isFloorplanUpload = (f: File): boolean => {
@@ -352,65 +347,67 @@ export function ShootDetailsMediaTab({
       return FLOORPLAN_PATTERNS.some(p => lower.includes(p));
     };
 
-    const uploadOne = (file: File): Promise<{ success: boolean; error?: string }> =>
-      new Promise((resolve) => {
-        const fd = new FormData();
-        const isVideo = isVideoUpload(file);
-        fd.append('files[]', file);
-        fd.append('upload_type', uploadType);
-        if (isVideo) fd.append('service_category', 'video');
-        if (!isVideo && isFloorplanUpload(file)) fd.append('media_type', 'floorplan');
+    toast({
+      title: 'Upload Started',
+      description: `${files.length} file${files.length !== 1 ? 's' : ''} uploading in background.`,
+    });
 
-        const xhr = new XMLHttpRequest();
-        xhr.addEventListener('load', () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            resolve({ success: true });
-          } else {
-            let msg = 'Upload failed';
-            try { msg = JSON.parse(xhr.responseText).message || msg; } catch {}
-            resolve({ success: false, error: `${file.name}: ${msg}` });
-          }
-        });
-        xhr.addEventListener('error', () => resolve({ success: false, error: `${file.name}: Network error` }));
-        xhr.open('POST', `${API_BASE_URL}/api/shoots/${shoot.id}/upload`);
-        if (authHeader) xhr.setRequestHeader('Authorization', authHeader);
-        if (impersonateHeader) xhr.setRequestHeader('X-Impersonate-User-Id', impersonateHeader);
-        xhr.send(fd);
-      });
+    trackUpload({
+      shootId: shoot.id,
+      shootAddress: shoot.location?.fullAddress || shoot.location?.address || `Shoot #${shoot.id}`,
+      fileCount: files.length,
+      fileNames: files.map(f => f.name),
+      uploadType,
+      uploadFn: async (onProgress) => {
+        const CONCURRENT = 3;
+        let completed = 0;
+        const errors: string[] = [];
 
-    try {
-      for (let i = 0; i < files.length; i += CONCURRENT) {
-        const batch = files.slice(i, Math.min(i + CONCURRENT, files.length));
-        const results = await Promise.all(batch.map(uploadOne));
-        results.forEach((r) => {
-          completed++;
-          if (!r.success && r.error) errors.push(r.error);
-        });
-        setDirectUploadCompleted(completed);
-        setDirectUploadProgress(Math.round((completed / files.length) * 100));
-      }
+        const uploadOne = (file: File): Promise<{ success: boolean; error?: string }> =>
+          new Promise((resolve) => {
+            const fd = new FormData();
+            const isVideo = isVideoUpload(file);
+            fd.append('files[]', file);
+            fd.append('upload_type', uploadType);
+            if (isVideo) fd.append('service_category', 'video');
+            if (!isVideo && isFloorplanUpload(file)) fd.append('media_type', 'floorplan');
 
-      if (errors.length === files.length) {
-        toast({ title: 'Upload Failed', description: 'All files failed to upload.', variant: 'destructive' });
-      } else if (errors.length > 0) {
-        toast({ title: 'Partial Success', description: `${files.length - errors.length}/${files.length} files uploaded.`, variant: 'destructive' });
-      } else {
-        toast({ title: 'Upload Complete', description: `${files.length} file(s) uploaded successfully.` });
-      }
+            const xhr = new XMLHttpRequest();
+            xhr.addEventListener('load', () => {
+              if (xhr.status >= 200 && xhr.status < 300) {
+                resolve({ success: true });
+              } else {
+                let msg = 'Upload failed';
+                try { msg = JSON.parse(xhr.responseText).message || msg; } catch {}
+                resolve({ success: false, error: `${file.name}: ${msg}` });
+              }
+            });
+            xhr.addEventListener('error', () => resolve({ success: false, error: `${file.name}: Network error` }));
+            xhr.open('POST', `${API_BASE_URL}/api/shoots/${shoot.id}/upload`);
+            if (authHeader) xhr.setRequestHeader('Authorization', authHeader);
+            if (impersonateHeader) xhr.setRequestHeader('X-Impersonate-User-Id', impersonateHeader);
+            xhr.send(fd);
+          });
 
-      queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'raw'] });
-      queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'edited'] });
-      onShootUpdate();
-    } catch (err: any) {
-      toast({ title: 'Error', description: err.message || 'Upload failed', variant: 'destructive' });
-    } finally {
-      setTimeout(() => {
-        setDirectUploading(false);
-        setDirectUploadProgress(0);
-        setDirectUploadTotal(0);
-        setDirectUploadCompleted(0);
-      }, 600);
-    }
+        for (let i = 0; i < files.length; i += CONCURRENT) {
+          const batch = files.slice(i, Math.min(i + CONCURRENT, files.length));
+          const results = await Promise.all(batch.map(uploadOne));
+          results.forEach((r) => {
+            completed++;
+            if (!r.success && r.error) errors.push(r.error);
+          });
+          onProgress(Math.round((completed / files.length) * 100));
+        }
+
+        if (errors.length === files.length) {
+          throw new Error('All files failed to upload');
+        }
+
+        queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'raw'] });
+        queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'edited'] });
+        onShootUpdate();
+      },
+    });
   };
 
   const handleTabDragEnter = (e: React.DragEvent<HTMLDivElement>, tab: 'uploaded' | 'edited') => {
@@ -1734,6 +1731,7 @@ export function ShootDetailsMediaTab({
 
   // Raw Upload Section Component
   const RawUploadSection = ({ shoot, onUploadComplete }: { shoot: ShootData; onUploadComplete: () => void }) => {
+    const { trackUpload } = useUpload();
     const [bracketType, setBracketType] = useState<'3-bracket' | '5-bracket'>(
       shoot.bracketMode === 3 ? '3-bracket' : '5-bracket'
     );
@@ -1970,104 +1968,115 @@ export function ShootDetailsMediaTab({
     };
 
     const handleConfirmSubmit = async () => {
-      setUploading(true);
-      setUploadProgress(0);
-      
-      // Initialize file progress for all files
-      const initialProgress: Record<number, number> = {};
-      uploadedFiles.forEach((_, index) => {
-        initialProgress[index] = 0;
-      });
-      setFileProgress(initialProgress);
-      
+      const filesToUpload = [...uploadedFiles];
+      const currentExtraFiles = new Set(extraFiles);
+      const currentFloorplanFiles = new Set(floorplanFiles);
+      const currentEditingNotes = editingNotes;
+      const totalFiles = filesToUpload.length;
+
+      // Capture auth headers before clearing state
       const apiHeaders = getApiHeaders();
       const authorizationHeader = apiHeaders.Authorization;
       const impersonationHeader = apiHeaders['X-Impersonate-User-Id'];
-      const CONCURRENT_UPLOADS = 3; // Upload 3 files concurrently
-      const totalFiles = uploadedFiles.length;
-      let completedFiles = 0;
-      const errors: string[] = [];
-      
-      try {
-        // Process files in concurrent batches
-        for (let i = 0; i < totalFiles; i += CONCURRENT_UPLOADS) {
-          const batch = uploadedFiles.slice(i, Math.min(i + CONCURRENT_UPLOADS, totalFiles));
-          const batchPromises = batch.map((file, batchIndex) => {
-            const fileIndex = i + batchIndex;
-            return uploadSingleFile(file, fileIndex, authorizationHeader, impersonationHeader, fileIndex === 0);
-          });
-          
-          const results = await Promise.all(batchPromises);
-          
-          results.forEach((result) => {
-            completedFiles++;
-            if (!result.success && result.error) {
-              errors.push(result.error);
-            }
-          });
-          
-          // Update overall progress
-          const overallProgress = Math.round((completedFiles / totalFiles) * 100);
-          setUploadProgress(overallProgress);
-        }
-        
-        // Mark all files as complete
-        const completeProgress: Record<number, number> = {};
-        uploadedFiles.forEach((_, index) => {
-          completeProgress[index] = 100;
-        });
-        setFileProgress(completeProgress);
-        setUploadProgress(100);
 
-        const successCount = totalFiles - errors.length;
-        
-        if (successCount === 0) {
-          // All failed - show error only
-          toast({
-            title: 'Upload Failed',
-            description: `All ${totalFiles} files failed to upload. Please check your connection and try again.`,
-            variant: 'destructive',
-          });
-          setUploadProgress(0);
-          setFileProgress({});
-          setUploading(false);
-          return; // Don't clear files so user can retry
-        } else if (errors.length > 0) {
-          // Partial success
-          toast({
-            title: 'Partial Success',
-            description: `${successCount}/${totalFiles} files uploaded. ${errors.length} failed.`,
-            variant: 'destructive',
-          });
-        } else {
-          // All succeeded
-          toast({
-            title: 'Success',
-            description: `All ${totalFiles} RAW files uploaded successfully`,
-          });
-        }
-        
-        // Small delay to show 100% before clearing
-        setTimeout(() => {
-          setUploadedFiles([]);
-          setExtraFiles(new Set());
-          setEditingNotes('');
-          setUploadProgress(0);
-          setFileProgress({});
+      // Clear local state immediately - upload continues in background via context
+      setUploadedFiles([]);
+      setExtraFiles(new Set());
+      setFloorplanFiles(new Set());
+      setEditingNotes('');
+      setUploadProgress(0);
+      setFileProgress({});
+      setUploading(false);
+
+      toast({
+        title: 'Upload Started',
+        description: `${totalFiles} file${totalFiles !== 1 ? 's' : ''} uploading in background. You can close this dialog.`,
+      });
+
+      // Delegate to UploadContext - this survives modal close
+      trackUpload({
+        shootId: shoot.id,
+        shootAddress: shoot.location?.fullAddress || shoot.location?.address || `Shoot #${shoot.id}`,
+        fileCount: totalFiles,
+        fileNames: filesToUpload.map(f => f.name),
+        uploadType: 'raw',
+        uploadFn: async (onProgress) => {
+          const CONCURRENT_UPLOADS = 3;
+          let completedFiles = 0;
+          const errors: string[] = [];
+
+          // Create the per-file upload function (captures variables from closure)
+          const doUploadOne = (
+            file: File,
+            fileIndex: number,
+            isFirstFile: boolean
+          ): Promise<{ success: boolean; error?: string }> => {
+            return new Promise((resolve) => {
+              const formData = new FormData();
+              const isVideo = isVideoUpload(file);
+              formData.append('files[]', file);
+              formData.append('upload_type', 'raw');
+              if (isVideo) formData.append('service_category', 'video');
+              if (currentFloorplanFiles.has(String(fileIndex)) && !isVideo) {
+                formData.append('media_type', 'floorplan');
+              }
+              if (isFirstFile) {
+                if (shootRequiresBrackets) {
+                  formData.append('bracket_mode', bracketType === '3-bracket' ? '3' : '5');
+                }
+                if (currentExtraFiles.has(String(fileIndex))) {
+                  formData.append('is_extra', 'true');
+                }
+                if (currentEditingNotes.trim()) {
+                  formData.append('photographer_notes', currentEditingNotes.trim());
+                }
+              } else {
+                if (shootRequiresBrackets) {
+                  formData.append('bracket_mode', bracketType === '3-bracket' ? '3' : '5');
+                }
+                if (currentExtraFiles.has(String(fileIndex))) {
+                  formData.append('is_extra', 'true');
+                }
+              }
+
+              const xhr = new XMLHttpRequest();
+              xhr.addEventListener('load', () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                  resolve({ success: true });
+                } else {
+                  let errorMsg = 'Upload failed';
+                  try { errorMsg = JSON.parse(xhr.responseText).message || errorMsg; } catch {}
+                  resolve({ success: false, error: `${file.name}: ${errorMsg}` });
+                }
+              });
+              xhr.addEventListener('error', () => resolve({ success: false, error: `${file.name}: Network error` }));
+              xhr.open('POST', `${API_BASE_URL}/api/shoots/${shoot.id}/upload`);
+              if (authorizationHeader) xhr.setRequestHeader('Authorization', authorizationHeader);
+              if (impersonationHeader) xhr.setRequestHeader('X-Impersonate-User-Id', impersonationHeader);
+              xhr.send(formData);
+            });
+          };
+
+          for (let i = 0; i < totalFiles; i += CONCURRENT_UPLOADS) {
+            const batch = filesToUpload.slice(i, Math.min(i + CONCURRENT_UPLOADS, totalFiles));
+            const results = await Promise.all(
+              batch.map((file, batchIndex) => doUploadOne(file, i + batchIndex, i + batchIndex === 0))
+            );
+            results.forEach((r) => {
+              completedFiles++;
+              if (!r.success && r.error) errors.push(r.error);
+            });
+            onProgress(Math.round((completedFiles / totalFiles) * 100));
+          }
+
+          if (errors.length === totalFiles) {
+            throw new Error(`All ${totalFiles} files failed to upload`);
+          }
+
+          // Trigger refresh
           onUploadComplete();
-        }, 500);
-      } catch (error: any) {
-        console.error('RAW upload error:', error);
-        toast({
-          title: 'Error',
-          description: error.message || 'Failed to upload files',
-          variant: 'destructive',
-        });
-        setUploadProgress(0);
-        setFileProgress({});
-      } finally {
-        setUploading(false);
-      }
+        },
+      });
     };
 
     return (

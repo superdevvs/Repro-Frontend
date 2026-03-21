@@ -25,10 +25,22 @@ interface StartUploadParams {
   onError?: (error: string) => void;
 }
 
+interface TrackUploadParams {
+  shootId: string;
+  shootAddress: string;
+  fileCount: number;
+  fileNames: string[];
+  uploadType: 'raw' | 'edited';
+  uploadFn: (onProgress: (progress: number) => void) => Promise<void>;
+  onComplete?: () => void;
+  onError?: (error: string) => void;
+}
+
 interface UploadContextType {
   uploads: ShootUpload[];
   activeUploadCount: number;
   startUpload: (params: StartUploadParams) => string;
+  trackUpload: (params: TrackUploadParams) => string;
   cancelUpload: (uploadId: string) => void;
   dismissUpload: (uploadId: string) => void;
   clearCompleted: () => void;
@@ -55,6 +67,13 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [uploads]);
 
+  const autoCleanup = useCallback((uploadId: string) => {
+    setTimeout(() => {
+      setUploads(prev => prev.filter(u => u.id !== uploadId));
+    }, 10000);
+  }, []);
+
+  // Bulk upload via axios (used by FileUploader)
   const startUpload = useCallback((params: StartUploadParams): string => {
     const uploadId = crypto.randomUUID();
     const abortController = new AbortController();
@@ -78,7 +97,6 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     setUploads(prev => [...prev, newUpload]);
 
-    // Build FormData exactly like FileUploader.performUpload
     const formData = new FormData();
     params.files.forEach((file, idx) => {
       formData.append(`files[${idx}]`, file);
@@ -110,16 +128,9 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setUploads(prev =>
         prev.map(u => u.id === uploadId ? { ...u, status: 'completed', progress: 100 } : u)
       );
-      // Fire completion callback
       const cb = completionCallbacks.current.get(uploadId);
-      if (cb) {
-        cb();
-        completionCallbacks.current.delete(uploadId);
-      }
-      // Auto-dismiss after 10 seconds
-      setTimeout(() => {
-        setUploads(prev => prev.filter(u => u.id !== uploadId));
-      }, 10000);
+      if (cb) { cb(); completionCallbacks.current.delete(uploadId); }
+      autoCleanup(uploadId);
     }).catch((error) => {
       if (axios.isCancel(error)) {
         setUploads(prev => prev.filter(u => u.id !== uploadId));
@@ -137,7 +148,53 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
 
     return uploadId;
-  }, []);
+  }, [autoCleanup]);
+
+  // Track a custom upload function (used by ShootDetailsMediaTab's per-file XHR uploads)
+  const trackUpload = useCallback((params: TrackUploadParams): string => {
+    const uploadId = crypto.randomUUID();
+
+    const newUpload: ShootUpload = {
+      id: uploadId,
+      shootId: params.shootId,
+      shootAddress: params.shootAddress,
+      fileCount: params.fileCount,
+      fileNames: params.fileNames,
+      uploadType: params.uploadType,
+      status: 'uploading',
+      progress: 0,
+      startedAt: new Date(),
+    };
+
+    setUploads(prev => [...prev, newUpload]);
+
+    // The caller provides the upload logic; we just track progress
+    const onProgress = (progress: number) => {
+      setUploads(prev =>
+        prev.map(u => u.id === uploadId ? { ...u, progress } : u)
+      );
+    };
+
+    params.uploadFn(onProgress)
+      .then(() => {
+        setUploads(prev =>
+          prev.map(u => u.id === uploadId ? { ...u, status: 'completed', progress: 100 } : u)
+        );
+        params.onComplete?.();
+        autoCleanup(uploadId);
+      })
+      .catch((error: any) => {
+        setUploads(prev =>
+          prev.map(u => u.id === uploadId
+            ? { ...u, status: 'failed', error: error?.message || 'Upload failed' }
+            : u
+          )
+        );
+        params.onError?.(error?.message || 'Upload failed');
+      });
+
+    return uploadId;
+  }, [autoCleanup]);
 
   const cancelUpload = useCallback((uploadId: string) => {
     const controller = abortControllers.current.get(uploadId);
@@ -148,7 +205,6 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
   const dismissUpload = useCallback((uploadId: string) => {
-    // Cancel if still uploading
     const controller = abortControllers.current.get(uploadId);
     if (controller) {
       controller.abort();
@@ -168,6 +224,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         uploads,
         activeUploadCount,
         startUpload,
+        trackUpload,
         cancelUpload,
         dismissUpload,
         clearCompleted,

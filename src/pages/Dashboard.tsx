@@ -1998,17 +1998,20 @@ const Dashboard = () => {
           <div className="flex-1">
             <PageHeader title={greetingTitle} description={DASHBOARD_DESCRIPTION} />
           </div>
-          {cancellationRequestCount > 0 && (
-            <button
-              onClick={() => setCancellationDialogOpen(true)}
-              className="flex-shrink-0 rounded-2xl border border-rose-200/80 dark:border-rose-800/40 bg-white dark:bg-card shadow-sm px-4 py-3 flex items-center gap-3 hover:border-rose-300 dark:hover:border-rose-700 hover:shadow-md transition-all cursor-pointer"
-            >
-              <div className="flex items-center justify-center h-9 w-9 rounded-xl border border-rose-200 dark:border-rose-800/50 bg-rose-50 dark:bg-rose-950/30">
-                <span className="text-base font-bold text-rose-600 dark:text-rose-400">{cancellationRequestCount}</span>
-              </div>
-              <span className="text-[11px] font-medium text-muted-foreground leading-tight text-left">Cancellation{cancellationRequestCount !== 1 ? 's' : ''}<br />pending</span>
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            <UploadStatusWidget />
+            {cancellationRequestCount > 0 && (
+              <button
+                onClick={() => setCancellationDialogOpen(true)}
+                className="flex-shrink-0 rounded-2xl border border-rose-200/80 dark:border-rose-800/40 bg-white dark:bg-card shadow-sm px-4 py-3 flex items-center gap-3 hover:border-rose-300 dark:hover:border-rose-700 hover:shadow-md transition-all cursor-pointer"
+              >
+                <div className="flex items-center justify-center h-9 w-9 rounded-xl border border-rose-200 dark:border-rose-800/50 bg-rose-50 dark:bg-rose-950/30">
+                  <span className="text-base font-bold text-rose-600 dark:text-rose-400">{cancellationRequestCount}</span>
+                </div>
+                <span className="text-[11px] font-medium text-muted-foreground leading-tight text-left">Cancellation{cancellationRequestCount !== 1 ? 's' : ''}<br />pending</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {error && (
