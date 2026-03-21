@@ -21,6 +21,7 @@ interface StartUploadParams {
   files: File[];
   uploadType: 'raw' | 'edited';
   serviceCategory?: string;
+  onProgress?: (progress: number) => void;
   onComplete?: () => void;
   onError?: (error: string) => void;
 }
@@ -122,6 +123,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           setUploads(prev =>
             prev.map(u => u.id === uploadId ? { ...u, progress: percentCompleted } : u)
           );
+          params.onProgress?.(percentCompleted);
         },
       }
     ).then(() => {

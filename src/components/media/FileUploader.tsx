@@ -615,31 +615,32 @@ useEffect(() => {
     const filesToUpload = [...files];
     const currentNotes = notes;
 
+    toast({
+      title: 'Upload Started',
+      description: `${files.length} file${files.length !== 1 ? 's' : ''} uploading. You can close this dialog and it will continue in background.`,
+    });
+
     startUpload({
       shootId,
       shootAddress: shootAddress || `Shoot #${shootId}`,
       files: filesToUpload,
       uploadType,
       serviceCategory: 'P',
+      onProgress: (p) => setProgress(p),
       onComplete: () => {
         if (onUploadComplete) {
           onUploadComplete(filesToUpload, currentNotes);
         }
+        setFiles([]);
+        setProgress(0);
+        setUploading(false);
+        setNotesChanged(false);
       },
       onError: (errorMsg) => {
         toast({ title: 'Upload Failed', description: errorMsg || 'Something went wrong while uploading.', variant: 'destructive' });
+        setUploading(false);
       },
     });
-
-    // Reset local state immediately - upload continues in background
-    toast({
-      title: 'Upload Started',
-      description: `${files.length} file${files.length !== 1 ? 's' : ''} uploading in background. You can close this dialog.`,
-    });
-    setFiles([]);
-    setProgress(0);
-    setUploading(false);
-    setNotesChanged(false);
   };
   
   const getFileIcon = (file: File) => {

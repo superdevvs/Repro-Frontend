@@ -1742,6 +1742,7 @@ export function ShootDetailsMediaTab({
     const [editingNotes, setEditingNotes] = useState('');
     const [uploadProgress, setUploadProgress] = useState(0);
     const [fileProgress, setFileProgress] = useState<Record<number, number>>({});
+    const [uploadingFileCount, setUploadingFileCount] = useState(0);
 
     const RAW_FP_PATTERNS = ['floorplan', 'floor-plan', 'floor_plan', 'fp_', 'fp-', 'layout', 'blueprint'];
     const isFloorplanByName = (name: string) => {
@@ -1968,29 +1969,30 @@ export function ShootDetailsMediaTab({
     };
 
     const handleConfirmSubmit = async () => {
-      const filesToUpload = [...uploadedFiles];
+      // If called during active upload, only upload newly added files
+      const startIndex = uploading ? uploadingFileCount : 0;
+      const filesToUpload = uploadedFiles.slice(startIndex);
       const currentExtraFiles = new Set(extraFiles);
       const currentFloorplanFiles = new Set(floorplanFiles);
       const currentEditingNotes = editingNotes;
       const totalFiles = filesToUpload.length;
+
+      if (totalFiles === 0) return;
 
       // Capture auth headers before clearing state
       const apiHeaders = getApiHeaders();
       const authorizationHeader = apiHeaders.Authorization;
       const impersonationHeader = apiHeaders['X-Impersonate-User-Id'];
 
-      // Clear local state immediately - upload continues in background via context
-      setUploadedFiles([]);
-      setExtraFiles(new Set());
-      setFloorplanFiles(new Set());
-      setEditingNotes('');
+      // Keep uploading state active - show progress in modal
+      setUploading(true);
       setUploadProgress(0);
       setFileProgress({});
-      setUploading(false);
+      setUploadingFileCount(uploadedFiles.length);
 
       toast({
         title: 'Upload Started',
-        description: `${totalFiles} file${totalFiles !== 1 ? 's' : ''} uploading in background. You can close this dialog.`,
+        description: `${totalFiles} file${totalFiles !== 1 ? 's' : ''} uploading. You can close this dialog and it will continue in background.`,
       });
 
       // Delegate to UploadContext - this survives modal close
@@ -2000,6 +2002,21 @@ export function ShootDetailsMediaTab({
         fileCount: totalFiles,
         fileNames: filesToUpload.map(f => f.name),
         uploadType: 'raw',
+        onComplete: () => {
+          // Clear uploaded files and reset state
+          setUploadedFiles([]);
+          setExtraFiles(new Set());
+          setFloorplanFiles(new Set());
+          setEditingNotes('');
+          setUploadProgress(0);
+          setFileProgress({});
+          setUploadingFileCount(0);
+          setUploading(false);
+        },
+        onError: () => {
+          setUploading(false);
+          setUploadingFileCount(0);
+        },
         uploadFn: async (onProgress) => {
           const CONCURRENT_UPLOADS = 3;
           let completedFiles = 0;
@@ -2066,7 +2083,9 @@ export function ShootDetailsMediaTab({
               completedFiles++;
               if (!r.success && r.error) errors.push(r.error);
             });
-            onProgress(Math.round((completedFiles / totalFiles) * 100));
+            const pct = Math.round((completedFiles / totalFiles) * 100);
+            onProgress(pct);
+            setUploadProgress(pct);
           }
 
           if (errors.length === totalFiles) {
@@ -2198,13 +2217,16 @@ export function ShootDetailsMediaTab({
             <div className="text-sm font-medium flex items-center gap-2">
               {uploading ? `Uploading Files (${uploadProgress}%)` : `Selected Files (${uploadedFiles.length})`}
               {!uploading && <span className="text-xs text-muted-foreground font-normal">(check = extra, FP = floorplan)</span>}
+              {uploading && uploadedFiles.length > uploadingFileCount && (
+                <span className="text-xs text-blue-500 font-normal">+ {uploadedFiles.length - uploadingFileCount} queued</span>
+              )}
             </div>
             <div className="max-h-48 overflow-y-auto space-y-1 border rounded p-2">
               {uploadedFiles.map((file, index) => (
                 <div key={index} className="flex items-center justify-between p-2 hover:bg-muted rounded">
                   <div className="flex items-center gap-2 flex-1 min-w-0">
                     {/* Progress indicator or checkbox */}
-                    {uploading ? (
+                    {uploading && index < uploadingFileCount ? (
                       <div className="flex-shrink-0">
                         <CircularProgress progress={fileProgress[index] || 0} size={18} />
                       </div>
@@ -2219,7 +2241,7 @@ export function ShootDetailsMediaTab({
                       {file.name}
                     </label>
                     {/* Floorplan toggle badge */}
-                    {!uploading && (
+                    {(!uploading || index >= uploadingFileCount) && (
                       <button
                         type="button"
                         className={`text-[9px] px-1.5 py-0.5 rounded font-medium flex-shrink-0 transition-colors ${floorplanFiles.has(String(index)) ? 'bg-blue-600 text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
@@ -2230,13 +2252,17 @@ export function ShootDetailsMediaTab({
                       </button>
                     )}
                     {/* Show percentage during upload */}
-                    {uploading && (
+                    {uploading && index < uploadingFileCount && (
                       <span className="text-[10px] text-muted-foreground flex-shrink-0 w-8 text-right">
                         {fileProgress[index] || 0}%
                       </span>
                     )}
+                    {/* Queued badge for files added during upload */}
+                    {uploading && index >= uploadingFileCount && (
+                      <span className="text-[10px] text-blue-500 flex-shrink-0">Queued</span>
+                    )}
                   </div>
-                  {!uploading && (
+                  {(!uploading || index >= uploadingFileCount) && (
                     <Button
                       variant="ghost"
                       size="sm"
@@ -2329,20 +2355,25 @@ export function ShootDetailsMediaTab({
           {uploading && (
             <div className="space-y-1">
               <div className="flex justify-between text-xs text-muted-foreground">
-                <span>Uploading {uploadedFiles.length} file(s)...</span>
+                <span>Uploading {uploadingFileCount} file(s)...</span>
                 <span>{uploadProgress}%</span>
               </div>
               <Progress value={uploadProgress} className="h-2" />
             </div>
           )}
-          
+
           <div className="flex gap-2">
             <Button
               onClick={handleSubmitRAW}
-              disabled={uploading || uploadedFiles.length === 0}
+              disabled={(uploading && uploadedFiles.length <= uploadingFileCount) || uploadedFiles.length === 0}
               className="flex-1 relative overflow-hidden"
             >
-              {uploading ? (
+              {uploading && uploadedFiles.length > uploadingFileCount ? (
+                <>
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload {uploadedFiles.length - uploadingFileCount} More Files
+                </>
+              ) : uploading ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   Uploading... {uploadProgress}%
