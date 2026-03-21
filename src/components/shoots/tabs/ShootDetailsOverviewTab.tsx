@@ -790,7 +790,7 @@ export function ShootDetailsOverviewTab({
         if (typeof s !== 'object' || !s) continue;
         const catName = (s as any).category?.name || (s as any).category_name || 'Other';
         const key = normCat(catName);
-        const svcPhotogId = (s as any).resolved_photographer_id || (s as any).photographer_id || (s as any).photographer?.id;
+        const svcPhotogId = (s as any).resolved_photographer_id || (s as any).photographer_id || (s as any).pivot?.photographer_id || (s as any).photographer?.id;
         if (svcPhotogId && !catPhotogMap[key]) {
           catPhotogMap[key] = String(svcPhotogId);
         }
@@ -2129,7 +2129,7 @@ export function ShootDetailsOverviewTab({
           if (!catGroups[key]) catGroups[key] = { name: catName, photographer: null, services: [] };
           catGroups[key].services.push(s);
           const svcPhotographer = (s as any).photographer || null;
-          const svcPhotographerId = (s as any).resolved_photographer_id || (s as any).photographer_id;
+          const svcPhotographerId = (s as any).resolved_photographer_id || (s as any).photographer_id || (s as any).pivot?.photographer_id;
           if (svcPhotographerId) {
             catGroups[key].photographer = svcPhotographer || { id: svcPhotographerId, name: `Photographer #${svcPhotographerId}` };
           }
@@ -2141,24 +2141,26 @@ export function ShootDetailsOverviewTab({
           svcList
             .filter((s: any) => typeof s === 'object' && s)
             .map((s: any) => {
-              const svcPhotogId = (s as any).resolved_photographer_id || (s as any).photographer_id || (s as any).photographer?.id;
+              const svcPhotogId = (s as any).resolved_photographer_id || (s as any).photographer_id || (s as any).pivot?.photographer_id || (s as any).photographer?.id;
               return svcPhotogId ? String(svcPhotogId) : null;
             })
             .filter(Boolean)
         );
         // Show per-category view when there are distinct per-service photographer IDs or multiple categories with assignments
         const hasMultiplePhotographers = perServicePhotographerIds.size > 1 || (catEntries.length > 1 && catEntries.some(g => g.photographer !== null));
+        // In edit mode, show per-category pickers whenever multiple categories exist (so user can assign different photographers)
+        const hasMultipleCategories = catEntries.length > 1;
 
         return (
           <div className="p-2.5 border rounded-lg bg-card">
             <div className="flex items-center gap-1.5 mb-1.5">
               <CameraIcon className="h-3.5 w-3.5 text-muted-foreground" />
               <span className="text-[11px] font-semibold text-muted-foreground uppercase">
-                {hasMultiplePhotographers ? 'Photographers' : 'Photographer'}
+                {(isEditMode ? hasMultipleCategories : hasMultiplePhotographers) ? 'Photographers' : 'Photographer'}
               </span>
             </div>
             {isEditMode ? (
-              hasMultiplePhotographers ? (
+              hasMultipleCategories ? (
                 <div className="space-y-2">
                   {catEntries.map(group => {
                     const catKey = normCat(group.name);

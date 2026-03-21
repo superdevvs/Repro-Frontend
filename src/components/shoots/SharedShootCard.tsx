@@ -251,8 +251,8 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
         <div className="space-y-2">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1 min-w-0">
-              <h3 className="text-2xl font-bold leading-tight mb-1.5">{shoot.location.address}</h3>
-              <p className="text-base text-muted-foreground mb-2">
+              <h3 className="text-2xl font-bold leading-tight mb-1.5 truncate">{shoot.location.address}</h3>
+              <p className="text-base text-muted-foreground mb-2 truncate">
                 {shoot.location.city}, {getStateFullName(shoot.location.state)} {shoot.location.zip}
               </p>
             </div>

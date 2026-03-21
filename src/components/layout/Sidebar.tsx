@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/components/auth/AuthProvider';
@@ -10,14 +10,34 @@ import { SidebarHeader } from './sidebar/SidebarHeader';
 import { SidebarLinks } from './sidebar/SidebarLinks';
 import { SidebarFooter } from './sidebar/SidebarFooter';
 
+const SMALL_DESKTOP_BREAKPOINT = 1280;
+
 interface SidebarProps {
   className?: string;
 }
 
 export function Sidebar({ className }: SidebarProps) {
   const isMobile = useIsMobile();
-  const [isCollapsed, setIsCollapsed] = useState(false); // Start expanded by default
+  const isSmallDesktop = typeof window !== 'undefined' && window.innerWidth < SMALL_DESKTOP_BREAKPOINT;
+  const [isCollapsed, setIsCollapsed] = useState(isSmallDesktop);
+  const manualOverride = useRef(false);
   const { user, role, logout } = useAuth();
+
+  // Auto-collapse/expand when crossing the breakpoint, unless user manually toggled
+  useEffect(() => {
+    const mql = window.matchMedia(`(min-width: ${SMALL_DESKTOP_BREAKPOINT}px)`);
+    const handler = (e: MediaQueryListEvent | MediaQueryList) => {
+      if (!manualOverride.current) {
+        setIsCollapsed(!e.matches);
+      }
+      // Reset manual override when crossing breakpoint so auto-behavior resumes
+      manualOverride.current = false;
+    };
+    // Set initial state
+    handler(mql);
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  }, []);
   
   // For mobile devices, use the MobileMenu component
   if (isMobile) {
@@ -26,6 +46,7 @@ export function Sidebar({ className }: SidebarProps) {
   
   // Toggle sidebar collapse/expand manually
   const toggleCollapse = () => {
+    manualOverride.current = true;
     setIsCollapsed(!isCollapsed);
   };
   

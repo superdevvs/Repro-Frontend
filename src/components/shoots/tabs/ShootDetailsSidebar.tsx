@@ -422,7 +422,7 @@ export function ShootDetailsSidebar({
           if (!catGroups[key]) catGroups[key] = { name: catName, photographer: null, services: [] };
           catGroups[key].services.push(s);
           const svcPhotographer = (s as any).photographer || null;
-          const svcPhotographerId = (s as any).resolved_photographer_id || (s as any).photographer_id;
+          const svcPhotographerId = (s as any).resolved_photographer_id || (s as any).photographer_id || (s as any).pivot?.photographer_id;
           if (svcPhotographerId) {
             catGroups[key].photographer = svcPhotographer || { id: svcPhotographerId, name: `Photographer #${svcPhotographerId}` };
           }
@@ -433,7 +433,7 @@ export function ShootDetailsSidebar({
           svcList
             .filter((s: any) => typeof s === 'object' && s)
             .map((s: any) => {
-              const svcPhotogId = (s as any).resolved_photographer_id || (s as any).photographer_id || (s as any).photographer?.id;
+              const svcPhotogId = (s as any).resolved_photographer_id || (s as any).photographer_id || (s as any).pivot?.photographer_id || (s as any).photographer?.id;
               return svcPhotogId ? String(svcPhotogId) : null;
             })
             .filter(Boolean)

@@ -2172,10 +2172,10 @@ const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
       <DashboardLayout>
         <div className={cn("p-3 sm:p-6 flex flex-col gap-4 sm:gap-6", hideLeftColumn && "min-h-[calc(100vh-4rem)]")}>
           <PageHeader title={title} description={description} />
-          <div className={cn("grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-6 items-stretch", hideLeftColumn && "flex-1")}>
+          <div className={cn("grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-stretch", hideLeftColumn && "flex-1")}>
           {!hideLeftColumn && (
-          <div className="md:col-span-3 flex flex-col gap-4 sm:gap-6 h-full order-1 md:order-none">
-              <div className="order-1 md:order-none">
+          <div className="lg:col-span-3 flex flex-col gap-4 sm:gap-6 h-full order-1 lg:order-none">
+              <div className="order-1 lg:order-none">
                 <ErrorBoundary
                   fallback={
                     <div className="rounded-2xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
@@ -2195,7 +2195,7 @@ const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
                   />
                 </ErrorBoundary>
               </div>
-              <div className="flex-1 min-h-0 flex flex-col hidden md:flex order-3 md:order-none">
+              <div className="flex-1 min-h-0 flex flex-col hidden lg:flex order-3 lg:order-none">
                 <ErrorBoundary
                   fallback={
                     <div className="rounded-2xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
@@ -2208,7 +2208,7 @@ const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
               </div>
             </div>
           )}
-            <div className={cn("flex flex-col h-full order-2 md:order-none", hideLeftColumn ? "md:col-span-9" : "md:col-span-6")}>
+            <div className={cn("flex flex-col h-full order-2 lg:order-none", hideLeftColumn ? "lg:col-span-9" : "lg:col-span-6")}>
               <ErrorBoundary
                 fallback={
                   <div className="rounded-2xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
@@ -2229,7 +2229,7 @@ const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
             </div>
             {/* Left Column Card - Mobile only, appears after Upcoming Shoots */}
             {!hideLeftColumn && (
-            <div className="md:hidden order-3">
+            <div className="lg:hidden order-3">
               <ErrorBoundary
                 fallback={
                   <div className="rounded-2xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
@@ -2241,7 +2241,7 @@ const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
               </ErrorBoundary>
             </div>
             )}
-          <div className="md:col-span-3 flex flex-col gap-4 sm:gap-6 h-full order-4 md:order-none">
+          <div className="lg:col-span-3 flex flex-col gap-4 sm:gap-6 h-full order-4 lg:order-none">
             <ErrorBoundary
               fallback={
                 <div className="rounded-2xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">

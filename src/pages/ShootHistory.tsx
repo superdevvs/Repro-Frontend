@@ -2689,6 +2689,13 @@ const ShootHistory: React.FC = () => {
     }
   }, [shouldHideClientDetails, operationalFilters.clientId, historyFilters.clientId])
 
+  const gridContainerRef = useRef<HTMLDivElement>(null)
+  // Compute masonry column count from actual container width (accounts for sidebar)
+  const getMasonryCols = () => {
+    const cw = gridContainerRef.current?.clientWidth ?? (typeof window !== 'undefined' ? window.innerWidth : 1024)
+    return cw <= 479 ? 1 : cw <= 719 ? 2 : cw <= 960 ? 3 : 4
+  }
+
   const operationalFetchAbortRef = useRef<AbortController | null>(null)
   const historyFetchAbortRef = useRef<AbortController | null>(null)
 
@@ -4061,8 +4068,7 @@ const ShootHistory: React.FC = () => {
         return dateB - dateA
       })
       // Distribute items round-robin into columns for masonry with correct L-R order
-      const w = typeof window !== 'undefined' ? window.innerWidth : 1024
-      const numCols = w <= 479 ? 1 : w <= 719 ? 2 : 4
+      const numCols = getMasonryCols()
       const columns: ShootData[][] = Array.from({ length: numCols }, () => [])
       sortedData.forEach((shoot, i) => columns[i % numCols].push(shoot))
 
@@ -4182,8 +4188,7 @@ const ShootHistory: React.FC = () => {
     }
 
     if (viewMode === 'grid') {
-      const w = typeof window !== 'undefined' ? window.innerWidth : 1024
-      const numCols = w <= 479 ? 1 : w <= 719 ? 2 : 4
+      const numCols = getMasonryCols()
       const cols: ShootData[][] = Array.from({ length: numCols }, () => [])
       filteredOperationalData.forEach((shoot, i) => cols[i % numCols].push(shoot))
 
@@ -4274,8 +4279,7 @@ const ShootHistory: React.FC = () => {
     }
 
     if (viewMode === 'grid') {
-      const w = typeof window !== 'undefined' ? window.innerWidth : 1024
-      const numCols = w <= 479 ? 1 : w <= 719 ? 2 : 4
+      const numCols = getMasonryCols()
       const cols: ShootData[][] = Array.from({ length: numCols }, () => [])
       filteredOperationalData.forEach((shoot, i) => cols[i % numCols].push(shoot))
 
@@ -4389,8 +4393,7 @@ const ShootHistory: React.FC = () => {
     const paginatedRecords = historyRecords
 
     if (historyFilters.viewAs === 'grid') {
-      const w = typeof window !== 'undefined' ? window.innerWidth : 1024
-      const numCols = w <= 479 ? 1 : w <= 719 ? 2 : 4
+      const numCols = getMasonryCols()
       const histCols: ShootHistoryRecord[][] = Array.from({ length: numCols }, () => [])
       paginatedRecords.forEach((record, i) => histCols[i % numCols].push(record))
 
@@ -4581,7 +4584,7 @@ const ShootHistory: React.FC = () => {
   return (
     <>
       <DashboardLayout>
-        <div className="space-y-4 px-2 pt-3 pb-3 sm:space-y-6 sm:p-6">
+        <div ref={gridContainerRef} className="space-y-4 px-2 pt-3 pb-3 sm:space-y-6 sm:p-6">
           {/* Header */}
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div className="space-y-1">

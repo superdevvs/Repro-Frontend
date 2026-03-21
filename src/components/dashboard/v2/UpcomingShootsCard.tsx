@@ -1126,10 +1126,10 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                       </div>
                       {/* Row 2: Address */}
                       <div>
-                        <h3 className="text-sm font-semibold text-foreground break-words">{shoot.addressLine}</h3>
-                        <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                          <MapPin size={10} />
-                          {shoot.cityStateZip}
+                        <h3 className="text-sm font-semibold text-foreground truncate">{shoot.addressLine}</h3>
+                        <p className="text-[10px] text-muted-foreground flex items-center gap-1 truncate">
+                          <MapPin size={10} className="flex-shrink-0" />
+                          <span className="truncate">{shoot.cityStateZip}</span>
                         </p>
                       </div>
                       {/* Row 3: Client + Shoot ID */}
@@ -1242,10 +1242,10 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
 
                       <div className="space-y-3 min-w-0">
                         <div>
-                          <h3 className="text-base font-semibold text-foreground break-words">{shoot.addressLine}</h3>
-                          <p className="text-xs text-muted-foreground flex items-center gap-1">
-                            <MapPin size={12} />
-                            {shoot.cityStateZip}
+                          <h3 className="text-base font-semibold text-foreground truncate">{shoot.addressLine}</h3>
+                          <p className="text-xs text-muted-foreground flex items-center gap-1 truncate">
+                            <MapPin size={12} className="flex-shrink-0" />
+                            <span className="truncate">{shoot.cityStateZip}</span>
                           </p>
                         </div>
                         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">

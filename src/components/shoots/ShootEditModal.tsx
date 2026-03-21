@@ -294,7 +294,7 @@ export function ShootEditModal({
               if (typeof s !== 'object' || !s) continue;
               const catName = (s as any).category?.name || (s as any).category_name || 'Other';
               const key = normCat(catName);
-              const svcPhotogId = (s as any).resolved_photographer_id || (s as any).photographer_id || (s as any).photographer?.id;
+              const svcPhotogId = (s as any).resolved_photographer_id || (s as any).photographer_id || (s as any).pivot?.photographer_id || (s as any).photographer?.id;
               if (svcPhotogId && !catPhotogMap[key]) {
                 catPhotogMap[key] = String(svcPhotogId);
               }
