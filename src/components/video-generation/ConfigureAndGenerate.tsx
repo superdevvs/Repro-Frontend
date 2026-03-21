@@ -2,14 +2,23 @@ import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Monitor, Smartphone, AlertTriangle, Loader2 } from 'lucide-react';
+import { Monitor, Smartphone, Square, Tv, AlertTriangle, Loader2 } from 'lucide-react';
 import type { VideoPreset } from '@/services/higgsFieldService';
+
+type AspectRatio = 'horizontal' | 'vertical' | 'square' | 'standard';
+
+const ASPECT_RATIOS: { value: AspectRatio; label: string; sub: string; icon: React.ElementType }[] = [
+  { value: 'horizontal', label: 'Horizontal', sub: '16:9 Landscape', icon: Monitor },
+  { value: 'vertical', label: 'Vertical', sub: '9:16 Portrait', icon: Smartphone },
+  { value: 'square', label: 'Square', sub: '1:1', icon: Square },
+  { value: 'standard', label: 'Standard', sub: '4:3', icon: Tv },
+];
 
 interface ConfigureAndGenerateProps {
   preset: VideoPreset;
   shootAddress: string;
-  aspectRatio: 'horizontal' | 'vertical';
-  onAspectRatioChange: (ratio: 'horizontal' | 'vertical') => void;
+  aspectRatio: AspectRatio;
+  onAspectRatioChange: (ratio: AspectRatio) => void;
   onGenerate: () => void;
   isSubmitting: boolean;
 }
@@ -38,58 +47,34 @@ export function ConfigureAndGenerate({
         <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
           Aspect Ratio
         </label>
-        <div className="grid grid-cols-2 gap-4">
-          {/* Horizontal */}
-          <Card
-            className={`cursor-pointer transition-all ${
-              aspectRatio === 'horizontal'
-                ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-950/30'
-                : 'hover:border-slate-300 dark:hover:border-slate-600'
-            }`}
-            onClick={() => onAspectRatioChange('horizontal')}
-          >
-            <CardContent className="p-4 flex flex-col items-center gap-3">
-              <div
-                className={`p-3 rounded-lg ${
-                  aspectRatio === 'horizontal'
-                    ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400'
-                    : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
-                }`}
-              >
-                <Monitor className="h-8 w-8" />
-              </div>
-              <div className="text-center">
-                <p className="font-medium text-sm">Horizontal</p>
-                <p className="text-xs text-slate-500">16:9 Landscape</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Vertical */}
-          <Card
-            className={`cursor-pointer transition-all ${
-              aspectRatio === 'vertical'
-                ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-950/30'
-                : 'hover:border-slate-300 dark:hover:border-slate-600'
-            }`}
-            onClick={() => onAspectRatioChange('vertical')}
-          >
-            <CardContent className="p-4 flex flex-col items-center gap-3">
-              <div
-                className={`p-3 rounded-lg ${
-                  aspectRatio === 'vertical'
-                    ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400'
-                    : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
-                }`}
-              >
-                <Smartphone className="h-8 w-8" />
-              </div>
-              <div className="text-center">
-                <p className="font-medium text-sm">Vertical</p>
-                <p className="text-xs text-slate-500">9:16 Portrait</p>
-              </div>
-            </CardContent>
-          </Card>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {ASPECT_RATIOS.map(({ value, label, sub, icon: Icon }) => (
+            <Card
+              key={value}
+              className={`cursor-pointer transition-all ${
+                aspectRatio === value
+                  ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-950/30'
+                  : 'hover:border-slate-300 dark:hover:border-slate-600'
+              }`}
+              onClick={() => onAspectRatioChange(value)}
+            >
+              <CardContent className="p-3 flex flex-col items-center gap-2">
+                <div
+                  className={`p-2.5 rounded-lg ${
+                    aspectRatio === value
+                      ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400'
+                      : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                  }`}
+                >
+                  <Icon className="h-6 w-6" />
+                </div>
+                <div className="text-center">
+                  <p className="font-medium text-sm">{label}</p>
+                  <p className="text-xs text-slate-500">{sub}</p>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </div>
 
@@ -127,7 +112,7 @@ export function ConfigureAndGenerate({
             <div className="flex justify-between text-sm">
               <span className="text-slate-500">Aspect Ratio</span>
               <span className="text-slate-900 dark:text-slate-100">
-                {aspectRatio === 'horizontal' ? '16:9 Landscape' : '9:16 Portrait'}
+                {ASPECT_RATIOS.find(r => r.value === aspectRatio)?.sub || aspectRatio}
               </span>
             </div>
           </div>

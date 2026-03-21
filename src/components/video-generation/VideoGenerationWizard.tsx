@@ -31,7 +31,7 @@ export function VideoGenerationWizard() {
   const [shootAddress, setShootAddress] = useState('');
   const [startFrameId, setStartFrameId] = useState<number | null>(null);
   const [endFrameId, setEndFrameId] = useState<number | null>(null);
-  const [aspectRatio, setAspectRatio] = useState<'horizontal' | 'vertical'>('horizontal');
+  const [aspectRatio, setAspectRatio] = useState<'horizontal' | 'vertical' | 'square' | 'standard'>('horizontal');
 
   const canGoNext = () => {
     switch (step) {

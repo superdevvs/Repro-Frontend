@@ -78,13 +78,23 @@ export function ShootAndImageSelector({
         // Combine and deduplicate by id
         const combined = [...delivered, ...completed];
         const seen = new Set<number>();
-        const unique = combined.filter((s: ShootOption) => {
+        const unique = combined.filter((s: any) => {
           if (seen.has(s.id)) return false;
           seen.add(s.id);
           return true;
         });
 
-        setShoots(unique);
+        // Map API fields to our interface
+        const mapped: ShootOption[] = unique.map((s: any) => ({
+          id: s.id,
+          address: s.address || s.property_address || s.location || '',
+          status: s.status || '',
+          photo_count: s.edited_photo_count || s.raw_photo_count || s.media_summary?.editedUploaded || s.media_summary?.delivered || s.files_count || 0,
+          thumbnail: s.hero_image || s.thumbnail || s.cover_image || null,
+          created_at: s.created_at || '',
+        }));
+
+        setShoots(mapped);
       } catch (err) {
         console.error('Failed to load shoots:', err);
       } finally {
