@@ -1,44 +1,48 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" fill="none">
   <!-- Background -->
-  <rect width="400" height="300" fill="#f8fafc"/>
-  
-  <!-- Decorative elements - stars and dots -->
-  <circle cx="80" cy="80" r="3" fill="#cbd5e1"/>
-  <circle cx="320" cy="60" r="2" fill="#cbd5e1"/>
-  <circle cx="60" cy="200" r="2" fill="#cbd5e1"/>
-  <circle cx="340" cy="180" r="3" fill="#cbd5e1"/>
-  <circle cx="100" cy="240" r="2" fill="#cbd5e1"/>
-  <circle cx="300" cy="230" r="2" fill="#cbd5e1"/>
-  
-  <!-- 4-point stars -->
-  <path d="M70 140 L73 145 L70 150 L67 145 Z" fill="#94a3b8"/>
-  <path d="M330 120 L333 125 L330 130 L327 125 Z" fill="#94a3b8"/>
-  <path d="M90 180 L92 183 L90 186 L88 183 Z" fill="#cbd5e1"/>
-  <path d="M310 200 L312 203 L310 206 L308 203 Z" fill="#cbd5e1"/>
-  <path d="M350 90 L352 93 L350 96 L348 93 Z" fill="#cbd5e1"/>
-  <path d="M50 120 L52 123 L50 126 L48 123 Z" fill="#cbd5e1"/>
-  
+  <rect width="400" height="300" fill="#0c1222"/>
+
+  <!-- Decorative elements - dots -->
+  <circle cx="80" cy="80" r="3" fill="#334155" opacity="0.8"/>
+  <circle cx="320" cy="60" r="2" fill="#334155" opacity="0.6"/>
+  <circle cx="60" cy="200" r="2" fill="#334155" opacity="0.7"/>
+  <circle cx="340" cy="180" r="3" fill="#334155" opacity="0.8"/>
+  <circle cx="100" cy="240" r="2" fill="#334155" opacity="0.5"/>
+  <circle cx="300" cy="230" r="2" fill="#334155" opacity="0.6"/>
+  <circle cx="150" cy="50" r="2" fill="#334155" opacity="0.5"/>
+  <circle cx="250" cy="250" r="2" fill="#334155" opacity="0.5"/>
+
+  <!-- 4-point stars / diamonds -->
+  <path d="M70 140 L73 145 L70 150 L67 145 Z" fill="#475569" opacity="0.7"/>
+  <path d="M330 120 L334 126 L330 132 L326 126 Z" fill="#475569" opacity="0.6"/>
+  <path d="M90 180 L92 183 L90 186 L88 183 Z" fill="#475569" opacity="0.5"/>
+  <path d="M310 200 L313 204 L310 208 L307 204 Z" fill="#475569" opacity="0.6"/>
+  <path d="M350 90 L352 93 L350 96 L348 93 Z" fill="#475569" opacity="0.5"/>
+  <path d="M50 120 L52 123 L50 126 L48 123 Z" fill="#475569" opacity="0.5"/>
+  <path d="M130 260 L132 263 L130 266 L128 263 Z" fill="#475569" opacity="0.4"/>
+  <path d="M270 70 L273 74 L270 78 L267 74 Z" fill="#475569" opacity="0.5"/>
+
   <!-- Spinner/loading indicator at top -->
   <g transform="translate(200, 55)">
-    <circle cx="0" cy="-12" r="2" fill="#94a3b8" opacity="0.3"/>
-    <circle cx="8.5" cy="-8.5" r="2" fill="#94a3b8" opacity="0.4"/>
-    <circle cx="12" cy="0" r="2" fill="#94a3b8" opacity="0.5"/>
-    <circle cx="8.5" cy="8.5" r="2" fill="#94a3b8" opacity="0.6"/>
-    <circle cx="0" cy="12" r="2" fill="#94a3b8" opacity="0.7"/>
-    <circle cx="-8.5" cy="8.5" r="2" fill="#94a3b8" opacity="0.8"/>
-    <circle cx="-12" cy="0" r="2" fill="#94a3b8" opacity="0.9"/>
-    <circle cx="-8.5" cy="-8.5" r="2" fill="#94a3b8" opacity="1"/>
+    <circle cx="0" cy="-12" r="2.5" fill="#475569" opacity="0.3"/>
+    <circle cx="8.5" cy="-8.5" r="2.5" fill="#475569" opacity="0.4"/>
+    <circle cx="12" cy="0" r="2.5" fill="#475569" opacity="0.5"/>
+    <circle cx="8.5" cy="8.5" r="2.5" fill="#475569" opacity="0.6"/>
+    <circle cx="0" cy="12" r="2.5" fill="#475569" opacity="0.7"/>
+    <circle cx="-8.5" cy="8.5" r="2.5" fill="#475569" opacity="0.8"/>
+    <circle cx="-12" cy="0" r="2.5" fill="#475569" opacity="0.9"/>
+    <circle cx="-8.5" cy="-8.5" r="2.5" fill="#475569" opacity="1"/>
   </g>
-  
+
   <!-- Dashed border rectangle -->
-  <rect x="120" y="90" width="160" height="120" rx="8" ry="8" fill="none" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="8 4"/>
-  
+  <rect x="115" y="85" width="170" height="130" rx="12" ry="12" fill="none" stroke="#334155" stroke-width="2" stroke-dasharray="8 5"/>
+
   <!-- Mountain landscape icon -->
   <g transform="translate(200, 150)">
     <!-- Sun/circle -->
-    <circle cx="35" cy="-15" r="18" fill="#cbd5e1"/>
-    
+    <circle cx="30" cy="-18" r="20" fill="#cbd5e1" opacity="0.85"/>
+
     <!-- Mountains -->
-    <path d="M-60 50 L-20 -10 L5 20 L20 5 L60 50 Z" fill="#cbd5e1"/>
+    <path d="M-65 55 L-20 -15 L5 20 L22 0 L65 55 Z" fill="#cbd5e1" opacity="0.85"/>
   </g>
 </svg>
