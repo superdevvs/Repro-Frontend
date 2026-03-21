@@ -1731,18 +1731,19 @@ export function ShootDetailsMediaTab({
 
   // Raw Upload Section Component
   const RawUploadSection = ({ shoot, onUploadComplete }: { shoot: ShootData; onUploadComplete: () => void }) => {
-    const { trackUpload } = useUpload();
+    const { trackUpload, uploads } = useUpload();
     const [bracketType, setBracketType] = useState<'3-bracket' | '5-bracket'>(
       shoot.bracketMode === 3 ? '3-bracket' : '5-bracket'
     );
     const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
-    const [uploading, setUploading] = useState(false);
     const [extraFiles, setExtraFiles] = useState<Set<string>>(new Set());
     const [floorplanFiles, setFloorplanFiles] = useState<Set<string>>(new Set());
     const [editingNotes, setEditingNotes] = useState('');
-    const [uploadProgress, setUploadProgress] = useState(0);
-    const [fileProgress, setFileProgress] = useState<Record<number, number>>({});
-    const [uploadingFileCount, setUploadingFileCount] = useState(0);
+
+    // Get active upload for this shoot from global context (survives component remounts)
+    const activeUpload = uploads.find(u => u.shootId === String(shoot.id) && u.status === 'uploading');
+    const uploading = !!activeUpload;
+    const uploadProgress = activeUpload?.progress || 0;
 
     const RAW_FP_PATTERNS = ['floorplan', 'floor-plan', 'floor_plan', 'fp_', 'fp-', 'layout', 'blueprint'];
     const isFloorplanByName = (name: string) => {
@@ -1969,9 +1970,7 @@ export function ShootDetailsMediaTab({
     };
 
     const handleConfirmSubmit = async () => {
-      // If called during active upload, only upload newly added files
-      const startIndex = uploading ? uploadingFileCount : 0;
-      const filesToUpload = uploadedFiles.slice(startIndex);
+      const filesToUpload = [...uploadedFiles];
       const currentExtraFiles = new Set(extraFiles);
       const currentFloorplanFiles = new Set(floorplanFiles);
       const currentEditingNotes = editingNotes;
@@ -1984,18 +1983,18 @@ export function ShootDetailsMediaTab({
       const authorizationHeader = apiHeaders.Authorization;
       const impersonationHeader = apiHeaders['X-Impersonate-User-Id'];
 
-      // Keep uploading state active - show progress in modal
-      setUploading(true);
-      setUploadProgress(0);
-      setFileProgress({});
-      setUploadingFileCount(uploadedFiles.length);
+      // Clear local file selection state - progress will show from UploadContext
+      setUploadedFiles([]);
+      setExtraFiles(new Set());
+      setFloorplanFiles(new Set());
+      setEditingNotes('');
 
       toast({
         title: 'Upload Started',
         description: `${totalFiles} file${totalFiles !== 1 ? 's' : ''} uploading. You can close this dialog and it will continue in background.`,
       });
 
-      // Delegate to UploadContext - this survives modal close
+      // Delegate to UploadContext - this survives modal close AND component remounts
       trackUpload({
         shootId: shoot.id,
         shootAddress: shoot.location?.fullAddress || shoot.location?.address || `Shoot #${shoot.id}`,
@@ -2003,19 +2002,7 @@ export function ShootDetailsMediaTab({
         fileNames: filesToUpload.map(f => f.name),
         uploadType: 'raw',
         onComplete: () => {
-          // Clear uploaded files and reset state
-          setUploadedFiles([]);
-          setExtraFiles(new Set());
-          setFloorplanFiles(new Set());
-          setEditingNotes('');
-          setUploadProgress(0);
-          setFileProgress({});
-          setUploadingFileCount(0);
-          setUploading(false);
-        },
-        onError: () => {
-          setUploading(false);
-          setUploadingFileCount(0);
+          onUploadComplete();
         },
         uploadFn: async (onProgress) => {
           const CONCURRENT_UPLOADS = 3;
@@ -2083,17 +2070,12 @@ export function ShootDetailsMediaTab({
               completedFiles++;
               if (!r.success && r.error) errors.push(r.error);
             });
-            const pct = Math.round((completedFiles / totalFiles) * 100);
-            onProgress(pct);
-            setUploadProgress(pct);
+            onProgress(Math.round((completedFiles / totalFiles) * 100));
           }
 
           if (errors.length === totalFiles) {
             throw new Error(`All ${totalFiles} files failed to upload`);
           }
-
-          // Trigger refresh
-          onUploadComplete();
         },
       });
     };
@@ -2150,6 +2132,43 @@ export function ShootDetailsMediaTab({
               {missingCount} photo(s) missing. Expected {expectedRawCount} photos{shootRequiresBrackets ? ` (${expectedPhotos} final × ${bracketMultiplier} brackets)` : ''}, but only {totalRawCount} uploaded.
             </AlertDescription>
           </Alert>
+        )}
+
+        {/* Active Upload Progress - from UploadContext (survives component remounts) */}
+        {activeUpload && (
+          <div className="space-y-3 border rounded-lg p-4 bg-card">
+            <div className="flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              <span className="text-sm font-medium">
+                Uploading {activeUpload.fileCount} file{activeUpload.fileCount !== 1 ? 's' : ''}... {uploadProgress}%
+              </span>
+            </div>
+            <Progress value={uploadProgress} className="h-2" />
+            <div className="max-h-32 overflow-y-auto space-y-1">
+              {activeUpload.fileNames.map((name, i) => {
+                const filesDone = Math.floor((uploadProgress / 100) * activeUpload.fileCount);
+                const isDone = i < filesDone;
+                return (
+                  <div key={i} className="flex items-center gap-2 text-xs py-1">
+                    <div className="flex-shrink-0">
+                      {isDone ? (
+                        <svg className="h-4 w-4 text-green-500" viewBox="0 0 16 16" fill="none">
+                          <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5" />
+                          <path d="M5 8l2 2 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      ) : (
+                        <div className="h-4 w-4 rounded-full border-2 border-muted-foreground/30" />
+                      )}
+                    </div>
+                    <span className={`truncate flex-1 ${isDone ? 'text-muted-foreground' : ''}`}>{name}</span>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              You can add more files below or close this dialog — upload continues in background.
+            </p>
+          </div>
         )}
 
         {/* Drag and Drop Upload Area */}
@@ -2215,79 +2234,54 @@ export function ShootDetailsMediaTab({
         {uploadedFiles.length > 0 && (
           <div className="space-y-2">
             <div className="text-sm font-medium flex items-center gap-2">
-              {uploading ? `Uploading Files (${uploadProgress}%)` : `Selected Files (${uploadedFiles.length})`}
-              {!uploading && <span className="text-xs text-muted-foreground font-normal">(check = extra, FP = floorplan)</span>}
-              {uploading && uploadedFiles.length > uploadingFileCount && (
-                <span className="text-xs text-blue-500 font-normal">+ {uploadedFiles.length - uploadingFileCount} queued</span>
-              )}
+              {`Selected Files (${uploadedFiles.length})`}
+              <span className="text-xs text-muted-foreground font-normal">(check = extra, FP = floorplan)</span>
             </div>
             <div className="max-h-48 overflow-y-auto space-y-1 border rounded p-2">
               {uploadedFiles.map((file, index) => (
                 <div key={index} className="flex items-center justify-between p-2 hover:bg-muted rounded">
                   <div className="flex items-center gap-2 flex-1 min-w-0">
-                    {/* Progress indicator or checkbox */}
-                    {uploading && index < uploadingFileCount ? (
-                      <div className="flex-shrink-0">
-                        <CircularProgress progress={fileProgress[index] || 0} size={18} />
-                      </div>
-                    ) : (
-                      <Checkbox
-                        checked={extraFiles.has(String(index))}
-                        onCheckedChange={() => toggleExtra(index)}
-                        id={`extra-${index}`}
-                      />
-                    )}
+                    <Checkbox
+                      checked={extraFiles.has(String(index))}
+                      onCheckedChange={() => toggleExtra(index)}
+                      id={`extra-${index}`}
+                    />
                     <label htmlFor={`extra-${index}`} className="text-xs cursor-pointer flex-1 truncate">
                       {file.name}
                     </label>
-                    {/* Floorplan toggle badge */}
-                    {(!uploading || index >= uploadingFileCount) && (
-                      <button
-                        type="button"
-                        className={`text-[9px] px-1.5 py-0.5 rounded font-medium flex-shrink-0 transition-colors ${floorplanFiles.has(String(index)) ? 'bg-blue-600 text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
-                        onClick={() => toggleFloorplan(index)}
-                        title={floorplanFiles.has(String(index)) ? 'Unmark as floorplan' : 'Mark as floorplan'}
-                      >
-                        FP
-                      </button>
-                    )}
-                    {/* Show percentage during upload */}
-                    {uploading && index < uploadingFileCount && (
-                      <span className="text-[10px] text-muted-foreground flex-shrink-0 w-8 text-right">
-                        {fileProgress[index] || 0}%
-                      </span>
-                    )}
-                    {/* Queued badge for files added during upload */}
-                    {uploading && index >= uploadingFileCount && (
-                      <span className="text-[10px] text-blue-500 flex-shrink-0">Queued</span>
-                    )}
-                  </div>
-                  {(!uploading || index >= uploadingFileCount) && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0"
-                      onClick={() => {
-                        setUploadedFiles(prev => prev.filter((_, i) => i !== index));
-                        setExtraFiles(prev => {
-                          const newSet = new Set(prev);
-                          newSet.delete(String(index));
-                          return newSet;
-                        });
-                        setFloorplanFiles(prev => {
-                          const newSet = new Set(prev);
-                          newSet.delete(String(index));
-                          return newSet;
-                        });
-                      }}
+                    <button
+                      type="button"
+                      className={`text-[9px] px-1.5 py-0.5 rounded font-medium flex-shrink-0 transition-colors ${floorplanFiles.has(String(index)) ? 'bg-blue-600 text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
+                      onClick={() => toggleFloorplan(index)}
+                      title={floorplanFiles.has(String(index)) ? 'Unmark as floorplan' : 'Mark as floorplan'}
                     >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  )}
+                      FP
+                    </button>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0"
+                    onClick={() => {
+                      setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+                      setExtraFiles(prev => {
+                        const newSet = new Set(prev);
+                        newSet.delete(String(index));
+                        return newSet;
+                      });
+                      setFloorplanFiles(prev => {
+                        const newSet = new Set(prev);
+                        newSet.delete(String(index));
+                        return newSet;
+                      });
+                    }}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
                 </div>
               ))}
             </div>
-            {extraFiles.size > 0 && !uploading && (
+            {extraFiles.size > 0 && (
               <div className="text-xs text-muted-foreground">
                 {extraFiles.size} file(s) marked as extras
               </div>
@@ -2317,7 +2311,7 @@ export function ShootDetailsMediaTab({
         )}
 
         {/* Floorplans Section - Show below extras */}
-        {floorplanFiles.size > 0 && uploadedFiles.length > 0 && !uploading && (
+        {floorplanFiles.size > 0 && uploadedFiles.length > 0 && (
           <div className="space-y-2 border-t pt-2">
             <div className="text-sm font-medium text-blue-600 dark:text-blue-400">Floorplans ({floorplanFiles.size})</div>
             <div className="max-h-24 overflow-y-auto space-y-1 border border-blue-200 dark:border-blue-800 rounded p-2 bg-blue-50/30 dark:bg-blue-900/10">
@@ -2337,7 +2331,7 @@ export function ShootDetailsMediaTab({
         )}
 
         {/* Editing Notes - Inline */}
-        {uploadedFiles.length > 0 && !uploading && (
+        {uploadedFiles.length > 0 && (
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Notes for Editor (Optional)</label>
             <textarea
@@ -2349,45 +2343,19 @@ export function ShootDetailsMediaTab({
           </div>
         )}
 
-        {/* Submit Buttons with Progress Bar */}
-        <div className="space-y-2">
-          {/* Overall Progress Bar - shown during upload */}
-          {uploading && (
-            <div className="space-y-1">
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>Uploading {uploadingFileCount} file(s)...</span>
-                <span>{uploadProgress}%</span>
-              </div>
-              <Progress value={uploadProgress} className="h-2" />
-            </div>
-          )}
-
+        {/* Submit Button */}
+        {uploadedFiles.length > 0 && (
           <div className="flex gap-2">
             <Button
               onClick={handleSubmitRAW}
-              disabled={(uploading && uploadedFiles.length <= uploadingFileCount) || uploadedFiles.length === 0}
+              disabled={uploadedFiles.length === 0}
               className="flex-1 relative overflow-hidden"
             >
-              {uploading && uploadedFiles.length > uploadingFileCount ? (
-                <>
-                  <Upload className="h-4 w-4 mr-2" />
-                  Upload {uploadedFiles.length - uploadingFileCount} More Files
-                </>
-              ) : uploading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Uploading... {uploadProgress}%
-                </>
-              ) : (
-                <>
-                  <Upload className="h-4 w-4 mr-2" />
-                  Upload RAW Photos
-                </>
-              )}
+              <Upload className="h-4 w-4 mr-2" />
+              {uploading ? `Upload ${uploadedFiles.length} More Files` : 'Upload RAW Photos'}
             </Button>
-            
           </div>
-        </div>
+        )}
       </div>
     );
   };
