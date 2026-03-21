@@ -100,6 +100,7 @@ import { ShootsTabsCard } from "@/components/dashboard/v2/ShootsTabsCard";
 import { ErrorBoundary, withErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { InvoiceViewDialog } from "@/components/invoices/InvoiceViewDialog";
 import { CancellationRequestsDialog } from "@/components/dashboard/CancellationRequestsDialog";
+import { UploadStatusWidget } from "@/components/dashboard/UploadStatusWidget";
 
 const LazyAssignPhotographersCard = lazy(() =>
   import("@/components/dashboard/v2/AssignPhotographersCard").then((module) => ({
@@ -1302,7 +1303,8 @@ const Dashboard = () => {
             {clientActionsContent}
             {clientInvoicesContent}
           </div>
-          <div className="md:col-span-9">
+          <div className="md:col-span-9 flex flex-col gap-4">
+            <UploadStatusWidget />
             {clientShootsContent}
           </div>
         </div>

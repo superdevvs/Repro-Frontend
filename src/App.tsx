@@ -14,6 +14,7 @@ import { PhotographerAssignmentProvider, usePhotographerAssignment } from './con
 import { PageTransition } from '@/components/layout/PageTransition';
 import Index from "./pages/Index";
 import { ShootsProvider } from './context/ShootsContext';
+import { UploadProvider } from './context/UploadContext';
 import { toast } from "./components/ui/use-toast";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { startRealtimeListener } from '@/realtime/realtimeListener';
@@ -612,10 +613,12 @@ function App() {
                   <UserPreferencesProvider>
                     <PermissionsProvider>
                       <ShootsProvider>
-                        <RealtimeBridge />
-                        <ErrorBoundary>
-                          <AppRoutes />
-                        </ErrorBoundary>
+                        <UploadProvider>
+                          <RealtimeBridge />
+                          <ErrorBoundary>
+                            <AppRoutes />
+                          </ErrorBoundary>
+                        </UploadProvider>
                       </ShootsProvider>
                     </PermissionsProvider>
                   </UserPreferencesProvider>

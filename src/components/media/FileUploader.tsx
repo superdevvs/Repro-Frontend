@@ -37,6 +37,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useShoots } from '@/context/ShootsContext';
+import { useUpload } from '@/context/UploadContext';
 import axios from 'axios';
 import { Dropbox } from 'dropbox';
 import { API_BASE_URL } from '@/config/env';
@@ -60,6 +61,7 @@ interface DropboxAuthState {
 
 interface FileUploaderProps {
   shootId?: string;
+  shootAddress?: string;
   onUploadComplete?: (files: File[], notes: string) => void;
   allowedFileTypes?: string[];
   className?: string;
@@ -70,9 +72,10 @@ interface FileUploaderProps {
 
 export function FileUploader({
   shootId,
+  shootAddress = '',
   onUploadComplete,
   allowedFileTypes = [
-    'image/jpeg', 'image/png', 'image/tiff', 
+    'image/jpeg', 'image/png', 'image/tiff',
     'video/mp4', 'video/quicktime',
     'application/zip', 'application/x-zip-compressed'
   ],
@@ -83,6 +86,7 @@ export function FileUploader({
 }: FileUploaderProps) {
   const { toast } = useToast();
   const { updateShoot } = useShoots();
+  const { startUpload } = useUpload();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropzoneRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
@@ -600,66 +604,42 @@ useEffect(() => {
   };
 
   const performUpload = async () => {
-    console.log("Starting upload for shoot ID:", shootId);
-    
-    setUploading(true);
-    const formData = new FormData();
-    // Backend expects an array named `files`
-    // Use indexed keys to ensure Laravel parses as files[0], files[1], ...
-    files.forEach((file, idx) => {
-      formData.append(`files[${idx}]`, file);
-    });
-    try {
-      // Determine the correct endpoint based on upload type and shoot ID
-      let uploadEndpoint;
-      if (shootId) {
-        // For shoot-specific uploads, use the workflow system
-        uploadEndpoint = `${API_BASE_URL}/api/shoots/${shootId}/upload-from-pc`;
-        // Add service category and upload type
-        formData.append('service_category', 'P'); // Default to Photos
-        formData.append('upload_type', uploadType); // raw or edited
-      } else {
-        // If no shootId, cannot use workflow upload
-        toast({ title: 'No shoot selected', description: 'Please select a shoot before uploading.', variant: 'destructive' });
-        setUploading(false);
-        return;
-      }
-
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      const response = await axios.post(
-        uploadEndpoint,
-        formData,
-        {
-          headers: {
-            // Let axios set multipart boundary automatically
-            Accept: 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          onUploadProgress: (progressEvent) => {
-            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-            setProgress(percentCompleted);
-          }
-        }
-      );
-      const folderType = uploadType === 'raw' ? 'ToDo' : 'Completed';
-      toast({
-        title: 'Upload Complete',
-        description: `${files.length} files uploaded successfully to ${folderType} folder.`,
-      });
-      if (onUploadComplete) {
-        onUploadComplete(files, notes);
-      }
-      setUploading(false);
-      setProgress(0);
-      setFiles([]);
-      setNotesChanged(false);
-    } catch (error:any) {
-      // Keep error message generic per your request
-      toast({ title: 'Upload Failed', description: 'Something went wrong while uploading. Please try again.', variant: 'destructive' });
-      console.error('Upload error:', error?.response?.data || error);
-      setUploading(false);
+    if (!shootId) {
+      toast({ title: 'No shoot selected', description: 'Please select a shoot before uploading.', variant: 'destructive' });
+      return;
     }
 
+    console.log("Starting background upload for shoot ID:", shootId);
+
+    // Delegate upload to global context so it continues even if modal closes
+    const filesToUpload = [...files];
+    const currentNotes = notes;
+
+    startUpload({
+      shootId,
+      shootAddress: shootAddress || `Shoot #${shootId}`,
+      files: filesToUpload,
+      uploadType,
+      serviceCategory: 'P',
+      onComplete: () => {
+        if (onUploadComplete) {
+          onUploadComplete(filesToUpload, currentNotes);
+        }
+      },
+      onError: (errorMsg) => {
+        toast({ title: 'Upload Failed', description: errorMsg || 'Something went wrong while uploading.', variant: 'destructive' });
+      },
+    });
+
+    // Reset local state immediately - upload continues in background
+    toast({
+      title: 'Upload Started',
+      description: `${files.length} file${files.length !== 1 ? 's' : ''} uploading in background. You can close this dialog.`,
+    });
+    setFiles([]);
+    setProgress(0);
+    setUploading(false);
+    setNotesChanged(false);
   };
   
   const getFileIcon = (file: File) => {

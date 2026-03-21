@@ -67,6 +67,7 @@ export function ShootsDialogs({
           </DialogHeader>
           <FileUploader
             shootId={selectedShoot?.id}
+            shootAddress={selectedShoot?.location?.fullAddress || selectedShoot?.location?.address || ''}
             onUploadComplete={onUploadComplete}
             initialNotes={initialNotes}
             expectedPhotoCount={selectedShoot?.expectedFinalCount || selectedShoot?.package?.expectedDeliveredCount || 0}
