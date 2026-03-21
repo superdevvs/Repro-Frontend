@@ -2324,51 +2324,52 @@ const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
   return (
     <DevProfiler id="ClientMyShoots">
       <Card className="h-full flex flex-col">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
-          <div>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4 sm:mb-6">
+          <div className="flex items-center gap-4">
             <h2 className="text-base sm:text-lg font-bold text-foreground">My shoots</h2>
-            <p className="text-xs sm:text-sm text-muted-foreground">Track everything from booking to delivery.</p>
-          </div>
-          <div className="flex items-center gap-3 sm:gap-4">
-            <div className="flex gap-2 sm:gap-4 text-xs sm:text-sm font-semibold overflow-visible pb-2 pt-2">
+            <div className="flex items-center gap-1">
               {tabs.map((tab) => (
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key)}
-                  className={`pb-1 border-b-2 transition-colors whitespace-nowrap flex items-center gap-1.5 ${
-                    activeTab === tab.key ? "border-foreground text-foreground" : "border-transparent text-muted-foreground"
+                  className={`px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium transition-all border-b-2 whitespace-nowrap ${
+                    activeTab === tab.key
+                      ? "text-foreground border-primary"
+                      : "text-muted-foreground border-transparent hover:text-foreground"
                   }`}
                 >
-                  {tab.label}
-                  {tab.key === "completed" && tab.count > 0 ? (
-                    <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[10px] font-bold text-white bg-blue-500 rounded-full animate-bounce">
-                      {tab.count}
-                    </span>
-                  ) : (
-                    <span>({tab.count})</span>
-                  )}
+                  <span className="flex items-center gap-1.5">
+                    {tab.label}
+                    {tab.key === "completed" && tab.count > 0 ? (
+                      <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[10px] font-bold text-white bg-blue-500 rounded-full animate-bounce">
+                        {tab.count}
+                      </span>
+                    ) : (
+                      <span>({tab.count})</span>
+                    )}
+                  </span>
                 </button>
               ))}
             </div>
-            {activeTab === "completed" && list.length > 0 && (
-              <div className="flex items-center border rounded-md overflow-hidden ml-auto">
-                <button
-                  onClick={() => toggleDeliveredView('grid')}
-                  className={`h-7 w-7 flex items-center justify-center transition-colors ${deliveredViewMode === 'grid' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'}`}
-                  title="Grid view"
-                >
-                  <LayoutGrid className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  onClick={() => toggleDeliveredView('list')}
-                  className={`h-7 w-7 flex items-center justify-center transition-colors ${deliveredViewMode === 'list' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'}`}
-                  title="List view"
-                >
-                  <List className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            )}
           </div>
+          {activeTab === "completed" && list.length > 0 && (
+            <div className="flex items-center border rounded-md overflow-hidden">
+              <button
+                onClick={() => toggleDeliveredView('grid')}
+                className={`h-7 w-7 flex items-center justify-center transition-colors ${deliveredViewMode === 'grid' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'}`}
+                title="Grid view"
+              >
+                <LayoutGrid className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={() => toggleDeliveredView('list')}
+                className={`h-7 w-7 flex items-center justify-center transition-colors ${deliveredViewMode === 'list' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'}`}
+                title="List view"
+              >
+                <List className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
         </div>
         <div className="space-y-4">
           {list.length === 0 ? (
