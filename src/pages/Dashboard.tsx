@@ -1297,8 +1297,8 @@ const Dashboard = () => {
       );
 
       const clientDesktopContent = (
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-6">
-          <div className="md:col-span-3 flex flex-col gap-4 sm:gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-6 items-start">
+          <div className="md:col-span-3 flex flex-col gap-4 sm:gap-6 md:sticky md:top-6">
             {clientActionsContent}
             {clientInvoicesContent}
           </div>
