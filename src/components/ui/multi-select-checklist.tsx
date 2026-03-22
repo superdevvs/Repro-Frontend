@@ -1,6 +1,7 @@
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
 type MultiSelectChecklistOption = {
@@ -18,6 +19,10 @@ interface MultiSelectChecklistProps {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  searchable?: boolean;
+  searchPlaceholder?: string;
+  summaryLimit?: number;
+  maxHeightClassName?: string;
 }
 
 export function MultiSelectChecklist({
@@ -28,12 +33,32 @@ export function MultiSelectChecklist({
   placeholder = 'No items selected.',
   disabled = false,
   className,
+  searchable = true,
+  searchPlaceholder = 'Search options...',
+  summaryLimit = 4,
+  maxHeightClassName,
 }: MultiSelectChecklistProps) {
+  const [searchTerm, setSearchTerm] = React.useState('');
   const selectedIds = React.useMemo(() => new Set(value), [value]);
   const selectedOptions = React.useMemo(
     () => options.filter((option) => selectedIds.has(option.id)),
     [options, selectedIds],
   );
+  const visibleOptions = React.useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+
+    if (!normalizedSearch) {
+      return options;
+    }
+
+    return options.filter((option) =>
+      [option.label, option.description, option.meta]
+        .filter(Boolean)
+        .some((field) => field!.toLowerCase().includes(normalizedSearch)),
+    );
+  }, [options, searchTerm]);
+  const summaryOptions = selectedOptions.slice(0, summaryLimit);
+  const remainingCount = Math.max(0, selectedOptions.length - summaryOptions.length);
 
   const toggleValue = (id: string, checked: boolean) => {
     if (disabled) return;
@@ -48,23 +73,39 @@ export function MultiSelectChecklist({
 
   return (
     <div className={cn('space-y-3', className)}>
-      <div className="min-h-8 rounded-md border border-dashed border-muted-foreground/30 bg-muted/20 px-3 py-2">
+      <div className="rounded-md border border-dashed border-muted-foreground/30 bg-muted/20 px-3 py-3">
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
+            Selected
+          </p>
+          <Badge variant="outline">{selectedOptions.length}</Badge>
+        </div>
         {selectedOptions.length > 0 ? (
           <div className="flex flex-wrap gap-2">
-            {selectedOptions.map((option) => (
+            {summaryOptions.map((option) => (
               <Badge key={option.id} variant="secondary">
                 {option.label}
               </Badge>
             ))}
+            {remainingCount > 0 ? <Badge variant="outline">+{remainingCount} more</Badge> : null}
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">{placeholder}</p>
         )}
       </div>
 
-      <div className="max-h-56 space-y-2 overflow-y-auto rounded-md border p-2">
-        {options.length > 0 ? (
-          options.map((option) => {
+      {searchable && options.length > 6 ? (
+        <Input
+          value={searchTerm}
+          onChange={(event) => setSearchTerm(event.target.value)}
+          placeholder={searchPlaceholder}
+          disabled={disabled}
+        />
+      ) : null}
+
+      <div className={cn('max-h-56 space-y-2 overflow-y-auto rounded-md border p-2', maxHeightClassName)}>
+        {visibleOptions.length > 0 ? (
+          visibleOptions.map((option) => {
             const isChecked = selectedIds.has(option.id);
 
             return (
@@ -96,6 +137,8 @@ export function MultiSelectChecklist({
               </label>
             );
           })
+        ) : options.length > 0 ? (
+          <p className="px-2 py-4 text-sm text-muted-foreground">No matches for your search.</p>
         ) : (
           <p className="px-2 py-4 text-sm text-muted-foreground">{emptyMessage}</p>
         )}

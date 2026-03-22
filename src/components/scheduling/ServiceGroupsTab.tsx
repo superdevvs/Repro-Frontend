@@ -13,7 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useServiceGroups } from '@/hooks/useServiceGroups';
 import { useServices } from '@/hooks/useServices';
 import API_ROUTES from '@/lib/api';
-import { Loader2, Pencil, Plus, Trash2, Users2, Wrench } from 'lucide-react';
+import { BadgeCheck, Loader2, Pencil, Plus, Trash2, Users2, Wrench } from 'lucide-react';
 import type { Client } from '@/types/clients';
 import type { ServiceGroupDetail } from '@/types/serviceGroups';
 
@@ -178,6 +178,7 @@ export function ServiceGroupsTab() {
 
       queryClient.invalidateQueries({ queryKey: ['service-groups'] });
       queryClient.invalidateQueries({ queryKey: ['services'] });
+      queryClient.invalidateQueries({ queryKey: ['service-group-clients'] });
 
       toast({
         title: editingGroup ? 'Service group updated' : 'Service group created',
@@ -220,6 +221,7 @@ export function ServiceGroupsTab() {
 
       queryClient.invalidateQueries({ queryKey: ['service-groups'] });
       queryClient.invalidateQueries({ queryKey: ['services'] });
+      queryClient.invalidateQueries({ queryKey: ['service-group-clients'] });
 
       toast({
         title: 'Service group deleted',
@@ -237,6 +239,10 @@ export function ServiceGroupsTab() {
   };
 
   const loading = groupsLoading || servicesLoading || clientsLoading;
+  const activeGroupsCount = groups.filter((group) => group.is_active).length;
+  const assignedClientsCount = groups.reduce((count, group) => count + group.client_count, 0);
+  const selectedServiceCount = formState.service_ids.length;
+  const selectedClientCount = formState.client_ids.length;
 
   return (
     <div className="space-y-4">
@@ -253,6 +259,23 @@ export function ServiceGroupsTab() {
             Add Service Group
           </Button>
         </CardHeader>
+        <CardContent className="grid gap-3 border-t pt-6 sm:grid-cols-3">
+          <div className="rounded-xl border bg-muted/20 p-4">
+            <p className="text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground">Groups</p>
+            <p className="mt-2 text-2xl font-semibold">{groups.length}</p>
+            <p className="mt-1 text-sm text-muted-foreground">Service catalogs you can target to specific clients.</p>
+          </div>
+          <div className="rounded-xl border bg-muted/20 p-4">
+            <p className="text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground">Active</p>
+            <p className="mt-2 text-2xl font-semibold">{activeGroupsCount}</p>
+            <p className="mt-1 text-sm text-muted-foreground">Currently available for booking visibility rules.</p>
+          </div>
+          <div className="rounded-xl border bg-muted/20 p-4">
+            <p className="text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground">Assignments</p>
+            <p className="mt-2 text-2xl font-semibold">{assignedClientsCount}</p>
+            <p className="mt-1 text-sm text-muted-foreground">Client-to-group memberships across the catalog.</p>
+          </div>
+        </CardContent>
       </Card>
 
       {loading ? (
@@ -362,77 +385,136 @@ export function ServiceGroupsTab() {
           if (!open && !saving) resetForm();
         }}
       >
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[760px]">
-          <DialogHeader>
-            <DialogTitle>{editingGroup ? 'Edit Service Group' : 'Create Service Group'}</DialogTitle>
-            <DialogDescription>
-              Assign services and clients. Clients with one or more service groups will only see services from their assigned group(s).
-            </DialogDescription>
+        <DialogContent className="max-h-[92vh] overflow-y-auto p-0 sm:max-w-[960px]">
+          <DialogHeader className="border-b px-6 py-5 text-left">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="space-y-2">
+                <DialogTitle>{editingGroup ? 'Edit Service Group' : 'Create Service Group'}</DialogTitle>
+                <DialogDescription className="max-w-2xl">
+                  Build a client-specific catalog by choosing which services belong together and which clients should be restricted to that set.
+                </DialogDescription>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="min-w-24 rounded-xl border bg-muted/20 px-3 py-2">
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Services</p>
+                  <p className="mt-1 text-lg font-semibold">{selectedServiceCount}</p>
+                </div>
+                <div className="min-w-24 rounded-xl border bg-muted/20 px-3 py-2">
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Clients</p>
+                  <p className="mt-1 text-lg font-semibold">{selectedClientCount}</p>
+                </div>
+                <div className="min-w-24 rounded-xl border bg-muted/20 px-3 py-2">
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Status</p>
+                  <p className="mt-1 text-lg font-semibold">{formState.is_active ? 'Live' : 'Paused'}</p>
+                </div>
+              </div>
+            </div>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="service-group-name">Name</Label>
-                <Input
-                  id="service-group-name"
-                  value={formState.name}
-                  onChange={(event) => setFormState((prev) => ({ ...prev, name: event.target.value }))}
-                  placeholder="e.g. Enterprise Clients"
-                />
+          <div className="space-y-6 px-6 py-6">
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
+              <div className="space-y-4 rounded-2xl border bg-muted/10 p-5">
+                <div className="space-y-2">
+                  <Label htmlFor="service-group-name">Group Name</Label>
+                  <Input
+                    id="service-group-name"
+                    value={formState.name}
+                    onChange={(event) => setFormState((prev) => ({ ...prev, name: event.target.value }))}
+                    placeholder="e.g. Enterprise Clients"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="service-group-description">Description</Label>
+                  <Textarea
+                    id="service-group-description"
+                    value={formState.description}
+                    onChange={(event) => setFormState((prev) => ({ ...prev, description: event.target.value }))}
+                    placeholder="Who this group is for, how it should be used, and what makes it different."
+                    rows={4}
+                  />
+                </div>
               </div>
-              <div className="flex items-center justify-between rounded-lg border p-4">
-                <div className="space-y-1">
-                  <Label htmlFor="service-group-active">Active</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Inactive groups stay assigned but are marked for admin review.
+
+              <div className="space-y-4 rounded-2xl border bg-muted/10 p-5">
+                <div className="flex items-start justify-between gap-4 rounded-xl border bg-background/70 p-4">
+                  <div className="space-y-1">
+                    <Label htmlFor="service-group-active">Active Group</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Inactive groups keep their assignments, but they are clearly marked for review.
+                    </p>
+                  </div>
+                  <Switch
+                    id="service-group-active"
+                    checked={formState.is_active}
+                    onCheckedChange={(checked) => setFormState((prev) => ({ ...prev, is_active: checked }))}
+                  />
+                </div>
+
+                <div className="rounded-xl border bg-background/70 p-4">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <BadgeCheck className="h-4 w-4 text-primary" />
+                    Booking rule
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                    Clients with at least one assigned service group will only see services from their assigned groups while booking.
                   </p>
                 </div>
-                <Switch
-                  id="service-group-active"
-                  checked={formState.is_active}
-                  onCheckedChange={(checked) => setFormState((prev) => ({ ...prev, is_active: checked }))}
-                />
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="service-group-description">Description</Label>
-              <Textarea
-                id="service-group-description"
-                value={formState.description}
-                onChange={(event) => setFormState((prev) => ({ ...prev, description: event.target.value }))}
-                placeholder="Who this group is for and what makes it different."
-                rows={3}
-              />
-            </div>
-
-            <div className="grid gap-6 lg:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Services</Label>
+            <div className="grid gap-6 xl:grid-cols-2">
+              <section className="rounded-2xl border p-5">
+                <div className="mb-4 flex items-start justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Wrench className="h-4 w-4 text-primary" />
+                      <h3 className="font-semibold">Allowed Services</h3>
+                    </div>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Pick the services that should appear for clients in this group.
+                    </p>
+                  </div>
+                  <Badge variant="secondary">{selectedServiceCount}</Badge>
+                </div>
                 <MultiSelectChecklist
                   options={serviceOptions}
                   value={formState.service_ids}
                   onChange={(value) => setFormState((prev) => ({ ...prev, service_ids: value }))}
                   placeholder="Select the services this group should allow."
                   emptyMessage="No services available yet."
+                  searchPlaceholder="Search services..."
+                  maxHeightClassName="max-h-72"
                 />
-              </div>
+              </section>
 
-              <div className="space-y-2">
-                <Label>Clients</Label>
+              <section className="rounded-2xl border p-5">
+                <div className="mb-4 flex items-start justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Users2 className="h-4 w-4 text-primary" />
+                      <h3 className="font-semibold">Assigned Clients</h3>
+                    </div>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Add or remove clients who should be restricted to this catalog.
+                    </p>
+                  </div>
+                  <Badge variant="secondary">{selectedClientCount}</Badge>
+                </div>
                 <MultiSelectChecklist
                   options={clientOptions}
                   value={formState.client_ids}
                   onChange={(value) => setFormState((prev) => ({ ...prev, client_ids: value }))}
                   placeholder="Select the clients that belong to this group."
                   emptyMessage="No clients available yet."
+                  searchPlaceholder="Search clients..."
+                  maxHeightClassName="max-h-72"
                 />
-              </div>
+              </section>
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="border-t px-6 py-4">
             <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
               Cancel
             </Button>

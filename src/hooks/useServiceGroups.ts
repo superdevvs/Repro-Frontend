@@ -16,7 +16,7 @@ export const useServiceGroups = (options?: { enabled?: boolean }) => {
       });
 
       if (!response.ok) {
-        if (response.status === 403) {
+        if ([403, 404, 503].includes(response.status)) {
           return [];
         }
         throw new Error('Failed to load service groups');
