@@ -47,6 +47,56 @@ const extractPhotoCountFromService = (name: string) => {
   return match ? Number(match[1]) : 0;
 };
 
+const parseAccountingInvoiceDate = (value: unknown) => {
+  if (!value) return null;
+  const parsed = new Date(String(value));
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const getInvoiceWindowDate = (invoice: InvoiceData) => {
+  const legacyInvoice = invoice as InvoiceData & Record<string, unknown>;
+  const candidates =
+    invoice.status === 'paid'
+      ? [
+          invoice.paidAt,
+          legacyInvoice.paid_at,
+          legacyInvoice.updated_at,
+          legacyInvoice.updatedAt,
+          invoice.issueDate,
+          invoice.date,
+          invoice.createdAt,
+          legacyInvoice.created_at,
+        ]
+      : [
+          invoice.dueDate,
+          invoice.issueDate,
+          invoice.date,
+          invoice.createdAt,
+          legacyInvoice.created_at,
+        ];
+
+  for (const candidate of candidates) {
+    const parsed = parseAccountingInvoiceDate(candidate);
+    if (parsed) return parsed;
+  }
+
+  return null;
+};
+
+const isInvoiceInDaysWindow = (invoice: InvoiceData, daysWindow: number) => {
+  const invoiceDate = getInvoiceWindowDate(invoice);
+  if (!invoiceDate) return true;
+
+  const end = new Date();
+  end.setHours(23, 59, 59, 999);
+
+  const start = new Date(end);
+  start.setHours(0, 0, 0, 0);
+  start.setDate(start.getDate() - (daysWindow - 1));
+
+  return invoiceDate >= start && invoiceDate <= end;
+};
+
 const AccountingPage = () => {
   const { toast } = useToast();
   const { role, user } = useAuth(); // Use the correct AuthProvider
@@ -149,6 +199,14 @@ const AccountingPage = () => {
     // For editor, invoices might not be the primary data
     return invoices;
   }, [invoices, accountingMode, user]);
+
+  const adminWindowInvoices = useMemo(() => {
+    if (accountingMode !== 'admin') {
+      return filteredInvoices;
+    }
+
+    return filteredInvoices.filter((invoice) => isInvoiceInDaysWindow(invoice, daysWindow));
+  }, [filteredInvoices, accountingMode, daysWindow]);
 
   // Fetch shoots and editing jobs based on role
   // TODO: Replace with actual API calls
@@ -404,7 +462,7 @@ const AccountingPage = () => {
               {config.showOverviewCards && (
                 accountingMode === 'admin' ? (
                   <OverviewCards 
-                    invoices={filteredInvoices} 
+                    invoices={adminWindowInvoices} 
                     timeFilter={timeFilter}
                     daysWindow={daysWindow}
                   />
@@ -439,7 +497,7 @@ const AccountingPage = () => {
                   <div className="lg:col-span-2">
                     {accountingMode === 'admin' ? (
                       <RevenueCharts
-                        invoices={filteredInvoices}
+                        invoices={adminWindowInvoices}
                         timeFilter={timeFilter}
                         onTimeFilterChange={setTimeFilter}
                         role={role}
@@ -458,7 +516,7 @@ const AccountingPage = () => {
                   {(config.showPaymentsSummary || config.showLatestTransactions || accountingMode === 'editor') && (
                     <div className="lg:col-span-1 flex flex-col gap-3 h-full">
                       {accountingMode === 'admin' ? (
-                        <PaymentsSummary invoices={filteredInvoices} />
+                        <PaymentsSummary invoices={adminWindowInvoices} />
                       ) : accountingMode === 'editor' ? (
                         <>
                           <EditorRateSettings />

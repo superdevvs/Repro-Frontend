@@ -165,27 +165,52 @@ const isPlaceholderLikeValue = (value: string | null | undefined): boolean => {
   return PLACEHOLDER_IMAGE_MARKERS.some((marker) => normalized.includes(marker))
 }
 
-const getFilePreviewUrl = (file?: ShootFileData | null): string | null => {
+type ShootThumbnailPreference = 'thumb' | 'default'
+
+const getFilePreviewUrl = (
+  file?: ShootFileData | null,
+  preference: ShootThumbnailPreference = 'default',
+): string | null => {
   if (!file) return null
 
-  const previewCandidates = [
-    file.thumb_url,
-    file.thumb,
-    file.thumbnail_url,
-    file.medium_url,
-    file.medium,
-    file.web_url,
-    file.large_url,
-    file.large,
-    file.original_url,
-    file.original,
-    file.thumbnail_path,
-    file.web_path,
-    file.url,
-    file.path,
-    file.placeholder_url,
-    file.placeholder_path,
-  ]
+  const previewCandidates =
+    preference === 'thumb'
+      ? [
+          file.thumb_url,
+          file.thumb,
+          file.thumbnail_url,
+          file.thumbnail_path,
+          file.medium_url,
+          file.medium,
+          file.web_url,
+          file.web_path,
+          file.large_url,
+          file.large,
+          file.original_url,
+          file.original,
+          file.url,
+          file.path,
+          file.placeholder_url,
+          file.placeholder_path,
+        ]
+      : [
+          file.thumb_url,
+          file.thumb,
+          file.thumbnail_url,
+          file.medium_url,
+          file.medium,
+          file.web_url,
+          file.large_url,
+          file.large,
+          file.original_url,
+          file.original,
+          file.thumbnail_path,
+          file.web_path,
+          file.url,
+          file.path,
+          file.placeholder_url,
+          file.placeholder_path,
+        ]
 
   for (const candidate of previewCandidates) {
     if (!candidate || isPlaceholderLikeValue(candidate)) {
@@ -205,13 +230,19 @@ const getFileWorkflowStage = (file?: ShootFileData | null): string => {
   return String(file?.workflow_stage ?? file?.workflowStage ?? '').toLowerCase()
 }
 
-const resolveShootThumbnail = (shoot: ShootData): string | null => {
-  const heroPreview = !isPlaceholderLikeValue(shoot.heroImage)
-    ? resolvePreviewUrl(shoot.heroImage)
-    : null
+const resolveShootThumbnail = (
+  shoot: ShootData,
+  preference: ShootThumbnailPreference = 'default',
+): string | null => {
+  const heroPreview =
+    preference === 'thumb'
+      ? null
+      : !isPlaceholderLikeValue(shoot.heroImage)
+        ? resolvePreviewUrl(shoot.heroImage)
+        : null
   const editedMediaPreview =
-    heroPreview ||
     resolvePreviewUrl(shoot.media?.images?.[0]?.thumbnail) ||
+    heroPreview ||
     resolvePreviewUrl(shoot.media?.images?.[0]?.url) ||
     resolvePreviewUrl((shoot.media as any)?.photos?.[0])
 
@@ -221,12 +252,12 @@ const resolveShootThumbnail = (shoot: ShootData): string | null => {
 
   const files = (shoot.files ?? []).filter((file) => !(file.is_hidden ?? false))
   const preferredFile =
-    files.find((file) => (file.is_cover || file.isCover) && getFilePreviewUrl(file)) ||
-    files.find((file) => /(raw|uploaded|capture)/.test(getFileWorkflowStage(file)) && getFilePreviewUrl(file)) ||
-    files.find((file) => /(verified|completed|edited|review|ready|delivered)/.test(getFileWorkflowStage(file)) && getFilePreviewUrl(file)) ||
-    files.find((file) => getFilePreviewUrl(file))
+    files.find((file) => (file.is_cover || file.isCover) && getFilePreviewUrl(file, preference)) ||
+    files.find((file) => /(raw|uploaded|capture)/.test(getFileWorkflowStage(file)) && getFilePreviewUrl(file, preference)) ||
+    files.find((file) => /(verified|completed|edited|review|ready|delivered)/.test(getFileWorkflowStage(file)) && getFilePreviewUrl(file, preference)) ||
+    files.find((file) => getFilePreviewUrl(file, preference))
 
-  return getFilePreviewUrl(preferredFile)
+  return getFilePreviewUrl(preferredFile, preference) || heroPreview
 }
 
 const getShootPlaceholderSrc = (theme: 'light' | 'dark') =>
@@ -1185,7 +1216,7 @@ const CompletedAlbumCard = ({
     if (!value) return '—'
     try { return formatDatePref(new Date(value)) } catch { return value ?? '—' }
   }
-  const heroImage = resolveShootThumbnail(shoot)
+  const heroImage = resolveShootThumbnail(shoot, 'thumb')
   const photoCount = shoot.media?.images?.length ?? shoot.editedPhotoCount ?? shoot.rawPhotoCount ?? shoot.files?.length ?? 0
   const placeholderImage = getShootPlaceholderSrc(theme)
   const hasNoImages = !heroImage
@@ -1436,7 +1467,7 @@ const CompletedShootListRow = ({
     if (!value) return '—'
     try { return formatDatePref(new Date(value)) } catch { return value ?? '—' }
   }
-  const heroImage = resolveShootThumbnail(shoot)
+  const heroImage = resolveShootThumbnail(shoot, 'thumb')
   const photoCount = shoot.media?.images?.length ?? shoot.editedPhotoCount ?? shoot.rawPhotoCount ?? shoot.files?.length ?? 0
   const hasTour = shoot.tourPurchased || Boolean(shoot.tourLinks?.branded || shoot.tourLinks?.mls)
   const isPaid = isSuperAdmin ? ((shoot.payment?.totalPaid ?? 0) >= (shoot.payment?.totalQuote ?? 0)) : false

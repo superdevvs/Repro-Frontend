@@ -82,7 +82,7 @@ interface ShootDetailsMediaTabProps {
   onShowHiddenChange?: (val: boolean) => void;
 }
 
-type MediaSubTab = 'photos' | 'videos' | 'iguide' | 'floorplans';
+type MediaSubTab = 'photos' | 'videos' | 'iguide' | 'floorplans' | 'virtualStaging' | 'extras';
 
 // MediaFile interface is imported from useShootFiles hook
 
@@ -528,16 +528,26 @@ export function ShootDetailsMediaTab({
     return nameCandidates.some((name) => VIDEO_EXTENSION_REGEX.test(normalizeFilename(name)));
   };
 
-  // Filter files into photos, videos, and floorplans
-  const isFloorplanFile = (f: MediaFile): boolean => (f.media_type || '').toLowerCase() === 'floorplan';
+  // Filter files into photos, videos, floorplans, virtual staging, and extras
+  const getNormalizedMediaType = (f: MediaFile): string => (f.media_type || '').toLowerCase();
+  const isFloorplanFile = (f: MediaFile): boolean => getNormalizedMediaType(f) === 'floorplan';
+  const isVirtualStagingFile = (f: MediaFile): boolean => getNormalizedMediaType(f) === 'virtual_staging';
+  const isExtraMediaFile = (f: MediaFile): boolean =>
+    f.isExtra || getNormalizedMediaType(f) === 'extra';
   const filterPhotoFiles = (files: MediaFile[]): MediaFile[] => 
-    files.filter(f => !isVideoFile(f) && !isFloorplanFile(f));
+    files.filter(f => !isVideoFile(f) && !isFloorplanFile(f) && !isVirtualStagingFile(f) && !isExtraMediaFile(f));
   
   const filterVideoFiles = (files: MediaFile[]): MediaFile[] => 
     files.filter(f => isVideoFile(f));
 
   const filterFloorplanFiles = (files: MediaFile[]): MediaFile[] =>
     files.filter(f => isFloorplanFile(f));
+
+  const filterVirtualStagingFiles = (files: MediaFile[]): MediaFile[] =>
+    files.filter(f => isVirtualStagingFile(f));
+
+  const filterExtraFiles = (files: MediaFile[]): MediaFile[] =>
+    files.filter(f => isExtraMediaFile(f));
 
   // Computed filtered lists for uploaded (raw) files
   const uploadedPhotos = useMemo(() => filterPhotoFiles(rawFiles), [rawFiles]);
@@ -550,6 +560,10 @@ export function ShootDetailsMediaTab({
   // Computed filtered lists for floorplans (uploaded files with media_type=floorplan)
   const uploadedFloorplans = useMemo(() => filterFloorplanFiles(rawFiles), [rawFiles]);
   const editedFloorplans = useMemo(() => filterFloorplanFiles(editedFiles), [editedFiles]);
+  const uploadedVirtualStaging = useMemo(() => filterVirtualStagingFiles(rawFiles), [rawFiles]);
+  const editedVirtualStaging = useMemo(() => filterVirtualStagingFiles(editedFiles), [editedFiles]);
+  const uploadedExtras = useMemo(() => filterExtraFiles(rawFiles), [rawFiles]);
+  const editedExtras = useMemo(() => filterExtraFiles(editedFiles), [editedFiles]);
 
   // Get iGuide and floorplan data from shoot
   const iguideUrl =
@@ -573,6 +587,9 @@ export function ShootDetailsMediaTab({
   const getFilteredFiles = (baseFiles: MediaFile[], subTab: MediaSubTab): MediaFile[] => {
     if (subTab === 'photos') return filterPhotoFiles(baseFiles);
     if (subTab === 'videos') return filterVideoFiles(baseFiles);
+    if (subTab === 'floorplans') return filterFloorplanFiles(baseFiles);
+    if (subTab === 'virtualStaging') return filterVirtualStagingFiles(baseFiles);
+    if (subTab === 'extras') return filterExtraFiles(baseFiles);
     return baseFiles;
   };
 
@@ -582,16 +599,102 @@ export function ShootDetailsMediaTab({
       if (uploadedMediaTab === 'photos') return uploadedPhotos;
       if (uploadedMediaTab === 'videos') return uploadedVideos;
       if (uploadedMediaTab === 'floorplans') return uploadedFloorplans;
+      if (uploadedMediaTab === 'virtualStaging') return uploadedVirtualStaging;
+      if (uploadedMediaTab === 'extras') return uploadedExtras;
       return rawFiles;
     } else {
       if (editedMediaTab === 'photos') return editedPhotos;
       if (editedMediaTab === 'videos') return editedVideos;
       if (editedMediaTab === 'floorplans') return editedFloorplans;
+      if (editedMediaTab === 'virtualStaging') return editedVirtualStaging;
+      if (editedMediaTab === 'extras') return editedExtras;
       return editedFiles;
     }
   };
 
   const currentDisplayedFiles = getCurrentDisplayedFiles();
+
+  const renderMediaGridPane = (
+    files: MediaFile[],
+    emptyTitle: string,
+    emptyDescription: string,
+    uploadLabel = 'Upload Files',
+    separateExtras = true,
+  ) => {
+    if (files.length === 0) {
+      return (
+        <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="flex flex-col items-center justify-center text-center p-6 max-w-md">
+            <div className="relative mb-6">
+              <div className="h-28 w-28 rounded-full border-2 border-dashed border-primary/30 flex items-center justify-center">
+                <div className="h-20 w-20 rounded-full bg-muted dark:bg-slate-800/80 flex items-center justify-center">
+                  <CloudUpload className="h-10 w-10 text-primary" />
+                </div>
+              </div>
+              <div className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-green-500" />
+            </div>
+            <h3 className="text-xl font-semibold mb-2">{emptyTitle}</h3>
+            <p className="text-sm text-muted-foreground mb-6">{emptyDescription}</p>
+            {showUploadTab && (
+              <Button
+                variant="default"
+                size="lg"
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+                onClick={() => setActiveSubTab('upload')}
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                {uploadLabel}
+              </Button>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="h-full m-0 sm:m-2.5 border-0 sm:border rounded-none sm:rounded-lg bg-card overflow-y-auto p-1 sm:p-2.5">
+        <MediaGrid
+          files={files}
+          onFileClick={(index, sorted) => openViewer(index, sorted)}
+          selectedFiles={selectedFiles}
+          onSelectionChange={toggleSelection}
+          onSelectAll={() => {
+            if (selectedFiles.size === files.length) {
+              setSelectedFiles(new Set());
+            } else {
+              setSelectedFiles(new Set(files.map((f) => f.id)));
+            }
+          }}
+          canSelect={canDownload}
+          sortOrder={sortOrder}
+          manualOrder={manualOrder}
+          onManualOrderChange={setManualOrder}
+          getImageUrl={getImageUrl}
+          getSrcSet={getSrcSet}
+          isImage={isPreviewableImage}
+          isVideo={isVideoFile}
+          viewMode={mediaViewMode}
+          showHidden={showHidden}
+          isClient={isClient}
+          toggleFileHidden={toggleFileHidden}
+          separateExtras={separateExtras}
+        />
+        {showUploadTab && (
+          <div className="sm:hidden sticky bottom-2 z-20 flex justify-center pointer-events-none mt-2 pb-2">
+            <Button
+              variant="default"
+              size="sm"
+              className="pointer-events-auto h-9 px-4 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg"
+              onClick={() => setActiveSubTab('upload')}
+            >
+              <Upload className="h-3.5 w-3.5 mr-1.5" />
+              Upload More
+            </Button>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   // Get image URL with fallback chain
   const getImageUrl = (file: MediaFile, size: 'thumb' | 'medium' | 'large' | 'original' = 'medium'): string => {
@@ -1047,8 +1150,27 @@ export function ShootDetailsMediaTab({
     }
   };
 
-  // Reclassify selected files (e.g. mark as floorplan or revert to photo)
-  const handleReclassify = async (mediaType: 'floorplan' | 'raw' | 'edited') => {
+  type ReclassifyMediaType =
+    | 'floorplan'
+    | 'raw'
+    | 'edited'
+    | 'extra'
+    | 'virtual_staging'
+    | 'green_grass'
+    | 'twilight'
+    | 'drone';
+
+  const markMenuOptions: Array<{ label: string; value: ReclassifyMediaType }> = [
+    { label: 'Floorplan', value: 'floorplan' },
+    { label: 'Extra', value: 'extra' },
+    { label: 'Virtual Staging', value: 'virtual_staging' },
+    { label: 'Green Grass', value: 'green_grass' },
+    { label: 'Twilight', value: 'twilight' },
+    { label: 'Drone', value: 'drone' },
+  ];
+
+  // Reclassify selected files (e.g. mark as floorplan or extra)
+  const handleReclassify = async (mediaType: ReclassifyMediaType) => {
     if (selectedFiles.size === 0) return;
     try {
       const headers = getApiHeaders();
@@ -1071,16 +1193,6 @@ export function ShootDetailsMediaTab({
       toast({ title: 'Error', description: error.message || 'Failed to reclassify', variant: 'destructive' });
     }
   };
-
-  // Check if all selected files are floorplans (to show correct reclassify action)
-  const allSelectedAreFloorplans = useMemo(() => {
-    if (selectedFiles.size === 0) return false;
-    const allFiles = [...rawFiles, ...editedFiles];
-    return Array.from(selectedFiles).every(id => {
-      const file = allFiles.find(f => f.id === id);
-      return file && isFloorplanFile(file);
-    });
-  }, [selectedFiles, rawFiles, editedFiles]);
 
   // Get current files based on active tab
   const currentFiles = activeSubTab === 'uploaded' ? rawFiles : editedFiles;
@@ -1792,6 +1904,7 @@ export function ShootDetailsMediaTab({
     const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
     const [extraFiles, setExtraFiles] = useState<Set<string>>(new Set());
     const [floorplanFiles, setFloorplanFiles] = useState<Set<string>>(new Set());
+    const [virtualStagingFiles, setVirtualStagingFiles] = useState<Set<string>>(new Set());
     const [editingNotes, setEditingNotes] = useState('');
 
     // Get active upload for this shoot from global context (survives component remounts)
@@ -1803,6 +1916,59 @@ export function ShootDetailsMediaTab({
     const isFloorplanByName = (name: string) => {
       const lower = name.toLowerCase();
       return RAW_FP_PATTERNS.some(p => lower.includes(p));
+    };
+
+    const getFileId = (index: number) => String(index);
+
+    const reindexSelectionSet = (set: Set<string>, removedIndex: number) => {
+      const next = new Set<string>();
+      set.forEach((value) => {
+        const numeric = Number(value);
+        if (Number.isNaN(numeric) || numeric === removedIndex) return;
+        next.add(String(numeric > removedIndex ? numeric - 1 : numeric));
+      });
+      return next;
+    };
+
+    const setFileClassification = (
+      index: number,
+      classification: 'extra' | 'floorplan' | 'virtual_staging' | null,
+    ) => {
+      const fileId = getFileId(index);
+      setExtraFiles((prev) => {
+        const next = new Set(prev);
+        next.delete(fileId);
+        if (classification === 'extra') next.add(fileId);
+        return next;
+      });
+      setFloorplanFiles((prev) => {
+        const next = new Set(prev);
+        next.delete(fileId);
+        if (classification === 'floorplan') next.add(fileId);
+        return next;
+      });
+      setVirtualStagingFiles((prev) => {
+        const next = new Set(prev);
+        next.delete(fileId);
+        if (classification === 'virtual_staging') next.add(fileId);
+        return next;
+      });
+    };
+
+    const getFileClassification = (index: number): 'extra' | 'floorplan' | 'virtual_staging' | null => {
+      const fileId = getFileId(index);
+      if (extraFiles.has(fileId)) return 'extra';
+      if (floorplanFiles.has(fileId)) return 'floorplan';
+      if (virtualStagingFiles.has(fileId)) return 'virtual_staging';
+      return null;
+    };
+
+    const toggleFileClassification = (
+      index: number,
+      classification: 'extra' | 'floorplan' | 'virtual_staging',
+    ) => {
+      const current = getFileClassification(index);
+      setFileClassification(index, current === classification ? null : classification);
     };
 
     // Check if this is an HDR shoot (requires brackets) vs standard/flash (no brackets)
@@ -1905,32 +2071,6 @@ export function ShootDetailsMediaTab({
       e.preventDefault();
     };
 
-    const toggleExtra = (index: number) => {
-      setExtraFiles(prev => {
-        const newSet = new Set(prev);
-        const fileId = String(index);
-        if (newSet.has(fileId)) {
-          newSet.delete(fileId);
-        } else {
-          newSet.add(fileId);
-        }
-        return newSet;
-      });
-    };
-
-    const toggleFloorplan = (index: number) => {
-      setFloorplanFiles(prev => {
-        const newSet = new Set(prev);
-        const fileId = String(index);
-        if (newSet.has(fileId)) {
-          newSet.delete(fileId);
-        } else {
-          newSet.add(fileId);
-        }
-        return newSet;
-      });
-    };
-
     const handleSubmitRAW = async () => {
       if (uploadedFiles.length === 0) {
         toast({
@@ -1943,6 +2083,14 @@ export function ShootDetailsMediaTab({
 
       // Directly start upload (notes are inline now)
       handleConfirmSubmit();
+    };
+
+    const getUploadMediaType = (fileIndex: number, isVideo: boolean): 'floorplan' | 'extra' | 'virtual_staging' | null => {
+      const classification = getFileClassification(fileIndex);
+      if (!classification) return null;
+      if (classification === 'floorplan' && isVideo) return null;
+      if (classification === 'virtual_staging' && isVideo) return null;
+      return classification;
     };
 
     // Upload a single file with progress tracking
@@ -1962,9 +2110,12 @@ export function ShootDetailsMediaTab({
           formData.append('service_category', 'video');
         }
         
-        // Mark as floorplan if flagged (or auto-detected)
-        if (floorplanFiles.has(String(fileIndex)) && !isVideo) {
-          formData.append('media_type', 'floorplan');
+        const uploadMediaType = getUploadMediaType(fileIndex, isVideo);
+        if (uploadMediaType) {
+          formData.append('media_type', uploadMediaType);
+          if (uploadMediaType === 'extra') {
+            formData.append('is_extra', 'true');
+          }
         }
         
         // Only send metadata with first file to avoid duplicate updates
@@ -1973,9 +2124,6 @@ export function ShootDetailsMediaTab({
           if (shootRequiresBrackets) {
             formData.append('bracket_mode', bracketType === '3-bracket' ? '3' : '5');
           }
-          if (extraFiles.has(String(fileIndex))) {
-            formData.append('is_extra', 'true');
-          }
           if (editingNotes.trim()) {
             formData.append('photographer_notes', editingNotes.trim());
           }
@@ -1983,9 +2131,6 @@ export function ShootDetailsMediaTab({
           // Only send bracket_mode for HDR shoots
           if (shootRequiresBrackets) {
             formData.append('bracket_mode', bracketType === '3-bracket' ? '3' : '5');
-          }
-          if (extraFiles.has(String(fileIndex))) {
-            formData.append('is_extra', 'true');
           }
         }
 
@@ -2031,6 +2176,7 @@ export function ShootDetailsMediaTab({
       const filesToUpload = [...uploadedFiles];
       const currentExtraFiles = new Set(extraFiles);
       const currentFloorplanFiles = new Set(floorplanFiles);
+      const currentVirtualStagingFiles = new Set(virtualStagingFiles);
       const currentEditingNotes = editingNotes;
       const totalFiles = filesToUpload.length;
 
@@ -2045,6 +2191,7 @@ export function ShootDetailsMediaTab({
       setUploadedFiles([]);
       setExtraFiles(new Set());
       setFloorplanFiles(new Set());
+      setVirtualStagingFiles(new Set());
       setEditingNotes('');
 
       toast({
@@ -2079,15 +2226,24 @@ export function ShootDetailsMediaTab({
               formData.append('files[]', file);
               formData.append('upload_type', 'raw');
               if (isVideo) formData.append('service_category', 'video');
-              if (currentFloorplanFiles.has(String(fileIndex)) && !isVideo) {
-                formData.append('media_type', 'floorplan');
+              const fileId = String(fileIndex);
+              let uploadMediaType: 'floorplan' | 'extra' | 'virtual_staging' | null = null;
+              if (currentExtraFiles.has(fileId)) {
+                uploadMediaType = 'extra';
+              } else if (currentFloorplanFiles.has(fileId) && !isVideo) {
+                uploadMediaType = 'floorplan';
+              } else if (currentVirtualStagingFiles.has(fileId) && !isVideo) {
+                uploadMediaType = 'virtual_staging';
+              }
+              if (uploadMediaType) {
+                formData.append('media_type', uploadMediaType);
+                if (uploadMediaType === 'extra') {
+                  formData.append('is_extra', 'true');
+                }
               }
               if (isFirstFile) {
                 if (shootRequiresBrackets) {
                   formData.append('bracket_mode', bracketType === '3-bracket' ? '3' : '5');
-                }
-                if (currentExtraFiles.has(String(fileIndex))) {
-                  formData.append('is_extra', 'true');
                 }
                 if (currentEditingNotes.trim()) {
                   formData.append('photographer_notes', currentEditingNotes.trim());
@@ -2095,9 +2251,6 @@ export function ShootDetailsMediaTab({
               } else {
                 if (shootRequiresBrackets) {
                   formData.append('bracket_mode', bracketType === '3-bracket' ? '3' : '5');
-                }
-                if (currentExtraFiles.has(String(fileIndex))) {
-                  formData.append('is_extra', 'true');
                 }
               }
 
@@ -2160,7 +2313,7 @@ export function ShootDetailsMediaTab({
         )}
 
         {/* Counters */}
-        <div className="grid grid-cols-3 gap-2 text-xs">
+        <div className="grid grid-cols-4 gap-2 text-xs">
           <div className="p-2 border rounded bg-muted/50">
             <div className="text-muted-foreground">Expected</div>
             <div className="font-semibold text-base">{expectedRawCount}</div>
@@ -2179,6 +2332,10 @@ export function ShootDetailsMediaTab({
           <div className="p-2 border rounded bg-muted/50">
             <div className="text-muted-foreground">Extras</div>
             <div className="font-semibold text-base">{extraFiles.size}</div>
+          </div>
+          <div className="p-2 border rounded bg-muted/50">
+            <div className="text-muted-foreground">VS</div>
+            <div className="font-semibold text-base">{virtualStagingFiles.size}</div>
           </div>
         </div>
         
@@ -2293,28 +2450,43 @@ export function ShootDetailsMediaTab({
           <div className="space-y-2">
             <div className="text-sm font-medium flex items-center gap-2">
               {`Selected Files (${uploadedFiles.length})`}
-              <span className="text-xs text-muted-foreground font-normal">(check = extra, FP = floorplan)</span>
+              <span className="text-xs text-muted-foreground font-normal">(EX = extra, FP = floorplan, VS = virtual staging)</span>
             </div>
             <div className="max-h-48 overflow-y-auto space-y-1 border rounded p-2">
               {uploadedFiles.map((file, index) => (
                 <div key={index} className="flex items-center justify-between p-2 hover:bg-muted rounded">
                   <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <Checkbox
-                      checked={extraFiles.has(String(index))}
-                      onCheckedChange={() => toggleExtra(index)}
-                      id={`extra-${index}`}
-                    />
-                    <label htmlFor={`extra-${index}`} className="text-xs cursor-pointer flex-1 truncate">
-                      {file.name}
-                    </label>
-                    <button
-                      type="button"
-                      className={`text-[9px] px-1.5 py-0.5 rounded font-medium flex-shrink-0 transition-colors ${floorplanFiles.has(String(index)) ? 'bg-blue-600 text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
-                      onClick={() => toggleFloorplan(index)}
-                      title={floorplanFiles.has(String(index)) ? 'Unmark as floorplan' : 'Mark as floorplan'}
-                    >
-                      FP
-                    </button>
+                    <span className="text-xs flex-1 truncate">{file.name}</span>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      {!isVideoUpload(file) && (
+                        <>
+                          <button
+                            type="button"
+                            className={`text-[9px] px-1.5 py-0.5 rounded font-medium transition-colors ${floorplanFiles.has(String(index)) ? 'bg-blue-600 text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
+                            onClick={() => toggleFileClassification(index, 'floorplan')}
+                            title={floorplanFiles.has(String(index)) ? 'Unmark as floorplan' : 'Move to Floorplans tab'}
+                          >
+                            FP
+                          </button>
+                          <button
+                            type="button"
+                            className={`text-[9px] px-1.5 py-0.5 rounded font-medium transition-colors ${virtualStagingFiles.has(String(index)) ? 'bg-violet-600 text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
+                            onClick={() => toggleFileClassification(index, 'virtual_staging')}
+                            title={virtualStagingFiles.has(String(index)) ? 'Unmark as virtual staging' : 'Move to Virtual Staging tab'}
+                          >
+                            VS
+                          </button>
+                        </>
+                      )}
+                      <button
+                        type="button"
+                        className={`text-[9px] px-1.5 py-0.5 rounded font-medium transition-colors ${extraFiles.has(String(index)) ? 'bg-amber-500 text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
+                        onClick={() => toggleFileClassification(index, 'extra')}
+                        title={extraFiles.has(String(index)) ? 'Unmark as extra' : 'Move to Extras tab'}
+                      >
+                        EX
+                      </button>
+                    </div>
                   </div>
                   <Button
                     variant="ghost"
@@ -2322,68 +2494,15 @@ export function ShootDetailsMediaTab({
                     className="h-6 w-6 p-0"
                     onClick={() => {
                       setUploadedFiles(prev => prev.filter((_, i) => i !== index));
-                      setExtraFiles(prev => {
-                        const newSet = new Set(prev);
-                        newSet.delete(String(index));
-                        return newSet;
-                      });
-                      setFloorplanFiles(prev => {
-                        const newSet = new Set(prev);
-                        newSet.delete(String(index));
-                        return newSet;
-                      });
+                      setExtraFiles(prev => reindexSelectionSet(prev, index));
+                      setFloorplanFiles(prev => reindexSelectionSet(prev, index));
+                      setVirtualStagingFiles(prev => reindexSelectionSet(prev, index));
                     }}
                   >
                     <X className="h-3 w-3" />
                   </Button>
                 </div>
               ))}
-            </div>
-            {extraFiles.size > 0 && (
-              <div className="text-xs text-muted-foreground">
-                {extraFiles.size} file(s) marked as extras
-              </div>
-            )}
-          </div>
-        )}
-
-
-        {/* Extras Section - Show below main uploads */}
-        {extraFiles.size > 0 && uploadedFiles.length > 0 && (
-          <div className="space-y-2 border-t pt-2">
-            <div className="text-sm font-medium text-muted-foreground">Extras ({extraFiles.size})</div>
-            <div className="max-h-24 overflow-y-auto space-y-1 border rounded p-2 bg-muted/30">
-              {Array.from(extraFiles).map((fileId) => {
-                const index = parseInt(fileId);
-                const file = uploadedFiles[index];
-                if (!file) return null;
-                return (
-                  <div key={index} className="flex items-center justify-between p-1.5 text-xs">
-                    <span className="truncate flex-1">{file.name}</span>
-                    <Badge variant="secondary" className="text-[10px]">Extra</Badge>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Floorplans Section - Show below extras */}
-        {floorplanFiles.size > 0 && uploadedFiles.length > 0 && (
-          <div className="space-y-2 border-t pt-2">
-            <div className="text-sm font-medium text-blue-600 dark:text-blue-400">Floorplans ({floorplanFiles.size})</div>
-            <div className="max-h-24 overflow-y-auto space-y-1 border border-blue-200 dark:border-blue-800 rounded p-2 bg-blue-50/30 dark:bg-blue-900/10">
-              {Array.from(floorplanFiles).map((fileId) => {
-                const index = parseInt(fileId);
-                const file = uploadedFiles[index];
-                if (!file) return null;
-                return (
-                  <div key={index} className="flex items-center justify-between p-1.5 text-xs">
-                    <span className="truncate flex-1">{file.name}</span>
-                    <Badge className="text-[10px] bg-blue-600 text-white">FP</Badge>
-                  </div>
-                );
-              })}
             </div>
           </div>
         )}
@@ -2738,36 +2857,31 @@ export function ShootDetailsMediaTab({
                 <span>Upload More</span>
               </Button>
             )}
-            {/* AI Edit, Download, Create Request, and Delete buttons for selected files */}
+            {/* Selection actions */}
             {canDownload && selectedFiles.size > 0 && (
               <>
-                {/* Hide AI Edit button for clients and editors */}
+                {/* Mark selected files - admin only */}
                 {!isClient && !isEditor && (
-                  <Button
-                    size="sm"
-                    className="h-7 text-[11px] px-2 bg-purple-600 hover:bg-purple-700 text-white"
-                    onClick={() => setShowAiEditDialog(true)}
-                  >
-                    <Sparkles className="h-3 w-3 mr-1" />
-                    <span>AI Edit ({selectedFiles.size})</span>
-                  </Button>
-                )}
-                {/* Reclassify as floorplan / photo - admin only */}
-                {!isClient && !isEditor && (
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    className="h-7 w-7 relative"
-                    onClick={() => handleReclassify(allSelectedAreFloorplans ? (displayTab === 'edited' ? 'edited' : 'raw') : 'floorplan')}
-                    title={allSelectedAreFloorplans ? 'Mark as Photo' : 'Mark as Floorplan'}
-                  >
-                    <FileIcon className="h-3.5 w-3.5" />
-                    {selectedFiles.size > 0 && (
-                      <span className="absolute -top-1.5 -right-1.5 bg-primary text-primary-foreground text-[9px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
-                        {selectedFiles.size}
-                      </span>
-                    )}
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-[11px] px-2"
+                        title={`Mark ${selectedFiles.size} file(s)`}
+                      >
+                        <FileIcon className="h-3.5 w-3.5 mr-1" />
+                        <span>Mark</span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {markMenuOptions.map((option) => (
+                        <DropdownMenuItem key={option.value} onClick={() => handleReclassify(option.value)}>
+                          {option.label}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 )}
                 {/* Show Create Request button for clients when photos are selected */}
                 {isClient && (
@@ -2849,34 +2963,28 @@ export function ShootDetailsMediaTab({
       {canDownload && selectedFiles.size > 0 && (
         <div className="mb-1.5 pb-1 border-b flex-shrink-0 sm:hidden">
           <div className="flex items-center justify-end gap-1.5">
-            {/* AI Edit, Download, and Delete buttons for selected files */}
-            {/* Hide AI Edit button for clients and editors */}
+            {/* Mark selected files - mobile */}
             {!isClient && !isEditor && (
-              <Button
-                size="sm"
-                className="h-7 text-[11px] px-2 w-full bg-purple-600 hover:bg-purple-700 text-white"
-                onClick={() => setShowAiEditDialog(true)}
-              >
-                <Sparkles className="h-3 w-3 mr-1" />
-                <span>AI Edit</span>
-              </Button>
-            )}
-            {/* Reclassify as floorplan / photo - mobile */}
-            {!isClient && !isEditor && (
-              <Button
-                size="icon"
-                variant="outline"
-                className="h-7 w-7 relative flex-shrink-0"
-                onClick={() => handleReclassify(allSelectedAreFloorplans ? (displayTab === 'edited' ? 'edited' : 'raw') : 'floorplan')}
-                title={allSelectedAreFloorplans ? 'Mark as Photo' : 'Mark as Floorplan'}
-              >
-                <FileIcon className="h-3.5 w-3.5" />
-                {selectedFiles.size > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 bg-primary text-primary-foreground text-[9px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
-                    {selectedFiles.size}
-                  </span>
-                )}
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-[11px] px-2 w-full"
+                    title={`Mark ${selectedFiles.size} file(s)`}
+                  >
+                    <FileIcon className="h-3 w-3 mr-1" />
+                    <span>Mark</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {markMenuOptions.map((option) => (
+                    <DropdownMenuItem key={option.value} onClick={() => handleReclassify(option.value)}>
+                      {option.label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
             {/* Show Create Request button for clients when photos are selected */}
             {isClient && (
@@ -3076,146 +3184,42 @@ export function ShootDetailsMediaTab({
                           Floorplans ({uploadedFloorplans.length + iguideFloorplans.length})
                         </button>
                       )}
+                      {uploadedVirtualStaging.length > 0 && (
+                        <button
+                          onClick={() => setUploadedMediaTab('virtualStaging')}
+                          className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${uploadedMediaTab === 'virtualStaging' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
+                        >
+                          Virtual Staging ({uploadedVirtualStaging.length})
+                        </button>
+                      )}
+                      {uploadedExtras.length > 0 && (
+                        <button
+                          onClick={() => setUploadedMediaTab('extras')}
+                          className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${uploadedMediaTab === 'extras' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
+                        >
+                          Extras ({uploadedExtras.length})
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
                 
                 {/* Sub-tab content */}
                 <div style={{ flex: '1 1 0%', minHeight: 0, overflow: 'hidden' }}>
-                  {uploadedMediaTab === 'photos' && (
-                    uploadedPhotos.length === 0 ? (
-                      <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <div className="flex flex-col items-center justify-center text-center p-6 max-w-md">
-                          {/* Dashed circle with cloud icon */}
-                          <div className="relative mb-6">
-                            <div className="h-28 w-28 rounded-full border-2 border-dashed border-primary/30 flex items-center justify-center">
-                              <div className="h-20 w-20 rounded-full bg-muted dark:bg-slate-800/80 flex items-center justify-center">
-                                <CloudUpload className="h-10 w-10 text-primary" />
-                              </div>
-                            </div>
-                            <div className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-green-500" />
-                          </div>
-                          <h3 className="text-xl font-semibold mb-2">No uploaded files yet</h3>
-                          <p className="text-sm text-muted-foreground mb-6">
-                            {shootHasVideoService ? 'Upload property photos and videos to get started.' : 'Upload property photos to get started.'} Our AI will automatically analyze assets for quality and categorization.
-                          </p>
-                          {showUploadTab && (
-                            <Button
-                              variant="default"
-                              size="lg"
-                              className="bg-blue-600 hover:bg-blue-700 text-white"
-                              onClick={() => setActiveSubTab('upload')}
-                            >
-                              <Upload className="h-4 w-4 mr-2" />
-                              Upload Files
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="h-full m-0 sm:m-2.5 border-0 sm:border rounded-none sm:rounded-lg bg-card overflow-y-auto p-1 sm:p-2.5">
-                        <MediaGrid
-                          files={uploadedPhotos}
-                          onFileClick={(index, sorted) => openViewer(index, sorted)}
-                          selectedFiles={selectedFiles}
-                          onSelectionChange={toggleSelection}
-                          onSelectAll={() => {
-                            if (selectedFiles.size === uploadedPhotos.length) {
-                              setSelectedFiles(new Set());
-                            } else {
-                              setSelectedFiles(new Set(uploadedPhotos.map(f => f.id)));
-                            }
-                          }}
-                          canSelect={canDownload}
-                          sortOrder={sortOrder}
-                          manualOrder={manualOrder}
-                          onManualOrderChange={setManualOrder}
-                          getImageUrl={getImageUrl}
-                          getSrcSet={getSrcSet}
-                          isImage={isPreviewableImage}
-                          isVideo={isVideoFile}
-                          viewMode={mediaViewMode}
-                          showHidden={showHidden}
-                          isClient={isClient}
-                          toggleFileHidden={toggleFileHidden}
-                        />
-                        {showUploadTab && (
-                          <div className="sm:hidden sticky bottom-2 z-20 flex justify-center pointer-events-none mt-2 pb-2">
-                            <Button
-                              variant="default"
-                              size="sm"
-                              className="pointer-events-auto h-9 px-4 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg"
-                              onClick={() => setActiveSubTab('upload')}
-                            >
-                              <Upload className="h-3.5 w-3.5 mr-1.5" />
-                              Upload More
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    )
-                  )}
+                  {uploadedMediaTab === 'photos' &&
+                    renderMediaGridPane(
+                      uploadedPhotos,
+                      'No uploaded files yet',
+                      `${shootHasVideoService ? 'Upload property photos and videos to get started.' : 'Upload property photos to get started.'} Our AI will automatically analyze assets for quality and categorization.`,
+                    )}
                   
-                  {uploadedMediaTab === 'videos' && (
-                    uploadedVideos.length === 0 ? (
-                      <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <div className="flex flex-col items-center justify-center text-center p-6 max-w-md">
-                          {/* Dashed circle with cloud icon */}
-                          <div className="relative mb-6">
-                            <div className="h-28 w-28 rounded-full border-2 border-dashed border-primary/30 flex items-center justify-center">
-                              <div className="h-20 w-20 rounded-full bg-muted dark:bg-slate-800/80 flex items-center justify-center">
-                                <CloudUpload className="h-10 w-10 text-primary" />
-                              </div>
-                            </div>
-                            <div className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-green-500" />
-                          </div>
-                          <h3 className="text-xl font-semibold mb-2">No uploaded videos yet</h3>
-                          <p className="text-sm text-muted-foreground mb-6">
-                            Upload property videos to get started. Our AI will automatically analyze assets for quality and categorization.
-                          </p>
-                          {showUploadTab && (
-                            <Button
-                              variant="default"
-                              size="lg"
-                              className="bg-blue-600 hover:bg-blue-700 text-white"
-                              onClick={() => setActiveSubTab('upload')}
-                            >
-                              <Upload className="h-4 w-4 mr-2" />
-                              Upload Videos
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="h-full m-0 sm:m-2.5 border-0 sm:border rounded-none sm:rounded-lg bg-card overflow-y-auto p-1 sm:p-2.5">
-                        <MediaGrid
-                          files={uploadedVideos}
-                          onFileClick={(index, sorted) => openViewer(index, sorted)}
-                          selectedFiles={selectedFiles}
-                          onSelectionChange={toggleSelection}
-                          onSelectAll={() => {
-                            if (selectedFiles.size === uploadedVideos.length) {
-                              setSelectedFiles(new Set());
-                            } else {
-                              setSelectedFiles(new Set(uploadedVideos.map(f => f.id)));
-                            }
-                          }}
-                          canSelect={canDownload}
-                          sortOrder={sortOrder}
-                          manualOrder={manualOrder}
-                          onManualOrderChange={setManualOrder}
-                          getImageUrl={getImageUrl}
-                          getSrcSet={getSrcSet}
-                          isImage={isPreviewableImage}
-                          isVideo={isVideoFile}
-                          viewMode={mediaViewMode}
-                          showHidden={showHidden}
-                          isClient={isClient}
-                          toggleFileHidden={toggleFileHidden}
-                        />
-                      </div>
-                    )
-                  )}
+                  {uploadedMediaTab === 'videos' &&
+                    renderMediaGridPane(
+                      uploadedVideos,
+                      'No uploaded videos yet',
+                      'Upload property videos to get started. Our AI will automatically analyze assets for quality and categorization.',
+                      'Upload Videos',
+                    )}
                   
                   {uploadedMediaTab === 'iguide' && iguideUrl && (
                     <div className="h-full m-2.5 border rounded-lg bg-card p-4">
@@ -3301,6 +3305,22 @@ export function ShootDetailsMediaTab({
                       )}
                     </div>
                   )}
+
+                  {uploadedMediaTab === 'virtualStaging' &&
+                    renderMediaGridPane(
+                      uploadedVirtualStaging,
+                      'No virtual staging files yet',
+                      'Upload files marked as VS to keep virtual staging assets grouped separately from standard photos.',
+                    )}
+
+                  {uploadedMediaTab === 'extras' &&
+                    renderMediaGridPane(
+                      uploadedExtras,
+                      'No extra files yet',
+                      'Upload files marked as EX to collect add-on assets in a separate extras tab.',
+                      'Upload Extras',
+                      false,
+                    )}
                 </div>
               </div>
             )}
@@ -3368,146 +3388,42 @@ export function ShootDetailsMediaTab({
                           Floorplans ({editedFloorplans.length + iguideFloorplans.length})
                         </button>
                       )}
+                      {editedVirtualStaging.length > 0 && (
+                        <button
+                          onClick={() => setEditedMediaTab('virtualStaging')}
+                          className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'virtualStaging' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
+                        >
+                          Virtual Staging ({editedVirtualStaging.length})
+                        </button>
+                      )}
+                      {editedExtras.length > 0 && (
+                        <button
+                          onClick={() => setEditedMediaTab('extras')}
+                          className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'extras' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
+                        >
+                          Extras ({editedExtras.length})
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
                 
                 {/* Sub-tab content */}
                 <div style={{ flex: '1 1 0%', minHeight: 0, overflow: 'hidden' }}>
-                  {editedMediaTab === 'photos' && (
-                    editedPhotos.length === 0 ? (
-                      <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <div className="flex flex-col items-center justify-center text-center p-6 max-w-md">
-                          {/* Dashed circle with cloud icon */}
-                          <div className="relative mb-6">
-                            <div className="h-28 w-28 rounded-full border-2 border-dashed border-primary/30 flex items-center justify-center">
-                              <div className="h-20 w-20 rounded-full bg-muted dark:bg-slate-800/80 flex items-center justify-center">
-                                <CloudUpload className="h-10 w-10 text-primary" />
-                              </div>
-                            </div>
-                            <div className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-green-500" />
-                          </div>
-                          <h3 className="text-xl font-semibold mb-2">No edited files yet</h3>
-                          <p className="text-sm text-muted-foreground mb-6">
-                            Upload edited photos and videos to get started. Our AI will automatically analyze assets for quality and categorization.
-                          </p>
-                          {showUploadTab && (
-                            <Button
-                              variant="default"
-                              size="lg"
-                              className="bg-blue-600 hover:bg-blue-700 text-white"
-                              onClick={() => setActiveSubTab('upload')}
-                            >
-                              <Upload className="h-4 w-4 mr-2" />
-                              Upload Files
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="h-full m-0 sm:m-2.5 border-0 sm:border rounded-none sm:rounded-lg bg-card overflow-y-auto p-1 sm:p-2.5">
-                        <MediaGrid
-                          files={editedPhotos}
-                          onFileClick={(index, sorted) => openViewer(index, sorted)}
-                          selectedFiles={selectedFiles}
-                          onSelectionChange={toggleSelection}
-                          onSelectAll={() => {
-                            if (selectedFiles.size === editedPhotos.length) {
-                              setSelectedFiles(new Set());
-                            } else {
-                              setSelectedFiles(new Set(editedPhotos.map(f => f.id)));
-                            }
-                          }}
-                          canSelect={canDownload}
-                          sortOrder={sortOrder}
-                          manualOrder={manualOrder}
-                          onManualOrderChange={setManualOrder}
-                          getImageUrl={getImageUrl}
-                          getSrcSet={getSrcSet}
-                          isImage={isPreviewableImage}
-                          isVideo={isVideoFile}
-                          viewMode={mediaViewMode}
-                          showHidden={showHidden}
-                          isClient={isClient}
-                          toggleFileHidden={toggleFileHidden}
-                        />
-                        {showUploadTab && (
-                          <div className="sm:hidden sticky bottom-2 z-20 flex justify-center pointer-events-none mt-2 pb-2">
-                            <Button
-                              variant="default"
-                              size="sm"
-                              className="pointer-events-auto h-9 px-4 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg"
-                              onClick={() => setActiveSubTab('upload')}
-                            >
-                              <Upload className="h-3.5 w-3.5 mr-1.5" />
-                              Upload More
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    )
-                  )}
+                  {editedMediaTab === 'photos' &&
+                    renderMediaGridPane(
+                      editedPhotos,
+                      'No edited files yet',
+                      'Upload edited photos and videos to get started. Our AI will automatically analyze assets for quality and categorization.',
+                    )}
                   
-                  {editedMediaTab === 'videos' && (
-                    editedVideos.length === 0 ? (
-                      <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <div className="flex flex-col items-center justify-center text-center p-6 max-w-md">
-                          {/* Dashed circle with cloud icon */}
-                          <div className="relative mb-6">
-                            <div className="h-28 w-28 rounded-full border-2 border-dashed border-primary/30 flex items-center justify-center">
-                              <div className="h-20 w-20 rounded-full bg-muted dark:bg-slate-800/80 flex items-center justify-center">
-                                <CloudUpload className="h-10 w-10 text-primary" />
-                              </div>
-                            </div>
-                            <div className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-green-500" />
-                          </div>
-                          <h3 className="text-xl font-semibold mb-2">No edited videos yet</h3>
-                          <p className="text-sm text-muted-foreground mb-6">
-                            Upload edited videos to get started. Our AI will automatically analyze assets for quality and categorization.
-                          </p>
-                          {showUploadTab && (
-                            <Button
-                              variant="default"
-                              size="lg"
-                              className="bg-blue-600 hover:bg-blue-700 text-white"
-                              onClick={() => setActiveSubTab('upload')}
-                            >
-                              <Upload className="h-4 w-4 mr-2" />
-                              Upload Videos
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="h-full m-0 sm:m-2.5 border-0 sm:border rounded-none sm:rounded-lg bg-card overflow-y-auto p-1 sm:p-2.5">
-                        <MediaGrid
-                          files={editedVideos}
-                          onFileClick={(index, sorted) => openViewer(index, sorted)}
-                          selectedFiles={selectedFiles}
-                          onSelectionChange={toggleSelection}
-                          onSelectAll={() => {
-                            if (selectedFiles.size === editedVideos.length) {
-                              setSelectedFiles(new Set());
-                            } else {
-                              setSelectedFiles(new Set(editedVideos.map(f => f.id)));
-                            }
-                          }}
-                          canSelect={canDownload}
-                          sortOrder={sortOrder}
-                          manualOrder={manualOrder}
-                          onManualOrderChange={setManualOrder}
-                          getImageUrl={getImageUrl}
-                          getSrcSet={getSrcSet}
-                          isImage={isPreviewableImage}
-                          isVideo={isVideoFile}
-                          viewMode={mediaViewMode}
-                          showHidden={showHidden}
-                          isClient={isClient}
-                          toggleFileHidden={toggleFileHidden}
-                        />
-                      </div>
-                    )
-                  )}
+                  {editedMediaTab === 'videos' &&
+                    renderMediaGridPane(
+                      editedVideos,
+                      'No edited videos yet',
+                      'Upload edited videos to get started. Our AI will automatically analyze assets for quality and categorization.',
+                      'Upload Videos',
+                    )}
                   
                   {editedMediaTab === 'iguide' && iguideUrl && (
                     <div className="h-full m-2.5 border rounded-lg bg-card p-4">
@@ -3593,6 +3509,22 @@ export function ShootDetailsMediaTab({
                       )}
                     </div>
                   )}
+
+                  {editedMediaTab === 'virtualStaging' &&
+                    renderMediaGridPane(
+                      editedVirtualStaging,
+                      'No virtual staging files yet',
+                      'Files marked as VS will appear here so virtual staging deliverables stay separated from the main gallery.',
+                    )}
+
+                  {editedMediaTab === 'extras' &&
+                    renderMediaGridPane(
+                      editedExtras,
+                      'No extra files yet',
+                      'Files marked as EX will appear here as additional deliverables outside the main photo set.',
+                      'Upload Extras',
+                      false,
+                    )}
                 </div>
               </div>
             )}
@@ -3717,6 +3649,7 @@ interface MediaGridProps {
   showHidden?: boolean;
   isClient?: boolean;
   toggleFileHidden?: (fileId: string, hidden: boolean) => void;
+  separateExtras?: boolean;
 }
 
 function MediaGrid({ 
@@ -3737,6 +3670,7 @@ function MediaGrid({
   showHidden = false,
   isClient = false,
   toggleFileHidden,
+  separateExtras = true,
 }: MediaGridProps) {
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
@@ -3826,8 +3760,8 @@ function MediaGrid({
   };
   
   const visibleSorted = showHidden ? sortedFiles : sortedFiles.filter(f => !f.is_hidden);
-  const regularFiles = visibleSorted.filter(f => !f.isExtra);
-  const extraFiles = visibleSorted.filter(f => f.isExtra);
+  const regularFiles = separateExtras ? visibleSorted.filter(f => !f.isExtra) : visibleSorted;
+  const extraFiles = separateExtras ? visibleSorted.filter(f => f.isExtra) : [];
 
   // Helper function to format file size
   const formatFileSize = (bytes?: number): string => {
@@ -3990,12 +3924,6 @@ function MediaGrid({
         {file.is_cover && !file.isExtra && (
           <div className="absolute top-1 left-1 bg-blue-600 text-white text-[8px] px-1 py-0.5 rounded font-medium">
             HERO
-          </div>
-        )}
-        
-        {isSelected && (
-          <div className="absolute top-8 right-1 bg-primary text-primary-foreground rounded-full p-0.5 z-[3]">
-            <CheckCircle2 className="h-3 w-3" />
           </div>
         )}
         
@@ -4202,7 +4130,7 @@ function MediaGrid({
         )}
 
         {/* Regular files - grid */}
-        <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
+        <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5 sm:gap-2">
           {regularFiles.map((file, index) => renderFileCard(file, index, false))}
         </div>
 
@@ -4216,7 +4144,7 @@ function MediaGrid({
               </span>
               <div className="flex-1 h-px bg-orange-500/30" />
             </div>
-            <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5 sm:gap-2">
               {extraFiles.map((file, index) => renderFileCard(file, index, true))}
             </div>
           </>

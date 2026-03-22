@@ -2479,7 +2479,7 @@ export function ShootDetailsModal({
         
         {/* Header */}
         <div className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85 flex-shrink-0">
-          <div className="px-3 sm:px-4 pt-2 sm:pt-4 pb-1 sm:pb-3">
+          <div className="px-3 sm:px-4 pt-2 sm:pt-4 pb-1 sm:pb-1.5">
             <div className="flex items-start justify-between gap-2 sm:gap-4">
               <div className="flex-1 min-w-0 w-full sm:w-auto">
                 <div className="flex items-center gap-2 sm:gap-3 mb-1.5 sm:mb-2 flex-wrap">

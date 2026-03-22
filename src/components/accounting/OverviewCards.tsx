@@ -10,9 +10,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { InvoiceData } from "@/utils/invoiceUtils";
 import { cn } from "@/lib/utils";
 
-/**
- * New: small SegmentedDays control (30 / 60 / 90)
- */
+export const DAYS_WINDOW_OPTIONS = [30, 60, 90, 365] as const;
+
 export function SegmentedDays({
   value,
   onChange,
@@ -22,10 +21,9 @@ export function SegmentedDays({
   onChange: (v: number) => void;
   className?: string;
 }) {
-  const opts = [30, 60, 90];
   return (
     <div className={cn("inline-flex items-center gap-2", className)}>
-      {opts.map((d, i) => {
+      {DAYS_WINDOW_OPTIONS.map((d) => {
         const active = d === value;
         return (
           <button
@@ -41,7 +39,7 @@ export function SegmentedDays({
             )}
             style={{ minWidth: 44 }}
           >
-            {d === 30 ? "30d" : d === 60 ? "60d" : "90d"}
+            {d}d
           </button>
         );
       })}
@@ -51,58 +49,86 @@ export function SegmentedDays({
 
 interface OverviewCardsProps {
   invoices: InvoiceData[];
-  // optional legacy timeFilter you had — kept but not used for the 30/60/90 filter UI
   timeFilter?: "day" | "week" | "month" | "quarter" | "year";
-  // optional element to render on the left side of the filter row (e.g., tabs)
   leftElement?: React.ReactNode;
   daysWindow?: number;
 }
 
+const parseInvoiceDate = (value: unknown): Date | null => {
+  if (!value) return null;
+  const date = new Date(String(value));
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const getInvoiceWindowDate = (invoice: InvoiceData): Date | null => {
+  const legacyInvoice = invoice as InvoiceData & Record<string, unknown>;
+  const candidates =
+    invoice.status === "paid"
+      ? [
+          invoice.paidAt,
+          legacyInvoice.paid_at,
+          legacyInvoice.updated_at,
+          legacyInvoice.updatedAt,
+          invoice.issueDate,
+          invoice.date,
+          invoice.createdAt,
+          legacyInvoice.created_at,
+        ]
+      : [
+          invoice.dueDate,
+          invoice.issueDate,
+          invoice.date,
+          invoice.createdAt,
+          legacyInvoice.created_at,
+        ];
+
+  for (const candidate of candidates) {
+    const parsed = parseInvoiceDate(candidate);
+    if (parsed) return parsed;
+  }
+
+  return null;
+};
+
+const isWithinDaysWindow = (date: Date, daysWindow: number) => {
+  const end = new Date();
+  end.setHours(23, 59, 59, 999);
+
+  const start = new Date(end);
+  start.setHours(0, 0, 0, 0);
+  start.setDate(start.getDate() - (daysWindow - 1));
+
+  return date >= start && date <= end;
+};
+
 export function OverviewCards({ invoices, timeFilter, leftElement, daysWindow = 30 }: OverviewCardsProps) {
-
-  // helper to get date from invoice (attempt common fields)
-  const getInvoiceDate = (inv: any): Date | null => {
-    const maybe = inv.dueDate ?? inv.date ?? inv.createdAt ?? inv.created_at;
-    if (!maybe) return null;
-    const d = new Date(maybe);
-    return isNaN(d.getTime()) ? null : d;
-  };
-
-  const daysBetween = (d: Date) => {
-    const now = new Date();
-    const diff = now.getTime() - d.getTime();
-    return Math.floor(diff / (1000 * 60 * 60 * 24));
-  };
-
-  // basic totals (global - not filtered) — kept for other cards
-  const totalRevenue = invoices
-    .filter((i) => i.status === "paid")
-    .reduce((s, i) => s + Number(i.amount || 0), 0);
-
-  const pendingInvoicesAll = invoices.filter((i) => i.status === "pending");
-  const overdueInvoices = invoices.filter((i) => i.status === "overdue");
-  const paidInvoices = invoices.filter((i) => i.status === "paid");
-
-  // filter pending invoices by selected daysWindow (if invoice has a date)
-  const pendingInvoicesFiltered = useMemo(() => {
-    const now = new Date();
-    return pendingInvoicesAll.filter((inv) => {
-      const d = getInvoiceDate(inv);
-      if (!d) {
-        // if invoice has no date field, include it (fallback)
-        return true;
-      }
-      return daysBetween(d) <= daysWindow;
-    });
-  }, [pendingInvoicesAll, daysWindow]);
-
-  const pendingTotal = pendingInvoicesFiltered.reduce(
-    (s, i) => s + Number(i.amount || 0),
-    0
+  const windowedInvoices = useMemo(
+    () =>
+      invoices.filter((invoice) => {
+        const invoiceDate = getInvoiceWindowDate(invoice);
+        return invoiceDate ? isWithinDaysWindow(invoiceDate, daysWindow) : true;
+      }),
+    [invoices, daysWindow]
   );
 
-  const overdueTotal = overdueInvoices.reduce((s, i) => s + Number(i.amount || 0), 0);
-  const paidTotal = paidInvoices.reduce((s, i) => s + Number(i.amount || 0), 0);
+  const revenueInvoices = windowedInvoices.filter((invoice) => invoice.status === "paid");
+  const outstandingInvoices = windowedInvoices.filter(
+    (invoice) => invoice.status === "pending" || invoice.status === "overdue"
+  );
+  const paidInvoices = windowedInvoices.filter((invoice) => invoice.status === "paid");
+
+  const totalRevenue = revenueInvoices.reduce(
+    (sum, invoice) => sum + Number(invoice.amountPaid ?? invoice.amount ?? 0),
+    0
+  );
+  const pendingTotal = outstandingInvoices.reduce(
+    (sum, invoice) => sum + Number(invoice.balance ?? invoice.amount ?? 0),
+    0
+  );
+  const paidTotal = paidInvoices.reduce(
+    (sum, invoice) => sum + Number(invoice.amountPaid ?? invoice.amount ?? 0),
+    0
+  );
 
   // fake trend data (you can replace with real)
   const trends = {
@@ -118,7 +144,7 @@ export function OverviewCards({ invoices, timeFilter, leftElement, daysWindow = 
         <OverviewCard
           title="Total Revenue"
           value={`$${totalRevenue.toLocaleString()}`}
-          description={`Current ${timeFilter ?? "period"}`}
+          description={`${revenueInvoices.length} paid invoice${revenueInvoices.length !== 1 ? "s" : ""} in last ${daysWindow} days`}
           icon={<DollarSign className="h-4 w-4" />}
           trend={trends.revenue}
           color="blue"
@@ -128,7 +154,7 @@ export function OverviewCards({ invoices, timeFilter, leftElement, daysWindow = 
         <OverviewCard
           title={`Outstanding Invoices (last ${daysWindow}d)`}
           value={`$${pendingTotal.toLocaleString()}`}
-          description={`${pendingInvoicesFiltered.length} invoice${pendingInvoicesFiltered.length !== 1 ? "s" : ""}`}
+          description={`${outstandingInvoices.length} invoice${outstandingInvoices.length !== 1 ? "s" : ""}`}
           icon={<CreditCard className="h-4 w-4" />}
           trend={trends.pending}
           color="amber"
@@ -136,7 +162,7 @@ export function OverviewCards({ invoices, timeFilter, leftElement, daysWindow = 
         />
 
         <OverviewCard
-          title="Paid"
+          title={`Paid (last ${daysWindow}d)`}
           value={`$${paidTotal.toLocaleString()}`}
           description={`${paidInvoices.length} invoice${paidInvoices.length !== 1 ? "s" : ""}`}
           icon={<CheckCircle className="h-4 w-4" />}

@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/components/auth/AuthProvider';
 import {
   Home,
   Search,
@@ -30,6 +31,7 @@ import {
   User,
   ExternalLink,
   X,
+  Globe,
 } from 'lucide-react';
 import { API_BASE_URL } from '@/config/env';
 
@@ -96,20 +98,24 @@ const PrivateListingPortal = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { role } = useAuth();
   const [listings, setListings] = useState<PrivateListing[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [listingScope, setListingScope] = useState<'mine' | 'all'>('all');
 
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [deliveredLoading, setDeliveredLoading] = useState(false);
   const [deliveredSearch, setDeliveredSearch] = useState('');
   const [deliveredShoots, setDeliveredShoots] = useState<any[]>([]);
   const [selectedShootIds, setSelectedShootIds] = useState<Set<string>>(new Set());
+  const isClient = role === 'client';
 
   useEffect(() => {
     fetchPrivateListings();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listingScope, role]);
 
   useEffect(() => {
     if (!addDialogOpen) return;
@@ -143,8 +149,19 @@ const PrivateListingPortal = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const params = new URLSearchParams({
+        tab: 'delivered',
+        private_listing: '1',
+        no_cache: '1',
+        per_page: '200',
+      });
+
+      if (isClient) {
+        params.set('listing_scope', listingScope);
+      }
+
       const response = await fetch(
-        `${API_BASE_URL}/api/shoots?tab=delivered&private_listing=1&no_cache=1&per_page=200`,
+        `${API_BASE_URL}/api/shoots?${params.toString()}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -539,6 +556,35 @@ const PrivateListingPortal = () => {
           </div>
         </div>
 
+        {isClient && (
+          <div className="inline-flex w-full sm:w-auto items-center rounded-xl border border-border/70 bg-muted/20 p-1">
+            <button
+              type="button"
+              onClick={() => setListingScope('all')}
+              className={`inline-flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors sm:flex-none ${
+                listingScope === 'all'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
+              }`}
+            >
+              <Globe className="h-4 w-4" />
+              All Listings
+            </button>
+            <button
+              type="button"
+              onClick={() => setListingScope('mine')}
+              className={`inline-flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors sm:flex-none ${
+                listingScope === 'mine'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
+              }`}
+            >
+              <User className="h-4 w-4" />
+              My Listings
+            </button>
+          </div>
+        )}
+
         {/* Search + View Toggle */}
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
@@ -583,6 +629,7 @@ const PrivateListingPortal = () => {
         {sortedListings.length > 0 && (
           <div className="text-xs text-muted-foreground">
             {sortedListings.length} {sortedListings.length === 1 ? 'listing' : 'listings'}
+            {isClient && ` in ${listingScope === 'all' ? 'all listings' : 'my listings'}`}
             {searchQuery && ` matching "${searchQuery}"`}
           </div>
         )}
@@ -675,7 +722,9 @@ const PrivateListingPortal = () => {
               <p className="text-sm text-muted-foreground max-w-md mx-auto">
                 {searchQuery
                   ? 'Try adjusting your search terms'
-                  : 'Private listings are created by marking a delivered shoot as Private Exclusive.'}
+                  : isClient && listingScope === 'mine'
+                    ? 'You have not marked any of your delivered shoots as Private Exclusive yet.'
+                    : 'Private listings are created by marking a delivered shoot as Private Exclusive.'}
               </p>
               {!searchQuery && (
                 <div className="mt-6 flex items-center justify-center gap-2 flex-wrap">

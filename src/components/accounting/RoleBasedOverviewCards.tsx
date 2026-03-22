@@ -16,50 +16,14 @@ import { InvoiceData } from "@/utils/invoiceUtils";
 import { cn } from "@/lib/utils";
 import { AccountingMode } from "@/config/accountingConfig";
 import { useAuth } from "@/components/auth/AuthProvider";
-
-/**
- * SegmentedDays control (30 / 60 / 90)
- */
-function SegmentedDays({
-  value,
-  onChange,
-  className = "",
-}: {
-  value: number;
-  onChange: (v: number) => void;
-  className?: string;
-}) {
-  const opts = [30, 60, 90];
-  return (
-    <div className={cn("inline-flex items-center gap-2", className)}>
-      {opts.map((d) => {
-        const active = d === value;
-        return (
-          <button
-            key={d}
-            type="button"
-            aria-pressed={active}
-            onClick={() => onChange(d)}
-            className={cn(
-              "text-sm px-3 py-1 rounded-md transition focus:outline-none focus:ring-2 focus:ring-offset-1",
-              active
-                ? "bg-blue-500 text-white shadow-md ring-blue-400"
-                : "bg-white/5 text-white/90 hover:bg-white/10 dark:bg-slate-800/40 dark:hover:bg-slate-700/60"
-            )}
-            style={{ minWidth: 44 }}
-          >
-            {d === 30 ? "30d" : d === 60 ? "60d" : "90d"}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
+import { SegmentedDays } from "./OverviewCards";
 
 interface RoleBasedOverviewCardsProps {
   invoices: InvoiceData[];
   mode: AccountingMode;
   timeFilter?: "day" | "week" | "month" | "quarter" | "year";
+  daysWindow?: number;
+  onDaysWindowChange?: (value: number) => void;
   // Role-specific data
   shoots?: any[];
   editingJobs?: any[];
@@ -69,11 +33,15 @@ export function RoleBasedOverviewCards({
   invoices, 
   mode, 
   timeFilter,
+  daysWindow,
+  onDaysWindowChange,
   shoots = [],
   editingJobs = [],
 }: RoleBasedOverviewCardsProps) {
   const { user } = useAuth();
-  const [daysWindow, setDaysWindow] = useState<number>(30);
+  const [localDaysWindow, setLocalDaysWindow] = useState<number>(30);
+  const effectiveDaysWindow = daysWindow ?? localDaysWindow;
+  const handleDaysWindowChange = onDaysWindowChange ?? setLocalDaysWindow;
 
   // Helper to get date from invoice
   const getInvoiceDate = (inv: any): Date | null => {
@@ -123,7 +91,7 @@ export function RoleBasedOverviewCards({
         const pendingInvoicesFiltered = pendingInvoicesAll.filter((inv) => {
           const d = getInvoiceDate(inv);
           if (!d) return true;
-          return daysBetween(d) <= daysWindow;
+          return daysBetween(d) <= effectiveDaysWindow;
         });
 
         const pendingTotal = pendingInvoicesFiltered.reduce(
@@ -224,7 +192,7 @@ export function RoleBasedOverviewCards({
           .reduce((s, i) => s + Number(i.balance ?? i.amount ?? 0), 0);
 
         const last30Days = new Date();
-        last30Days.setDate(last30Days.getDate() - 30);
+        last30Days.setDate(last30Days.getDate() - effectiveDaysWindow);
         const paidLast30Days = myInvoices
           .filter((i) => {
             if (i.status !== "paid") return false;
@@ -288,7 +256,7 @@ export function RoleBasedOverviewCards({
       default:
         return {};
     }
-  }, [mode, invoices, shoots, editingJobs, user, daysWindow]);
+  }, [mode, invoices, shoots, editingJobs, user, effectiveDaysWindow]);
 
   // Fake trend data (replace with real data)
   const trends = {
@@ -314,7 +282,7 @@ export function RoleBasedOverviewCards({
               animated={true}
             />
             <OverviewCard
-              title={`Outstanding Invoices (last ${daysWindow}d)`}
+              title={`Outstanding Invoices (last ${effectiveDaysWindow}d)`}
               value={`$${metrics.outstanding?.value.toLocaleString() || 0}`}
               description={`${metrics.outstanding?.count || 0} invoice${(metrics.outstanding?.count || 0) !== 1 ? "s" : ""}`}
               icon={<CreditCard className="h-4 w-4" />}
@@ -431,7 +399,7 @@ export function RoleBasedOverviewCards({
               animated={true}
             />
             <OverviewCard
-              title="Paid (Last 30 Days)"
+              title={`Paid (Last ${effectiveDaysWindow} Days)`}
               value={`$${metrics.paidLast30Days?.value.toLocaleString() || 0}`}
               description="Recent payments"
               icon={<CheckCircle className="h-4 w-4" />}
@@ -511,8 +479,8 @@ export function RoleBasedOverviewCards({
     <div className="space-y-4">
       {mode === 'admin' && (
         <div className="flex items-center justify-end gap-4">
-          <SegmentedDays value={daysWindow} onChange={setDaysWindow} />
-          <div className="ml-3 text-sm text-slate-400">Showing last {daysWindow} days</div>
+          <SegmentedDays value={effectiveDaysWindow} onChange={handleDaysWindowChange} />
+          <div className="ml-3 text-sm text-slate-400">Showing last {effectiveDaysWindow} days</div>
         </div>
       )}
 
