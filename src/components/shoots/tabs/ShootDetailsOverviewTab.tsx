@@ -50,15 +50,21 @@ import {
   Check,
 } from 'lucide-react';
 import { format, isValid, parse } from 'date-fns';
+import axios from 'axios';
 import { ShootData } from '@/types/shoots';
 import { WeatherInfo } from '@/services/weatherService';
 import { useToast } from '@/hooks/use-toast';
 import { API_BASE_URL } from '@/config/env';
 import { calculateDistance, getCoordinatesFromAddress } from '@/utils/distanceUtils';
 import { cn } from '@/lib/utils';
+import API_ROUTES from '@/lib/api';
 import { getStateFullName } from '@/utils/stateUtils';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import { getServicePricingForSqft } from '@/utils/servicePricing';
+import {
+  getShootPhotographerAssignmentGroups,
+  normalizeShootServiceCategoryKey,
+} from '@/utils/shootPhotographerAssignments';
 import { to12Hour } from '@/utils/availabilityUtils';
 import AddressLookupField from '@/components/AddressLookupField';
 
@@ -116,6 +122,12 @@ type ServiceCategoryOption = {
   count: number;
 };
 
+type PhotographerPickerContext = {
+  source: 'edit';
+  categoryKey?: string;
+  categoryName?: string;
+} | null;
+
 type AddressDetailsForLookup = {
   formatted_address?: string;
   address?: string;
@@ -128,6 +140,30 @@ type AddressDetailsForLookup = {
   property_details?: Record<string, unknown>;
   latitude?: number;
   longitude?: number;
+};
+
+type PhotographerPickerOption = {
+  id: string;
+  name: string;
+  email: string;
+  avatar?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  distance?: number;
+  distanceFrom?: 'home' | 'previous_shoot';
+  previousShootId?: number;
+  originAddress?: {
+    address?: string;
+    city?: string;
+    state?: string;
+    zip?: string;
+  };
+  availabilitySlots?: Array<{ start_time: string; end_time: string }>;
+  netAvailableSlots?: Array<{ start_time: string; end_time: string }>;
+  hasAvailability?: boolean;
+  shootsCountToday?: number;
 };
 
 const slugify = (value: string) =>
@@ -163,6 +199,46 @@ const deriveServiceCategoryName = (service: ServiceOption) => {
   if (!service.category) return 'Uncategorized';
   if (typeof service.category === 'string') return service.category;
   return service.category.name || 'Uncategorized';
+};
+
+const mapPhotographerPickerOption = (photographer: any): PhotographerPickerOption => ({
+  ...photographer,
+  id: photographer.id?.toString() || '',
+  name: photographer.name || 'Unknown',
+  email: photographer.email || '',
+  avatar: photographer.avatar || photographer.profile_image || photographer.profile_photo_url,
+  address: photographer.address || photographer.metadata?.address || photographer.metadata?.homeAddress,
+  city: photographer.city || photographer.metadata?.city,
+  state: photographer.state || photographer.metadata?.state,
+  zip: photographer.zip || photographer.zipcode || photographer.metadata?.zip || photographer.metadata?.zipcode,
+});
+
+const loadPhotographerPickerOptions = async (): Promise<PhotographerPickerOption[]> => {
+  const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  try {
+    const response = await axios.get(API_ROUTES.people.adminPhotographers, { headers });
+    const data = response.data?.data || response.data || [];
+    const formatted = Array.isArray(data) ? data.map(mapPhotographerPickerOption) : [];
+    if (formatted.length > 0) {
+      return formatted;
+    }
+  } catch (error) {
+    console.warn('[ShootDetailsOverviewTab] Admin photographers endpoint failed, falling back to public list:', error);
+  }
+
+  try {
+    const response = await axios.get(API_ROUTES.people.photographers);
+    const data = response.data?.data || response.data || [];
+    return Array.isArray(data) ? data.map(mapPhotographerPickerOption) : [];
+  } catch (error) {
+    console.error('[ShootDetailsOverviewTab] Public photographers endpoint failed:', error);
+    return [];
+  }
 };
 
 interface ShareLink {
@@ -438,7 +514,7 @@ export function ShootDetailsOverviewTab({
   const [selectedClientId, setSelectedClientId] = useState<string>(() => {
     return shoot.client ? String(shoot.client.id) : '';
   });
-  const [editPhotographers, setEditPhotographers] = useState<Array<{ id: string; name: string; email: string }>>([]);
+  const [editPhotographers, setEditPhotographers] = useState<PhotographerPickerOption[]>([]);
   const [selectedPhotographerIdEdit, setSelectedPhotographerIdEdit] = useState<string>(() => {
     return shoot.photographer ? String(shoot.photographer.id) : '';
   });
@@ -464,6 +540,10 @@ export function ShootDetailsOverviewTab({
     sqft: '',
   });
   const [addressInput, setAddressInput] = useState('');
+  const photographerAssignments = useMemo(
+    () => getShootPhotographerAssignmentGroups(shoot),
+    [shoot],
+  );
 
   const toNumberOrUndefined = (value: string | number | null | undefined) => {
     if (value === null || value === undefined) return undefined;
@@ -690,49 +770,14 @@ export function ShootDetailsOverviewTab({
       // Fetch photographers for edit mode
       const fetchPhotographers = async () => {
         try {
-          const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-          const headers: Record<string, string> = {
-            'Accept': 'application/json',
-          };
-          if (token) {
-            headers['Authorization'] = `Bearer ${token}`;
+          const photographersList = await loadPhotographerPickerOptions();
+          const nextPhotographers = [...photographersList];
+          const currentPhotographer = shoot.photographer;
+          if (currentPhotographer && !nextPhotographers.some((p) => p.id === String(currentPhotographer.id))) {
+            nextPhotographers.unshift(mapPhotographerPickerOption(currentPhotographer));
           }
-          
-          // Try admin endpoint first (requires auth)
-          let res = await fetch(`${API_BASE_URL}/api/admin/photographers`, {
-            headers,
-          });
-          
-          // If admin endpoint fails, try public endpoint
-          if (!res.ok) {
-            res = await fetch(`${API_BASE_URL}/api/photographers`, {
-              headers: {
-                'Accept': 'application/json',
-              },
-            });
-          }
-          
-          if (res.ok) {
-            const json = await res.json();
-            const photographersList = (json.data || json || []).map((p: any) => ({
-              id: String(p.id),
-              name: p.name || 'Unknown',
-              email: p.email || '',
-            }));
-            const currentPhotographer = shoot.photographer;
-            if (currentPhotographer && !photographersList.some((p) => p.id === String(currentPhotographer.id))) {
-              photographersList.unshift({
-                id: String(currentPhotographer.id),
-                name: currentPhotographer.name || 'Current photographer',
-                email: currentPhotographer.email || '',
-              });
-            }
-            console.log('[ShootDetailsOverviewTab] Loaded photographers for edit mode:', photographersList.length);
-            setEditPhotographers(photographersList);
-          } else {
-            console.error('Failed to fetch photographers:', res.status, res.statusText);
-            setEditPhotographers([]);
-          }
+          console.log('[ShootDetailsOverviewTab] Loaded photographers for edit mode:', nextPhotographers.length);
+          setEditPhotographers(nextPhotographers);
         } catch (error) {
           console.error('Error fetching photographers:', error);
           setEditPhotographers([]);
@@ -783,22 +828,17 @@ export function ShootDetailsOverviewTab({
         setSelectedPhotographerIdEdit(String(shoot.photographer.id));
       }
       // Initialize per-category photographer assignments from services
-      const svcList = Array.isArray(shoot.services) ? shoot.services : [];
-      const normCat = (name: string) => name.trim().toLowerCase().replace(/s$/, '');
       const catPhotogMap: Record<string, string> = {};
-      for (const s of svcList) {
-        if (typeof s !== 'object' || !s) continue;
-        const catName = (s as any).category?.name || (s as any).category_name || 'Other';
-        const key = normCat(catName);
-        const svcPhotogId = (s as any).resolved_photographer_id || (s as any).photographer_id || (s as any).pivot?.photographer_id || (s as any).photographer?.id;
-        if (svcPhotogId && !catPhotogMap[key]) {
-          catPhotogMap[key] = String(svcPhotogId);
+      for (const group of photographerAssignments.groups) {
+        const photographerId = group.photographer?.id;
+        if (photographerId != null && !catPhotogMap[group.key]) {
+          catPhotogMap[group.key] = String(photographerId);
         }
       }
       setPerCategoryPhotographers(catPhotogMap);
       setTaxAmountDirty(false);
     }
-  }, [isEditMode, shoot]);
+  }, [isEditMode, photographerAssignments.groups, shoot]);
   
   // Update edited shoot field - with proper deep cloning
   const updateField = (field: string, value: unknown) => {
@@ -1068,29 +1108,9 @@ export function ShootDetailsOverviewTab({
 
   const [assignPhotographerOpen, setAssignPhotographerOpen] = useState(false);
   const [selectedPhotographerId, setSelectedPhotographerId] = useState<string>('');
-  const [photographers, setPhotographers] = useState<Array<{ 
-    id: string; 
-    name: string; 
-    email: string;
-    avatar?: string;
-    address?: string;
-    city?: string;
-    state?: string;
-    zip?: string;
-    distance?: number;
-    distanceFrom?: 'home' | 'previous_shoot';
-    previousShootId?: number;
-    originAddress?: {
-      address?: string;
-      city?: string;
-      state?: string;
-      zip?: string;
-    };
-    availabilitySlots?: Array<{ start_time: string; end_time: string }>;
-    netAvailableSlots?: Array<{ start_time: string; end_time: string }>;
-    hasAvailability?: boolean;
-    shootsCountToday?: number;
-  }>>([]);
+  const [photographerPickerContext, setPhotographerPickerContext] =
+    useState<PhotographerPickerContext>(null);
+  const [photographers, setPhotographers] = useState<PhotographerPickerOption[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'distance' | 'name'>('distance');
   const [isCalculatingDistances, setIsCalculatingDistances] = useState(false);
@@ -1101,10 +1121,27 @@ export function ShootDetailsOverviewTab({
 
   // Get shoot location for distance calculation
   const getShootLocation = () => {
-    const address = shoot.location?.address || (shoot as any).address || '';
-    const city = shoot.location?.city || (shoot as any).city || '';
-    const state = shoot.location?.state || (shoot as any).state || '';
-    const zip = shoot.location?.zip || (shoot as any).zip || '';
+    const editedLocation = isEditMode ? editedShoot.location : undefined;
+    const address =
+      (typeof editedLocation?.address === 'string' ? editedLocation.address : undefined)
+      || shoot.location?.address
+      || (shoot as any).address
+      || '';
+    const city =
+      (typeof editedLocation?.city === 'string' ? editedLocation.city : undefined)
+      || shoot.location?.city
+      || (shoot as any).city
+      || '';
+    const state =
+      (typeof editedLocation?.state === 'string' ? editedLocation.state : undefined)
+      || shoot.location?.state
+      || (shoot as any).state
+      || '';
+    const zip =
+      (typeof editedLocation?.zip === 'string' ? editedLocation.zip : undefined)
+      || shoot.location?.zip
+      || (shoot as any).zip
+      || '';
     return { address, city, state, zip };
   };
 
@@ -1152,32 +1189,48 @@ export function ShootDetailsOverviewTab({
     .map((slot) => `${to12Hour(slot.start_time)}–${to12Hour(slot.end_time)}`)
     .join(', ');
 
+  const fallbackAssignedPhotographers = useMemo(() => {
+    const fallback = new Map<string, PhotographerPickerOption>();
+    const addPhotographer = (photographer?: any | null) => {
+      if (!photographer?.id) return;
+      const mapped = mapPhotographerPickerOption(photographer);
+      fallback.set(String(mapped.id), mapped);
+    };
+
+    addPhotographer(shoot.photographer);
+    photographerAssignments.groups.forEach((group) => addPhotographer(group.photographer));
+
+    return Array.from(fallback.values());
+  }, [photographerAssignments.groups, shoot.photographer]);
+
+  const photographerPickerOptions = useMemo(() => {
+    if (photographers.length > 0) return photographers;
+    if (editPhotographers.length > 0) {
+      return editPhotographers.map((photographer) => ({
+        ...photographer,
+      }));
+    }
+    return fallbackAssignedPhotographers;
+  }, [editPhotographers, fallbackAssignedPhotographers, photographers]);
+
   // Fetch photographers for assignment
   useEffect(() => {
-    if (!assignPhotographerOpen || !isAdminOrRep) return;
+    if (!assignPhotographerOpen) return;
+
+    if (editPhotographers.length > 0) {
+      setPhotographers((prev) => (prev.length > 0 ? prev : editPhotographers.map((photographer) => ({
+        ...photographer,
+      }))));
+    }
+
+    if (!isAdminOrRep && !isEditMode) return;
     
     const fetchPhotographers = async () => {
       try {
-        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-        const res = await fetch(`${API_BASE_URL}/api/users/photographers`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json',
-          },
-        });
-        if (res.ok) {
-          const json = await res.json();
-          const photographersList = (json.data || json || []).map((p: any) => ({
-            id: String(p.id),
-            name: p.name,
-            email: p.email,
-            avatar: p.avatar,
-            address: p.address || p.metadata?.address || p.metadata?.homeAddress,
-            city: p.city || p.metadata?.city,
-            state: p.state || p.metadata?.state,
-            zip: p.zip || p.zipcode || p.metadata?.zip || p.metadata?.zipcode,
-          }));
+        const photographersList = await loadPhotographerPickerOptions();
+        if (photographersList.length > 0) {
           setPhotographers(photographersList);
+          setEditPhotographers((prev) => (prev.length > 0 ? prev : photographersList));
         }
       } catch (error) {
         console.error('Error fetching photographers:', error);
@@ -1185,7 +1238,7 @@ export function ShootDetailsOverviewTab({
     };
     
     fetchPhotographers();
-  }, [assignPhotographerOpen, isAdminOrRep]);
+  }, [assignPhotographerOpen, editPhotographers, isAdminOrRep, isEditMode]);
 
   // Calculate distances when dialog opens and shoot location/photographers are available
   useEffect(() => {
@@ -1342,11 +1395,24 @@ export function ShootDetailsOverviewTab({
       isCancelled = true;
       controller.abort();
     };
-  }, [assignPhotographerOpen, isAdminOrRep, photographers.length, shoot.location?.address, shoot.location?.city, shoot.location?.state, shoot.location?.zip]);
+  }, [
+    assignPhotographerOpen,
+    isAdminOrRep,
+    photographers.length,
+    isEditMode,
+    editedShoot.location?.address,
+    editedShoot.location?.city,
+    editedShoot.location?.state,
+    editedShoot.location?.zip,
+    shoot.location?.address,
+    shoot.location?.city,
+    shoot.location?.state,
+    shoot.location?.zip,
+  ]);
 
   // Filter and sort photographers
   const filteredAndSortedPhotographers = useMemo(() => {
-    let filtered = photographers;
+    let filtered = [...photographerPickerOptions];
 
     // Apply search filter
     if (searchQuery.trim()) {
@@ -1374,11 +1440,164 @@ export function ShootDetailsOverviewTab({
     });
 
     return filtered;
-  }, [photographers, searchQuery, sortBy]);
+  }, [photographerPickerOptions, searchQuery, sortBy]);
+
+  const resolvePhotographerDetails = (photographerId?: string | null) => {
+    if (!photographerId) return null;
+    const normalizedId = String(photographerId);
+
+    return (
+      photographerPickerOptions.find((photographer) => String(photographer.id) === normalizedId)
+      || editPhotographers.find((photographer) => String(photographer.id) === normalizedId)
+      || (shoot.photographer && String(shoot.photographer.id) === normalizedId
+        ? shoot.photographer
+        : null)
+    );
+  };
+
+  const closePhotographerPicker = () => {
+    setAssignPhotographerOpen(false);
+    setSearchQuery('');
+    setSelectedPhotographerId('');
+    setPhotographerPickerContext(null);
+  };
+
+  const openEditPhotographerPicker = (
+    context: Exclude<PhotographerPickerContext, null>,
+  ) => {
+    const initialSelection = context.categoryKey
+      ? perCategoryPhotographers[context.categoryKey] || selectedPhotographerIdEdit || ''
+      : selectedPhotographerIdEdit || '';
+
+    setPhotographerPickerContext(context);
+    setSelectedPhotographerId(initialSelection);
+    setSearchQuery('');
+    setAssignPhotographerOpen(true);
+  };
+
+  const editModePhotographerRows = useMemo(() => {
+    const groupedRows = photographerAssignments.groups.map((group) => {
+      const selectedId =
+        perCategoryPhotographers[group.key]
+        || group.photographer?.id
+        || selectedPhotographerIdEdit
+        || '';
+
+      return {
+        key: group.key,
+        name: group.name,
+        photographer: resolvePhotographerDetails(selectedId) || group.photographer || null,
+      };
+    });
+
+    const fallbackRows =
+      groupedRows.length > 0
+        ? groupedRows
+        : [
+            {
+              key: 'photographer',
+              name: 'Photographer',
+              photographer:
+                resolvePhotographerDetails(selectedPhotographerIdEdit || shoot.photographer?.id || '')
+                || shoot.photographer
+                || null,
+            },
+          ];
+
+    if (!isEditMode || selectedServiceIds.length === 0 || servicesList.length === 0) {
+      return fallbackRows;
+    }
+
+    const rows = new Map<
+      string,
+      {
+        key: string;
+        name: string;
+        photographer: ReturnType<typeof resolvePhotographerDetails>;
+      }
+    >();
+
+    selectedServiceIds.forEach((serviceId) => {
+      const service = servicesList.find((item) => item.id === serviceId);
+      if (!service) return;
+
+      const categoryName = deriveServiceCategoryName(service);
+      const categoryKey = normalizeShootServiceCategoryKey(categoryName);
+      const existingGroup = photographerAssignments.groups.find(
+        (group) => group.key === categoryKey,
+      );
+      const selectedId =
+        perCategoryPhotographers[categoryKey]
+        || existingGroup?.photographer?.id
+        || selectedPhotographerIdEdit
+        || '';
+
+      rows.set(categoryKey, {
+        key: categoryKey,
+        name: categoryName,
+        photographer:
+          resolvePhotographerDetails(selectedId) || existingGroup?.photographer || null,
+      });
+    });
+
+    return rows.size > 0 ? Array.from(rows.values()) : fallbackRows;
+  }, [
+    editPhotographers,
+    isEditMode,
+    perCategoryPhotographers,
+    photographerAssignments.groups,
+    photographers,
+    selectedPhotographerIdEdit,
+    selectedServiceIds,
+    servicesList,
+    shoot.photographer,
+  ]);
 
   // Assign photographer
   const handleAssignPhotographer = async () => {
     if (!selectedPhotographerId) return;
+    const selectedPhotographer = resolvePhotographerDetails(selectedPhotographerId);
+
+    if (isEditMode) {
+      const nextPhotographer = {
+        id: selectedPhotographerId,
+        name: selectedPhotographer?.name || 'Selected photographer',
+        email: selectedPhotographer?.email || '',
+      };
+
+      if (photographerPickerContext?.categoryKey) {
+        const { categoryKey, categoryName } = photographerPickerContext;
+        setPerCategoryPhotographers((prev) => ({
+          ...prev,
+          [categoryKey]: selectedPhotographerId,
+        }));
+        updateField(`perCategoryPhotographers.${categoryKey}`, selectedPhotographerId);
+
+        if (editModePhotographerRows.length === 1) {
+          setSelectedPhotographerIdEdit(selectedPhotographerId);
+          updateField('photographer', nextPhotographer);
+        }
+
+        toast({
+          title: 'Photographer updated',
+          description: categoryName
+            ? `${nextPhotographer.name} is selected for ${categoryName}.`
+            : 'Photographer selection updated.',
+        });
+      } else {
+        setSelectedPhotographerIdEdit(selectedPhotographerId);
+        updateField('photographer', nextPhotographer);
+
+        toast({
+          title: 'Photographer updated',
+          description: `${nextPhotographer.name} is selected for this shoot.`,
+        });
+      }
+
+      closePhotographerPicker();
+      return;
+    }
+
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
@@ -1393,28 +1612,12 @@ export function ShootDetailsOverviewTab({
       
       if (!res.ok) throw new Error('Failed to assign photographer');
       
-      // If in edit mode, update local state
-      if (isEditMode) {
-        const selectedPhotographer = photographers.find(p => p.id === selectedPhotographerId);
-        if (selectedPhotographer) {
-          updateField('photographer', {
-            id: selectedPhotographer.id,
-            name: selectedPhotographer.name,
-            email: selectedPhotographer.email,
-          });
-        }
-      }
-      
       toast({
         title: 'Success',
         description: 'Photographer assigned successfully',
       });
-      setAssignPhotographerOpen(false);
-      setSelectedPhotographerId('');
-      
-      if (!isEditMode) {
-        onShootUpdate();
-      }
+      closePhotographerPicker();
+      onShootUpdate();
     } catch (error) {
       toast({
         title: 'Error',
@@ -1528,6 +1731,48 @@ export function ShootDetailsOverviewTab({
       return [shoot.services];
     }
     return [];
+  };
+
+  const getServiceQuantity = (service: any) => {
+    if (!service || typeof service === 'string') return 1;
+    const categoryName = String(
+      service.category?.name ??
+      service.category_name ??
+      service.category ??
+      '',
+    ).toLowerCase();
+    const isPhotoCategory = categoryName === 'photo' || categoryName === 'photos';
+    const serviceWithPricing = { ...service, price: service.price ?? 0 };
+    const pricingInfo =
+      baseSqft && service.pricing_type === 'variable' && service.sqft_ranges?.length
+        ? getServicePricingForSqft(serviceWithPricing, baseSqft)
+        : null;
+    const rawQuantity =
+      (isPhotoCategory
+        ? pricingInfo?.matchedRange?.photo_count ??
+          service.photo_count ??
+          service.photoCount ??
+          service.pivot?.photo_count
+        : undefined) ??
+      service.quantity ??
+      service.pivot?.quantity ??
+      service.qty ??
+      service.count;
+    const parsedQuantity = Number(rawQuantity);
+    return Number.isFinite(parsedQuantity) && parsedQuantity > 0 ? parsedQuantity : 1;
+  };
+
+  const formatServiceLabel = (service: any) => {
+    const baseName = typeof service === 'string'
+      ? service
+      : service?.name || service?.label || String(service);
+    const quantity = getServiceQuantity(service);
+    return quantity > 1 ? `${baseName} x${quantity}` : baseName;
+  };
+
+  const getServiceCountBadge = (service: any) => {
+    const quantity = getServiceQuantity(service);
+    return quantity > 1 ? `x${quantity}` : null;
   };
 
   const services = getServices();
@@ -2003,7 +2248,14 @@ export function ShootDetailsOverviewTab({
           <div className="space-y-1">
             {shoot.serviceObjects.map((svc) => (
               <div key={svc.id} className="flex items-center justify-between gap-2 text-xs">
-                <span className="truncate">{svc.name}</span>
+                <div className="flex min-w-0 flex-1 items-center gap-2">
+                  <span className="truncate">{svc.name}</span>
+                  {getServiceCountBadge(svc) && (
+                    <span className="shrink-0 text-[11px] font-medium text-muted-foreground">
+                      {getServiceCountBadge(svc)}
+                    </span>
+                  )}
+                </div>
                 <span className="font-medium text-muted-foreground whitespace-nowrap">${Number(svc.price).toFixed(2)}</span>
               </div>
             ))}
@@ -2013,9 +2265,7 @@ export function ShootDetailsOverviewTab({
             {services.length > 0 ? (
               services.map((service, index) => (
                 <Badge key={index} variant="outline" className="text-[10px] px-1.5 py-0.5">
-                  {typeof service === 'string'
-                    ? service
-                    : (service as any).label || (service as any).name || String(service)}
+                  {formatServiceLabel(service)}
                 </Badge>
               ))
             ) : (
@@ -2117,201 +2367,118 @@ export function ShootDetailsOverviewTab({
       )}
 
       {/* Photographer Card — per-service or single (hidden from photographer viewing their own details) */}
-      {!isPhotographer && (shoot.photographer || isEditMode) && (() => {
-        // Detect per-service photographer assignments
-        const svcList = Array.isArray(shoot.services) ? shoot.services : [];
-        const normCat = (name: string) => name.trim().toLowerCase().replace(/s$/, '');
-        const catGroups: Record<string, { name: string; photographer: any; services: any[] }> = {};
-        for (const s of svcList) {
-          if (typeof s !== 'object' || !s) continue;
-          const catName = (s as any).category?.name || (s as any).category_name || 'Other';
-          const key = normCat(catName);
-          if (!catGroups[key]) catGroups[key] = { name: catName, photographer: null, services: [] };
-          catGroups[key].services.push(s);
-          const svcPhotographer = (s as any).photographer || null;
-          const svcPhotographerId = (s as any).resolved_photographer_id || (s as any).photographer_id || (s as any).pivot?.photographer_id;
-          if (svcPhotographerId) {
-            catGroups[key].photographer = svcPhotographer || { id: svcPhotographerId, name: `Photographer #${svcPhotographerId}` };
-          }
-        }
-        const catEntries = Object.values(catGroups).filter(g => g.services.length > 0);
-        // Check if there are multiple categories with per-service photographer assignments
-        // Use only per-service photographer IDs (not the shoot-level fallback) to detect distinct assignments
-        const perServicePhotographerIds = new Set(
-          svcList
-            .filter((s: any) => typeof s === 'object' && s)
-            .map((s: any) => {
-              const svcPhotogId = (s as any).resolved_photographer_id || (s as any).photographer_id || (s as any).pivot?.photographer_id || (s as any).photographer?.id;
-              return svcPhotogId ? String(svcPhotogId) : null;
-            })
-            .filter(Boolean)
-        );
-        // Show per-category view when there are distinct per-service photographer IDs or multiple categories with assignments
-        const hasMultiplePhotographers = perServicePhotographerIds.size > 1 || (catEntries.length > 1 && catEntries.some(g => g.photographer !== null));
-        // In edit mode, show per-category pickers whenever multiple categories exist (so user can assign different photographers)
-        const hasMultipleCategories = catEntries.length > 1;
+      {!isPhotographer &&
+        (shoot.photographer || isEditMode || photographerAssignments.hasAssignments) &&
+        (() => {
+          const catEntries = isEditMode ? editModePhotographerRows : photographerAssignments.groups;
+          const distinctPhotographerIds = Array.from(
+            new Set(
+              catEntries
+                .map((group) => group.photographer?.id)
+                .filter((id): id is string => Boolean(id)),
+            ),
+          );
+          const hasMultiplePhotographers = isEditMode
+            ? distinctPhotographerIds.length > 1
+            : photographerAssignments.hasMultiplePhotographers;
+          const hasMultipleCategories = catEntries.length > 1;
+          const displayedPhotographer = isEditMode
+            ? resolvePhotographerDetails(selectedPhotographerIdEdit) || catEntries[0]?.photographer
+            : shoot.photographer || catEntries[0]?.photographer;
 
-        return (
-          <div className="p-2.5 border rounded-lg bg-card">
-            <div className="flex items-center gap-1.5 mb-1.5">
-              <CameraIcon className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-[11px] font-semibold text-muted-foreground uppercase">
-                {(isEditMode ? hasMultipleCategories : hasMultiplePhotographers) ? 'Photographers' : 'Photographer'}
-              </span>
-            </div>
-            {isEditMode ? (
-              hasMultipleCategories ? (
+          return (
+            <div className="p-2.5 border rounded-lg bg-card">
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <CameraIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-[11px] font-semibold text-muted-foreground uppercase">
+                  {(isEditMode ? hasMultipleCategories : hasMultiplePhotographers)
+                    ? 'Photographers'
+                    : 'Photographer'}
+                </span>
+              </div>
+              {isEditMode ? (
                 <div className="space-y-2">
-                  {catEntries.map(group => {
-                    const catKey = normCat(group.name);
-                    const selectedId = perCategoryPhotographers[catKey] || selectedPhotographerIdEdit || '';
-                    const isOpen = perCategoryPopoverOpen[catKey] || false;
-                    return (
-                      <div key={catKey} className="space-y-1">
-                        <span className="text-[10px] font-medium text-muted-foreground uppercase">{group.name}</span>
-                        <Popover open={isOpen} onOpenChange={(open) => setPerCategoryPopoverOpen(prev => ({ ...prev, [catKey]: open }))} modal={false}>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="outline"
-                              role="combobox"
-                              className="w-full justify-between h-8 text-xs font-normal"
-                            >
-                              {selectedId
-                                ? editPhotographers.find((p) => p.id === selectedId)?.name || 'Select photographer...'
-                                : 'Select photographer...'}
-                              <ArrowUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent 
-                            className="w-[var(--radix-popover-trigger-width)] max-w-[300px] p-0 shadow-lg z-[200] max-h-[250px]" 
-                            align="start" 
-                            sideOffset={4}
-                            side="bottom"
-                            onOpenAutoFocus={(e) => e.preventDefault()}
-                            style={{ pointerEvents: 'auto' }}
+                  {(hasMultipleCategories ? editModePhotographerRows : editModePhotographerRows.slice(0, 1)).map(
+                    (group) => {
+                      const selectedPhotographer = resolvePhotographerDetails(
+                        perCategoryPhotographers[group.key]
+                          || group.photographer?.id
+                          || selectedPhotographerIdEdit
+                          || '',
+                      );
+
+                      return (
+                        <div
+                          key={group.key}
+                          className="flex items-start justify-between gap-3 rounded-lg border bg-background/50 px-3 py-2.5"
+                        >
+                          <div className="min-w-0 space-y-1 text-xs">
+                            {hasMultipleCategories && (
+                              <div className="text-[10px] font-medium uppercase text-muted-foreground">
+                                {group.name}
+                              </div>
+                            )}
+                            <div className="font-medium">
+                              {selectedPhotographer?.name || 'Not assigned'}
+                            </div>
+                            {!isClient && selectedPhotographer?.email && (
+                              <div className="truncate text-muted-foreground">
+                                {selectedPhotographer.email}
+                              </div>
+                            )}
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-8 shrink-0 text-xs"
+                            onClick={() =>
+                              openEditPhotographerPicker({
+                                source: 'edit',
+                                categoryKey: hasMultipleCategories ? group.key : undefined,
+                                categoryName: hasMultipleCategories ? group.name : undefined,
+                              })
+                            }
                           >
-                            <Command className="rounded-lg flex flex-col" shouldFilter={true}>
-                              <CommandInput placeholder="Search photographers..." className="h-9 flex-shrink-0 border-b" />
-                              <CommandList className="max-h-[200px] overflow-y-auto overflow-x-hidden">
-                                <CommandEmpty>
-                                  {editPhotographers.length === 0 ? 'Loading photographers...' : 'No photographer found.'}
-                                </CommandEmpty>
-                                <CommandGroup>
-                                  {editPhotographers.map((photographer) => (
-                                    <CommandItem
-                                      key={photographer.id}
-                                      value={`${photographer.name} ${photographer.email}`}
-                                      onSelect={() => {
-                                        setPerCategoryPhotographers(prev => ({ ...prev, [catKey]: photographer.id }));
-                                        updateField(`perCategoryPhotographers.${catKey}`, photographer.id);
-                                        setPerCategoryPopoverOpen(prev => ({ ...prev, [catKey]: false }));
-                                      }}
-                                    >
-                                      <div className="flex flex-col">
-                                        <span className="font-medium">{photographer.name}</span>
-                                        {photographer.email && (
-                                          <span className="text-[10px] text-muted-foreground">{photographer.email}</span>
-                                        )}
-                                      </div>
-                                      {selectedId === photographer.id && (
-                                        <Check className="ml-auto h-4 w-4" />
-                                      )}
-                                    </CommandItem>
-                                  ))}
-                                </CommandGroup>
-                              </CommandList>
-                            </Command>
-                          </PopoverContent>
-                        </Popover>
+                            Edit photographer
+                          </Button>
+                        </div>
+                      );
+                    },
+                  )}
+                </div>
+              ) : hasMultiplePhotographers ? (
+                <div className="space-y-1.5">
+                  {catEntries.map((group) => {
+                    const photog = group.photographer || shoot.photographer;
+                    return (
+                      <div
+                        key={group.key}
+                        className="flex items-center justify-between gap-2 text-xs"
+                      >
+                        <span className="text-[10px] font-medium text-muted-foreground uppercase truncate">
+                          {group.name}
+                        </span>
+                        <span className="font-medium truncate">
+                          {photog?.name || 'Not assigned'}
+                        </span>
                       </div>
                     );
                   })}
                 </div>
               ) : (
-                <Popover open={photographerSearchOpen} onOpenChange={setPhotographerSearchOpen} modal={false}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={photographerSearchOpen}
-                      className="w-full justify-between h-8 text-xs font-normal"
-                    >
-                      {selectedPhotographerIdEdit
-                        ? editPhotographers.find((p) => p.id === selectedPhotographerIdEdit)?.name || 'Select photographer...'
-                        : 'Select photographer...'}
-                      <ArrowUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent 
-                    className="w-[var(--radix-popover-trigger-width)] max-w-[300px] p-0 shadow-lg z-[200] max-h-[250px]" 
-                    align="start" 
-                    sideOffset={4}
-                    side="bottom"
-                    onOpenAutoFocus={(e) => e.preventDefault()}
-                    style={{ pointerEvents: 'auto' }}
-                  >
-                    <Command className="rounded-lg flex flex-col" shouldFilter={true}>
-                      <CommandInput placeholder="Search photographers..." className="h-9 flex-shrink-0 border-b" />
-                      <CommandList className="max-h-[200px] overflow-y-auto overflow-x-hidden">
-                        <CommandEmpty>
-                          {editPhotographers.length === 0 ? 'Loading photographers...' : 'No photographer found.'}
-                        </CommandEmpty>
-                        <CommandGroup>
-                          {editPhotographers.length > 0 ? editPhotographers.map((photographer) => (
-                            <CommandItem
-                              key={photographer.id}
-                              value={`${photographer.name} ${photographer.email}`}
-                              onSelect={() => {
-                                const photographerId = photographer.id;
-                                setSelectedPhotographerIdEdit(photographerId);
-                                updateField('photographer', {
-                                  id: photographerId,
-                                  name: photographer.name,
-                                  email: photographer.email,
-                                });
-                                setPhotographerSearchOpen(false);
-                              }}
-                            >
-                              <div className="flex flex-col">
-                                <span className="font-medium">{photographer.name}</span>
-                                {photographer.email && (
-                                  <span className="text-[10px] text-muted-foreground">{photographer.email}</span>
-                                )}
-                              </div>
-                              {selectedPhotographerIdEdit === photographer.id && (
-                                <Check className="ml-auto h-4 w-4" />
-                              )}
-                            </CommandItem>
-                          )) : null}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              )
-            ) : hasMultiplePhotographers ? (
-              <div className="space-y-1.5">
-                {catEntries.map(group => {
-                  const photog = group.photographer || shoot.photographer;
-                  return (
-                    <div key={group.name} className="flex items-center justify-between gap-2 text-xs">
-                      <span className="text-[10px] font-medium text-muted-foreground uppercase truncate">{group.name}</span>
-                      <span className="font-medium truncate">{photog?.name || 'Not assigned'}</span>
+                <div className="space-y-1 text-xs">
+                  <div className="font-medium">{displayedPhotographer?.name || 'Not assigned'}</div>
+                  {!isClient && displayedPhotographer?.email && (
+                    <div className="text-muted-foreground truncate">
+                      {displayedPhotographer.email}
                     </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="space-y-1 text-xs">
-                <div className="font-medium">{shoot.photographer?.name || 'Not assigned'}</div>
-                {!isClient && shoot.photographer?.email && (
-                  <div className="text-muted-foreground truncate">{shoot.photographer.email}</div>
-                )}
-              </div>
-            )}
-          </div>
-        );
-      })()}
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
       {/* Property Access Card - Lockbox or Access Contact Info */}
       <div className="p-2.5 border rounded-lg bg-card">
@@ -2576,20 +2743,28 @@ export function ShootDetailsOverviewTab({
 
       {/* Assign Photographer Dialog - Matching Book Shoot selector */}
       <Dialog open={assignPhotographerOpen} onOpenChange={(open) => {
-        setAssignPhotographerOpen(open);
-        if (!open) {
-          setSearchQuery('');
-          setSelectedPhotographerId('');
+        if (open) {
+          setAssignPhotographerOpen(true);
+          return;
         }
+        closePhotographerPicker();
       }}>
         <DialogContent className="sm:max-w-2xl w-full">
           <div className="p-4 bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-gray-100 dark:border-slate-800">
             <div className="flex items-start justify-between mb-4">
               <div className="flex-1">
                 <DialogHeader>
-                  <DialogTitle className="text-lg text-slate-900 dark:text-slate-100">Select Photographer</DialogTitle>
+                  <DialogTitle className="text-lg text-slate-900 dark:text-slate-100">
+                    {photographerPickerContext?.categoryName
+                      ? `Select Photographer for ${photographerPickerContext.categoryName}`
+                      : 'Select Photographer'}
+                  </DialogTitle>
                   <DialogDescription>
-                    Choose a photographer to assign to this shoot
+                    {photographerPickerContext?.categoryName
+                      ? `Choose a photographer for ${photographerPickerContext.categoryName} services`
+                      : isEditMode
+                      ? 'Choose a photographer for this shoot before saving your edits'
+                      : 'Choose a photographer to assign to this shoot'}
                   </DialogDescription>
                 </DialogHeader>
               </div>
@@ -2751,9 +2926,7 @@ export function ShootDetailsOverviewTab({
               <div className="pt-4">
                 <div className="flex items-center justify-between gap-3">
                   <Button variant="ghost" onClick={() => {
-                    setAssignPhotographerOpen(false);
-                    setSearchQuery('');
-                    setSelectedPhotographerId('');
+                    closePhotographerPicker();
                   }} className="w-full">
                     Cancel
                   </Button>
@@ -2772,7 +2945,7 @@ export function ShootDetailsOverviewTab({
                     className="w-full"
                     disabled={!selectedPhotographerId}
                   >
-                    Assign
+                    {isEditMode ? 'Use selection' : 'Assign'}
                   </Button>
                 </div>
               </div>
@@ -2783,6 +2956,3 @@ export function ShootDetailsOverviewTab({
     </div>
   );
 }
-
-
-

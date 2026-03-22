@@ -116,6 +116,36 @@ export interface ShootMediaPayload {
   }>;
 }
 
+export interface ShootServicePhotographer {
+  id?: string | number;
+  name: string;
+  avatar?: string;
+  email?: string;
+}
+
+export interface ShootServiceObject {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
+  photo_count?: number | null;
+  pricing_type?: 'fixed' | 'variable';
+  sqft_ranges?: Array<{
+    id?: number;
+    sqft_from: number;
+    sqft_to: number;
+    duration: number | null;
+    price: number;
+    photographer_pay: number | null;
+    photo_count?: number | null;
+  }>;
+  category?: { id: string; name: string } | null;
+  photographer_pay?: number | null;
+  photographer_id?: string | null;
+  resolved_photographer_id?: string | null;
+  photographer?: ShootServicePhotographer | null;
+}
+
 export interface ShootData {
   id: string;
   scheduledDate: string;
@@ -158,14 +188,7 @@ export interface ShootData {
     email?: string;
   };
   services: string[];
-  serviceObjects?: Array<{
-    id: string;
-    name: string;
-    price: number;
-    quantity: number;
-    category?: { id: string; name: string } | null;
-    photographer_pay?: number | null;
-  }>;
+  serviceObjects?: ShootServiceObject[];
   payment: {
     baseQuote: number;
     taxRate: number;

@@ -65,6 +65,7 @@ import { useShootFiles, type MediaFile } from '@/hooks/useShootFiles';
 import { useQueryClient } from '@tanstack/react-query';
 import { ShootIssueManager } from './ShootIssueManager';
 import VideoThumbnail from '../VideoThumbnail';
+import { getServicePricingForSqft } from '@/utils/servicePricing';
 
 interface ShootDetailsMediaTabProps {
   shoot: ShootData;
@@ -1688,6 +1689,59 @@ export function ShootDetailsMediaTab({
 
   // Helper type for photo service breakdown
   type PhotoService = { name: string; count: number };
+
+  const getShootSqft = (shoot: ShootData) => {
+    const propertyDetails = shoot.propertyDetails || (shoot as any).property_details || {};
+    const rawSqft =
+      propertyDetails?.sqft ??
+      propertyDetails?.squareFeet ??
+      propertyDetails?.square_feet ??
+      (shoot as any).sqft ??
+      (shoot as any).squareFeet ??
+      (shoot as any).square_feet ??
+      (shoot as any).livingArea ??
+      (shoot as any).living_area;
+    const parsedSqft = Number(rawSqft);
+    return Number.isFinite(parsedSqft) && parsedSqft > 0 ? parsedSqft : null;
+  };
+
+  const extractPhotoServicesFromServiceObjects = (shoot: ShootData): PhotoService[] => {
+    const services = Array.isArray(shoot.serviceObjects) ? shoot.serviceObjects : [];
+    if (!services.length) return [];
+
+    const sqft = getShootSqft(shoot);
+    return services.reduce<PhotoService[]>((acc, service) => {
+      const categoryName = String(service.category?.name || '').trim().toLowerCase();
+      const isPhotoCategory = categoryName === 'photo' || categoryName === 'photos';
+      const isPhotoByName = /\b(photo|photos|hdr|flash|exterior|interior|twilight)\b/i.test(service.name || '');
+      if (!isPhotoCategory && !isPhotoByName) {
+        return acc;
+      }
+
+      const pricingInfo =
+        sqft && service.pricing_type === 'variable' && service.sqft_ranges?.length
+          ? getServicePricingForSqft(service, sqft)
+          : null;
+      const quantity = Number(service.quantity ?? 1);
+      const baseCount =
+        pricingInfo?.matchedRange?.photo_count ??
+        service.photo_count ??
+        null;
+      const parsedBaseCount = Number(baseCount);
+      const resolvedCount = Number.isFinite(parsedBaseCount) && parsedBaseCount > 0
+        ? parsedBaseCount * (Number.isFinite(quantity) && quantity > 0 ? quantity : 1)
+        : 0;
+
+      if (resolvedCount > 0) {
+        acc.push({
+          name: service.name,
+          count: resolvedCount,
+        });
+      }
+
+      return acc;
+    }, []);
+  };
   
   // Helper function to extract photo services with their counts from service names
   const extractPhotoServicesFromServices = (services: string[]): PhotoService[] => {
@@ -1757,9 +1811,13 @@ export function ShootDetailsMediaTab({
     // Use shoot's existing counts for display
     const existingRawCount = shoot.rawPhotoCount || 0;
     // Get photo services breakdown for display
-    const photoServices = extractPhotoServicesFromServices(shoot.services || []);
-    // Try to get expected photos from package, expectedFinalCount, or parse from services
-    const expectedPhotos = shoot.package?.expectedDeliveredCount || shoot.expectedFinalCount || photoServices.reduce((sum, s) => sum + s.count, 0);
+    const photoServicesFromObjects = extractPhotoServicesFromServiceObjects(shoot);
+    const photoServices = photoServicesFromObjects.length > 0
+      ? photoServicesFromObjects
+      : extractPhotoServicesFromServices(shoot.services || []);
+    const photoServicesExpectedCount = photoServices.reduce((sum, s) => sum + s.count, 0);
+    // Prefer count derived from selected services so "expected" stays aligned with booking setup
+    const expectedPhotos = photoServicesExpectedCount || shoot.package?.expectedDeliveredCount || shoot.expectedFinalCount || 0;
     // For standard/flash shoots, no bracket multiplier (1:1 ratio)
     const bracketMultiplier = shootRequiresBrackets ? (bracketType === '3-bracket' ? 3 : 5) : 1;
     const expectedRawCount = expectedPhotos * bracketMultiplier;

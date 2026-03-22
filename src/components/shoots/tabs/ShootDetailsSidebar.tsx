@@ -38,6 +38,7 @@ import { API_BASE_URL } from '@/config/env';
 import { calculateDistance, getCoordinatesFromAddress } from '@/utils/distanceUtils';
 import { getStateFullName } from '@/utils/stateUtils';
 import { cn } from '@/lib/utils';
+import { getShootPhotographerAssignmentGroups } from '@/utils/shootPhotographerAssignments';
 
 interface ShootDetailsSidebarProps {
   shoot: ShootData;
@@ -92,6 +93,10 @@ export function ShootDetailsSidebar({
     totalQuote: 0,
     totalPaid: 0,
   };
+  const photographerAssignments = useMemo(
+    () => getShootPhotographerAssignmentGroups(shoot),
+    [shoot],
+  );
 
   const remainingBalance = payment.totalQuote - payment.totalPaid;
   const isPaid = remainingBalance <= 0.01;
@@ -410,37 +415,10 @@ export function ShootDetailsSidebar({
       )}
 
       {/* Photographer Card — per-service or single */}
-      {photographer && (() => {
-        // Detect per-service photographer assignments
-        const svcList = Array.isArray(shoot.services) ? shoot.services : [];
-        const normCat = (name: string) => name.trim().toLowerCase().replace(/s$/, '');
-        const catGroups: Record<string, { name: string; photographer: any; services: any[] }> = {};
-        for (const s of svcList) {
-          if (typeof s !== 'object' || !s) continue;
-          const catName = (s as any).category?.name || (s as any).category_name || 'Other';
-          const key = normCat(catName);
-          if (!catGroups[key]) catGroups[key] = { name: catName, photographer: null, services: [] };
-          catGroups[key].services.push(s);
-          const svcPhotographer = (s as any).photographer || null;
-          const svcPhotographerId = (s as any).resolved_photographer_id || (s as any).photographer_id || (s as any).pivot?.photographer_id;
-          if (svcPhotographerId) {
-            catGroups[key].photographer = svcPhotographer || { id: svcPhotographerId, name: `Photographer #${svcPhotographerId}` };
-          }
-        }
-        const catEntries = Object.values(catGroups).filter(g => g.services.length > 0);
-        // Collect distinct per-service photographer IDs
-        const perServicePhotographerIds = new Set(
-          svcList
-            .filter((s: any) => typeof s === 'object' && s)
-            .map((s: any) => {
-              const svcPhotogId = (s as any).resolved_photographer_id || (s as any).photographer_id || (s as any).pivot?.photographer_id || (s as any).photographer?.id;
-              return svcPhotogId ? String(svcPhotogId) : null;
-            })
-            .filter(Boolean)
-        );
-        // Show per-category view when there are distinct per-service photographer IDs or multiple categories with assignments
-        const hasMultiplePhotographers = perServicePhotographerIds.size > 1 || (catEntries.length > 1 && catEntries.some(g => g.photographer !== null));
-
+      {(photographer || photographerAssignments.hasAssignments) && (() => {
+        const catEntries = photographerAssignments.groups;
+        const hasMultiplePhotographers = photographerAssignments.hasMultiplePhotographers;
+        const displayedPhotographer = photographer || catEntries[0]?.photographer;
         return (
           <Card className="shadow-sm border-2 hover:shadow-md transition-shadow">
             <CardHeader className="pb-3">
@@ -457,7 +435,7 @@ export function ShootDetailsSidebar({
                   {catEntries.map(group => {
                     const photog = group.photographer || photographer;
                     return (
-                      <div key={group.name} className="flex items-center gap-3">
+                      <div key={group.key} className="flex items-center gap-3">
                         <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500/20 to-blue-500/10 flex items-center justify-center border border-blue-500/20 flex-shrink-0">
                           <Camera className="h-4 w-4 text-blue-600" />
                         </div>
@@ -475,16 +453,22 @@ export function ShootDetailsSidebar({
                     <Camera className="h-5 w-5 text-blue-600" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-base truncate">{photographer.name}</p>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <Circle className="h-2 w-2 fill-green-500 text-green-500" />
-                      <span className="text-xs text-muted-foreground">Online</span>
-                    </div>
+                    <p className="font-semibold text-base truncate">
+                      {displayedPhotographer?.name || 'Not assigned'}
+                    </p>
+                    {displayedPhotographer?.id ? (
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <Circle className="h-2 w-2 fill-green-500 text-green-500" />
+                        <span className="text-xs text-muted-foreground">Online</span>
+                      </div>
+                    ) : (
+                      <div className="text-xs text-muted-foreground mt-0.5">No photographer assigned</div>
+                    )}
                   </div>
                 </div>
               )}
               
-              {isAdmin && photographer.id && (
+              {isAdmin && (photographer?.id || photographerAssignments.hasAssignments) && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -748,5 +732,3 @@ export function ShootDetailsSidebar({
     </div>
   );
 }
-
-

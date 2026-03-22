@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -17,15 +17,24 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CalendarIcon, Check, Loader2, MapPin, User, Camera, Clock, DollarSign, FileText, Layers } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { API_BASE_URL } from '@/config/env';
+import API_ROUTES from '@/lib/api';
+import axios from 'axios';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Input } from '@/components/ui/input';
+import { getShootPhotographerAssignmentGroups } from '@/utils/shootPhotographerAssignments';
 
 interface Photographer {
   id: string | number;
   name: string;
   avatar?: string;
+  email?: string;
+  city?: string;
+  state?: string;
 }
 
 interface ShootDetails {
@@ -35,7 +44,16 @@ interface ShootDetails {
   state?: string;
   zip?: string;
   client?: { id: number; name: string; email?: string };
-  services?: Array<{ id: number; name?: string; label?: string; price?: number } | string>;
+  services?: Array<{
+    id: number;
+    service_id?: number;
+    name?: string;
+    label?: string;
+    price?: number;
+    category?: { id?: string | number; name?: string } | string | null;
+    photographer_id?: string | number | null;
+    resolved_photographer_id?: string | number | null;
+  } | string>;
   scheduledAt?: string;
   totalQuote?: number;
   shootNotes?: string;
@@ -62,6 +80,55 @@ interface ShootApprovalModalProps {
   photographers?: Photographer[];
 }
 
+type PhotographerPickerContext = {
+  categoryKey?: string;
+  categoryName?: string;
+} | null;
+
+const normalizeCategoryKey = (value?: string) =>
+  (value || 'other').trim().toLowerCase().replace(/s$/, '') || 'other';
+
+const mapPhotographerOption = (photographer: any): Photographer => ({
+  id: photographer.id?.toString() || '',
+  name: photographer.name || 'Unknown',
+  avatar: photographer.avatar || photographer.profile_image || photographer.profile_photo_url,
+  email: photographer.email || '',
+  city: photographer.city || photographer.metadata?.city,
+  state: photographer.state || photographer.metadata?.state,
+});
+
+const loadPhotographerOptions = async (initialPhotographers: Photographer[] = []): Promise<Photographer[]> => {
+  if (initialPhotographers.length > 0) {
+    return initialPhotographers.map(mapPhotographerOption);
+  }
+
+  const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  try {
+    const response = await axios.get(API_ROUTES.people.adminPhotographers, { headers });
+    const data = response.data?.data || response.data || [];
+    const formatted = Array.isArray(data) ? data.map(mapPhotographerOption) : [];
+    if (formatted.length > 0) {
+      return formatted;
+    }
+  } catch (error) {
+    console.warn('[ShootApprovalModal] Admin photographers endpoint failed, falling back to public list:', error);
+  }
+
+  try {
+    const response = await axios.get(API_ROUTES.people.photographers);
+    const data = response.data?.data || response.data || [];
+    return Array.isArray(data) ? data.map(mapPhotographerOption) : [];
+  } catch (error) {
+    console.error('[ShootApprovalModal] Public photographers endpoint failed:', error);
+    return [];
+  }
+};
+
 export function ShootApprovalModal({
   isOpen,
   onClose,
@@ -75,7 +142,13 @@ export function ShootApprovalModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [shootDetails, setShootDetails] = useState<ShootDetails | null>(null);
+  const [photographerOptions, setPhotographerOptions] = useState<Photographer[]>([]);
   const [photographerId, setPhotographerId] = useState<string>('');
+  const [perCategoryPhotographers, setPerCategoryPhotographers] = useState<Record<string, string>>({});
+  const [photographerPickerOpen, setPhotographerPickerOpen] = useState(false);
+  const [photographerPickerContext, setPhotographerPickerContext] = useState<PhotographerPickerContext>(null);
+  const [pickerPhotographerId, setPickerPhotographerId] = useState('');
+  const [photographerSearchQuery, setPhotographerSearchQuery] = useState('');
   const [scheduledDate, setScheduledDate] = useState<Date | undefined>(undefined);
   const [scheduledTime, setScheduledTime] = useState<string>('10:00');
   const [notes, setNotes] = useState('');
@@ -173,6 +246,11 @@ export function ShootApprovalModal({
     setScheduledDate(undefined);
     setScheduledTime('10:00');
     setPhotographerId('');
+    setPerCategoryPhotographers({});
+    setPhotographerSearchQuery('');
+    setPickerPhotographerId('');
+    setPhotographerPickerContext(null);
+    setPhotographerPickerOpen(false);
     setNotes('');
     setShootDetails(null);
     setIsLoading(true);
@@ -181,12 +259,17 @@ export function ShootApprovalModal({
       try {
         const token = localStorage.getItem('authToken') || localStorage.getItem('token');
         // Add cache-busting to ensure fresh data
-        const response = await fetch(`${API_BASE_URL}/api/shoots/${shootId}?_t=${Date.now()}`, {
-          headers: { 
-            Authorization: `Bearer ${token}`,
-            'Cache-Control': 'no-cache',
-          }
-        });
+        const [response, loadedPhotographers] = await Promise.all([
+          fetch(`${API_BASE_URL}/api/shoots/${shootId}?_t=${Date.now()}`, {
+            headers: { 
+              Authorization: `Bearer ${token}`,
+              'Cache-Control': 'no-cache',
+            }
+          }),
+          loadPhotographerOptions(photographers),
+        ]);
+
+        setPhotographerOptions(loadedPhotographers);
         
         if (response.ok) {
           const data = await response.json();
@@ -199,6 +282,25 @@ export function ShootApprovalModal({
             rawShoot: shoot,
           });
           setShootDetails(shoot);
+
+          const assignmentGroups = getShootPhotographerAssignmentGroups({
+            serviceObjects: Array.isArray(shoot.serviceObjects) ? shoot.serviceObjects : undefined,
+            services: Array.isArray(shoot.services) ? shoot.services : [],
+            photographer: shoot.photographer
+              ? {
+                  id: shoot.photographer.id,
+                  name: shoot.photographer.name,
+                  email: shoot.photographer.email,
+                }
+              : undefined,
+          });
+          const categoryAssignments: Record<string, string> = {};
+          assignmentGroups.groups.forEach((group) => {
+            if (group.photographer?.id != null && !categoryAssignments[group.key]) {
+              categoryAssignments[group.key] = String(group.photographer.id);
+            }
+          });
+          setPerCategoryPhotographers(categoryAssignments);
           
           // Initialize date/time from fetched data
           const resolvedDate = resolveScheduledDate(shoot);
@@ -226,6 +328,11 @@ export function ShootApprovalModal({
             shoot.photographer?.id || shoot.photographer_id || shoot.photographerId;
           if (resolvedPhotographerId) {
             setPhotographerId(String(resolvedPhotographerId));
+          } else {
+            const firstAssignedPhotographerId = Object.values(categoryAssignments)[0];
+            if (firstAssignedPhotographerId) {
+              setPhotographerId(String(firstAssignedPhotographerId));
+            }
           }
         }
       } catch (error) {
@@ -264,6 +371,31 @@ export function ShootApprovalModal({
 
       if (photographerId && photographerId !== 'unassigned') {
         payload.photographer_id = photographerId;
+      }
+
+      if (Array.isArray(shootDetails?.services) && Object.keys(perCategoryPhotographers).length > 0) {
+        const serviceAssignments = shootDetails.services.reduce((assignments: Array<{ service_id: number; photographer_id: number }>, service: any) => {
+          if (!service || typeof service === 'string') return assignments;
+          const serviceId = Number(service.id || service.service_id);
+          if (!serviceId) return assignments;
+          const categoryName =
+            typeof service.category === 'string'
+              ? service.category
+              : service.category?.name || 'Other';
+          const categoryKey = normalizeCategoryKey(categoryName);
+          const selectedCategoryPhotographerId = perCategoryPhotographers[categoryKey];
+          if (selectedCategoryPhotographerId) {
+            assignments.push({
+              service_id: serviceId,
+              photographer_id: Number(selectedCategoryPhotographerId),
+            });
+          }
+          return assignments;
+        }, []);
+
+        if (serviceAssignments.length > 0) {
+          payload.service_photographers = serviceAssignments;
+        }
       }
 
       if (notes.trim()) {
@@ -305,6 +437,118 @@ export function ShootApprovalModal({
   };
 
   const [timeOptions, setTimeOptions] = useState<{ value: string; label: string }[]>(buildTimeOptions(scheduledTime));
+
+  const serviceCategoryGroups = useMemo(() => {
+    const groups = new Map<string, { key: string; name: string; serviceIds: string[] }>();
+    const serviceList = Array.isArray(shootDetails?.services) ? shootDetails.services : [];
+
+    serviceList.forEach((service: any) => {
+      if (!service || typeof service === 'string') return;
+      const serviceId = service.id || service.service_id;
+      if (serviceId == null) return;
+      const categoryName =
+        typeof service.category === 'string'
+          ? service.category
+          : service.category?.name || 'Other';
+      const key = normalizeCategoryKey(categoryName);
+      const existing = groups.get(key);
+      if (existing) {
+        existing.serviceIds.push(String(serviceId));
+      } else {
+        groups.set(key, { key, name: categoryName, serviceIds: [String(serviceId)] });
+      }
+    });
+
+    return Array.from(groups.values());
+  }, [shootDetails?.services]);
+
+  const hasMultiplePhotographerCategories = serviceCategoryGroups.length > 1;
+
+  const resolvePhotographerDetails = (value?: string | number | null) => {
+    if (value === null || value === undefined || value === '') return null;
+    const normalizedId = String(value);
+    return (
+      photographerOptions.find((photographer) => String(photographer.id) === normalizedId) ||
+      (shootDetails?.photographer && String(shootDetails.photographer.id) === normalizedId
+        ? mapPhotographerOption(shootDetails.photographer)
+        : null)
+    );
+  };
+
+  const filteredPhotographers = useMemo(() => {
+    if (!photographerSearchQuery.trim()) return photographerOptions;
+    const query = photographerSearchQuery.trim().toLowerCase();
+    return photographerOptions.filter((photographer) =>
+      photographer.name.toLowerCase().includes(query) ||
+      String(photographer.email || '').toLowerCase().includes(query) ||
+      String(photographer.city || '').toLowerCase().includes(query) ||
+      String(photographer.state || '').toLowerCase().includes(query),
+    );
+  }, [photographerOptions, photographerSearchQuery]);
+
+  const openPhotographerPicker = (context: PhotographerPickerContext) => {
+    const singleCategory = serviceCategoryGroups[0];
+    const initialId = context?.categoryKey
+      ? perCategoryPhotographers[context.categoryKey] || photographerId || ''
+      : singleCategory
+      ? perCategoryPhotographers[singleCategory.key] || photographerId || ''
+      : photographerId || '';
+    setPhotographerPickerContext(context);
+    setPickerPhotographerId(initialId && initialId !== 'unassigned' ? initialId : '');
+    setPhotographerSearchQuery('');
+    setPhotographerPickerOpen(true);
+  };
+
+  const closePhotographerPicker = () => {
+    setPhotographerPickerOpen(false);
+    setPhotographerPickerContext(null);
+    setPickerPhotographerId('');
+    setPhotographerSearchQuery('');
+  };
+
+  const handleConfirmPhotographerPicker = () => {
+    if (!pickerPhotographerId) return;
+
+    if (photographerPickerContext?.categoryKey) {
+      setPerCategoryPhotographers((prev) => ({
+        ...prev,
+        [photographerPickerContext.categoryKey as string]: pickerPhotographerId,
+      }));
+      if (!photographerId || photographerId === 'unassigned') {
+        setPhotographerId(pickerPhotographerId);
+      }
+    } else {
+      setPhotographerId(pickerPhotographerId);
+      if (serviceCategoryGroups.length === 1) {
+        setPerCategoryPhotographers((prev) => ({
+          ...prev,
+          [serviceCategoryGroups[0].key]: pickerPhotographerId,
+        }));
+      }
+    }
+
+    closePhotographerPicker();
+  };
+
+  const handleClearPhotographerPicker = () => {
+    if (photographerPickerContext?.categoryKey) {
+      const nextAssignments = { ...perCategoryPhotographers };
+      delete nextAssignments[photographerPickerContext.categoryKey];
+      setPerCategoryPhotographers(nextAssignments);
+      if (serviceCategoryGroups.length <= 1) {
+        setPhotographerId('');
+      }
+    } else {
+      setPhotographerId('');
+      if (serviceCategoryGroups.length === 1) {
+        const nextAssignments = { ...perCategoryPhotographers };
+        delete nextAssignments[serviceCategoryGroups[0].key];
+        setPerCategoryPhotographers(nextAssignments);
+      }
+    }
+
+    closePhotographerPicker();
+  };
 
   // Get display values
   const displayAddress = shootDetails?.address || shootDetails?.location?.address || shootAddress || '';
@@ -557,22 +801,72 @@ export function ShootApprovalModal({
                 {/* Photographer */}
                 <div className="space-y-1.5">
                   <Label className="text-xs">Photographer</Label>
-                  <Select value={photographerId} onValueChange={setPhotographerId}>
-                    <SelectTrigger className="h-9">
-                      <div className="flex items-center gap-2">
-                        <Camera className="h-3.5 w-3.5 text-muted-foreground" />
-                        <SelectValue placeholder="Select (optional)" />
+                  {hasMultiplePhotographerCategories ? (
+                    <div className="space-y-2">
+                      {serviceCategoryGroups.map((group) => {
+                        const selectedPhotographer = resolvePhotographerDetails(
+                          perCategoryPhotographers[group.key] || photographerId,
+                        );
+
+                        return (
+                          <div
+                            key={group.key}
+                            className="flex items-start justify-between gap-3 rounded-lg border bg-background/50 px-3 py-2.5"
+                          >
+                            <div className="min-w-0 space-y-1 text-xs">
+                              <div className="text-[10px] font-medium uppercase text-muted-foreground">
+                                {group.name}
+                              </div>
+                              <div className="font-medium">
+                                {selectedPhotographer?.name || 'Unassigned'}
+                              </div>
+                              {selectedPhotographer?.email && (
+                                <div className="truncate text-muted-foreground">
+                                  {selectedPhotographer.email}
+                                </div>
+                              )}
+                            </div>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-8 shrink-0 text-xs"
+                              onClick={() =>
+                                openPhotographerPicker({
+                                  categoryKey: group.key,
+                                  categoryName: group.name,
+                                })
+                              }
+                            >
+                              {selectedPhotographer ? 'Edit photographer' : 'Select photographer'}
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="flex items-start justify-between gap-3 rounded-lg border bg-background/50 px-3 py-2.5">
+                      <div className="min-w-0 space-y-1 text-xs">
+                        <div className="font-medium">
+                          {resolvePhotographerDetails(photographerId)?.name || 'Unassigned'}
+                        </div>
+                        {resolvePhotographerDetails(photographerId)?.email && (
+                          <div className="truncate text-muted-foreground">
+                            {resolvePhotographerDetails(photographerId)?.email}
+                          </div>
+                        )}
                       </div>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="unassigned">Leave Unassigned</SelectItem>
-                      {photographers.map((photographer) => (
-                        <SelectItem key={photographer.id} value={String(photographer.id)}>
-                          {photographer.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 shrink-0 text-xs"
+                        onClick={() => openPhotographerPicker(null)}
+                      >
+                        {resolvePhotographerDetails(photographerId) ? 'Edit photographer' : 'Select photographer'}
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -613,6 +907,117 @@ export function ShootApprovalModal({
             )}
           </Button>
         </DialogFooter>
+
+        <Dialog open={photographerPickerOpen} onOpenChange={(open) => {
+          if (!open) {
+            closePhotographerPicker();
+          }
+        }}>
+          <DialogContent className="sm:max-w-2xl w-full">
+            <div className="p-4 bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-gray-100 dark:border-slate-800">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex-1">
+                  <DialogHeader>
+                    <DialogTitle className="text-lg text-slate-900 dark:text-slate-100">
+                      {photographerPickerContext?.categoryName
+                        ? `Select Photographer for ${photographerPickerContext.categoryName}`
+                        : 'Select Photographer'}
+                    </DialogTitle>
+                    <DialogDescription>
+                      {photographerPickerContext?.categoryName
+                        ? `Choose a photographer for ${photographerPickerContext.categoryName} services`
+                        : 'Choose a photographer for this requested shoot'}
+                    </DialogDescription>
+                  </DialogHeader>
+                </div>
+              </div>
+
+              <div className="space-y-3 mb-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Search photographers..."
+                    value={photographerSearchQuery}
+                    onChange={(e) => setPhotographerSearchQuery(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+              </div>
+
+              <div className="divide-y divide-gray-100 dark:divide-slate-800">
+                <div className="pt-3 max-h-[48vh] overflow-y-auto pr-2">
+                  {filteredPhotographers.length > 0 ? (
+                    <div className="grid gap-4">
+                      {filteredPhotographers.map((photographer) => (
+                        <button
+                          type="button"
+                          key={photographer.id}
+                          onClick={() => setPickerPhotographerId(String(photographer.id))}
+                          className={cn(
+                            'w-full rounded-2xl border p-4 text-left transition-all',
+                            pickerPhotographerId === String(photographer.id)
+                              ? 'border-blue-300 bg-blue-50/70 dark:border-blue-700 dark:bg-blue-950/40'
+                              : 'border-gray-100 bg-gray-50 dark:border-slate-700 dark:bg-slate-800',
+                            'hover:border-blue-200 dark:hover:border-blue-800',
+                          )}
+                        >
+                          <div className="flex items-start gap-4">
+                            <Avatar className="h-12 w-12">
+                              <AvatarImage src={photographer.avatar} alt={photographer.name} />
+                              <AvatarFallback>{photographer.name?.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                  <div className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+                                    {photographer.name}
+                                  </div>
+                                  {photographer.email && (
+                                    <div className="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">
+                                      {photographer.email}
+                                    </div>
+                                  )}
+                                </div>
+                                {pickerPhotographerId === String(photographer.id) && (
+                                  <span className="text-[10px] uppercase tracking-widest text-blue-600 dark:text-blue-300">
+                                    Selected
+                                  </span>
+                                )}
+                              </div>
+                              {(photographer.city || photographer.state) && (
+                                <div className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
+                                  {[photographer.city, photographer.state].filter(Boolean).join(', ')}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="py-10 text-center text-sm text-muted-foreground">
+                      No photographers available.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-4 flex justify-between gap-2 border-t pt-4">
+                <Button variant="outline" onClick={handleClearPhotographerPicker}>
+                  Leave unassigned
+                </Button>
+                <div className="flex gap-2">
+                  <Button variant="ghost" onClick={closePhotographerPicker}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleConfirmPhotographerPicker} disabled={!pickerPhotographerId}>
+                    Use selection
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </DialogContent>
     </Dialog>
   );

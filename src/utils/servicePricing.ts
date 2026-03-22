@@ -9,6 +9,7 @@ export type SqftRange = {
   duration: number | null;
   price: number;
   photographer_pay: number | null;
+  photo_count?: number | null;
 };
 
 export type ServiceWithPricing = {

@@ -350,6 +350,19 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
           name: String(s.name || ''),
           price: Number(s.pivot?.price ?? s.price ?? 0),
           quantity: Number(s.pivot?.quantity ?? s.quantity ?? 1),
+          photo_count: (s.pivot?.photo_count ?? s.photo_count ?? s.photoCount) != null
+            ? Number(s.pivot?.photo_count ?? s.photo_count ?? s.photoCount)
+            : null,
+          pricing_type: s.pricing_type || 'fixed',
+          sqft_ranges: (s.sqft_ranges || s.sqftRanges || []).map((range: any) => ({
+            id: range.id != null ? Number(range.id) : undefined,
+            sqft_from: Number(range.sqft_from ?? 0),
+            sqft_to: Number(range.sqft_to ?? 0),
+            duration: range.duration != null ? Number(range.duration) : null,
+            price: Number(range.price ?? 0),
+            photographer_pay: range.photographer_pay != null ? Number(range.photographer_pay) : null,
+            photo_count: range.photo_count != null ? Number(range.photo_count) : null,
+          })),
           category: s.category || s.category_name ? {
             id: String(s.category?.id || ''),
             name: String(s.category?.name || s.category_name || ''),
@@ -357,6 +370,66 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
           photographer_pay: (s.pivot?.photographer_pay ?? s.photographer_pay) != null
             ? Number(s.pivot?.photographer_pay ?? s.photographer_pay)
             : null,
+          photographer_id: (s.pivot?.photographer_id ?? s.photographer_id) != null
+            ? String(s.pivot?.photographer_id ?? s.photographer_id)
+            : null,
+          resolved_photographer_id: (s.resolved_photographer_id ?? s.pivot?.photographer_id ?? s.photographer_id) != null
+            ? String(s.resolved_photographer_id ?? s.pivot?.photographer_id ?? s.photographer_id)
+            : null,
+          photographer: (() => {
+            const servicePhotographer = s.resolved_photographer ?? s.photographer;
+            if (servicePhotographer && typeof servicePhotographer === 'object') {
+              return {
+                id: servicePhotographer.id ? String(servicePhotographer.id) : undefined,
+                name:
+                  servicePhotographer.name ||
+                  servicePhotographer.full_name ||
+                  servicePhotographer.display_name ||
+                  `Photographer #${servicePhotographer.id}`,
+                avatar:
+                  servicePhotographer.avatar ||
+                  servicePhotographer.profile_image ||
+                  servicePhotographer.profile_photo_url ||
+                  undefined,
+                email: servicePhotographer.email || undefined,
+              };
+            }
+
+            const fallbackPhotographerId =
+              s.resolved_photographer_id ??
+              s.pivot?.photographer_id ??
+              s.photographer_id;
+
+            if (fallbackPhotographerId != null) {
+              const fallbackId = String(fallbackPhotographerId);
+              const shootPhotographerId = photographer.id ? String(photographer.id) : undefined;
+
+              if (shootPhotographerId && shootPhotographerId === fallbackId) {
+                return {
+                  id: shootPhotographerId,
+                  name: photographer.name || `Photographer #${fallbackId}`,
+                  avatar: photographer.avatar || undefined,
+                  email:
+                    photographer.email ||
+                    (shoot as any).photographer_email ||
+                    (shoot as any).photographerEmail ||
+                    undefined,
+                };
+              }
+
+              return {
+                id: fallbackId,
+                name:
+                  s.resolved_photographer_name ||
+                  s.photographer_name ||
+                  `Photographer #${fallbackId}`,
+                avatar: undefined,
+                email: undefined,
+              };
+            }
+
+            return null;
+          })(),
         }));
       if (objs.length > 0) return objs;
     }
@@ -1199,4 +1272,3 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   return <ShootsContext.Provider value={contextValue}>{children}</ShootsContext.Provider>;
 };
-
