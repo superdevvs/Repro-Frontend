@@ -44,6 +44,8 @@ type ServicePackage = {
     id: string;
     name: string;
   };
+  service_groups?: Array<{ id: string; name: string; description?: string | null }>;
+  service_group_ids?: string[];
 };
 
 const normalizeAddressPart = (value?: string | null) =>
@@ -387,6 +389,16 @@ const BookShoot = () => {
             ...client,
             id: client.id.toString(),
             companyNotes: client.companyNotes ?? client.company_notes ?? '',
+            service_groups: Array.isArray(client.service_groups)
+              ? client.service_groups.map((group: any) => ({
+                  id: String(group.id),
+                  name: group.name,
+                  description: group.description ?? '',
+                }))
+              : [],
+            service_group_ids: Array.isArray(client.service_group_ids)
+              ? client.service_group_ids.map((id: any) => String(id))
+              : [],
             // Store rep name for easy access
             rep: repName,
             // Also keep original rep object if needed
@@ -463,7 +475,10 @@ const BookShoot = () => {
     const fetchPackages = async () => {
       try {
         setPackagesLoading(true);
-        const response = await axios.get(`${API_BASE_URL}/api/services`);
+        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+        const response = await axios.get(`${API_BASE_URL}/api/services`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
         const packageData: ServicePackage[] = response.data.data.map((pkg: any) => ({
           id: pkg.id?.toString?.() ?? String(pkg.id),
           name: pkg.name,
@@ -478,6 +493,16 @@ const BookShoot = () => {
                 name: pkg.category.name ?? 'Other',
               }
             : undefined,
+          service_groups: Array.isArray(pkg.service_groups)
+            ? pkg.service_groups.map((group: any) => ({
+                id: String(group.id),
+                name: group.name,
+                description: group.description ?? '',
+              }))
+            : [],
+          service_group_ids: Array.isArray(pkg.service_group_ids)
+            ? pkg.service_group_ids.map((id: any) => String(id))
+            : [],
         }));
         setPackages(packageData);
       } catch (error) {
@@ -1521,7 +1546,6 @@ const BookShoot = () => {
 };
 
 export default BookShoot;
-
 
 
 

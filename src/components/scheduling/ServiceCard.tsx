@@ -15,6 +15,8 @@ import axios from 'axios';
 import { API_BASE_URL } from '@/config/env';
 import { useQueryClient } from '@tanstack/react-query';
 import { IconPicker, getIconComponent } from './IconPicker';
+import { MultiSelectChecklist } from '@/components/ui/multi-select-checklist';
+import type { ServiceGroupDetail } from '@/types/serviceGroups';
 
 type SqftRange = {
   id?: number;
@@ -43,11 +45,14 @@ type ServiceProps = {
     category?: string;
     icon?: string;
     sqft_ranges?: SqftRange[];
+    service_group_ids?: string[];
+    service_groups?: Array<{ id: string; name: string; description?: string | null }>;
   };
+  availableServiceGroups: ServiceGroupDetail[];
   onUpdate: () => void;
 };
 
-export function ServiceCard({ service, onUpdate }: ServiceProps) {
+export function ServiceCard({ service, availableServiceGroups, onUpdate }: ServiceProps) {
   const queryClient = useQueryClient();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -57,6 +62,16 @@ export function ServiceCard({ service, onUpdate }: ServiceProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const isPhotoCategory = (service.category || '').toLowerCase().includes('photo');
+  const serviceGroupOptions = React.useMemo(
+    () =>
+      availableServiceGroups.map((group) => ({
+        id: group.id,
+        label: group.name,
+        description: group.description || undefined,
+        meta: `${group.service_count} services • ${group.client_count} clients`,
+      })),
+    [availableServiceGroups],
+  );
 
   // Sync sqftRanges when service changes or dialog opens
   useEffect(() => {
@@ -132,6 +147,7 @@ export function ServiceCard({ service, onUpdate }: ServiceProps) {
       quantity: (!isPhotoCategory && editedService.quantity != null)
         ? editedService.quantity
         : null,
+      service_group_ids: (editedService.service_group_ids || []).map((id) => Number(id)),
       sqft_ranges: editedService.pricing_type === 'variable' ? sqftRanges.map(range => ({
         id: range.id,
         sqft_from: range.sqft_from,
@@ -171,6 +187,7 @@ export function ServiceCard({ service, onUpdate }: ServiceProps) {
       setIsEditDialogOpen(false);
       onUpdate();
       queryClient.invalidateQueries({ queryKey: ['services'] });
+      queryClient.invalidateQueries({ queryKey: ['service-groups'] });
     } catch (error) {
       console.error('Error updating service:', error);
   
@@ -223,6 +240,7 @@ export function ServiceCard({ service, onUpdate }: ServiceProps) {
       setIsDeleteDialogOpen(false);
       onUpdate();
       queryClient.invalidateQueries({ queryKey: ['services'] });
+      queryClient.invalidateQueries({ queryKey: ['service-groups'] });
     } catch (error) {
       console.error('Error deleting service:', error);
       toast({
@@ -350,6 +368,17 @@ export function ServiceCard({ service, onUpdate }: ServiceProps) {
                 name="description"
                 value={editedService.description || ''}
                 onChange={handleInputChange}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Service Groups</Label>
+              <MultiSelectChecklist
+                options={serviceGroupOptions}
+                value={editedService.service_group_ids || []}
+                onChange={(value) => setEditedService({ ...editedService, service_group_ids: value })}
+                placeholder="Visible to all clients unless you assign one or more service groups."
+                emptyMessage="Create a service group to start restricting visibility."
               />
             </div>
 

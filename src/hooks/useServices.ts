@@ -1,6 +1,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { API_BASE_URL } from '@/config/env';
+import type { ServiceGroupSummary } from '@/types/serviceGroups';
 
 export type Service = {
   id: string;
@@ -17,15 +18,19 @@ export type Service = {
     id: string;
     name: string;
   };
+  service_groups?: ServiceGroupSummary[];
+  service_group_ids?: string[];
 };
 
 export const useServices = () => {
   return useQuery({
     queryKey: ['services'],
     queryFn: async () => {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       const response = await fetch(`${API_BASE_URL}/api/services`, {
         headers: {
           Accept: 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
       });
 
@@ -52,6 +57,16 @@ export const useServices = () => {
               id: String(item.category.id),
               name: item.category.name,
             }
+          : undefined,
+        service_groups: Array.isArray(item.service_groups)
+          ? item.service_groups.map((group: any) => ({
+              id: String(group.id),
+              name: group.name,
+              description: group.description ?? '',
+            }))
+          : undefined,
+        service_group_ids: Array.isArray(item.service_group_ids)
+          ? item.service_group_ids.map((id: any) => String(id))
           : undefined,
       }));
     },

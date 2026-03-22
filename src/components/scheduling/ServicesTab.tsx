@@ -21,7 +21,10 @@ import { ServiceCard } from './ServiceCard';
 import { CategorySelect } from '@/components/settings/CategorySelect';
 import { IconPicker, getIconComponent } from './IconPicker';
 import { useServiceCategories } from '@/hooks/useServiceCategories';
+import { useServiceGroups } from '@/hooks/useServiceGroups';
 import API_ROUTES from '@/lib/api';
+import { MultiSelectChecklist } from '@/components/ui/multi-select-checklist';
+import { useQueryClient } from '@tanstack/react-query';
 
 type SqftRange = {
   id?: number;
@@ -48,6 +51,8 @@ type Service = {
   category?: string;
   icon?: string;
   sqft_ranges?: SqftRange[];
+  service_group_ids?: string[];
+  service_groups?: Array<{ id: string; name: string; description?: string | null }>;
 };
 
 const extractPhotoCount = (name: string) => {
@@ -78,10 +83,13 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
     photographer_pay: '',
     photo_count: undefined as number | undefined,
     quantity: undefined as number | undefined,
+    service_group_ids: [] as string[],
   });
   const [newSqftRanges, setNewSqftRanges] = useState<SqftRange[]>([]);
   const { toast } = useToast();
   const { data: categories, isLoading: categoriesLoading, refetch: refetchCategories } = useServiceCategories();
+  const { data: serviceGroups = [] } = useServiceGroups();
+  const queryClient = useQueryClient();
 
   const normalizeCategoryName = (name?: string) => {
     const normalized = (name || '').trim().toLowerCase();
@@ -109,6 +117,17 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
     });
     return Array.from(byKey.values());
   }, [categories]);
+
+  const serviceGroupOptions = React.useMemo(
+    () =>
+      serviceGroups.map((group) => ({
+        id: group.id,
+        label: group.name,
+        description: group.description || undefined,
+        meta: `${group.service_count} services • ${group.client_count} clients`,
+      })),
+    [serviceGroups],
+  );
 
   const [isAddCategoryOpen, setIsAddCategoryOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -164,6 +183,7 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
       photographer_pay: '',
       photo_count: undefined,
       quantity: undefined,
+      service_group_ids: [],
     });
     setNewSqftRanges([]);
     setIsAddDialogOpen(true);
@@ -252,6 +272,7 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
       quantity: !isNewServicePhotoCategory && newService.quantity != null
         ? newService.quantity
         : null,
+      service_group_ids: newService.service_group_ids.map((id) => Number(id)),
       sqft_ranges: newService.pricing_type === 'variable'
         ? newSqftRanges.map((range) => ({
             sqft_from: range.sqft_from,
@@ -285,6 +306,7 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
       });
       setIsAddDialogOpen(false);
       setNewSqftRanges([]);
+      queryClient.invalidateQueries({ queryKey: ['service-groups'] });
       fetchServices();
     } catch (error: any) {
       toast({
@@ -465,6 +487,18 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
           photo_count: photoCount,
           quantity: item.quantity,
           icon: item.icon,
+          service_group_ids: Array.isArray(item.service_group_ids)
+            ? item.service_group_ids.map((id: any) => String(id))
+            : Array.isArray(item.service_groups)
+              ? item.service_groups.map((group: any) => String(group.id))
+              : [],
+          service_groups: Array.isArray(item.service_groups)
+            ? item.service_groups.map((group: any) => ({
+                id: String(group.id),
+                name: group.name,
+                description: group.description ?? '',
+              }))
+            : [],
           sqft_ranges: item.sqft_ranges || item.sqftRanges || [],
           active: true,
         };
@@ -611,6 +645,7 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
           <ServiceCard
             key={service.id}
             service={service}
+            availableServiceGroups={serviceGroups}
             onUpdate={fetchServices}
           />
         ))}
@@ -649,6 +684,16 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
                 value={newService.description}
                 onChange={handleInputChange}
                 placeholder="Service description"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Service Groups</Label>
+              <MultiSelectChecklist
+                options={serviceGroupOptions}
+                value={newService.service_group_ids}
+                onChange={(value) => setNewService((prev) => ({ ...prev, service_group_ids: value }))}
+                placeholder="Visible to all clients unless you assign one or more service groups."
+                emptyMessage="Create a service group to start restricting visibility."
               />
             </div>
             <div className="grid grid-cols-2 gap-4">

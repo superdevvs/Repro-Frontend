@@ -1,4 +1,6 @@
 
+import type { ServiceGroupSummary } from '@/types/serviceGroups';
+
 /**
  * Client type definition
  */
@@ -20,6 +22,8 @@ export interface Client {
   avatar?: string;
   rep?: string;
   companyNotes?: string;
+  service_groups?: ServiceGroupSummary[];
+  service_group_ids?: string[];
 }
 
 /**

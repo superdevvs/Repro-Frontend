@@ -42,14 +42,17 @@ import { STATE_OPTIONS } from "@/utils/stateUtils";
 import { Upload, FileText, X, Camera, Loader2, MapPin } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { useServices } from "@/hooks/useServices";
+import { useServiceGroups } from "@/hooks/useServiceGroups";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { usePermission } from "@/hooks/usePermission";
+import { MultiSelectChecklist } from "@/components/ui/multi-select-checklist";
 import {
   Drawer,
   DrawerContent,
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
+import { useQueryClient } from "@tanstack/react-query";
 
 // Define allowed roles for the form
 type FormRole = 'superadmin' | 'admin' | 'editing_manager' | 'photographer' | 'client' | 'editor' | 'salesRep';
@@ -103,6 +106,7 @@ const createAccountFormSchema = (viewerRole?: string) => z.object({
   repNotes: z.string().optional(),
   created_by_name: z.string().optional(),
   created_by_id: z.string().optional(),
+  serviceGroupIds: z.array(z.string()).optional(),
 })
 .superRefine((data, ctx) => {
   // License number required for clients (superadmin can skip)
@@ -178,6 +182,7 @@ export function AccountForm({
   const permission = usePermission();
   const clientsPermission = permission.forResource('clients');
   const canEditSensitiveRepFields = viewerRole === 'superadmin';
+  const queryClient = useQueryClient();
   
   const form = useForm<AccountFormValues>({
     resolver: zodResolver(createAccountFormSchema(viewerRole)),
@@ -219,6 +224,7 @@ export function AccountForm({
       repNotes: "",
       created_by_name: "",
       created_by_id: "",
+      serviceGroupIds: [],
     },
   });
 
@@ -275,6 +281,11 @@ export function AccountForm({
           repNotes: repDetails?.notes || "",
           created_by_name: createdByName,
           created_by_id: createdById,
+          serviceGroupIds: Array.isArray((initialData as any).service_group_ids)
+            ? (initialData as any).service_group_ids.map((id: any) => String(id))
+            : Array.isArray((initialData as any).service_groups)
+              ? (initialData as any).service_groups.map((group: any) => String(group.id))
+              : [],
         });
         setAvatarUrl(initialData.avatar || "");
       } else {
@@ -315,6 +326,7 @@ export function AccountForm({
           repNotes: "",
           created_by_name: "",
           created_by_id: "",
+          serviceGroupIds: [],
         });
         setAvatarUrl("");
       }
@@ -330,6 +342,19 @@ export function AccountForm({
   const isClientRole = currentRole === "client";
   const repAssigned = Boolean(createdById || createdByName);
   const canAssignClientRep = viewerRole === 'superadmin' || (viewerRole === 'admin' && clientsPermission.canAssign());
+  const { data: serviceGroups = [] } = useServiceGroups({
+    enabled: open && isClientRole && ['admin', 'superadmin', 'editing_manager'].includes(viewerRole),
+  });
+  const serviceGroupOptions = React.useMemo(
+    () =>
+      serviceGroups.map((group) => ({
+        id: group.id,
+        label: group.name,
+        description: group.description || undefined,
+        meta: `${group.service_count} services • ${group.client_count} clients`,
+      })),
+    [serviceGroups],
+  );
 
   // Fetch admins and reps for account rep dropdown
   useEffect(() => {
@@ -551,6 +576,9 @@ export function AccountForm({
         if (values.insuranceNumber) formData.append('insuranceNumber', values.insuranceNumber);
         if (values.insuranceFile) formData.append('insuranceFile', values.insuranceFile);
         if (values.insuranceFileName) formData.append('insuranceFileName', values.insuranceFileName);
+        if (isClientRole && Array.isArray(values.serviceGroupIds)) {
+          values.serviceGroupIds.forEach((id) => formData.append('service_group_ids[]', id));
+        }
         
         if (payload.metadata) {
           formData.append('metadata', JSON.stringify(payload.metadata));
@@ -597,9 +625,19 @@ export function AccountForm({
           metadata: payload.metadata,
           created_by_name: updated.created_by_name || currentUser?.name,
           createdBy: updated.created_by_name || currentUser?.name,
+          serviceGroupIds: values.serviceGroupIds,
+          service_group_ids: values.serviceGroupIds,
+          service_groups: serviceGroups.filter((group) => values.serviceGroupIds?.includes(group.id)).map((group) => ({
+            id: group.id,
+            name: group.name,
+            description: group.description,
+          })),
         } as any);
 
         toast({ title: 'User updated', description: `${updated.name} updated successfully.` });
+        if (values.role === 'client') {
+          queryClient.invalidateQueries({ queryKey: ['service-groups'] });
+        }
         onOpenChange(false);
       } catch (e: any) {
         console.error('Update account failed', e);
@@ -639,6 +677,9 @@ export function AccountForm({
       if (values.insuranceNumber) formData.append('insuranceNumber', values.insuranceNumber);
       if (values.insuranceFile) formData.append('insuranceFile', values.insuranceFile);
       if (values.insuranceFileName) formData.append('insuranceFileName', values.insuranceFileName);
+      if (isClientRole && Array.isArray(values.serviceGroupIds)) {
+        values.serviceGroupIds.forEach((id) => formData.append('service_group_ids[]', id));
+      }
       
       // Set created_by fields
       // If superadmin selected a creator, use that; otherwise use current user
@@ -690,9 +731,19 @@ export function AccountForm({
         metadata: payload.metadata,
         created_by_name: created.created_by_name || currentUser?.name,
         createdBy: created.created_by_name || currentUser?.name,
+        serviceGroupIds: values.serviceGroupIds,
+        service_group_ids: values.serviceGroupIds,
+        service_groups: serviceGroups.filter((group) => values.serviceGroupIds?.includes(group.id)).map((group) => ({
+          id: group.id,
+          name: group.name,
+          description: group.description,
+        })),
       } as any);
 
       toast({ title: 'User created', description: `${created.name} added successfully.` });
+      if (values.role === 'client') {
+        queryClient.invalidateQueries({ queryKey: ['service-groups'] });
+      }
       onOpenChange(false);
     } catch (e: any) {
       console.error('Create account failed', e);
@@ -1587,6 +1638,27 @@ export function AccountForm({
                 </FormItem>
               )}
             />
+            {isClientRole && (
+              <FormField
+                control={form.control}
+                name="serviceGroupIds"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Service Groups</FormLabel>
+                    <FormControl>
+                      <MultiSelectChecklist
+                        options={serviceGroupOptions}
+                        value={field.value || []}
+                        onChange={field.onChange}
+                        placeholder="Leave empty to let this client see the full service catalog."
+                        emptyMessage="No service groups available yet."
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
               </div>
             </div>
 

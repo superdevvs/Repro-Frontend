@@ -65,6 +65,12 @@ export const API_ROUTES = {
     update: (id: number | string) => `${BASE_URL}/api/categories/${id}`,
     delete: (id: number | string) => `${BASE_URL}/api/categories/${id}`,
   },
+  serviceGroups: {
+    all: `${BASE_URL}/api/admin/service-groups`,
+    create: `${BASE_URL}/api/admin/service-groups`,
+    update: (id: number | string) => `${BASE_URL}/api/admin/service-groups/${id}`,
+    delete: (id: number | string) => `${BASE_URL}/api/admin/service-groups/${id}`,
+  },
   admin: {
     settings: {
       get: (key: string) => `${BASE_URL}/api/admin/settings/${key}`,

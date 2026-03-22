@@ -219,6 +219,29 @@ const getPackageCategoryName = (pkg?: PackageOption | null) => {
 const getServiceSqftRanges = (service?: ServiceWithPricing | null) =>
   (service?.sqft_ranges || (service as any)?.sqftRanges || []) as SqftRange[];
 
+const getClientServiceGroupIds = (client?: Client | null) => {
+  if (!client) return [];
+  if (Array.isArray(client.service_group_ids) && client.service_group_ids.length > 0) {
+    return client.service_group_ids.map((id) => String(id));
+  }
+  if (Array.isArray(client.service_groups) && client.service_groups.length > 0) {
+    return client.service_groups.map((group) => String(group.id));
+  }
+  return [];
+};
+
+const getPackageServiceGroupIds = (pkg?: PackageOption | null) => {
+  const ids = (pkg as any)?.service_group_ids;
+  if (Array.isArray(ids) && ids.length > 0) {
+    return ids.map((id: any) => String(id));
+  }
+  const groups = (pkg as any)?.service_groups;
+  if (Array.isArray(groups) && groups.length > 0) {
+    return groups.map((group: any) => String(group.id));
+  }
+  return [];
+};
+
 const clientAccountPropertyFormSchema = z.object({
   propertyAddress: z.string().min(1, "Address is required"),
   aptSuite: z.string().optional(),
@@ -435,6 +458,46 @@ export const ClientPropertyForm = ({
   });
 
   const watchedClientId = form.watch('clientId' as any);
+  const allClients = React.useMemo(() => {
+    const existingIds = new Set(clients.map(c => c.id));
+    const uniqueNewClients = newlyAddedClients.filter(c => !existingIds.has(c.id));
+    return [...uniqueNewClients, ...clients];
+  }, [clients, newlyAddedClients]);
+  const selectedClientId = !isClientAccount ? (watchedClientId || '') : '';
+  const selectedClient = selectedClientId ? allClients.find(client => client.id === selectedClientId) : null;
+  const selectedClientServiceGroupIds = React.useMemo(
+    () => getClientServiceGroupIds(selectedClient),
+    [selectedClient],
+  );
+  const visiblePackages = React.useMemo(() => {
+    if (isClientAccount || selectedClientServiceGroupIds.length === 0) {
+      return packages;
+    }
+
+    return packages.filter((pkg) => {
+      const packageGroupIds = getPackageServiceGroupIds(pkg);
+      return packageGroupIds.some((id) => selectedClientServiceGroupIds.includes(id));
+    });
+  }, [isClientAccount, packages, selectedClientServiceGroupIds]);
+
+  React.useEffect(() => {
+    if (isClientAccount || selectedClientServiceGroupIds.length === 0 || selectedServices.length === 0) {
+      return;
+    }
+
+    const filteredServices = selectedServices.filter((service) => {
+      const packageGroupIds = getPackageServiceGroupIds(service as PackageOption);
+      return packageGroupIds.some((id) => selectedClientServiceGroupIds.includes(id));
+    });
+
+    if (filteredServices.length !== selectedServices.length) {
+      onSelectedServicesChange(filteredServices);
+      toast({
+        title: 'Services updated',
+        description: 'Unavailable services were removed for the selected client.',
+      });
+    }
+  }, [isClientAccount, onSelectedServicesChange, selectedClientServiceGroupIds, selectedServices, toast]);
 
   // Keep parent state (for summary) in sync with address fields as they change
   React.useEffect(() => {
@@ -501,9 +564,9 @@ export const ClientPropertyForm = ({
   }, [initialData, completeAddress]);
 
 const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
-    if (!packages?.length) return [];
+    if (!visiblePackages?.length) return [];
     const map = new Map<string, CategoryDisplay>();
-    packages.forEach((pkg) => {
+    visiblePackages.forEach((pkg) => {
       const id = getPackageCategoryId(pkg);
       const name = getPackageCategoryName(pkg);
       const existing = map.get(id);
@@ -525,10 +588,10 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
       });
     });
     return Array.from(map.values());
-  }, [packages]);
+  }, [visiblePackages]);
 
   const categoryOptions = React.useMemo<CategoryDisplay[]>(() => {
-    if (!packages?.length) return [];
+    if (!visiblePackages?.length) return [];
 
     const sortedCategories = [...derivedCategories].sort((a, b) => {
       const aKey = Object.keys(PRIMARY_CATEGORY_ORDER).find(key => a.name.toLowerCase().includes(key));
@@ -540,7 +603,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
     });
 
     return sortedCategories;
-  }, [derivedCategories, packages]);
+  }, [derivedCategories, visiblePackages]);
 
   React.useEffect(() => {
     if (categoryOptions.length === 0) return;
@@ -551,10 +614,10 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
   }, [categoryOptions, panelCategory]);
 
     const panelServices = React.useMemo(() => {
-    if (!packages?.length) return [];
+    if (!visiblePackages?.length) return [];
     let filtered = panelCategory
-      ? packages.filter(pkg => getPackageCategoryId(pkg) === panelCategory)
-      : packages;
+      ? visiblePackages.filter(pkg => getPackageCategoryId(pkg) === panelCategory)
+      : visiblePackages;
 
     const query = serviceSearchQuery.trim().toLowerCase();
     if (query) {
@@ -565,7 +628,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
     }
 
     return filtered;
-  }, [panelCategory, packages, serviceSearchQuery]);
+  }, [panelCategory, visiblePackages, serviceSearchQuery]);
 
   React.useEffect(() => {
     if (!serviceDialogOpen) {
@@ -627,13 +690,6 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
 
   const isSearching = searchQuery.trim().length > 0;
   
-  // Combine passed-in clients with newly added clients (newly added first)
-  const allClients = React.useMemo(() => {
-    const existingIds = new Set(clients.map(c => c.id));
-    const uniqueNewClients = newlyAddedClients.filter(c => !existingIds.has(c.id));
-    return [...uniqueNewClients, ...clients];
-  }, [clients, newlyAddedClients]);
-  
   const filteredClients = React.useMemo(() => {
     if (!isSearching) return allClients;
     const query = searchQuery.toLowerCase();
@@ -658,9 +714,6 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
     });
     lastClientIdRef.current = watchedClientId;
   }, [watchedClientId, allClients, isClientAccount, form]);
-
-  const selectedClientId = !isClientAccount ? (form.getValues() as AdminFormValues).clientId : '';
-  const selectedClient = selectedClientId ? allClients.find(client => client.id === selectedClientId) : null;
 
   const handleSubmit = (data: FormValues) => {
     setSubmitAttemptNotice(null);
@@ -730,6 +783,18 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
         shootsCount: 0,
         lastActivity: new Date().toISOString(),
         companyNotes: data.companyNotes || '',
+        service_group_ids: Array.isArray((data as any).service_group_ids)
+          ? (data as any).service_group_ids.map((id: any) => String(id))
+          : Array.isArray((data as any).serviceGroupIds)
+            ? (data as any).serviceGroupIds.map((id: any) => String(id))
+            : [],
+        service_groups: Array.isArray((data as any).service_groups)
+          ? (data as any).service_groups.map((group: any) => ({
+              id: String(group.id),
+              name: group.name,
+              description: group.description ?? '',
+            }))
+          : [],
       };
       
       // Add to local newly added clients list

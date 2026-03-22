@@ -1,4 +1,6 @@
 
+import type { ServiceGroupSummary } from '@/types/serviceGroups';
+
 export type UserRole =
   | 'superadmin'
   | 'admin'
@@ -72,6 +74,8 @@ export interface UserData {
   totalShoots?: number;
   totalSpent?: number;
   linkedProperties?: PropertyData[];
+  service_groups?: ServiceGroupSummary[];
+  service_group_ids?: string[];
 }
 
 export interface LinkedAccount {
