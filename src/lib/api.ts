@@ -7,6 +7,7 @@ const BASE_URL = API_BASE_URL;
 export const API_ROUTES = {
   services: {
     all: `${BASE_URL}/api/services`,
+    adminAll: `${BASE_URL}/api/admin/services`,
     create: `${BASE_URL}/api/admin/services`,
     show: (id: number | string) => `${BASE_URL}/api/services/${id}`,
     update: (id: number | string) => `${BASE_URL}/api/admin/services/${id}`,

@@ -1,6 +1,6 @@
 
 import { useQuery } from '@tanstack/react-query';
-import { API_BASE_URL } from '@/config/env';
+import API_ROUTES from '@/lib/api';
 import type { ServiceGroupSummary } from '@/types/serviceGroups';
 
 export type Service = {
@@ -27,12 +27,20 @@ export const useServices = () => {
     queryKey: ['services'],
     queryFn: async () => {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/api/services`, {
-        headers: {
-          Accept: 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      });
+      const headers = {
+        Accept: 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      };
+
+      let response: Response | null = null;
+
+      if (token) {
+        response = await fetch(API_ROUTES.services.adminAll, { headers });
+      }
+
+      if (!response || !response.ok) {
+        response = await fetch(API_ROUTES.services.all, { headers });
+      }
 
       if (!response.ok) {
         throw new Error('Failed to load services');

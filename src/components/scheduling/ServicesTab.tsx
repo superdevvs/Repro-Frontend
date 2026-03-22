@@ -459,7 +459,21 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
   const fetchServices = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(API_ROUTES.services.all);
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const headers = {
+        Accept: 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      };
+      let response: Response | null = null;
+
+      if (token) {
+        response = await fetch(API_ROUTES.services.adminAll, { headers });
+      }
+
+      if (!response || !response.ok) {
+        response = await fetch(API_ROUTES.services.all, { headers });
+      }
+
       if (!response.ok) {
         throw new Error('Failed to fetch services');
       }

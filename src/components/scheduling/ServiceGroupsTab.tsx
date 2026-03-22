@@ -13,7 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useServiceGroups } from '@/hooks/useServiceGroups';
 import { useServices } from '@/hooks/useServices';
 import API_ROUTES from '@/lib/api';
-import { BadgeCheck, Loader2, Pencil, Plus, Trash2, Users2, Wrench } from 'lucide-react';
+import { AlertCircle, BadgeCheck, Loader2, Pencil, Plus, RefreshCcw, Trash2, Users2, Wrench } from 'lucide-react';
 import type { Client } from '@/types/clients';
 import type { ServiceGroupDetail } from '@/types/serviceGroups';
 
@@ -37,7 +37,13 @@ export function ServiceGroupsTab() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: groups = [], isLoading: groupsLoading } = useServiceGroups();
-  const { data: services = [], isLoading: servicesLoading } = useServices();
+  const {
+    data: services = [],
+    isLoading: servicesLoading,
+    error: servicesError,
+    refetch: refetchServices,
+    isFetching: servicesFetching,
+  } = useServices();
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [editingGroup, setEditingGroup] = React.useState<ServiceGroupDetail | null>(null);
   const [formState, setFormState] = React.useState<ServiceGroupFormState>(emptyFormState);
@@ -385,7 +391,7 @@ export function ServiceGroupsTab() {
           if (!open && !saving) resetForm();
         }}
       >
-        <DialogContent className="max-h-[92vh] overflow-y-auto p-0 sm:max-w-[960px]">
+        <DialogContent className="h-[94vh] w-[min(96vw,1360px)] max-w-[1360px] overflow-hidden p-0">
           <DialogHeader className="border-b px-6 py-5 text-left">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div className="space-y-2">
@@ -411,8 +417,8 @@ export function ServiceGroupsTab() {
             </div>
           </DialogHeader>
 
-          <div className="space-y-6 px-6 py-6">
-            <div className="grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
+          <div className="h-[calc(94vh-11rem)] space-y-6 overflow-y-auto px-6 py-6">
+            <div className="grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(360px,0.9fr)]">
               <div className="space-y-4 rounded-2xl border bg-muted/10 p-5">
                 <div className="space-y-2">
                   <Label htmlFor="service-group-name">Group Name</Label>
@@ -463,7 +469,7 @@ export function ServiceGroupsTab() {
               </div>
             </div>
 
-            <div className="grid gap-6 xl:grid-cols-2">
+            <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(380px,0.95fr)]">
               <section className="rounded-2xl border p-5">
                 <div className="mb-4 flex items-start justify-between gap-3">
                   <div>
@@ -477,15 +483,43 @@ export function ServiceGroupsTab() {
                   </div>
                   <Badge variant="secondary">{selectedServiceCount}</Badge>
                 </div>
-                <MultiSelectChecklist
-                  options={serviceOptions}
-                  value={formState.service_ids}
-                  onChange={(value) => setFormState((prev) => ({ ...prev, service_ids: value }))}
-                  placeholder="Select the services this group should allow."
-                  emptyMessage="No services available yet."
-                  searchPlaceholder="Search services..."
-                  maxHeightClassName="max-h-72"
-                />
+                {servicesError ? (
+                  <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-4">
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className="mt-0.5 h-4 w-4 text-destructive" />
+                      <div className="space-y-3">
+                        <div>
+                          <p className="text-sm font-medium">Services could not be loaded</p>
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            The scheduling catalog request is failing right now, so this group cannot show available services yet.
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => refetchServices()}
+                          disabled={servicesFetching}
+                          className="gap-2"
+                        >
+                          {servicesFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
+                          Retry Services
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <MultiSelectChecklist
+                    options={serviceOptions}
+                    value={formState.service_ids}
+                    onChange={(value) => setFormState((prev) => ({ ...prev, service_ids: value }))}
+                    placeholder="Select the services this group should allow."
+                    emptyMessage="No services available yet."
+                    searchPlaceholder="Search services..."
+                    maxHeightClassName="max-h-[30rem]"
+                    summaryLimit={8}
+                  />
+                )}
               </section>
 
               <section className="rounded-2xl border p-5">
@@ -508,7 +542,8 @@ export function ServiceGroupsTab() {
                   placeholder="Select the clients that belong to this group."
                   emptyMessage="No clients available yet."
                   searchPlaceholder="Search clients..."
-                  maxHeightClassName="max-h-72"
+                  maxHeightClassName="max-h-[30rem]"
+                  summaryLimit={8}
                 />
               </section>
             </div>
