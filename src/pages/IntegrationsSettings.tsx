@@ -19,6 +19,99 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import axios from 'axios';
 import { API_BASE_URL } from '@/config/env';
 
+type BrightMlsSettings = {
+  apiMode: string;
+  environment: string;
+  apiUrl: string;
+  importUrlBase: string;
+  apiUser: string;
+  apiKey: string;
+  vendorId: string;
+  vendorName: string;
+  defaultDocVisibility: string;
+  enabled: boolean;
+};
+
+const BRIGHT_MLS_ENV_DEFAULTS = {
+  legacy: {
+    t1: {
+      apiUrl: 'https://bright-manifestservices.tst.brightmls.com',
+      importUrlBase: 'https://lmsedit.tst.brightmls.com',
+    },
+    p1: {
+      apiUrl: 'https://bright-manifestservices.prd.brightmls.com',
+      importUrlBase: 'https://lmsedit.brightmls.com',
+    },
+  },
+  new: {
+    t1: {
+      apiUrl: 'https://agl1paz1msaasservices.bright-solutions.co',
+      importUrlBase: 'https://agl1paz1msaasservices.bright-solutions.co',
+    },
+    p1: {
+      apiUrl: 'https://agl1paz1msaasservices.bright-solutions.co',
+      importUrlBase: 'https://agl1paz1msaasservices.bright-solutions.co',
+    },
+  },
+} as const;
+
+const getBrightMlsDefaults = (apiMode = 'legacy', environment = 't1') => {
+  return BRIGHT_MLS_ENV_DEFAULTS[apiMode as keyof typeof BRIGHT_MLS_ENV_DEFAULTS]?.[
+    environment as keyof (typeof BRIGHT_MLS_ENV_DEFAULTS)['legacy']
+  ] ?? BRIGHT_MLS_ENV_DEFAULTS.legacy.t1;
+};
+
+const normalizeBrightMlsUrl = (
+  value: string | undefined,
+  nextDefault: string,
+  knownDefaults: Set<string>,
+  apiMode: string,
+) => {
+  const normalized = value?.trim() ?? '';
+  if (!normalized) {
+    return nextDefault;
+  }
+
+  if (knownDefaults.has(normalized)) {
+    return nextDefault;
+  }
+
+  if (apiMode === 'legacy' && normalized.includes('bright-solutions.co')) {
+    return nextDefault;
+  }
+
+  return normalized;
+};
+
+const normalizeBrightMlsSettings = (value?: Partial<BrightMlsSettings> | null): BrightMlsSettings => {
+  const apiMode = value?.apiMode === 'new' ? 'new' : 'legacy';
+  const environment = value?.environment === 'p1' ? 'p1' : 't1';
+  const defaults = getBrightMlsDefaults(apiMode, environment);
+  const knownApiUrls = new Set(
+    Object.values(BRIGHT_MLS_ENV_DEFAULTS).flatMap((modeDefaults) =>
+      Object.values(modeDefaults).map((entry) => entry.apiUrl),
+    ),
+  );
+  const knownImportUrls = new Set(
+    Object.values(BRIGHT_MLS_ENV_DEFAULTS).flatMap((modeDefaults) =>
+      Object.values(modeDefaults).map((entry) => entry.importUrlBase),
+    ),
+  );
+
+  return {
+    apiMode,
+    environment,
+    apiUrl: normalizeBrightMlsUrl(value?.apiUrl, defaults.apiUrl, knownApiUrls, apiMode),
+    importUrlBase: normalizeBrightMlsUrl(value?.importUrlBase, defaults.importUrlBase, knownImportUrls, apiMode),
+    apiUser: value?.apiUser ?? '',
+    apiKey: value?.apiKey ?? '',
+    vendorId: value?.vendorId ?? '',
+    vendorName: value?.vendorName ?? 'Repro Photos',
+    defaultDocVisibility: value?.defaultDocVisibility ?? 'private',
+    enabled: value?.enabled ?? true,
+  };
+};
+
 // Export the content component for use in Settings page
 export const IntegrationsSettingsContent = () => {
   const { toast } = useToast();
@@ -35,18 +128,9 @@ export const IntegrationsSettingsContent = () => {
   const [zillowTestResult, setZillowTestResult] = useState<any>(null);
 
   // Bright MLS Settings
-  const [brightMlsSettings, setBrightMlsSettings] = useState({
-    apiMode: 'legacy',
-    environment: 't1',
-    apiUrl: '',
-    importUrlBase: '',
-    apiUser: '',
-    apiKey: '',
-    vendorId: '',
-    vendorName: '',
-    defaultDocVisibility: 'private',
-    enabled: true,
-  });
+  const [brightMlsSettings, setBrightMlsSettings] = useState<BrightMlsSettings>(
+    normalizeBrightMlsSettings(),
+  );
   const [testingBrightMls, setTestingBrightMls] = useState(false);
   const [brightMlsTestResult, setBrightMlsTestResult] = useState<any>(null);
 
@@ -114,24 +198,7 @@ export const IntegrationsSettingsContent = () => {
         }
 
         if (brightMlsRes?.data?.success && brightMlsRes.data.data?.value) {
-          const brightValue = brightMlsRes.data.data.value;
-          setBrightMlsSettings({
-            apiMode: 'legacy',
-            environment: 't1',
-            apiUrl: 'https://bright-manifestservices.tst.brightmls.com',
-            importUrlBase: 'https://lmsedit.tst.brightmls.com',
-            apiUser: '',
-            apiKey: '',
-            vendorId: '',
-            vendorName: 'Repro Photos',
-            defaultDocVisibility: 'private',
-            ...brightValue,
-            apiMode: brightValue.apiMode ?? 'legacy',
-            environment: brightValue.environment ?? 't1',
-            apiUrl: brightValue.apiUrl ?? 'https://bright-manifestservices.tst.brightmls.com',
-            importUrlBase: brightValue.importUrlBase ?? 'https://lmsedit.tst.brightmls.com',
-            enabled: brightValue.enabled ?? true,
-          });
+          setBrightMlsSettings(normalizeBrightMlsSettings(brightMlsRes.data.data.value));
         }
 
         if (iguideRes?.data?.success && iguideRes.data.data?.value) {
@@ -165,18 +232,7 @@ export const IntegrationsSettingsContent = () => {
       }
 
       if (!brightMlsSettings.apiUrl) {
-        setBrightMlsSettings({
-          apiMode: 'legacy',
-          environment: 't1',
-          apiUrl: 'https://bright-manifestservices.tst.brightmls.com',
-          importUrlBase: 'https://lmsedit.tst.brightmls.com',
-          apiUser: '',
-          apiKey: '',
-          vendorId: '',
-          vendorName: 'Repro Photos',
-          defaultDocVisibility: 'private',
-          enabled: true,
-        });
+        setBrightMlsSettings(normalizeBrightMlsSettings());
       }
 
       if (!iguideSettings.apiUsername && !iguideSettings.apiKey) {
@@ -224,7 +280,7 @@ export const IntegrationsSettingsContent = () => {
       // Save Bright MLS settings
       await apiClient.post(API_ROUTES.admin.settings.store, {
         key: 'integrations.bright_mls',
-        value: brightMlsSettings,
+        value: normalizeBrightMlsSettings(brightMlsSettings),
         type: 'json',
         description: 'Bright MLS API credentials',
       });
@@ -290,6 +346,16 @@ export const IntegrationsSettingsContent = () => {
     setTestingBrightMls(true);
     setBrightMlsTestResult(null);
     try {
+      const normalizedSettings = normalizeBrightMlsSettings(brightMlsSettings);
+      setBrightMlsSettings(normalizedSettings);
+
+      await apiClient.post(API_ROUTES.admin.settings.store, {
+        key: 'integrations.bright_mls',
+        value: normalizedSettings,
+        type: 'json',
+        description: 'Bright MLS API credentials',
+      });
+
       const response = await apiClient.post(API_ROUTES.integrations.testConnection, {
         service: 'bright_mls',
       });
@@ -685,7 +751,12 @@ export const IntegrationsSettingsContent = () => {
                         id="bright-mls-api-mode"
                         value={brightMlsSettings.apiMode}
                         onChange={(e) =>
-                          setBrightMlsSettings({ ...brightMlsSettings, apiMode: e.target.value })
+                          setBrightMlsSettings(
+                            normalizeBrightMlsSettings({
+                              ...brightMlsSettings,
+                              apiMode: e.target.value,
+                            }),
+                          )
                         }
                         className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
                       >
@@ -699,7 +770,12 @@ export const IntegrationsSettingsContent = () => {
                         id="bright-mls-environment"
                         value={brightMlsSettings.environment}
                         onChange={(e) =>
-                          setBrightMlsSettings({ ...brightMlsSettings, environment: e.target.value })
+                          setBrightMlsSettings(
+                            normalizeBrightMlsSettings({
+                              ...brightMlsSettings,
+                              environment: e.target.value,
+                            }),
+                          )
                         }
                         className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
                       >
