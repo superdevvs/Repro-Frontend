@@ -766,7 +766,8 @@ export function AutomationEditorDialog({ automation, mode, open, onClose, onSucc
                   )}
                 </div>
               </div>
-            </div>
+
+              </div>
 
               <div className="space-y-5">
                 <div className="rounded-3xl border p-5">
@@ -1021,6 +1022,7 @@ export function AutomationEditorDialog({ automation, mode, open, onClose, onSucc
               </div>
             </div>
           </div>
+        </div>
         </div>
 
         <div className="flex flex-col-reverse gap-3 border-t bg-background px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
