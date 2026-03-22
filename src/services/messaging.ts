@@ -108,6 +108,25 @@ export const testAutomation = async (id: number, data: { test_email: string; tes
   return response.data;
 };
 
+export const validateAutomationWorkflow = async (workflow_definition_json: AutomationRule['workflow_definition_json']) => {
+  const response = await apiClient.post('/messaging/automations/validate', {
+    workflow_definition_json,
+  });
+  return response.data;
+};
+
+export const simulateAutomation = async (id: number, test_context?: Record<string, any>) => {
+  const response = await apiClient.post(`/messaging/automations/${id}/simulate`, {
+    test_context,
+  });
+  return response.data;
+};
+
+export const getAutomationRuns = async (id: number) => {
+  const response = await apiClient.get(`/messaging/automations/${id}/runs`);
+  return response.data?.data ?? [];
+};
+
 // Email Messages
 export const getEmailMessages = async (params?: {
   status?: string;

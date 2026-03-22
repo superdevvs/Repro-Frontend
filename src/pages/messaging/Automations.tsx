@@ -1,85 +1,29 @@
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { CheckCircle, MoreVertical, Play, Plus, Shield, Trash2, Workflow, XCircle, Zap } from 'lucide-react';
+import { toast } from 'sonner';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { EmailNavigation } from '@/components/messaging/email/EmailNavigation';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
-import { toast } from 'sonner';
-import { Plus, MoreVertical, Edit, Trash2, Play, Zap, CheckCircle, XCircle } from 'lucide-react';
-import { getAutomations, deleteAutomation, toggleAutomation, runAutomation } from '@/services/messaging';
-import { AutomationEditorDialog } from '@/components/messaging/automations/AutomationEditorDialog';
-import type { AutomationRule } from '@/types/messaging';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-
-const triggerLabels: Record<string, string> = {
-  ACCOUNT_CREATED: 'Account Created',
-  ACCOUNT_VERIFIED: 'Account Verified',
-  PASSWORD_RESET: 'Password Reset',
-  TERMS_ACCEPTED: 'Terms Accepted',
-  SHOOT_REQUESTED: 'Shoot Requested',
-  SHOOT_REQUEST_APPROVED: 'Shoot Request Approved',
-  SHOOT_BOOKED: 'Shoot Booked',
-  SHOOT_SCHEDULED: 'Shoot Scheduled',
-  SHOOT_UPDATED: 'Shoot Updated',
-  SHOOT_REMINDER: 'Shoot Reminder',
-  SHOOT_COMPLETED: 'Shoot Completed',
-  SHOOT_CANCELED: 'Shoot Canceled',
-  SHOOT_REMOVED: 'Shoot Removed',
-  PAYMENT_COMPLETED: 'Payment Completed',
-  PAYMENT_FAILED: 'Payment Failed',
-  PAYMENT_REFUNDED: 'Payment Refunded',
-  INVOICE_DUE: 'Invoice Due',
-  INVOICE_OVERDUE: 'Invoice Overdue',
-  INVOICE_SUMMARY: 'Invoice Summary',
-  INVOICE_PAID: 'Invoice Paid',
-  WEEKLY_PHOTOGRAPHER_INVOICE: 'Weekly Photographer Invoice',
-  WEEKLY_REP_INVOICE: 'Weekly Rep Invoice',
-  WEEKLY_SALES_REPORT: 'Weekly Sales Report',
-  WEEKLY_AUTOMATED_INVOICING: 'Weekly Automated Invoicing',
-  PHOTO_UPLOADED: 'Photo Uploaded',
-  MEDIA_UPLOAD_COMPLETE: 'Media Upload Complete',
-  PHOTOGRAPHER_ASSIGNED: 'Photographer Assigned',
-  EDITING_COMPLETE: 'Editing Complete',
-  PROPERTY_CONTACT_REMINDER: 'Property Contact Reminder',
-};
+import { Switch } from '@/components/ui/switch';
+import { deleteAutomation, getAutomations, runAutomation, toggleAutomation } from '@/services/messaging';
+import type { AutomationRule, WorkflowDefinition } from '@/types/messaging';
+import { triggerLabels } from '@/components/messaging/automations/workflow-utils';
 
 const weekdayLabels = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-const formatSchedule = (automation: AutomationRule) => {
-  const schedule = automation.schedule_json;
-  if (!schedule) return 'Event-driven';
-  if (schedule.type === 'weekly') {
-    const dayIndex = typeof schedule.day_of_week === 'number'
-      ? Math.max(0, Math.min(6, schedule.day_of_week))
-      : 0;
-    return `Every ${weekdayLabels[dayIndex]} at ${schedule.time || '00:00'}`;
-  }
-  if (schedule.offset) return `Offset ${schedule.offset}`;
-  if (schedule.cron) return schedule.cron;
-  return 'Custom';
-};
-
-const formatRecipients = (automation: AutomationRule) => {
-  if (Array.isArray(automation.recipients_json)) {
-    return automation.recipients_json.join(', ');
-  }
-
-  if (automation.recipients_json?.roles?.length) {
-    return automation.recipients_json.roles.join(', ');
-  }
-
-  return 'Not configured';
-};
-
 const formatDateTime = (value?: string | null) => {
   if (!value) return 'Not run yet';
+
   return new Date(value).toLocaleString('en-US', {
     month: 'short',
     day: 'numeric',
@@ -89,60 +33,230 @@ const formatDateTime = (value?: string | null) => {
   });
 };
 
-const dispatchTone = (status?: string) => {
-  if (status === 'completed') return 'bg-green-100 text-green-800';
+const summarizeSchedule = (automation: AutomationRule) => {
+  const workflow = automation.workflow_definition_json;
+  const triggerNode = workflow?.nodes?.find((node) => String(node.type).startsWith('trigger.'));
+
+  if (triggerNode?.type === 'trigger.schedule') {
+    const schedule = triggerNode.config?.schedule ?? {};
+    const dayLabel = weekdayLabels[Math.max(0, Math.min(6, Number(schedule.day_of_week ?? 1)))] ?? 'Monday';
+    return `${schedule.type || 'weekly'} on ${dayLabel} at ${schedule.time || '01:00'}`;
+  }
+
+  if (automation.schedule_json?.offset) {
+    return `Offset ${automation.schedule_json.offset}`;
+  }
+
+  return 'Event-driven';
+};
+
+const summarizeFlow = (workflow?: WorkflowDefinition) => {
+  const nodes = workflow?.nodes ?? [];
+  return {
+    nodeCount: nodes.length,
+    actionCount: nodes.filter((node) => node.type.startsWith('action.')).length,
+    waitCount: nodes.filter((node) => node.type.startsWith('wait.')).length,
+    conditionCount: nodes.filter((node) => node.type === 'condition.if').length,
+  };
+};
+
+const latestRun = (automation: AutomationRule) => automation.recent_runs?.[0] ?? null;
+
+const statusTone = (status?: string) => {
+  if (status === 'completed') return 'bg-emerald-100 text-emerald-800';
   if (status === 'failed') return 'bg-red-100 text-red-800';
+  if (status === 'waiting') return 'bg-amber-100 text-amber-800';
   if (status === 'running') return 'bg-blue-100 text-blue-800';
   return 'bg-slate-100 text-slate-700';
 };
 
-const getLatestDispatch = (automation: AutomationRule) => automation.latest_dispatch;
+function AutomationCard({
+  automation,
+  onOpen,
+  onDuplicate,
+  onDelete,
+  onToggle,
+  onRun,
+  runningId,
+}: {
+  automation: AutomationRule;
+  onOpen: (automation: AutomationRule) => void;
+  onDuplicate: (automation: AutomationRule) => void;
+  onDelete: (automation: AutomationRule) => void;
+  onToggle: (automation: AutomationRule) => void;
+  onRun: (automation: AutomationRule) => void;
+  runningId?: number | null;
+}) {
+  const flowSummary = summarizeFlow(automation.workflow_definition_json);
+  const run = latestRun(automation);
+
+  return (
+    <Card className="p-4">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+        <div className="flex-1 space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-lg font-semibold">{automation.name}</h3>
+            <Badge variant="outline">{automation.scope}</Badge>
+            {automation.is_system_locked && (
+              <Badge className="bg-amber-100 text-amber-800">
+                <Shield className="mr-1 h-3.5 w-3.5" />
+                Locked
+              </Badge>
+            )}
+            {automation.is_active ? (
+              <Badge className="bg-emerald-100 text-emerald-800">
+                <CheckCircle className="mr-1 h-3.5 w-3.5" />
+                Active
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="text-slate-600">
+                <XCircle className="mr-1 h-3.5 w-3.5" />
+                Inactive
+              </Badge>
+            )}
+            <Badge className={statusTone(run?.status)}>{run?.status || 'idle'}</Badge>
+          </div>
+
+          <p className="text-sm text-muted-foreground">
+            {automation.description || 'No description added yet.'}
+          </p>
+
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-2xl border p-3">
+              <div className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Trigger</div>
+              <div className="mt-1 font-medium">{triggerLabels[automation.trigger_type] || automation.trigger_type}</div>
+            </div>
+            <div className="rounded-2xl border p-3">
+              <div className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Schedule</div>
+              <div className="mt-1 text-sm text-muted-foreground">{summarizeSchedule(automation)}</div>
+            </div>
+            <div className="rounded-2xl border p-3">
+              <div className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Workflow</div>
+              <div className="mt-1 text-sm text-muted-foreground">
+                {flowSummary.nodeCount} nodes, {flowSummary.actionCount} actions
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {flowSummary.conditionCount} conditions, {flowSummary.waitCount} waits
+              </div>
+            </div>
+            <div className="rounded-2xl border p-3">
+              <div className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Last Run</div>
+              <div className="mt-1 text-sm text-muted-foreground">{formatDateTime(run?.started_at || run?.scheduled_for)}</div>
+            </div>
+          </div>
+
+          {!automation.validation_state?.valid && (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+              <div className="font-medium">Workflow needs attention</div>
+              <div className="mt-1">
+                {(automation.validation_state?.errors ?? []).slice(0, 2).join(' ')}
+              </div>
+            </div>
+          )}
+
+          {run?.error_message && (
+            <div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              <div className="font-medium">Last run failure</div>
+              <div className="mt-1">{run.error_message}</div>
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center gap-3 xl:flex-col xl:items-end">
+          <Switch checked={automation.is_active} onCheckedChange={() => onToggle(automation)} />
+          <Button variant="outline" size="sm" onClick={() => onOpen(automation)}>
+            <Workflow className="mr-2 h-4 w-4" />
+            Open Workflow
+          </Button>
+          {automation.scope === 'SYSTEM' && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onRun(automation)}
+              disabled={runningId === automation.id}
+            >
+              <Play className="mr-2 h-4 w-4" />
+              Run now
+            </Button>
+          )}
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => onOpen(automation)}>
+                <Workflow className="mr-2 h-4 w-4" />
+                Open Workflow
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onDuplicate(automation)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Duplicate
+              </DropdownMenuItem>
+              {automation.scope !== 'SYSTEM' && (
+                <DropdownMenuItem onClick={() => onDelete(automation)} className="text-red-600">
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+    </Card>
+  );
+}
 
 export default function Automations() {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [editingAutomation, setEditingAutomation] = useState<AutomationRule | null>(null);
-  const [isCreating, setIsCreating] = useState(false);
 
-  // Fetch automations
-  const { data: automations, isLoading } = useQuery({
+  const { data: automations = [], isLoading } = useQuery({
     queryKey: ['automations'],
     queryFn: () => getAutomations(),
   });
 
-  // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: deleteAutomation,
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success('Automation deleted successfully');
-      queryClient.invalidateQueries({ queryKey: ['automations'] });
+      await queryClient.invalidateQueries({ queryKey: ['automations'] });
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.error || 'Failed to delete automation');
+      toast.error(error.response?.data?.error || error.message || 'Failed to delete automation');
     },
   });
 
-  // Toggle mutation
   const toggleMutation = useMutation({
     mutationFn: toggleAutomation,
-    onSuccess: (data) => {
-      toast.success(data.is_active ? 'Automation enabled' : 'Automation disabled');
-      queryClient.invalidateQueries({ queryKey: ['automations'] });
+    onSuccess: async (updatedAutomation) => {
+      toast.success(updatedAutomation.is_active ? 'Automation enabled' : 'Automation disabled');
+      await queryClient.invalidateQueries({ queryKey: ['automations'] });
+      await queryClient.invalidateQueries({ queryKey: ['automation', updatedAutomation.id] });
     },
     onError: (error: any) => {
-      toast.error(error.message || 'Failed to toggle automation');
+      toast.error(error.response?.data?.error || error.message || 'Failed to toggle automation');
     },
   });
 
   const runMutation = useMutation({
     mutationFn: runAutomation,
-    onSuccess: ({ automation }) => {
+    onSuccess: async ({ automation }) => {
       toast.success(`${automation.name} executed`);
-      queryClient.invalidateQueries({ queryKey: ['automations'] });
+      await queryClient.invalidateQueries({ queryKey: ['automations'] });
+      await queryClient.invalidateQueries({ queryKey: ['automation', automation.id] });
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.error || error.message || 'Failed to run automation');
     },
   });
+
+  const { systemAutomations, customAutomations } = useMemo(() => ({
+    systemAutomations: automations.filter((automation) => automation.scope === 'SYSTEM'),
+    customAutomations: automations.filter((automation) => automation.scope !== 'SYSTEM'),
+  }), [automations]);
 
   const handleDelete = (automation: AutomationRule) => {
     if (automation.scope === 'SYSTEM') {
@@ -150,232 +264,106 @@ export default function Automations() {
       return;
     }
 
-    if (confirm(`Are you sure you want to delete "${automation.name}"?`)) {
+    if (window.confirm(`Delete "${automation.name}"?`)) {
       deleteMutation.mutate(automation.id);
     }
   };
 
-  const systemAutomations = automations?.filter((a) => a.scope === 'SYSTEM') || [];
-  const customAutomations = automations?.filter((a) => a.scope !== 'SYSTEM') || [];
-
   return (
     <DashboardLayout>
       <EmailNavigation />
-      <div className="space-y-4 px-2 pt-3 pb-3 sm:space-y-6 sm:p-6">
-        {/* Header */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-3xl font-bold">Automation Rules</h1>
-              <p className="text-muted-foreground">
-                Automate emails based on shoot, payment, and account events
-              </p>
-              <p className="text-xs text-muted-foreground mt-2">
-                System automations below power weekly invoicing and weekly sales reports. They self-heal if missing and now expose execution health.
-              </p>
-            </div>
-            <Button onClick={() => setIsCreating(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              New Automation
-            </Button>
+      <div className="space-y-6 px-2 pt-3 pb-3 sm:p-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Automation Workflows</h1>
+            <p className="mt-2 text-muted-foreground">
+              Design multi-step messaging workflows, inspect weekly system automations, and validate execution history from one place.
+            </p>
           </div>
+          <Button onClick={() => navigate('/messaging/email/automations/new')}>
+            <Plus className="mr-2 h-4 w-4" />
+            New Automation
+          </Button>
         </div>
 
-        {/* System Automations */}
-        <div className="mb-8">
-          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-            <Zap className="h-5 w-5" />
-            Required System Automations
-          </h2>
-          {isLoading ? (
-            <Card className="p-6">
-              <p className="text-muted-foreground">Loading automations...</p>
-            </Card>
-          ) : systemAutomations.length === 0 ? (
-            <Card className="p-6">
-              <p className="text-muted-foreground">No system automations found</p>
-              {automations && automations.length > 0 && (
-                <p className="text-xs text-muted-foreground mt-2">
-                  Found {automations.length} total automations, but none with scope='SYSTEM'
-                </p>
-              )}
-            </Card>
-          ) : (
-            <div className="space-y-3">
-              {systemAutomations.map((automation) => {
-                const latestDispatch = getLatestDispatch(automation);
-
-                return (
-                  <Card key={automation.id} className="p-4">
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="flex-1 space-y-3">
-                      <div className="flex flex-wrap items-center gap-3">
-                        <h3 className="font-semibold">{automation.name}</h3>
-                        <Badge variant="secondary">System</Badge>
-                        {automation.is_active ? (
-                          <Badge className="bg-green-100 text-green-800">
-                            <CheckCircle className="mr-1 h-3 w-3" />
-                            Active
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-gray-600">
-                            <XCircle className="mr-1 h-3 w-3" />
-                            Inactive
-                          </Badge>
-                        )}
-                        <Badge className={dispatchTone(latestDispatch?.status)}>
-                          {latestDispatch?.status || 'idle'}
-                        </Badge>
-                      </div>
-
-                      <p className="text-sm text-muted-foreground">{automation.description}</p>
-
-                      <div className="grid gap-3 text-xs text-muted-foreground md:grid-cols-2 xl:grid-cols-4">
-                        <div className="rounded-lg border p-3">
-                          <div className="font-medium text-foreground">Trigger</div>
-                          <div className="mt-1">{triggerLabels[automation.trigger_type] || automation.trigger_type}</div>
-                        </div>
-                        <div className="rounded-lg border p-3">
-                          <div className="font-medium text-foreground">Schedule</div>
-                          <div className="mt-1">{formatSchedule(automation)}</div>
-                        </div>
-                        <div className="rounded-lg border p-3">
-                          <div className="font-medium text-foreground">Recipients</div>
-                          <div className="mt-1">{formatRecipients(automation)}</div>
-                        </div>
-                        <div className="rounded-lg border p-3">
-                          <div className="font-medium text-foreground">Last Run</div>
-                          <div className="mt-1">{formatDateTime(latestDispatch?.completed_at || latestDispatch?.scheduled_for)}</div>
-                        </div>
-                      </div>
-
-                      {(automation.schedule_json?.command || latestDispatch?.command) && (
-                        <div className="rounded-lg border border-dashed p-3 text-xs text-muted-foreground">
-                          <div className="font-medium text-foreground">Command</div>
-                          <code className="mt-1 block break-all">
-                            {automation.schedule_json?.command || latestDispatch?.command}
-                          </code>
-                        </div>
-                      )}
-
-                      {latestDispatch?.error_message && (
-                        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700">
-                          <div className="font-medium">Last failure</div>
-                          <div className="mt-1 whitespace-pre-wrap">{latestDispatch.error_message}</div>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-3 lg:ml-4 lg:flex-col lg:items-end">
-                      <Switch
-                        checked={automation.is_active}
-                        onCheckedChange={() => toggleMutation.mutate(automation.id)}
-                      />
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => runMutation.mutate(automation.id)}
-                        disabled={runMutation.isPending}
-                      >
-                        <Play className="mr-2 h-4 w-4" />
-                        Run now
-                      </Button>
-                    </div>
-                  </div>
-                  </Card>
-                );
-              })}
+        <Card className="p-4 sm:p-5">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-2xl border p-4">
+              <div className="text-xs uppercase tracking-[0.22em] text-muted-foreground">System Workflows</div>
+              <div className="mt-2 text-2xl font-semibold">{systemAutomations.length}</div>
+              <div className="text-sm text-muted-foreground">Weekly automation backbone</div>
             </div>
-          )}
-        </div>
+            <div className="rounded-2xl border p-4">
+              <div className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Custom Workflows</div>
+              <div className="mt-2 text-2xl font-semibold">{customAutomations.length}</div>
+              <div className="text-sm text-muted-foreground">Editable visual automations</div>
+            </div>
+            <div className="rounded-2xl border p-4">
+              <div className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Active</div>
+              <div className="mt-2 text-2xl font-semibold">{automations.filter((automation) => automation.is_active).length}</div>
+              <div className="text-sm text-muted-foreground">Currently enabled</div>
+            </div>
+            <div className="rounded-2xl border p-4">
+              <div className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Needs Review</div>
+              <div className="mt-2 text-2xl font-semibold">{automations.filter((automation) => !automation.validation_state?.valid).length}</div>
+              <div className="text-sm text-muted-foreground">Workflows with validation issues</div>
+            </div>
+          </div>
+        </Card>
 
-        {/* Custom Automations */}
-        <div>
-          <h2 className="text-xl font-semibold mb-4">Custom Automations</h2>
-          {customAutomations.length === 0 ? (
-            <Card className="p-12 text-center">
-              <p className="text-muted-foreground">No custom automations yet</p>
-              <Button onClick={() => setIsCreating(true)} className="mt-4">
-                Create your first automation
-              </Button>
-            </Card>
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Zap className="h-5 w-5" />
+            <h2 className="text-xl font-semibold">Required System Automations</h2>
+          </div>
+          {isLoading ? (
+            <Card className="p-6 text-sm text-muted-foreground">Loading automations...</Card>
+          ) : systemAutomations.length === 0 ? (
+            <Card className="p-6 text-sm text-muted-foreground">No system automations found.</Card>
           ) : (
             <div className="space-y-3">
-              {customAutomations.map((automation) => (
-                <Card key={automation.id} className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1 space-y-1">
-                      <div className="flex items-center gap-3">
-                        <h3 className="font-semibold">{automation.name}</h3>
-                        {automation.is_active ? (
-                          <Badge className="bg-green-100 text-green-800">
-                            <CheckCircle className="mr-1 h-3 w-3" />
-                            Active
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-gray-600">
-                            <XCircle className="mr-1 h-3 w-3" />
-                            Inactive
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-sm text-muted-foreground">{automation.description}</p>
-                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        <span>Trigger: {triggerLabels[automation.trigger_type]}</span>
-                        {automation.template && <span>Template: {automation.template.name}</span>}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <Switch
-                        checked={automation.is_active}
-                        onCheckedChange={() => toggleMutation.mutate(automation.id)}
-                      />
-
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => setEditingAutomation(automation)}>
-                            <Edit className="mr-2 h-4 w-4" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => handleDelete(automation)}
-                            className="text-red-600"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-                </Card>
+              {systemAutomations.map((automation) => (
+                <AutomationCard
+                  key={automation.id}
+                  automation={automation}
+                  onOpen={(item) => navigate(`/messaging/email/automations/${item.id}`)}
+                  onDuplicate={(item) => navigate('/messaging/email/automations/new', { state: { duplicateAutomation: item } })}
+                  onDelete={handleDelete}
+                  onToggle={(item) => toggleMutation.mutate(item.id)}
+                  onRun={(item) => runMutation.mutate(item.id)}
+                  runningId={runMutation.variables ?? null}
+                />
               ))}
             </div>
           )}
         </div>
 
-        {/* Automation Editor Dialog */}
-        {(isCreating || editingAutomation) && (
-          <AutomationEditorDialog
-            automation={editingAutomation}
-            open={true}
-            onClose={() => {
-              setIsCreating(false);
-              setEditingAutomation(null);
-            }}
-            onSuccess={() => {
-              queryClient.invalidateQueries({ queryKey: ['automations'] });
-              setIsCreating(false);
-              setEditingAutomation(null);
-            }}
-          />
-        )}
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold">Custom Automations</h2>
+          {customAutomations.length === 0 ? (
+            <Card className="p-12 text-center">
+              <p className="text-muted-foreground">No custom automations yet.</p>
+              <Button onClick={() => navigate('/messaging/email/automations/new')} className="mt-4">
+                Create your first workflow
+              </Button>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {customAutomations.map((automation) => (
+                <AutomationCard
+                  key={automation.id}
+                  automation={automation}
+                  onOpen={(item) => navigate(`/messaging/email/automations/${item.id}`)}
+                  onDuplicate={(item) => navigate('/messaging/email/automations/new', { state: { duplicateAutomation: item } })}
+                  onDelete={handleDelete}
+                  onToggle={(item) => toggleMutation.mutate(item.id)}
+                  onRun={(item) => runMutation.mutate(item.id)}
+                  runningId={runMutation.variables ?? null}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </DashboardLayout>
   );

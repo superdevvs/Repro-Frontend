@@ -756,7 +756,21 @@ const mapShootApiToShootData = (item: Record<string, unknown>): ShootData => {
       taxRate: paymentDetails?.taxRate ?? 0,
       taxAmount: toNumberValue(item.tax_amount),
       totalQuote: toNumberValue(item.total_quote),
-      totalPaid: toNumberValue(item.total_paid ?? paymentDetails?.totalPaid),
+      totalPaid: (() => {
+        const completedPaymentsTotal = Array.isArray(item.payments)
+          ? item.payments.reduce((sum, payment) => {
+              const paymentRecord = payment as Record<string, unknown>;
+              const status = toStringValue(paymentRecord.status);
+              if (status && status.toLowerCase() !== 'completed') {
+                return sum;
+              }
+
+              return sum + toNumberValue(paymentRecord.amount);
+            }, 0)
+          : 0;
+
+        return completedPaymentsTotal || paymentDetails?.totalPaid || toNumberValue(item.total_paid);
+      })(),
       lastPaymentDate: paymentDetails?.lastPaymentDate,
       lastPaymentType: paymentDetails?.lastPaymentType ?? toStringValue(item.payment_type),
     },

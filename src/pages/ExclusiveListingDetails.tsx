@@ -141,13 +141,24 @@ export default function ExclusiveListingDetails() {
           return isNaN(num) ? 0 : num;
         };
 
+        const completedPaymentsTotal = Array.isArray(shootData.payments)
+          ? shootData.payments.reduce((sum: number, payment: any) => {
+              const status = String(payment?.status ?? '').toLowerCase();
+              if (status && status !== 'completed') {
+                return sum;
+              }
+
+              return sum + toNumber(payment?.amount);
+            }, 0)
+          : 0;
+
         if (!shootData.payment) {
           shootData.payment = {
             baseQuote: toNumber(shootData.base_quote),
             taxRate: toNumber(shootData.tax_rate),
             taxAmount: toNumber(shootData.tax_amount),
             totalQuote: toNumber(shootData.total_quote),
-            totalPaid: toNumber(shootData.total_paid),
+            totalPaid: completedPaymentsTotal || toNumber(shootData.total_paid),
             lastPaymentDate: shootData.last_payment_date || undefined,
             lastPaymentType: shootData.last_payment_type || undefined,
           };

@@ -272,6 +272,17 @@ const ShootDetails: React.FC = () => {
           const num = typeof value === 'string' ? parseFloat(value) : Number(value);
           return isNaN(num) ? 0 : num;
         };
+
+        const completedPaymentsTotal = Array.isArray(shootData.payments)
+          ? shootData.payments.reduce((sum: number, payment: any) => {
+              const status = String(payment?.status ?? '').toLowerCase();
+              if (status && status !== 'completed') {
+                return sum;
+              }
+
+              return sum + toNumber(payment?.amount);
+            }, 0)
+          : 0;
         
         if (!shootData.payment) {
           shootData.payment = {
@@ -279,7 +290,7 @@ const ShootDetails: React.FC = () => {
             taxRate: toNumber(shootData.tax_rate),
             taxAmount: toNumber(shootData.tax_amount),
             totalQuote: toNumber(shootData.total_quote),
-            totalPaid: toNumber(shootData.total_paid),
+            totalPaid: completedPaymentsTotal || toNumber(shootData.total_paid),
             lastPaymentDate: shootData.last_payment_date || undefined,
             lastPaymentType: shootData.last_payment_type || undefined,
           };
@@ -313,7 +324,7 @@ const ShootDetails: React.FC = () => {
           shootData.payment.baseQuote = toNumber(shootData.payment.baseQuote);
           shootData.payment.taxAmount = toNumber(shootData.payment.taxAmount);
           shootData.payment.totalQuote = toNumber(shootData.payment.totalQuote);
-          shootData.payment.totalPaid = toNumber(shootData.payment.totalPaid);
+          shootData.payment.totalPaid = completedPaymentsTotal || toNumber(shootData.payment.totalPaid) || toNumber(shootData.total_paid);
         }
       }
       

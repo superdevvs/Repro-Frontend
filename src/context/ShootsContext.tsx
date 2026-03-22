@@ -75,6 +75,15 @@ const toNumber = (value: unknown) => {
 
 const cloneMedia = (media?: ShootData['media']): ShootData['media'] | undefined => {
   if (!media) return undefined;
+  const completedPaymentsTotal = payments.reduce((sum: number, payment) => {
+    const status = String((payment as any)?.status ?? '').toLowerCase();
+    if (status && status !== 'completed') {
+      return sum;
+    }
+
+    return sum + toNumber(payment.amount);
+  }, 0);
+
   return {
     ...media,
     images: media.images ? media.images.map(image => ({ ...image })) : undefined,
@@ -482,8 +491,10 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
       taxAmount: toNumber(shoot.tax_amount) || toNumber((shoot as any).payment?.taxAmount) || toNumber((shoot as any).payment?.tax_amount),
       totalQuote: toNumber(shoot.total_quote) || toNumber((shoot as any).payment?.totalQuote) || toNumber((shoot as any).payment?.total_quote),
       totalPaid:
-        toNumber(shoot.total_paid) || toNumber((shoot as any).payment?.totalPaid) || toNumber((shoot as any).payment?.total_paid) ||
-        payments.reduce((sum: number, payment) => sum + toNumber(payment.amount), 0),
+        completedPaymentsTotal ||
+        toNumber((shoot as any).payment?.totalPaid) ||
+        toNumber((shoot as any).payment?.total_paid) ||
+        toNumber(shoot.total_paid),
       lastPaymentDate: payments[0]?.paid_at ?? undefined,
       lastPaymentType: shoot.payment_type ?? (shoot as any).payment?.paymentStatus ?? undefined,
     },

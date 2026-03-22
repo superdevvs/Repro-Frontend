@@ -70,6 +70,7 @@ const EmailInbox = lazy(() => import('./pages/messaging/EmailInbox'));
 const EmailCompose = lazy(() => import('./pages/messaging/EmailCompose'));
 const Templates = lazy(() => import('./pages/messaging/Templates'));
 const Automations = lazy(() => import('./pages/messaging/Automations'));
+const AutomationWorkflowEditor = lazy(() => import('./pages/messaging/AutomationWorkflowEditor'));
 const SmsCenter = lazy(() => import('./pages/messaging/SmsCenter'));
 const MessagingSettings = lazy(() => import('./pages/messaging/MessagingSettings'));
 
@@ -559,6 +560,16 @@ const AppRoutes = () => {
       <Route path="/messaging/email/automations" element={
         <RoleRestrictedRoute allowedRoles={['admin', 'superadmin', 'editing_manager', 'salesRep']}>
           <Automations />
+        </RoleRestrictedRoute>
+      } />
+      <Route path="/messaging/email/automations/new" element={
+        <RoleRestrictedRoute allowedRoles={['admin', 'superadmin', 'editing_manager', 'salesRep']}>
+          <AutomationWorkflowEditor />
+        </RoleRestrictedRoute>
+      } />
+      <Route path="/messaging/email/automations/:automationId" element={
+        <RoleRestrictedRoute allowedRoles={['admin', 'superadmin', 'editing_manager', 'salesRep']}>
+          <AutomationWorkflowEditor />
         </RoleRestrictedRoute>
       } />
       <Route path="/messaging/sms" element={

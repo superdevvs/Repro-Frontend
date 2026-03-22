@@ -4,7 +4,8 @@ const METHOD_LABELS: Record<string, string> = {
   square: 'Card (Square)',
   zelle: 'Zelle',
   cash: 'Cash',
-  check: 'Check',
+  check: 'Cheque',
+  cheque: 'Cheque',
   ach: 'ACH',
   other: 'Other',
   manual: 'Other',
@@ -16,6 +17,7 @@ export const normalizePaymentMethod = (method?: string | null): string | null =>
   const key = String(method).toLowerCase();
   if (key === 'manual') return 'other';
   if (key === 'bank_transfer') return 'ach';
+  if (key === 'cheque') return 'check';
   return key;
 };
 

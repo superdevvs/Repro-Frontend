@@ -35,7 +35,7 @@ interface MarkAsPaidDialogProps {
 const methodOptions: Array<{ value: MarkAsPaidMethod; label: string; helper: string }> = [
   { value: 'zelle', label: 'Zelle', helper: 'Record a Zelle transfer' },
   { value: 'cash', label: 'Cash', helper: 'Record a cash payment' },
-  { value: 'check', label: 'Check', helper: 'Add check number + date' },
+  { value: 'check', label: 'Cheque', helper: 'Add cheque number + date' },
   { value: 'ach', label: 'ACH', helper: 'Add transfer date' },
   { value: 'other', label: 'Other', helper: 'Add required notes' },
 ];
@@ -148,12 +148,12 @@ export function MarkAsPaidDialog({
           {method === 'check' && (
             <div className="space-y-3">
               <div className="space-y-2">
-                <Label htmlFor="check-number">Check Number</Label>
+                <Label htmlFor="check-number">Cheque Number</Label>
                 <Input
                   id="check-number"
                   value={checkNumber}
                   onChange={(event) => setCheckNumber(event.target.value)}
-                  placeholder="Enter check number"
+                  placeholder="Enter cheque number"
                 />
               </div>
               <div className="space-y-2">

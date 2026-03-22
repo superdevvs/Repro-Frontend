@@ -114,6 +114,7 @@ export const IntegrationsSettingsContent = () => {
         }
 
         if (brightMlsRes?.data?.success && brightMlsRes.data.data?.value) {
+          const brightValue = brightMlsRes.data.data.value;
           setBrightMlsSettings({
             apiMode: 'legacy',
             environment: 't1',
@@ -124,8 +125,12 @@ export const IntegrationsSettingsContent = () => {
             vendorId: '',
             vendorName: 'Repro Photos',
             defaultDocVisibility: 'private',
-            ...brightMlsRes.data.data.value,
-            enabled: brightMlsRes.data.data.value.enabled ?? true,
+            ...brightValue,
+            apiMode: brightValue.apiMode ?? 'legacy',
+            environment: brightValue.environment ?? 't1',
+            apiUrl: brightValue.apiUrl ?? 'https://bright-manifestservices.tst.brightmls.com',
+            importUrlBase: brightValue.importUrlBase ?? 'https://lmsedit.tst.brightmls.com',
+            enabled: brightValue.enabled ?? true,
           });
         }
 

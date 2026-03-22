@@ -38,6 +38,94 @@ export type AutomationTriggerType =
   | 'EDITING_COMPLETE'
   | 'PROPERTY_CONTACT_REMINDER';
 
+export type WorkflowNodeType =
+  | 'trigger.event'
+  | 'trigger.schedule'
+  | 'condition.if'
+  | 'wait.duration'
+  | 'wait.datetime_offset'
+  | 'action.email'
+  | 'action.sms'
+  | 'action.internal_notification'
+  | 'end';
+
+export interface WorkflowNode {
+  id: string;
+  type: WorkflowNodeType;
+  position: {
+    x: number;
+    y: number;
+  };
+  config: Record<string, any>;
+  validation?: string[];
+}
+
+export interface WorkflowEdge {
+  id: string;
+  source: string;
+  target: string;
+  branchKey?: string | null;
+}
+
+export interface WorkflowDefinition {
+  nodes: WorkflowNode[];
+  edges: WorkflowEdge[];
+  viewport?: {
+    x: number;
+    y: number;
+    zoom: number;
+  };
+  meta?: Record<string, any>;
+}
+
+export interface AutomationValidationState {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+  node_errors: Record<string, string[]>;
+  summary: {
+    node_count: number;
+    edge_count: number;
+    reachable_action_count: number;
+  };
+}
+
+export interface AutomationRunStep {
+  id: number;
+  automation_run_id: number;
+  automation_rule_id?: number;
+  node_id: string;
+  node_type: string;
+  status: 'pending' | 'running' | 'waiting' | 'completed' | 'failed' | 'skipped';
+  attempt_count: number;
+  scheduled_for?: string | null;
+  started_at?: string | null;
+  completed_at?: string | null;
+  input_json?: Record<string, any> | null;
+  output_json?: Record<string, any> | null;
+  error_message?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AutomationRun {
+  id: number;
+  automation_rule_id: number;
+  trigger_type?: string | null;
+  status: 'pending' | 'running' | 'waiting' | 'completed' | 'failed';
+  context_json?: Record<string, any> | null;
+  related_shoot_id?: number | null;
+  related_account_id?: number | null;
+  related_invoice_id?: number | null;
+  scheduled_for?: string | null;
+  started_at?: string | null;
+  completed_at?: string | null;
+  error_message?: string | null;
+  created_at: string;
+  updated_at: string;
+  steps?: AutomationRunStep[];
+}
+
 export interface MessageChannelConfig {
   id: number;
   type: 'EMAIL' | 'SMS';
@@ -214,6 +302,8 @@ export interface AutomationRule {
   name: string;
   description?: string;
   trigger_type: AutomationTriggerType;
+  editor_mode?: 'visual' | 'simple';
+  engine_version?: number;
   is_active: boolean;
   scope: TemplateScope;
   owner_id?: number;
@@ -228,6 +318,14 @@ export interface AutomationRule {
     cron?: string;
     command?: string;
   };
+  workflow_definition_json?: WorkflowDefinition;
+  entry_trigger_json?: {
+    trigger_type?: string;
+    node_id?: string | null;
+    node_type?: string | null;
+    config?: Record<string, any>;
+  };
+  is_system_locked?: boolean;
   recipients_json?: Array<'client' | 'photographer' | 'admin' | 'rep'> | {
     type?: string;
     roles?: string[];
@@ -259,6 +357,9 @@ export interface AutomationRule {
     started_at?: string | null;
     completed_at?: string | null;
   };
+  legacy_status?: 'migrated' | 'converted_from_legacy';
+  validation_state?: AutomationValidationState;
+  recent_runs?: AutomationRun[];
 }
 
 export interface ComposeEmailPayload {

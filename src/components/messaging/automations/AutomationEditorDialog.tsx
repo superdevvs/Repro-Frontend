@@ -24,6 +24,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+type ScheduleMode = 'immediate' | 'offset';
+
 interface AutomationEditorDialogProps {
   automation: AutomationRule | null;
   open: boolean;
@@ -98,6 +100,18 @@ const recipients = [
   { value: 'rep', label: 'Rep' },
 ];
 
+const shootBasedTriggers = new Set([
+  'SHOOT_REQUESTED',
+  'SHOOT_REQUEST_APPROVED',
+  'SHOOT_BOOKED',
+  'SHOOT_SCHEDULED',
+  'SHOOT_UPDATED',
+  'SHOOT_REMINDER',
+  'SHOOT_COMPLETED',
+  'PHOTOGRAPHER_ASSIGNED',
+  'PROPERTY_CONTACT_REMINDER',
+]);
+
 export function AutomationEditorDialog({ automation, open, onClose, onSuccess }: AutomationEditorDialogProps) {
   const [formData, setFormData] = useState({
     name: '',
@@ -109,6 +123,10 @@ export function AutomationEditorDialog({ automation, open, onClose, onSuccess }:
     is_active: true,
     scope: 'GLOBAL',
   });
+  const [scheduleMode, setScheduleMode] = useState<ScheduleMode>('immediate');
+  const [offsetDirection, setOffsetDirection] = useState<'before' | 'after'>('before');
+  const [offsetValue, setOffsetValue] = useState('24');
+  const [offsetUnit, setOffsetUnit] = useState<'h' | 'd' | 'm'>('h');
 
   // Fetch templates
   const { data: templates } = useQuery({
@@ -125,6 +143,27 @@ export function AutomationEditorDialog({ automation, open, onClose, onSuccess }:
   const channels = settingsData?.channels || [];
 
   useEffect(() => {
+    const parseOffset = (offset?: string) => {
+      if (!offset) {
+        setScheduleMode('immediate');
+        setOffsetDirection('before');
+        setOffsetValue('24');
+        setOffsetUnit('h');
+        return;
+      }
+
+      const matches = offset.match(/^([+-]?)(\d+)([hdm])$/);
+      if (!matches) {
+        setScheduleMode('immediate');
+        return;
+      }
+
+      setScheduleMode('offset');
+      setOffsetDirection(matches[1] === '-' ? 'before' : 'after');
+      setOffsetValue(matches[2]);
+      setOffsetUnit(matches[3] as 'h' | 'd' | 'm');
+    };
+
     if (automation) {
       setFormData({
         name: automation.name,
@@ -136,8 +175,31 @@ export function AutomationEditorDialog({ automation, open, onClose, onSuccess }:
         is_active: automation.is_active,
         scope: automation.scope,
       });
+      parseOffset(automation.schedule_json?.offset);
+    } else {
+      setFormData({
+        name: '',
+        description: '',
+        trigger_type: 'SHOOT_BOOKED',
+        template_id: '',
+        channel_id: '',
+        recipients_json: ['client'],
+        is_active: true,
+        scope: 'GLOBAL',
+      });
+      parseOffset(undefined);
     }
   }, [automation]);
+
+  useEffect(() => {
+    if (scheduleMode !== 'offset') {
+      return;
+    }
+
+    if (!shootBasedTriggers.has(formData.trigger_type)) {
+      setScheduleMode('immediate');
+    }
+  }, [formData.trigger_type, scheduleMode]);
 
   const saveMutation = useMutation({
     mutationFn: (data: any) => {
@@ -162,10 +224,26 @@ export function AutomationEditorDialog({ automation, open, onClose, onSuccess }:
       return;
     }
 
+    if (scheduleMode === 'offset' && !shootBasedTriggers.has(formData.trigger_type)) {
+      toast.error('Delayed scheduling is only supported for shoot-based triggers');
+      return;
+    }
+
+    const normalizedOffsetValue = offsetValue.trim();
+    if (scheduleMode === 'offset' && (!normalizedOffsetValue || Number(normalizedOffsetValue) <= 0)) {
+      toast.error('Enter a valid schedule delay');
+      return;
+    }
+
     const payload = {
       ...formData,
       template_id: formData.template_id ? parseInt(formData.template_id) : null,
       channel_id: formData.channel_id ? parseInt(formData.channel_id) : null,
+      schedule_json: scheduleMode === 'offset'
+        ? {
+            offset: `${offsetDirection === 'before' ? '-' : '+'}${parseInt(normalizedOffsetValue, 10)}${offsetUnit}`,
+          }
+        : null,
     };
 
     saveMutation.mutate(payload);
@@ -232,6 +310,80 @@ export function AutomationEditorDialog({ automation, open, onClose, onSuccess }:
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="rounded-xl border p-4 space-y-3">
+            <div>
+              <Label>Send Timing</Label>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Custom automations are event-based. Weekly sales report and weekly invoicing run from the system automation section above, while custom rules can send immediately or after a delay from the shoot date/time.
+              </p>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                className={`rounded-lg border p-3 text-left transition ${scheduleMode === 'immediate' ? 'border-primary bg-primary/5' : 'border-border'}`}
+                onClick={() => setScheduleMode('immediate')}
+              >
+                <div className="font-medium">Send immediately</div>
+                <div className="mt-1 text-xs text-muted-foreground">Deliver as soon as the trigger happens.</div>
+              </button>
+              <button
+                type="button"
+                className={`rounded-lg border p-3 text-left transition ${scheduleMode === 'offset' ? 'border-primary bg-primary/5' : 'border-border'} ${!shootBasedTriggers.has(formData.trigger_type) ? 'opacity-60' : ''}`}
+                onClick={() => shootBasedTriggers.has(formData.trigger_type) && setScheduleMode('offset')}
+                disabled={!shootBasedTriggers.has(formData.trigger_type)}
+              >
+                <div className="font-medium">Delay from shoot time</div>
+                <div className="mt-1 text-xs text-muted-foreground">Useful for reminders before or after the scheduled shoot.</div>
+              </button>
+            </div>
+
+            {scheduleMode === 'offset' && (
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div>
+                  <Label>Direction</Label>
+                  <Select value={offsetDirection} onValueChange={(value: 'before' | 'after') => setOffsetDirection(value)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="before">Before shoot</SelectItem>
+                      <SelectItem value="after">After shoot</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Amount</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={offsetValue}
+                    onChange={(e) => setOffsetValue(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label>Unit</Label>
+                  <Select value={offsetUnit} onValueChange={(value: 'h' | 'd' | 'm') => setOffsetUnit(value)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="m">Minutes</SelectItem>
+                      <SelectItem value="h">Hours</SelectItem>
+                      <SelectItem value="d">Days</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+
+            {!shootBasedTriggers.has(formData.trigger_type) && (
+              <p className="text-xs text-amber-600">
+                This trigger does not have a shoot date/time reference, so only immediate delivery is supported.
+              </p>
+            )}
           </div>
 
           <div>
