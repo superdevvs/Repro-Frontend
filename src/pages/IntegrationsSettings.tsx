@@ -39,7 +39,7 @@ const BRIGHT_MLS_ENV_DEFAULTS = {
       importUrlBase: 'https://lmsedit.tst.brightmls.com',
     },
     p1: {
-      apiUrl: 'https://bright-manifestservices.prd.brightmls.com',
+      apiUrl: 'https://bright-manifestservices.brightmls.com',
       importUrlBase: 'https://lmsedit.brightmls.com',
     },
   },

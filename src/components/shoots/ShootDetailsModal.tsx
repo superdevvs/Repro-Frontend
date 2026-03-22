@@ -2325,14 +2325,24 @@ export function ShootDetailsModal({
                 {/* Publish to Bright MLS button (hidden from editors and photographers) */}
                 {isDelivered && !isEditor && !isPhotographer && (
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
-                    className="h-7 text-xs px-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-950 dark:hover:bg-indigo-900 dark:text-indigo-300 dark:border-indigo-800"
+                    className="h-auto p-0 hover:bg-transparent"
                     onClick={handleSendToBrightMls}
                     disabled={isPublishingToBrightMls}
                   >
-                    <Upload className="h-3 w-3 mr-1" />
-                    <span>{isPublishingToBrightMls ? 'Sending...' : 'Publish to Bright MLS'}</span>
+                    {isPublishingToBrightMls ? (
+                      <span className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Sending...
+                      </span>
+                    ) : (
+                      <img
+                        src="/brightmls-media-sync-button.svg"
+                        alt="Publish to Bright MLS"
+                        className="h-8 w-auto rounded-full"
+                      />
+                    )}
                   </Button>
                 )}
                 {showMmmPunchoutButtons && (

@@ -2082,21 +2082,22 @@ const HistoryRow = memo(({
               {(record as any).mls_id && onPublishMls && !isEditor && (
                 <Button
                   size="sm"
-                  variant="default"
+                  variant="ghost"
                   onClick={handlePublishMls}
                   disabled={isBusy || publishing}
-                  className="gap-1"
+                  className="h-auto p-0 hover:bg-transparent"
                 >
                   {publishing ? (
-                    <>
+                    <span className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
                       <Loader2 className="h-3 w-3 animate-spin" />
                       Publishing...
-                    </>
+                    </span>
                   ) : (
-                    <>
-                      <Upload className="h-3 w-3" />
-                      Publish MLS
-                    </>
+                    <img
+                      src="/brightmls-media-sync-button.svg"
+                      alt="Publish to Bright MLS"
+                      className="h-8 w-auto rounded-full"
+                    />
                   )}
                 </Button>
               )}

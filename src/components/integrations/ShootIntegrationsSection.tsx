@@ -31,6 +31,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 
+const BRIGHT_MLS_BUTTON_SRC = '/brightmls-media-sync-button.svg';
+
 interface ShootIntegrationsSectionProps {
   shoot: {
     id: number;
@@ -390,9 +392,12 @@ export function ShootIntegrationsSection({ shoot, onRefresh }: ShootIntegrations
           )}
           <Dialog open={brightMlsDialogOpen} onOpenChange={setBrightMlsDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" disabled={!shoot.mls_id}>
-                <Upload className="mr-2 h-4 w-4" />
-                Publish to Bright MLS
+              <Button variant="ghost" disabled={!shoot.mls_id} className="h-auto p-0 hover:bg-transparent">
+                <img
+                  src="/brightmls-media-sync-button.svg"
+                  alt="Publish to Bright MLS"
+                  className="h-10 w-auto rounded-full"
+                />
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-2xl">
