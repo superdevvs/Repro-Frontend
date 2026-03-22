@@ -57,15 +57,17 @@ export const triggerGroups = [
   },
 ];
 
-export type SimpleAutomationActionType = 'email' | 'sms' | 'internal_notification';
+export type SimpleAutomationActionType = 'email' | 'sms' | 'internal_notification' | 'system_command';
 export type SimpleTimingMode = 'immediate' | 'offset';
 export type SimpleOffsetDirection = 'before' | 'after';
 export type SimpleOffsetUnit = 'm' | 'h' | 'd';
 export type SimpleRecipientMode = 'automation_default' | 'roles' | 'context';
+export type SimpleTriggerMode = 'event' | 'schedule';
 
 export interface SimpleAutomationDraft {
   name: string;
   description: string;
+  trigger_mode: SimpleTriggerMode;
   trigger_type: AutomationTriggerType;
   action_type: SimpleAutomationActionType;
   scope: AutomationRule['scope'];
@@ -89,6 +91,9 @@ export interface SimpleAutomationDraft {
   condition_field: string;
   condition_operator: string;
   condition_value: string;
+  schedule_day_of_week: string;
+  schedule_time: string;
+  system_command: string;
 }
 
 export const shootBasedTriggers = new Set<AutomationTriggerType>([
@@ -106,6 +111,7 @@ export const shootBasedTriggers = new Set<AutomationTriggerType>([
 const defaultSimpleDraft: SimpleAutomationDraft = {
   name: '',
   description: '',
+  trigger_mode: 'event',
   trigger_type: 'SHOOT_BOOKED',
   action_type: 'email',
   scope: 'GLOBAL',
@@ -129,6 +135,9 @@ const defaultSimpleDraft: SimpleAutomationDraft = {
   condition_field: '',
   condition_operator: 'eq',
   condition_value: '',
+  schedule_day_of_week: '1',
+  schedule_time: '01:00',
+  system_command: '',
 };
 
 const getOutgoingEdges = (workflow: WorkflowDefinition, sourceId: string) =>
@@ -180,9 +189,20 @@ export const buildSimpleWorkflowFromDraft = (draft: SimpleAutomationDraft): Work
 
   const triggerNode: WorkflowNode = {
     id: 'trigger_start',
-    type: 'trigger.event',
+    type: draft.trigger_mode === 'schedule' ? 'trigger.schedule' : 'trigger.event',
     position: { x: 80, y },
-    config: { triggerType: draft.trigger_type },
+    config:
+      draft.trigger_mode === 'schedule'
+        ? {
+            triggerType: draft.trigger_type,
+            schedule: {
+              type: 'weekly',
+              day_of_week: Number(draft.schedule_day_of_week || 1),
+              time: draft.schedule_time || '01:00',
+            },
+            command: draft.system_command || undefined,
+          }
+        : { triggerType: draft.trigger_type },
   };
   nodes.push(triggerNode);
 
@@ -236,7 +256,7 @@ export const buildSimpleWorkflowFromDraft = (draft: SimpleAutomationDraft): Work
     nextX += 260;
   }
 
-  const actionTypeMap: Record<SimpleAutomationActionType, WorkflowNodeType> = {
+  const actionTypeMap: Record<Exclude<SimpleAutomationActionType, 'system_command'>, WorkflowNodeType> = {
     email: 'action.email',
     sms: 'action.sms',
     internal_notification: 'action.internal_notification',
@@ -270,20 +290,23 @@ export const buildSimpleWorkflowFromDraft = (draft: SimpleAutomationDraft): Work
             priority: draft.priority,
           };
 
-  const actionNode: WorkflowNode = {
-    id: 'action_primary',
-    type: actionTypeMap[draft.action_type],
-    position: { x: nextX, y },
-    config: actionConfig,
-  };
-  nodes.push(actionNode);
-  edges.push({
-    id: `${currentNodeId}_${actionNode.id}`,
-    source: currentNodeId,
-    target: actionNode.id,
-    branchKey: branchSourceId === currentNodeId ? 'true' : undefined,
-  });
-  nextX += 260;
+  let actionNode: WorkflowNode | null = null;
+  if (draft.action_type !== 'system_command') {
+    actionNode = {
+      id: 'action_primary',
+      type: actionTypeMap[draft.action_type],
+      position: { x: nextX, y },
+      config: actionConfig,
+    };
+    nodes.push(actionNode);
+    edges.push({
+      id: `${currentNodeId}_${actionNode.id}`,
+      source: currentNodeId,
+      target: actionNode.id,
+      branchKey: branchSourceId === currentNodeId ? 'true' : undefined,
+    });
+    nextX += 260;
+  }
 
   const endNode: WorkflowNode = {
     id: endNodeId,
@@ -293,11 +316,20 @@ export const buildSimpleWorkflowFromDraft = (draft: SimpleAutomationDraft): Work
   };
   nodes.push(endNode);
 
-  edges.push({
-    id: `${actionNode.id}_${endNode.id}`,
-    source: actionNode.id,
-    target: endNode.id,
-  });
+  if (actionNode) {
+    edges.push({
+      id: `${actionNode.id}_${endNode.id}`,
+      source: actionNode.id,
+      target: endNode.id,
+    });
+  } else {
+    edges.push({
+      id: `${currentNodeId}_${endNode.id}`,
+      source: currentNodeId,
+      target: endNode.id,
+      branchKey: branchSourceId === currentNodeId ? 'true' : undefined,
+    });
+  }
 
   if (branchSourceId) {
     edges.push({
@@ -316,10 +348,14 @@ export const buildSimpleWorkflowFromDraft = (draft: SimpleAutomationDraft): Work
       generated_from_simple_form: true,
       summary: {
         trigger: draft.trigger_type,
+        trigger_mode: draft.trigger_mode,
         action: draft.action_type,
         has_condition: draft.use_condition,
         has_wait: draft.timing_mode === 'offset',
       },
+      ...(draft.action_type === 'system_command' && draft.system_command
+        ? { system_command: draft.system_command }
+        : {}),
     },
   };
 };
@@ -331,6 +367,7 @@ export const extractSimpleAutomationDraft = (automation?: Partial<AutomationRule
           ...defaultSimpleDraft,
           name: automation.name ?? '',
           description: automation.description ?? '',
+          trigger_mode: automation.schedule_json?.type === 'weekly' ? 'schedule' : 'event',
           trigger_type: automation.trigger_type ?? 'SHOOT_BOOKED',
           scope: automation.scope === 'SYSTEM' ? 'GLOBAL' : automation.scope ?? 'GLOBAL',
           is_active: automation.is_active ?? true,
@@ -339,6 +376,9 @@ export const extractSimpleAutomationDraft = (automation?: Partial<AutomationRule
             : automation.recipients_json?.roles ?? ['client'],
           template_id: automation.template_id ? String(automation.template_id) : '',
           channel_id: automation.channel_id ? String(automation.channel_id) : '',
+          schedule_day_of_week: String(automation.schedule_json?.day_of_week ?? 1),
+          schedule_time: automation.schedule_json?.time ?? '01:00',
+          system_command: automation.schedule_json?.command ?? '',
         }
       : null;
   }
@@ -349,13 +389,13 @@ export const extractSimpleAutomationDraft = (automation?: Partial<AutomationRule
   const waitNodes = workflow.nodes.filter((node) => node.type === 'wait.datetime_offset' || node.type === 'wait.duration');
   const actionNodes = workflow.nodes.filter((node) => node.type.startsWith('action.'));
   const endNodes = workflow.nodes.filter((node) => node.type === 'end');
-  const supportedTypes = new Set(['trigger.event', 'condition.if', 'wait.datetime_offset', 'wait.duration', 'action.email', 'action.sms', 'action.internal_notification', 'end']);
+  const supportedTypes = new Set(['trigger.event', 'trigger.schedule', 'condition.if', 'wait.datetime_offset', 'wait.duration', 'action.email', 'action.sms', 'action.internal_notification', 'end']);
 
   if (
     triggerNodes.length !== 1 ||
     conditionNodes.length > 1 ||
     waitNodes.length > 1 ||
-    actionNodes.length !== 1 ||
+    actionNodes.length > 1 ||
     endNodes.length !== 1 ||
     workflow.nodes.some((node) => !supportedTypes.has(node.type))
   ) {
@@ -363,13 +403,15 @@ export const extractSimpleAutomationDraft = (automation?: Partial<AutomationRule
   }
 
   const triggerNode = triggerNodes[0];
-  if (triggerNode.type !== 'trigger.event') {
+  if (triggerNode.type !== 'trigger.event' && triggerNode.type !== 'trigger.schedule') {
     return null;
   }
 
   const actionNode = actionNodes[0];
   const actionType =
-    actionNode.type === 'action.sms'
+    !actionNode
+      ? 'system_command'
+      : actionNode.type === 'action.sms'
       ? 'sms'
       : actionNode.type === 'action.internal_notification'
         ? 'internal_notification'
@@ -386,8 +428,8 @@ export const extractSimpleAutomationDraft = (automation?: Partial<AutomationRule
     }
   }
 
-  const recipientMode = (actionNode.config?.recipientMode as SimpleRecipientMode | undefined) ?? 'automation_default';
-  const recipientRoles = Array.isArray(actionNode.config?.recipientRoles)
+  const recipientMode = (actionNode?.config?.recipientMode as SimpleRecipientMode | undefined) ?? 'automation_default';
+  const recipientRoles = Array.isArray(actionNode?.config?.recipientRoles)
     ? actionNode.config.recipientRoles.map(String)
     : Array.isArray(automation.recipients_json)
       ? automation.recipients_json
@@ -397,20 +439,21 @@ export const extractSimpleAutomationDraft = (automation?: Partial<AutomationRule
     ...defaultSimpleDraft,
     name: automation.name ?? '',
     description: automation.description ?? '',
+    trigger_mode: triggerNode.type === 'trigger.schedule' ? 'schedule' : 'event',
     trigger_type: (triggerNode.config?.triggerType || automation.trigger_type || 'SHOOT_BOOKED') as AutomationTriggerType,
     action_type: actionType,
     scope: automation.scope === 'SYSTEM' ? 'GLOBAL' : automation.scope ?? 'GLOBAL',
     is_active: automation.is_active ?? true,
     recipient_mode: recipientMode,
     recipient_roles: recipientRoles,
-    context_key: (actionNode.config?.contextKey || 'client') as 'client' | 'photographer' | 'rep',
-    template_id: actionNode.config?.templateId ? String(actionNode.config.templateId) : automation.template_id ? String(automation.template_id) : '',
-    channel_id: actionNode.config?.channelId ? String(actionNode.config.channelId) : automation.channel_id ? String(automation.channel_id) : '',
-    subject: actionNode.config?.subject ?? '',
-    body_text: actionNode.config?.bodyText ?? actionNode.config?.body ?? '',
-    title: actionNode.config?.title ?? '',
-    destination_url: actionNode.config?.destinationUrl ?? '/shoot-history',
-    priority: (actionNode.config?.priority as 'normal' | 'high' | 'urgent') ?? 'normal',
+    context_key: (actionNode?.config?.contextKey || 'client') as 'client' | 'photographer' | 'rep',
+    template_id: actionNode?.config?.templateId ? String(actionNode.config.templateId) : automation.template_id ? String(automation.template_id) : '',
+    channel_id: actionNode?.config?.channelId ? String(actionNode.config.channelId) : automation.channel_id ? String(automation.channel_id) : '',
+    subject: actionNode?.config?.subject ?? '',
+    body_text: actionNode?.config?.bodyText ?? actionNode?.config?.body ?? '',
+    title: actionNode?.config?.title ?? '',
+    destination_url: actionNode?.config?.destinationUrl ?? '/shoot-history',
+    priority: (actionNode?.config?.priority as 'normal' | 'high' | 'urgent') ?? 'normal',
     timing_mode: 'immediate',
     offset_direction: 'before',
     offset_value: '24',
@@ -420,6 +463,9 @@ export const extractSimpleAutomationDraft = (automation?: Partial<AutomationRule
     condition_field: conditionRule?.field ?? '',
     condition_operator: conditionRule?.operator ?? 'eq',
     condition_value: conditionRule?.value != null ? String(conditionRule.value) : '',
+    schedule_day_of_week: String(triggerNode.config?.schedule?.day_of_week ?? automation.schedule_json?.day_of_week ?? 1),
+    schedule_time: triggerNode.config?.schedule?.time ?? automation.schedule_json?.time ?? '01:00',
+    system_command: triggerNode.config?.command ?? workflow.meta?.system_command ?? automation.schedule_json?.command ?? '',
   };
 
   if (waitNode) {

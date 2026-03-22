@@ -6,6 +6,7 @@ import {
   ArrowRight,
   CheckCircle,
   CopyPlus,
+  Pencil,
   MoreVertical,
   Play,
   Plus,
@@ -117,6 +118,7 @@ const getValidationMessage = (automation: AutomationRule) => {
 function AutomationCard({
   automation,
   onOpen,
+  onEdit,
   onDuplicate,
   onDelete,
   onToggle,
@@ -125,6 +127,7 @@ function AutomationCard({
 }: {
   automation: AutomationRule;
   onOpen: (automation: AutomationRule) => void;
+  onEdit: (automation: AutomationRule) => void;
   onDuplicate: (automation: AutomationRule) => void;
   onDelete: (automation: AutomationRule) => void;
   onToggle: (automation: AutomationRule) => void;
@@ -219,6 +222,11 @@ function AutomationCard({
               Open Workflow
             </Button>
 
+            <Button variant="outline" size="sm" onClick={() => onEdit(automation)}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Edit in Form
+            </Button>
+
             <Button variant="outline" size="sm" onClick={() => onDuplicate(automation)}>
               <CopyPlus className="mr-2 h-4 w-4" />
               Duplicate
@@ -247,6 +255,10 @@ function AutomationCard({
                   <Workflow className="mr-2 h-4 w-4" />
                   Open Workflow
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onEdit(automation)}>
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Edit in Form
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onDuplicate(automation)}>
                   <CopyPlus className="mr-2 h-4 w-4" />
                   Duplicate
@@ -271,6 +283,7 @@ export default function Automations() {
   const queryClient = useQueryClient();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [draftAutomation, setDraftAutomation] = useState<AutomationRule | null>(null);
+  const [dialogMode, setDialogMode] = useState<'create' | 'duplicate' | 'edit'>('create');
 
   const { data: automations = [], isLoading } = useQuery({
     queryKey: ['automations'],
@@ -320,7 +333,8 @@ export default function Automations() {
     [automations],
   );
 
-  const openCreateDialog = (automation: AutomationRule | null = null) => {
+  const openCreateDialog = (mode: 'create' | 'duplicate' | 'edit', automation: AutomationRule | null = null) => {
+    setDialogMode(mode);
     setDraftAutomation(automation);
     setIsCreateDialogOpen(true);
   };
@@ -344,8 +358,9 @@ export default function Automations() {
   };
 
   const handleDuplicate = (automation: AutomationRule) => {
-    if (extractSimpleAutomationDraft(automation)) {
-      openCreateDialog(automation);
+    const simpleDraft = extractSimpleAutomationDraft(automation);
+    if (simpleDraft && simpleDraft.action_type !== 'system_command') {
+      openCreateDialog('duplicate', automation);
       return;
     }
 
@@ -358,6 +373,10 @@ export default function Automations() {
         },
       },
     });
+  };
+
+  const handleEdit = (automation: AutomationRule) => {
+    openCreateDialog('edit', automation);
   };
 
   return (
@@ -386,7 +405,7 @@ export default function Automations() {
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
-              <Button variant="secondary" onClick={() => openCreateDialog(null)}>
+              <Button variant="secondary" onClick={() => openCreateDialog('create', null)}>
                 <Plus className="mr-2 h-4 w-4" />
                 New Automation
               </Button>
@@ -443,6 +462,7 @@ export default function Automations() {
                   key={automation.id}
                   automation={automation}
                   onOpen={(item) => navigate(`/messaging/email/automations/${item.id}`)}
+                  onEdit={handleEdit}
                   onDuplicate={handleDuplicate}
                   onDelete={handleDelete}
                   onToggle={(item) => toggleMutation.mutate(item.id)}
@@ -460,7 +480,7 @@ export default function Automations() {
               <h2 className="text-xl font-semibold">Custom Automations</h2>
               <p className="text-sm text-muted-foreground">Use the quick builder for the common case, then open the visual workflow when you want more control.</p>
             </div>
-            <Button variant="outline" onClick={() => openCreateDialog(null)}>
+            <Button variant="outline" onClick={() => openCreateDialog('create', null)}>
               <Plus className="mr-2 h-4 w-4" />
               Create with Form
             </Button>
@@ -469,7 +489,7 @@ export default function Automations() {
           {customAutomations.length === 0 ? (
             <Card className="p-12 text-center">
               <p className="text-muted-foreground">No custom automations yet.</p>
-              <Button onClick={() => openCreateDialog(null)} className="mt-4">
+              <Button onClick={() => openCreateDialog('create', null)} className="mt-4">
                 Create your first automation
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
@@ -481,6 +501,7 @@ export default function Automations() {
                   key={automation.id}
                   automation={automation}
                   onOpen={(item) => navigate(`/messaging/email/automations/${item.id}`)}
+                  onEdit={handleEdit}
                   onDuplicate={handleDuplicate}
                   onDelete={handleDelete}
                   onToggle={(item) => toggleMutation.mutate(item.id)}
@@ -495,6 +516,7 @@ export default function Automations() {
 
       <AutomationEditorDialog
         automation={draftAutomation}
+        mode={dialogMode}
         open={isCreateDialogOpen}
         onClose={() => {
           setIsCreateDialogOpen(false);
