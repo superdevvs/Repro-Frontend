@@ -25,6 +25,8 @@ type ServiceGroupFormState = {
   client_ids: string[];
 };
 
+type MobileStep = 'details' | 'services' | 'clients';
+
 const emptyFormState: ServiceGroupFormState = {
   name: '',
   description: '',
@@ -47,6 +49,7 @@ export function ServiceGroupsTab() {
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [editingGroup, setEditingGroup] = React.useState<ServiceGroupDetail | null>(null);
   const [formState, setFormState] = React.useState<ServiceGroupFormState>(emptyFormState);
+  const [mobileStep, setMobileStep] = React.useState<MobileStep>('details');
   const [saving, setSaving] = React.useState(false);
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
 
@@ -123,6 +126,7 @@ export function ServiceGroupsTab() {
   const resetForm = React.useCallback(() => {
     setEditingGroup(null);
     setFormState(emptyFormState);
+    setMobileStep('details');
   }, []);
 
   const openCreateDialog = () => {
@@ -249,6 +253,156 @@ export function ServiceGroupsTab() {
   const assignedClientsCount = groups.reduce((count, group) => count + group.client_count, 0);
   const selectedServiceCount = formState.service_ids.length;
   const selectedClientCount = formState.client_ids.length;
+  const mobileSteps: Array<{ id: MobileStep; label: string; count?: number | string }> = [
+    { id: 'details', label: 'Details', count: formState.is_active ? 'Live' : 'Paused' },
+    { id: 'services', label: 'Services', count: selectedServiceCount },
+    { id: 'clients', label: 'Clients', count: selectedClientCount },
+  ];
+
+  const renderDetailsSection = (className = '') => (
+    <section className={`rounded-2xl border bg-muted/10 p-4 sm:p-5 xl:min-h-0 ${className}`.trim()}>
+      <div className="space-y-5">
+        <div className="space-y-2">
+          <Label htmlFor="service-group-name">Group Name</Label>
+          <Input
+            id="service-group-name"
+            value={formState.name}
+            onChange={(event) => setFormState((prev) => ({ ...prev, name: event.target.value }))}
+            placeholder="e.g. Enterprise Clients"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="service-group-description">Description</Label>
+          <Textarea
+            id="service-group-description"
+            value={formState.description}
+            onChange={(event) => setFormState((prev) => ({ ...prev, description: event.target.value }))}
+            placeholder="Who this group is for, how it should be used, and what makes it different."
+            rows={7}
+          />
+        </div>
+
+        <div className="rounded-xl border bg-background/80 p-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1">
+              <Label htmlFor="service-group-active">Active Group</Label>
+              <p className="text-sm text-muted-foreground">
+                Toggle this group on or off without losing service or client assignments.
+              </p>
+            </div>
+            <Switch
+              id="service-group-active"
+              checked={formState.is_active}
+              onCheckedChange={(checked) => setFormState((prev) => ({ ...prev, is_active: checked }))}
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3">
+          <div className="rounded-xl border bg-background/80 px-3 py-3">
+            <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Services</p>
+            <p className="mt-1 text-lg font-semibold">{selectedServiceCount}</p>
+          </div>
+          <div className="rounded-xl border bg-background/80 px-3 py-3">
+            <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Clients</p>
+            <p className="mt-1 text-lg font-semibold">{selectedClientCount}</p>
+          </div>
+          <div className="rounded-xl border bg-background/80 px-3 py-3">
+            <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Status</p>
+            <p className="mt-1 text-lg font-semibold">{formState.is_active ? 'Live' : 'Paused'}</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+
+  const renderServicesSection = (className = '') => (
+    <section className={`flex min-h-[320px] flex-col rounded-2xl border p-4 sm:min-h-[360px] sm:p-5 xl:min-h-0 ${className}`.trim()}>
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <Wrench className="h-4 w-4 text-primary" />
+            <h3 className="font-semibold">Allowed Services</h3>
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Pick the services that should appear for clients in this group.
+          </p>
+        </div>
+        <Badge variant="secondary">{selectedServiceCount}</Badge>
+      </div>
+      {servicesError ? (
+        <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="mt-0.5 h-4 w-4 text-destructive" />
+            <div className="space-y-3">
+              <div>
+                <p className="text-sm font-medium">Services could not be loaded</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  The scheduling catalog request is failing right now, so this group cannot show available services yet.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => refetchServices()}
+                disabled={servicesFetching}
+                className="gap-2"
+              >
+                {servicesFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
+                Retry Services
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="min-h-0 flex-1 xl:min-h-0">
+          <MultiSelectChecklist
+            options={serviceOptions}
+            value={formState.service_ids}
+            onChange={(value) => setFormState((prev) => ({ ...prev, service_ids: value }))}
+            placeholder="Select the services this group should allow."
+            emptyMessage="No services available yet."
+            searchPlaceholder="Search services..."
+            maxHeightClassName="h-full max-h-none"
+            summaryLimit={8}
+            className="flex h-full flex-col"
+          />
+        </div>
+      )}
+    </section>
+  );
+
+  const renderClientsSection = (className = '') => (
+    <section className={`flex min-h-[320px] flex-col rounded-2xl border p-4 sm:min-h-[360px] sm:p-5 xl:min-h-0 ${className}`.trim()}>
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <Users2 className="h-4 w-4 text-primary" />
+            <h3 className="font-semibold">Assigned Clients</h3>
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Add or remove clients who should be restricted to this catalog.
+          </p>
+        </div>
+        <Badge variant="secondary">{selectedClientCount}</Badge>
+      </div>
+      <div className="min-h-0 flex-1 xl:min-h-0">
+        <MultiSelectChecklist
+          options={clientOptions}
+          value={formState.client_ids}
+          onChange={(value) => setFormState((prev) => ({ ...prev, client_ids: value }))}
+          placeholder="Select the clients that belong to this group."
+          emptyMessage="No clients available yet."
+          searchPlaceholder="Search clients..."
+          maxHeightClassName="h-full max-h-none"
+          summaryLimit={8}
+          className="flex h-full flex-col"
+        />
+      </div>
+    </section>
+  );
 
   return (
     <div className="space-y-4">
@@ -402,145 +556,34 @@ export function ServiceGroupsTab() {
           </DialogHeader>
 
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-6 xl:overflow-hidden">
-            <div className="grid min-h-full grid-cols-1 gap-4 md:gap-6 xl:h-full xl:min-h-0 xl:grid-cols-[320px_minmax(0,1fr)_minmax(0,1fr)]">
-              <section className="rounded-2xl border bg-muted/10 p-4 sm:p-5 xl:min-h-0">
-                <div className="space-y-5">
-                  <div className="space-y-2">
-                    <Label htmlFor="service-group-name">Group Name</Label>
-                    <Input
-                      id="service-group-name"
-                      value={formState.name}
-                      onChange={(event) => setFormState((prev) => ({ ...prev, name: event.target.value }))}
-                      placeholder="e.g. Enterprise Clients"
-                    />
-                  </div>
+            <div className="space-y-4 xl:hidden">
+              <div className="grid grid-cols-3 gap-2">
+                {mobileSteps.map((step) => (
+                  <button
+                    key={step.id}
+                    type="button"
+                    onClick={() => setMobileStep(step.id)}
+                    className={`rounded-xl border px-3 py-3 text-left transition-colors ${
+                      mobileStep === step.id
+                        ? 'border-primary bg-primary/10 text-foreground'
+                        : 'border-border bg-background text-muted-foreground'
+                    }`}
+                  >
+                    <p className="text-[11px] font-medium uppercase tracking-[0.18em]">{step.label}</p>
+                    <p className="mt-1 text-base font-semibold text-foreground">{step.count}</p>
+                  </button>
+                ))}
+              </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="service-group-description">Description</Label>
-                    <Textarea
-                      id="service-group-description"
-                      value={formState.description}
-                      onChange={(event) => setFormState((prev) => ({ ...prev, description: event.target.value }))}
-                      placeholder="Who this group is for, how it should be used, and what makes it different."
-                      rows={7}
-                    />
-                  </div>
+              {mobileStep === 'details' ? renderDetailsSection() : null}
+              {mobileStep === 'services' ? renderServicesSection() : null}
+              {mobileStep === 'clients' ? renderClientsSection() : null}
+            </div>
 
-                  <div className="rounded-xl border bg-background/80 p-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="space-y-1">
-                        <Label htmlFor="service-group-active">Active Group</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Toggle this group on or off without losing service or client assignments.
-                        </p>
-                      </div>
-                      <Switch
-                        id="service-group-active"
-                        checked={formState.is_active}
-                        onCheckedChange={(checked) => setFormState((prev) => ({ ...prev, is_active: checked }))}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="rounded-xl border bg-background/80 px-3 py-3">
-                      <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Services</p>
-                      <p className="mt-1 text-lg font-semibold">{selectedServiceCount}</p>
-                    </div>
-                    <div className="rounded-xl border bg-background/80 px-3 py-3">
-                      <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Clients</p>
-                      <p className="mt-1 text-lg font-semibold">{selectedClientCount}</p>
-                    </div>
-                    <div className="rounded-xl border bg-background/80 px-3 py-3">
-                      <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Status</p>
-                      <p className="mt-1 text-lg font-semibold">{formState.is_active ? 'Live' : 'Paused'}</p>
-                    </div>
-                  </div>
-                </div>
-              </section>
-
-              <section className="flex min-h-[320px] flex-col rounded-2xl border p-4 sm:min-h-[360px] sm:p-5 xl:min-h-0">
-                <div className="mb-4 flex items-start justify-between gap-3">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <Wrench className="h-4 w-4 text-primary" />
-                      <h3 className="font-semibold">Allowed Services</h3>
-                    </div>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Pick the services that should appear for clients in this group.
-                    </p>
-                  </div>
-                  <Badge variant="secondary">{selectedServiceCount}</Badge>
-                </div>
-                {servicesError ? (
-                  <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-4">
-                    <div className="flex items-start gap-3">
-                      <AlertCircle className="mt-0.5 h-4 w-4 text-destructive" />
-                      <div className="space-y-3">
-                        <div>
-                          <p className="text-sm font-medium">Services could not be loaded</p>
-                          <p className="mt-1 text-sm text-muted-foreground">
-                            The scheduling catalog request is failing right now, so this group cannot show available services yet.
-                          </p>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => refetchServices()}
-                          disabled={servicesFetching}
-                          className="gap-2"
-                        >
-                          {servicesFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
-                          Retry Services
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="min-h-0 flex-1 xl:min-h-0">
-                    <MultiSelectChecklist
-                      options={serviceOptions}
-                      value={formState.service_ids}
-                      onChange={(value) => setFormState((prev) => ({ ...prev, service_ids: value }))}
-                      placeholder="Select the services this group should allow."
-                      emptyMessage="No services available yet."
-                      searchPlaceholder="Search services..."
-                      maxHeightClassName="h-full max-h-none"
-                      summaryLimit={8}
-                      className="flex h-full flex-col"
-                    />
-                  </div>
-                )}
-              </section>
-
-              <section className="flex min-h-[320px] flex-col rounded-2xl border p-4 sm:min-h-[360px] sm:p-5 xl:min-h-0">
-                <div className="mb-4 flex items-start justify-between gap-3">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <Users2 className="h-4 w-4 text-primary" />
-                      <h3 className="font-semibold">Assigned Clients</h3>
-                    </div>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Add or remove clients who should be restricted to this catalog.
-                    </p>
-                  </div>
-                  <Badge variant="secondary">{selectedClientCount}</Badge>
-                </div>
-                <div className="min-h-0 flex-1 xl:min-h-0">
-                  <MultiSelectChecklist
-                    options={clientOptions}
-                    value={formState.client_ids}
-                    onChange={(value) => setFormState((prev) => ({ ...prev, client_ids: value }))}
-                    placeholder="Select the clients that belong to this group."
-                    emptyMessage="No clients available yet."
-                    searchPlaceholder="Search clients..."
-                    maxHeightClassName="h-full max-h-none"
-                    summaryLimit={8}
-                    className="flex h-full flex-col"
-                  />
-                </div>
-              </section>
+            <div className="hidden h-full min-h-0 xl:grid xl:grid-cols-[320px_minmax(0,1fr)_minmax(0,1fr)] xl:gap-6">
+              {renderDetailsSection()}
+              {renderServicesSection()}
+              {renderClientsSection()}
             </div>
           </div>
 
