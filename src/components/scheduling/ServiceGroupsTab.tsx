@@ -391,7 +391,7 @@ export function ServiceGroupsTab() {
           if (!open && !saving) resetForm();
         }}
       >
-        <DialogContent className="flex h-[94vh] w-[min(96vw,1440px)] max-w-[1440px] flex-col overflow-hidden p-0 sm:h-[92vh]">
+        <DialogContent className="flex h-[96vh] w-[min(96vw,1440px)] max-w-[1440px] flex-col overflow-hidden p-0 sm:h-[94vh] xl:h-[92vh]">
           <DialogHeader className="border-b px-6 py-5 text-left">
             <div className="space-y-2 pr-10">
               <DialogTitle>{editingGroup ? 'Edit Service Group' : 'Create Service Group'}</DialogTitle>
@@ -401,9 +401,9 @@ export function ServiceGroupsTab() {
             </div>
           </DialogHeader>
 
-          <div className="min-h-0 flex-1 px-4 py-4 sm:px-6 sm:py-6">
-            <div className="grid h-full min-h-0 grid-rows-[auto_minmax(260px,1fr)_minmax(260px,1fr)] gap-4 md:gap-6 xl:grid-cols-[320px_minmax(0,1fr)_minmax(0,1fr)] xl:grid-rows-1">
-              <section className="rounded-2xl border bg-muted/10 p-4 sm:p-5">
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-6 xl:overflow-hidden">
+            <div className="grid min-h-full grid-cols-1 gap-4 md:gap-6 xl:h-full xl:min-h-0 xl:grid-cols-[320px_minmax(0,1fr)_minmax(0,1fr)]">
+              <section className="rounded-2xl border bg-muted/10 p-4 sm:p-5 xl:min-h-0">
                 <div className="space-y-5">
                   <div className="space-y-2">
                     <Label htmlFor="service-group-name">Group Name</Label>
@@ -459,7 +459,7 @@ export function ServiceGroupsTab() {
                 </div>
               </section>
 
-              <section className="flex min-h-0 flex-col rounded-2xl border p-4 sm:p-5">
+              <section className="flex min-h-[320px] flex-col rounded-2xl border p-4 sm:min-h-[360px] sm:p-5 xl:min-h-0">
                 <div className="mb-4 flex items-start justify-between gap-3">
                   <div>
                     <div className="flex items-center gap-2">
@@ -498,7 +498,7 @@ export function ServiceGroupsTab() {
                     </div>
                   </div>
                 ) : (
-                  <div className="min-h-0 flex-1">
+                  <div className="min-h-0 flex-1 xl:min-h-0">
                     <MultiSelectChecklist
                       options={serviceOptions}
                       value={formState.service_ids}
@@ -514,7 +514,7 @@ export function ServiceGroupsTab() {
                 )}
               </section>
 
-              <section className="flex min-h-0 flex-col rounded-2xl border p-4 sm:p-5">
+              <section className="flex min-h-[320px] flex-col rounded-2xl border p-4 sm:min-h-[360px] sm:p-5 xl:min-h-0">
                 <div className="mb-4 flex items-start justify-between gap-3">
                   <div>
                     <div className="flex items-center gap-2">
@@ -527,7 +527,7 @@ export function ServiceGroupsTab() {
                   </div>
                   <Badge variant="secondary">{selectedClientCount}</Badge>
                 </div>
-                <div className="min-h-0 flex-1">
+                <div className="min-h-0 flex-1 xl:min-h-0">
                   <MultiSelectChecklist
                     options={clientOptions}
                     value={formState.client_ids}
