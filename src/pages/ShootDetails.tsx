@@ -51,6 +51,7 @@ import { format } from 'date-fns';
 import { API_BASE_URL } from '@/config/env';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import { registerShootDetailRefresh } from '@/realtime/realtimeRefreshBus';
+import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary';
 
 // Import tab components
 import { ShootDetailsMediaTab } from '@/components/shoots/tabs/ShootDetailsMediaTab';
@@ -266,65 +267,29 @@ const ShootDetails: React.FC = () => {
           shootData.scheduledDate = shootData.scheduled_date;
         }
         
-        // Normalize payment data
-        const toNumber = (value: any): number => {
-          if (value === null || value === undefined) return 0;
-          const num = typeof value === 'string' ? parseFloat(value) : Number(value);
-          return isNaN(num) ? 0 : num;
-        };
-
-        const completedPaymentsTotal = Array.isArray(shootData.payments)
-          ? shootData.payments.reduce((sum: number, payment: any) => {
-              const status = String(payment?.status ?? '').toLowerCase();
-              if (status && status !== 'completed') {
-                return sum;
-              }
-
-              return sum + toNumber(payment?.amount);
-            }, 0)
-          : 0;
+        const paymentSummary = normalizeShootPaymentSummary(shootData);
         
         if (!shootData.payment) {
           shootData.payment = {
-            baseQuote: toNumber(shootData.base_quote),
-            taxRate: toNumber(shootData.tax_rate),
-            taxAmount: toNumber(shootData.tax_amount),
-            totalQuote: toNumber(shootData.total_quote),
-            totalPaid: completedPaymentsTotal || toNumber(shootData.total_paid),
-            lastPaymentDate: shootData.last_payment_date || undefined,
-            lastPaymentType: shootData.last_payment_type || undefined,
+            baseQuote: paymentSummary.baseQuote,
+            taxRate: paymentSummary.taxRate,
+            taxAmount: paymentSummary.taxAmount,
+            totalQuote: paymentSummary.totalQuote,
+            totalPaid: paymentSummary.totalPaid,
+            lastPaymentDate: paymentSummary.lastPaymentDate,
+            lastPaymentType: paymentSummary.lastPaymentType,
           };
         } else {
-          // Normalize payment fields if payment object exists but has wrong field names
-          if (shootData.payment.base_quote !== undefined && shootData.payment.baseQuote === undefined) {
-            shootData.payment.baseQuote = toNumber(shootData.payment.base_quote);
-          } else if (shootData.payment.baseQuote !== undefined) {
-            shootData.payment.baseQuote = toNumber(shootData.payment.baseQuote);
-          }
-          
-          if (shootData.payment.tax_amount !== undefined && shootData.payment.taxAmount === undefined) {
-            shootData.payment.taxAmount = toNumber(shootData.payment.tax_amount);
-          } else if (shootData.payment.taxAmount !== undefined) {
-            shootData.payment.taxAmount = toNumber(shootData.payment.taxAmount);
-          }
-          
-          if (shootData.payment.total_quote !== undefined && shootData.payment.totalQuote === undefined) {
-            shootData.payment.totalQuote = toNumber(shootData.payment.total_quote);
-          } else if (shootData.payment.totalQuote !== undefined) {
-            shootData.payment.totalQuote = toNumber(shootData.payment.totalQuote);
-          }
-          
-          if (shootData.payment.total_paid !== undefined && shootData.payment.totalPaid === undefined) {
-            shootData.payment.totalPaid = toNumber(shootData.payment.total_paid);
-          } else if (shootData.payment.totalPaid !== undefined) {
-            shootData.payment.totalPaid = toNumber(shootData.payment.totalPaid);
-          }
-          
-          // Ensure all payment fields are numbers
-          shootData.payment.baseQuote = toNumber(shootData.payment.baseQuote);
-          shootData.payment.taxAmount = toNumber(shootData.payment.taxAmount);
-          shootData.payment.totalQuote = toNumber(shootData.payment.totalQuote);
-          shootData.payment.totalPaid = completedPaymentsTotal || toNumber(shootData.payment.totalPaid) || toNumber(shootData.total_paid);
+          shootData.payment = {
+            ...shootData.payment,
+            baseQuote: paymentSummary.baseQuote,
+            taxRate: paymentSummary.taxRate,
+            taxAmount: paymentSummary.taxAmount,
+            totalQuote: paymentSummary.totalQuote,
+            totalPaid: paymentSummary.totalPaid,
+            lastPaymentDate: paymentSummary.lastPaymentDate ?? shootData.payment.lastPaymentDate,
+            lastPaymentType: paymentSummary.lastPaymentType ?? shootData.payment.lastPaymentType,
+          };
         }
       }
       

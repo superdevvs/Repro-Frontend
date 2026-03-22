@@ -123,6 +123,7 @@ import {
 import { apiClient } from '@/services/api'
 import API_ROUTES from '@/lib/api'
 import { registerShootHistoryRefresh } from '@/realtime/realtimeRefreshBus'
+import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary'
 
 const resolvePreviewUrl = (value: string | null | undefined): string | null => {
   if (!value) return null
@@ -684,6 +685,20 @@ const mapShootApiToShootData = (item: Record<string, unknown>): ShootData => {
     lastPaymentDate?: string
     lastPaymentType?: string
   }>(item.payment)
+  const paymentSummary = normalizeShootPaymentSummary({
+    payments: item.payments,
+    base_quote: item.base_quote,
+    tax_rate: paymentDetails?.taxRate,
+    tax_percent: item.tax_percent,
+    taxPercent: item.taxPercent,
+    tax_amount: item.tax_amount,
+    total_quote: item.total_quote,
+    total_paid: item.total_paid,
+    payment: paymentDetails,
+    last_payment_date: item.last_payment_date,
+    last_payment_type: item.last_payment_type,
+    payment_type: item.payment_type,
+  })
   const dropboxPaths =
     toObjectValue<Record<string, unknown>>(item.dropbox_paths) ??
     toObjectValue<Record<string, unknown>>(item.dropboxPaths)
@@ -752,27 +767,13 @@ const mapShootApiToShootData = (item: Record<string, unknown>): ShootData => {
       return wfStatus === 'hold_on' ? 'on_hold' : wfStatus;
     })(),
     payment: {
-      baseQuote: toNumberValue(item.base_quote),
-      taxRate: paymentDetails?.taxRate ?? 0,
-      taxAmount: toNumberValue(item.tax_amount),
-      totalQuote: toNumberValue(item.total_quote),
-      totalPaid: (() => {
-        const completedPaymentsTotal = Array.isArray(item.payments)
-          ? item.payments.reduce((sum, payment) => {
-              const paymentRecord = payment as Record<string, unknown>;
-              const status = toStringValue(paymentRecord.status);
-              if (status && status.toLowerCase() !== 'completed') {
-                return sum;
-              }
-
-              return sum + toNumberValue(paymentRecord.amount);
-            }, 0)
-          : 0;
-
-        return completedPaymentsTotal || paymentDetails?.totalPaid || toNumberValue(item.total_paid);
-      })(),
-      lastPaymentDate: paymentDetails?.lastPaymentDate,
-      lastPaymentType: paymentDetails?.lastPaymentType ?? toStringValue(item.payment_type),
+      baseQuote: paymentSummary.baseQuote,
+      taxRate: paymentSummary.taxRate,
+      taxAmount: paymentSummary.taxAmount,
+      totalQuote: paymentSummary.totalQuote,
+      totalPaid: paymentSummary.totalPaid,
+      lastPaymentDate: paymentSummary.lastPaymentDate,
+      lastPaymentType: paymentSummary.lastPaymentType,
     },
     isPrivateListing: toBooleanValue(item.is_private_listing ?? item.isPrivateListing),
     notes: resolvedNotes,

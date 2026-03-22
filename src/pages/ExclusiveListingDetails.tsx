@@ -21,6 +21,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary';
 
 const resolvePreviewUrl = (value: string | null | undefined): string | null => {
   if (!value) return null;
@@ -134,33 +135,28 @@ export default function ExclusiveListingDetails() {
           };
         }
 
-        // Normalize payment fields when absent
-        const toNumber = (value: any): number => {
-          if (value === null || value === undefined) return 0;
-          const num = typeof value === 'string' ? parseFloat(value) : Number(value);
-          return isNaN(num) ? 0 : num;
-        };
-
-        const completedPaymentsTotal = Array.isArray(shootData.payments)
-          ? shootData.payments.reduce((sum: number, payment: any) => {
-              const status = String(payment?.status ?? '').toLowerCase();
-              if (status && status !== 'completed') {
-                return sum;
-              }
-
-              return sum + toNumber(payment?.amount);
-            }, 0)
-          : 0;
+        const paymentSummary = normalizeShootPaymentSummary(shootData);
 
         if (!shootData.payment) {
           shootData.payment = {
-            baseQuote: toNumber(shootData.base_quote),
-            taxRate: toNumber(shootData.tax_rate),
-            taxAmount: toNumber(shootData.tax_amount),
-            totalQuote: toNumber(shootData.total_quote),
-            totalPaid: completedPaymentsTotal || toNumber(shootData.total_paid),
-            lastPaymentDate: shootData.last_payment_date || undefined,
-            lastPaymentType: shootData.last_payment_type || undefined,
+            baseQuote: paymentSummary.baseQuote,
+            taxRate: paymentSummary.taxRate,
+            taxAmount: paymentSummary.taxAmount,
+            totalQuote: paymentSummary.totalQuote,
+            totalPaid: paymentSummary.totalPaid,
+            lastPaymentDate: paymentSummary.lastPaymentDate,
+            lastPaymentType: paymentSummary.lastPaymentType,
+          };
+        } else {
+          shootData.payment = {
+            ...shootData.payment,
+            baseQuote: paymentSummary.baseQuote,
+            taxRate: paymentSummary.taxRate,
+            taxAmount: paymentSummary.taxAmount,
+            totalQuote: paymentSummary.totalQuote,
+            totalPaid: paymentSummary.totalPaid,
+            lastPaymentDate: paymentSummary.lastPaymentDate ?? shootData.payment.lastPaymentDate,
+            lastPaymentType: paymentSummary.lastPaymentType ?? shootData.payment.lastPaymentType,
           };
         }
 
