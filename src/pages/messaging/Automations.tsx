@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { Plus, MoreVertical, Edit, Trash2, Play, Zap, CheckCircle, XCircle } from 'lucide-react';
-import { getAutomations, deleteAutomation, toggleAutomation } from '@/services/messaging';
+import { getAutomations, deleteAutomation, toggleAutomation, runAutomation } from '@/services/messaging';
 import { AutomationEditorDialog } from '@/components/messaging/automations/AutomationEditorDialog';
 import type { AutomationRule } from '@/types/messaging';
 import {
@@ -50,6 +50,54 @@ const triggerLabels: Record<string, string> = {
   PROPERTY_CONTACT_REMINDER: 'Property Contact Reminder',
 };
 
+const weekdayLabels = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+const formatSchedule = (automation: AutomationRule) => {
+  const schedule = automation.schedule_json;
+  if (!schedule) return 'Event-driven';
+  if (schedule.type === 'weekly') {
+    const dayIndex = typeof schedule.day_of_week === 'number'
+      ? Math.max(0, Math.min(6, schedule.day_of_week))
+      : 0;
+    return `Every ${weekdayLabels[dayIndex]} at ${schedule.time || '00:00'}`;
+  }
+  if (schedule.offset) return `Offset ${schedule.offset}`;
+  if (schedule.cron) return schedule.cron;
+  return 'Custom';
+};
+
+const formatRecipients = (automation: AutomationRule) => {
+  if (Array.isArray(automation.recipients_json)) {
+    return automation.recipients_json.join(', ');
+  }
+
+  if (automation.recipients_json?.roles?.length) {
+    return automation.recipients_json.roles.join(', ');
+  }
+
+  return 'Not configured';
+};
+
+const formatDateTime = (value?: string | null) => {
+  if (!value) return 'Not run yet';
+  return new Date(value).toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+};
+
+const dispatchTone = (status?: string) => {
+  if (status === 'completed') return 'bg-green-100 text-green-800';
+  if (status === 'failed') return 'bg-red-100 text-red-800';
+  if (status === 'running') return 'bg-blue-100 text-blue-800';
+  return 'bg-slate-100 text-slate-700';
+};
+
+const getLatestDispatch = (automation: AutomationRule) => automation.latest_dispatch;
+
 export default function Automations() {
   const queryClient = useQueryClient();
   const [editingAutomation, setEditingAutomation] = useState<AutomationRule | null>(null);
@@ -85,6 +133,17 @@ export default function Automations() {
     },
   });
 
+  const runMutation = useMutation({
+    mutationFn: runAutomation,
+    onSuccess: ({ automation }) => {
+      toast.success(`${automation.name} executed`);
+      queryClient.invalidateQueries({ queryKey: ['automations'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error || error.message || 'Failed to run automation');
+    },
+  });
+
   const handleDelete = (automation: AutomationRule) => {
     if (automation.scope === 'SYSTEM') {
       toast.error('Cannot delete system automation');
@@ -110,6 +169,9 @@ export default function Automations() {
               <h1 className="text-3xl font-bold">Automation Rules</h1>
               <p className="text-muted-foreground">
                 Automate emails based on shoot, payment, and account events
+              </p>
+              <p className="text-xs text-muted-foreground mt-2">
+                System automations below power weekly invoicing and weekly sales reports. They self-heal if missing and now expose execution health.
               </p>
             </div>
             <Button onClick={() => setIsCreating(true)}>
@@ -140,62 +202,89 @@ export default function Automations() {
             </Card>
           ) : (
             <div className="space-y-3">
-              {systemAutomations.map((automation) => (
-              <Card key={automation.id} className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1 space-y-1">
-                    <div className="flex items-center gap-3">
-                      <h3 className="font-semibold">{automation.name}</h3>
-                      <Badge variant="secondary">System</Badge>
-                      {automation.is_active ? (
-                        <Badge className="bg-green-100 text-green-800">
-                          <CheckCircle className="mr-1 h-3 w-3" />
-                          Active
+              {systemAutomations.map((automation) => {
+                const latestDispatch = getLatestDispatch(automation);
+
+                return (
+                  <Card key={automation.id} className="p-4">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="flex-1 space-y-3">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <h3 className="font-semibold">{automation.name}</h3>
+                        <Badge variant="secondary">System</Badge>
+                        {automation.is_active ? (
+                          <Badge className="bg-green-100 text-green-800">
+                            <CheckCircle className="mr-1 h-3 w-3" />
+                            Active
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-gray-600">
+                            <XCircle className="mr-1 h-3 w-3" />
+                            Inactive
+                          </Badge>
+                        )}
+                        <Badge className={dispatchTone(latestDispatch?.status)}>
+                          {latestDispatch?.status || 'idle'}
                         </Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-gray-600">
-                          <XCircle className="mr-1 h-3 w-3" />
-                          Inactive
-                        </Badge>
+                      </div>
+
+                      <p className="text-sm text-muted-foreground">{automation.description}</p>
+
+                      <div className="grid gap-3 text-xs text-muted-foreground md:grid-cols-2 xl:grid-cols-4">
+                        <div className="rounded-lg border p-3">
+                          <div className="font-medium text-foreground">Trigger</div>
+                          <div className="mt-1">{triggerLabels[automation.trigger_type] || automation.trigger_type}</div>
+                        </div>
+                        <div className="rounded-lg border p-3">
+                          <div className="font-medium text-foreground">Schedule</div>
+                          <div className="mt-1">{formatSchedule(automation)}</div>
+                        </div>
+                        <div className="rounded-lg border p-3">
+                          <div className="font-medium text-foreground">Recipients</div>
+                          <div className="mt-1">{formatRecipients(automation)}</div>
+                        </div>
+                        <div className="rounded-lg border p-3">
+                          <div className="font-medium text-foreground">Last Run</div>
+                          <div className="mt-1">{formatDateTime(latestDispatch?.completed_at || latestDispatch?.scheduled_for)}</div>
+                        </div>
+                      </div>
+
+                      {(automation.schedule_json?.command || latestDispatch?.command) && (
+                        <div className="rounded-lg border border-dashed p-3 text-xs text-muted-foreground">
+                          <div className="font-medium text-foreground">Command</div>
+                          <code className="mt-1 block break-all">
+                            {automation.schedule_json?.command || latestDispatch?.command}
+                          </code>
+                        </div>
+                      )}
+
+                      {latestDispatch?.error_message && (
+                        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+                          <div className="font-medium">Last failure</div>
+                          <div className="mt-1 whitespace-pre-wrap">{latestDispatch.error_message}</div>
+                        </div>
                       )}
                     </div>
-                    <p className="text-sm text-muted-foreground">{automation.description}</p>
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                      <span>Trigger: {triggerLabels[automation.trigger_type] || automation.trigger_type}</span>
-                      {automation.template && <span>Template: {automation.template.name}</span>}
-                      {automation.schedule_json && (
-                        <span>
-                          Schedule: {automation.schedule_json.type === 'weekly' 
-                            ? `Every ${['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][automation.schedule_json.day_of_week - 1]} at ${automation.schedule_json.time}`
-                            : 'Custom'}
-                        </span>
-                      )}
-                      {automation.recipients_json && !Array.isArray(automation.recipients_json) && automation.recipients_json.roles && (
-                        <span>Recipients: {automation.recipients_json.roles.join(', ')}</span>
-                      )}
-                      {automation.recipients_json && Array.isArray(automation.recipients_json) && (
-                        <span>Recipients: {automation.recipients_json.join(', ')}</span>
-                      )}
+
+                    <div className="flex items-center gap-3 lg:ml-4 lg:flex-col lg:items-end">
+                      <Switch
+                        checked={automation.is_active}
+                        onCheckedChange={() => toggleMutation.mutate(automation.id)}
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => runMutation.mutate(automation.id)}
+                        disabled={runMutation.isPending}
+                      >
+                        <Play className="mr-2 h-4 w-4" />
+                        Run now
+                      </Button>
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-3">
-                    <Switch
-                      checked={automation.is_active}
-                      onCheckedChange={() => toggleMutation.mutate(automation.id)}
-                    />
-
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setEditingAutomation(automation)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-              ))}
+                  </Card>
+                );
+              })}
             </div>
           )}
         </div>
@@ -291,4 +380,3 @@ export default function Automations() {
     </DashboardLayout>
   );
 }
-

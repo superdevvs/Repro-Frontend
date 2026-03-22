@@ -1,5 +1,6 @@
 import { getEchoClient, isRealtimeEnabled } from './echoClient';
 import { emitRealtimeEvent, logRealtimeDebug } from './realtimeEvents';
+import { getNotificationChannelForRole } from '@/utils/notificationRole';
 
 export type RealtimeListenerOptions = {
   role?: string | null;
@@ -69,32 +70,8 @@ const DEFAULT_EVENTS: EventDefinition[] = [
 ];
 
 const getChannelsForRole = (role?: string | null, userId?: string | number | null): string[] => {
-  if (!role) return [];
-
-  const normalized = role.toLowerCase();
-
-  if (
-    normalized === 'admin' ||
-    normalized === 'superadmin' ||
-    normalized === 'editing_manager' ||
-    normalized === 'salesrep' ||
-    normalized === 'sales_rep'
-  ) {
-    return ['admin.notifications'];
-  }
-
-  if (!userId) return [];
-
-  switch (normalized) {
-    case 'client':
-      return [`client.${userId}.notifications`];
-    case 'photographer':
-      return [`photographer.${userId}.notifications`];
-    case 'editor':
-      return [`editor.${userId}.notifications`];
-    default:
-      return [];
-  }
+  const channel = getNotificationChannelForRole(role, userId);
+  return channel ? [channel] : [];
 };
 
 const setupEchoConnectionHandlers = (echo: any) => {

@@ -190,7 +190,7 @@ export const WeeklyInvoiceReview: React.FC = () => {
           <FileText className="w-12 h-12 text-muted-foreground mb-4" />
           <h3 className="text-lg font-semibold">No Invoices Yet</h3>
           <p className="text-muted-foreground text-sm mt-1">
-            Weekly invoices are generated every Sunday at 9:00 AM for the previous week.
+            Weekly invoices are generated every Monday morning for the previous completed week.
           </p>
         </CardContent>
       </Card>
@@ -202,7 +202,7 @@ export const WeeklyInvoiceReview: React.FC = () => {
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Weekly Invoices</h2>
         <p className="text-sm text-muted-foreground">
-          Invoices are auto-generated every Sunday for the previous week (Sun–Sat)
+          Invoices are auto-generated every Monday for the previous completed week (Sun-Sat)
         </p>
       </div>
 

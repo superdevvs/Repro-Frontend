@@ -8,6 +8,10 @@ import { useEmailRealtime, type EmailRealtimeMessage } from './use-email-realtim
 import { useShootRealtime, type ShootActivityEvent } from './use-shoot-realtime';
 import { toast } from '@/hooks/use-toast';
 import { API_BASE_URL } from '@/config/env';
+import {
+  canAccessNotificationSms,
+  normalizeNotificationRole,
+} from '@/utils/notificationRole';
 
 export type NotificationCategory = 'shoots' | 'messages' | 'system';
 
@@ -35,17 +39,29 @@ const getToken = (sessionToken?: string | null) =>
 /**
  * Get the user-specific storage key for read notifications
  */
-const getStorageKey = (userId: string | number | undefined): string => {
-  if (!userId) return `${STORAGE_KEY_PREFIX}anonymous`;
-  return `${STORAGE_KEY_PREFIX}${userId}`;
+const getStorageKey = (options: {
+  userId?: string | number;
+  role?: string | null;
+  isImpersonating?: boolean;
+  originalUserId?: string | number | null;
+}): string => {
+  const roleKey = normalizeNotificationRole(options.role) || 'unknown';
+  const userKey = options.userId ? String(options.userId) : 'anonymous';
+  const impersonationKey =
+    options.isImpersonating && options.originalUserId
+      ? `_imp_${String(options.originalUserId)}`
+      : options.isImpersonating
+        ? '_impersonating'
+        : '';
+
+  return `${STORAGE_KEY_PREFIX}${roleKey}_${userKey}${impersonationKey}`;
 };
 
 /**
  * Get read notification IDs from localStorage for a specific user
  */
-const getReadIds = (userId: string | number | undefined): Set<string> => {
+const getReadIds = (storageKey: string): Set<string> => {
   try {
-    const storageKey = getStorageKey(userId);
     const stored = localStorage.getItem(storageKey);
     if (stored) {
       const parsed = JSON.parse(stored);
@@ -64,9 +80,8 @@ const getReadIds = (userId: string | number | undefined): Set<string> => {
 /**
  * Save read notification IDs to localStorage for a specific user
  */
-const saveReadIds = (ids: Set<string>, userId: string | number | undefined) => {
+const saveReadIds = (ids: Set<string>, storageKey: string) => {
   try {
-    const storageKey = getStorageKey(userId);
     const now = Date.now();
     const stored: Record<string, number> = {};
     ids.forEach((id) => {
@@ -188,15 +203,14 @@ const buildSmsNotification = (
     type: 'messages',
     isRead: readIds.has(id),
     date: now,
-    actionUrl: threadId ? `/messaging/${threadId}` : undefined,
+    actionUrl: threadId ? `/messaging/sms?thread=${encodeURIComponent(String(threadId))}` : undefined,
     actionLabel: 'Open thread',
   };
 };
 
 const buildEmailNotification = (event: EmailRealtimeMessage, readIds: Set<string>): NotificationItem => {
   const isInbound = event.direction === 'INBOUND';
-  const now = new Date().toISOString();
-  const id = `email-${event.id}-${now}`;
+  const id = `email-${event.id}`;
   
   const title = isInbound 
     ? 'New Email Received' 
@@ -212,7 +226,7 @@ const buildEmailNotification = (event: EmailRealtimeMessage, readIds: Set<string
       : `To ${event.to_address}: ${subjectPreview}`,
     type: 'messages',
     isRead: readIds.has(id),
-    date: event.created_at || now,
+    date: event.created_at || new Date().toISOString(),
     actionUrl: '/messaging/email/inbox',
     actionLabel: 'View Email',
   };
@@ -222,13 +236,14 @@ const buildShootActivityNotification = (event: ShootActivityEvent, readIds: Set<
   const title = SHOOT_ACTIVITY_TITLES[event.activityType] || 'Shoot Update';
   const addressInfo = event.address ? ` at ${event.address}` : '';
   const clientInfo = event.clientName ? ` (${event.clientName})` : '';
+  const normalizedId = String(event.id).startsWith('sa-') ? String(event.id) : `sa-${event.id}`;
   
   return {
-    id: event.id,
+    id: normalizedId,
     title,
     message: `${event.message}${addressInfo}${clientInfo}`,
     type: 'shoots',
-    isRead: readIds.has(event.id),
+    isRead: readIds.has(normalizedId),
     date: event.timestamp,
     actionUrl: event.shootId ? `/shoots/${event.shootId}` : undefined,
     actionLabel: 'View Shoot',
@@ -273,20 +288,31 @@ const fetchNotifications = async (
 const POLL_INTERVAL = 60000;
 
 export const useNotifications = () => {
-  const { session, user, role, isImpersonating } = useAuth();
+  const { session, user, role, isImpersonating, originalUser } = useAuth();
   
   // Track read IDs per user
   const readIdsRef = useRef<Set<string>>(new Set());
-  const currentUserIdRef = useRef<string | number | undefined>(undefined);
+  const storageKey = useMemo(
+    () =>
+      getStorageKey({
+        userId: user?.id,
+        role,
+        isImpersonating,
+        originalUserId: originalUser?.id,
+      }),
+    [isImpersonating, originalUser?.id, role, user?.id],
+  );
+  const notificationContextKey = useMemo(
+    () => `${storageKey}:${String(user?.id ?? 'anonymous')}`,
+    [storageKey, user?.id],
+  );
 
-  // Update read IDs when user changes
+  // Reset local notification state when the effective notification context changes.
   useEffect(() => {
-    const newUserId = user?.id;
-    if (currentUserIdRef.current !== newUserId) {
-      currentUserIdRef.current = newUserId;
-      readIdsRef.current = getReadIds(newUserId);
-    }
-  }, [user?.id]);
+    readIdsRef.current = getReadIds(storageKey);
+    previousActivityLogRef.current = '';
+    setNotifications([]);
+  }, [notificationContextKey, storageKey]);
 
   // Use React Query for fetching notifications with smart polling
   const {
@@ -295,7 +321,7 @@ export const useNotifications = () => {
     error: queryError,
     refetch,
   } = useQuery({
-    queryKey: ['notifications', user?.id, isImpersonating ? user?.id : null],
+    queryKey: ['notifications', storageKey, role, user?.id, originalUser?.id, isImpersonating],
     queryFn: async () => {
       const token = getToken(isImpersonating ? null : session?.accessToken);
       if (!token) throw new Error('Missing auth token');
@@ -388,7 +414,7 @@ export const useNotifications = () => {
   const markAsRead = useCallback((id: string) => {
     // Update localStorage for current user
     readIdsRef.current.add(id);
-    saveReadIds(readIdsRef.current, user?.id);
+    saveReadIds(readIdsRef.current, storageKey);
     
     // Update state
     setNotifications((prev) =>
@@ -396,23 +422,23 @@ export const useNotifications = () => {
         notification.id === id ? { ...notification, isRead: true } : notification,
       ),
     );
-  }, [user?.id]);
+  }, [storageKey]);
 
   const markAllAsRead = useCallback(() => {
     // Update localStorage for current user
     setNotifications((prev) => {
       prev.forEach((n) => readIdsRef.current.add(n.id));
-      saveReadIds(readIdsRef.current, user?.id);
+      saveReadIds(readIdsRef.current, storageKey);
       return prev.map((notification) => ({ ...notification, isRead: true }));
     });
-  }, [user?.id]);
+  }, [storageKey]);
 
   const refresh = useCallback(async () => {
     await refetch();
   }, [refetch]);
 
   // SMS real-time events (only for admin/superadmin who can access messaging)
-  const canAccessSms = role === 'admin' || role === 'superadmin';
+  const canAccessSms = canAccessNotificationSms(role);
   useSmsRealtime({
     onMessage: canAccessSms ? (message) => {
       addNotification(buildSmsNotification(message, { isMessage: true }, readIdsRef.current), { showToast: true });

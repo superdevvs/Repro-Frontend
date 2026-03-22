@@ -72,7 +72,6 @@ const triggerGroups = [
       { value: 'INVOICE_PAID', label: 'Invoice Paid' },
       { value: 'WEEKLY_PHOTOGRAPHER_INVOICE', label: 'Weekly Photographer Invoice' },
       { value: 'WEEKLY_REP_INVOICE', label: 'Weekly Rep Invoice' },
-      { value: 'WEEKLY_AUTOMATED_INVOICING', label: 'Weekly Automated Invoicing' },
     ],
   },
   {
@@ -87,7 +86,6 @@ const triggerGroups = [
     label: 'Assignment & Reports',
     triggers: [
       { value: 'PHOTOGRAPHER_ASSIGNED', label: 'Photographer Assigned' },
-      { value: 'WEEKLY_SALES_REPORT', label: 'Weekly Sales Report' },
       { value: 'PROPERTY_CONTACT_REMINDER', label: 'Property Contact Reminder' },
     ],
   },

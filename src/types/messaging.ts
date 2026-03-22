@@ -226,6 +226,7 @@ export interface AutomationRule {
     time?: string;
     offset?: string;
     cron?: string;
+    command?: string;
   };
   recipients_json?: Array<'client' | 'photographer' | 'admin' | 'rep'> | {
     type?: string;
@@ -245,6 +246,18 @@ export interface AutomationRule {
   updater?: {
     id: number;
     name: string;
+  };
+  latest_dispatch?: {
+    id: number;
+    trigger_type?: string;
+    period_key?: string;
+    scheduled_for?: string;
+    command?: string;
+    status?: 'running' | 'completed' | 'failed';
+    output?: string | null;
+    error_message?: string | null;
+    started_at?: string | null;
+    completed_at?: string | null;
   };
 }
 
@@ -283,4 +296,3 @@ export interface MessagingOverview {
   recent_activity: Message[];
   active_automations: number;
 }
-

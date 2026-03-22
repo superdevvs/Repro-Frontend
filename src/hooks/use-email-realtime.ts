@@ -1,6 +1,10 @@
 import { useEffect } from 'react';
 import { getEchoClient, isRealtimeEnabled } from '@/realtime/echoClient';
 import { useAuth } from '@/components/auth/AuthProvider';
+import {
+  canReceiveEmailInboxNotifications,
+  canReceivePersonalEmailNotifications,
+} from '@/utils/notificationRole';
 
 
 export interface EmailRealtimeMessage {
@@ -33,8 +37,10 @@ export const useEmailRealtime = ({ onEmailReceived, onEmailSent }: EmailRealtime
       const echo = await getEchoClient();
       if (!echo || !isMounted) return;
 
-      // Admins subscribe to inbox channel for all emails
-      if (role === 'admin' || role === 'superadmin' || role === 'editing_manager') {
+      const shouldListenToInbox = canReceiveEmailInboxNotifications(role);
+      const shouldListenToPersonal = canReceivePersonalEmailNotifications(role);
+
+      if (shouldListenToInbox) {
         inboxChannel = echo.private('email.inbox');
         inboxChannel
           .listen('.EmailMessageReceived', (event: EmailRealtimeMessage) => {
@@ -45,8 +51,7 @@ export const useEmailRealtime = ({ onEmailReceived, onEmailSent }: EmailRealtime
           });
       }
 
-      // All users subscribe to their personal email channel by user ID
-      if (user?.id) {
+      if (shouldListenToPersonal && user?.id) {
         userChannel = echo.private(`email.user.${user.id}`);
         userChannel
           .listen('.EmailMessageReceived', (event: EmailRealtimeMessage) => {
@@ -69,5 +74,5 @@ export const useEmailRealtime = ({ onEmailReceived, onEmailSent }: EmailRealtime
       userChannel?.stopListening('.EmailMessageSent');
       userChannel?.unsubscribe();
     };
-  }, [user?.email, role, onEmailReceived, onEmailSent]);
+  }, [user?.id, role, onEmailReceived, onEmailSent]);
 };

@@ -98,6 +98,11 @@ export const toggleAutomation = async (id: number): Promise<AutomationRule> => {
   return response.data;
 };
 
+export const runAutomation = async (id: number): Promise<{ status: string; output?: string; automation: AutomationRule }> => {
+  const response = await apiClient.post(`/messaging/automations/${id}/run`);
+  return response.data;
+};
+
 export const testAutomation = async (id: number, data: { test_email: string; test_context?: Record<string, any> }): Promise<any> => {
   const response = await apiClient.post(`/messaging/automations/${id}/test`, data);
   return response.data;
@@ -333,4 +338,3 @@ export const syncSmsMessages = async (hours?: number): Promise<{ success: boolea
   const response = await apiClient.post('/messaging/settings/sms/sync', { hours });
   return response.data;
 };
-

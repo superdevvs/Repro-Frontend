@@ -19,9 +19,11 @@ import { useMediaQuery } from '@/hooks/use-media-query';
 import { Drawer, DrawerContent } from '@/components/ui/drawer';
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useSearchParams } from 'react-router-dom';
 
 export default function SmsCenter() {
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [filter, setFilter] = useState<SmsThreadFilter>('unanswered');
   const [search, setSearch] = useState('');
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
@@ -29,6 +31,8 @@ export default function SmsCenter() {
   const [contactDrawerOpen, setContactDrawerOpen] = useState(false);
   const [contactPanelOpen, setContactPanelOpen] = useState(false);
   const isMobile = useMediaQuery('(max-width: 1024px)');
+  const requestedThreadId = searchParams.get('thread');
+  const searchParamsKey = searchParams.toString();
 
   const threadsKey = ['sms-threads', { filter, search }];
 
@@ -45,10 +49,31 @@ export default function SmsCenter() {
   const threads = threadsQuery.data?.data ?? [];
 
   useEffect(() => {
+    if (requestedThreadId && requestedThreadId !== activeThreadId) {
+      setActiveThreadId(requestedThreadId);
+      return;
+    }
+
     if (!activeThreadId && threads.length > 0) {
       setActiveThreadId(threads[0].id);
     }
-  }, [threads, activeThreadId]);
+  }, [threads, activeThreadId, requestedThreadId]);
+
+  useEffect(() => {
+    const nextParams = new URLSearchParams(searchParamsKey);
+    const currentThread = nextParams.get('thread');
+
+    if (activeThreadId) {
+      if (currentThread === activeThreadId) return;
+      nextParams.set('thread', activeThreadId);
+      setSearchParams(nextParams, { replace: true });
+      return;
+    }
+
+    if (!currentThread) return;
+    nextParams.delete('thread');
+    setSearchParams(nextParams, { replace: true });
+  }, [activeThreadId, searchParamsKey, setSearchParams]);
 
   const threadDetailQuery = useQuery({
     queryKey: ['sms-thread', activeThreadId],
@@ -249,4 +274,3 @@ const smsTemplates =
     </DashboardLayout>
   );
 }
-

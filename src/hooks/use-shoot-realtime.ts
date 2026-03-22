@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { getEchoClient, isRealtimeEnabled } from '@/realtime/echoClient';
+import { getNotificationChannelForRole } from '@/utils/notificationRole';
 
 export interface ShootActivityEvent {
   id: string;
@@ -29,35 +30,6 @@ type ShootRealtimeOptions = {
   userRole?: UserRole | string | null;
   userId?: string | number | null;
   onActivity?: (activity: ShootActivityEvent) => void;
-};
-
-/**
- * Get the appropriate notification channel name based on user role
- */
-const getNotificationChannelForRole = (
-  role: string | null | undefined,
-  userId: string | number | null | undefined,
-): string | null => {
-  if (!role || !userId) return null;
-
-  const normalizedRole = role.toLowerCase();
-
-  switch (normalizedRole) {
-    case 'admin':
-    case 'superadmin':
-    case 'editing_manager':
-    case 'salesrep':
-    case 'sales_rep':
-      return 'admin.notifications';
-    case 'client':
-      return `client.${userId}.notifications`;
-    case 'photographer':
-      return `photographer.${userId}.notifications`;
-    case 'editor':
-      return `editor.${userId}.notifications`;
-    default:
-      return null;
-  }
 };
 
 export const useShootRealtime = ({ shootId, userRole, userId, onActivity }: ShootRealtimeOptions) => {
