@@ -1095,6 +1095,7 @@ const CompletedAlbumCard = ({
   shouldHideClientDetails?: boolean
 }) => {
   const { formatTime, formatDate: formatDatePref } = useUserPreferences()
+  const [imgErrored, setImgErrored] = React.useState(false)
   const formatDisplayDateLocal = (value?: string | null) => {
     if (!value) return '—'
     try { return formatDatePref(new Date(value)) } catch { return value ?? '—' }
@@ -1110,6 +1111,7 @@ const CompletedAlbumCard = ({
     '/placeholder.svg'
   const photoCount = shoot.media?.images?.length ?? shoot.editedPhotoCount ?? shoot.rawPhotoCount ?? shoot.files?.length ?? 0
   const hasNoImages = !heroImage || heroImage === '/placeholder.svg' || photoCount === 0
+  const showPlaceholder = hasNoImages || imgErrored
   const hasTour = shoot.tourPurchased || Boolean(shoot.tourLinks?.branded || shoot.tourLinks?.mls)
   const isPaid = isSuperAdmin ? ((shoot.payment?.totalPaid ?? 0) >= (shoot.payment?.totalQuote ?? 0)) : false
   const statusValue = shoot.workflowStatus ?? shoot.status ?? ''
@@ -1125,8 +1127,8 @@ const CompletedAlbumCard = ({
       onClick={() => onSelect(shoot)}
     >
       {/* Cover Image or Placeholder */}
-      <div className="relative h-64 overflow-hidden bg-muted dark:bg-[#0c1222]">
-        {hasNoImages ? (
+      <div className={cn('relative h-64 overflow-hidden', showPlaceholder ? 'bg-[#0c1222]' : 'bg-muted')}>
+        {showPlaceholder ? (
           <img 
             src="/no-image-placeholder.svg" 
             alt="No images yet" 
@@ -1138,10 +1140,7 @@ const CompletedAlbumCard = ({
             alt={shoot.location.address} 
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             loading="lazy"
-            onError={(e) => {
-              e.currentTarget.src = '/no-image-placeholder.svg'
-              e.currentTarget.className = 'w-full h-full object-cover'
-            }}
+            onError={() => setImgErrored(true)}
           />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
@@ -1351,6 +1350,7 @@ const CompletedShootListRow = ({
   shouldHideClientDetails?: boolean
 }) => {
   const { formatDate: formatDatePref } = useUserPreferences()
+  const [imgErrored, setImgErrored] = React.useState(false)
   const formatDisplayDateLocal = (value?: string | null) => {
     if (!value) return '—'
     try { return formatDatePref(new Date(value)) } catch { return value ?? '—' }
@@ -1375,7 +1375,8 @@ const CompletedShootListRow = ({
   const canSendToEditing = Boolean(onSendToEditing) && shootStatus === 'uploaded'
 
   const hasNoImages = !heroImage || heroImage === '/placeholder.svg' || photoCount === 0
-  const displayImage = hasNoImages ? '/no-image-placeholder.svg' : heroImage
+  const showPlaceholder = hasNoImages || imgErrored
+  const displayImage = showPlaceholder ? '/no-image-placeholder.svg' : heroImage
 
   return (
     <Card
@@ -1384,16 +1385,13 @@ const CompletedShootListRow = ({
     >
       <div className="flex gap-3 sm:gap-4 p-3 sm:p-4">
         {/* Thumbnail - Small square on mobile, rectangular landscape on desktop */}
-        <div className={cn('w-24 h-24 sm:w-40 sm:h-28 rounded-lg overflow-hidden flex-shrink-0 shadow-sm bg-muted dark:bg-[#0c1222]')}>
+        <div className={cn('w-24 h-24 sm:w-40 sm:h-28 rounded-lg overflow-hidden flex-shrink-0 shadow-sm', showPlaceholder ? 'bg-[#0c1222]' : 'bg-muted')}>
           <img 
             src={displayImage} 
             alt={shoot.location.address} 
-            className={cn('w-full h-full', hasNoImages ? 'object-fill' : 'object-cover')}
+            className={cn('w-full h-full', showPlaceholder ? 'object-contain p-2' : 'object-cover')}
             loading="lazy"
-            onError={(e) => {
-              e.currentTarget.src = '/no-image-placeholder.svg'
-              e.currentTarget.className = 'w-full h-full object-fill'
-            }}
+            onError={() => setImgErrored(true)}
           />
         </div>
 
