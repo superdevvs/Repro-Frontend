@@ -45,6 +45,8 @@ export interface ShootFileData {
   storedFilename?: string;
   path?: string;
   url?: string;
+  original?: string;
+  original_url?: string;
   file_type?: string;
   fileType?: string;
   file_size?: number;
@@ -58,6 +60,7 @@ export interface ShootFileData {
   isCover?: boolean;
   is_favorite?: boolean;
   favorite?: boolean;
+  is_hidden?: boolean;
   bracket_group?: number;
   sequence?: number;
   flag_reason?: string;
@@ -67,6 +70,15 @@ export interface ShootFileData {
   thumbnail_path?: string;
   web_path?: string;
   placeholder_path?: string;
+  thumb?: string;
+  thumb_url?: string;
+  thumbnail_url?: string;
+  medium?: string;
+  medium_url?: string;
+  web_url?: string;
+  large?: string;
+  large_url?: string;
+  placeholder_url?: string;
   watermarked_storage_path?: string;
   watermarked_thumbnail_path?: string;
   watermarked_web_path?: string;

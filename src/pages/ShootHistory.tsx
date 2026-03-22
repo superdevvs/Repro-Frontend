@@ -148,6 +148,90 @@ const resolvePreviewUrl = (value: string | null | undefined): string | null => {
   }
 }
 
+const LIGHT_SHOOT_PLACEHOLDER = '/no-image-placeholder.svg'
+const DARK_SHOOT_PLACEHOLDER = '/no-image-placeholder-dark.svg'
+
+const PLACEHOLDER_IMAGE_MARKERS = [
+  '/placeholder.svg',
+  '/no-image-placeholder.svg',
+  '/no-image-placeholder-dark.svg',
+  'placeholder.svg',
+  'no-image-placeholder',
+]
+
+const isPlaceholderLikeValue = (value: string | null | undefined): boolean => {
+  if (!value) return false
+  const normalized = String(value).trim().toLowerCase()
+  return PLACEHOLDER_IMAGE_MARKERS.some((marker) => normalized.includes(marker))
+}
+
+const getFilePreviewUrl = (file?: ShootFileData | null): string | null => {
+  if (!file) return null
+
+  const previewCandidates = [
+    file.thumb_url,
+    file.thumb,
+    file.thumbnail_url,
+    file.medium_url,
+    file.medium,
+    file.web_url,
+    file.large_url,
+    file.large,
+    file.original_url,
+    file.original,
+    file.thumbnail_path,
+    file.web_path,
+    file.url,
+    file.path,
+    file.placeholder_url,
+    file.placeholder_path,
+  ]
+
+  for (const candidate of previewCandidates) {
+    if (!candidate || isPlaceholderLikeValue(candidate)) {
+      continue
+    }
+
+    const resolved = resolvePreviewUrl(candidate)
+    if (resolved) {
+      return resolved
+    }
+  }
+
+  return null
+}
+
+const getFileWorkflowStage = (file?: ShootFileData | null): string => {
+  return String(file?.workflow_stage ?? file?.workflowStage ?? '').toLowerCase()
+}
+
+const resolveShootThumbnail = (shoot: ShootData): string | null => {
+  const heroPreview = !isPlaceholderLikeValue(shoot.heroImage)
+    ? resolvePreviewUrl(shoot.heroImage)
+    : null
+  const editedMediaPreview =
+    heroPreview ||
+    resolvePreviewUrl(shoot.media?.images?.[0]?.thumbnail) ||
+    resolvePreviewUrl(shoot.media?.images?.[0]?.url) ||
+    resolvePreviewUrl((shoot.media as any)?.photos?.[0])
+
+  if (editedMediaPreview) {
+    return editedMediaPreview
+  }
+
+  const files = (shoot.files ?? []).filter((file) => !(file.is_hidden ?? false))
+  const preferredFile =
+    files.find((file) => (file.is_cover || file.isCover) && getFilePreviewUrl(file)) ||
+    files.find((file) => /(raw|uploaded|capture)/.test(getFileWorkflowStage(file)) && getFilePreviewUrl(file)) ||
+    files.find((file) => /(verified|completed|edited|review|ready|delivered)/.test(getFileWorkflowStage(file)) && getFilePreviewUrl(file)) ||
+    files.find((file) => getFilePreviewUrl(file))
+
+  return getFilePreviewUrl(preferredFile)
+}
+
+const getShootPlaceholderSrc = (theme: 'light' | 'dark') =>
+  theme === 'dark' ? DARK_SHOOT_PLACEHOLDER : LIGHT_SHOOT_PLACEHOLDER
+
 const HISTORY_ALLOWED_ROLES = new Set([
   'admin',
   'superadmin',
@@ -1095,22 +1179,16 @@ const CompletedAlbumCard = ({
   shouldHideClientDetails?: boolean
 }) => {
   const { formatTime, formatDate: formatDatePref } = useUserPreferences()
+  const { theme } = useTheme()
   const [imgErrored, setImgErrored] = React.useState(false)
   const formatDisplayDateLocal = (value?: string | null) => {
     if (!value) return '—'
     try { return formatDatePref(new Date(value)) } catch { return value ?? '—' }
   }
-  // Get first file from files array for cover image (raw uploads)
-  const firstFile = shoot.files?.[0]
-  const firstFileUrl = firstFile?.thumbnail_path || firstFile?.web_path || firstFile?.url || firstFile?.path
-  const heroImage =
-    resolvePreviewUrl(shoot.heroImage) ||
-    resolvePreviewUrl(shoot.media?.images?.[0]?.url) ||
-    resolvePreviewUrl((shoot.media as any)?.photos?.[0]) ||
-    resolvePreviewUrl(firstFileUrl) ||
-    '/placeholder.svg'
+  const heroImage = resolveShootThumbnail(shoot)
   const photoCount = shoot.media?.images?.length ?? shoot.editedPhotoCount ?? shoot.rawPhotoCount ?? shoot.files?.length ?? 0
-  const hasNoImages = !heroImage || heroImage === '/placeholder.svg' || photoCount === 0
+  const placeholderImage = getShootPlaceholderSrc(theme)
+  const hasNoImages = !heroImage
   const showPlaceholder = hasNoImages || imgErrored
   const hasTour = shoot.tourPurchased || Boolean(shoot.tourLinks?.branded || shoot.tourLinks?.mls)
   const isPaid = isSuperAdmin ? ((shoot.payment?.totalPaid ?? 0) >= (shoot.payment?.totalQuote ?? 0)) : false
@@ -1127,12 +1205,12 @@ const CompletedAlbumCard = ({
       onClick={() => onSelect(shoot)}
     >
       {/* Cover Image or Placeholder */}
-      <div className={cn('relative h-64 overflow-hidden', showPlaceholder ? 'bg-[#0c1222]' : 'bg-muted')}>
+      <div className={cn('relative h-64 overflow-hidden', showPlaceholder ? 'bg-transparent' : 'bg-muted')}>
         {showPlaceholder ? (
           <img 
-            src="/no-image-placeholder.svg" 
+            src={placeholderImage}
             alt="No images yet" 
-            className="w-full h-full object-cover"
+            className="w-full h-full object-contain"
           />
         ) : (
           <img 
@@ -1143,7 +1221,9 @@ const CompletedAlbumCard = ({
             onError={() => setImgErrored(true)}
           />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+        {!showPlaceholder ? (
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+        ) : null}
         
         {/* Overlay badges */}
         <div className="absolute top-3 left-3">
@@ -1350,20 +1430,13 @@ const CompletedShootListRow = ({
   shouldHideClientDetails?: boolean
 }) => {
   const { formatDate: formatDatePref } = useUserPreferences()
+  const { theme } = useTheme()
   const [imgErrored, setImgErrored] = React.useState(false)
   const formatDisplayDateLocal = (value?: string | null) => {
     if (!value) return '—'
     try { return formatDatePref(new Date(value)) } catch { return value ?? '—' }
   }
-  // Get first file from files array for cover image (raw uploads)
-  const firstFile = shoot.files?.[0]
-  const firstFileUrl = firstFile?.thumbnail_path || firstFile?.web_path || firstFile?.url || firstFile?.path
-  const heroImage =
-    resolvePreviewUrl(shoot.heroImage) ||
-    resolvePreviewUrl(shoot.media?.images?.[0]?.url) ||
-    resolvePreviewUrl((shoot.media as any)?.photos?.[0]) ||
-    resolvePreviewUrl(firstFileUrl) ||
-    '/placeholder.svg'
+  const heroImage = resolveShootThumbnail(shoot)
   const photoCount = shoot.media?.images?.length ?? shoot.editedPhotoCount ?? shoot.rawPhotoCount ?? shoot.files?.length ?? 0
   const hasTour = shoot.tourPurchased || Boolean(shoot.tourLinks?.branded || shoot.tourLinks?.mls)
   const isPaid = isSuperAdmin ? ((shoot.payment?.totalPaid ?? 0) >= (shoot.payment?.totalQuote ?? 0)) : false
@@ -1374,9 +1447,10 @@ const CompletedShootListRow = ({
   const shootStatus = String(shoot.status ?? shoot.workflowStatus ?? '').toLowerCase()
   const canSendToEditing = Boolean(onSendToEditing) && shootStatus === 'uploaded'
 
-  const hasNoImages = !heroImage || heroImage === '/placeholder.svg' || photoCount === 0
+  const placeholderImage = getShootPlaceholderSrc(theme)
+  const hasNoImages = !heroImage
   const showPlaceholder = hasNoImages || imgErrored
-  const displayImage = showPlaceholder ? '/no-image-placeholder.svg' : heroImage
+  const displayImage = showPlaceholder ? placeholderImage : heroImage
 
   return (
     <Card
@@ -1385,11 +1459,11 @@ const CompletedShootListRow = ({
     >
       <div className="flex gap-3 sm:gap-4 p-3 sm:p-4">
         {/* Thumbnail - Small square on mobile, rectangular landscape on desktop */}
-        <div className={cn('w-24 h-24 sm:w-40 sm:h-28 rounded-lg overflow-hidden flex-shrink-0 shadow-sm', showPlaceholder ? 'bg-[#0c1222]' : 'bg-muted')}>
+        <div className={cn('w-24 h-24 sm:w-40 sm:h-28 rounded-lg overflow-hidden flex-shrink-0 shadow-sm', showPlaceholder ? 'bg-transparent' : 'bg-muted')}>
           <img 
             src={displayImage} 
             alt={shoot.location.address} 
-            className={cn('w-full h-full', showPlaceholder ? 'object-contain p-2' : 'object-cover')}
+            className={cn('w-full h-full', showPlaceholder ? 'object-contain' : 'object-cover')}
             loading="lazy"
             onError={() => setImgErrored(true)}
           />
