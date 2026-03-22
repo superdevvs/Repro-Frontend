@@ -768,6 +768,44 @@ export default function AutomationWorkflowEditor() {
             </div>
           </div>
 
+          <div className="rounded-2xl border bg-muted/30 p-4">
+            <div className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
+              {meta.editor_mode === 'simple' ? 'Simple Build Summary' : 'Workflow Summary'}
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+              <span className="rounded-full border bg-background px-3 py-1 font-medium">
+                {triggerLabels[triggerType] || triggerType}
+              </span>
+              {summary.conditionCount > 0 && (
+                <>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                  <span className="rounded-full border bg-background px-3 py-1 font-medium">Condition</span>
+                </>
+              )}
+              {summary.waitCount > 0 && (
+                <>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                  <span className="rounded-full border bg-background px-3 py-1 font-medium">Wait</span>
+                </>
+              )}
+              {summary.actionCount > 0 && (
+                <>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                  <span className="rounded-full border bg-background px-3 py-1 font-medium">
+                    {summary.actionCount === 1 ? 'Action' : `${summary.actionCount} Actions`}
+                  </span>
+                </>
+              )}
+              <ArrowRight className="h-4 w-4 text-muted-foreground" />
+              <span className="rounded-full border bg-background px-3 py-1 font-medium">End</span>
+            </div>
+            <p className="mt-3 text-sm text-muted-foreground">
+              {meta.editor_mode === 'simple'
+                ? 'This workflow started from the quick form. You can keep it simple or expand it here with extra conditions, waits, and branches.'
+                : 'Use the canvas for advanced edits, node inspection, and execution validation.'}
+            </p>
+          </div>
+
           <div className="grid gap-3 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]">
             <Card className="p-4">
               <div className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Trigger</div>

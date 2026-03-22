@@ -57,6 +57,387 @@ export const triggerGroups = [
   },
 ];
 
+export type SimpleAutomationActionType = 'email' | 'sms' | 'internal_notification';
+export type SimpleTimingMode = 'immediate' | 'offset';
+export type SimpleOffsetDirection = 'before' | 'after';
+export type SimpleOffsetUnit = 'm' | 'h' | 'd';
+export type SimpleRecipientMode = 'automation_default' | 'roles' | 'context';
+
+export interface SimpleAutomationDraft {
+  name: string;
+  description: string;
+  trigger_type: AutomationTriggerType;
+  action_type: SimpleAutomationActionType;
+  scope: AutomationRule['scope'];
+  is_active: boolean;
+  recipient_mode: SimpleRecipientMode;
+  recipient_roles: string[];
+  context_key: 'client' | 'photographer' | 'rep';
+  template_id: string;
+  channel_id: string;
+  subject: string;
+  body_text: string;
+  title: string;
+  destination_url: string;
+  priority: 'normal' | 'high' | 'urgent';
+  timing_mode: SimpleTimingMode;
+  offset_direction: SimpleOffsetDirection;
+  offset_value: string;
+  offset_unit: SimpleOffsetUnit;
+  use_condition: boolean;
+  condition_match: 'all' | 'any';
+  condition_field: string;
+  condition_operator: string;
+  condition_value: string;
+}
+
+export const shootBasedTriggers = new Set<AutomationTriggerType>([
+  'SHOOT_REQUESTED',
+  'SHOOT_REQUEST_APPROVED',
+  'SHOOT_BOOKED',
+  'SHOOT_SCHEDULED',
+  'SHOOT_UPDATED',
+  'SHOOT_REMINDER',
+  'SHOOT_COMPLETED',
+  'PHOTOGRAPHER_ASSIGNED',
+  'PROPERTY_CONTACT_REMINDER',
+]);
+
+const defaultSimpleDraft: SimpleAutomationDraft = {
+  name: '',
+  description: '',
+  trigger_type: 'SHOOT_BOOKED',
+  action_type: 'email',
+  scope: 'GLOBAL',
+  is_active: true,
+  recipient_mode: 'roles',
+  recipient_roles: ['client'],
+  context_key: 'client',
+  template_id: '',
+  channel_id: '',
+  subject: '',
+  body_text: '',
+  title: '',
+  destination_url: '/shoot-history',
+  priority: 'normal',
+  timing_mode: 'immediate',
+  offset_direction: 'before',
+  offset_value: '24',
+  offset_unit: 'h',
+  use_condition: false,
+  condition_match: 'all',
+  condition_field: '',
+  condition_operator: 'eq',
+  condition_value: '',
+};
+
+const getOutgoingEdges = (workflow: WorkflowDefinition, sourceId: string) =>
+  workflow.edges.filter((edge) => edge.source === sourceId);
+
+const getNodeById = (workflow: WorkflowDefinition, nodeId?: string | null) =>
+  workflow.nodes.find((node) => node.id === nodeId);
+
+const createConditionRule = (draft: SimpleAutomationDraft) => ({
+  field: draft.condition_field.trim(),
+  operator: draft.condition_operator,
+  value: draft.condition_value.trim(),
+});
+
+export const formatLegacyOffset = (draft: Pick<SimpleAutomationDraft, 'offset_direction' | 'offset_value' | 'offset_unit'>) => {
+  const amount = Number.parseInt(draft.offset_value, 10);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return null;
+  }
+
+  return `${draft.offset_direction === 'before' ? '-' : '+'}${amount}${draft.offset_unit}`;
+};
+
+export const buildSimpleConditionJson = (draft: SimpleAutomationDraft) => {
+  if (!draft.use_condition || !draft.condition_field.trim()) {
+    return null;
+  }
+
+  const field = draft.condition_field.trim();
+  const value = draft.condition_value.trim();
+
+  if (draft.condition_operator === 'eq') {
+    return {
+      [field]: value,
+    };
+  }
+
+  return {
+    [field]: {
+      [draft.condition_operator]: value,
+    },
+  };
+};
+
+export const buildSimpleWorkflowFromDraft = (draft: SimpleAutomationDraft): WorkflowDefinition => {
+  const nodes: WorkflowNode[] = [];
+  const edges: WorkflowEdge[] = [];
+  const y = 180;
+
+  const triggerNode: WorkflowNode = {
+    id: 'trigger_start',
+    type: 'trigger.event',
+    position: { x: 80, y },
+    config: { triggerType: draft.trigger_type },
+  };
+  nodes.push(triggerNode);
+
+  const endNodeId = 'end_default';
+  let nextX = 320;
+  let branchSourceId: string | null = null;
+  let currentNodeId = triggerNode.id;
+
+  if (draft.use_condition && draft.condition_field.trim()) {
+    const conditionNode: WorkflowNode = {
+      id: 'condition_default',
+      type: 'condition.if',
+      position: { x: nextX, y },
+      config: {
+        match: draft.condition_match,
+        rules: [createConditionRule(draft)],
+      },
+    };
+    nodes.push(conditionNode);
+    edges.push({
+      id: `${currentNodeId}_${conditionNode.id}`,
+      source: currentNodeId,
+      target: conditionNode.id,
+    });
+    currentNodeId = conditionNode.id;
+    branchSourceId = conditionNode.id;
+    nextX += 260;
+  }
+
+  if (draft.timing_mode === 'offset') {
+    const amount = Number.parseInt(draft.offset_value, 10);
+    const waitNode: WorkflowNode = {
+      id: 'wait_offset',
+      type: 'wait.datetime_offset',
+      position: { x: nextX, y },
+      config: {
+        referenceField: 'shoot_datetime',
+        direction: draft.offset_direction,
+        amount: Number.isFinite(amount) && amount > 0 ? amount : 24,
+        unit: draft.offset_unit === 'd' ? 'days' : draft.offset_unit === 'm' ? 'minutes' : 'hours',
+      },
+    };
+    nodes.push(waitNode);
+    edges.push({
+      id: `${currentNodeId}_${waitNode.id}`,
+      source: currentNodeId,
+      target: waitNode.id,
+      branchKey: branchSourceId === currentNodeId ? 'true' : undefined,
+    });
+    currentNodeId = waitNode.id;
+    nextX += 260;
+  }
+
+  const actionTypeMap: Record<SimpleAutomationActionType, WorkflowNodeType> = {
+    email: 'action.email',
+    sms: 'action.sms',
+    internal_notification: 'action.internal_notification',
+  };
+
+  const actionConfig =
+    draft.action_type === 'email'
+      ? {
+          templateId: draft.template_id ? Number(draft.template_id) : undefined,
+          channelId: draft.channel_id ? Number(draft.channel_id) : undefined,
+          recipientMode: draft.recipient_mode,
+          recipientRoles: draft.recipient_roles,
+          contextKey: draft.recipient_mode === 'context' ? draft.context_key : undefined,
+          subject: draft.template_id ? undefined : draft.subject.trim(),
+          bodyText: draft.template_id ? undefined : draft.body_text.trim(),
+        }
+      : draft.action_type === 'sms'
+        ? {
+            templateId: draft.template_id ? Number(draft.template_id) : undefined,
+            recipientMode: draft.recipient_mode,
+            recipientRoles: draft.recipient_roles,
+            contextKey: draft.recipient_mode === 'context' ? draft.context_key : undefined,
+            bodyText: draft.template_id ? undefined : draft.body_text.trim(),
+          }
+        : {
+            recipientMode: draft.recipient_mode === 'context' ? 'roles' : draft.recipient_mode,
+            recipientRoles: draft.recipient_mode === 'context' ? ['admin'] : draft.recipient_roles,
+            title: draft.title.trim(),
+            body: draft.body_text.trim(),
+            destinationUrl: draft.destination_url.trim() || '/shoot-history',
+            priority: draft.priority,
+          };
+
+  const actionNode: WorkflowNode = {
+    id: 'action_primary',
+    type: actionTypeMap[draft.action_type],
+    position: { x: nextX, y },
+    config: actionConfig,
+  };
+  nodes.push(actionNode);
+  edges.push({
+    id: `${currentNodeId}_${actionNode.id}`,
+    source: currentNodeId,
+    target: actionNode.id,
+    branchKey: branchSourceId === currentNodeId ? 'true' : undefined,
+  });
+  nextX += 260;
+
+  const endNode: WorkflowNode = {
+    id: endNodeId,
+    type: 'end',
+    position: { x: nextX, y },
+    config: {},
+  };
+  nodes.push(endNode);
+
+  edges.push({
+    id: `${actionNode.id}_${endNode.id}`,
+    source: actionNode.id,
+    target: endNode.id,
+  });
+
+  if (branchSourceId) {
+    edges.push({
+      id: `${branchSourceId}_${endNode.id}_false`,
+      source: branchSourceId,
+      target: endNode.id,
+      branchKey: 'false',
+    });
+  }
+
+  return {
+    nodes,
+    edges,
+    viewport: { x: 0, y: 0, zoom: 1 },
+    meta: {
+      generated_from_simple_form: true,
+      summary: {
+        trigger: draft.trigger_type,
+        action: draft.action_type,
+        has_condition: draft.use_condition,
+        has_wait: draft.timing_mode === 'offset',
+      },
+    },
+  };
+};
+
+export const extractSimpleAutomationDraft = (automation?: Partial<AutomationRule> | null): SimpleAutomationDraft | null => {
+  if (!automation?.workflow_definition_json?.nodes?.length) {
+    return automation
+      ? {
+          ...defaultSimpleDraft,
+          name: automation.name ?? '',
+          description: automation.description ?? '',
+          trigger_type: automation.trigger_type ?? 'SHOOT_BOOKED',
+          scope: automation.scope === 'SYSTEM' ? 'GLOBAL' : automation.scope ?? 'GLOBAL',
+          is_active: automation.is_active ?? true,
+          recipient_roles: Array.isArray(automation.recipients_json)
+            ? automation.recipients_json
+            : automation.recipients_json?.roles ?? ['client'],
+          template_id: automation.template_id ? String(automation.template_id) : '',
+          channel_id: automation.channel_id ? String(automation.channel_id) : '',
+        }
+      : null;
+  }
+
+  const workflow = automation.workflow_definition_json;
+  const triggerNodes = workflow.nodes.filter((node) => String(node.type).startsWith('trigger.'));
+  const conditionNodes = workflow.nodes.filter((node) => node.type === 'condition.if');
+  const waitNodes = workflow.nodes.filter((node) => node.type === 'wait.datetime_offset' || node.type === 'wait.duration');
+  const actionNodes = workflow.nodes.filter((node) => node.type.startsWith('action.'));
+  const endNodes = workflow.nodes.filter((node) => node.type === 'end');
+  const supportedTypes = new Set(['trigger.event', 'condition.if', 'wait.datetime_offset', 'wait.duration', 'action.email', 'action.sms', 'action.internal_notification', 'end']);
+
+  if (
+    triggerNodes.length !== 1 ||
+    conditionNodes.length > 1 ||
+    waitNodes.length > 1 ||
+    actionNodes.length !== 1 ||
+    endNodes.length !== 1 ||
+    workflow.nodes.some((node) => !supportedTypes.has(node.type))
+  ) {
+    return null;
+  }
+
+  const triggerNode = triggerNodes[0];
+  if (triggerNode.type !== 'trigger.event') {
+    return null;
+  }
+
+  const actionNode = actionNodes[0];
+  const actionType =
+    actionNode.type === 'action.sms'
+      ? 'sms'
+      : actionNode.type === 'action.internal_notification'
+        ? 'internal_notification'
+        : 'email';
+
+  const conditionNode = conditionNodes[0];
+  const conditionRule = conditionNode?.config?.rules?.[0];
+  const waitNode = waitNodes[0];
+  const outgoingConditionEdges = conditionNode ? getOutgoingEdges(workflow, conditionNode.id) : [];
+  if (conditionNode) {
+    const branchKeys = outgoingConditionEdges.map((edge) => edge.branchKey).filter(Boolean);
+    if (!branchKeys.includes('true') || !branchKeys.includes('false')) {
+      return null;
+    }
+  }
+
+  const recipientMode = (actionNode.config?.recipientMode as SimpleRecipientMode | undefined) ?? 'automation_default';
+  const recipientRoles = Array.isArray(actionNode.config?.recipientRoles)
+    ? actionNode.config.recipientRoles.map(String)
+    : Array.isArray(automation.recipients_json)
+      ? automation.recipients_json
+      : automation.recipients_json?.roles ?? (actionType === 'internal_notification' ? ['admin'] : ['client']);
+
+  const draft: SimpleAutomationDraft = {
+    ...defaultSimpleDraft,
+    name: automation.name ?? '',
+    description: automation.description ?? '',
+    trigger_type: (triggerNode.config?.triggerType || automation.trigger_type || 'SHOOT_BOOKED') as AutomationTriggerType,
+    action_type: actionType,
+    scope: automation.scope === 'SYSTEM' ? 'GLOBAL' : automation.scope ?? 'GLOBAL',
+    is_active: automation.is_active ?? true,
+    recipient_mode: recipientMode,
+    recipient_roles: recipientRoles,
+    context_key: (actionNode.config?.contextKey || 'client') as 'client' | 'photographer' | 'rep',
+    template_id: actionNode.config?.templateId ? String(actionNode.config.templateId) : automation.template_id ? String(automation.template_id) : '',
+    channel_id: actionNode.config?.channelId ? String(actionNode.config.channelId) : automation.channel_id ? String(automation.channel_id) : '',
+    subject: actionNode.config?.subject ?? '',
+    body_text: actionNode.config?.bodyText ?? actionNode.config?.body ?? '',
+    title: actionNode.config?.title ?? '',
+    destination_url: actionNode.config?.destinationUrl ?? '/shoot-history',
+    priority: (actionNode.config?.priority as 'normal' | 'high' | 'urgent') ?? 'normal',
+    timing_mode: 'immediate',
+    offset_direction: 'before',
+    offset_value: '24',
+    offset_unit: 'h',
+    use_condition: Boolean(conditionNode && conditionRule),
+    condition_match: (conditionNode?.config?.match as 'all' | 'any') ?? 'all',
+    condition_field: conditionRule?.field ?? '',
+    condition_operator: conditionRule?.operator ?? 'eq',
+    condition_value: conditionRule?.value != null ? String(conditionRule.value) : '',
+  };
+
+  if (waitNode) {
+    draft.timing_mode = 'offset';
+    if (waitNode.type === 'wait.datetime_offset') {
+      draft.offset_direction = waitNode.config?.direction === 'after' ? 'after' : 'before';
+      draft.offset_value = String(waitNode.config?.amount ?? 24);
+      draft.offset_unit = waitNode.config?.unit === 'days' ? 'd' : waitNode.config?.unit === 'minutes' ? 'm' : 'h';
+    } else {
+      draft.offset_direction = 'after';
+      draft.offset_value = String(waitNode.config?.amount ?? 30);
+      draft.offset_unit = waitNode.config?.unit === 'days' ? 'd' : waitNode.config?.unit === 'hours' ? 'h' : 'm';
+    }
+  }
+
+  return draft;
+};
+
 const nodeMeta: Record<WorkflowNodeType, { label: string; accent: string; icon: any }> = {
   'trigger.event': { label: 'Event Trigger', accent: 'from-blue-600 to-cyan-500', icon: Flag },
   'trigger.schedule': { label: 'Schedule Trigger', accent: 'from-violet-600 to-fuchsia-500', icon: Clock3 },

@@ -1,9 +1,23 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle, MoreVertical, Play, Plus, Shield, Trash2, Workflow, XCircle, Zap } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowRight,
+  CheckCircle,
+  CopyPlus,
+  MoreVertical,
+  Play,
+  Plus,
+  Shield,
+  Trash2,
+  Workflow,
+  XCircle,
+  Zap,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { AutomationEditorDialog } from '@/components/messaging/automations/AutomationEditorDialog';
 import { EmailNavigation } from '@/components/messaging/email/EmailNavigation';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -17,7 +31,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { deleteAutomation, getAutomations, runAutomation, toggleAutomation } from '@/services/messaging';
 import type { AutomationRule, WorkflowDefinition } from '@/types/messaging';
-import { triggerLabels } from '@/components/messaging/automations/workflow-utils';
+import { extractSimpleAutomationDraft, triggerLabels } from '@/components/messaging/automations/workflow-utils';
 
 const weekdayLabels = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -70,6 +84,36 @@ const statusTone = (status?: string) => {
   return 'bg-slate-100 text-slate-700';
 };
 
+const getPrimaryActionSummary = (automation: AutomationRule) => {
+  const actionNode = automation.workflow_definition_json?.nodes?.find((node) => node.type.startsWith('action.'));
+  if (!actionNode) {
+    if (automation.workflow_definition_json?.meta?.system_command) {
+      return 'System command workflow';
+    }
+
+    return 'No action configured';
+  }
+
+  switch (actionNode.type) {
+    case 'action.sms':
+      return actionNode.config?.templateId ? 'SMS template' : 'Inline SMS';
+    case 'action.internal_notification':
+      return actionNode.config?.title || 'Internal notification';
+    default:
+      return actionNode.config?.templateId ? 'Email template' : 'Inline email';
+  }
+};
+
+const getValidationMessage = (automation: AutomationRule) => {
+  const firstError = automation.validation_state?.errors?.[0];
+  if (firstError) {
+    return firstError;
+  }
+
+  const firstNodeError = Object.values(automation.validation_state?.node_errors ?? {}).flat()[0];
+  return firstNodeError || null;
+};
+
 function AutomationCard({
   automation,
   onOpen,
@@ -89,11 +133,12 @@ function AutomationCard({
 }) {
   const flowSummary = summarizeFlow(automation.workflow_definition_json);
   const run = latestRun(automation);
+  const validationMessage = getValidationMessage(automation);
 
   return (
-    <Card className="p-4">
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-        <div className="flex-1 space-y-3">
+    <Card className="p-5">
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0 flex-1 space-y-4">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-lg font-semibold">{automation.name}</h3>
             <Badge variant="outline">{automation.scope}</Badge>
@@ -122,35 +167,38 @@ function AutomationCard({
           </p>
 
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <div className="rounded-2xl border p-3">
+            <div className="rounded-2xl border bg-muted/20 p-3">
               <div className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Trigger</div>
               <div className="mt-1 font-medium">{triggerLabels[automation.trigger_type] || automation.trigger_type}</div>
             </div>
-            <div className="rounded-2xl border p-3">
-              <div className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Schedule</div>
+            <div className="rounded-2xl border bg-muted/20 p-3">
+              <div className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Timing</div>
               <div className="mt-1 text-sm text-muted-foreground">{summarizeSchedule(automation)}</div>
             </div>
-            <div className="rounded-2xl border p-3">
-              <div className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Workflow</div>
-              <div className="mt-1 text-sm text-muted-foreground">
-                {flowSummary.nodeCount} nodes, {flowSummary.actionCount} actions
-              </div>
-              <div className="text-xs text-muted-foreground">
-                {flowSummary.conditionCount} conditions, {flowSummary.waitCount} waits
-              </div>
+            <div className="rounded-2xl border bg-muted/20 p-3">
+              <div className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Action</div>
+              <div className="mt-1 text-sm text-muted-foreground">{getPrimaryActionSummary(automation)}</div>
             </div>
-            <div className="rounded-2xl border p-3">
+            <div className="rounded-2xl border bg-muted/20 p-3">
               <div className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Last Run</div>
               <div className="mt-1 text-sm text-muted-foreground">{formatDateTime(run?.started_at || run?.scheduled_for)}</div>
             </div>
           </div>
 
-          {!automation.validation_state?.valid && (
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <span className="rounded-full border px-3 py-1">{flowSummary.nodeCount} nodes</span>
+            <span className="rounded-full border px-3 py-1">{flowSummary.actionCount} actions</span>
+            <span className="rounded-full border px-3 py-1">{flowSummary.conditionCount} conditions</span>
+            <span className="rounded-full border px-3 py-1">{flowSummary.waitCount} waits</span>
+          </div>
+
+          {!automation.validation_state?.valid && validationMessage && (
             <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-              <div className="font-medium">Workflow needs attention</div>
-              <div className="mt-1">
-                {(automation.validation_state?.errors ?? []).slice(0, 2).join(' ')}
+              <div className="flex items-center gap-2 font-medium">
+                <AlertTriangle className="h-4 w-4" />
+                Workflow needs attention
               </div>
+              <div className="mt-1">{validationMessage}</div>
             </div>
           )}
 
@@ -162,47 +210,56 @@ function AutomationCard({
           )}
         </div>
 
-        <div className="flex items-center gap-3 xl:flex-col xl:items-end">
+        <div className="flex items-center gap-2 lg:flex-col lg:items-end">
           <Switch checked={automation.is_active} onCheckedChange={() => onToggle(automation)} />
-          <Button variant="outline" size="sm" onClick={() => onOpen(automation)}>
-            <Workflow className="mr-2 h-4 w-4" />
-            Open Workflow
-          </Button>
-          {automation.scope === 'SYSTEM' && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onRun(automation)}
-              disabled={runningId === automation.id}
-            >
-              <Play className="mr-2 h-4 w-4" />
-              Run now
-            </Button>
-          )}
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <MoreVertical className="h-4 w-4" />
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button variant="default" size="sm" onClick={() => onOpen(automation)}>
+              <Workflow className="mr-2 h-4 w-4" />
+              Open Workflow
+            </Button>
+
+            <Button variant="outline" size="sm" onClick={() => onDuplicate(automation)}>
+              <CopyPlus className="mr-2 h-4 w-4" />
+              Duplicate
+            </Button>
+
+            {automation.scope === 'SYSTEM' && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onRun(automation)}
+                disabled={runningId === automation.id}
+              >
+                <Play className="mr-2 h-4 w-4" />
+                Run now
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onOpen(automation)}>
-                <Workflow className="mr-2 h-4 w-4" />
-                Open Workflow
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onDuplicate(automation)}>
-                <Plus className="mr-2 h-4 w-4" />
-                Duplicate
-              </DropdownMenuItem>
-              {automation.scope !== 'SYSTEM' && (
-                <DropdownMenuItem onClick={() => onDelete(automation)} className="text-red-600">
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete
+            )}
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => onOpen(automation)}>
+                  <Workflow className="mr-2 h-4 w-4" />
+                  Open Workflow
                 </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+                <DropdownMenuItem onClick={() => onDuplicate(automation)}>
+                  <CopyPlus className="mr-2 h-4 w-4" />
+                  Duplicate
+                </DropdownMenuItem>
+                {automation.scope !== 'SYSTEM' && (
+                  <DropdownMenuItem onClick={() => onDelete(automation)} className="text-red-600">
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </div>
     </Card>
@@ -212,6 +269,8 @@ function AutomationCard({
 export default function Automations() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [draftAutomation, setDraftAutomation] = useState<AutomationRule | null>(null);
 
   const { data: automations = [], isLoading } = useQuery({
     queryKey: ['automations'],
@@ -253,10 +312,25 @@ export default function Automations() {
     },
   });
 
-  const { systemAutomations, customAutomations } = useMemo(() => ({
-    systemAutomations: automations.filter((automation) => automation.scope === 'SYSTEM'),
-    customAutomations: automations.filter((automation) => automation.scope !== 'SYSTEM'),
-  }), [automations]);
+  const { systemAutomations, customAutomations } = useMemo(
+    () => ({
+      systemAutomations: automations.filter((automation) => automation.scope === 'SYSTEM'),
+      customAutomations: automations.filter((automation) => automation.scope !== 'SYSTEM'),
+    }),
+    [automations],
+  );
+
+  const openCreateDialog = (automation: AutomationRule | null = null) => {
+    setDraftAutomation(automation);
+    setIsCreateDialogOpen(true);
+  };
+
+  const handleCreateSuccess = async (automation: AutomationRule) => {
+    setIsCreateDialogOpen(false);
+    setDraftAutomation(null);
+    await queryClient.invalidateQueries({ queryKey: ['automations'] });
+    navigate(`/messaging/email/automations/${automation.id}`);
+  };
 
   const handleDelete = (automation: AutomationRule) => {
     if (automation.scope === 'SYSTEM') {
@@ -269,34 +343,76 @@ export default function Automations() {
     }
   };
 
+  const handleDuplicate = (automation: AutomationRule) => {
+    if (extractSimpleAutomationDraft(automation)) {
+      openCreateDialog(automation);
+      return;
+    }
+
+    navigate('/messaging/email/automations/new', {
+      state: {
+        duplicateAutomation: {
+          ...automation,
+          scope: automation.scope === 'SYSTEM' ? 'GLOBAL' : automation.scope,
+          is_system_locked: false,
+        },
+      },
+    });
+  };
+
   return (
     <DashboardLayout>
       <EmailNavigation />
       <div className="space-y-6 px-2 pt-3 pb-3 sm:p-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Automation Workflows</h1>
-            <p className="mt-2 text-muted-foreground">
-              Design multi-step messaging workflows, inspect weekly system automations, and validate execution history from one place.
-            </p>
+        <Card className="overflow-hidden border-none bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 p-0 text-white shadow-sm">
+          <div className="flex flex-col gap-6 p-6 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-3xl">
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.24em] text-slate-200">
+                <Zap className="h-3.5 w-3.5" />
+                Messaging Automation
+              </div>
+              <h1 className="mt-4 text-3xl font-bold tracking-tight">Automation Workflows</h1>
+              <p className="mt-3 text-sm text-slate-300 sm:text-base">
+                Start simple with a guided form, then open the visual workflow only when you need branching, advanced waits, or deeper inspection.
+              </p>
+              <div className="mt-4 flex flex-wrap items-center gap-2 text-sm text-slate-300">
+                <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1">
+                  Common-case setup in one modal
+                </span>
+                <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1">
+                  System workflows stay visible and locked
+                </span>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <Button variant="secondary" onClick={() => openCreateDialog(null)}>
+                <Plus className="mr-2 h-4 w-4" />
+                New Automation
+              </Button>
+              <Button
+                variant="outline"
+                className="border-white/20 bg-transparent text-white hover:bg-white/10 hover:text-white"
+                onClick={() => navigate('/messaging/email/automations/new')}
+              >
+                <Workflow className="mr-2 h-4 w-4" />
+                Advanced Editor
+              </Button>
+            </div>
           </div>
-          <Button onClick={() => navigate('/messaging/email/automations/new')}>
-            <Plus className="mr-2 h-4 w-4" />
-            New Automation
-          </Button>
-        </div>
+        </Card>
 
         <Card className="p-4 sm:p-5">
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-2xl border p-4">
               <div className="text-xs uppercase tracking-[0.22em] text-muted-foreground">System Workflows</div>
               <div className="mt-2 text-2xl font-semibold">{systemAutomations.length}</div>
-              <div className="text-sm text-muted-foreground">Weekly automation backbone</div>
+              <div className="text-sm text-muted-foreground">Locked operational automations</div>
             </div>
             <div className="rounded-2xl border p-4">
               <div className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Custom Workflows</div>
               <div className="mt-2 text-2xl font-semibold">{customAutomations.length}</div>
-              <div className="text-sm text-muted-foreground">Editable visual automations</div>
+              <div className="text-sm text-muted-foreground">Built from the form or the visual editor</div>
             </div>
             <div className="rounded-2xl border p-4">
               <div className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Active</div>
@@ -306,7 +422,7 @@ export default function Automations() {
             <div className="rounded-2xl border p-4">
               <div className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Needs Review</div>
               <div className="mt-2 text-2xl font-semibold">{automations.filter((automation) => !automation.validation_state?.valid).length}</div>
-              <div className="text-sm text-muted-foreground">Workflows with validation issues</div>
+              <div className="text-sm text-muted-foreground">Validation issues or missing config</div>
             </div>
           </div>
         </Card>
@@ -327,7 +443,7 @@ export default function Automations() {
                   key={automation.id}
                   automation={automation}
                   onOpen={(item) => navigate(`/messaging/email/automations/${item.id}`)}
-                  onDuplicate={(item) => navigate('/messaging/email/automations/new', { state: { duplicateAutomation: item } })}
+                  onDuplicate={handleDuplicate}
                   onDelete={handleDelete}
                   onToggle={(item) => toggleMutation.mutate(item.id)}
                   onRun={(item) => runMutation.mutate(item.id)}
@@ -339,12 +455,23 @@ export default function Automations() {
         </div>
 
         <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Custom Automations</h2>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-semibold">Custom Automations</h2>
+              <p className="text-sm text-muted-foreground">Use the quick builder for the common case, then open the visual workflow when you want more control.</p>
+            </div>
+            <Button variant="outline" onClick={() => openCreateDialog(null)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Create with Form
+            </Button>
+          </div>
+
           {customAutomations.length === 0 ? (
             <Card className="p-12 text-center">
               <p className="text-muted-foreground">No custom automations yet.</p>
-              <Button onClick={() => navigate('/messaging/email/automations/new')} className="mt-4">
-                Create your first workflow
+              <Button onClick={() => openCreateDialog(null)} className="mt-4">
+                Create your first automation
+                <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </Card>
           ) : (
@@ -354,7 +481,7 @@ export default function Automations() {
                   key={automation.id}
                   automation={automation}
                   onOpen={(item) => navigate(`/messaging/email/automations/${item.id}`)}
-                  onDuplicate={(item) => navigate('/messaging/email/automations/new', { state: { duplicateAutomation: item } })}
+                  onDuplicate={handleDuplicate}
                   onDelete={handleDelete}
                   onToggle={(item) => toggleMutation.mutate(item.id)}
                   onRun={(item) => runMutation.mutate(item.id)}
@@ -365,6 +492,16 @@ export default function Automations() {
           )}
         </div>
       </div>
+
+      <AutomationEditorDialog
+        automation={draftAutomation}
+        open={isCreateDialogOpen}
+        onClose={() => {
+          setIsCreateDialogOpen(false);
+          setDraftAutomation(null);
+        }}
+        onSuccess={handleCreateSuccess}
+      />
     </DashboardLayout>
   );
 }
