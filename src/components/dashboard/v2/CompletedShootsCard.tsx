@@ -3,7 +3,6 @@ import { format } from 'date-fns';
 import { DashboardShootSummary } from '@/types/dashboard';
 import { withApiBase } from '@/config/env';
 import { Card } from './SharedComponents';
-import { useTheme } from '@/hooks/useTheme';
 
 interface CompletedShootsCardProps {
   shoots: DashboardShootSummary[];
@@ -29,7 +28,7 @@ const isFloorplanUrl = (url: string): boolean => {
   return FLOORPLAN_PATTERNS.some(p => lower.includes(p));
 };
 
-const getShootImages = (shoot: DashboardShootSummary, placeholder: string): string[] => {
+const getShootImages = (shoot: DashboardShootSummary): string[] => {
   const candidates = [
     ...(Array.isArray(shoot.previewImages) ? shoot.previewImages : []),
     shoot.heroImage,
@@ -45,7 +44,7 @@ const getShootImages = (shoot: DashboardShootSummary, placeholder: string): stri
     return unique.slice(0, 6);
   }
 
-  return [placeholder];
+  return ['/no-image-placeholder.svg'];
 };
 
 interface SlideshowProps {
@@ -135,8 +134,6 @@ export const CompletedShootsCard: React.FC<CompletedShootsCardProps> = ({
   onViewInvoice,
   onViewAll,
 }) => {
-  const { theme } = useTheme();
-  const placeholder = theme === 'dark' ? '/no-image-placeholder.svg' : '/no-image-placeholder-light.svg';
   const safeShoots = Array.isArray(shoots) ? shoots : [];
   
   return (
@@ -155,7 +152,7 @@ export const CompletedShootsCard: React.FC<CompletedShootsCardProps> = ({
       ) : (
         <div className="space-y-3 flex-1 overflow-y-auto custom-scrollbar pr-1">
           {safeShoots.slice(0, 3).map((shoot, index) => {
-            const images = getShootImages(shoot, placeholder);
+            const images = getShootImages(shoot);
             return (
               <div
                 key={shoot.id}

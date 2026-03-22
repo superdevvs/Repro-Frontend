@@ -148,9 +148,6 @@ const resolvePreviewUrl = (value: string | null | undefined): string | null => {
   }
 }
 
-const getPlaceholderImage = (isDark: boolean) =>
-  isDark ? '/no-image-placeholder.svg' : '/no-image-placeholder-light.svg'
-
 const HISTORY_ALLOWED_ROLES = new Set([
   'admin',
   'superadmin',
@@ -1098,9 +1095,6 @@ const CompletedAlbumCard = ({
   shouldHideClientDetails?: boolean
 }) => {
   const { formatTime, formatDate: formatDatePref } = useUserPreferences()
-  const { theme } = useTheme()
-  const isDark = theme === 'dark'
-  const placeholder = getPlaceholderImage(isDark)
   const formatDisplayDateLocal = (value?: string | null) => {
     if (!value) return '—'
     try { return formatDatePref(new Date(value)) } catch { return value ?? '—' }
@@ -1131,10 +1125,10 @@ const CompletedAlbumCard = ({
       onClick={() => onSelect(shoot)}
     >
       {/* Cover Image or Placeholder */}
-      <div className="relative h-64 overflow-hidden bg-muted">
+      <div className="relative h-64 overflow-hidden bg-muted dark:bg-[#0c1222]">
         {hasNoImages ? (
           <img 
-            src={placeholder} 
+            src="/no-image-placeholder.svg" 
             alt="No images yet" 
             className="w-full h-full object-cover"
           />
@@ -1144,7 +1138,10 @@ const CompletedAlbumCard = ({
             alt={shoot.location.address} 
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             loading="lazy"
-            onError={(e) => { e.currentTarget.src = placeholder }}
+            onError={(e) => {
+              e.currentTarget.src = '/no-image-placeholder.svg'
+              e.currentTarget.className = 'w-full h-full object-cover'
+            }}
           />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
@@ -1354,9 +1351,6 @@ const CompletedShootListRow = ({
   shouldHideClientDetails?: boolean
 }) => {
   const { formatDate: formatDatePref } = useUserPreferences()
-  const { theme } = useTheme()
-  const isDark = theme === 'dark'
-  const placeholder = getPlaceholderImage(isDark)
   const formatDisplayDateLocal = (value?: string | null) => {
     if (!value) return '—'
     try { return formatDatePref(new Date(value)) } catch { return value ?? '—' }
@@ -1381,7 +1375,7 @@ const CompletedShootListRow = ({
   const canSendToEditing = Boolean(onSendToEditing) && shootStatus === 'uploaded'
 
   const hasNoImages = !heroImage || heroImage === '/placeholder.svg' || photoCount === 0
-  const displayImage = hasNoImages ? placeholder : heroImage
+  const displayImage = hasNoImages ? '/no-image-placeholder.svg' : heroImage
 
   return (
     <Card
@@ -1390,13 +1384,16 @@ const CompletedShootListRow = ({
     >
       <div className="flex gap-3 sm:gap-4 p-3 sm:p-4">
         {/* Thumbnail - Small square on mobile, rectangular landscape on desktop */}
-        <div className="w-24 h-24 sm:w-40 sm:h-28 rounded-lg overflow-hidden bg-muted flex-shrink-0 shadow-sm">
+        <div className={cn('w-24 h-24 sm:w-40 sm:h-28 rounded-lg overflow-hidden flex-shrink-0 shadow-sm bg-muted dark:bg-[#0c1222]')}>
           <img 
             src={displayImage} 
             alt={shoot.location.address} 
-            className="w-full h-full object-cover"
+            className={cn('w-full h-full', hasNoImages ? 'object-fill' : 'object-cover')}
             loading="lazy"
-            onError={(e) => { e.currentTarget.src = placeholder }}
+            onError={(e) => {
+              e.currentTarget.src = '/no-image-placeholder.svg'
+              e.currentTarget.className = 'w-full h-full object-fill'
+            }}
           />
         </div>
 
