@@ -83,18 +83,12 @@ const PREVIEW_EMAIL_STYLES = `
   gap: 14px;
   margin-bottom: 24px;
 }
-.preview-brand-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 999px;
-  background: #11192d;
-  color: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  font-weight: 700;
-  box-shadow: 0 10px 24px rgba(17, 25, 45, 0.14);
+.preview-brand-logo {
+  display: inline-block;
+}
+.preview-brand-logo img {
+  width: 136px;
+  height: auto;
 }
 .preview-brand-copy {
   color: #1d2940;
@@ -679,7 +673,9 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
                   <div className="preview-gridline-v" />
                 </div>
                 <div className="preview-brand">
-                  <div className="preview-brand-icon">✓</div>
+                  <div className="preview-brand-logo">
+                    <img src="https://api.reprodashboard.com/images/Repro%20HQ%20dark.png" alt="R/E Pro Photos" />
+                  </div>
                   <div className="preview-brand-copy">
                     <span>{formData.category || 'Workflow update'}</span>
                     R/E Pro Photos
