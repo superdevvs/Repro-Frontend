@@ -572,7 +572,7 @@ export function ShootDetailsModal({
     }
   };
 
-  const amountDue = shoot ? (shoot.payment?.totalQuote || 0) - (shoot.payment?.totalPaid || 0) : 0;
+  const amountDue = shoot ? Math.max((shoot.payment?.totalQuote || 0) - (shoot.payment?.totalPaid || 0), 0) : 0;
   const isPaid = amountDue <= 0.01;
 
   const handleProcessPayment = () => {
@@ -593,8 +593,12 @@ export function ShootDetailsModal({
   const handleMarkPaidConfirm = async (payload: MarkAsPaidPayload) => {
     if (!shoot) return;
     const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-    const outstandingAmount = (shoot.payment?.totalQuote ?? 0) - (shoot.payment?.totalPaid ?? 0);
-    const amount = outstandingAmount > 0 ? outstandingAmount : (shoot.payment?.totalQuote ?? 0);
+    const outstandingAmount = Math.max((shoot.payment?.totalQuote ?? 0) - (shoot.payment?.totalPaid ?? 0), 0);
+    if (outstandingAmount <= 0.01) {
+      toast({ title: 'Already Paid', description: 'This shoot is already fully paid.' });
+      return;
+    }
+    const amount = outstandingAmount;
 
     const body: Record<string, any> = {
       payment_type: payload.paymentMethod,
@@ -2075,9 +2079,10 @@ export function ShootDetailsModal({
   }, [isAdmin, isClient, isRequestedStatus]);
 
   // Mobile bottom bar: show all relevant actions (parity with desktop)
-  const canMarkPaidOnMobile =
-    (currentUserRole === 'superadmin' || currentUserRole === 'admin') && !isEditingManager &&
-    !((shoot?.payment?.totalPaid ?? 0) >= (shoot?.payment?.totalQuote ?? 0));
+    const canMarkPaidOnMobile =
+      (currentUserRole === 'superadmin' || currentUserRole === 'admin') &&
+      !isEditingManager &&
+      !isPaid;
   const canProcessPaymentOnMobile = (isAdmin || isRep) && !isPaid && !isPhotographer && !isEditor && !isEditingManager;
   const showMobilePaymentActions =
     !isEditMode && !isRequestedStatus && !isCancelledOrDeclined && (canMarkPaidOnMobile || canProcessPaymentOnMobile);
@@ -2687,12 +2692,12 @@ export function ShootDetailsModal({
 
             {/* Payment buttons section - desktop (hidden for cancelled/declined shoots, editors, editing managers) */}
             {!isCancelledOrDeclined && (isAdmin || isRep) && !isPhotographer && !isEditor && !isEditingManager && (
-              ((currentUserRole === 'superadmin' || currentUserRole === 'admin') && !((shoot.payment?.totalPaid ?? 0) >= (shoot.payment?.totalQuote ?? 0))) ||
+              ((currentUserRole === 'superadmin' || currentUserRole === 'admin') && !isPaid) ||
               ((isAdmin || isRep) && !isPaid)
             ) && (
               <div className="hidden sm:block px-2 sm:px-4 py-2 border-t bg-background flex-shrink-0">
                 <div className="hidden sm:flex gap-2 w-full">
-                  {(currentUserRole === 'superadmin' || currentUserRole === 'admin') && !((shoot.payment?.totalPaid ?? 0) >= (shoot.payment?.totalQuote ?? 0)) && (
+                  {(currentUserRole === 'superadmin' || currentUserRole === 'admin') && !isPaid && (
                     <Button
                       variant="default"
                       size="sm"
@@ -2857,7 +2862,7 @@ export function ShootDetailsModal({
         <SquarePaymentDialog
           isOpen={isPaymentDialogOpen}
           onClose={() => setIsPaymentDialogOpen(false)}
-          amount={amountDue || 100}
+          amount={amountDue || Number(shoot.payment?.totalQuote || 0)}
           shootId={shoot.id}
           shootAddress={shoot.location?.fullAddress || shoot.location?.address}
           shootServices={Array.isArray(shoot.services) ? shoot.services.map((s: any) => typeof s === 'string' ? s : s?.name || s?.label || String(s)).filter(Boolean) : []}

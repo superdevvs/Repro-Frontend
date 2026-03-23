@@ -243,7 +243,7 @@ export function ShootDetailsMediaTab({
   }, [onSelectionChange, selectedFiles]);
 
   // Load editing types - only for admin/editor users (clients don't have access)
-  const canAccessFotello = ['admin', 'superadmin', 'editor'].includes(role || '');
+  const canAccessFotello = ['admin', 'superadmin', 'editing_manager', 'editor'].includes(role || '');
   
   useEffect(() => {
     if (!canAccessFotello) return;

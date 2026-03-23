@@ -30,6 +30,63 @@ export interface ZipDownloadResponse {
   url?: string;
 }
 
+export interface MediaUploadErrorItem {
+  file_name?: string;
+  message?: string;
+  error_type?: string;
+}
+
+export interface MediaUploadResponse {
+  message?: string;
+  success_count: number;
+  error_count?: number;
+  partial_success?: boolean;
+  errors?: MediaUploadErrorItem[];
+  error_type?: string;
+  workflow_status?: string;
+  workflow_status_changed?: boolean;
+}
+
+export const getMediaUploadErrorMessage = (
+  error: unknown,
+  fallback: string,
+): string => {
+  if (!axios.isAxiosError(error)) {
+    return fallback;
+  }
+
+  const payload = error.response?.data as
+    | {
+        message?: string;
+        error_type?: string;
+        errors?: MediaUploadErrorItem[];
+      }
+    | undefined;
+
+  const baseMessage = payload?.message?.trim() || fallback;
+
+  if (payload?.error_type === 'invalid_workflow_stage') {
+    return `${baseMessage} Please move the shoot into the upload/editing workflow and try again.`;
+  }
+
+  if (payload?.error_type === 'forbidden') {
+    return `${baseMessage} Your account does not have permission for this upload.`;
+  }
+
+  if (payload?.error_type === 'oversize') {
+    return `${baseMessage} One or more files are too large for the server upload limit.`;
+  }
+
+  if (payload?.errors?.length) {
+    const firstError = payload.errors.find((item) => item?.message)?.message?.trim();
+    if (firstError) {
+      return firstError;
+    }
+  }
+
+  return baseMessage;
+};
+
 /**
  * Fetch media files for a shoot by type
  */
@@ -58,7 +115,7 @@ export const uploadRawPhotos = async (
   bracketMode: 3 | 5 | null,
   token: string,
   onProgress?: (progress: number) => void
-): Promise<any> => {
+): Promise<MediaUploadResponse> => {
   const formData = new FormData();
   files.forEach((file) => {
     formData.append('files[]', file);
@@ -98,7 +155,7 @@ export const uploadExtraPhotos = async (
   files: File[],
   token: string,
   onProgress?: (progress: number) => void
-): Promise<any> => {
+): Promise<MediaUploadResponse> => {
   const formData = new FormData();
   files.forEach((file) => {
     formData.append('files[]', file);
@@ -134,7 +191,7 @@ export const uploadEditedPhotos = async (
   files: File[],
   token: string,
   onProgress?: (progress: number) => void
-): Promise<any> => {
+): Promise<MediaUploadResponse> => {
   const formData = new FormData();
   files.forEach((file) => {
     formData.append('files[]', file);

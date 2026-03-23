@@ -692,12 +692,16 @@ const ShootDetails: React.FC = () => {
     }
   };
 
-  const amountDue = shoot ? (shoot.payment?.totalQuote || 0) - (shoot.payment?.totalPaid || 0) : 0;
+  const amountDue = shoot ? Math.max((shoot.payment?.totalQuote || 0) - (shoot.payment?.totalPaid || 0), 0) : 0;
 
   const handleMarkPaidConfirm = async (payload: MarkAsPaidPayload) => {
     if (!shoot) return;
-    const outstandingAmount = (shoot.payment?.totalQuote ?? 0) - (shoot.payment?.totalPaid ?? 0);
-    const amount = outstandingAmount > 0 ? outstandingAmount : (shoot.payment?.totalQuote ?? 0);
+    const outstandingAmount = Math.max((shoot.payment?.totalQuote ?? 0) - (shoot.payment?.totalPaid ?? 0), 0);
+    if (outstandingAmount <= 0.01) {
+      toast({ title: 'Already Paid', description: 'This shoot is already fully paid.' });
+      return;
+    }
+    const amount = outstandingAmount;
 
     const body: Record<string, any> = {
       payment_type: payload.paymentMethod,

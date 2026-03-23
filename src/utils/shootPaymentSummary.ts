@@ -1,6 +1,18 @@
 type RawPaymentRecord = {
+  id?: unknown;
+  payment_id?: unknown;
+  square_payment_id?: unknown;
+  squarePaymentId?: unknown;
+  stripe_payment_id?: unknown;
+  stripePaymentId?: unknown;
+  stripe_session_id?: unknown;
+  stripeSessionId?: unknown;
   amount?: unknown;
   status?: unknown;
+  refunded_at?: unknown;
+  refundedAt?: unknown;
+  refund_status?: unknown;
+  refundStatus?: unknown;
 };
 
 type RawPaymentContainer = {
@@ -72,11 +84,36 @@ export const sumCompletedPayments = (payments: unknown): number => {
     return 0;
   }
 
+  const seenKeys = new Set<string>();
+
   return payments.reduce((sum, payment) => {
     const record = (payment ?? {}) as RawPaymentRecord;
     const status = String(record.status ?? '').trim().toLowerCase();
     if (status && status !== 'completed') {
       return sum;
+    }
+
+    const refundStatus = String(record.refund_status ?? record.refundStatus ?? '').trim().toLowerCase();
+    if (record.refunded_at || record.refundedAt || refundStatus === 'refunded') {
+      return sum;
+    }
+
+    const dedupeKey =
+      toOptionalString(record.stripe_session_id) ||
+      toOptionalString(record.stripeSessionId) ||
+      toOptionalString(record.stripe_payment_id) ||
+      toOptionalString(record.stripePaymentId) ||
+      toOptionalString(record.square_payment_id) ||
+      toOptionalString(record.squarePaymentId) ||
+      toOptionalString(record.payment_id) ||
+      toOptionalString(record.id);
+
+    if (dedupeKey) {
+      const normalizedKey = dedupeKey.toLowerCase();
+      if (seenKeys.has(normalizedKey)) {
+        return sum;
+      }
+      seenKeys.add(normalizedKey);
     }
 
     return sum + toNumber(record.amount);
@@ -100,7 +137,10 @@ export const normalizeShootPaymentSummary = (
 ): NormalizedShootPaymentSummary => {
   const payment = rawShoot?.payment ?? null;
   const completedPaymentsTotal = sumCompletedPayments(rawShoot?.payments);
-  const useCompletedPaymentsTotal = hasCompletedPayment(rawShoot?.payments);
+  const hasCanonicalTotalPaid =
+    rawShoot?.total_paid !== undefined ||
+    payment?.totalPaid !== undefined ||
+    payment?.total_paid !== undefined;
 
   const baseQuote = pickFirstDefinedNumber(
     rawShoot?.base_quote,
@@ -124,13 +164,13 @@ export const normalizeShootPaymentSummary = (
     payment?.totalQuote,
     payment?.total_quote,
   );
-  const totalPaid = useCompletedPaymentsTotal
-    ? completedPaymentsTotal
-    : pickFirstDefinedNumber(
+  const totalPaid = hasCanonicalTotalPaid
+    ? pickFirstDefinedNumber(
         payment?.totalPaid,
         payment?.total_paid,
         rawShoot?.total_paid,
-      );
+      )
+    : (hasCompletedPayment(rawShoot?.payments) ? completedPaymentsTotal : 0);
 
   return {
     baseQuote,
@@ -138,7 +178,7 @@ export const normalizeShootPaymentSummary = (
     taxAmount,
     totalQuote,
     totalPaid,
-    balance: totalQuote - totalPaid,
+    balance: Math.max(totalQuote - totalPaid, 0),
     lastPaymentDate:
       toOptionalString(rawShoot?.last_payment_date) ||
       toOptionalString(payment?.lastPaymentDate),

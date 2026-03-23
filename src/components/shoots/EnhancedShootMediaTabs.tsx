@@ -20,6 +20,7 @@ import {
   uploadExtraPhotos,
   uploadEditedPhotos,
   downloadMediaZip,
+  getMediaUploadErrorMessage,
   type DropboxMediaFile,
 } from '@/services/dropboxMediaService';
 import { MissingPhotosAlert, PhotoCountsSummary } from './MissingPhotosAlert';
@@ -255,9 +256,13 @@ export const EnhancedShootMediaTabs: React.FC<EnhancedShootMediaTabsProps> = ({
       );
 
       setUploadedCount(fileArray.length);
+      const failedCount = response.error_count ?? Math.max(fileArray.length - response.success_count, 0);
       toast({
-        title: 'Success',
-        description: `Uploaded ${response.success_count} edited photos`,
+        title: response.partial_success ? 'Upload Partially Complete' : 'Success',
+        description: response.partial_success
+          ? `Uploaded ${response.success_count} edited files. ${failedCount} file(s) still need attention.`
+          : `Uploaded ${response.success_count} edited photos`,
+        variant: response.partial_success ? 'destructive' : 'default',
       });
 
       loadEditedFiles();
@@ -266,7 +271,7 @@ export const EnhancedShootMediaTabs: React.FC<EnhancedShootMediaTabsProps> = ({
       console.error('Failed to upload edited files:', error);
       toast({
         title: 'Error',
-        description: 'Failed to upload edited files',
+        description: getMediaUploadErrorMessage(error, 'Failed to upload edited files'),
         variant: 'destructive',
       });
     } finally {

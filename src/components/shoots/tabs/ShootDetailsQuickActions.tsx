@@ -268,7 +268,7 @@ export function ShootDetailsQuickActions({
   // Mark as paid (Super Admin only)
   const handleMarkAsPaid = () => {
     if (!shoot) return;
-    const isPaid = (shoot.payment?.totalPaid ?? 0) >= (shoot.payment?.totalQuote ?? 0);
+    const isPaid = Math.max((shoot.payment?.totalQuote ?? 0) - (shoot.payment?.totalPaid ?? 0), 0) <= 0.01;
     if (isPaid) {
       toast({
         title: 'Already Paid',
@@ -281,8 +281,15 @@ export function ShootDetailsQuickActions({
 
   const handleMarkPaidConfirm = async (payload: MarkAsPaidPayload) => {
     if (!shoot) return;
-    const outstandingAmount = (shoot.payment?.totalQuote ?? 0) - (shoot.payment?.totalPaid ?? 0);
-    const amount = outstandingAmount > 0 ? outstandingAmount : (shoot.payment?.totalQuote ?? 0);
+    const outstandingAmount = Math.max((shoot.payment?.totalQuote ?? 0) - (shoot.payment?.totalPaid ?? 0), 0);
+    if (outstandingAmount <= 0.01) {
+      toast({
+        title: 'Already Paid',
+        description: 'This shoot is already fully paid',
+      });
+      return;
+    }
+    const amount = outstandingAmount;
     const token = localStorage.getItem('authToken') || localStorage.getItem('token');
 
     const body: Record<string, any> = {
@@ -319,7 +326,7 @@ export function ShootDetailsQuickActions({
     onShootUpdate();
   };
 
-  const isPaid = (shoot.payment?.totalPaid ?? 0) >= (shoot.payment?.totalQuote ?? 0);
+  const isPaid = Math.max((shoot.payment?.totalQuote ?? 0) - (shoot.payment?.totalPaid ?? 0), 0) <= 0.01;
   const iguideUrl =
     shoot.iguideTourUrl ||
     shoot.tourLinks?.iGuide ||
@@ -479,4 +486,3 @@ export function ShootDetailsQuickActions({
     </>
   );
 }
-

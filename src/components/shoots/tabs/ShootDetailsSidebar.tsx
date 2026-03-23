@@ -98,7 +98,7 @@ export function ShootDetailsSidebar({
     [shoot],
   );
 
-  const remainingBalance = payment.totalQuote - payment.totalPaid;
+  const remainingBalance = Math.max((payment.totalQuote || 0) - (payment.totalPaid || 0), 0);
   const isPaid = remainingBalance <= 0.01;
 
   const handleCall = (phone: string) => {

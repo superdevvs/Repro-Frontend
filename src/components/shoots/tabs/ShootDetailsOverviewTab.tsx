@@ -1849,6 +1849,12 @@ export function ShootDetailsOverviewTab({
     },
   ];
 
+  const paymentTotalPaid = Number(shoot.payment?.totalPaid) || 0;
+  const paymentTotalQuote = Number(shoot.payment?.totalQuote) || 0;
+  const editedPaymentTotalQuote = Number(editedShoot.payment?.totalQuote ?? shoot.payment?.totalQuote) || 0;
+  const paymentBalance = Math.max(paymentTotalQuote - paymentTotalPaid, 0);
+  const editedPaymentBalance = Math.max(editedPaymentTotalQuote - paymentTotalPaid, 0);
+
   // Toggle service selection
   const toggleServiceSelection = (serviceId: string) => {
     setSelectedServiceIds((prev) => {
@@ -2671,12 +2677,12 @@ export function ShootDetailsOverviewTab({
             <Separator className="my-1.5" />
             <div className="flex justify-between">
               <span className="text-muted-foreground">Paid:</span>
-              <span>${(Number(shoot.payment?.totalPaid) || 0).toFixed(2)}</span>
+              <span>${paymentTotalPaid.toFixed(2)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Balance:</span>
-              <span className={((Number(editedShoot.payment?.totalQuote ?? shoot.payment?.totalQuote) || 0) - (Number(shoot.payment?.totalPaid) || 0) > 0) ? 'text-orange-600 font-medium' : 'text-green-600'}>
-                ${((Number(editedShoot.payment?.totalQuote ?? shoot.payment?.totalQuote) || 0) - (Number(shoot.payment?.totalPaid) || 0)).toFixed(2)}
+              <span className={editedPaymentBalance > 0 ? 'text-orange-600 font-medium' : 'text-green-600'}>
+                ${editedPaymentBalance.toFixed(2)}
               </span>
             </div>
           </div>
@@ -2699,12 +2705,12 @@ export function ShootDetailsOverviewTab({
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Paid:</span>
-                  <span>${(Number(shoot.payment?.totalPaid) || 0).toFixed(2)}</span>
+                  <span>${paymentTotalPaid.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Balance:</span>
-                  <span className={((shoot.payment?.totalQuote || 0) - (shoot.payment?.totalPaid || 0) > 0) ? 'text-orange-600 font-medium' : 'text-green-600'}>
-                    ${((shoot.payment?.totalQuote || 0) - (shoot.payment?.totalPaid || 0)).toFixed(2)}
+                  <span className={paymentBalance > 0 ? 'text-orange-600 font-medium' : 'text-green-600'}>
+                    ${paymentBalance.toFixed(2)}
                   </span>
                 </div>
               </>
@@ -2716,12 +2722,12 @@ export function ShootDetailsOverviewTab({
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Paid:</span>
-                  <span>${(Number(shoot.payment?.totalPaid) || 0).toFixed(2)}</span>
+                  <span>${paymentTotalPaid.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Outstanding:</span>
-                  <span className={((Number(shoot.payment?.totalQuote) || 0) - (Number(shoot.payment?.totalPaid) || 0) > 0) ? 'text-orange-600 font-medium' : 'text-green-600'}>
-                    ${((Number(shoot.payment?.totalQuote) || 0) - (Number(shoot.payment?.totalPaid) || 0)).toFixed(2)}
+                  <span className={paymentBalance > 0 ? 'text-orange-600 font-medium' : 'text-green-600'}>
+                    ${paymentBalance.toFixed(2)}
                   </span>
                 </div>
               </>
