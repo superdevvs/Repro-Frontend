@@ -79,18 +79,21 @@ const PREVIEW_EMAIL_STYLES = `
   position: relative;
   z-index: 2;
   display: flex;
-  align-items: center;
-  gap: 14px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
   margin-bottom: 24px;
 }
 .preview-brand-logo {
   display: inline-block;
+  flex-shrink: 0;
 }
 .preview-brand-logo img {
   width: 136px;
   height: auto;
 }
 .preview-brand-copy {
+  text-align: right;
   color: #1d2940;
   font-size: 14px;
   line-height: 1.4;
@@ -103,6 +106,14 @@ const PREVIEW_EMAIL_STYLES = `
   letter-spacing: 1.4px;
   text-transform: uppercase;
   font-weight: 700;
+}
+.preview-overline {
+  display: block;
+  margin-bottom: 12px;
+  color: #6c82a3;
+  font-size: 15px;
+  line-height: 1.5;
+  font-weight: 500;
 }
 .preview-title {
   position: relative;
@@ -126,40 +137,81 @@ const PREVIEW_EMAIL_STYLES = `
   font-size: 15px;
   line-height: 1.8;
 }
-.preview-orbit {
+.preview-illustration {
   position: absolute;
-  top: 32px;
-  right: -10px;
-  width: 200px;
-  height: 200px;
+  top: 28px;
+  right: 6px;
+  width: 220px;
+  height: 168px;
+  pointer-events: none;
+  opacity: 0.95;
+}
+.preview-camera-body,
+.preview-camera-top,
+.preview-camera-lens,
+.preview-camera-lens-inner,
+.preview-camera-flash,
+.preview-camera-line {
+  position: absolute;
+  border: 1.5px solid #e6edf7;
+  background: transparent;
+}
+.preview-camera-body {
+  left: 22px;
+  top: 56px;
+  width: 170px;
+  height: 96px;
+  border-radius: 28px;
+}
+.preview-camera-top {
+  left: 54px;
+  top: 36px;
+  width: 70px;
+  height: 30px;
+  border-bottom: 0;
+  border-radius: 16px 16px 0 0;
+}
+.preview-camera-lens {
+  left: 78px;
+  top: 72px;
+  width: 60px;
+  height: 60px;
   border-radius: 999px;
-  border: 1px solid #ebeff5;
 }
-.preview-orbit::before,
-.preview-orbit::after {
-  content: "";
-  position: absolute;
+.preview-camera-lens-inner {
+  left: 91px;
+  top: 85px;
+  width: 34px;
+  height: 34px;
   border-radius: 999px;
-  border: 1px solid #ebeff5;
 }
-.preview-orbit::before { inset: 26px; }
-.preview-orbit::after { inset: 52px; }
-.preview-gridline-h,
-.preview-gridline-v {
-  position: absolute;
-  background: #eef2f7;
+.preview-camera-flash {
+  left: 158px;
+  top: 78px;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
 }
-.preview-gridline-h {
-  left: 0;
-  right: 0;
-  top: 50%;
-  height: 1px;
+.preview-camera-line-one {
+  left: 182px;
+  top: 40px;
+  width: 34px;
+  height: 0;
+  border-width: 1.5px 0 0 0;
 }
-.preview-gridline-v {
-  top: 0;
-  bottom: 0;
-  left: 50%;
-  width: 1px;
+.preview-camera-line-two {
+  left: 194px;
+  top: 54px;
+  width: 20px;
+  height: 0;
+  border-width: 1.5px 0 0 0;
+}
+.preview-camera-line-three {
+  left: 192px;
+  top: 66px;
+  width: 0;
+  height: 20px;
+  border-width: 0 0 0 1.5px;
 }
 .preview-journey {
   position: relative;
@@ -284,6 +336,12 @@ const PREVIEW_EMAIL_STYLES = `
   margin: 6px 10px 10px 0;
   box-shadow: 0 12px 24px rgba(20, 99, 255, 0.18);
 }
+.email-preview .button-large {
+  padding: 18px 30px;
+  font-size: 16px;
+  letter-spacing: 0.2px;
+  box-shadow: 0 16px 30px rgba(20, 99, 255, 0.22);
+}
 .email-preview .info-box {
   margin: 20px 0;
   padding: 18px 20px;
@@ -315,6 +373,34 @@ const PREVIEW_EMAIL_STYLES = `
   background: linear-gradient(180deg, #fff9ee 0%, #fff3df 100%);
   color: #8b5b14 !important;
 }
+.email-preview .change-card {
+  margin: 22px 0;
+  padding: 20px 22px;
+  border-radius: 24px;
+  border: 1px solid #d9e7ff;
+  background: linear-gradient(180deg, #f7fbff 0%, #eff6ff 100%);
+}
+.email-preview .change-card-title {
+  margin: 0 0 12px;
+  color: #10233b;
+  font-size: 18px;
+  line-height: 1.4;
+  font-weight: 800;
+}
+.email-preview .change-card p,
+.email-preview .change-card li,
+.email-preview .change-card div,
+.email-preview .change-card span {
+  color: #35506f !important;
+}
+.email-preview .change-card ul,
+.email-preview .change-card ol {
+  margin: 0;
+  padding-left: 20px;
+}
+.email-preview .change-card li {
+  margin-bottom: 10px;
+}
 `;
 
 type PreviewJourneyStep = {
@@ -322,17 +408,70 @@ type PreviewJourneyStep = {
   state: 'complete' | 'next' | 'pending';
 };
 
-function getPreviewTitleParts(title: string): { primary: string; accent?: string } {
+type PreviewTitleParts = {
+  overline?: string;
+  primary: string;
+  accent?: string;
+};
+
+function isDynamicContextSegment(segment: string): boolean {
+  const trimmed = segment.trim();
+  if (!trimmed) {
+    return false;
+  }
+
+  if (trimmed.includes('{{') || trimmed.includes('[')) {
+    return true;
+  }
+
+  if (/\d/.test(trimmed) || trimmed.includes(',')) {
+    return true;
+  }
+
+  const wordCount = trimmed.split(/\s+/).filter(Boolean).length;
+
+  return wordCount >= 4 && trimmed.length >= 20;
+}
+
+function getPreviewTitleParts(title: string): PreviewTitleParts {
   const trimmed = title.trim();
   if (!trimmed) {
     return { primary: 'R/E Pro Photos update.' };
   }
 
+  const suffixMatch = trimmed.match(/^(.*)\s+(New Account Information|Payment Due Reminder|Shoot Delivered|Summary)$/);
+  if (suffixMatch) {
+    return {
+      overline: suffixMatch[1].trim(),
+      primary: suffixMatch[2],
+    };
+  }
+
+  const placeholderLead = trimmed.match(/^(\{\{[^}]+\}\}|\[[^\]]+\])\s+(.+)$/);
+  if (placeholderLead) {
+    return {
+      overline: placeholderLead[1].trim(),
+      primary: placeholderLead[2].trim(),
+    };
+  }
+
   const split = trimmed.split(/\s+-\s+|\s+\|\s+|\s*:\s*/, 2);
   if (split.length === 2) {
+    const [first, second] = split.map((part) => part.trim());
+
+    if (isDynamicContextSegment(first) !== isDynamicContextSegment(second)) {
+      const overline = isDynamicContextSegment(first) ? first : second;
+      const primary = overline === first ? second : first;
+
+      return {
+        overline,
+        primary: primary.replace(/\.$/, ''),
+      };
+    }
+
     return {
-      primary: `${split[0].replace(/\.$/, '')}.`,
-      accent: split[1],
+      primary: `${first.replace(/\.$/, '')}.`,
+      accent: second,
     };
   }
 
@@ -376,7 +515,9 @@ function getPreviewJourney(slug?: string): PreviewJourneyStep[] | null {
   const definition =
     slug === 'payment-thank-you' || slug === 'payment-due-reminder'
       ? { labels: ['Payment', 'Editing', 'Quality Check', 'Delivery'], active: 0 }
-      : slug === 'shoot-ready' || slug === 'shoot-summary'
+      : slug === 'weekly-invoice-generated'
+        ? { labels: ['Generated', 'Review', 'Approval', 'Payout'], active: 0 }
+      : slug === 'shoot-ready' || slug === 'shoot-summary' || slug === 'shoot-delivered'
         ? { labels: ['Payment', 'Editing', 'Quality Check', 'Delivery'], active: 3 }
         : ['shoot-scheduled', 'shoot-requested', 'shoot-request-approved', 'shoot-request-modified', 'shoot-reminder', 'shoot-updated'].includes(slug)
           ? { labels: ['Booking', 'Scheduled', 'Editing', 'Delivery'], active: 1 }
@@ -404,7 +545,7 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
     body_text: '',
     channel: 'EMAIL',
   });
-  const [activeTab, setActiveTab] = useState<'html' | 'text'>('html');
+  const [activeTab, setActiveTab] = useState<'html' | 'text' | 'preview'>('html');
   const [mobileSection, setMobileSection] = useState<'editor' | 'settings' | 'shortcodes'>('editor');
   const htmlTextareaRef = useRef<HTMLTextAreaElement>(null);
   const textTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -625,7 +766,7 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
 
   // Editor tabs content (shared)
   const editorContent = (
-    <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'html' | 'text')} className="flex-1 flex flex-col">
+    <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'html' | 'text' | 'preview')} className="flex-1 min-h-0 flex flex-col">
       <div className="border-b px-3 sm:px-6 py-2 sm:py-3 bg-muted/30">
         <TabsList>
           <TabsTrigger value="html" className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
@@ -642,7 +783,7 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
         </TabsList>
       </div>
 
-      <TabsContent value="html" className="flex-1 p-3 sm:p-6 m-0 overflow-y-auto">
+      <TabsContent value="html" className="flex-1 min-h-0 p-3 sm:p-6 m-0 overflow-y-auto">
         <Textarea
           ref={htmlTextareaRef}
           value={formData.body_html}
@@ -652,7 +793,7 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
         />
       </TabsContent>
 
-      <TabsContent value="text" className="flex-1 p-3 sm:p-6 m-0 overflow-y-auto">
+      <TabsContent value="text" className="flex-1 min-h-0 p-3 sm:p-6 m-0 overflow-y-auto">
         <Textarea
           ref={textTextareaRef}
           value={formData.body_text}
@@ -662,15 +803,21 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
         />
       </TabsContent>
 
-      <TabsContent value="preview" className="flex-1 m-0 bg-gray-100 overflow-hidden">
-        <div className="h-full overflow-y-auto p-3 sm:p-6">
+      <TabsContent value="preview" className="flex-1 min-h-0 m-0 bg-gray-100 overflow-hidden">
+        <div className="h-full overflow-y-auto overscroll-contain p-3 sm:p-6">
           <style>{PREVIEW_EMAIL_STYLES}</style>
           <div className="max-w-4xl mx-auto">
             <div className="preview-shell">
               <div className="preview-hero">
-                <div className="preview-orbit">
-                  <div className="preview-gridline-h" />
-                  <div className="preview-gridline-v" />
+                <div className="preview-illustration" aria-hidden="true">
+                  <div className="preview-camera-top" />
+                  <div className="preview-camera-body" />
+                  <div className="preview-camera-lens" />
+                  <div className="preview-camera-lens-inner" />
+                  <div className="preview-camera-flash" />
+                  <div className="preview-camera-line preview-camera-line-one" />
+                  <div className="preview-camera-line preview-camera-line-two" />
+                  <div className="preview-camera-line preview-camera-line-three" />
                 </div>
                 <div className="preview-brand">
                   <div className="preview-brand-logo">
@@ -682,6 +829,9 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
                   </div>
                 </div>
                 <h1 className="preview-title">
+                  {previewTitleParts.overline ? (
+                    <span className="preview-overline">{previewTitleParts.overline}</span>
+                  ) : null}
                   <span className="preview-title-primary">{previewTitleParts.primary}</span>
                   {previewTitleParts.accent ? (
                     <>
@@ -755,7 +905,7 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className={cn(
-        "p-0 gap-0 [&>button:last-child]:hidden",
+        "flex min-h-0 flex-col p-0 gap-0 overflow-hidden [&>button:last-child]:hidden",
         isMobile
           ? "max-w-[100vw] w-full h-[100dvh] !rounded-none !top-0 !left-0 !translate-x-0 !translate-y-0 m-0"
           : "max-w-7xl h-[90vh]"
@@ -781,7 +931,7 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
 
         {isMobile ? (
           // Mobile: stacked layout with section switcher
-          <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
             {/* Section Switcher */}
             <div className="flex border-b bg-muted/30 shrink-0">
               <button
@@ -833,14 +983,14 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
           </div>
         ) : (
           // Desktop: 3-column layout
-          <div className="flex-1 flex overflow-hidden">
-            <div className="w-80 border-r p-6 overflow-y-auto">
+          <div className="flex-1 min-h-0 flex overflow-hidden">
+            <div className="w-80 min-h-0 border-r p-6 overflow-y-auto">
               {settingsContent}
             </div>
-            <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
               {editorContent}
             </div>
-            <div className="w-80 border-l overflow-hidden">
+            <div className="w-80 min-h-0 border-l overflow-hidden">
               <ShortcodePanel onInsert={insertShortcode} />
             </div>
           </div>
