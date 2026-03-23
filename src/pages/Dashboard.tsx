@@ -47,7 +47,6 @@ import { SquarePaymentDialog } from "@/components/payments/SquarePaymentDialog";
 import { Avatar, Card, StatBadge } from "@/components/dashboard/v2/SharedComponents";
 import { formatWorkflowStatus } from "@/utils/status";
 import {
-  buildClientInvoiceSummary,
   currencyFormatter,
   getGreetingPrefix,
   getSpecialInstructions,
@@ -101,6 +100,9 @@ import { ErrorBoundary, withErrorBoundary } from "@/components/ui/ErrorBoundary"
 import { InvoiceViewDialog } from "@/components/invoices/InvoiceViewDialog";
 import { CancellationRequestsDialog } from "@/components/dashboard/CancellationRequestsDialog";
 import { UploadStatusWidget } from "@/components/dashboard/UploadStatusWidget";
+import { useClientBilling } from "@/hooks/useClientBilling";
+import { emptyClientBillingSummary } from "@/services/clientBillingService";
+import type { ClientBillingSummary } from "@/types/clientBilling";
 
 const LazyAssignPhotographersCard = lazy(() =>
   import("@/components/dashboard/v2/AssignPhotographersCard").then((module) => ({
@@ -480,41 +482,10 @@ const Dashboard = () => {
     repPendingReviews,
     repDelivered,
     clientLatestCompleted,
-    clientInvoiceSummary,
     fallbackPhotographers,
   } = useDashboardDerivedData({ shoots, role, user: user ?? null });
-
-  // Fetch actual invoices for client invoice summary
-  const [clientInvoices, setClientInvoices] = useState<any[]>([]);
-  const [invoicesLoading, setInvoicesLoading] = useState(false);
-  
-  useEffect(() => {
-    if (role !== 'client' || !user) return;
-    
-    const fetchInvoices = async () => {
-      setInvoicesLoading(true);
-      try {
-        // The global fetch polyfill in api.ts automatically injects
-        // Authorization and X-Impersonate-User-Id headers for /api/ calls.
-        const res = await fetch(`${API_BASE_URL}/api/invoices?client_id=${user.id}`, {
-          headers: { 'Accept': 'application/json' },
-        });
-        
-        if (res.ok) {
-          const json = await res.json();
-          const invoices = json.data || json || [];
-          setClientInvoices(Array.isArray(invoices) ? invoices : []);
-        }
-      } catch (error) {
-        console.error('Error fetching invoices:', error);
-        setClientInvoices([]);
-      } finally {
-        setInvoicesLoading(false);
-      }
-    };
-    
-    fetchInvoices();
-  }, [role, user, clientShoots.length]);
+  const { data: clientBillingData } = useClientBilling();
+  const clientBillingSummary = clientBillingData?.summary ?? emptyClientBillingSummary;
   
   const shouldLoadEditingRequests = isAdminExperience || role === "salesRep" || role === "editor";
   const { 
@@ -1241,9 +1212,9 @@ const Dashboard = () => {
 
       const clientInvoicesContent = (
         <ClientInvoicesCard
-          summary={clientInvoiceSummary}
-          onViewAll={() => navigate("/invoices")}
-          onDownload={() => navigate("/invoices")}
+          summary={clientBillingSummary}
+          onViewAll={() => navigate("/accounting")}
+          onDownload={() => navigate("/accounting")}
           onPay={() => {
             setSelectedShootsForPayment([]);
             setPaymentSelectionOpen(true);
@@ -2867,7 +2838,7 @@ const ClientShootTile: React.FC<ClientShootTileProps> = React.memo(({
 });
 
 interface ClientInvoicesCardProps {
-  summary: ReturnType<typeof buildClientInvoiceSummary>;
+  summary: ClientBillingSummary;
   onViewAll: () => void;
   onDownload: () => void;
   onPay: () => void;
@@ -2892,7 +2863,7 @@ const ClientInvoicesCard: React.FC<ClientInvoicesCardProps> = ({ summary, onView
           </div>
           <div className="text-right">
             <p className="text-base sm:text-lg font-semibold">{currencyFormatter.format(item.data.amount)}</p>
-            <p className="text-[10px] sm:text-xs text-muted-foreground">{item.data.count} invoices</p>
+            <p className="text-[10px] sm:text-xs text-muted-foreground">{item.data.count} items</p>
           </div>
         </div>
       ))}

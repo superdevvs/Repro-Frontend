@@ -7,6 +7,10 @@ import { RoleBasedOverviewCards } from '@/components/accounting/RoleBasedOvervie
 import { RevenueCharts } from '@/components/accounting/RevenueCharts';
 import { RoleBasedCharts } from '@/components/accounting/RoleBasedCharts';
 import { InvoiceList } from '@/components/accounting/InvoiceList';
+import { ClientBillingOverviewCards } from '@/components/accounting/ClientBillingOverviewCards';
+import { ClientBillingCharts } from '@/components/accounting/ClientBillingCharts';
+import { ClientBillingSidePanel } from '@/components/accounting/ClientBillingSidePanel';
+import { ClientBillingList } from '@/components/accounting/ClientBillingList';
 import { PhotographerShootsTable } from '@/components/accounting/PhotographerShootsTable';
 import { EditorJobsTable, EditorJob } from '@/components/accounting/EditorJobsTable';
 import { PaymentsSummary } from '@/components/accounting/PaymentsSummary';
@@ -26,6 +30,13 @@ import { usePermission } from '@/hooks/usePermission';
 import { getAccountingMode, accountingConfigs } from '@/config/accountingConfig';
 import { fetchInvoices, markInvoiceAsPaid } from '@/services/invoiceService';
 import { registerInvoicesRefresh } from '@/realtime/realtimeRefreshBus';
+import { useClientBilling } from '@/hooks/useClientBilling';
+import {
+  emptyClientBillingSummary,
+  toClientBillingInvoiceViewData,
+  type ClientBillingInvoiceViewData,
+} from '@/services/clientBillingService';
+import type { ClientBillingItem } from '@/types/clientBilling';
 import { useShoots } from '@/context/ShootsContext';
 import { WeeklyInvoiceReview } from '@/components/invoices/WeeklyInvoiceReview';
 import { PayoutReportPanel } from '@/components/accounting/PayoutReportPanel';
@@ -97,13 +108,15 @@ const isInvoiceInDaysWindow = (invoice: InvoiceData, daysWindow: number) => {
   return invoiceDate >= start && invoiceDate <= end;
 };
 
+type ViewableInvoice = InvoiceData | ClientBillingInvoiceViewData;
+
 const AccountingPage = () => {
   const { toast } = useToast();
   const { role, user } = useAuth(); // Use the correct AuthProvider
   const { can } = usePermission();
   const [invoices, setInvoices] = useState<InvoiceData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedInvoice, setSelectedInvoice] = useState<InvoiceData | null>(null);
+  const [selectedInvoice, setSelectedInvoice] = useState<ViewableInvoice | null>(null);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -123,8 +136,19 @@ const AccountingPage = () => {
   // Get accounting mode based on role
   const accountingMode = useMemo(() => getAccountingMode(role), [role]);
   const config = accountingConfigs[accountingMode];
+  const {
+    data: clientBillingData,
+    loading: clientBillingLoading,
+    error: clientBillingError,
+  } = useClientBilling();
 
   const loadInvoices = useCallback(async (): Promise<void> => {
+    if (accountingMode === 'client') {
+      setInvoices([]);
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       // Fetch first page only for fast initial load
@@ -166,14 +190,25 @@ const AccountingPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [accountingMode, toast]);
 
   // Fetch invoices from API
   useEffect(() => {
+    if (accountingMode === 'client') {
+      setLoading(false);
+      return;
+    }
+
     loadInvoices();
   }, [loadInvoices]);
 
-  useEffect(() => registerInvoicesRefresh(loadInvoices), [loadInvoices]);
+  useEffect(() => {
+    if (accountingMode === 'client') {
+      return;
+    }
+
+    return registerInvoicesRefresh(loadInvoices);
+  }, [accountingMode, loadInvoices]);
 
   // Filter invoices based on role (backend already filters, but this is a safety check)
   const filteredInvoices = useMemo(() => {
@@ -182,16 +217,7 @@ const AccountingPage = () => {
       return invoices; // Admin and rep see all (filtered by backend)
     }
     if (accountingMode === 'client') {
-      const userId = user?.id != null ? String(user.id) : null;
-      const userName = String(user?.name || '').trim().toLowerCase();
-      return invoices.filter((i) => {
-        const invoiceClientId = i.client_id != null ? String(i.client_id) : null;
-        if (userId && invoiceClientId) {
-          return invoiceClientId === userId;
-        }
-        const invoiceClientName = String(i.client || '').trim().toLowerCase();
-        return Boolean(userName && invoiceClientName && invoiceClientName === userName);
-      });
+      return [];
     }
     if (accountingMode === 'photographer') {
       return invoices.filter(i => String(i.photographer_id ?? '') === String(user?.id ?? ''));
@@ -199,6 +225,21 @@ const AccountingPage = () => {
     // For editor, invoices might not be the primary data
     return invoices;
   }, [invoices, accountingMode, user]);
+
+  const clientBillingSummary = clientBillingData?.summary ?? emptyClientBillingSummary;
+  const clientBillingItems = clientBillingData?.items ?? [];
+
+  useEffect(() => {
+    if (!clientBillingError || accountingMode !== 'client') {
+      return;
+    }
+
+    toast({
+      title: 'Failed to load billing',
+      description: clientBillingError,
+      variant: 'destructive',
+    });
+  }, [accountingMode, clientBillingError, toast]);
 
   const adminWindowInvoices = useMemo(() => {
     if (accountingMode !== 'admin') {
@@ -328,6 +369,11 @@ const AccountingPage = () => {
 
   const handleViewInvoice = (invoice: InvoiceData) => {
     setSelectedInvoice(invoice);
+    setViewDialogOpen(true);
+  };
+
+  const handleViewClientBillingItem = (item: ClientBillingItem) => {
+    setSelectedInvoice(toClientBillingInvoiceViewData(item));
     setViewDialogOpen(true);
   };
 
@@ -466,6 +512,12 @@ const AccountingPage = () => {
                     timeFilter={timeFilter}
                     daysWindow={daysWindow}
                   />
+                ) : accountingMode === 'client' ? (
+                  <ClientBillingOverviewCards
+                    summary={clientBillingSummary}
+                    items={clientBillingItems}
+                    daysWindow={daysWindow}
+                  />
                 ) : (
                   <RoleBasedOverviewCards
                     invoices={filteredInvoices}
@@ -479,16 +531,10 @@ const AccountingPage = () => {
 
               {/* For client: show invoice list BEFORE spending overview */}
               {accountingMode === 'client' && config.showInvoiceTable && (
-                <InvoiceList
-                  data={{ invoices: filteredInvoices }}
-                  onView={handleViewInvoice}
-                  onEdit={handleEditInvoice}
-                  onDownload={handleDownloadInvoice}
-                  onPay={handlePayInvoice}
-                  onSendReminder={handleSendReminder}
-                  isAdmin={isAdmin}
-                  isSuperAdmin={isSuperAdmin}
-                  role={role || ''}
+                <ClientBillingList
+                  items={clientBillingItems}
+                  loading={clientBillingLoading}
+                  onView={handleViewClientBillingItem}
                 />
               )}
 
@@ -501,6 +547,12 @@ const AccountingPage = () => {
                         timeFilter={timeFilter}
                         onTimeFilterChange={setTimeFilter}
                         role={role}
+                      />
+                    ) : accountingMode === 'client' ? (
+                      <ClientBillingCharts
+                        items={clientBillingItems}
+                        timeFilter={timeFilter}
+                        onTimeFilterChange={setTimeFilter}
                       />
                     ) : (
                       <RoleBasedCharts
@@ -517,6 +569,11 @@ const AccountingPage = () => {
                     <div className="lg:col-span-1 flex flex-col gap-3 h-full">
                       {accountingMode === 'admin' ? (
                         <PaymentsSummary invoices={adminWindowInvoices} />
+                      ) : accountingMode === 'client' ? (
+                        <ClientBillingSidePanel
+                          items={clientBillingItems}
+                          summary={clientBillingSummary}
+                        />
                       ) : accountingMode === 'editor' ? (
                         <>
                           <EditorRateSettings />
@@ -594,7 +651,7 @@ const AccountingPage = () => {
         <PaymentDialog
           isOpen={paymentDialogOpen}
           onClose={closePaymentDialog}
-          invoice={selectedInvoice}
+          invoice={selectedInvoice as InvoiceData}
           onPaymentComplete={handlePaymentComplete}
         />
       )}
@@ -619,7 +676,7 @@ const AccountingPage = () => {
         <EditInvoiceDialog
           isOpen={editDialogOpen}
           onClose={() => setEditDialogOpen(false)}
-          invoice={selectedInvoice}
+          invoice={selectedInvoice as InvoiceData}
           onInvoiceEdit={handleInvoiceEdit}
         />
       )}

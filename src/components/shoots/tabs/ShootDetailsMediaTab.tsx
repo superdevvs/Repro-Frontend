@@ -271,11 +271,29 @@ export function ShootDetailsMediaTab({
     enabled: Boolean(shoot.id),
   });
 
+  const buildFilesFingerprint = (files: MediaFile[]) => JSON.stringify(
+    files.map((f) => ({
+      id: f.id,
+      url: f.url,
+      path: f.path,
+      mt: f.media_type,
+      workflowStage: f.workflowStage,
+      thumb: f.thumb,
+      medium: f.medium,
+      large: f.large,
+      original: f.original,
+      thumbnail_path: f.thumbnail_path,
+      web_path: f.web_path,
+      placeholder_path: f.placeholder_path,
+      processed_at: f.processed_at,
+    }))
+  );
+
   // Update local state when data changes - use JSON.stringify to detect actual content changes
   // This prevents infinite loops from new array references with same content
   const rawFilesRef = useRef<string>('');
   useEffect(() => {
-    const newRawFilesJson = JSON.stringify(rawFilesData.map(f => ({ id: f.id, url: f.url, mt: f.media_type })));
+    const newRawFilesJson = buildFilesFingerprint(rawFilesData);
     if (rawFilesRef.current !== newRawFilesJson) {
       rawFilesRef.current = newRawFilesJson;
       setRawFiles(rawFilesData);
@@ -284,7 +302,7 @@ export function ShootDetailsMediaTab({
 
   const editedFilesRef = useRef<string>('');
   useEffect(() => {
-    const newEditedFilesJson = JSON.stringify(editedFilesData.map(f => ({ id: f.id, url: f.url, mt: f.media_type })));
+    const newEditedFilesJson = buildFilesFingerprint(editedFilesData);
     if (editedFilesRef.current !== newEditedFilesJson) {
       editedFilesRef.current = newEditedFilesJson;
       setEditedFiles(editedFilesData);
