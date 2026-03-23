@@ -854,8 +854,6 @@ export const IntegrationsSettingsContent = () => {
                         }
                         placeholder="Repro Photos"
                       />
-                    </div>
-                    <div className="space-y-2">
                       <Label htmlFor="bright-mls-doc-visibility">Default Doc Visibility</Label>
                       <select
                         id="bright-mls-doc-visibility"
@@ -880,7 +878,7 @@ export const IntegrationsSettingsContent = () => {
                     <div>
                       <p className="text-sm font-medium">Test Connection</p>
                       <p className="text-xs text-muted-foreground">
-                        Verify your credentials are working
+                        Verify your credentials are working. Current Bright MLS values are saved before testing.
                       </p>
                     </div>
                     <Button
@@ -912,9 +910,19 @@ export const IntegrationsSettingsContent = () => {
                       ) : (
                         <XCircle className="h-4 w-4" />
                       )}
-                      <p className="text-sm">
-                        {brightMlsTestResult.message || brightMlsTestResult.data?.message}
-                      </p>
+                      <div className="min-w-0">
+                        <p className="text-sm">
+                          {brightMlsTestResult.message || brightMlsTestResult.data?.message}
+                        </p>
+                        {(brightMlsTestResult.data?.api_url || brightMlsTestResult.data?.mode || brightMlsTestResult.data?.environment) && (
+                          <p className="text-xs opacity-80 mt-1 break-all">
+                            {brightMlsTestResult.data?.mode ? `Mode: ${brightMlsTestResult.data.mode}` : ''}
+                            {brightMlsTestResult.data?.mode && brightMlsTestResult.data?.environment ? ' · ' : ''}
+                            {brightMlsTestResult.data?.environment ? `Env: ${brightMlsTestResult.data.environment}` : ''}
+                            {brightMlsTestResult.data?.api_url ? ` · URL: ${brightMlsTestResult.data.api_url}` : ''}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   )}
                 </CardContent>
