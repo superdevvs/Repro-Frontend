@@ -61,26 +61,222 @@ type TemplateFormState = {
 };
 
 const PREVIEW_EMAIL_STYLES = `
-.email-preview { color: #35506f; font-size: 15px; line-height: 1.75; }
+.preview-shell {
+  background: linear-gradient(180deg, #f7f9fc 0%, #eef3f8 100%);
+  padding: 16px;
+  border-radius: 28px;
+}
+.preview-hero {
+  position: relative;
+  overflow: hidden;
+  background: #ffffff;
+  border: 1px solid rgba(222, 230, 241, 0.7);
+  border-radius: 32px;
+  box-shadow: 0 24px 70px rgba(22, 34, 60, 0.09);
+  padding: 28px;
+}
+.preview-brand {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+.preview-brand-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  background: #11192d;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: 700;
+  box-shadow: 0 10px 24px rgba(17, 25, 45, 0.14);
+}
+.preview-brand-copy {
+  color: #1d2940;
+  font-size: 14px;
+  line-height: 1.4;
+  font-weight: 800;
+}
+.preview-brand-copy span {
+  display: block;
+  color: #7f90a7;
+  font-size: 10px;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+.preview-title {
+  position: relative;
+  z-index: 2;
+  max-width: 560px;
+  margin: 0;
+  color: #10192f;
+  font-size: clamp(2.8rem, 4vw, 4.4rem);
+  line-height: 0.96;
+  letter-spacing: -0.06em;
+  font-weight: 300;
+}
+.preview-title-primary { color: #10192f; }
+.preview-title-accent { color: #3164ea; }
+.preview-copy {
+  position: relative;
+  z-index: 2;
+  max-width: 560px;
+  margin: 18px 0 0;
+  color: #667a96;
+  font-size: 15px;
+  line-height: 1.8;
+}
+.preview-orbit {
+  position: absolute;
+  top: 32px;
+  right: -10px;
+  width: 200px;
+  height: 200px;
+  border-radius: 999px;
+  border: 1px solid #ebeff5;
+}
+.preview-orbit::before,
+.preview-orbit::after {
+  content: "";
+  position: absolute;
+  border-radius: 999px;
+  border: 1px solid #ebeff5;
+}
+.preview-orbit::before { inset: 26px; }
+.preview-orbit::after { inset: 52px; }
+.preview-gridline-h,
+.preview-gridline-v {
+  position: absolute;
+  background: #eef2f7;
+}
+.preview-gridline-h {
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+}
+.preview-gridline-v {
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+}
+.preview-journey {
+  position: relative;
+  z-index: 2;
+  margin-top: 28px;
+}
+.preview-journey-bars {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+.preview-journey-bar {
+  height: 7px;
+  border-radius: 999px;
+  background: #dce5f3;
+}
+.preview-journey-bar.complete { background: #3164ea; }
+.preview-journey-bar.next { background: #7e9ff1; }
+.preview-journey-labels {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-top: 12px;
+}
+.preview-journey-label {
+  color: #94a4bc;
+  font-size: 10px;
+  line-height: 1.4;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  font-weight: 800;
+}
+.preview-journey-label.complete { color: #3164ea; }
+.preview-journey-label.next { color: #4d5f7c; }
+.preview-body {
+  margin-top: 16px;
+  background: #ffffff;
+  border: 1px solid rgba(222, 230, 241, 0.7);
+  border-radius: 28px;
+  box-shadow: 0 24px 70px rgba(22, 34, 60, 0.09);
+  padding: 26px;
+}
+.preview-footer {
+  margin-top: 16px;
+  border-radius: 24px;
+  background: linear-gradient(135deg, #0b1b30 0%, #102847 100%);
+  padding: 22px;
+  color: #dce8ff;
+  box-shadow: 0 20px 40px rgba(16, 40, 71, 0.18);
+}
+.preview-footer h4 {
+  margin: 0 0 8px;
+  color: #ffffff;
+  font-size: 18px;
+  line-height: 1.4;
+  font-weight: 800;
+}
+.preview-footer p {
+  margin: 0;
+  color: #dce8ff;
+  font-size: 14px;
+  line-height: 1.8;
+}
+.preview-footer-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+.preview-footer-card {
+  border-radius: 18px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(221, 232, 255, 0.14);
+}
+.preview-footer-label {
+  display: block;
+  margin-bottom: 4px;
+  color: #9fb4d4;
+  font-size: 10px;
+  line-height: 1.4;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  font-weight: 800;
+}
+.preview-footer-value {
+  color: #ffffff;
+  font-size: 13px;
+  line-height: 1.6;
+  font-weight: 700;
+}
+.email-preview { color: #405875; font-size: 15px; line-height: 1.8; }
 .email-preview p,
 .email-preview li,
 .email-preview div,
 .email-preview td,
-.email-preview span { color: #35506f; line-height: 1.75; }
+.email-preview span { color: #405875; line-height: 1.8; }
 .email-preview p { margin: 0 0 14px; }
 .email-preview a { color: #1463ff; text-decoration: none; }
 .email-preview h1,
 .email-preview h2,
 .email-preview h3,
-.email-preview h4 { margin: 0 0 14px; color: #071223; line-height: 1.25; }
-.email-preview h1 { font-size: 31px; font-weight: 800; }
-.email-preview h2 { font-size: 24px; font-weight: 800; }
-.email-preview h3 { font-size: 19px; font-weight: 800; }
+.email-preview h4 { margin: 0 0 14px; color: #0f1930; line-height: 1.15; }
+.email-preview h1 { font-size: 42px; font-weight: 300; letter-spacing: -0.05em; }
+.email-preview h2 { font-size: 28px; font-weight: 800; }
+.email-preview h3 { font-size: 22px; font-weight: 800; }
 .email-preview h4 { font-size: 16px; font-weight: 800; }
-.email-preview strong { color: #071223; }
+.email-preview strong { color: #0f1930; }
 .email-preview ul,
 .email-preview ol { margin: 0 0 16px; padding-left: 20px; }
-.email-preview hr { border: 0; border-top: 1px solid #edf2f7; margin: 18px 0; }
+.email-preview hr { border: 0; border-top: 1px solid #edf2f7; margin: 20px 0; }
 .email-preview .button {
   display: inline-block;
   padding: 14px 22px;
@@ -95,11 +291,12 @@ const PREVIEW_EMAIL_STYLES = `
   box-shadow: 0 12px 24px rgba(20, 99, 255, 0.18);
 }
 .email-preview .info-box {
-  margin: 18px 0;
+  margin: 20px 0;
   padding: 18px 20px;
-  border-radius: 20px;
-  border: 1px solid #dbe7f8;
-  background: linear-gradient(180deg, #f8fbff 0%, #f2f8ff 100%);
+  border-radius: 22px;
+  border: 1px solid #dfe7f2;
+  background: linear-gradient(180deg, #fbfcfe 0%, #f4f7fb 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 .email-preview .info-row {
   padding: 10px 0;
@@ -109,7 +306,7 @@ const PREVIEW_EMAIL_STYLES = `
 .email-preview .info-label {
   display: inline-block;
   min-width: 150px;
-  color: #60799a;
+  color: #93a4bd;
   font-weight: 800;
   font-size: 12px;
   line-height: 1.5;
@@ -117,14 +314,89 @@ const PREVIEW_EMAIL_STYLES = `
   text-transform: uppercase;
 }
 .email-preview .note {
-  margin: 18px 0;
+  margin: 20px 0;
   padding: 16px 18px;
   border-radius: 18px;
-  border: 1px solid #ffdcae;
-  background: linear-gradient(180deg, #fff8ef 0%, #fff3e3 100%);
+  border: 1px solid #f0d7a8;
+  background: linear-gradient(180deg, #fff9ee 0%, #fff3df 100%);
   color: #8b5b14 !important;
 }
 `;
+
+type PreviewJourneyStep = {
+  label: string;
+  state: 'complete' | 'next' | 'pending';
+};
+
+function getPreviewTitleParts(title: string): { primary: string; accent?: string } {
+  const trimmed = title.trim();
+  if (!trimmed) {
+    return { primary: 'R/E Pro Photos update.' };
+  }
+
+  const split = trimmed.split(/\s+-\s+|\s+\|\s+|\s*:\s*/, 2);
+  if (split.length === 2) {
+    return {
+      primary: `${split[0].replace(/\.$/, '')}.`,
+      accent: split[1],
+    };
+  }
+
+  const sentenceSplit = trimmed.split(/(?<=[.!?])\s+/, 2);
+  if (sentenceSplit.length === 2) {
+    return {
+      primary: sentenceSplit[0],
+      accent: sentenceSplit[1],
+    };
+  }
+
+  return { primary: trimmed };
+}
+
+function getPreviewCopy(category: string, description: string): string {
+  if (description.trim()) {
+    return description.trim();
+  }
+
+  switch (category) {
+    case 'ACCOUNT':
+      return 'Everything you need is organized below, including the latest account details and access links.';
+    case 'BOOKING':
+      return 'Your latest schedule details, property notes, and next actions are organized below in one place.';
+    case 'REMINDER':
+      return 'A timely reminder with the key details you need before the next step in the workflow.';
+    case 'PAYMENT':
+      return 'Your transaction status and the next milestones in the workflow are summarized below.';
+    case 'INVOICE':
+      return 'Invoice details, due dates, and follow-up actions are collected below for quick review.';
+    default:
+      return 'The latest update from your R/E Pro Photos workflow is ready below.';
+  }
+}
+
+function getPreviewJourney(slug?: string): PreviewJourneyStep[] | null {
+  if (!slug) {
+    return null;
+  }
+
+  const definition =
+    slug === 'payment-thank-you' || slug === 'payment-due-reminder'
+      ? { labels: ['Payment', 'Editing', 'Quality Check', 'Delivery'], active: 0 }
+      : slug === 'shoot-ready' || slug === 'shoot-summary'
+        ? { labels: ['Payment', 'Editing', 'Quality Check', 'Delivery'], active: 3 }
+        : ['shoot-scheduled', 'shoot-requested', 'shoot-request-approved', 'shoot-request-modified', 'shoot-reminder', 'shoot-updated'].includes(slug)
+          ? { labels: ['Booking', 'Scheduled', 'Editing', 'Delivery'], active: 1 }
+          : null;
+
+  if (!definition) {
+    return null;
+  }
+
+  return definition.labels.map((label, index) => ({
+    label,
+    state: index <= definition.active ? 'complete' : index === definition.active + 1 ? 'next' : 'pending',
+  }));
+}
 
 export function TemplateEditorDialog({ template, open, onClose, onSuccess }: TemplateEditorDialogProps) {
   const isMobile = useIsMobile();
@@ -228,6 +500,12 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
         return contentMatch[1].trim();
       }
     }
+    if (html.includes('class="hero-card"') && html.includes('class="body-inner"')) {
+      const contentMatch = html.match(/<div\s+class=["']body-inner["']>\s*([\s\S]+)\s*<\/div>\s*<div\s+class=["']footer-wrap["']/i);
+      if (contentMatch) {
+        return contentMatch[1].trim();
+      }
+    }
     // Strip full HTML document wrapper
     const trimmed = html.trim();
     if (trimmed.startsWith('<!DOCTYPE') || trimmed.startsWith('<html')) {
@@ -261,6 +539,10 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
       textarea.setSelectionRange(start + shortcode.length, start + shortcode.length);
     }, 0);
   };
+
+  const previewTitleParts = getPreviewTitleParts(formData.subject || formData.name || 'R/E Pro Photos update');
+  const previewCopy = getPreviewCopy(formData.category, formData.description);
+  const previewJourney = getPreviewJourney(template?.slug);
 
   // Settings form fields (shared between mobile and desktop)
   const settingsContent = (
@@ -388,40 +670,84 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
 
       <TabsContent value="preview" className="flex-1 m-0 bg-gray-100 overflow-hidden">
         <div className="h-full overflow-y-auto p-3 sm:p-6">
-          <div className="max-w-3xl mx-auto space-y-4">
-            <Card className="shadow-lg">
-              <div className="text-center py-5 px-4 border-b" style={{ borderRadius: '12px 12px 0 0', backgroundColor: '#1a1a2e' }}>
-                <img src="https://api.reprodashboard.com/images/repro-logo.png" alt="REPRO Photos" className="inline-block max-w-[180px] h-auto" />
-              </div>
-              <div className="bg-white border-b p-3 sm:p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-primary flex items-center justify-center text-white font-bold text-xs sm:text-sm">
-                      RP
+          <style>{PREVIEW_EMAIL_STYLES}</style>
+          <div className="max-w-4xl mx-auto">
+            <div className="preview-shell">
+              <div className="preview-hero">
+                <div className="preview-orbit">
+                  <div className="preview-gridline-h" />
+                  <div className="preview-gridline-v" />
+                </div>
+                <div className="preview-brand">
+                  <div className="preview-brand-icon">✓</div>
+                  <div className="preview-brand-copy">
+                    <span>{formData.category || 'Workflow update'}</span>
+                    R/E Pro Photos
+                  </div>
+                </div>
+                <h1 className="preview-title">
+                  <span className="preview-title-primary">{previewTitleParts.primary}</span>
+                  {previewTitleParts.accent ? (
+                    <>
+                      <br />
+                      <span className="preview-title-accent">{previewTitleParts.accent}</span>
+                    </>
+                  ) : null}
+                </h1>
+                <p className="preview-copy">{previewCopy}</p>
+
+                {previewJourney ? (
+                  <div className="preview-journey">
+                    <div className="preview-journey-bars">
+                      {previewJourney.map((step) => (
+                        <div key={step.label} className={`preview-journey-bar ${step.state}`} />
+                      ))}
                     </div>
-                    <div>
-                      <div className="font-semibold text-xs sm:text-sm">REPro Photos</div>
-                      <div className="text-[10px] sm:text-xs text-muted-foreground">notifications@reprophotos.com</div>
+                    <div className="preview-journey-labels">
+                      {previewJourney.map((step) => (
+                        <div key={step.label} className={`preview-journey-label ${step.state}`}>
+                          {step.label}
+                        </div>
+                      ))}
                     </div>
                   </div>
-                  <div className="text-[10px] sm:text-xs text-muted-foreground">Just now</div>
-                </div>
-                <div className="font-semibold text-sm sm:text-base">{formData.subject || '(No subject)'}</div>
+                ) : null}
               </div>
-              <div className="p-3 sm:p-6 bg-white max-h-[50vh] sm:max-h-[60vh] overflow-y-auto" style={{ color: '#333333' }}>
+
+              <div className="preview-body">
                 {formData.body_html ? (
-                  <>
-                    <style>{PREVIEW_EMAIL_STYLES}</style>
-                    <div className="email-preview" style={{ color: '#333333', lineHeight: 1.6 }} dangerouslySetInnerHTML={{ __html: stripLegacyEmailWrapper(formData.body_html) }} />
-                  </>
+                  <div
+                    className="email-preview"
+                    style={{ color: '#333333', lineHeight: 1.6 }}
+                    dangerouslySetInnerHTML={{ __html: stripLegacyEmailWrapper(formData.body_html) }}
+                  />
                 ) : formData.body_text ? (
                   <pre className="whitespace-pre-wrap font-sans text-sm">{formData.body_text}</pre>
                 ) : (
                   <p className="text-muted-foreground text-center py-8">No content to preview</p>
                 )}
               </div>
-            </Card>
-            <p className="text-center text-xs text-muted-foreground">
+
+              <div className="preview-footer">
+                <h4>Need help with a shoot, invoice, or account question?</h4>
+                <p>
+                  Our team is here to keep your workflow moving. Reach us at
+                  {' '}contact@reprophotos.com or call 202-868-1663.
+                </p>
+                <div className="preview-footer-grid">
+                  <div className="preview-footer-card">
+                    <span className="preview-footer-label">Support</span>
+                    <span className="preview-footer-value">contact@reprophotos.com<br />202-868-1663</span>
+                  </div>
+                  <div className="preview-footer-card">
+                    <span className="preview-footer-label">Portal</span>
+                    <span className="preview-footer-value">Track shoots, invoices, and delivery updates in one place.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <p className="text-center text-xs text-muted-foreground mt-4">
               Shortcodes will be replaced with actual values when sent
             </p>
           </div>
