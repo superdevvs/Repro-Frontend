@@ -60,6 +60,72 @@ type TemplateFormState = {
   channel: 'EMAIL' | 'SMS';
 };
 
+const PREVIEW_EMAIL_STYLES = `
+.email-preview { color: #35506f; font-size: 15px; line-height: 1.75; }
+.email-preview p,
+.email-preview li,
+.email-preview div,
+.email-preview td,
+.email-preview span { color: #35506f; line-height: 1.75; }
+.email-preview p { margin: 0 0 14px; }
+.email-preview a { color: #1463ff; text-decoration: none; }
+.email-preview h1,
+.email-preview h2,
+.email-preview h3,
+.email-preview h4 { margin: 0 0 14px; color: #071223; line-height: 1.25; }
+.email-preview h1 { font-size: 31px; font-weight: 800; }
+.email-preview h2 { font-size: 24px; font-weight: 800; }
+.email-preview h3 { font-size: 19px; font-weight: 800; }
+.email-preview h4 { font-size: 16px; font-weight: 800; }
+.email-preview strong { color: #071223; }
+.email-preview ul,
+.email-preview ol { margin: 0 0 16px; padding-left: 20px; }
+.email-preview hr { border: 0; border-top: 1px solid #edf2f7; margin: 18px 0; }
+.email-preview .button {
+  display: inline-block;
+  padding: 14px 22px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #1463ff 0%, #0b83ff 100%);
+  color: #ffffff !important;
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 1.2;
+  text-decoration: none;
+  margin: 6px 10px 10px 0;
+  box-shadow: 0 12px 24px rgba(20, 99, 255, 0.18);
+}
+.email-preview .info-box {
+  margin: 18px 0;
+  padding: 18px 20px;
+  border-radius: 20px;
+  border: 1px solid #dbe7f8;
+  background: linear-gradient(180deg, #f8fbff 0%, #f2f8ff 100%);
+}
+.email-preview .info-row {
+  padding: 10px 0;
+  border-bottom: 1px solid #e4edf8;
+}
+.email-preview .info-row:last-child { border-bottom: 0; }
+.email-preview .info-label {
+  display: inline-block;
+  min-width: 150px;
+  color: #60799a;
+  font-weight: 800;
+  font-size: 12px;
+  line-height: 1.5;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+.email-preview .note {
+  margin: 18px 0;
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid #ffdcae;
+  background: linear-gradient(180deg, #fff8ef 0%, #fff3e3 100%);
+  color: #8b5b14 !important;
+}
+`;
+
 export function TemplateEditorDialog({ template, open, onClose, onSuccess }: TemplateEditorDialogProps) {
   const isMobile = useIsMobile();
   const [formData, setFormData] = useState<TemplateFormState>({
@@ -142,12 +208,22 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
     });
   };
 
-  // Strip the legacy email wrapper (header + footer chrome) so the preview
-  // only shows the inner content, matching what the backend will extract.
+  // Strip wrapped email chrome so the preview only shows the editable body content.
   const stripLegacyEmailWrapper = (html: string): string => {
     if (html.includes('email-container') && html.includes('logo-text')) {
-      // Extract content between <div class="content"> and <div class="footer">
       const contentMatch = html.match(/<div\s+class=["']content["']>\s*([\s\S]+)\s*<\/div>\s*<div\s+class=["']footer["']/);
+      if (contentMatch) {
+        return contentMatch[1].trim();
+      }
+    }
+    if (html.includes('class="ew"') && html.includes('class="eb"')) {
+      const contentMatch = html.match(/<div\s+class=["']eb["']>\s*([\s\S]+)\s*<\/div>\s*<\/div>\s*<\/body>/i);
+      if (contentMatch) {
+        return contentMatch[1].trim();
+      }
+    }
+    if (html.includes('class="page"') && html.includes('class="brand-band"')) {
+      const contentMatch = html.match(/<div\s+class=["']content["']>\s*([\s\S]+)\s*<\/div>\s*<div\s+class=["']footer-wrap["']/i);
       if (contentMatch) {
         return contentMatch[1].trim();
       }
@@ -334,7 +410,10 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
               </div>
               <div className="p-3 sm:p-6 bg-white max-h-[50vh] sm:max-h-[60vh] overflow-y-auto" style={{ color: '#333333' }}>
                 {formData.body_html ? (
-                  <div className="email-preview" style={{ color: '#333333', lineHeight: 1.6 }} dangerouslySetInnerHTML={{ __html: stripLegacyEmailWrapper(formData.body_html) }} />
+                  <>
+                    <style>{PREVIEW_EMAIL_STYLES}</style>
+                    <div className="email-preview" style={{ color: '#333333', lineHeight: 1.6 }} dangerouslySetInnerHTML={{ __html: stripLegacyEmailWrapper(formData.body_html) }} />
+                  </>
                 ) : formData.body_text ? (
                   <pre className="whitespace-pre-wrap font-sans text-sm">{formData.body_text}</pre>
                 ) : (
