@@ -84,8 +84,8 @@ const normalizeBrightMlsUrl = (
 };
 
 const normalizeBrightMlsSettings = (value?: Partial<BrightMlsSettings> | null): BrightMlsSettings => {
-  const apiMode = value?.apiMode === 'new' ? 'new' : 'legacy';
-  const environment = value?.environment === 'p1' ? 'p1' : 't1';
+  const apiMode = value?.apiMode === 'legacy' ? 'legacy' : 'new';
+  const environment = value?.environment === 't1' ? 't1' : 'p1';
   const defaults = getBrightMlsDefaults(apiMode, environment);
   const knownApiUrls = new Set(
     Object.values(BRIGHT_MLS_ENV_DEFAULTS).flatMap((modeDefaults) =>
@@ -832,7 +832,7 @@ export const IntegrationsSettingsContent = () => {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="bright-mls-vendor-id">Vendor ID</Label>
+                      <Label htmlFor="bright-mls-vendor-id">Customer / Vendor ID</Label>
                       <Input
                         id="bright-mls-vendor-id"
                         type="text"
@@ -840,7 +840,7 @@ export const IntegrationsSettingsContent = () => {
                         onChange={(e) =>
                           setBrightMlsSettings({ ...brightMlsSettings, vendorId: e.target.value })
                         }
-                        placeholder="Enter Vendor ID"
+                        placeholder="e.g. REPROPHOTOS-4CBG"
                       />
                     </div>
                     <div className="space-y-2">
