@@ -48,6 +48,8 @@ import { TimeSelect } from "@/components/ui/time-select";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -266,6 +268,8 @@ export default function Availability() {
     recurring: true,
     note: ""
   });
+  const [specificDateFrom, setSpecificDateFrom] = useState<Date | undefined>(date ?? new Date());
+  const [specificDateTo, setSpecificDateTo] = useState<Date | undefined>(date ?? new Date());
   const dayViewScrollRef = React.useRef<HTMLDivElement>(null);
   const dayViewTimeScrollRef = React.useRef<HTMLDivElement>(null);
   const dayViewScrollChanging = React.useRef<boolean>(false);
@@ -274,6 +278,24 @@ export default function Availability() {
   const dayViewIsProgrammaticScroll = React.useRef<boolean>(false);
   const monthNavScrollRef = React.useRef<HTMLDivElement>(null);
   const dateNavScrollRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isWeeklyScheduleDialogOpen) return;
+    const seedDate = date ?? new Date();
+    setSpecificDateFrom(seedDate);
+    setSpecificDateTo(seedDate);
+  }, [isWeeklyScheduleDialogOpen]);
+
+  const specificScheduleDates = useMemo(() => {
+    if (!specificDateFrom || !specificDateTo) return [];
+
+    const from = startOfDay(specificDateFrom);
+    const to = startOfDay(specificDateTo);
+    const rangeStart = from <= to ? from : to;
+    const rangeEnd = from <= to ? to : from;
+
+    return eachDayOfInterval({ start: rangeStart, end: rangeEnd });
+  }, [specificDateFrom, specificDateTo]);
   const monthNavHasAutoScrolled = React.useRef(false);
   const dateNavHasAutoScrolled = React.useRef(false);
   const lastMonthNavScrollKey = React.useRef<string | null>(null);
@@ -4720,18 +4742,76 @@ export default function Availability() {
 
             {/* Specific Date - Only for specific */}
             {!newWeeklySchedule.recurring && (
-              <div className="space-y-2">
-                <Label>Date</Label>
-                <Input
-                  type="date"
-                  value={date ? format(date, 'yyyy-MM-dd') : ''}
-                  onChange={(e) => {
-                    if (e.target.value) {
-                      setDate(new Date(e.target.value));
-                    }
-                  }}
-                  className="rounded-md"
-                />
+              <div className="space-y-3">
+                <Label>Date Range</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">From</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !specificDateFrom && "text-muted-foreground",
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {specificDateFrom ? format(specificDateFrom, "PPP") : "Pick a start date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={specificDateFrom}
+                          onSelect={(nextDate) => {
+                            if (!nextDate) return;
+                            setSpecificDateFrom(nextDate);
+                            if (!specificDateTo || nextDate > specificDateTo) {
+                              setSpecificDateTo(nextDate);
+                            }
+                          }}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">To</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !specificDateTo && "text-muted-foreground",
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {specificDateTo ? format(specificDateTo, "PPP") : "Pick an end date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={specificDateTo}
+                          onSelect={(nextDate) => {
+                            if (!nextDate) return;
+                            setSpecificDateTo(nextDate);
+                            if (!specificDateFrom || nextDate < specificDateFrom) {
+                              setSpecificDateFrom(nextDate);
+                            }
+                          }}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Pick the same date in both fields for a one-day schedule.
+                  {specificScheduleDates.length > 0 ? ` ${specificScheduleDates.length} day(s) selected.` : ""}
+                </p>
               </div>
             )}
 
@@ -4758,6 +4838,9 @@ export default function Availability() {
                 recurring: true,
                 note: ""
               });
+              const seedDate = date ?? new Date();
+              setSpecificDateFrom(seedDate);
+              setSpecificDateTo(seedDate);
             }}>Cancel</Button>
             <Button onClick={async () => {
               if (selectedPhotographer === "all") {
@@ -4843,27 +4926,32 @@ export default function Availability() {
                   }
                 } else {
                   // Create specific date schedule
-                  if (!date) {
+                  if (specificScheduleDates.length === 0) {
                     toast({
-                      title: "Select a date",
-                      description: "Please select a date for the schedule.",
+                      title: "Select a date range",
+                      description: "Please select a start and end date for the schedule.",
                       variant: "destructive"
                     });
                     return;
                   }
 
-                  const dateStr = format(date, "yyyy-MM-dd");
-                  const dayOfWeekForDate = date.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+                  const overlappingDate = newWeeklySchedule.status !== 'unavailable'
+                    ? specificScheduleDates.find((slotDate) => {
+                        const dateStr = format(slotDate, "yyyy-MM-dd");
+                        const dayOfWeekForDate = slotDate.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+                        return checkTimeOverlap(
+                          newWeeklySchedule.startTime,
+                          newWeeklySchedule.endTime,
+                          dateStr,
+                          dayOfWeekForDate
+                        );
+                      })
+                    : undefined;
 
-                  if (newWeeklySchedule.status !== 'unavailable' && checkTimeOverlap(
-                    newWeeklySchedule.startTime,
-                    newWeeklySchedule.endTime,
-                    dateStr,
-                    dayOfWeekForDate
-                  )) {
+                  if (overlappingDate) {
                     toast({
                       title: "Time slot overlap",
-                      description: "This time slot overlaps with an existing availability. Please choose a different time.",
+                      description: `This time slot overlaps with an existing availability on ${format(overlappingDate, "MMMM d, yyyy")}. Please choose a different time.`,
                       variant: "destructive"
                     });
                     return;
@@ -4871,13 +4959,15 @@ export default function Availability() {
 
                   const payload = {
                     photographer_id: Number(selectedPhotographer),
-                    date: dateStr,
-                    start_time: startTime,
-                    end_time: endTime,
-                    status: newWeeklySchedule.status === 'unavailable' ? 'unavailable' : 'available',
+                    availabilities: specificScheduleDates.map((slotDate) => ({
+                      date: format(slotDate, "yyyy-MM-dd"),
+                      start_time: startTime,
+                      end_time: endTime,
+                      status: newWeeklySchedule.status === 'unavailable' ? 'unavailable' : 'available',
+                    })),
                   };
 
-                  const res = await fetch(API_ROUTES.photographerAvailability.create, {
+                  const res = await fetch(API_ROUTES.photographerAvailability.bulk, {
                     method: 'POST',
                     headers: authHeaders(),
                     body: JSON.stringify(payload),
@@ -4894,9 +4984,14 @@ export default function Availability() {
                       recurring: true,
                       note: ""
                     });
+                    const seedDate = date ?? new Date();
+                    setSpecificDateFrom(seedDate);
+                    setSpecificDateTo(seedDate);
                     toast({
                       title: "Schedule added",
-                      description: `Added schedule for ${format(date, "MMMM d, yyyy")}`,
+                      description: specificScheduleDates.length === 1
+                        ? `Added schedule for ${format(specificScheduleDates[0], "MMMM d, yyyy")}`
+                        : `Added schedule from ${format(specificScheduleDates[0], "MMM d, yyyy")} to ${format(specificScheduleDates[specificScheduleDates.length - 1], "MMM d, yyyy")}`,
                     });
                   } else {
                     const errorData = await res.json().catch(() => ({}));

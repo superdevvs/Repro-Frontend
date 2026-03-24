@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -30,6 +30,7 @@ import { getApiHeaders } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 import { useShoots } from '@/context/ShootsContext';
 import { useShoot } from '@/hooks/useShoot';
+import { useShootRealtime } from '@/hooks/use-shoot-realtime';
 import { getWeatherForLocation, WeatherInfo } from '@/services/weatherService';
 import { subscribeToWeatherProvider } from '@/state/weatherProviderStore';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
@@ -314,7 +315,7 @@ export function ShootDetailsModal({
 
   // Refresh shoot data
   // Refresh shoot using React Query refetch
-  const refreshShoot = async (): Promise<ShootData | null> => {
+  const refreshShoot = useCallback(async (): Promise<ShootData | null> => {
     if (!shootId || !refetchShoot) return null;
     try {
       const result = await refetchShoot();
@@ -334,16 +335,29 @@ export function ShootDetailsModal({
       }
     }
     return null;
-  };
+  }, [shootId, refetchShoot, shootData]);
 
   // Refresh shoot data AND notify parent to update its list/cards
-  const refreshShootAndParent = async (): Promise<ShootData | null> => {
+  const refreshShootAndParent = useCallback(async (): Promise<ShootData | null> => {
     const result = await refreshShoot();
     if (onShootUpdate) {
       try { onShootUpdate(); } catch (e) { /* ignore */ }
     }
     return result;
-  };
+  }, [refreshShoot, onShootUpdate]);
+
+  useShootRealtime({
+    shootId: Number(shootId) || null,
+    userRole: currentUserRole,
+    userId: user?.id ?? null,
+    onActivity: () => {
+      queryClient.invalidateQueries({ queryKey: ['shoot', shootId] });
+      queryClient.invalidateQueries({ queryKey: ['shootFiles', shootId] });
+      refreshShootAndParent().catch((error) => {
+        console.error('Failed to refresh shoot after realtime activity:', error);
+      });
+    },
+  });
 
   // Get status badge
   const getStatusBadge = (status: string) => {
@@ -482,7 +496,7 @@ export function ShootDetailsModal({
   };
 
   const pollFinalizeCompletion = async (): Promise<{ delivered: boolean; failed: boolean }> => {
-    const deliveredStatuses = ['delivered', 'ready', 'ready_for_client', 'admin_verified'];
+    const deliveredStatuses = ['delivered', 'ready_for_client', 'admin_verified', 'client_delivered', 'workflow_completed', 'finalized'];
 
     for (let attempt = 0; attempt < 20; attempt += 1) {
       const latestShoot = await refreshShoot();

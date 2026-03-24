@@ -1099,14 +1099,32 @@ export function ShootDetailsTourTab({
                       className="flex-1"
                     />
                     {tourLinks.video_link && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => window.open(tourLinks.video_link, '_blank')}
-                        title="Open video"
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                      </Button>
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => copyLink('video_link')}
+                          title="Copy video link"
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openLink('video_link')}
+                          title="Open video"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => shareLink('video_link')}
+                          title="Share video link"
+                        >
+                          <Share2 className="h-4 w-4" />
+                        </Button>
+                      </>
                     )}
                     {isAdmin && (
                       <Button
@@ -1601,9 +1619,17 @@ export function ShootDetailsTourTab({
 
                         <div className="flex items-center gap-1 flex-shrink-0">
                           {url && !isEditing && (
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => window.open(url, '_blank')}>
-                              <ExternalLink className="h-3.5 w-3.5" />
-                            </Button>
+                            <>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => copyLink(key)}>
+                                <Copy className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openLink(key)}>
+                                <ExternalLink className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => shareLink(key)}>
+                                <Share2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </>
                           )}
                           {!isEditing && isAdmin && (
                             <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => startEdit3D(key)}>
@@ -1720,9 +1746,17 @@ export function ShootDetailsTourTab({
 
                         <div className="flex items-center gap-1 flex-shrink-0">
                           {url && !isEditing && (
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => window.open(url, '_blank')}>
-                              <ExternalLink className="h-3.5 w-3.5" />
-                            </Button>
+                            <>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => copyLink(key)}>
+                                <Copy className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openLink(key)}>
+                                <ExternalLink className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => shareLink(key)}>
+                                <Share2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </>
                           )}
                           {!isEditing && isAdmin && (
                             <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => startEdit3D(key)}>
@@ -1791,9 +1825,17 @@ export function ShootDetailsTourTab({
 
                         <div className="flex items-center gap-1 flex-shrink-0">
                           {url && !isEditing && (
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => window.open(url, '_blank')}>
-                              <ExternalLink className="h-3.5 w-3.5" />
-                            </Button>
+                            <>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => copyLink(key)}>
+                                <Copy className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openLink(key)}>
+                                <ExternalLink className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => shareLink(key)}>
+                                <Share2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </>
                           )}
                           {!isEditing && isAdmin && (
                             <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => startEdit3D(key)}>

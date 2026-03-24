@@ -160,7 +160,7 @@ export function ShootDetailsActivityLogTab({
     const lower = action.toLowerCase();
     if (lower.includes('email') || lower.includes('sent')) return 'email';
     if (lower.includes('payment') || lower.includes('paid') || lower.includes('charge')) return 'payment';
-    if (lower.includes('upload') || lower.includes('file')) return 'upload';
+    if (lower.includes('upload') || lower.includes('file') || lower.includes('hero') || lower.includes('cover')) return 'upload';
     if (lower.includes('finalize') || lower.includes('complete')) return 'finalize';
     if (lower.includes('note')) return 'note';
     if (lower.includes('status') || lower.includes('workflow')) return 'status_change';
@@ -353,5 +353,4 @@ export function ShootDetailsActivityLogTab({
     </div>
   );
 }
-
 

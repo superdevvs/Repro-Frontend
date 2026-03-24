@@ -28,7 +28,7 @@ const STATUS_TEXT: Record<string, string> = {
   ready_for_review: 'Editing',
   qc: 'Editing',
   review: 'Editing',
-  ready: 'Delivered',
+  ready: 'Ready',
 };
 
 const humanize = (value: string) =>
@@ -42,4 +42,3 @@ export const formatWorkflowStatus = (status?: string | null, fallback = 'Schedul
   const key = status.toLowerCase();
   return STATUS_TEXT[key] || humanize(key);
 };
-

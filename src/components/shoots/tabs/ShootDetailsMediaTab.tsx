@@ -454,7 +454,55 @@ export function ShootDetailsMediaTab({
   };
 
   const normalizedShootStatus = String(shoot?.workflowStatus || (shoot as any)?.status || '').toLowerCase();
-  
+  const normalizeClientProgressStatus = (value: string) => {
+    const statusKey = String(value || '').toLowerCase();
+    const aliases: Record<string, 'scheduled' | 'uploaded' | 'editing' | 'review' | 'ready'> = {
+      requested: 'scheduled',
+      approved: 'scheduled',
+      booked: 'scheduled',
+      raw_upload_pending: 'scheduled',
+      raw_uploaded: 'uploaded',
+      raw_issue: 'uploaded',
+      photos_uploaded: 'uploaded',
+      in_progress: 'uploaded',
+      completed: 'uploaded',
+      editing_uploaded: 'review',
+      editing_complete: 'review',
+      pending_review: 'review',
+      ready_for_review: 'review',
+      review: 'review',
+      qc: 'review',
+      ready: 'review',
+      delivered: 'ready',
+      ready_for_client: 'ready',
+      admin_verified: 'ready',
+      client_delivered: 'ready',
+      workflow_completed: 'ready',
+      finalized: 'ready',
+    };
+
+    return aliases[statusKey] || statusKey;
+  };
+
+  const rawMediaCount = Number(
+    shoot?.rawPhotoCount ??
+      (shoot as any)?.raw_photo_count ??
+      shoot?.mediaSummary?.rawUploaded ??
+      rawFiles.length ??
+      0,
+  );
+  const editedMediaCount = Number(
+    shoot?.editedPhotoCount ??
+      (shoot as any)?.edited_photo_count ??
+      shoot?.mediaSummary?.editedUploaded ??
+      editedFiles.length ??
+      0,
+  );
+  const progressStatus = normalizeClientProgressStatus(normalizedShootStatus);
+  const hasUploadedMedia = rawMediaCount > 0 || rawFiles.length > 0;
+  const hasEditedMedia = editedMediaCount > 0 || editedFiles.length > 0;
+  const hasReviewSignal = Boolean(shoot?.submittedForReviewAt) || hasEditedMedia;
+
   // Determine if delete is allowed (before delivered status - admin, photographer, editor can delete)
   // Superadmin can always delete, even after delivery
   const DELIVERED_STATUSES = ['delivered', 'client_delivered', 'workflow_completed', 'finalized'];
@@ -465,30 +513,66 @@ export function ShootDetailsMediaTab({
   const hasAnyMedia = rawFiles.length > 0 || editedFiles.length > 0;
 
   // Determine if shoot is finalized (client can view photos)
-  const FINALIZED_STATUSES = ['admin_verified', 'delivered', 'client_delivered', 'ready', 'workflow_completed', 'finalized'];
+  const FINALIZED_STATUSES = ['admin_verified', 'delivered', 'client_delivered', 'ready_for_client', 'workflow_completed', 'finalized'];
   const isShootFinalized = FINALIZED_STATUSES.some(status => normalizedShootStatus.includes(status));
   
   // Calculate progress for non-finalized shoots (for client progress indicator)
-  const getShootProgress = () => {
-    if (isShootFinalized) return 100;
-    if (normalizedShootStatus.includes('scheduled') || normalizedShootStatus.includes('booked') || normalizedShootStatus.includes('requested')) return 10;
-    if (normalizedShootStatus.includes('upload') || normalizedShootStatus.includes('raw')) return 30;
-    if (normalizedShootStatus.includes('editing') || normalizedShootStatus.includes('in_progress')) return 50;
-    if (normalizedShootStatus.includes('review') || normalizedShootStatus.includes('pending')) return 75;
-    if (normalizedShootStatus.includes('complete')) return 90;
-    return 25;
-  };
-  
-  const getProgressLabel = () => {
-    if (isShootFinalized) return 'Ready for download';
-    if (normalizedShootStatus.includes('scheduled') || normalizedShootStatus.includes('booked')) return 'Shoot scheduled';
-    if (normalizedShootStatus.includes('requested')) return 'Awaiting confirmation';
-    if (normalizedShootStatus.includes('upload') || normalizedShootStatus.includes('raw')) return 'Photos uploaded';
-    if (normalizedShootStatus.includes('editing') || normalizedShootStatus.includes('in_progress')) return 'Being edited';
-    if (normalizedShootStatus.includes('review') || normalizedShootStatus.includes('pending')) return 'Under review';
-    if (normalizedShootStatus.includes('complete')) return 'Almost ready';
-    return 'In progress';
-  };
+  const clientProgress = useMemo(() => {
+    const steps = [
+      {
+        key: 'scheduled',
+        label: normalizedShootStatus.includes('requested') ? 'Awaiting confirmation' : 'Shoot scheduled',
+        description: normalizedShootStatus.includes('requested')
+          ? "We're waiting for your shoot request to be confirmed."
+          : 'Your shoot is booked and waiting for the next workflow update.',
+        percent: 10,
+      },
+      {
+        key: 'uploaded',
+        label: 'Photos uploaded',
+        description: 'The photographer has uploaded the media and it is moving into production.',
+        percent: 30,
+      },
+      {
+        key: 'editing',
+        label: 'Editing in progress',
+        description: 'Your photos are currently being edited.',
+        percent: 50,
+      },
+      {
+        key: 'review',
+        label: 'In review',
+        description: 'Edited files are uploaded and waiting for final admin review.',
+        percent: 75,
+      },
+      {
+        key: 'ready',
+        label: 'Ready',
+        description: "Everything is complete and your shoot is ready.",
+        percent: 100,
+      },
+    ] as const;
+
+    let stageKey: typeof steps[number]['key'] = 'scheduled';
+
+    if (isShootFinalized || progressStatus === 'ready') {
+      stageKey = 'ready';
+    } else if (progressStatus === 'review' || hasReviewSignal) {
+      stageKey = 'review';
+    } else if (progressStatus === 'editing') {
+      stageKey = 'editing';
+    } else if (progressStatus === 'uploaded' || hasUploadedMedia) {
+      stageKey = 'uploaded';
+    }
+
+    return steps.find((step) => step.key === stageKey) ?? steps[0];
+  }, [
+    hasReviewSignal,
+    hasUploadedMedia,
+    isShootFinalized,
+    normalizedShootStatus,
+    progressStatus,
+  ]);
 
     const VIDEO_EXTENSION_REGEX = /\.(mp4|mov|m4v|avi|mkv|wmv|webm|mpg|mpeg|3gp)$/i;
 
@@ -2590,8 +2674,8 @@ export function ShootDetailsMediaTab({
 
   // Show "Work in Progress" UI for clients when shoot is not finalized
   if (isClient && !isShootFinalized) {
-    const progress = getShootProgress();
-    const progressLabel = getProgressLabel();
+    const progress = clientProgress.percent;
+    const progressLabel = clientProgress.label;
     
     return (
       <div className="flex flex-col h-full min-h-0 bg-background px-3 sm:px-4 lg:px-6 items-center justify-center" style={{ height: '100%', minHeight: '300px' }}>
@@ -2610,7 +2694,7 @@ export function ShootDetailsMediaTab({
           <div className="space-y-2">
             <h3 className="text-lg font-semibold text-foreground">Work in Progress</h3>
             <p className="text-sm text-muted-foreground">
-              Your photos are being professionally edited. We'll notify you when they're ready for viewing.
+              {clientProgress.description}
             </p>
           </div>
           
@@ -3561,6 +3645,7 @@ export function ShootDetailsMediaTab({
         getSrcSet={getSrcSet}
         shoot={shoot}
         isAdmin={isAdmin}
+        isClient={isClient}
         onShootUpdate={onShootUpdate}
       />
 
@@ -3721,6 +3806,11 @@ function MediaGrid({
     });
   }, [files, sortOrder, manualOrder]);
 
+  const draggableIds = useMemo(
+    () => (separateExtras ? sortedFiles.filter((file) => !file.isExtra) : sortedFiles).map((file) => file.id),
+    [separateExtras, sortedFiles],
+  );
+
   // Handle drag start
   const handleDragStart = (e: React.DragEvent, fileId: string) => {
     if (sortOrder !== 'manual') return;
@@ -3752,19 +3842,28 @@ function MediaGrid({
       return;
     }
 
-    // Get current order or create from files
-    const currentOrder = manualOrder.length > 0 
-      ? [...manualOrder] 
-      : sortedFiles.filter(f => !f.isExtra).map(f => f.id);
-    
-    const draggedIdx = currentOrder.indexOf(draggedId);
+    const currentOrder = manualOrder.length > 0
+      ? [
+          ...manualOrder.filter((id) => draggableIds.includes(id)),
+          ...draggableIds.filter((id) => !manualOrder.includes(id)),
+        ]
+      : [...draggableIds];
+    const selectedBlock = currentOrder.filter((id) => selectedFiles.has(id));
+    const draggedBlock = selectedFiles.has(draggedId) && selectedBlock.length > 1 ? selectedBlock : [draggedId];
+
+    if (draggedBlock.includes(targetId)) {
+      setDraggedId(null);
+      setDragOverId(null);
+      return;
+    }
+
     const targetIdx = currentOrder.indexOf(targetId);
-    
-    if (draggedIdx !== -1 && targetIdx !== -1) {
-      // Remove dragged item and insert at target position
-      currentOrder.splice(draggedIdx, 1);
-      currentOrder.splice(targetIdx, 0, draggedId);
-      onManualOrderChange?.(currentOrder);
+    if (targetIdx !== -1) {
+      const remainingOrder = currentOrder.filter((id) => !draggedBlock.includes(id));
+      const movedBeforeTarget = draggedBlock.filter((id) => currentOrder.indexOf(id) < targetIdx).length;
+      const insertIndex = Math.max(0, targetIdx - movedBeforeTarget);
+      remainingOrder.splice(insertIndex, 0, ...draggedBlock);
+      onManualOrderChange?.(remainingOrder);
     }
 
     setDraggedId(null);
@@ -3780,6 +3879,7 @@ function MediaGrid({
   const visibleSorted = showHidden ? sortedFiles : sortedFiles.filter(f => !f.is_hidden);
   const regularFiles = separateExtras ? visibleSorted.filter(f => !f.isExtra) : visibleSorted;
   const extraFiles = separateExtras ? visibleSorted.filter(f => f.isExtra) : [];
+  const showMultiSortHint = isClient && sortOrder === 'manual' && selectedFiles.size > 1;
 
   // Helper function to format file size
   const formatFileSize = (bytes?: number): string => {
@@ -4079,22 +4179,28 @@ function MediaGrid({
           <p className="text-xs font-medium truncate" title={file.filename}>
             {file.filename}
           </p>
-          <p className="text-[10px] text-muted-foreground sm:hidden">
-            {formatDateTime(file.captured_at || file.created_at)}
-          </p>
+          {!isClient && (
+            <p className="text-[10px] text-muted-foreground sm:hidden">
+              {formatDateTime(file.captured_at || file.created_at)}
+            </p>
+          )}
         </div>
 
-        {/* Shot Time - fixed width on right */}
-        <div className="hidden sm:block w-36 flex-shrink-0 text-right">
-          <p className="text-[10px] text-muted-foreground">Shot Time</p>
-          <p className="text-xs">{formatDateTime(file.captured_at || file.created_at)}</p>
-        </div>
+        {!isClient && (
+          <>
+            {/* Shot Time - fixed width on right */}
+            <div className="hidden sm:block w-36 flex-shrink-0 text-right">
+              <p className="text-[10px] text-muted-foreground">Shot Time</p>
+              <p className="text-xs">{formatDateTime(file.captured_at || file.created_at)}</p>
+            </div>
 
-        {/* Size - fixed width on right */}
-        <div className="hidden sm:block w-20 flex-shrink-0 text-right">
-          <p className="text-[10px] text-muted-foreground">Size</p>
-          <p className="text-xs">{formatFileSize(file.fileSize)}</p>
-        </div>
+            {/* Size - fixed width on right */}
+            <div className="hidden sm:block w-20 flex-shrink-0 text-right">
+              <p className="text-[10px] text-muted-foreground">Size</p>
+              <p className="text-xs">{formatFileSize(file.fileSize)}</p>
+            </div>
+          </>
+        )}
 
         {/* Hide/Unhide toggle */}
         {!isClient && toggleFileHidden && (
@@ -4146,6 +4252,11 @@ function MediaGrid({
             </span>
           </div>
         )}
+        {showMultiSortHint && (
+          <div className="px-1 text-[11px] text-muted-foreground">
+            Select multiple images, then drag one to move the group.
+          </div>
+        )}
 
         {/* Regular files - grid */}
         <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5 sm:gap-2">
@@ -4192,10 +4303,19 @@ function MediaGrid({
         )}
         <div className="w-28 flex-shrink-0">Preview</div>
         <div className="flex-1">Filename</div>
-        <div className="w-36 flex-shrink-0 text-right">Shot Time</div>
-        <div className="w-20 flex-shrink-0 text-right">Size</div>
+        {!isClient && (
+          <>
+            <div className="w-36 flex-shrink-0 text-right">Shot Time</div>
+            <div className="w-20 flex-shrink-0 text-right">Size</div>
+          </>
+        )}
         <div className="w-6 flex-shrink-0"></div>
       </div>
+      {showMultiSortHint && (
+        <div className="px-2 text-[11px] text-muted-foreground">
+          Select multiple images, then drag one to move the group.
+        </div>
+      )}
 
       {/* Regular files */}
       <div className="space-y-1">
@@ -4232,6 +4352,7 @@ interface MediaViewerProps {
   getSrcSet: (file: MediaFile) => string;
   shoot?: ShootData;
   isAdmin?: boolean;
+  isClient?: boolean;
   onShootUpdate?: () => void;
 }
 
@@ -4245,6 +4366,7 @@ function MediaViewer({
   getSrcSet,
   shoot,
   isAdmin = false,
+  isClient = false,
   onShootUpdate,
 }: MediaViewerProps) {
   const { toast } = useToast();
@@ -4412,6 +4534,19 @@ function MediaViewer({
   const isVid = isVideoFile(currentFile);
   const videoUrl = isVid ? (getImageUrl(currentFile, 'original') || getImageUrl(currentFile, 'large')) : '';
   const fileExt = currentFile?.filename?.split('.')?.pop()?.toUpperCase();
+  const mediaType = (currentFile.media_type || '').toLowerCase();
+  const canSetHero =
+    Boolean(shoot) &&
+    isImg &&
+    !isVid &&
+    (isAdmin ||
+      (isClient &&
+        !currentFile.is_hidden &&
+        !currentFile.isExtra &&
+        mediaType !== 'raw' &&
+        mediaType !== 'extra' &&
+        mediaType !== 'floorplan' &&
+        ['completed', 'verified'].includes((currentFile.workflowStage || '').toLowerCase())));
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -4469,12 +4604,12 @@ function MediaViewer({
                   {currentFile.width} × {currentFile.height}
                 </div>
               )}
-              {currentFile.fileSize && (
+              {!isClient && currentFile.fileSize && (
                 <div className="text-white/70 hidden sm:block">
                   {(currentFile.fileSize / 1024 / 1024).toFixed(2)} MB
                 </div>
               )}
-              {shoot && isAdmin && (
+              {canSetHero && (
                 <Button
                   variant="ghost"
                   size="sm"
