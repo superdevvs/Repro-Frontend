@@ -163,6 +163,56 @@ export function PermissionsManager() {
     [draftPermissions, roles],
   );
 
+  const mobileRoleButtons = useMemo(
+    () =>
+      roles.map((role) => {
+        const Icon = ROLE_ICONS[role.id] ?? Shield;
+        const isActive = activeRole === role.id;
+
+        return (
+          <button
+            key={role.id}
+            type="button"
+            onClick={() => setActiveRole(role.id)}
+            className={`flex items-center justify-between rounded-2xl border px-3 py-3 text-left transition-colors ${
+              isActive
+                ? 'border-primary bg-primary text-primary-foreground'
+                : 'border-border/70 bg-background text-foreground'
+            }`}
+          >
+            <div className="flex min-w-0 items-center gap-3">
+              <div
+                className={`rounded-full p-2 ${
+                  isActive ? 'bg-primary-foreground/15' : 'bg-muted'
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium">{role.label}</p>
+                <p
+                  className={`text-xs ${
+                    isActive ? 'text-primary-foreground/80' : 'text-muted-foreground'
+                  }`}
+                >
+                  {draftPermissions[role.id]?.length ?? 0} enabled
+                </p>
+              </div>
+            </div>
+            <Badge
+              variant={isActive ? 'secondary' : 'outline'}
+              className={`shrink-0 rounded-full ${
+                isActive ? 'border-primary-foreground/10 bg-primary-foreground/15 text-primary-foreground' : ''
+              }`}
+            >
+              {draftPermissions[role.id]?.length ?? 0}
+            </Badge>
+          </button>
+        );
+      }),
+    [activeRole, draftPermissions, roles],
+  );
+
   const togglePermission = (roleId: string, permissionId: string) => {
     setDraftPermissions((current) => {
       const nextValues = new Set(current[roleId] ?? []);
@@ -259,8 +309,8 @@ export function PermissionsManager() {
   }
 
   return (
-    <Card className="w-full overflow-hidden border-slate-200/70 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950">
-      <CardHeader className="space-y-5 border-b border-border/60 bg-slate-50/60 dark:bg-slate-900/50">
+    <Card className="mx-[-1rem] w-[calc(100%+2rem)] overflow-hidden rounded-none border-x-0 border-slate-200/70 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950 sm:mx-0 sm:w-full sm:rounded-xl sm:border-x">
+      <CardHeader className="space-y-5 border-b border-border/60 bg-slate-50/60 px-4 py-5 dark:bg-slate-900/50 sm:px-6">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div className="space-y-1.5">
             <CardTitle>Account Permissions</CardTitle>
@@ -284,7 +334,7 @@ export function PermissionsManager() {
           </div>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="hidden gap-3 md:grid-cols-3 md:grid">
           <Card className="border-border/60 bg-background/70 shadow-none">
             <CardContent className="p-4">
               <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Active role</p>
@@ -322,19 +372,20 @@ export function PermissionsManager() {
               className="pl-9"
             />
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap">
             <Button
               variant="outline"
               onClick={handleResetRole}
               disabled={!activeRole || activeRoleMeta?.locked || saving}
+              className="w-full sm:w-auto"
             >
               <RotateCcw className="mr-2 h-4 w-4" />
               Reset Role
             </Button>
-            <Button variant="outline" onClick={handleResetAll} disabled={saving}>
+            <Button variant="outline" onClick={handleResetAll} disabled={saving} className="w-full sm:w-auto">
               Reset All
             </Button>
-            <Button onClick={handleSave} disabled={!canSavePermissions || saving || dirtyRoles === 0}>
+            <Button onClick={handleSave} disabled={!canSavePermissions || saving || dirtyRoles === 0} className="w-full sm:w-auto">
               {saving ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
@@ -346,13 +397,16 @@ export function PermissionsManager() {
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-6 p-4 sm:p-6">
-        <div className="rounded-2xl border border-border/60 bg-slate-50/70 p-3 dark:bg-slate-900/40">
+      <CardContent className="space-y-4 px-0 py-4 sm:space-y-6 sm:p-6">
+        <div className="rounded-none border-y border-border/60 bg-slate-50/70 px-3 py-3 dark:bg-slate-900/40 sm:rounded-2xl sm:border sm:p-3">
           <Tabs value={activeRole} onValueChange={setActiveRole}>
-            <AutoExpandingTabsList tabs={roleTabs} value={activeRole} desktopExpanded className="pb-0" />
-            <TabsContent value={activeRole} className="mt-4">
+            <div className="grid grid-cols-1 gap-2 sm:hidden">
+              {mobileRoleButtons}
+            </div>
+            <AutoExpandingTabsList tabs={roleTabs} value={activeRole} desktopExpanded className="hidden pb-0 sm:flex" />
+            <TabsContent value={activeRole} className="mt-3 sm:mt-4">
               <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_280px]">
-                <ScrollArea className="h-[62vh] min-h-[420px] rounded-2xl border border-border/60 bg-background p-4">
+                <ScrollArea className="h-auto min-h-0 rounded-2xl border border-border/60 bg-background p-3 sm:h-[62vh] sm:min-h-[420px] sm:p-4">
                   <div className="space-y-4">
                     {visibleGroups.length === 0 && (
                       <div className="rounded-2xl border border-dashed border-border p-10 text-center">
@@ -364,8 +418,8 @@ export function PermissionsManager() {
                     )}
 
                     {visibleGroups.map((group) => (
-                      <Card key={group.id} className="border-border/60 shadow-none">
-                        <CardHeader className="pb-3">
+                      <Card key={group.id} className="overflow-hidden border-border/60 shadow-none">
+                        <CardHeader className="sticky top-0 z-10 border-b border-border/60 bg-background/95 pb-3 backdrop-blur supports-[backdrop-filter]:bg-background/85">
                           <CardTitle className="text-base">{group.label}</CardTitle>
                           <CardDescription>{group.description}</CardDescription>
                         </CardHeader>
@@ -378,7 +432,7 @@ export function PermissionsManager() {
                             return (
                               <div
                                 key={permissionItem.id}
-                                className="flex items-start justify-between gap-4 rounded-xl border border-border/60 p-3 transition-colors hover:bg-muted/30"
+                                className="flex items-start justify-between gap-3 rounded-xl border border-border/60 p-3 transition-colors hover:bg-muted/30 sm:gap-4"
                               >
                                 <div className="min-w-0 space-y-1">
                                   <div className="flex flex-wrap items-center gap-2">
@@ -410,57 +464,59 @@ export function PermissionsManager() {
                   </div>
                 </ScrollArea>
 
-                <div className="space-y-3">
-                  <Card className="border-border/60 shadow-none">
+                <div className="hidden min-h-[420px] flex-col gap-3 lg:flex">
+                  <Card className="flex-1 border-border/60 shadow-none">
                     <CardHeader className="pb-3">
                       <CardTitle className="text-base">Role Snapshot</CardTitle>
                       <CardDescription>Quick compare the saved state across every role.</CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-3">
-                      {roles.map((role) => {
-                        const draftCount = draftPermissions[role.id]?.length ?? 0;
-                        const savedCount = savedPermissions[role.id]?.length ?? 0;
-                        const dirty = !samePermissionList(
-                          draftPermissions[role.id] ?? [],
-                          savedPermissions[role.id] ?? [],
-                        );
-                        const Icon = ROLE_ICONS[role.id] ?? Shield;
+                    <CardContent className="flex-1">
+                      <div className="flex h-full flex-col justify-between gap-3">
+                        {roles.map((role) => {
+                          const draftCount = draftPermissions[role.id]?.length ?? 0;
+                          const savedCount = savedPermissions[role.id]?.length ?? 0;
+                          const dirty = !samePermissionList(
+                            draftPermissions[role.id] ?? [],
+                            savedPermissions[role.id] ?? [],
+                          );
+                          const Icon = ROLE_ICONS[role.id] ?? Shield;
 
-                        return (
-                          <button
-                            key={role.id}
-                            type="button"
-                            onClick={() => setActiveRole(role.id)}
-                            className={`flex w-full items-center justify-between rounded-xl border px-3 py-3 text-left transition-colors ${
-                              activeRole === role.id
-                                ? 'border-primary bg-primary/5'
-                                : 'border-border/60 hover:bg-muted/30'
-                            }`}
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className="rounded-full bg-muted p-2">
-                                <Icon className="h-4 w-4" />
+                          return (
+                            <button
+                              key={role.id}
+                              type="button"
+                              onClick={() => setActiveRole(role.id)}
+                              className={`flex w-full items-center justify-between rounded-xl border px-3 py-3 text-left transition-colors ${
+                                activeRole === role.id
+                                  ? 'border-primary bg-primary/5'
+                                  : 'border-border/60 hover:bg-muted/30'
+                              }`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="rounded-full bg-muted p-2">
+                                  <Icon className="h-4 w-4" />
+                                </div>
+                                <div>
+                                  <p className="font-medium">{role.label}</p>
+                                  <p className="text-xs text-muted-foreground">{draftCount} enabled</p>
+                                </div>
                               </div>
-                              <div>
-                                <p className="font-medium">{role.label}</p>
-                                <p className="text-xs text-muted-foreground">{draftCount} enabled</p>
+                              <div className="flex flex-col items-end gap-1">
+                                {role.locked ? (
+                                  <Badge variant="secondary" className="rounded-full">Locked</Badge>
+                                ) : dirty ? (
+                                  <Badge className="rounded-full">Unsaved</Badge>
+                                ) : (
+                                  <Badge variant="outline" className="rounded-full">Saved</Badge>
+                                )}
+                                <span className="text-[11px] text-muted-foreground">
+                                  baseline {savedCount}
+                                </span>
                               </div>
-                            </div>
-                            <div className="flex flex-col items-end gap-1">
-                              {role.locked ? (
-                                <Badge variant="secondary" className="rounded-full">Locked</Badge>
-                              ) : dirty ? (
-                                <Badge className="rounded-full">Unsaved</Badge>
-                              ) : (
-                                <Badge variant="outline" className="rounded-full">Saved</Badge>
-                              )}
-                              <span className="text-[11px] text-muted-foreground">
-                                baseline {savedCount}
-                              </span>
-                            </div>
-                          </button>
-                        );
-                      })}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </CardContent>
                   </Card>
 
