@@ -56,6 +56,13 @@ interface ShootDetailsTourTabProps {
   onShowAnalytics?: () => void;
 }
 
+type Managed3DLinkKey =
+  | 'matterport_branded'
+  | 'matterport_mls'
+  | 'iguide_branded'
+  | 'iguide_mls'
+  | 'zillow_3d';
+
 export function ShootDetailsTourTab({
   shoot,
   isAdmin,
@@ -77,10 +84,10 @@ export function ShootDetailsTourTab({
   });
   
   // 3D tour edit state
-  const [editing3DKey, setEditing3DKey] = useState<'matterport_branded' | 'matterport_mls' | 'iguide_branded' | 'iguide_mls' | 'zillow_3d' | null>(null);
+  const [editing3DKey, setEditing3DKey] = useState<Managed3DLinkKey | null>(null);
   const [editing3DValue, setEditing3DValue] = useState('');
   const [isSaving3D, setIsSaving3D] = useState(false);
-  const [isDeleting3D, setIsDeleting3D] = useState<'matterport_branded' | 'matterport_mls' | 'iguide_branded' | 'iguide_mls' | 'zillow_3d' | null>(null);
+  const [isDeleting3D, setIsDeleting3D] = useState<Managed3DLinkKey | null>(null);
   
   // Video link edit state
   const [editingVideoLink, setEditingVideoLink] = useState(false);
@@ -512,7 +519,7 @@ export function ShootDetailsTourTab({
   };
 
   // 3D tour management functions
-  const startEdit3D = (key: 'matterport_branded' | 'matterport_mls' | 'iguide_branded' | 'iguide_mls' | 'zillow_3d') => {
+  const startEdit3D = (key: Managed3DLinkKey) => {
     setEditing3DKey(key);
     setEditing3DValue(tourLinks[key] || '');
   };
@@ -757,7 +764,7 @@ export function ShootDetailsTourTab({
     }
   };
 
-  const confirmDelete3D = async (key: 'matterport_branded' | 'matterport_mls' | 'iguide_branded' | 'iguide_mls' | 'zillow_3d') => {
+  const confirmDelete3D = async (key: Managed3DLinkKey) => {
     if (!isAdmin) {
       toast({
         title: 'Permission denied',
@@ -900,6 +907,75 @@ export function ShootDetailsTourTab({
     } finally {
       setIsGeneratingDescription(false);
     }
+  };
+
+  const renderLinkActionButtons = (
+    type: string,
+    options?: {
+      editable?: boolean;
+      onEdit?: () => void;
+      deletable?: boolean;
+      onDelete?: () => void;
+      deleting?: boolean;
+      editTitle?: string;
+      deleteTitle?: string;
+    },
+  ) => {
+    const hasValue = Boolean(getTourUrl(type)?.trim());
+
+    return (
+      <>
+        {hasValue && (
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => copyLink(type)}
+              title="Copy link"
+            >
+              <Copy className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => openLink(type)}
+              title="Open in new tab"
+            >
+              <ExternalLink className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => shareLink(type)}
+              title="Share link"
+            >
+              <Share2 className="h-4 w-4" />
+            </Button>
+          </>
+        )}
+        {options?.editable && options.onEdit && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={options.onEdit}
+            title={options.editTitle || 'Edit link'}
+          >
+            <Edit className="h-4 w-4" />
+          </Button>
+        )}
+        {options?.deletable && options.onDelete && (
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={options.onDelete}
+            disabled={options.deleting}
+            title={options.deleteTitle || 'Remove link'}
+          >
+            <Trash className="h-4 w-4" />
+          </Button>
+        )}
+      </>
+    );
   };
 
   return (
@@ -1098,55 +1174,15 @@ export function ShootDetailsTourTab({
                       placeholder="No video link set"
                       className="flex-1"
                     />
-                    {tourLinks.video_link && (
-                      <>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => copyLink('video_link')}
-                          title="Copy video link"
-                        >
-                          <Copy className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openLink('video_link')}
-                          title="Open video"
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => shareLink('video_link')}
-                          title="Share video link"
-                        >
-                          <Share2 className="h-4 w-4" />
-                        </Button>
-                      </>
-                    )}
-                    {isAdmin && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={startEditVideoLink}
-                        title="Edit video link"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                    )}
-                    {isAdmin && tourLinks.video_link && (
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={deleteVideoLink}
-                        disabled={isSavingVideoLink}
-                        title="Remove video link"
-                      >
-                        <Trash className="h-4 w-4" />
-                      </Button>
-                    )}
+                    {renderLinkActionButtons('video_link', {
+                      editable: isAdmin,
+                      onEdit: startEditVideoLink,
+                      editTitle: 'Edit video link',
+                      deletable: Boolean(isAdmin && tourLinks.video_link),
+                      onDelete: deleteVideoLink,
+                      deleting: isSavingVideoLink,
+                      deleteTitle: 'Remove video link',
+                    })}
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -1607,68 +1643,46 @@ export function ShootDetailsTourTab({
                   const isEditing = editing3DKey === key;
 
                   return (
-                    <div key={key} className="border rounded-lg p-3 flex flex-col overflow-hidden">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-3 min-w-0 flex-1">
-                          <div className="text-muted-foreground flex-shrink-0">—</div>
-                          <div className="min-w-0">
-                            <div className="font-medium text-sm">{label}</div>
-                            <div className="text-xs text-muted-foreground truncate">{url || 'Not set'}</div>
-                          </div>
+                    <div key={key} className="space-y-2">
+                      <Label>{label}</Label>
+                      {!isEditing ? (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={url}
+                            readOnly
+                            placeholder="No link set"
+                            className="flex-1"
+                          />
+                          {renderLinkActionButtons(key, {
+                            editable: isAdmin,
+                            onEdit: () => startEdit3D(key),
+                            editTitle: `Edit ${label}`,
+                            deletable: Boolean(isAdmin && url),
+                            onDelete: () => confirmDelete3D(key),
+                            deleting: isDeleting3D === key,
+                            deleteTitle: `Remove ${label}`,
+                          })}
                         </div>
-
-                        <div className="flex items-center gap-1 flex-shrink-0">
-                          {url && !isEditing && (
-                            <>
-                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => copyLink(key)}>
-                                <Copy className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openLink(key)}>
-                                <ExternalLink className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => shareLink(key)}>
-                                <Share2 className="h-3.5 w-3.5" />
-                              </Button>
-                            </>
-                          )}
-                          {!isEditing && isAdmin && (
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => startEdit3D(key)}>
-                              <Edit className="h-3.5 w-3.5" />
-                            </Button>
-                          )}
-                          {!isEditing && isAdmin && url && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                              onClick={() => confirmDelete3D(key)}
-                              disabled={isDeleting3D === key}
-                            >
-                              <Trash className="h-3.5 w-3.5" />
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-
-                      {isEditing && (
-                        <div className="mt-3 grid grid-cols-1 gap-2">
+                      ) : (
+                        <div className="grid grid-cols-1 gap-2">
                           <Input
                             value={editing3DValue}
                             onChange={(e) => setEditing3DValue(e.target.value)}
                             placeholder="https://"
-                            className="h-8 text-xs"
+                            className="flex-1"
                           />
                           <div className="flex justify-end gap-2">
                             <Button variant="outline" size="sm" onClick={cancelEdit3D}>
-                              <X className="h-3.5 w-3.5 mr-1" />
+                              <X className="mr-1 h-3.5 w-3.5" />
                               Cancel
                             </Button>
                             <Button variant="default" size="sm" onClick={save3DTour} disabled={isSaving3D}>
-                              {isSaving3D ? 'Saving...' : <><Check className="h-3.5 w-3.5 mr-1" />Save</>}
+                              {isSaving3D ? 'Saving...' : <><Check className="mr-1 h-3.5 w-3.5" />Save</>}
                             </Button>
                           </div>
                         </div>
                       )}
+
                     </div>
                   );
                 })}
@@ -1734,68 +1748,46 @@ export function ShootDetailsTourTab({
                   const isEditing = editing3DKey === key;
 
                   return (
-                    <div key={key} className="border rounded-lg p-3 flex flex-col overflow-hidden">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-3 min-w-0 flex-1">
-                          <div className="text-muted-foreground flex-shrink-0">—</div>
-                          <div className="min-w-0">
-                            <div className="font-medium text-sm">{label}</div>
-                            <div className="text-xs text-muted-foreground truncate">{url || 'Not set'}</div>
-                          </div>
+                    <div key={key} className="space-y-2">
+                      <Label>{label}</Label>
+                      {!isEditing ? (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={url}
+                            readOnly
+                            placeholder="No link set"
+                            className="flex-1"
+                          />
+                          {renderLinkActionButtons(key, {
+                            editable: isAdmin,
+                            onEdit: () => startEdit3D(key),
+                            editTitle: `Edit ${label}`,
+                            deletable: Boolean(isAdmin && url),
+                            onDelete: () => confirmDelete3D(key),
+                            deleting: isDeleting3D === key,
+                            deleteTitle: `Remove ${label}`,
+                          })}
                         </div>
-
-                        <div className="flex items-center gap-1 flex-shrink-0">
-                          {url && !isEditing && (
-                            <>
-                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => copyLink(key)}>
-                                <Copy className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openLink(key)}>
-                                <ExternalLink className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => shareLink(key)}>
-                                <Share2 className="h-3.5 w-3.5" />
-                              </Button>
-                            </>
-                          )}
-                          {!isEditing && isAdmin && (
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => startEdit3D(key)}>
-                              <Edit className="h-3.5 w-3.5" />
-                            </Button>
-                          )}
-                          {!isEditing && isAdmin && url && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                              onClick={() => confirmDelete3D(key)}
-                              disabled={isDeleting3D === key}
-                            >
-                              <Trash className="h-3.5 w-3.5" />
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-
-                      {isEditing && (
-                        <div className="mt-3 grid grid-cols-1 gap-2">
+                      ) : (
+                        <div className="grid grid-cols-1 gap-2">
                           <Input
                             value={editing3DValue}
                             onChange={(e) => setEditing3DValue(e.target.value)}
                             placeholder="https://"
-                            className="h-8 text-xs"
+                            className="flex-1"
                           />
                           <div className="flex justify-end gap-2">
                             <Button variant="outline" size="sm" onClick={cancelEdit3D}>
-                              <X className="h-3.5 w-3.5 mr-1" />
+                              <X className="mr-1 h-3.5 w-3.5" />
                               Cancel
                             </Button>
                             <Button variant="default" size="sm" onClick={save3DTour} disabled={isSaving3D}>
-                              {isSaving3D ? 'Saving...' : <><Check className="h-3.5 w-3.5 mr-1" />Save</>}
+                              {isSaving3D ? 'Saving...' : <><Check className="mr-1 h-3.5 w-3.5" />Save</>}
                             </Button>
                           </div>
                         </div>
                       )}
+
                     </div>
                   );
                 })}
@@ -1813,68 +1805,46 @@ export function ShootDetailsTourTab({
                   const isEditing = editing3DKey === key;
 
                   return (
-                    <div key={key} className="border rounded-lg p-3 flex flex-col overflow-hidden">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-3 min-w-0 flex-1">
-                          <div className="text-muted-foreground flex-shrink-0">—</div>
-                          <div className="min-w-0">
-                            <div className="font-medium text-sm">{label}</div>
-                            <div className="text-xs text-muted-foreground truncate">{url || 'Not set'}</div>
-                          </div>
+                    <div key={key} className="space-y-2">
+                      <Label>{label}</Label>
+                      {!isEditing ? (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={url}
+                            readOnly
+                            placeholder="No link set"
+                            className="flex-1"
+                          />
+                          {renderLinkActionButtons(key, {
+                            editable: isAdmin,
+                            onEdit: () => startEdit3D(key),
+                            editTitle: `Edit ${label}`,
+                            deletable: Boolean(isAdmin && url),
+                            onDelete: () => confirmDelete3D(key),
+                            deleting: isDeleting3D === key,
+                            deleteTitle: `Remove ${label}`,
+                          })}
                         </div>
-
-                        <div className="flex items-center gap-1 flex-shrink-0">
-                          {url && !isEditing && (
-                            <>
-                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => copyLink(key)}>
-                                <Copy className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openLink(key)}>
-                                <ExternalLink className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => shareLink(key)}>
-                                <Share2 className="h-3.5 w-3.5" />
-                              </Button>
-                            </>
-                          )}
-                          {!isEditing && isAdmin && (
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => startEdit3D(key)}>
-                              <Edit className="h-3.5 w-3.5" />
-                            </Button>
-                          )}
-                          {!isEditing && isAdmin && url && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                              onClick={() => confirmDelete3D(key)}
-                              disabled={isDeleting3D === key}
-                            >
-                              <Trash className="h-3.5 w-3.5" />
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-
-                      {isEditing && (
-                        <div className="mt-3 grid grid-cols-1 gap-2">
+                      ) : (
+                        <div className="grid grid-cols-1 gap-2">
                           <Input
                             value={editing3DValue}
                             onChange={(e) => setEditing3DValue(e.target.value)}
                             placeholder="https://"
-                            className="h-8 text-xs"
+                            className="flex-1"
                           />
                           <div className="flex justify-end gap-2">
                             <Button variant="outline" size="sm" onClick={cancelEdit3D}>
-                              <X className="h-3.5 w-3.5 mr-1" />
+                              <X className="mr-1 h-3.5 w-3.5" />
                               Cancel
                             </Button>
                             <Button variant="default" size="sm" onClick={save3DTour} disabled={isSaving3D}>
-                              {isSaving3D ? 'Saving...' : <><Check className="h-3.5 w-3.5 mr-1" />Save</>}
+                              {isSaving3D ? 'Saving...' : <><Check className="mr-1 h-3.5 w-3.5" />Save</>}
                             </Button>
                           </div>
                         </div>
                       )}
+
                     </div>
                   );
                 })()}

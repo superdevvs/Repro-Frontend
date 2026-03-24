@@ -163,7 +163,7 @@ export function PermissionsManager() {
     [draftPermissions, roles],
   );
 
-  const mobileRoleButtons = useMemo(
+  const mobileRoleTabs = useMemo(
     () =>
       roles.map((role) => {
         const Icon = ROLE_ICONS[role.id] ?? Shield;
@@ -174,31 +174,20 @@ export function PermissionsManager() {
             key={role.id}
             type="button"
             onClick={() => setActiveRole(role.id)}
-            className={`flex items-center justify-between rounded-2xl border px-3 py-3 text-left transition-colors ${
+            className={`flex shrink-0 items-center gap-2 rounded-full border px-3 py-2 text-left transition-colors ${
               isActive
-                ? 'border-primary bg-primary text-primary-foreground'
+                ? 'border-primary bg-primary text-primary-foreground shadow-sm'
                 : 'border-border/70 bg-background text-foreground'
             }`}
           >
-            <div className="flex min-w-0 items-center gap-3">
-              <div
-                className={`rounded-full p-2 ${
-                  isActive ? 'bg-primary-foreground/15' : 'bg-muted'
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-              </div>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium">{role.label}</p>
-                <p
-                  className={`text-xs ${
-                    isActive ? 'text-primary-foreground/80' : 'text-muted-foreground'
-                  }`}
-                >
-                  {draftPermissions[role.id]?.length ?? 0} enabled
-                </p>
-              </div>
+            <div
+              className={`rounded-full p-1.5 ${
+                isActive ? 'bg-primary-foreground/15' : 'bg-muted'
+              }`}
+            >
+              <Icon className="h-4 w-4" />
             </div>
+            <span className="whitespace-nowrap text-sm font-medium">{role.label}</span>
             <Badge
               variant={isActive ? 'secondary' : 'outline'}
               className={`shrink-0 rounded-full ${
@@ -427,7 +416,7 @@ export function PermissionsManager() {
         </div>
 
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="relative w-full lg:max-w-sm">
+          <div className="relative hidden w-full lg:max-w-sm sm:block">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={searchValue}
@@ -436,7 +425,7 @@ export function PermissionsManager() {
               className="pl-9"
             />
           </div>
-          <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap">
+          <div className="hidden w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap">
             <Button
               variant="outline"
               onClick={handleResetRole}
@@ -462,29 +451,42 @@ export function PermissionsManager() {
       </CardHeader>
 
       <CardContent className="space-y-4 px-0 py-4 sm:space-y-6 sm:p-6">
-        <div className="mx-[-0.75rem] rounded-none border-y border-border/60 bg-slate-50/70 px-0 py-3 dark:bg-slate-900/40 sm:mx-0 sm:rounded-2xl sm:border sm:p-3">
+        <div className="mx-0 rounded-none border-y border-border/60 bg-slate-50/70 px-[5px] py-3 dark:bg-slate-900/40 sm:mx-0 sm:rounded-2xl sm:border sm:p-3">
           <Tabs value={activeRole} onValueChange={setActiveRole}>
-            <div className="grid grid-cols-1 gap-2 px-3 sm:hidden">
-              {mobileRoleButtons}
+            <div className="sticky top-16 z-30 -mx-[5px] border-y border-border/70 bg-slate-50/95 px-[5px] py-2 backdrop-blur supports-[backdrop-filter]:bg-slate-50/80 dark:bg-slate-900/95 dark:supports-[backdrop-filter]:bg-slate-900/80 sm:hidden">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={searchValue}
+                  onChange={(event) => setSearchValue(event.target.value)}
+                  placeholder="Search permissions..."
+                  className="h-10 rounded-xl bg-background pl-9"
+                />
+              </div>
+              <div className="mt-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <div className="flex min-w-max gap-2 pr-[5px]">
+                  {mobileRoleTabs}
+                </div>
+              </div>
             </div>
             <AutoExpandingTabsList tabs={roleTabs} value={activeRole} desktopExpanded className="hidden pb-0 sm:flex" />
-            <TabsContent value={activeRole} className="mt-3 sm:mt-4">
-              <div className="grid gap-3 lg:min-h-[calc(100vh-18rem)] lg:grid-cols-[minmax(0,1fr)_280px]">
+            <TabsContent value={activeRole} className="mt-3 pb-20 sm:mt-4 sm:pb-0">
+              <div className="grid items-stretch gap-3 lg:grid-cols-[minmax(0,1fr)_280px]">
                 <div className="sm:hidden">
-                  {renderPermissionGroups('top-16')}
+                  {renderPermissionGroups('top-40')}
                 </div>
 
-                <ScrollArea className="hidden rounded-2xl border border-border/60 bg-background p-4 sm:block sm:h-[62vh] sm:min-h-[520px] lg:h-full">
+                <ScrollArea className="hidden h-[68vh] min-h-[520px] rounded-2xl border border-border/60 bg-background p-4 sm:block">
                   {renderPermissionGroups('top-0')}
                 </ScrollArea>
 
-                <div className="hidden h-full min-h-[520px] flex-col gap-3 lg:flex">
-                  <Card className="flex-1 border-border/60 shadow-none">
+                <div className="hidden h-[68vh] min-h-[520px] flex-col gap-3 lg:flex">
+                  <Card className="flex flex-1 flex-col border-border/60 shadow-none">
                     <CardHeader className="pb-3">
                       <CardTitle className="text-base">Role Snapshot</CardTitle>
                       <CardDescription>Quick compare the saved state across every role.</CardDescription>
                     </CardHeader>
-                    <CardContent className="flex-1">
+                    <CardContent className="flex flex-1 flex-col">
                       <div className="flex h-full flex-col justify-between gap-3">
                         {roles.map((role) => {
                           const draftCount = draftPermissions[role.id]?.length ?? 0;
@@ -552,6 +554,43 @@ export function PermissionsManager() {
           </Tabs>
         </div>
       </CardContent>
+
+      {dirtyRoles > 0 && canSavePermissions && (
+        <div className="pointer-events-none fixed inset-x-0 bottom-20 z-40 px-[5px] sm:hidden">
+          <div className="pointer-events-auto rounded-2xl border border-border/70 bg-background/98 p-3 shadow-xl backdrop-blur supports-[backdrop-filter]:bg-background/90">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold">{dirtyRoles} role change{dirtyRoles > 1 ? 's' : ''} pending</p>
+                <p className="text-xs text-muted-foreground">
+                  {activeRoleMeta?.label ?? 'Selected role'} is ready to save.
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleResetRole}
+                  disabled={!activeRole || activeRoleMeta?.locked || saving}
+                >
+                  Reset
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleSave}
+                  disabled={!canSavePermissions || saving || dirtyRoles === 0}
+                >
+                  {saving ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="mr-2 h-4 w-4" />
+                  )}
+                  Save
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </Card>
   );
 }
