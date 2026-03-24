@@ -279,6 +279,70 @@ export function PermissionsManager() {
     }
   };
 
+  const renderPermissionGroups = (stickyTopClassName: string) => (
+    <div className="flex min-h-full flex-col gap-4">
+      {visibleGroups.length === 0 && (
+        <div className="rounded-2xl border border-dashed border-border p-10 text-center">
+          <p className="font-medium">No permissions match that search.</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Try a broader term like dashboard, messaging, accounting, or media.
+          </p>
+        </div>
+      )}
+
+      {visibleGroups.map((group) => (
+        <section
+          key={group.id}
+          className="flex flex-col overflow-visible rounded-none border-y border-border/60 bg-background shadow-none last:flex-1 sm:rounded-2xl sm:border"
+        >
+          <div
+            className={`sticky z-20 border-b border-border/60 bg-background/95 px-4 py-4 backdrop-blur supports-[backdrop-filter]:bg-background/85 sm:px-5 ${stickyTopClassName}`}
+          >
+            <h3 className="text-base font-semibold">{group.label}</h3>
+            <p className="mt-1 text-sm text-muted-foreground">{group.description}</p>
+          </div>
+
+          <div className="flex-1 space-y-3 px-4 py-4 sm:px-5 sm:py-5">
+            {group.permissions.map((permissionItem) => {
+              const checked = activeRolePermissions.includes(permissionItem.id);
+              const isDefault = activeDefaultPermissions.includes(permissionItem.id);
+              const disabled = Boolean(activeRoleMeta?.locked) || !canSavePermissions;
+
+              return (
+                <div
+                  key={permissionItem.id}
+                  className="flex items-start justify-between gap-3 rounded-xl border border-border/60 p-3 transition-colors hover:bg-muted/30 sm:gap-4"
+                >
+                  <div className="min-w-0 space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-medium">{permissionItem.label}</p>
+                      <Badge variant="outline" className="rounded-full text-[11px]">
+                        {permissionItem.resource}.{permissionItem.action}
+                      </Badge>
+                      {isDefault && (
+                        <Badge variant="secondary" className="rounded-full text-[11px]">
+                          Default
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-sm text-muted-foreground">{permissionItem.description}</p>
+                  </div>
+                  <Checkbox
+                    checked={checked}
+                    disabled={disabled}
+                    onCheckedChange={() => togglePermission(activeRole, permissionItem.id)}
+                    aria-label={`Toggle ${permissionItem.label}`}
+                    className="mt-1"
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+
   if (loading) {
     return (
       <Card className="w-full">
@@ -398,73 +462,23 @@ export function PermissionsManager() {
       </CardHeader>
 
       <CardContent className="space-y-4 px-0 py-4 sm:space-y-6 sm:p-6">
-        <div className="rounded-none border-y border-border/60 bg-slate-50/70 px-3 py-3 dark:bg-slate-900/40 sm:rounded-2xl sm:border sm:p-3">
+        <div className="mx-[-0.75rem] rounded-none border-y border-border/60 bg-slate-50/70 px-0 py-3 dark:bg-slate-900/40 sm:mx-0 sm:rounded-2xl sm:border sm:p-3">
           <Tabs value={activeRole} onValueChange={setActiveRole}>
-            <div className="grid grid-cols-1 gap-2 sm:hidden">
+            <div className="grid grid-cols-1 gap-2 px-3 sm:hidden">
               {mobileRoleButtons}
             </div>
             <AutoExpandingTabsList tabs={roleTabs} value={activeRole} desktopExpanded className="hidden pb-0 sm:flex" />
             <TabsContent value={activeRole} className="mt-3 sm:mt-4">
-              <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_280px]">
-                <ScrollArea className="h-auto min-h-0 rounded-2xl border border-border/60 bg-background p-3 sm:h-[62vh] sm:min-h-[420px] sm:p-4">
-                  <div className="space-y-4">
-                    {visibleGroups.length === 0 && (
-                      <div className="rounded-2xl border border-dashed border-border p-10 text-center">
-                        <p className="font-medium">No permissions match that search.</p>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          Try a broader term like dashboard, messaging, accounting, or media.
-                        </p>
-                      </div>
-                    )}
+              <div className="grid gap-3 lg:min-h-[calc(100vh-18rem)] lg:grid-cols-[minmax(0,1fr)_280px]">
+                <div className="sm:hidden">
+                  {renderPermissionGroups('top-16')}
+                </div>
 
-                    {visibleGroups.map((group) => (
-                      <Card key={group.id} className="overflow-hidden border-border/60 shadow-none">
-                        <CardHeader className="sticky top-0 z-10 border-b border-border/60 bg-background/95 pb-3 backdrop-blur supports-[backdrop-filter]:bg-background/85">
-                          <CardTitle className="text-base">{group.label}</CardTitle>
-                          <CardDescription>{group.description}</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                          {group.permissions.map((permissionItem) => {
-                            const checked = activeRolePermissions.includes(permissionItem.id);
-                            const isDefault = activeDefaultPermissions.includes(permissionItem.id);
-                            const disabled = Boolean(activeRoleMeta?.locked) || !canSavePermissions;
-
-                            return (
-                              <div
-                                key={permissionItem.id}
-                                className="flex items-start justify-between gap-3 rounded-xl border border-border/60 p-3 transition-colors hover:bg-muted/30 sm:gap-4"
-                              >
-                                <div className="min-w-0 space-y-1">
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <p className="font-medium">{permissionItem.label}</p>
-                                    <Badge variant="outline" className="rounded-full text-[11px]">
-                                      {permissionItem.resource}.{permissionItem.action}
-                                    </Badge>
-                                    {isDefault && (
-                                      <Badge variant="secondary" className="rounded-full text-[11px]">
-                                        Default
-                                      </Badge>
-                                    )}
-                                  </div>
-                                  <p className="text-sm text-muted-foreground">{permissionItem.description}</p>
-                                </div>
-                                <Checkbox
-                                  checked={checked}
-                                  disabled={disabled}
-                                  onCheckedChange={() => togglePermission(activeRole, permissionItem.id)}
-                                  aria-label={`Toggle ${permissionItem.label}`}
-                                  className="mt-1"
-                                />
-                              </div>
-                            );
-                          })}
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
+                <ScrollArea className="hidden rounded-2xl border border-border/60 bg-background p-4 sm:block sm:h-[62vh] sm:min-h-[520px] lg:h-full">
+                  {renderPermissionGroups('top-0')}
                 </ScrollArea>
 
-                <div className="hidden min-h-[420px] flex-col gap-3 lg:flex">
+                <div className="hidden h-full min-h-[520px] flex-col gap-3 lg:flex">
                   <Card className="flex-1 border-border/60 shadow-none">
                     <CardHeader className="pb-3">
                       <CardTitle className="text-base">Role Snapshot</CardTitle>
