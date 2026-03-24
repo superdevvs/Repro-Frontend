@@ -44,6 +44,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { InteractionCloud, type InteractionCloudAccount } from '@/components/accounts/InteractionCloud';
 import { endOfMonth, isWithinInterval, startOfMonth } from 'date-fns';
 import { HorizontalLoader } from '@/components/ui/horizontal-loader';
+import { usePermission } from '@/hooks/usePermission';
 
 type InsightRole = Extract<Role, 'client' | 'photographer' | 'editor' | 'salesRep'>;
 
@@ -166,6 +167,7 @@ export default function Accounts() {
   const [repFilter, setRepFilter] = useState<'all' | 'unassigned' | string>('all');
   const { toast } = useToast();
   const { user: currentUser, role: currentUserRole, impersonate, logout } = useAuth();
+  const { can } = usePermission();
   const [isNewAccountOpen, setIsNewAccountOpen] = useState(false);
   const [showInteractionCloud, setShowInteractionCloud] = useState(true);
   const [activeInsightsRole, setActiveInsightsRole] = useState<InsightRole>('client');
@@ -1130,8 +1132,8 @@ export default function Accounts() {
   // Determine which tabs to show based on user role
   const isSuperAdmin = currentUserRole === 'superadmin';
   const isAdminOrSuperAdmin = currentUserRole === 'admin' || currentUserRole === 'superadmin';
-  const showPermissionsTab = isAdminOrSuperAdmin; // Allow both admin and superadmin to see permissions
-  const showLinkingTab = isAdminOrSuperAdmin;
+  const showPermissionsTab = can('permissions-manager', 'view');
+  const showLinkingTab = can('account-linking', 'view');
 
   // Calculate number of tabs to show
   const tabCount =

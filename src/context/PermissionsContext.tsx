@@ -1,19 +1,20 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { PermissionRule, RolePermissions } from '@/types/permissions';
-import { permissionsConfig } from '@/config/permissions';
+import { PermissionRule } from '@/types/permissions';
 import { useAuth } from '@/components/auth/AuthProvider';
-import { Role } from '@/components/auth';
+import { fetchCurrentUserPermissions } from '@/services/permissionService';
 
 interface PermissionsContextType {
   can: (resource: string, action: string, conditions?: Record<string, any>) => boolean;
   userPermissions: PermissionRule[];
+  permissionIds: string[];
   isLoading: boolean;
 }
 
 const defaultContext: PermissionsContextType = {
   can: () => false,
   userPermissions: [],
+  permissionIds: [],
   isLoading: true,
 };
 
@@ -28,26 +29,50 @@ interface PermissionsProviderProps {
 export const PermissionsProvider: React.FC<PermissionsProviderProps> = ({ children }) => {
   const { role, user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [userPermissions, setUserPermissions] = useState<PermissionRule[]>([]);
+  const [permissionIds, setPermissionIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (authLoading) return;
+    if (authLoading) {
+      return;
+    }
 
-    // Load permissions based on user role
-    const loadPermissions = () => {
+    const controller = new AbortController();
+
+    const loadPermissions = async () => {
       if (!isAuthenticated || !role) {
         setUserPermissions([]);
+        setPermissionIds([]);
         setIsLoading(false);
         return;
       }
 
-      // Get permissions from config based on role
-      const rolePermissions: RolePermissions = permissionsConfig[role as Role] || { role: 'client', permissions: [] };
-      setUserPermissions(rolePermissions.permissions);
-      setIsLoading(false);
+      setIsLoading(true);
+
+      try {
+        const response = await fetchCurrentUserPermissions(controller.signal);
+        setUserPermissions(response.permissions || []);
+        setPermissionIds(response.permissionIds || []);
+      } catch (error) {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        console.error('Failed to load permissions:', error);
+        setUserPermissions([]);
+        setPermissionIds([]);
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsLoading(false);
+        }
+      }
     };
 
-    loadPermissions();
+    void loadPermissions();
+
+    return () => {
+      controller.abort();
+    };
   }, [role, isAuthenticated, authLoading]);
 
   const can = (resource: string, action: string, conditions?: Record<string, any>): boolean => {
@@ -79,7 +104,7 @@ export const PermissionsProvider: React.FC<PermissionsProviderProps> = ({ childr
   };
 
   return (
-    <PermissionsContext.Provider value={{ can, userPermissions, isLoading }}>
+    <PermissionsContext.Provider value={{ can, userPermissions, permissionIds, isLoading }}>
       {children}
     </PermissionsContext.Provider>
   );

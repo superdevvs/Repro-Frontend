@@ -103,6 +103,7 @@ import { UploadStatusWidget } from "@/components/dashboard/UploadStatusWidget";
 import { useClientBilling } from "@/hooks/useClientBilling";
 import { emptyClientBillingSummary } from "@/services/clientBillingService";
 import type { ClientBillingSummary } from "@/types/clientBilling";
+import { usePermission } from "@/hooks/usePermission";
 
 const LazyAssignPhotographersCard = lazy(() =>
   import("@/components/dashboard/v2/AssignPhotographersCard").then((module) => ({
@@ -220,10 +221,25 @@ type CommandBarState = {
 
 const Dashboard = () => {
   const { role, session, user } = useAuth();
+  const { can } = usePermission();
   const { shoots, fetchShoots } = useShoots();
   const isMobile = useIsMobile();
   const isAdminExperience = ["admin", "superadmin", "editing_manager"].includes(role);
-  const canLoadAvailability = isAdminExperience || role === "salesRep";
+  const canViewAdminDashboard = can("dashboard-admin", "view");
+  const canLoadAvailability = can("dashboard-availability", "view");
+  const canViewDashboardEditingRequests = can("dashboard-editing-requests", "view");
+  const canViewContactActions = can("dashboard-contact-actions", "view");
+  const canViewClientBillingWidget = can("dashboard-client-billing", "view");
+  const canViewCurrentDashboard =
+    role === "client"
+      ? can("dashboard-client", "view")
+      : role === "photographer"
+        ? can("dashboard-photographer", "view")
+        : role === "salesRep"
+          ? can("dashboard-sales", "view")
+          : role === "editor"
+            ? can("dashboard-editor", "view")
+            : canViewAdminDashboard;
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
@@ -239,7 +255,7 @@ const Dashboard = () => {
   const [cancellationDialogOpen, setCancellationDialogOpen] = useState(false);
   const [mobileDashboardTab, setMobileDashboardTab] = useState<MobileDashboardTab>("shoots");
   const [mobileClientTab, setMobileClientTab] = useState<MobileClientDashboardTab>("shoots");
-  const canCustomizeQuickActions = Boolean(user) && (role === 'admin' || role === 'superadmin');
+  const canCustomizeQuickActions = Boolean(user) && can("dashboard-quick-actions", "update");
   const quickActionsStorageKey = useMemo(
     () => buildQuickActionsStorageKey(role, user?.id),
     [role, user?.id],
@@ -485,9 +501,11 @@ const Dashboard = () => {
     fallbackPhotographers,
   } = useDashboardDerivedData({ shoots, role, user: user ?? null });
   const { data: clientBillingData } = useClientBilling();
-  const clientBillingSummary = clientBillingData?.summary ?? emptyClientBillingSummary;
+  const clientBillingSummary = canViewClientBillingWidget
+    ? clientBillingData?.summary ?? emptyClientBillingSummary
+    : emptyClientBillingSummary;
   
-  const shouldLoadEditingRequests = isAdminExperience || role === "salesRep" || role === "editor";
+  const shouldLoadEditingRequests = canViewDashboardEditingRequests;
   const { 
     requests: editingRequests, 
     loading: editingRequestsLoading,
@@ -501,7 +519,7 @@ const Dashboard = () => {
   const [clientRequestsLoading, setClientRequestsLoading] = useState(false);
   
   useEffect(() => {
-    if (!isAdminExperience) return;
+    if (!canViewAdminDashboard) return;
     
     const fetchClientRequests = async () => {
       setClientRequestsLoading(true);
@@ -530,13 +548,13 @@ const Dashboard = () => {
     };
     
     fetchClientRequests();
-  }, [isAdminExperience]);
+  }, [canViewAdminDashboard]);
 
   // Cancellation shoots come from the dashboard overview response (already fetched)
   const cancellationShoots: DashboardCancellationItem[] = useMemo(() => {
-    if (!isAdminExperience || !data?.pendingCancellations) return [];
+    if (!canViewAdminDashboard || !data?.pendingCancellations) return [];
     return data.pendingCancellations;
-  }, [isAdminExperience, data?.pendingCancellations]);
+  }, [canViewAdminDashboard, data?.pendingCancellations]);
 
   const cancellationRequestCount = cancellationShoots.length;
 
@@ -928,7 +946,7 @@ const Dashboard = () => {
           onAvailabilityWindowChange={setAvailabilityWindow}
           availabilityLoading={availabilityLoading}
           availabilityError={availabilityError}
-          showContactActions={role === "salesRep"}
+          showContactActions={canViewContactActions}
         />
       </Suspense>
     </ErrorBoundary>
@@ -1126,6 +1144,21 @@ const Dashboard = () => {
 
     return { columns };
   }, [data?.workflow]);
+
+  if (!canViewCurrentDashboard) {
+    return (
+      <DashboardLayout>
+        <div className="p-6">
+          <div className="rounded-2xl border border-dashed border-border bg-card p-8 text-center">
+            <p className="text-lg font-semibold">Dashboard access is disabled for this role.</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Enable the matching dashboard layout permission in Accounts to restore this view.
+            </p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   if (!isAdminExperience) {
     if (role === "client") {

@@ -13,10 +13,10 @@ interface ShootsHeaderProps {
 
 export function ShootsHeader({ title, subtitle }: ShootsHeaderProps) {
   const navigate = useNavigate();
-  const shootPermissions = usePermission().forResource('shoots');
+  const { can } = usePermission();
   
   // Show the button to users who have permission to book shoots
-  const canBookShoot = shootPermissions.canBook();
+  const canBookShoot = can('book-shoot', 'create');
   
   return (
     <PageHeader

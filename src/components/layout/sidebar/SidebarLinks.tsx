@@ -38,8 +38,16 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
   const dashboardPermission = permission.forResource('dashboard');
   const shootsPermission = permission.forResource('shoots');
   const accountsPermission = permission.forResource('accounts');
-  const invoicesPermission = permission.forResource('invoices');
   const availabilityPermission = permission.forResource('availability');
+  const canBookShoot = permission.can('book-shoot', 'create');
+  const canViewScheduling = permission.can('scheduling-settings', 'view');
+  const canViewPortal = permission.can('portal', 'view');
+  const canViewAccounting = permission.can('accounting', 'view');
+  const canViewEmailInbox = permission.can('messaging-email', 'view');
+  const canViewMessagingOverview = permission.can('messaging-overview', 'view');
+  const canViewSms = permission.can('messaging-sms', 'view');
+  const canViewAiEditing = permission.can('ai-editing', 'view');
+  const canViewRobbie = permission.can('robbie', 'view');
 
   const isChatActive = pathname === '/chat-with-reproai';
 
@@ -58,7 +66,7 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
       )}
       
       {/* Book Shoot link - only those who can book shoots (not editing_manager) */}
-      {shootsPermission.canBook() && role !== 'editing_manager' && (
+      {canBookShoot && (
         <NavLink
           to="/book-shoot"
           icon={<ClipboardIcon className="h-5 w-5" />}
@@ -81,29 +89,26 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
       
       {/* Accounts link */}
       {accountsPermission.canView() && (
-        <>
-          <NavLink
-            to="/accounts"
-            icon={<BuildingIcon className="h-5 w-5" />}
-            label="Accounts"
-            isCollapsed={isCollapsed}
-            isActive={pathname === '/accounts'}
-          />
-          {/* Scheduling - hide for editing_manager */}
-          {role !== 'editing_manager' && (
-            <NavLink
-              to="/scheduling-settings"
-              icon={<Settings2Icon className="h-5 w-5" />}
-              label="Scheduling"
-              isCollapsed={isCollapsed}
-              isActive={pathname === '/scheduling-settings'}
-            />
-          )}
-        </>
+        <NavLink
+          to="/accounts"
+          icon={<BuildingIcon className="h-5 w-5" />}
+          label="Accounts"
+          isCollapsed={isCollapsed}
+          isActive={pathname === '/accounts'}
+        />
+      )}
+      {canViewScheduling && (
+        <NavLink
+          to="/scheduling-settings"
+          icon={<Settings2Icon className="h-5 w-5" />}
+          label="Scheduling"
+          isCollapsed={isCollapsed}
+          isActive={pathname === '/scheduling-settings'}
+        />
       )}
 
       {/* Exclusive Listings */}
-      {(role === 'admin' || role === 'superadmin' || role === 'editing_manager' || role === 'salesRep' || role === 'client') && (
+      {canViewPortal && (
         <NavLink
           to="/portal"
           icon={<Crown className="h-5 w-5" />}
@@ -114,7 +119,7 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
       )}
       
       {/* Accounting - hidden for editor */}
-      {role !== 'editor' && (() => {
+      {canViewAccounting && (() => {
         const accountingMode = getAccountingMode(role);
         const config = accountingConfigs[accountingMode];
         return (
@@ -129,7 +134,7 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
       })()}
       
       {/* Messaging - Simple link for clients, expandable for admins */}
-      {role === 'client' && (
+      {canViewEmailInbox && !canViewMessagingOverview && !canViewSms && (
         <NavLink
           to="/messaging/email/inbox"
           icon={<Mail className="h-5 w-5" />}
@@ -139,15 +144,15 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
         />
       )}
       {/* Messaging - Expandable with Emails and SMS for admins */}
-      {(role === 'admin' || role === 'superadmin' || role === 'editing_manager' || role === 'salesRep') && (
+      {(canViewMessagingOverview || canViewSms) && (
         <ExpandableNavLink
           icon={<MessageSquare className="h-5 w-5" />}
           label="Messaging"
           isCollapsed={isCollapsed}
-          defaultTo="/messaging/overview"
+          defaultTo={canViewMessagingOverview ? "/messaging/overview" : "/messaging/sms"}
           subItems={[
-            { to: '/messaging/email/inbox', label: 'Emails' },
-            { to: '/messaging/sms', label: 'SMS' },
+            ...(canViewEmailInbox ? [{ to: '/messaging/email/inbox', label: 'Emails' }] : []),
+            ...(canViewSms ? [{ to: '/messaging/sms', label: 'SMS' }] : []),
           ]}
         />
       )}
@@ -195,7 +200,7 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
       )}
 
       {/* AI Editing link - admins only */}
-      {(role === 'admin' || role === 'superadmin' || role === 'editing_manager') && (
+      {canViewAiEditing && (
         <NavLink
           to="/ai-editing"
           icon={<Sparkles className="h-5 w-5" />}
@@ -207,7 +212,7 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
 
       {/* Chat with Robbie - Special styled link - Above separator */}
       {/* Only visible to client, admin, superadmin */}
-      {(role === 'client' || role === 'admin' || role === 'superadmin' || role === 'editing_manager') && (
+      {canViewRobbie && (
         <Link
           to="/chat-with-reproai"
           className={cn(

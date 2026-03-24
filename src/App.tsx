@@ -8,6 +8,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./components/auth";
 import { PermissionsProvider } from './context/PermissionsContext';
+import { usePermission } from './hooks/usePermission';
 import { UserPreferencesProvider } from './contexts/UserPreferencesContext';
 import { IssueManagerProvider, useIssueManager } from './context/IssueManagerContext';
 import { PhotographerAssignmentProvider, usePhotographerAssignment } from './context/PhotographerAssignmentContext';
@@ -128,58 +129,25 @@ const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
   return children;
 };
 
-// Admin route component
-const AdminRoute = ({ children }: { children: JSX.Element }) => {
-  const { role, isAuthenticated, isLoading } = useAuth();
-  const denyNotifiedRef = useRef(false);
-
-  useEffect(() => {
-    if (isLoading || !isAuthenticated) return;
-    const isDenied = !['admin', 'superadmin', 'editing_manager'].includes(role);
-    if (!isDenied) {
-      denyNotifiedRef.current = false;
-      return;
-    }
-    if (denyNotifiedRef.current) return;
-    denyNotifiedRef.current = true;
-    toast({
-      title: "Access Denied",
-      description: "You don't have permission to access this page.",
-      variant: "destructive",
-    });
-  }, [isAuthenticated, isLoading, role]);
-
-  // Show loading state if auth is still initializing
-  if (isLoading) {
-    return <FullScreenSpinner />;
-  }
-
-  if (!isAuthenticated) {
-    return <Navigate to="/" replace />;
-  }
-
-  if (!['admin', 'superadmin', 'editing_manager'].includes(role)) {
-    return <Navigate to="/dashboard" replace />;
-  }
-
-  return children;
-};
-
-// Role-restricted route component
-const RoleRestrictedRoute = ({ 
-  children, 
-  allowedRoles 
-}: { 
-  children: JSX.Element; 
-  allowedRoles: string[] 
+const PermissionRoute = ({
+  children,
+  resource,
+  action = 'view',
+  fallbackTo = '/dashboard',
+}: {
+  children: JSX.Element;
+  resource: string;
+  action?: string;
+  fallbackTo?: string;
 }) => {
-  const { role, isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { can, isLoading: permissionsLoading } = usePermission();
   const denyNotifiedRef = useRef(false);
+  const hasPermission = can(resource, action);
 
   useEffect(() => {
-    if (isLoading || !isAuthenticated) return;
-    const isDenied = !role || !allowedRoles.includes(role);
-    if (!isDenied) {
+    if (authLoading || permissionsLoading || !isAuthenticated) return;
+    if (hasPermission) {
       denyNotifiedRef.current = false;
       return;
     }
@@ -190,10 +158,9 @@ const RoleRestrictedRoute = ({
       description: "You don't have permission to access this page.",
       variant: "destructive",
     });
-  }, [allowedRoles, isAuthenticated, isLoading, role]);
+  }, [action, authLoading, hasPermission, isAuthenticated, permissionsLoading, resource]);
 
-  // Show loading state if auth is still initializing
-  if (isLoading) {
+  if (authLoading || permissionsLoading) {
     return <FullScreenSpinner />;
   }
 
@@ -201,9 +168,8 @@ const RoleRestrictedRoute = ({
     return <Navigate to="/" replace />;
   }
 
-  // Redirect to dashboard if role is not in allowed roles
-  if (!role || !allowedRoles.includes(role)) {
-    return <Navigate to="/dashboard" replace />;
+  if (!hasPermission) {
+    return <Navigate to={fallbackTo} replace />;
   }
 
   return children;
@@ -375,7 +341,7 @@ const AppRoutes = () => {
        } />
 
       <Route path="/dashboard" element={
-        <ProtectedRoute>
+        <PermissionRoute resource="dashboard" fallbackTo="/">
           <ShootRoutesWrapper>
             <IssueManagerProvider>
               <PhotographerAssignmentProvider>
@@ -385,202 +351,202 @@ const AppRoutes = () => {
               </PhotographerAssignmentProvider>
             </IssueManagerProvider>
           </ShootRoutesWrapper>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/shoots/:id" element={
-        <ProtectedRoute>
+        <PermissionRoute resource="shoots">
           <ShootRoutesWrapper>
             <ShootDetails />
           </ShootRoutesWrapper>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/book-shoot" element={
-        <ProtectedRoute>
+        <PermissionRoute resource="book-shoot" action="create">
           <ShootRoutesWrapper>
             <BookShoot />
           </ShootRoutesWrapper>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/shoot-history" element={
-        <ProtectedRoute>
+        <PermissionRoute resource="shoots">
           <ShootRoutesWrapper>
             <ShootHistory />
           </ShootRoutesWrapper>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/invoices" element={
-        <ProtectedRoute>
+        <PermissionRoute resource="invoices">
           <Invoices />
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/accounting" element={
-        <ProtectedRoute>
+        <PermissionRoute resource="accounting">
           <ShootRoutesWrapper>
             <Accounting />
           </ShootRoutesWrapper>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/accounts" element={
-        <ProtectedRoute>
+        <PermissionRoute resource="accounts">
           <ShootRoutesWrapper>
             <Accounts />
           </ShootRoutesWrapper>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/availability" element={
-        <RoleRestrictedRoute allowedRoles={['admin', 'superadmin', 'editing_manager', 'photographer', 'salesRep']}>
+        <PermissionRoute resource="availability">
           <ShootRoutesWrapper>
             <Availability />
           </ShootRoutesWrapper>
-        </RoleRestrictedRoute>
+        </PermissionRoute>
       } />
       <Route path="/reports" element={
-        <ProtectedRoute>
+        <PermissionRoute resource="reports">
           <Reports />
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/settings" element={
-        <ProtectedRoute>
+        <PermissionRoute resource="settings">
           <Settings />
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/chat-with-reproai" element={
-        <RoleRestrictedRoute allowedRoles={['client', 'admin', 'superadmin', 'editing_manager']}>
+        <PermissionRoute resource="robbie">
           <ChatWithReproAi />
-        </RoleRestrictedRoute>
+        </PermissionRoute>
       } />
       <Route path="/ai-editing" element={
-        <RoleRestrictedRoute allowedRoles={['admin', 'superadmin', 'editing_manager']}>
+        <PermissionRoute resource="ai-editing">
           <AiEditing />
-        </RoleRestrictedRoute>
+        </PermissionRoute>
       } />
       <Route path="/scheduling-settings" element={
-        <AdminRoute>
+        <PermissionRoute resource="scheduling-settings">
           <SchedulingSettings />
-        </AdminRoute>
+        </PermissionRoute>
       } />
       <Route path="/tour-branding" element={
-        <AdminRoute>
+        <PermissionRoute resource="tour-branding">
           <TourBranding />
-        </AdminRoute>
+        </PermissionRoute>
       } />
       <Route path="/profile" element={
-        <ProtectedRoute>
+        <PermissionRoute resource="profile">
           <Profile />
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/integrations" element={
-        <ProtectedRoute>
+        <PermissionRoute resource="integrations">
           <Integrations />
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/admin/integrations" element={
-        <ProtectedRoute>
+        <PermissionRoute resource="integrations">
           <Integrations />
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/admin/mls-queue" element={
-        <ProtectedRoute>
+        <PermissionRoute resource="integrations">
           <MlsPublishingQueue />
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/portal" element={
-        <RoleRestrictedRoute allowedRoles={['admin', 'superadmin', 'editing_manager', 'salesRep', 'client']}>
+        <PermissionRoute resource="portal">
           <PrivateListingPortal />
-        </RoleRestrictedRoute>
+        </PermissionRoute>
       } />
       <Route path="/exclusive-listings/:id" element={
-        <RoleRestrictedRoute allowedRoles={['admin', 'superadmin', 'editing_manager', 'salesRep', 'client']}>
+        <PermissionRoute resource="portal">
           <ExclusiveListingDetails />
-        </RoleRestrictedRoute>
+        </PermissionRoute>
       } />
       <Route path="/photographer-history" element={
-        <ProtectedRoute>
+        <PermissionRoute resource="shoots">
           <ShootRoutesWrapper>
             <PhotographerShootHistory />
           </ShootRoutesWrapper>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/photographer-account" element={
-        <ProtectedRoute>
+        <PermissionRoute resource="profile">
           <ShootRoutesWrapper>
             <PhotographerAccount />
           </ShootRoutesWrapper>
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/photographer-availability" element={
-        <ProtectedRoute>
+        <PermissionRoute resource="availability">
           <PhotographerAvailability />
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/coupons" element={
-        <ProtectedRoute>
+        <PermissionRoute resource="coupons">
           <Navigate to="/settings?tab=coupons" replace />
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       {/* CubiCasa mobile scanning - photographers and admins only */}
       <Route path="/cubicasa-scanning" element={
-        <RoleRestrictedRoute allowedRoles={['photographer', 'admin', 'superadmin', 'editing_manager']}>
+        <PermissionRoute resource="cubicasa-scanning">
           <CubiCasaScanning />
-        </RoleRestrictedRoute>
+        </PermissionRoute>
       } />
       {/* New permissions settings route */}
       <Route path="/permissions" element={
-        <ProtectedRoute>
+        <PermissionRoute resource="permissions-manager">
           <PermissionSettings />
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       {/* Messaging routes - Inbox and Compose available to all authenticated users */}
       <Route path="/messaging/email/inbox" element={
-        <ProtectedRoute>
+        <PermissionRoute resource="messaging-email">
           <EmailInbox />
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       <Route path="/messaging/email/compose" element={
-        <ProtectedRoute>
+        <PermissionRoute resource="messaging-compose" action="create">
           <EmailCompose />
-        </ProtectedRoute>
+        </PermissionRoute>
       } />
       {/* Messaging routes - Overview, Templates, Automations, SMS, Settings only for admins */}
       <Route path="/messaging" element={
-        <RoleRestrictedRoute allowedRoles={['admin', 'superadmin', 'editing_manager', 'salesRep']}>
+        <PermissionRoute resource="messaging-overview">
           <MessagingOverview />
-        </RoleRestrictedRoute>
+        </PermissionRoute>
       } />
       <Route path="/messaging/overview" element={
-        <RoleRestrictedRoute allowedRoles={['admin', 'superadmin', 'editing_manager', 'salesRep']}>
+        <PermissionRoute resource="messaging-overview">
           <MessagingOverview />
-        </RoleRestrictedRoute>
+        </PermissionRoute>
       } />
       <Route path="/messaging/email/templates" element={
-        <RoleRestrictedRoute allowedRoles={['admin', 'superadmin', 'editing_manager', 'salesRep']}>
+        <PermissionRoute resource="messaging-templates">
           <Templates />
-        </RoleRestrictedRoute>
+        </PermissionRoute>
       } />
       <Route path="/messaging/email/automations" element={
-        <RoleRestrictedRoute allowedRoles={['admin', 'superadmin', 'editing_manager', 'salesRep']}>
+        <PermissionRoute resource="messaging-automations">
           <Automations />
-        </RoleRestrictedRoute>
+        </PermissionRoute>
       } />
       <Route path="/messaging/email/automations/new" element={
-        <RoleRestrictedRoute allowedRoles={['admin', 'superadmin', 'editing_manager', 'salesRep']}>
+        <PermissionRoute resource="messaging-automations">
           <AutomationWorkflowEditor />
-        </RoleRestrictedRoute>
+        </PermissionRoute>
       } />
       <Route path="/messaging/email/automations/:automationId" element={
-        <RoleRestrictedRoute allowedRoles={['admin', 'superadmin', 'editing_manager', 'salesRep']}>
+        <PermissionRoute resource="messaging-automations">
           <AutomationWorkflowEditor />
-        </RoleRestrictedRoute>
+        </PermissionRoute>
       } />
       <Route path="/messaging/sms" element={
-        <RoleRestrictedRoute allowedRoles={['admin', 'superadmin', 'editing_manager', 'salesRep']}>
+        <PermissionRoute resource="messaging-sms">
           <SmsCenter />
-        </RoleRestrictedRoute>
+        </PermissionRoute>
       } />
       <Route path="/messaging/settings" element={
-        <RoleRestrictedRoute allowedRoles={['admin', 'superadmin', 'editing_manager', 'salesRep']}>
+        <PermissionRoute resource="messaging-settings">
           <MessagingSettings />
-        </RoleRestrictedRoute>
+        </PermissionRoute>
       } />
       {/* Address lookup testing routes */}
       <Route path="/address-lookup-demo" element={

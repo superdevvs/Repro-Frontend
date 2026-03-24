@@ -3,11 +3,13 @@ import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { getAccountingMode, accountingConfigs } from '@/config/accountingConfig';
+import { usePermission } from '@/hooks/usePermission';
 
 export const useMobileMenu = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { pathname } = useLocation();
-  const { user, role, logout } = useAuth();
+  const { role, logout } = useAuth();
+  const permission = usePermission();
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -28,87 +30,90 @@ export const useMobileMenu = () => {
     return accountingConfigs[accountingMode].sidebarLabel;
   };
 
-  // Define menu items based on user role
+  // Define menu items based on effective permissions
   const menuItems = [
     {
       to: "/dashboard",
       icon: "Home",
       label: "Dashboard",
       isActive: pathname === '/dashboard',
-      roles: ['client', 'admin', 'superadmin', 'photographer', 'editor', 'editing_manager']
+      visible: permission.can('dashboard', 'view'),
     },
     {
       to: "/book-shoot",
       icon: "Clipboard",
       label: "Book",
       isActive: pathname === '/book-shoot',
-      roles: ['client', 'admin', 'superadmin']
+      visible: permission.can('book-shoot', 'create'),
     },
     {
       to: "/shoot-history",
       icon: "Calendar",
       label: "Shoots",
       isActive: pathname === '/shoot-history' || pathname.startsWith('/shoots'),
-      roles: ['client', 'admin', 'superadmin', 'photographer', 'editor', 'editing_manager']
+      visible: permission.can('shoots', 'view'),
     },
     {
       to: "/availability",
       icon: "Calendar",
       label: "Availability",
       isActive: pathname === '/availability',
-      roles: ['admin', 'superadmin', 'photographer']
+      visible: permission.can('availability', 'view'),
     },
     {
       to: "/chat-with-reproai",
       icon: "Robbie",
       label: "Robbie",
       isActive: pathname === '/chat-with-reproai',
-      roles: ['client', 'admin', 'superadmin', 'editing_manager']
+      visible: permission.can('robbie', 'view'),
     },
     {
       to: "/accounts",
       icon: "Building",
       label: "Accounts",
       isActive: pathname === '/accounts',
-      roles: ['admin', 'superadmin', 'editing_manager']
+      visible: permission.can('accounts', 'view'),
     },
     {
       to: "/scheduling-settings",
       icon: "Calendar",
       label: "Scheduling",
       isActive: pathname === '/scheduling-settings',
-      roles: ['admin', 'superadmin', 'editing_manager']
+      visible: permission.can('scheduling-settings', 'view'),
     },
     {
       to: "/portal",
       icon: "Crown",
       label: "Exclusive Listings",
       isActive: pathname === '/portal' || pathname.startsWith('/exclusive-listings'),
-      roles: ['admin', 'superadmin', 'editing_manager', 'salesRep', 'client']
+      visible: permission.can('portal', 'view'),
     },
     {
       to: "/accounting",
       icon: "FileText",
       label: getAccountingLabel(),
       isActive: pathname === '/accounting',
-      roles: ['client', 'admin', 'superadmin', 'photographer', 'salesRep', 'editing_manager']
+      visible: permission.can('accounting', 'view'),
     },
     {
       to: "/messaging/email/inbox",
       icon: "MessageSquare",
       label: "Messaging",
       isActive: pathname.startsWith('/messaging/email'),
-      roles: ['client']
+      visible:
+        permission.can('messaging-email', 'view') &&
+        !permission.can('messaging-overview', 'view') &&
+        !permission.can('messaging-sms', 'view'),
     },
     {
       to: "/messaging/overview",
       icon: "MessageSquare",
       label: "Messaging",
       isActive: pathname.startsWith('/messaging'),
-      roles: ['admin', 'superadmin', 'editing_manager', 'salesRep'],
+      visible: permission.can('messaging-overview', 'view') || permission.can('messaging-sms', 'view'),
       subItems: [
-        { to: '/messaging/email/inbox', label: 'Emails' },
-        { to: '/messaging/sms', label: 'SMS' },
+        ...(permission.can('messaging-email', 'view') ? [{ to: '/messaging/email/inbox', label: 'Emails' }] : []),
+        ...(permission.can('messaging-sms', 'view') ? [{ to: '/messaging/sms', label: 'SMS' }] : []),
       ]
     },
     {
@@ -116,26 +121,25 @@ export const useMobileMenu = () => {
       icon: "Settings",
       label: "Settings",
       isActive: pathname === '/settings',
-      roles: ['client', 'admin', 'superadmin', 'photographer', 'editor', 'editing_manager']
+      visible: permission.can('settings', 'view'),
     },
     {
       to: "/cubicasa-scanning",
       icon: "Home",
       label: "Property Scan",
       isActive: pathname === '/cubicasa-scanning',
-      roles: ['photographer', 'admin', 'superadmin']
+      visible: permission.can('cubicasa-scanning', 'view'),
     },
     {
       to: "/ai-editing",
       icon: "Sparkles",
       label: "AI Editing",
       isActive: pathname === '/ai-editing' || pathname.startsWith('/ai-editing'),
-      roles: ['admin', 'superadmin', 'editing_manager']
+      visible: permission.can('ai-editing', 'view'),
     }
   ];
 
-  // Filter items based on user role
-  const filteredItems = menuItems.filter(item => item.roles.includes(role));
+  const filteredItems = menuItems.filter(item => item.visible);
 
   return {
     isMenuOpen,

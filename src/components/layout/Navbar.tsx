@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils';
 import { GlobalCommandBar } from '@/components/search/GlobalCommandBar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { RobbieInsightStrip } from '@/components/ai/RobbieInsightStrip';
+import { usePermission } from '@/hooks/usePermission';
 
 const DEFAULT_WEATHER_COORDS = { lat: 40.7128, lon: -74.006 };
 const WEATHER_COORDS_KEY = 'dashboard.weatherCoords';
@@ -104,6 +105,7 @@ const fetchIpLocation = async (signal?: AbortSignal) => {
 
 export function Navbar() {
   const { user, logout, role } = useAuth();
+  const { can } = usePermission();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { theme, setTheme } = useTheme();
@@ -118,7 +120,7 @@ export function Navbar() {
   const [commandOpen, setCommandOpen] = useState(false);
 
   // Allow client users to create new shoots
-  const canBookShoot = ['admin', 'superadmin', 'client'].includes(role);
+  const canBookShoot = can('book-shoot', 'create');
   
   // Photographers and editors get simplified nav with menu in top bar
   const isSimplifiedLayout = role === 'photographer' || role === 'editor';
@@ -404,4 +406,3 @@ export function Navbar() {
     </div>
   );
 }
-

@@ -42,6 +42,8 @@ const Settings = () => {
   const couponsPermission = permission.forResource('coupons');
   const canViewCoupons = couponsPermission.canView();
   const canCreateCoupons = couponsPermission.canCreate();
+  const canViewWatermark = permission.can('watermark-settings', 'view');
+  const canViewRobbieSettings = permission.can('robbie-settings', 'view');
   const [searchParams, setSearchParams] = useSearchParams();
   // Use clientId from URL if present (for admin editing), otherwise use logged-in user's id
   const clientIdFromUrl = searchParams.get('clientId');
@@ -66,8 +68,6 @@ const Settings = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [avatarDrawerOpen, setAvatarDrawerOpen] = useState(false);
 
-  const isSuperAdmin = role === 'superadmin';
-  
   const availableTabs = React.useMemo<TabValue[]>(() => {
     // Hide branding tab for photographer, editor, and editing_manager roles
     const hideBranding = ['photographer', 'editor', 'editing_manager'].includes(role || '');
@@ -78,12 +78,14 @@ const Settings = () => {
     if (canViewIntegrations) {
       tabs.push('integrations');
     }
-    if (isSuperAdmin) {
+    if (canViewWatermark) {
       tabs.push('watermark');
+    }
+    if (canViewRobbieSettings) {
       tabs.push('robbie');
     }
     return tabs;
-  }, [canViewCoupons, canViewIntegrations, isSuperAdmin, role]);
+  }, [canViewCoupons, canViewIntegrations, canViewRobbieSettings, canViewWatermark, role]);
 
   const getValidTab = React.useCallback(
     (tabParam: string | null): TabValue => {
