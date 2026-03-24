@@ -91,6 +91,12 @@ export function FileUploader({
   const dropzoneRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
 
+  const normalizedRole = user?.role ?? '';
+  const isEditingManager = normalizedRole === 'editing_manager';
+  const isAdminLike = normalizedRole === 'admin' || normalizedRole === 'superadmin' || isEditingManager;
+  const isEditorOnly = normalizedRole === 'editor';
+  const defaultsToEditedUpload = isEditorOnly || isEditingManager;
+
   // Add these state variables to your component
 const [dropboxAuth, setDropboxAuth] = useState<DropboxAuthState>({
   isAuthenticated: false,
@@ -364,43 +370,29 @@ useEffect(() => {
   }
 }, []);
 
-// Replace the existing connectDropbox function and Dropbox UI section with this updated version:
-
-// Updated connectDropbox function
-const connectDropboxUpdated = () => {
-  if (dropboxAuth.isAuthenticated) {
-    setUploadMethod('dropbox');
-    if (dropboxFiles.length === 0) {
-      loadDropboxFiles();
-    }
-  } else {
-    connectDropbox();
+// Determine initial upload type based on user role
+// Photographers see raw/unedited, editors see edited/final
+const initialUploadType = defaultsToEditedUpload ? 'edited' : 'raw';
+const [uploadType, setUploadType] = useState<'raw' | 'edited'>(initialUploadType);
+  
+const [files, setFiles] = useState<File[]>([]);
+const [uploading, setUploading] = useState(false);
+const [progress, setProgress] = useState(0);
+const [notes, setNotes] = useState(initialNotes);
+const [notesChanged, setNotesChanged] = useState(false);
+const [uploadMethod, setUploadMethod] = useState<'local' | 'dropbox' | 'google'>('local');
+const [showMissingPhotosWarning, setShowMissingPhotosWarning] = useState(false);
+const [missingPhotosCount, setMissingPhotosCount] = useState(0);
+  
+// Calculate expected file count based on photo count and bracket mode
+const expectedFileCount = useMemo(() => {
+  if (!expectedPhotoCount || expectedPhotoCount <= 0) return 0;
+  // For RAW uploads, multiply by bracket mode; for edited, just use photo count
+  if (uploadType === 'raw' && bracketMode) {
+    return expectedPhotoCount * bracketMode;
   }
-};
-  
-  // Determine initial upload type based on user role
-  // Photographers see raw/unedited, editors see edited/final
-  const initialUploadType = user?.role === 'editor' ? 'edited' : 'raw';
-  const [uploadType, setUploadType] = useState<'raw' | 'edited'>(initialUploadType);
-  
-  const [files, setFiles] = useState<File[]>([]);
-  const [uploading, setUploading] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [notes, setNotes] = useState(initialNotes);
-  const [notesChanged, setNotesChanged] = useState(false);
-  const [uploadMethod, setUploadMethod] = useState<'local' | 'dropbox' | 'google'>('local');
-  const [showMissingPhotosWarning, setShowMissingPhotosWarning] = useState(false);
-  const [missingPhotosCount, setMissingPhotosCount] = useState(0);
-  
-  // Calculate expected file count based on photo count and bracket mode
-  const expectedFileCount = useMemo(() => {
-    if (!expectedPhotoCount || expectedPhotoCount <= 0) return 0;
-    // For RAW uploads, multiply by bracket mode; for edited, just use photo count
-    if (uploadType === 'raw' && bracketMode) {
-      return expectedPhotoCount * bracketMode;
-    }
-    return expectedPhotoCount;
-  }, [expectedPhotoCount, bracketMode, uploadType]);
+  return expectedPhotoCount;
+}, [expectedPhotoCount, bracketMode, uploadType]);
 
   
 // Load files when Dropbox is authenticated and selected
@@ -438,12 +430,12 @@ useEffect(() => {
       // Determine which note field to update based on user role and current tab
       // Maps to backend fields: shoot_notes, company_notes, photographer_notes, editor_notes
       let field: 'shoot_notes' | 'company_notes' | 'photographer_notes' | 'editor_notes' = 'shoot_notes';
-      if (user?.role === 'photographer') {
+      if (normalizedRole === 'photographer') {
         field = 'photographer_notes';
-      } else if (user?.role === 'editor') {
-        field = 'editor_notes';
-      } else if (user?.role === 'admin' || user?.role === 'superadmin') {
+      } else if (isAdminLike) {
         field = uploadType === 'raw' ? 'photographer_notes' : 'editor_notes';
+      } else if (isEditorOnly) {
+        field = 'editor_notes';
       } else {
         field = 'shoot_notes';
       }
@@ -666,14 +658,14 @@ useEffect(() => {
   };
   
   // Determine which tab to show based on user role
-  const showRawTab = user?.role === 'photographer' || user?.role === 'admin' || user?.role === 'superadmin';
-  const showEditedTab = user?.role === 'editor' || user?.role === 'admin' || user?.role === 'superadmin';
+  const showRawTab = normalizedRole === 'photographer' || isAdminLike;
+  const showEditedTab = isEditorOnly || isAdminLike;
   
   // Get placeholder text based on user role and upload type
   const getNotesPlaceholder = () => {
-    if (user?.role === 'photographer') {
+    if (normalizedRole === 'photographer') {
       return "Add your notes about the shoot or specific instructions for the editor...";
-    } else if (user?.role === 'editor') {
+    } else if (isEditorOnly) {
       return "Add your notes about the edited files or any delivery instructions...";
     } else if (uploadType === 'raw') {
       return "Add photographer notes or instructions for the editor...";
@@ -684,9 +676,9 @@ useEffect(() => {
   
   // Get notes section title based on user role
   const getNotesTitle = () => {
-    if (user?.role === 'photographer') {
+    if (normalizedRole === 'photographer') {
       return "Photographer Notes";
-    } else if (user?.role === 'editor') {
+    } else if (isEditorOnly) {
       return "Editor Notes";
     } else if (uploadType === 'raw') {
       return "Photographer Upload Notes";
@@ -697,9 +689,9 @@ useEffect(() => {
   
   // Get background color class based on user role - Updated to match dashboard background
   const getNotesBackgroundColorClass = () => {
-    if (user?.role === 'photographer') {
+    if (normalizedRole === 'photographer') {
       return "bg-blue-50/60 dark:bg-blue-900/10";
-    } else if (user?.role === 'editor') {
+    } else if (isEditorOnly) {
       return "bg-purple-50/60 dark:bg-purple-900/10";
     } else if (uploadType === 'raw') {
       return "bg-blue-50/60 dark:bg-blue-900/10";
@@ -710,9 +702,9 @@ useEffect(() => {
 
   // Get text color class based on user role - Updated for better contrast
   const getNotesTextColorClass = () => {
-    if (user?.role === 'photographer') {
+    if (normalizedRole === 'photographer') {
       return "text-blue-800 dark:text-blue-300";
-    } else if (user?.role === 'editor') {
+    } else if (isEditorOnly) {
       return "text-purple-800 dark:text-purple-300";
     } else if (uploadType === 'raw') {
       return "text-blue-800 dark:text-blue-300";
@@ -723,9 +715,9 @@ useEffect(() => {
 
   // Get border color class based on user role - Updated for better visual hierarchy
   const getNotesBorderColorClass = () => {
-    if (user?.role === 'photographer') {
+    if (normalizedRole === 'photographer') {
       return "border-blue-200 dark:border-blue-700";
-    } else if (user?.role === 'editor') {
+    } else if (isEditorOnly) {
       return "border-purple-200 dark:border-purple-700";
     } else if (uploadType === 'raw') {
       return "border-blue-200 dark:border-blue-700";
@@ -971,9 +963,9 @@ useEffect(() => {
           
           {shootId && (
             <p className={`text-xs mt-2 ${getNotesTextColorClass()} opacity-80`}>
-              {user?.role === 'photographer' ? 
+              {normalizedRole === 'photographer' ? 
                 "These notes will be visible to editors and admins." : 
-                user?.role === 'editor' ? 
+                isEditorOnly ? 
                 "These notes will be visible to the client and admins." :
                 "These notes will be attached to the uploaded files."
               }

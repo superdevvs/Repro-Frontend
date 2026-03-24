@@ -941,13 +941,13 @@ const Settings = () => {
               </TabsContent>
             )}
 
-            {isSuperAdmin && (
+            {canViewWatermark && (
               <TabsContent value="watermark" className="space-y-6">
                 <WatermarkEditor />
               </TabsContent>
             )}
 
-            {isSuperAdmin && (
+            {canViewRobbieSettings && (
               <TabsContent value="robbie" className="space-y-6">
                 <RobbieSettings />
               </TabsContent>
