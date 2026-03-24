@@ -898,14 +898,30 @@ export function ShootDetailsTourTab({
       const data = await res.json();
       if (data.description) {
         setPropertyDescription(data.description);
-        // Auto-save the generated description
-        await savePropertyField('property_description', data.description);
-        toast({ title: 'Generated', description: `AI description generated using ${data.images_used || 0} images.` });
+        toast({
+          title: 'Generated',
+          description: `AI description generated using ${data.images_used || 0} images. Click Save Description to apply it.`,
+        });
       }
     } catch (err: any) {
       toast({ title: 'Error', description: err?.message || 'Failed to generate description.', variant: 'destructive' });
     } finally {
       setIsGeneratingDescription(false);
+    }
+  };
+
+  const handleSaveDescription = async () => {
+    if (!isAdmin) return;
+    setIsSavingDescription(true);
+    try {
+      await savePropertyField('property_description', propertyDescription);
+      toast({
+        title: 'Saved',
+        description: 'Property description updated successfully.',
+      });
+      onShootUpdate();
+    } finally {
+      setIsSavingDescription(false);
     }
   };
 
@@ -925,34 +941,33 @@ export function ShootDetailsTourTab({
 
     return (
       <>
-        {hasValue && (
-          <>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => copyLink(type)}
-              title="Copy link"
-            >
-              <Copy className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => openLink(type)}
-              title="Open in new tab"
-            >
-              <ExternalLink className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => shareLink(type)}
-              title="Share link"
-            >
-              <Share2 className="h-4 w-4" />
-            </Button>
-          </>
-        )}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => copyLink(type)}
+          title="Copy link"
+          disabled={!hasValue}
+        >
+          <Copy className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => openLink(type)}
+          title="Open in new tab"
+          disabled={!hasValue}
+        >
+          <ExternalLink className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => shareLink(type)}
+          title="Share link"
+          disabled={!hasValue}
+        >
+          <Share2 className="h-4 w-4" />
+        </Button>
         {options?.editable && options.onEdit && (
           <Button
             variant="outline"
@@ -1538,12 +1553,6 @@ export function ShootDetailsTourTab({
                     <Textarea
                       value={propertyDescription}
                       onChange={(e) => setPropertyDescription(e.target.value)}
-                      onBlur={() => {
-                        if (isAdmin && propertyDescription !== ((shoot.tourLinks as any)?.property_description || '')) {
-                          setIsSavingDescription(true);
-                          savePropertyField('property_description', propertyDescription).finally(() => setIsSavingDescription(false));
-                        }
-                      }}
                       placeholder="Enter or generate a property description..."
                       disabled={!isAdmin}
                       className="min-h-[120px] pb-12 text-sm"
@@ -1572,6 +1581,31 @@ export function ShootDetailsTourTab({
                       </div>
                     )}
                   </div>
+                  {isAdmin && (
+                    <div className="flex justify-end">
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={handleSaveDescription}
+                        disabled={
+                          isSavingDescription ||
+                          propertyDescription === ((shoot.tourLinks as any)?.property_description || '')
+                        }
+                      >
+                        {isSavingDescription ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Saving...
+                          </>
+                        ) : (
+                          <>
+                            <Save className="mr-2 h-4 w-4" />
+                            Save Description
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
                   {isSavingDescription && <p className="text-xs text-blue-500">Saving...</p>}
                   <p className="text-xs text-muted-foreground">
                     Property description displayed on tour pages. Use AI Generate to auto-create from edited photos.
