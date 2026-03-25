@@ -259,6 +259,9 @@ export interface ShootData {
     mls?: string;
     genericMls?: string;
     video_link?: string;
+    video_branded?: string;
+    video_mls?: string;
+    video_generic?: string;
     tour_style?: string;
     [key: string]: any;
   };

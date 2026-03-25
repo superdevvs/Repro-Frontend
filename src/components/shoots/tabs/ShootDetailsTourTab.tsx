@@ -26,6 +26,9 @@ import {
   Loader2,
   Sparkles,
   BarChart3,
+  BedDouble,
+  Bath,
+  Ruler,
 } from 'lucide-react';
 import { ShootData } from '@/types/shoots';
 import { useToast } from '@/hooks/use-toast';
@@ -64,6 +67,12 @@ type Managed3DLinkKey =
   | 'iguide_mls'
   | 'zillow_3d';
 
+type ManagedVideoLinkKey =
+  | 'video_link'
+  | 'video_branded'
+  | 'video_mls'
+  | 'video_generic';
+
 export function ShootDetailsTourTab({
   shoot,
   isAdmin,
@@ -91,9 +100,10 @@ export function ShootDetailsTourTab({
   const [isDeleting3D, setIsDeleting3D] = useState<Managed3DLinkKey | null>(null);
   
   // Video link edit state
-  const [editingVideoLink, setEditingVideoLink] = useState(false);
+  const [editingVideoLinkKey, setEditingVideoLinkKey] = useState<ManagedVideoLinkKey | null>(null);
   const [videoLinkValue, setVideoLinkValue] = useState('');
-  const [isSavingVideoLink, setIsSavingVideoLink] = useState(false);
+  const [isSavingVideoLinkKey, setIsSavingVideoLinkKey] = useState<ManagedVideoLinkKey | null>(null);
+  const [isDeletingVideoLinkKey, setIsDeletingVideoLinkKey] = useState<ManagedVideoLinkKey | null>(null);
   
   // Tour style state
   const [tourStyle, setTourStyle] = useState<string>('default');
@@ -119,12 +129,16 @@ export function ShootDetailsTourTab({
   const [propertyMls, setPropertyMls] = useState('');
   const [propertyPrice, setPropertyPrice] = useState('');
   const [propertyLotSize, setPropertyLotSize] = useState('');
+  const [propertyBedrooms, setPropertyBedrooms] = useState('');
+  const [propertyBathrooms, setPropertyBathrooms] = useState('');
+  const [propertySqft, setPropertySqft] = useState('');
   const [listingType, setListingType] = useState<string>('');
   const [propertyStatus, setPropertyStatus] = useState<string>('available');
   const [isSavingListingType, setIsSavingListingType] = useState(false);
   const [isSavingPropertyStatus, setIsSavingPropertyStatus] = useState(false);
   
   const isClientView = Boolean(isClient && !isAdmin);
+  const canEditPropertyInfo = Boolean(isAdmin || isClientView);
 
   useEffect(() => {
     // Initialize tour links from shoot data
@@ -139,9 +153,12 @@ export function ShootDetailsTourTab({
       links.iguide_mls = shoot.tourLinks.iguide_mls || '';
       links.zillow_3d = shoot.tourLinks.zillow_3d || '';
       links.video_link = shoot.tourLinks.video_link || '';
+      links.video_branded = shoot.tourLinks.video_branded || '';
+      links.video_mls = shoot.tourLinks.video_mls || '';
+      links.video_generic = shoot.tourLinks.video_generic || '';
     }
     setTourLinks(links);
-    setVideoLinkValue(links.video_link || '');
+    setVideoLinkValue('');
     
     // Initialize tour style - check multiple possible locations
     const style = shoot.tourLinks?.tour_style || 
@@ -185,20 +202,63 @@ export function ShootDetailsTourTab({
     setPropertyMls(tl?.property_mls || (shoot as any)?.mls_id || '');
     setPropertyPrice(tl?.property_price || '');
     setPropertyLotSize(tl?.property_lot_size || '');
+    const propertyDetails = (shoot as any)?.property_details || {};
+    setPropertyBedrooms(
+      propertyDetails?.bedrooms !== undefined && propertyDetails?.bedrooms !== null
+        ? String(propertyDetails.bedrooms)
+        : propertyDetails?.beds !== undefined && propertyDetails?.beds !== null
+          ? String(propertyDetails.beds)
+          : ''
+    );
+    setPropertyBathrooms(
+      propertyDetails?.bathrooms !== undefined && propertyDetails?.bathrooms !== null
+        ? String(propertyDetails.bathrooms)
+        : propertyDetails?.baths !== undefined && propertyDetails?.baths !== null
+          ? String(propertyDetails.baths)
+          : ''
+    );
+    setPropertySqft(
+      propertyDetails?.sqft !== undefined && propertyDetails?.sqft !== null
+        ? String(propertyDetails.sqft)
+        : propertyDetails?.squareFeet !== undefined && propertyDetails?.squareFeet !== null
+          ? String(propertyDetails.squareFeet)
+          : ''
+    );
     setListingType((shoot as any)?.listing_type || (shoot as any)?.listingType || '');
     setPropertyStatus((shoot as any)?.property_status || (shoot as any)?.propertyStatus || 'available');
   }, [shoot]);
 
-  const hasVideoLink = Boolean(tourLinks.video_link?.trim());
+  const hasVideoEmbedLink = Boolean(tourLinks.video_link?.trim());
+  const hasPublicVideoLinks = Boolean(
+    tourLinks.video_branded?.trim() || tourLinks.video_mls?.trim() || tourLinks.video_generic?.trim()
+  );
   const hasMatterportLinks = Boolean(tourLinks.matterport_branded || tourLinks.matterport_mls);
   const hasIguideLinks = Boolean(tourLinks.iguide_branded || tourLinks.iguide_mls);
   const hasZillow3dLink = Boolean(tourLinks.zillow_3d);
-  const showVideoSection = !isClientView || hasVideoLink;
+  const showVideoLinksSection = Boolean(isAdmin || hasPublicVideoLinks);
+  const showVideoEmbedSection = Boolean(isAdmin);
   const showTourSettings = !isClientView;
-  const showPropertyInfo = !isClientView;
+  const showPropertyInfo = Boolean(isAdmin || isClientView);
   const show3dTours = !isClientView || hasMatterportLinks || hasIguideLinks || hasZillow3dLink;
   const matterportKeys = ['matterport_branded', 'matterport_mls'] as const;
   const iguideKeys = ['iguide_branded', 'iguide_mls'] as const;
+  const publicVideoLinkConfigs: Array<{ key: ManagedVideoLinkKey; label: string; placeholder: string }> = [
+    {
+      key: 'video_branded',
+      label: 'Branded Video',
+      placeholder: 'No branded video link set',
+    },
+    {
+      key: 'video_mls',
+      label: 'MLS Video',
+      placeholder: 'No MLS video link set',
+    },
+    {
+      key: 'video_generic',
+      label: 'Generic Video',
+      placeholder: 'No generic video link set',
+    },
+  ];
   const visibleMatterportKeys = isClientView
     ? matterportKeys.filter((key) => Boolean(tourLinks[key]))
     : matterportKeys;
@@ -227,6 +287,12 @@ export function ShootDetailsTourTab({
           return `${baseUrl}/tour/mls?${query}`;
         case 'genericMls':
           return `${baseUrl}/tour/g-mls?${query}`;
+        case 'video_branded':
+          return `${baseUrl}/tour/video/branded?${query}`;
+        case 'video_mls':
+          return `${baseUrl}/tour/video/mls?${query}`;
+        case 'video_generic':
+          return `${baseUrl}/tour/video/generic?${query}`;
         default:
           return tourLinks[type] || '';
       }
@@ -589,17 +655,18 @@ export function ShootDetailsTourTab({
   };
 
   // Video link management functions
-  const startEditVideoLink = () => {
-    setEditingVideoLink(true);
-    setVideoLinkValue(tourLinks.video_link || '');
+  const startEditVideoLink = (key: ManagedVideoLinkKey) => {
+    setEditingVideoLinkKey(key);
+    setVideoLinkValue(tourLinks[key] || '');
   };
 
   const cancelEditVideoLink = () => {
-    setEditingVideoLink(false);
-    setVideoLinkValue(tourLinks.video_link || '');
+    setEditingVideoLinkKey(null);
+    setVideoLinkValue('');
   };
 
   const saveVideoLink = async () => {
+    if (!editingVideoLinkKey) return;
     const value = videoLinkValue.trim();
     if (value && !/^https?:\/\//i.test(value)) {
       toast({
@@ -610,15 +677,10 @@ export function ShootDetailsTourTab({
       return;
     }
     
-    setIsSavingVideoLink(true);
+    setIsSavingVideoLinkKey(editingVideoLinkKey);
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      
-      const updatedTourLinks = {
-        ...(shoot.tourLinks || {}),
-        video_link: value || null,
-      };
-      
+
       const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
         method: 'PATCH',
         headers: {
@@ -626,7 +688,11 @@ export function ShootDetailsTourTab({
           'Authorization': `Bearer ${token}`,
           'Accept': 'application/json',
         },
-        body: JSON.stringify({ tour_links: updatedTourLinks }),
+        body: JSON.stringify({
+          tour_links: {
+            [editingVideoLinkKey]: value || null,
+          },
+        }),
       });
       
       if (!res.ok) {
@@ -634,9 +700,10 @@ export function ShootDetailsTourTab({
         throw new Error(errorData.message || 'Failed to save video link');
       }
 
-      const updated = { ...tourLinks, video_link: value || '' };
+      const updated = { ...tourLinks, [editingVideoLinkKey]: value || '' };
       setTourLinks(updated);
-      setEditingVideoLink(false);
+      setEditingVideoLinkKey(null);
+      setVideoLinkValue('');
       toast({
         title: 'Success',
         description: 'Video link saved successfully',
@@ -650,11 +717,11 @@ export function ShootDetailsTourTab({
         variant: 'destructive',
       });
     } finally {
-      setIsSavingVideoLink(false);
+      setIsSavingVideoLinkKey(null);
     }
   };
 
-  const deleteVideoLink = async () => {
+  const deleteVideoLink = async (key: ManagedVideoLinkKey) => {
     if (!isAdmin) {
       toast({
         title: 'Permission denied',
@@ -667,15 +734,10 @@ export function ShootDetailsTourTab({
     const ok = window.confirm('Delete the video link? This action cannot be undone.');
     if (!ok) return;
 
-    setIsSavingVideoLink(true);
+    setIsDeletingVideoLinkKey(key);
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      
-      const updatedTourLinks = {
-        ...(shoot.tourLinks || {}),
-        video_link: null,
-      };
-      
+
       const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
         method: 'PATCH',
         headers: {
@@ -683,7 +745,11 @@ export function ShootDetailsTourTab({
           'Authorization': `Bearer ${token}`,
           'Accept': 'application/json',
         },
-        body: JSON.stringify({ tour_links: updatedTourLinks }),
+        body: JSON.stringify({
+          tour_links: {
+            [key]: null,
+          },
+        }),
       });
       
       if (!res.ok) {
@@ -691,9 +757,12 @@ export function ShootDetailsTourTab({
         throw new Error(errorData.message || 'Failed to delete video link');
       }
 
-      const updated = { ...tourLinks, video_link: '' };
+      const updated = { ...tourLinks, [key]: '' };
       setTourLinks(updated);
-      setVideoLinkValue('');
+      if (editingVideoLinkKey === key) {
+        setEditingVideoLinkKey(null);
+        setVideoLinkValue('');
+      }
       toast({
         title: 'Success',
         description: 'Video link removed successfully',
@@ -707,7 +776,7 @@ export function ShootDetailsTourTab({
         variant: 'destructive',
       });
     } finally {
-      setIsSavingVideoLink(false);
+      setIsDeletingVideoLinkKey(null);
     }
   };
 
@@ -824,13 +893,9 @@ export function ShootDetailsTourTab({
 
   // Save a property info field to tour_links
   const savePropertyField = async (field: string, value: string) => {
-    if (!isAdmin) return;
+    if (!canEditPropertyInfo) return;
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      const updatedTourLinks = {
-        ...(shoot.tourLinks || {}),
-        [field]: value || null,
-      };
       const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
         method: 'PATCH',
         headers: {
@@ -838,7 +903,11 @@ export function ShootDetailsTourTab({
           'Authorization': `Bearer ${token}`,
           'Accept': 'application/json',
         },
-        body: JSON.stringify({ tour_links: updatedTourLinks }),
+        body: JSON.stringify({
+          tour_links: {
+            [field]: value || null,
+          },
+        }),
       });
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({ message: 'Failed to save' }));
@@ -850,9 +919,57 @@ export function ShootDetailsTourTab({
     }
   };
 
+  const savePropertyNumericField = async (
+    field: 'bedrooms' | 'bathrooms' | 'sqft',
+    value: string,
+    parser: (input: string) => number,
+  ) => {
+    if (!canEditPropertyInfo) return;
+
+    const trimmed = value.trim();
+    const parsedValue = trimmed === '' ? null : parser(trimmed);
+
+    if (trimmed !== '' && (Number.isNaN(parsedValue) || parsedValue === null)) {
+      toast({
+        title: 'Invalid value',
+        description: `Please enter a valid ${field}.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({
+          [field]: parsedValue,
+        }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ message: 'Failed to save' }));
+        throw new Error(errorData.message || 'Failed to save');
+      }
+
+      onShootUpdate();
+    } catch (err: any) {
+      toast({
+        title: 'Error',
+        description: err?.message || 'Failed to save property info.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   // Save listing_type or property_status as a direct shoot column
   const saveShootField = async (field: string, value: string, setLoading: (v: boolean) => void) => {
-    if (!isAdmin) return;
+    if (!canEditPropertyInfo) return;
     setLoading(true);
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
@@ -912,7 +1029,7 @@ export function ShootDetailsTourTab({
   };
 
   const handleSaveDescription = async () => {
-    if (!isAdmin) return;
+    if (!canEditPropertyInfo) return;
     setIsSavingDescription(true);
     try {
       await savePropertyField('property_description', propertyDescription);
@@ -1176,29 +1293,128 @@ export function ShootDetailsTourTab({
             </div>
           </div>
 
-          {showVideoSection && (
-            <>
-              <Separator className="my-4" />
+        </CardContent>
+      </Card>
+
+      {(showVideoLinksSection || showVideoEmbedSection) && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Video Links</CardTitle>
+            <CardDescription>Manage public video pages and embedded tour video.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {showVideoLinksSection && (
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <Label>Public Video Pages</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Separate public video pages for branded, MLS, and generic sharing. Clients can view these links, but only admins can manage them.
+                  </p>
+                </div>
+                {publicVideoLinkConfigs.map(({ key, label, placeholder }) => {
+                  const isEditing = editingVideoLinkKey === key;
+                  const url = getTourUrl(key);
+
+                  return (
+                    <div key={key} className="space-y-2">
+                      <Label>{label}</Label>
+                      {!isEditing ? (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={url}
+                            readOnly
+                            placeholder={placeholder}
+                            className="flex-1"
+                          />
+                          <Button variant="outline" size="sm" onClick={() => copyLink(key)} title="Copy link" disabled={!url}>
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => openLink(key)} title="Open in new tab" disabled={!url}>
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => shareLink(key)} title="Share link" disabled={!url}>
+                            <Share2 className="h-4 w-4" />
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => getQrCode(key)} title="Get QR code" disabled={!url}>
+                            <QrCode className="h-4 w-4" />
+                          </Button>
+                          {isAdmin && (
+                            <Button variant="outline" size="sm" onClick={() => startEditVideoLink(key)} title={`Edit ${label}`}>
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {isAdmin && tourLinks[key] && (
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => void deleteVideoLink(key)}
+                              disabled={isDeletingVideoLinkKey === key}
+                              title={`Remove ${label}`}
+                            >
+                              <Trash className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <Input
+                            value={videoLinkValue}
+                            onChange={(e) => setVideoLinkValue(e.target.value)}
+                            placeholder="https://www.youtube.com/watch?v=... or https://vimeo.com/..."
+                            className="flex-1"
+                          />
+                          <div className="flex justify-end gap-2">
+                            <Button variant="outline" size="sm" onClick={cancelEditVideoLink}>
+                              <X className="h-3.5 w-3.5 mr-1" />
+                              Cancel
+                            </Button>
+                            <Button variant="default" size="sm" onClick={saveVideoLink} disabled={isSavingVideoLinkKey === key}>
+                              {isSavingVideoLinkKey === key ? 'Saving...' : <><Check className="h-3.5 w-3.5 mr-1" />Save</>}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {showVideoEmbedSection && (
               <div className="space-y-2">
-                <Label>Video Link (YouTube/Vimeo/Direct)</Label>
-                <p className="text-xs text-muted-foreground">Add a video URL to display on tour pages. Supports YouTube, Vimeo, or direct video links.</p>
-                {!editingVideoLink ? (
+                {showVideoLinksSection && <Separator />}
+                <Label>Video Embed</Label>
+                <p className="text-xs text-muted-foreground">
+                  Used for embedding video directly inside tour pages. Supports YouTube, Vimeo, or direct video links.
+                </p>
+                {editingVideoLinkKey !== 'video_link' ? (
                   <div className="flex items-center gap-2">
                     <Input
                       value={tourLinks.video_link || ''}
                       readOnly
-                      placeholder="No video link set"
+                      placeholder="No video embed set"
                       className="flex-1"
                     />
-                    {renderLinkActionButtons('video_link', {
-                      editable: isAdmin,
-                      onEdit: startEditVideoLink,
-                      editTitle: 'Edit video link',
-                      deletable: Boolean(isAdmin && tourLinks.video_link),
-                      onDelete: deleteVideoLink,
-                      deleting: isSavingVideoLink,
-                      deleteTitle: 'Remove video link',
-                    })}
+                    <Button variant="outline" size="sm" onClick={() => copyLink('video_link')} title="Copy embed link" disabled={!tourLinks.video_link}>
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => openLink('video_link')} title="Open embed link" disabled={!tourLinks.video_link}>
+                      <ExternalLink className="h-4 w-4" />
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => startEditVideoLink('video_link')} title="Edit video embed">
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    {tourLinks.video_link && (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => void deleteVideoLink('video_link')}
+                        disabled={isDeletingVideoLinkKey === 'video_link'}
+                        title="Remove video embed"
+                      >
+                        <Trash className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -1213,17 +1429,17 @@ export function ShootDetailsTourTab({
                         <X className="h-3.5 w-3.5 mr-1" />
                         Cancel
                       </Button>
-                      <Button variant="default" size="sm" onClick={saveVideoLink} disabled={isSavingVideoLink}>
-                        {isSavingVideoLink ? 'Saving...' : <><Check className="h-3.5 w-3.5 mr-1" />Save</>}
+                      <Button variant="default" size="sm" onClick={saveVideoLink} disabled={isSavingVideoLinkKey === 'video_link'}>
+                        {isSavingVideoLinkKey === 'video_link' ? 'Saving...' : <><Check className="h-3.5 w-3.5 mr-1" />Save</>}
                       </Button>
                     </div>
                   </div>
                 )}
               </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Tour Settings Section */}
       {showTourSettings && (
@@ -1508,7 +1724,7 @@ export function ShootDetailsTourTab({
                       setListingType(value);
                       saveShootField('listing_type', value, setIsSavingListingType);
                     }}
-                    disabled={!isAdmin || isSavingListingType}
+                    disabled={!canEditPropertyInfo || isSavingListingType}
                   >
                     <SelectTrigger className="h-9 text-sm">
                       <SelectValue placeholder="Select listing type" />
@@ -1540,12 +1756,95 @@ export function ShootDetailsTourTab({
                       setPropertyStatus(newStatus);
                       saveShootField('property_status', newStatus, setIsSavingPropertyStatus);
                     }}
-                    disabled={!isAdmin || isSavingPropertyStatus}
+                    disabled={!canEditPropertyInfo || isSavingPropertyStatus}
                   />
                 </div>
                 {isSavingPropertyStatus && <p className="text-xs text-blue-500">Saving status...</p>}
 
                 <Separator />
+
+                <div className="space-y-3">
+                  <Label>Property Details</Label>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-background/80">
+                          <BedDouble className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <div>
+                          <p className="text-xs uppercase tracking-wide text-muted-foreground">Beds</p>
+                          <p className="text-xl font-semibold">{propertyBedrooms || '—'}</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-background/80">
+                          <Bath className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <div>
+                          <p className="text-xs uppercase tracking-wide text-muted-foreground">Baths</p>
+                          <p className="text-xl font-semibold">{propertyBathrooms || '—'}</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-background/80">
+                          <Ruler className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <div>
+                          <p className="text-xs uppercase tracking-wide text-muted-foreground">Sqft</p>
+                          <p className="text-xl font-semibold">{propertySqft ? Number(propertySqft).toLocaleString() : '—'}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div className="space-y-2">
+                    <Label>Beds</Label>
+                    <Input
+                      value={propertyBedrooms}
+                      onChange={(e) => setPropertyBedrooms(e.target.value)}
+                      onBlur={() => {
+                        void savePropertyNumericField('bedrooms', propertyBedrooms, (input) => parseInt(input, 10));
+                      }}
+                      placeholder="Bedrooms"
+                      disabled={!canEditPropertyInfo}
+                      inputMode="numeric"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Baths</Label>
+                    <Input
+                      value={propertyBathrooms}
+                      onChange={(e) => setPropertyBathrooms(e.target.value)}
+                      onBlur={() => {
+                        void savePropertyNumericField('bathrooms', propertyBathrooms, (input) => parseFloat(input));
+                      }}
+                      placeholder="Bathrooms"
+                      disabled={!canEditPropertyInfo}
+                      inputMode="decimal"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Sqft</Label>
+                    <Input
+                      value={propertySqft}
+                      onChange={(e) => setPropertySqft(e.target.value)}
+                      onBlur={() => {
+                        void savePropertyNumericField('sqft', propertySqft, (input) => parseInt(input, 10));
+                      }}
+                      placeholder="Square feet"
+                      disabled={!canEditPropertyInfo}
+                      inputMode="numeric"
+                    />
+                  </div>
+                </div>
 
                 {/* Description with AI Generate */}
                 <div className="space-y-2">
@@ -1555,7 +1854,7 @@ export function ShootDetailsTourTab({
                       value={propertyDescription}
                       onChange={(e) => setPropertyDescription(e.target.value)}
                       placeholder="Enter or generate a property description..."
-                      disabled={!isAdmin}
+                      disabled={!canEditPropertyInfo}
                       className="min-h-[120px] pb-12 text-sm"
                     />
                     {isAdmin && (
@@ -1582,7 +1881,7 @@ export function ShootDetailsTourTab({
                       </div>
                     )}
                   </div>
-                  {isAdmin && (
+                  {canEditPropertyInfo && (
                     <div className="flex justify-end">
                       <Button
                         variant="default"
@@ -1620,10 +1919,10 @@ export function ShootDetailsTourTab({
                     value={propertyMls}
                     onChange={(e) => setPropertyMls(e.target.value)}
                     onBlur={() => {
-                      if (isAdmin) savePropertyField('property_mls', propertyMls);
+                      if (canEditPropertyInfo) savePropertyField('property_mls', propertyMls);
                     }}
                     placeholder="MLS #"
-                    disabled={!isAdmin}
+                    disabled={!canEditPropertyInfo}
                   />
                 </div>
 
@@ -1634,10 +1933,10 @@ export function ShootDetailsTourTab({
                     value={propertyPrice}
                     onChange={(e) => setPropertyPrice(e.target.value)}
                     onBlur={() => {
-                      if (isAdmin) savePropertyField('property_price', propertyPrice);
+                      if (canEditPropertyInfo) savePropertyField('property_price', propertyPrice);
                     }}
                     placeholder="Property price"
-                    disabled={!isAdmin}
+                    disabled={!canEditPropertyInfo}
                   />
                 </div>
 
@@ -1648,10 +1947,10 @@ export function ShootDetailsTourTab({
                     value={propertyLotSize}
                     onChange={(e) => setPropertyLotSize(e.target.value)}
                     onBlur={() => {
-                      if (isAdmin) savePropertyField('property_lot_size', propertyLotSize);
+                      if (canEditPropertyInfo) savePropertyField('property_lot_size', propertyLotSize);
                     }}
                     placeholder="Lot size"
-                    disabled={!isAdmin}
+                    disabled={!canEditPropertyInfo}
                   />
                 </div>
               </CardContent>

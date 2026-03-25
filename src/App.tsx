@@ -61,6 +61,7 @@ const TestClientPropertyForm = lazy(() => import('./pages/TestClientPropertyForm
 const BrandedPage = lazy(() => import('@/components/tourLinks/BrandedPage').then(module => ({ default: module.BrandedPage })));
 const MlsCompliant = lazy(() => import('@/components/tourLinks/MlsCompliant').then(module => ({ default: module.MlsCompliant })));
 const GenericMLS = lazy(() => import('@/components/tourLinks/GenericMLS').then(module => ({ default: module.GenericMLS })));
+const PublicVideoPage = lazy(() => import('@/components/tourLinks/PublicVideoPage').then(module => ({ default: module.PublicVideoPage })));
 const CubiCasaScanning = lazy(() => import('./pages/CubiCasaScanning'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const PaymentPage = lazy(() => import('./pages/PaymentPage'));
@@ -297,6 +298,21 @@ const AppRoutes = () => {
       <Route path="/tour/g-mls" element={
         <PageTransition>
           <GenericMLS />
+        </PageTransition>
+      } />
+      <Route path="/tour/video/branded" element={
+        <PageTransition>
+          <PublicVideoPage variant="branded" />
+        </PageTransition>
+      } />
+      <Route path="/tour/video/mls" element={
+        <PageTransition>
+          <PublicVideoPage variant="mls" />
+        </PageTransition>
+      } />
+      <Route path="/tour/video/generic" element={
+        <PageTransition>
+          <PublicVideoPage variant="generic" />
         </PageTransition>
       } />
       {/* Public client portal so clients can share their link */}
