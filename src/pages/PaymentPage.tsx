@@ -29,6 +29,7 @@ interface ShootDetails {
 export default function PaymentPage() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
+  const initialSessionId = searchParams.get('session_id');
   const [shoot, setShoot] = useState<ShootDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -44,25 +45,46 @@ export default function PaymentPage() {
   const embeddedCheckoutRef = useRef<any>(null);
   const checkoutMountRef = useRef<HTMLDivElement>(null);
   const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const checkoutSessionIdRef = useRef<string | null>(initialSessionId);
+
+  const fetchShootDetails = useCallback(async () => {
+    if (!id) return;
+
+    try {
+      setLoading(true);
+      const response = await axios.get(`${API_BASE_URL}/api/shoots/${id}/payment-details`);
+      setShoot(response.data.data || response.data);
+    } catch (err: any) {
+      console.error('Failed to fetch shoot details:', err);
+      setError(err.response?.data?.message || 'Failed to load shoot details. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
+
+  const confirmStripeSession = useCallback(async (sessionId: string) => {
+    if (!id || !sessionId) return;
+
+    try {
+      await axios.post(`${API_BASE_URL}/api/shoots/${id}/confirm-stripe-session`, {
+        session_id: sessionId,
+      });
+    } catch {
+      // Ignore confirmation errors and let polling/webhooks continue
+    }
+  }, [id]);
 
   useEffect(() => {
-    const fetchShootDetails = async () => {
-      try {
-        setLoading(true);
-        const response = await axios.get(`${API_BASE_URL}/api/shoots/${id}/payment-details`);
-        setShoot(response.data.data || response.data);
-      } catch (err: any) {
-        console.error('Failed to fetch shoot details:', err);
-        setError(err.response?.data?.message || 'Failed to load shoot details. Please try again.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
     if (id) {
       fetchShootDetails();
     }
-  }, [id]);
+  }, [id, fetchShootDetails]);
+
+  useEffect(() => {
+    if (searchParams.get('success') === 'true' && initialSessionId) {
+      void confirmStripeSession(initialSessionId).then(() => fetchShootDetails());
+    }
+  }, [confirmStripeSession, fetchShootDetails, initialSessionId, searchParams]);
 
   const totalPaid = shoot?.payments
     ?.filter((p) => p.status === 'completed')
@@ -128,6 +150,7 @@ export default function PaymentPage() {
   const handlePaymentSuccess = () => {
     setLastPaymentAmount(effectivePaymentAmount);
     setPaymentSuccess(true);
+    void fetchShootDetails();
   };
 
   // Cleanup on unmount
@@ -155,11 +178,12 @@ export default function PaymentPage() {
         throw new Error('No client secret returned');
       }
 
+      checkoutSessionIdRef.current = response.data.sessionId || null;
       setShowEmbeddedCheckout(true);
       setEmbeddedCheckoutLoading(true);
 
       // Start polling for payment success
-      startPaymentPolling();
+      startPaymentPolling(response.data.sessionId || null);
 
       // Mount embedded checkout
       requestAnimationFrame(async () => {
@@ -195,11 +219,16 @@ export default function PaymentPage() {
     }
   };
 
-  const startPaymentPolling = () => {
+  const startPaymentPolling = (sessionId?: string | null) => {
     if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
 
     pollingIntervalRef.current = setInterval(async () => {
       try {
+        const activeSessionId = sessionId ?? checkoutSessionIdRef.current;
+        if (activeSessionId) {
+          await confirmStripeSession(activeSessionId);
+        }
+
         const statusRes = await axios.get(`${API_BASE_URL}/api/shoots/${id}/payment-details`);
         const shootData = statusRes.data?.data || statusRes.data;
         const paidSoFar = shootData?.payments
@@ -216,6 +245,7 @@ export default function PaymentPage() {
           }
           setShowEmbeddedCheckout(false);
           setStripeLoading(false);
+          checkoutSessionIdRef.current = null;
           handlePaymentSuccess();
         }
       } catch {

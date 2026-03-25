@@ -79,6 +79,7 @@ export function SquarePaymentForm({
   const authTokenRef = useRef<string | null>(null);
   const embeddedCheckoutRef = useRef<any>(null);
   const checkoutMountRef = useRef<HTMLDivElement>(null);
+  const checkoutSessionIdRef = useRef<string | null>(null);
   
   // Coupon state
   const [couponCode, setCouponCode] = useState('');
@@ -166,6 +167,8 @@ export function SquarePaymentForm({
         throw new Error('No client secret returned');
       }
 
+      checkoutSessionIdRef.current = response.data.sessionId || null;
+
       // Show inline embedded checkout
       authTokenRef.current = authToken;
       setShowCheckoutDialog(true);
@@ -231,6 +234,14 @@ export function SquarePaymentForm({
         const token = authTokenRef.current;
         const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
+        if (!isBulk && shootId && checkoutSessionIdRef.current) {
+          await axios.post(
+            `${API_BASE_URL}/api/shoots/${shootId}/confirm-stripe-session`,
+            { session_id: checkoutSessionIdRef.current },
+            { headers }
+          ).catch(() => null);
+        }
+
         if (isBulk) {
           // Poll each shoot and check if any payment was made
           const results = await Promise.all(
@@ -251,6 +262,7 @@ export function SquarePaymentForm({
             setStripeLoading(false);
             setShowCheckoutDialog(false);
             onCheckoutActiveChange?.(false);
+            checkoutSessionIdRef.current = null;
             if (embeddedCheckoutRef.current) { embeddedCheckoutRef.current.destroy(); embeddedCheckoutRef.current = null; }
             toast({ title: 'Payment Successful', description: `Bulk payment has been processed via Stripe.` });
             if (onPaymentSuccess) onPaymentSuccess({ status: 'success', amount: effectivePaymentAmount });
@@ -272,6 +284,7 @@ export function SquarePaymentForm({
             setStripeLoading(false);
             setShowCheckoutDialog(false);
             onCheckoutActiveChange?.(false);
+            checkoutSessionIdRef.current = null;
             if (embeddedCheckoutRef.current) { embeddedCheckoutRef.current.destroy(); embeddedCheckoutRef.current = null; }
             toast({ title: 'Payment Successful', description: `Payment of $${effectivePaymentAmount.toFixed(2)} has been processed via Stripe.` });
             if (onPaymentSuccess) onPaymentSuccess({ status: 'success', amount: effectivePaymentAmount });

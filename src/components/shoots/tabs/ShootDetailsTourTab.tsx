@@ -1906,16 +1906,17 @@ export function ShootDetailsTourTab({
                       size="sm"
                       onClick={() => void savePropertyDetails()}
                       disabled={isSavingPropertyDetails}
+                      className="h-8 px-3 text-xs"
                     >
                       {isSavingPropertyDetails ? (
                         <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                           Saving...
                         </>
                       ) : (
                         <>
-                          <Save className="mr-2 h-4 w-4" />
-                          Save Property Details
+                          <Save className="mr-1.5 h-3.5 w-3.5" />
+                          Save
                         </>
                       )}
                     </Button>
@@ -1933,23 +1934,23 @@ export function ShootDetailsTourTab({
                       disabled={!canEditPropertyInfo}
                       className="min-h-[120px] pb-12 text-sm"
                     />
-                    {isAdmin && (
+                    {canEditPropertyInfo && (
                       <div className="absolute bottom-2 left-2">
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={handleGenerateDescription}
                           disabled={isGeneratingDescription}
-                          className="h-8 text-xs gap-1.5 bg-background/80 backdrop-blur-sm border-primary/20 hover:border-primary/40 hover:bg-primary/5"
+                          className="h-7 px-2.5 text-[11px] gap-1 bg-background/80 backdrop-blur-sm border-primary/20 hover:border-primary/40 hover:bg-primary/5"
                         >
                           {isGeneratingDescription ? (
                             <>
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              <Loader2 className="h-3 w-3 animate-spin" />
                               Generating...
                             </>
                           ) : (
                             <>
-                              <ReproAiIcon className="h-4 w-4" />
+                              <ReproAiIcon className="h-3.5 w-3.5" />
                               AI Generate
                             </>
                           )}
@@ -1965,18 +1966,19 @@ export function ShootDetailsTourTab({
                         onClick={handleSaveDescription}
                         disabled={
                           isSavingDescription ||
-                          propertyDescription === ((shoot.tourLinks as any)?.property_description || '')
+                          propertyDescription === ((sourceTourLinks as any)?.property_description || '')
                         }
+                        className="h-8 px-3 text-xs"
                       >
                         {isSavingDescription ? (
                           <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                             Saving...
                           </>
                         ) : (
                           <>
-                            <Save className="mr-2 h-4 w-4" />
-                            Save Description
+                            <Save className="mr-1.5 h-3.5 w-3.5" />
+                            Save
                           </>
                         )}
                       </Button>
