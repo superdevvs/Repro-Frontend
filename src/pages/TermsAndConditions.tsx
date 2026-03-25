@@ -238,8 +238,8 @@ const termsSections = [
 
 export default function TermsAndConditions() {
   return (
-    <div className="min-h-screen bg-[#060a0e] text-white">
-      <div className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-4 py-6 sm:px-6 lg:px-8">
+    <div className="h-screen overflow-y-auto bg-[#060a0e] text-white">
+      <div className="mx-auto flex min-h-full w-full max-w-5xl flex-col px-4 py-6 sm:px-6 lg:px-8">
         <header className="mb-6 rounded-3xl border border-white/10 bg-white/[0.03] p-6 shadow-[0_24px_60px_rgba(1,3,9,0.45)] backdrop-blur-xl sm:p-8">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-4">
