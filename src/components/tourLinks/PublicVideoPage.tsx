@@ -161,8 +161,11 @@ export function PublicVideoPage({ variant }: PublicVideoPageProps) {
         <div className="relative z-10 flex min-h-screen items-center justify-center px-[10px] py-[10px]">
           <div className="w-full">
             {sourceUrl ? (
-              <div className="overflow-hidden rounded-[28px] bg-black/20 shadow-2xl">
-                <div className="relative aspect-video w-full">
+              <div
+                className="overflow-hidden rounded-[28px] bg-black/20 shadow-2xl"
+                style={{ height: 'calc(100vh - 20px)' }}
+              >
+                <div className="relative h-full w-full">
                   {!isPlaying ? (
                     <button
                       type="button"
