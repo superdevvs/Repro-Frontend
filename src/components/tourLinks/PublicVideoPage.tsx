@@ -66,6 +66,11 @@ const getPlayableVideoUrl = (url: string): string | null => {
   return embedUrl;
 };
 
+const isEmbeddedPlayerUrl = (url: string | null): boolean => {
+  if (!url) return false;
+  return url.includes('youtube.com') || url.includes('youtube-nocookie.com') || url.includes('vimeo.com');
+};
+
 export function PublicVideoPage({ variant }: PublicVideoPageProps) {
   const [loading, setLoading] = useState(true);
   const [sourceUrl, setSourceUrl] = useState<string | null>(null);
@@ -125,7 +130,7 @@ export function PublicVideoPage({ variant }: PublicVideoPageProps) {
 
   const embedUrl = useMemo(() => (sourceUrl ? getEmbedUrl(sourceUrl) : null), [sourceUrl]);
   const playableUrl = useMemo(() => (sourceUrl ? getPlayableVideoUrl(sourceUrl) : null), [sourceUrl]);
-  const isIframeEmbed = Boolean(embedUrl && (embedUrl.includes('youtube.com') || embedUrl.includes('vimeo.com')));
+  const isIframeEmbed = isEmbeddedPlayerUrl(embedUrl);
 
   if (loading) {
     return (
@@ -154,7 +159,7 @@ export function PublicVideoPage({ variant }: PublicVideoPageProps) {
         )}
 
         <div className="relative z-10 flex min-h-screen items-center justify-center px-[10px] py-[10px]">
-          <div className="w-full max-w-7xl">
+          <div className="w-full">
             {sourceUrl ? (
               <div className="overflow-hidden rounded-[28px] bg-black/20 shadow-2xl">
                 <div className="relative aspect-video w-full">
