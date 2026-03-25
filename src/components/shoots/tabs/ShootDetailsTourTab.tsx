@@ -139,40 +139,39 @@ export function ShootDetailsTourTab({
   
   const isClientView = Boolean(isClient && !isAdmin);
   const canEditPropertyInfo = Boolean(isAdmin || isClientView);
+  const sourceTourLinks = ((shoot as any)?.tourLinks || (shoot as any)?.tour_links || {}) as Record<string, any>;
+  const sourcePropertyDetails = ((shoot as any)?.propertyDetails || (shoot as any)?.property_details || {}) as Record<string, any>;
 
   useEffect(() => {
     // Initialize tour links from shoot data
     const links: Record<string, string> = {};
-    if (shoot.tourLinks) {
-      links.branded = shoot.tourLinks.branded || '';
-      links.mls = shoot.tourLinks.mls || '';
-      links.genericMls = shoot.tourLinks.genericMls || '';
-      links.matterport_branded = shoot.tourLinks.matterport_branded || shoot.tourLinks.matterport || '';
-      links.matterport_mls = shoot.tourLinks.matterport_mls || '';
-      links.iguide_branded = shoot.tourLinks.iguide_branded || shoot.tourLinks.iGuide || '';
-      links.iguide_mls = shoot.tourLinks.iguide_mls || '';
-      links.zillow_3d = shoot.tourLinks.zillow_3d || '';
-      links.video_link = shoot.tourLinks.video_link || '';
-      links.video_branded = shoot.tourLinks.video_branded || '';
-      links.video_mls = shoot.tourLinks.video_mls || '';
-      links.video_generic = shoot.tourLinks.video_generic || '';
-    }
+    links.branded = sourceTourLinks.branded || '';
+    links.mls = sourceTourLinks.mls || '';
+    links.genericMls = sourceTourLinks.genericMls || sourceTourLinks.generic_mls || '';
+    links.matterport_branded = sourceTourLinks.matterport_branded || sourceTourLinks.matterport || '';
+    links.matterport_mls = sourceTourLinks.matterport_mls || '';
+    links.iguide_branded = sourceTourLinks.iguide_branded || sourceTourLinks.iGuide || sourceTourLinks.iguide || '';
+    links.iguide_mls = sourceTourLinks.iguide_mls || '';
+    links.zillow_3d = sourceTourLinks.zillow_3d || '';
+    links.video_link = sourceTourLinks.video_link || '';
+    links.video_branded = sourceTourLinks.video_branded || '';
+    links.video_mls = sourceTourLinks.video_mls || '';
+    links.video_generic = sourceTourLinks.video_generic || '';
     setTourLinks(links);
     setVideoLinkValue('');
     
     // Initialize tour style - check multiple possible locations
-    const style = shoot.tourLinks?.tour_style || 
+    const style = sourceTourLinks?.tour_style || 
                   (shoot as any)?.tour_style || 
-                  (shoot.tourLinks as any)?.tour_style || 
                   'default';
     setTourStyle(style);
     console.log('Initializing tour style:', style, 'from shoot:', { 
-      tourLinks: shoot.tourLinks,
+      tourLinks: sourceTourLinks,
       tour_style: (shoot as any)?.tour_style 
     });
 
-    const rawEmbeds = Array.isArray(shoot.tourLinks?.embeds)
-      ? shoot.tourLinks?.embeds
+    const rawEmbeds = Array.isArray(sourceTourLinks?.embeds)
+      ? sourceTourLinks?.embeds
       : [];
     const normalizedEmbeds = rawEmbeds.map((embed: any, index: number) => ({
       id: embed?.id || `embed-${shoot.id}-${index}`,
@@ -182,51 +181,71 @@ export function ShootDetailsTourTab({
     }));
     setEmbeds(normalizedEmbeds);
     const featuredId =
-      (shoot.tourLinks as any)?.featured_embed_id ||
-      (shoot.tourLinks as any)?.featured_embed ||
+      sourceTourLinks?.featured_embed_id ||
+      sourceTourLinks?.featured_embed ||
       '';
     setFeaturedEmbedId(featuredId || '');
     const tourSettingsDefaults = {
-      header_position: (shoot.tourLinks as any)?.header_position || 'center',
-      tour_version: (shoot.tourLinks as any)?.tour_version || 'standard',
-      realtor_info: (shoot.tourLinks as any)?.realtor_info || '',
-      autoplay: Boolean((shoot.tourLinks as any)?.autoplay),
-      show_garage: Boolean((shoot.tourLinks as any)?.show_garage),
+      header_position: sourceTourLinks?.header_position || 'center',
+      tour_version: sourceTourLinks?.tour_version || 'standard',
+      realtor_info: sourceTourLinks?.realtor_info || '',
+      autoplay: Boolean(sourceTourLinks?.autoplay),
+      show_garage: Boolean(sourceTourLinks?.show_garage),
     };
 
     setTourSettings(tourSettingsDefaults);
     
     // Initialize property info fields
-    const tl = shoot.tourLinks as any;
+    const tl = sourceTourLinks;
     setPropertyDescription(tl?.property_description || '');
     setPropertyMls(tl?.property_mls || (shoot as any)?.mls_id || '');
     setPropertyPrice(tl?.property_price || '');
     setPropertyLotSize(tl?.property_lot_size || '');
-    const propertyDetails = (shoot as any)?.property_details || {};
+    const propertyDetails = sourcePropertyDetails;
     setPropertyBedrooms(
-      propertyDetails?.bedrooms !== undefined && propertyDetails?.bedrooms !== null
-        ? String(propertyDetails.bedrooms)
-        : propertyDetails?.beds !== undefined && propertyDetails?.beds !== null
-          ? String(propertyDetails.beds)
-          : ''
+      (shoot as any)?.bedrooms !== undefined && (shoot as any)?.bedrooms !== null
+        ? String((shoot as any).bedrooms)
+        : (shoot as any)?.bedRooms !== undefined && (shoot as any)?.bedRooms !== null
+          ? String((shoot as any).bedRooms)
+          : propertyDetails?.bedrooms !== undefined && propertyDetails?.bedrooms !== null
+            ? String(propertyDetails.bedrooms)
+            : propertyDetails?.bedRooms !== undefined && propertyDetails?.bedRooms !== null
+              ? String(propertyDetails.bedRooms)
+              : propertyDetails?.beds !== undefined && propertyDetails?.beds !== null
+                ? String(propertyDetails.beds)
+                : ''
     );
     setPropertyBathrooms(
-      propertyDetails?.bathrooms !== undefined && propertyDetails?.bathrooms !== null
-        ? String(propertyDetails.bathrooms)
-        : propertyDetails?.baths !== undefined && propertyDetails?.baths !== null
-          ? String(propertyDetails.baths)
-          : ''
+      (shoot as any)?.bathrooms !== undefined && (shoot as any)?.bathrooms !== null
+        ? String((shoot as any).bathrooms)
+        : (shoot as any)?.bathRooms !== undefined && (shoot as any)?.bathRooms !== null
+          ? String((shoot as any).bathRooms)
+          : propertyDetails?.bathrooms !== undefined && propertyDetails?.bathrooms !== null
+            ? String(propertyDetails.bathrooms)
+            : propertyDetails?.bathRooms !== undefined && propertyDetails?.bathRooms !== null
+              ? String(propertyDetails.bathRooms)
+              : propertyDetails?.baths !== undefined && propertyDetails?.baths !== null
+                ? String(propertyDetails.baths)
+                : ''
     );
     setPropertySqft(
-      propertyDetails?.sqft !== undefined && propertyDetails?.sqft !== null
-        ? String(propertyDetails.sqft)
-        : propertyDetails?.squareFeet !== undefined && propertyDetails?.squareFeet !== null
-          ? String(propertyDetails.squareFeet)
-          : ''
+      (shoot as any)?.sqft !== undefined && (shoot as any)?.sqft !== null
+        ? String((shoot as any).sqft)
+        : propertyDetails?.sqft !== undefined && propertyDetails?.sqft !== null
+          ? String(propertyDetails.sqft)
+          : propertyDetails?.squareFeet !== undefined && propertyDetails?.squareFeet !== null
+            ? String(propertyDetails.squareFeet)
+            : propertyDetails?.square_feet !== undefined && propertyDetails?.square_feet !== null
+              ? String(propertyDetails.square_feet)
+              : propertyDetails?.livingArea !== undefined && propertyDetails?.livingArea !== null
+                ? String(propertyDetails.livingArea)
+                : propertyDetails?.living_area !== undefined && propertyDetails?.living_area !== null
+                  ? String(propertyDetails.living_area)
+                  : ''
     );
     setListingType((shoot as any)?.listing_type || (shoot as any)?.listingType || '');
     setPropertyStatus((shoot as any)?.property_status || (shoot as any)?.propertyStatus || 'available');
-  }, [shoot]);
+  }, [shoot, sourcePropertyDetails, sourceTourLinks]);
 
   const hasVideoEmbedLink = Boolean(tourLinks.video_link?.trim());
   const hasPublicVideoLinks = Boolean(
@@ -235,7 +254,7 @@ export function ShootDetailsTourTab({
   const hasMatterportLinks = Boolean(tourLinks.matterport_branded || tourLinks.matterport_mls);
   const hasIguideLinks = Boolean(tourLinks.iguide_branded || tourLinks.iguide_mls);
   const hasZillow3dLink = Boolean(tourLinks.zillow_3d);
-  const showVideoLinksSection = Boolean(isAdmin || hasPublicVideoLinks);
+  const showVideoLinksSection = Boolean(isAdmin || isClientView || hasPublicVideoLinks);
   const showVideoEmbedSection = Boolean(isAdmin);
   const showTourSettings = !isClientView;
   const showPropertyInfo = Boolean(isAdmin || isClientView);
