@@ -85,7 +85,7 @@ export function ShootDetailsTourTab({
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     links: true,
     settings: false,
-    property: false,
+    property: Boolean(isClient && !isAdmin),
   });
   const [qrCodeDialog, setQrCodeDialog] = useState<{ open: boolean; type: string; url: string }>({
     open: false,
@@ -136,11 +136,21 @@ export function ShootDetailsTourTab({
   const [propertyStatus, setPropertyStatus] = useState<string>('available');
   const [isSavingListingType, setIsSavingListingType] = useState(false);
   const [isSavingPropertyStatus, setIsSavingPropertyStatus] = useState(false);
+  const [isSavingPropertyDetails, setIsSavingPropertyDetails] = useState(false);
   
   const isClientView = Boolean(isClient && !isAdmin);
   const canEditPropertyInfo = Boolean(isAdmin || isClientView);
   const sourceTourLinks = ((shoot as any)?.tourLinks || (shoot as any)?.tour_links || {}) as Record<string, any>;
   const sourcePropertyDetails = ((shoot as any)?.propertyDetails || (shoot as any)?.property_details || {}) as Record<string, any>;
+
+  useEffect(() => {
+    if (isClientView) {
+      setOpenSections((prev) => ({
+        ...prev,
+        property: true,
+      }));
+    }
+  }, [isClientView]);
 
   useEffect(() => {
     // Initialize tour links from shoot data
@@ -938,26 +948,46 @@ export function ShootDetailsTourTab({
     }
   };
 
-  const savePropertyNumericField = async (
-    field: 'bedrooms' | 'bathrooms' | 'sqft',
-    value: string,
-    parser: (input: string) => number,
-  ) => {
+  const savePropertyDetails = async () => {
     if (!canEditPropertyInfo) return;
 
-    const trimmed = value.trim();
-    const parsedValue = trimmed === '' ? null : parser(trimmed);
+    const trimmedBedrooms = propertyBedrooms.trim();
+    const trimmedBathrooms = propertyBathrooms.trim();
+    const trimmedSqft = propertySqft.trim();
 
-    if (trimmed !== '' && (Number.isNaN(parsedValue) || parsedValue === null)) {
+    const parsedBedrooms = trimmedBedrooms === '' ? null : parseInt(trimmedBedrooms, 10);
+    const parsedBathrooms = trimmedBathrooms === '' ? null : parseFloat(trimmedBathrooms);
+    const parsedSqft = trimmedSqft === '' ? null : parseInt(trimmedSqft, 10);
+
+    if (trimmedBedrooms !== '' && (parsedBedrooms === null || Number.isNaN(parsedBedrooms))) {
       toast({
         title: 'Invalid value',
-        description: `Please enter a valid ${field}.`,
+        description: 'Please enter a valid bedrooms value.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (trimmedBathrooms !== '' && (parsedBathrooms === null || Number.isNaN(parsedBathrooms))) {
+      toast({
+        title: 'Invalid value',
+        description: 'Please enter a valid bathrooms value.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (trimmedSqft !== '' && (parsedSqft === null || Number.isNaN(parsedSqft))) {
+      toast({
+        title: 'Invalid value',
+        description: 'Please enter a valid square feet value.',
         variant: 'destructive',
       });
       return;
     }
 
     try {
+      setIsSavingPropertyDetails(true);
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
         method: 'PATCH',
@@ -967,7 +997,9 @@ export function ShootDetailsTourTab({
           'Accept': 'application/json',
         },
         body: JSON.stringify({
-          [field]: parsedValue,
+          bedrooms: parsedBedrooms,
+          bathrooms: parsedBathrooms,
+          sqft: parsedSqft,
         }),
       });
 
@@ -976,6 +1008,15 @@ export function ShootDetailsTourTab({
         throw new Error(errorData.message || 'Failed to save');
       }
 
+      setPropertyBedrooms(parsedBedrooms === null ? '' : String(parsedBedrooms));
+      setPropertyBathrooms(parsedBathrooms === null ? '' : String(parsedBathrooms));
+      setPropertySqft(parsedSqft === null ? '' : String(parsedSqft));
+
+      toast({
+        title: 'Saved',
+        description: 'Property details updated successfully.',
+      });
+
       onShootUpdate();
     } catch (err: any) {
       toast({
@@ -983,6 +1024,8 @@ export function ShootDetailsTourTab({
         description: err?.message || 'Failed to save property info.',
         variant: 'destructive',
       });
+    } finally {
+      setIsSavingPropertyDetails(false);
     }
   };
 
@@ -1827,9 +1870,6 @@ export function ShootDetailsTourTab({
                     <Input
                       value={propertyBedrooms}
                       onChange={(e) => setPropertyBedrooms(e.target.value)}
-                      onBlur={() => {
-                        void savePropertyNumericField('bedrooms', propertyBedrooms, (input) => parseInt(input, 10));
-                      }}
                       placeholder="Bedrooms"
                       disabled={!canEditPropertyInfo}
                       inputMode="numeric"
@@ -1841,9 +1881,6 @@ export function ShootDetailsTourTab({
                     <Input
                       value={propertyBathrooms}
                       onChange={(e) => setPropertyBathrooms(e.target.value)}
-                      onBlur={() => {
-                        void savePropertyNumericField('bathrooms', propertyBathrooms, (input) => parseFloat(input));
-                      }}
                       placeholder="Bathrooms"
                       disabled={!canEditPropertyInfo}
                       inputMode="decimal"
@@ -1855,15 +1892,35 @@ export function ShootDetailsTourTab({
                     <Input
                       value={propertySqft}
                       onChange={(e) => setPropertySqft(e.target.value)}
-                      onBlur={() => {
-                        void savePropertyNumericField('sqft', propertySqft, (input) => parseInt(input, 10));
-                      }}
                       placeholder="Square feet"
                       disabled={!canEditPropertyInfo}
                       inputMode="numeric"
                     />
                   </div>
                 </div>
+
+                {canEditPropertyInfo && (
+                  <div className="flex justify-end">
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => void savePropertyDetails()}
+                      disabled={isSavingPropertyDetails}
+                    >
+                      {isSavingPropertyDetails ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="mr-2 h-4 w-4" />
+                          Save Property Details
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
 
                 {/* Description with AI Generate */}
                 <div className="space-y-2">

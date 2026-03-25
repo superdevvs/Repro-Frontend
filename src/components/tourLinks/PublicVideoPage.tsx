@@ -153,7 +153,7 @@ export function PublicVideoPage({ variant }: PublicVideoPageProps) {
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.18),_transparent_45%),linear-gradient(180deg,_#0b1024,_#02040d)]" />
         )}
 
-        <div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-8 sm:px-6 lg:px-10">
+        <div className="relative z-10 flex min-h-screen items-center justify-center px-[10px] py-[10px]">
           <div className="w-full max-w-7xl">
             {sourceUrl ? (
               <div className="overflow-hidden rounded-[28px] bg-black/20 shadow-2xl">
