@@ -9,17 +9,240 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PhoneInput } from '@/components/ui/phone-input';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
   Form,
   FormControl,
   FormField,
   FormItem,
-  FormLabel,
   FormMessage,
 } from '@/components/ui/form';
 import { toast } from '@/components/ui/use-toast';
 import type { UserData } from '@/types/auth';
 import { API_BASE_URL } from '@/config/env';
 import { useIsMobile } from '@/hooks/use-mobile';
+
+const termsSections = [
+  {
+    title: 'R/E Pro Photos – Client Terms & Conditions (With SMS Consent)',
+    effectiveDate: '[Insert Date]',
+    intro:
+      'By booking, scheduling, or using the R/E Pro Photos platform (“Platform”), you agree to the following Terms & Conditions.',
+    sections: [
+      {
+        heading: '1. Definitions',
+        bullets: [
+          '“Company” refers to R/E Pro Photos, LLC',
+          '“Client” or “You” refers to the individual, agent, brokerage, or entity booking services',
+          '“Property” refers to the real estate listed in your booking',
+          '“Work” refers to all media produced, including photos, videos, 3D tours, floor plans, and derivative content',
+          'You confirm you are authorized to book services and bind the property owner where applicable.',
+        ],
+      },
+      {
+        heading: '2. Payment Terms',
+        bullets: [
+          'Payment is due at the time of booking, unless otherwise agreed.',
+          'Services and deliverables may be withheld until full payment is received.',
+          'Usage rights are granted only after full payment.',
+          'Unpaid shoots may display watermarked media.',
+        ],
+      },
+      {
+        heading: '3. Scheduling, Changes & Cancellations',
+        bullets: [
+          'Changes or cancellations made 24 or more hours prior incur no fee.',
+          'Less than 24 hours may result in a cancellation or rescheduling fee.',
+          'Property must be camera-ready at the scheduled time.',
+          'R/E Pro Photos may reschedule if the property is not ready or accessible.',
+          'R/E Pro Photos may cancel and charge a service fee if conditions prevent completion.',
+        ],
+      },
+      {
+        heading: '4. Ownership & Copyright',
+        bullets: [
+          'All Work remains the exclusive intellectual property of R/E Pro Photos.',
+          'The Company retains full copyright ownership.',
+          'The Company retains rights to reproduce, distribute, and license content.',
+          'The Company retains rights to use Work for marketing, portfolio, and promotional purposes.',
+          'No ownership rights transfer to the Client.',
+        ],
+      },
+      {
+        heading: '5. Usage License (Client)',
+        paragraphs: ['Upon full payment, you receive a non-exclusive, non-transferable, limited license to use the Work for marketing the Property, promoting your real estate business, and MLS and listing platforms.'],
+        bullets: [
+          'No resale, sublicensing, or redistribution.',
+          'No AI training or derivative commercial usage.',
+          'License ends when the listing is no longer active.',
+        ],
+      },
+      {
+        heading: '6. SMS Consent & Communications (Twilio-Compliant)',
+        paragraphs: ['By providing your phone number through the Platform, including booking forms, account registration, or direct input, you expressly consent to receive SMS or text messages from R/E Pro Photos.'],
+        subSections: [
+          {
+            title: 'Types of Messages You May Receive',
+            bullets: [
+              'Booking confirmations',
+              'Appointment reminders',
+              'Shoot status updates',
+              'Delivery notifications',
+              'Payment alerts',
+              'Account and security notifications',
+              'Customer support responses',
+            ],
+          },
+          {
+            title: 'Message Frequency',
+            paragraphs: ['Varies depending on your activity, typically 1 to 10 messages per booking lifecycle.'],
+          },
+          {
+            title: 'Message & Data Rates',
+            paragraphs: ['Standard carrier message and data rates may apply.'],
+          },
+          {
+            title: 'Opt-Out Instructions',
+            bullets: ['Reply STOP to unsubscribe from SMS.', 'Reply HELP to receive assistance.'],
+          },
+          {
+            title: 'Important Disclosures',
+            bullets: [
+              'SMS consent is not a condition of purchase.',
+              'Your phone number will not be sold or shared with third parties for marketing.',
+              'Messages are strictly service-related unless separately opted into marketing.',
+            ],
+          },
+        ],
+      },
+      {
+        heading: '7. How SMS Consent is Collected',
+        paragraphs: ['Consent is obtained through explicit user action, including booking forms, account registration, and dashboard inputs.', 'Users must agree via checkbox or similar action confirming the following statement:'],
+        quote:
+          'I agree to receive SMS notifications from R/E Pro Photos regarding my bookings, appointments, and account updates. Message and data rates may apply. Reply STOP to unsubscribe.',
+        bullets: ['Consent is logged with timestamp and user details.'],
+      },
+      {
+        heading: '8. Releases & Permissions',
+        bullets: [
+          'You have authority to photograph the Property.',
+          'All necessary permissions from owners, tenants, and occupants are obtained.',
+          'No unauthorized copyrighted or restricted materials are included.',
+          'You agree to indemnify R/E Pro Photos from related claims.',
+        ],
+      },
+      {
+        heading: '9. Limitation of Liability',
+        bullets: [
+          'R/E Pro Photos is not liable for weather conditions.',
+          'R/E Pro Photos is not liable for property readiness issues.',
+          'R/E Pro Photos is not liable for access limitations.',
+          'R/E Pro Photos is not liable for minor editing variations.',
+          'R/E Pro Photos is not liable for third-party platform compression.',
+          'Maximum liability is limited to the amount paid for the service.',
+        ],
+      },
+      {
+        heading: '10. Indemnification',
+        bullets: [
+          'You agree to indemnify and hold harmless R/E Pro Photos and its team from claims arising from breach of these Terms.',
+          'You agree to indemnify and hold harmless R/E Pro Photos and its team from misuse of content.',
+          'You agree to indemnify and hold harmless R/E Pro Photos and its team from failure to obtain proper permissions.',
+          'You agree to indemnify and hold harmless R/E Pro Photos and its team from negligent or intentional actions.',
+        ],
+      },
+      {
+        heading: '11. Platform Usage',
+        bullets: [
+          'You agree to provide accurate information.',
+          'You are responsible for account security.',
+          'Misuse may result in suspension or termination.',
+        ],
+      },
+      {
+        heading: '12. Modifications',
+        paragraphs: ['R/E Pro Photos may update these Terms at any time. Continued use of the Platform constitutes acceptance of updated Terms.'],
+      },
+      {
+        heading: '13. Governing Law',
+        paragraphs: ['These Terms are governed by the laws of the State of Maryland.'],
+      },
+      {
+        heading: '14. Email Communications',
+        bullets: [
+          'Transactional emails',
+          'Service updates',
+          'Optional marketing communications with opt-out available',
+        ],
+      },
+    ],
+  },
+  {
+    title: 'R/E Pro Photos – Photographer Agreement (With SMS Consent)',
+    sections: [
+      {
+        heading: '1. Independent Contractor Status',
+        paragraphs: ['Photographer is an independent contractor and responsible for taxes, equipment, insurance, and compliance with applicable laws.'],
+      },
+      {
+        heading: '2. Assignment Acceptance',
+        bullets: [
+          'Assignments are accepted via the Platform.',
+          'Accepted shoots must be completed as scheduled.',
+          'Unjustified cancellations may impact platform access.',
+        ],
+      },
+      {
+        heading: '3. Professional Standards',
+        bullets: [
+          'Be punctual and professional.',
+          'Follow company quality standards.',
+          'Deliver work within required timelines.',
+        ],
+      },
+      {
+        heading: '4. Ownership of Work',
+        bullets: [
+          'All Work is a work made for hire.',
+          'All Work is fully owned by R/E Pro Photos.',
+          'Photographers may not sell or reuse content.',
+          'Photographers may not share RAW files.',
+          'Photographers may not deliver directly to clients.',
+        ],
+      },
+      {
+        heading: '5. SMS Consent (Photographers)',
+        paragraphs: ['By using the Platform, you consent to receive SMS messages related to job assignments, scheduling updates, urgent notifications, and reminders.'],
+        bullets: ['Reply STOP to unsubscribe.', 'Reply HELP for assistance.', 'Opting out may limit your ability to receive real-time assignments.'],
+      },
+      {
+        heading: '6. Payment',
+        paragraphs: ['Payment is issued per agreed terms. Company may withhold payment for incomplete or substandard work.'],
+      },
+      {
+        heading: '7. Confidentiality',
+        paragraphs: ['You agree to keep all company and client information confidential.'],
+      },
+      {
+        heading: '8. Liability',
+        paragraphs: ['Photographer is responsible for damages, injuries, and maintaining appropriate insurance.'],
+      },
+      {
+        heading: '9. Platform Access',
+        paragraphs: ['Access may be suspended or terminated for performance or policy violations.'],
+      },
+      {
+        heading: '10. Governing Law',
+        paragraphs: ['Governed by the laws of Maryland.'],
+      },
+    ],
+  },
+] as const;
 
 const registerSchema = z
   .object({
@@ -55,6 +278,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [termsOpen, setTermsOpen] = useState(false);
   const isMobile = useIsMobile();
 
   const mobileInputClass =
@@ -346,25 +570,121 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
           name="terms"
           render={({ field }) => (
             <FormItem>
-              <div className="flex items-center gap-2 pt-2">
+              <div className="flex items-start gap-2 pt-2">
                 <input
                   id="terms"
                   type="checkbox"
                   checked={field.value ?? false}
                   onChange={(e) => field.onChange(e.target.checked)}
-                  className={`h-4 w-4 rounded border ${isMobile ? 'border-white/30 bg-slate-900/60' : 'border-border dark:border-white/30 dark:bg-transparent'}`}
+                  className={`mt-0.5 h-4 w-4 rounded border ${isMobile ? 'border-white/30 bg-slate-900/60' : 'border-border dark:border-white/30 dark:bg-transparent'}`}
                 />
-                <label
-                  htmlFor="terms"
-                  className={`text-sm select-none ${isMobile ? 'text-slate-300' : 'text-muted-foreground dark:text-slate-300'}`}
-                >
-                  I agree to the Terms
-                </label>
+                <div className={`text-sm leading-6 ${isMobile ? 'text-slate-300' : 'text-muted-foreground dark:text-slate-300'}`}>
+                  <label htmlFor="terms" className="select-none">
+                    I agree to the{' '}
+                  </label>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setTermsOpen(true);
+                    }}
+                    className={`font-medium underline underline-offset-4 transition-colors ${isMobile ? 'text-cyan-300 hover:text-cyan-200' : 'text-primary dark:text-cyan-400 dark:hover:text-cyan-300'}`}
+                  >
+                    Terms and Conditions
+                  </button>
+                </div>
               </div>
               <FormMessage />
             </FormItem>
           )}
         />
+
+        <Dialog open={termsOpen} onOpenChange={setTermsOpen}>
+          <DialogContent className={`border-white/10 bg-[#060a0e] text-white ${isMobile ? 'w-[calc(100vw-1rem)] max-w-none rounded-2xl p-4' : 'max-w-3xl p-6'} max-h-[85vh]`}>
+            <DialogHeader className="space-y-2 pr-8">
+              <DialogTitle className="text-left text-xl font-semibold text-white">
+                Terms and Conditions
+              </DialogTitle>
+              <DialogDescription className="text-left text-sm text-slate-400">
+                Please review the full terms below. You can scroll through the content before continuing with registration.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="overflow-y-auto pr-2 max-h-[calc(85vh-7rem)] space-y-8 text-sm leading-6 text-slate-200">
+              {termsSections.map((document) => (
+                <section key={document.title} className="space-y-4">
+                  <div className="space-y-2 border-b border-white/10 pb-4">
+                    <h2 className="text-lg font-semibold text-white">{document.title}</h2>
+                    {'effectiveDate' in document ? (
+                      <p className="text-sm text-slate-400">Effective Date: {document.effectiveDate}</p>
+                    ) : null}
+                    {'intro' in document ? <p>{document.intro}</p> : null}
+                  </div>
+
+                  <div className="space-y-6">
+                    {document.sections.map((section) => (
+                      <div key={section.heading} className="space-y-3">
+                        <h3 className="text-base font-semibold text-white">{section.heading}</h3>
+
+                        {section.paragraphs?.map((paragraph) => (
+                          <p key={paragraph}>{paragraph}</p>
+                        ))}
+
+                        {section.quote ? (
+                          <blockquote className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 italic text-slate-200">
+                            {section.quote}
+                          </blockquote>
+                        ) : null}
+
+                        {section.bullets?.length ? (
+                          <ul className="space-y-2 pl-5">
+                            {section.bullets.map((bullet) => (
+                              <li key={bullet} className="list-disc">
+                                {bullet}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : null}
+
+                        {section.subSections?.length ? (
+                          <div className="space-y-4">
+                            {section.subSections.map((subSection) => (
+                              <div key={subSection.title} className="space-y-2">
+                                <h4 className="font-medium text-white">{subSection.title}</h4>
+
+                                {subSection.paragraphs?.map((paragraph) => (
+                                  <p key={paragraph}>{paragraph}</p>
+                                ))}
+
+                                {subSection.bullets?.length ? (
+                                  <ul className="space-y-2 pl-5">
+                                    {subSection.bullets.map((bullet) => (
+                                      <li key={bullet} className="list-disc">
+                                        {bullet}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                ) : null}
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+
+            <Button
+              type="button"
+              onClick={() => setTermsOpen(false)}
+              className="w-full rounded-full bg-gradient-to-r from-blue-500 to-cyan-400 text-white hover:opacity-90"
+            >
+              Close
+            </Button>
+          </DialogContent>
+        </Dialog>
 
         <Button
           type="submit"

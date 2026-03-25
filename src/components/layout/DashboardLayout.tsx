@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Outlet } from 'react-router-dom';
+import { Link, Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Navbar } from './Navbar';
 import { PageTransition } from './PageTransition';
@@ -54,7 +54,14 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
               {children || <Outlet />}
             </PageTransition>
             <footer className="border-t border-border/40 mt-8 py-4 text-center text-[11px] text-muted-foreground">
-              © {new Date().getFullYear()} R/E Pro Photos · Terms of Use · Privacy Policy
+              © {new Date().getFullYear()} R/E Pro Photos ·{' '}
+              <Link
+                to="/terms-and-conditions"
+                className="transition-colors hover:text-foreground"
+              >
+                Terms and Conditions
+              </Link>{' '}
+              · Privacy Policy
             </footer>
           </main>
         </ErrorBoundary>

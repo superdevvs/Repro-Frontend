@@ -64,6 +64,7 @@ const GenericMLS = lazy(() => import('@/components/tourLinks/GenericMLS').then(m
 const CubiCasaScanning = lazy(() => import('./pages/CubiCasaScanning'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const PaymentPage = lazy(() => import('./pages/PaymentPage'));
+const TermsAndConditions = lazy(() => import('./pages/TermsAndConditions'));
 
 // Messaging pages
 const MessagingOverview = lazy(() => import('./pages/messaging/MessagingOverview'));
@@ -314,6 +315,11 @@ const AppRoutes = () => {
       <Route path="/payment/:id" element={
         <PageTransition>
           <PaymentPage />
+        </PageTransition>
+      } />
+      <Route path="/terms-and-conditions" element={
+        <PageTransition>
+          <TermsAndConditions />
         </PageTransition>
       } />
        <Route path="/tours/branded" element={
