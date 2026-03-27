@@ -48,9 +48,17 @@ interface ShootsTabsCardProps {
   onModify?: (shoot: DashboardShootSummary) => void;
   onViewInvoice?: (shoot: DashboardShootSummary) => void;
   role?: string;
+  mode?: 'default' | 'editing_manager';
+  customTabs?: Array<{
+    id: string;
+    label: string;
+    shoots: DashboardShootSummary[];
+    emptyStateText?: string;
+  }>;
+  title?: string;
 }
 
-type TabType = 'upcoming' | 'requested';
+type TabType = string;
 
 const STATUS_COLORS: Record<string, string> = {
   // Main statuses with distinct colors
@@ -255,10 +263,16 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
   onModify,
   onViewInvoice,
   role,
+  mode = 'default',
+  customTabs = [],
+  title = 'Shoots',
 }) => {
   const isPhotographerRole = role === 'photographer';
+  const isEditingManagerMode = mode === 'editing_manager' && customTabs.length > 0;
   const { formatTemperature, formatTime, formatDate } = useUserPreferences();
-  const [activeTab, setActiveTab] = useState<TabType>('upcoming');
+  const [activeTab, setActiveTab] = useState<TabType>(() =>
+    isEditingManagerMode ? customTabs[0]?.id || 'upcoming' : 'upcoming'
+  );
   const [hasUnreadRequests, setHasUnreadRequests] = useState(requestedShoots.length > 0);
   const [filters, setFilters] = useState<FiltersState>(defaultFilters);
   const [draftFilters, setDraftFilters] = useState<FiltersState>(defaultFilters);
@@ -274,6 +288,13 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
   const SHOOTS_PER_PAGE = 5;
   const [visibleCount, setVisibleCount] = useState(SHOOTS_PER_PAGE);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isEditingManagerMode) return;
+    if (!customTabs.some((tab) => tab.id === activeTab)) {
+      setActiveTab(customTabs[0]?.id || 'upcoming');
+    }
+  }, [activeTab, customTabs, isEditingManagerMode]);
 
   // Separate past and current requests
   const { pastRequests, currentRequests, hasPastRequests } = useMemo(() => {
@@ -304,7 +325,12 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
     };
   }, []);
 
-  const allShoots = useMemo(() => [...upcomingShoots, ...requestedShoots], [upcomingShoots, requestedShoots]);
+  const allShoots = useMemo(() => {
+    if (isEditingManagerMode) {
+      return customTabs.flatMap((tab) => tab.shoots);
+    }
+    return [...upcomingShoots, ...requestedShoots];
+  }, [customTabs, isEditingManagerMode, upcomingShoots, requestedShoots]);
 
   const clientOptions = useMemo(
     () => ['all', ...new Set(allShoots.map((shoot) => shoot.clientName).filter(Boolean) as string[])],
@@ -537,6 +563,26 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
     return Object.entries(groups).map(([label, shoots]) => ({ label, shoots }));
   }, [filteredRequestedShoots]);
 
+  const editingManagerTabs = useMemo(
+    () => (isEditingManagerMode ? customTabs : []),
+    [customTabs, isEditingManagerMode],
+  );
+
+  const activeEditingManagerTab = useMemo(
+    () => editingManagerTabs.find((tab) => tab.id === activeTab) ?? editingManagerTabs[0],
+    [activeTab, editingManagerTabs],
+  );
+
+  const filteredEditingManagerShoots = useMemo(
+    () => filterShoots(activeEditingManagerTab?.shoots ?? []),
+    [activeEditingManagerTab, filterShoots],
+  );
+
+  const { groups: editingManagerGroups, hasPastDays: editingManagerHasPastDays } = useMemo(
+    () => groupShootsByDay(filteredEditingManagerShoots),
+    [filteredEditingManagerShoots, groupShootsByDay],
+  );
+
   // Pagination for upcoming shoots
   const { paginatedGroups, totalShootsCount, hasMore } = useMemo(() => {
     const allShoots = upcomingGroups.flatMap(g => g.shoots);
@@ -565,6 +611,31 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
       hasMore: hasMoreShoots,
     };
   }, [upcomingGroups, visibleCount]);
+
+  const {
+    paginatedGroups: editingManagerPaginatedGroups,
+    hasMore: editingManagerHasMore,
+  } = useMemo(() => {
+    const total = editingManagerGroups.flatMap((group) => group.shoots).length;
+    const hasMoreShoots = visibleCount < total;
+    let shootsRemaining = visibleCount;
+    const paginated: typeof editingManagerGroups = [];
+
+    for (const group of editingManagerGroups) {
+      if (shootsRemaining <= 0) break;
+      const shootsToShow = group.shoots.slice(0, shootsRemaining);
+      if (shootsToShow.length > 0) {
+        paginated.push({ ...group, shoots: shootsToShow });
+        shootsRemaining -= shootsToShow.length;
+      }
+    }
+
+    return {
+      paginatedGroups: paginated,
+      totalShootsCount: total,
+      hasMore: hasMoreShoots,
+    };
+  }, [editingManagerGroups, visibleCount]);
 
   useEffect(() => {
     setVisibleCount(SHOOTS_PER_PAGE);
@@ -999,6 +1070,422 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
       setHasUnreadRequests(false);
     }
   }, [activeTab, hasUnreadRequests]);
+
+  if (isEditingManagerMode) {
+    return (
+      <Card className="flex flex-col h-full flex-1 relative">
+        <button
+          onClick={() => setIsMenuOpen((prev) => !prev)}
+          className="sm:hidden absolute top-3 right-3 z-10 h-8 w-8 flex items-center justify-center rounded-full hover:bg-muted/60 transition-colors text-muted-foreground"
+          aria-label="Toggle menu"
+        >
+          {isMenuOpen ? <ChevronsDown size={16} /> : <MoreVertical size={16} />}
+        </button>
+
+        <div className="flex flex-wrap items-center justify-between mb-2 gap-3 pr-10 sm:pr-0">
+          <div className="flex items-center gap-4">
+            <h2 className="hidden sm:block text-lg font-bold text-foreground">{title}</h2>
+            <div className="flex items-center gap-1 border-b border-transparent pl-1 sm:pl-0">
+              {editingManagerTabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={cn(
+                    'px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium transition-all border-b-2 whitespace-nowrap',
+                    activeTab === tab.id
+                      ? 'text-foreground border-primary'
+                      : 'text-muted-foreground border-transparent hover:text-foreground'
+                  )}
+                >
+                  {tab.label} ({tab.shoots.length})
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="hidden sm:flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs rounded-full border-dashed"
+              onClick={() => setShowPastDays((prev) => !prev)}
+              disabled={!editingManagerHasPastDays}
+            >
+              {editingManagerHasPastDays ? (showPastDays ? 'Hide past' : 'Previous shoots') : 'Previous shoots'}
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="rounded-full bg-slate-900 text-white hover:bg-slate-800 border border-slate-900"
+              onClick={() => {
+                setDraftFilters(filters);
+                setIsFilterOpen(true);
+              }}
+            >
+              <Filter size={14} className="mr-1.5" />
+              Filters {activeFilterCount > 0 && `(${activeFilterCount})`}
+            </Button>
+          </div>
+        </div>
+
+        {isMenuOpen && (
+          <div className="sm:hidden flex items-center gap-2 mb-3 -mt-1">
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs rounded-full border-dashed"
+              onClick={() => setShowPastDays((prev) => !prev)}
+              disabled={!editingManagerHasPastDays}
+            >
+              {editingManagerHasPastDays ? (showPastDays ? 'Hide past' : 'Previous shoots') : 'Previous shoots'}
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="rounded-full bg-slate-900 text-white hover:bg-slate-800 border border-slate-900"
+              onClick={() => {
+                setDraftFilters(filters);
+                setIsFilterOpen(true);
+              }}
+            >
+              <Filter size={14} className="mr-1.5" />
+              Filters {activeFilterCount > 0 && `(${activeFilterCount})`}
+            </Button>
+          </div>
+        )}
+
+        <Dialog
+          open={isFilterOpen}
+          onOpenChange={(open) => {
+            setIsFilterOpen(open);
+            if (!open) setDraftFilters(filters);
+          }}
+        >
+          <DialogContent className="max-w-3xl w-[calc(100vw-2rem)] sm:w-full max-h-[85vh] sm:max-h-[80vh] overflow-y-auto">
+            <DialogHeader className="mb-2">
+              <DialogTitle className="text-base sm:text-lg">Filter shoots</DialogTitle>
+              <p className="text-xs sm:text-sm text-muted-foreground">
+                Narrow the list by status, assignments, services, and priority.
+              </p>
+            </DialogHeader>
+
+            <div className="space-y-4 sm:space-y-6">
+              <section>
+                <p className="text-xs font-semibold text-muted-foreground mb-2">Status</p>
+                <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                  {STATUS_FILTERS.map((status) => {
+                    const active = draftFilters.statuses.includes(status.value);
+                    return (
+                      <button
+                        key={status.value}
+                        onClick={() =>
+                          setDraftFilters((prev) => ({
+                            ...prev,
+                            statuses: active
+                              ? prev.statuses.filter((s) => s !== status.value)
+                              : [...prev.statuses, status.value],
+                          }))
+                        }
+                        className={cn(
+                          'px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors',
+                          active
+                            ? 'bg-primary/10 border-primary/40 text-primary'
+                            : 'border-border text-muted-foreground',
+                        )}
+                      >
+                        {status.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+
+              <section className="grid grid-cols-1 gap-3 sm:gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground mb-1">Client</p>
+                    <Select
+                      value={draftFilters.client}
+                      onValueChange={(value) =>
+                        setDraftFilters((prev) => ({ ...prev, client: value }))
+                      }
+                    >
+                      <SelectTrigger className="rounded-xl border-border bg-muted/40">
+                        <SelectValue placeholder="All clients" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {clientOptions.map((client) => (
+                          <SelectItem key={client} value={client}>
+                            {client === 'all' ? 'All clients' : client}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground mb-1">Search address, zip</p>
+                    <Input
+                      value={draftFilters.address}
+                      onChange={(event) =>
+                        setDraftFilters((prev) => ({ ...prev, address: event.target.value }))
+                      }
+                      placeholder="City, street, zip"
+                      className="rounded-xl border-border bg-muted/40"
+                    />
+                  </div>
+                </div>
+              </section>
+
+              <section>
+                <p className="text-xs font-semibold text-muted-foreground mb-2">Photographer</p>
+                <div className="rounded-2xl border border-border/60 bg-muted/30">
+                  <ScrollArea className="max-h-64">
+                    <div className="p-3 space-y-2">
+                      {photographerOptions.map((photographer) => {
+                        const checked = draftFilters.photographerIds.includes(photographer.id);
+                        return (
+                          <label
+                            key={photographer.id}
+                            className="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-background/60"
+                          >
+                            <Checkbox
+                              checked={checked}
+                              onCheckedChange={(value) =>
+                                setDraftFilters((prev) => ({
+                                  ...prev,
+                                  photographerIds: value
+                                    ? [...prev.photographerIds, photographer.id]
+                                    : prev.photographerIds.filter((id) => id !== photographer.id),
+                                }))
+                              }
+                            />
+                            <Avatar
+                              src={photographer.avatar}
+                              initials={photographer.name[0]}
+                              className="w-8 h-8 rounded-full"
+                            />
+                            <span className="text-sm font-medium">{photographer.name}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </ScrollArea>
+                  <label className="flex items-center gap-2 px-4 py-3 border-t border-border/60 text-sm text-muted-foreground">
+                    <Checkbox
+                      checked={draftFilters.unassignedOnly}
+                      onCheckedChange={(value) =>
+                        setDraftFilters((prev) => ({ ...prev, unassignedOnly: Boolean(value) }))
+                      }
+                    />
+                    Unassigned only
+                  </label>
+                </div>
+              </section>
+
+              <section>
+                <p className="text-xs font-semibold text-muted-foreground mb-2">Services</p>
+                <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                  {serviceOptions.map((serviceKey) => {
+                    const active = draftFilters.services.includes(serviceKey);
+                    const label = SERVICE_LABELS[serviceKey] || serviceKey.replace(/_/g, ' ');
+                    return (
+                      <button
+                        key={serviceKey}
+                        className={cn(
+                          'px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors',
+                          active
+                            ? 'bg-primary/10 border-primary/40 text-primary'
+                            : 'border-border text-muted-foreground',
+                        )}
+                        onClick={() =>
+                          setDraftFilters((prev) => ({
+                            ...prev,
+                            services: active
+                              ? prev.services.filter((s) => s !== serviceKey)
+                              : [...prev.services, serviceKey],
+                          }))
+                        }
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                  {serviceOptions.length === 0 && (
+                    <span className="text-sm text-muted-foreground">No services detected</span>
+                  )}
+                </div>
+              </section>
+
+              <section>
+                <p className="text-xs font-semibold text-muted-foreground mb-2">Date range</p>
+                <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                  {DATE_RANGE_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      className={cn(
+                        'px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors',
+                        draftFilters.dateRange === option.value
+                          ? 'bg-primary/10 border-primary/40 text-primary'
+                          : 'border-border text-muted-foreground',
+                      )}
+                      onClick={() =>
+                        setDraftFilters((prev) => ({
+                          ...prev,
+                          dateRange: prev.dateRange === option.value ? null : option.value,
+                        }))
+                      }
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+                {draftFilters.dateRange === 'custom' && (
+                  <div className="mt-4 grid grid-cols-2 gap-3">
+                    <Input
+                      type="date"
+                      value={draftFilters.customRange.from}
+                      onChange={(event) =>
+                        setDraftFilters((prev) => ({
+                          ...prev,
+                          customRange: { ...prev.customRange, from: event.target.value },
+                        }))
+                      }
+                    />
+                    <Input
+                      type="date"
+                      value={draftFilters.customRange.to}
+                      onChange={(event) =>
+                        setDraftFilters((prev) => ({
+                          ...prev,
+                          customRange: { ...prev.customRange, to: event.target.value },
+                        }))
+                      }
+                    />
+                  </div>
+                )}
+              </section>
+
+              <section>
+                <p className="text-xs font-semibold text-muted-foreground mb-2">Priority & flags</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+                  <label className="flex items-center gap-2 text-sm text-foreground">
+                    <Checkbox
+                      checked={draftFilters.flaggedOnly}
+                      onCheckedChange={(value) =>
+                        setDraftFilters((prev) => ({ ...prev, flaggedOnly: Boolean(value) }))
+                      }
+                    />
+                    Only flagged
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-foreground">
+                    <Checkbox
+                      checked={draftFilters.priority.highPriority}
+                      onCheckedChange={(value) =>
+                        setDraftFilters((prev) => ({
+                          ...prev,
+                          priority: { ...prev.priority, highPriority: Boolean(value) },
+                        }))
+                      }
+                    />
+                    High priority
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-foreground">
+                    <Checkbox
+                      checked={draftFilters.priority.missingRaw}
+                      onCheckedChange={(value) =>
+                        setDraftFilters((prev) => ({
+                          ...prev,
+                          priority: { ...prev.priority, missingRaw: Boolean(value) },
+                        }))
+                      }
+                    />
+                    Missing RAW
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-foreground">
+                    <Checkbox
+                      checked={draftFilters.priority.missingEditor}
+                      onCheckedChange={(value) =>
+                        setDraftFilters((prev) => ({
+                          ...prev,
+                          priority: { ...prev.priority, missingEditor: Boolean(value) },
+                        }))
+                      }
+                    />
+                    Missing editor
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-foreground">
+                    <Checkbox
+                      checked={draftFilters.priority.overdue}
+                      onCheckedChange={(value) =>
+                        setDraftFilters((prev) => ({
+                          ...prev,
+                          priority: { ...prev.priority, overdue: Boolean(value) },
+                        }))
+                      }
+                    />
+                    Overdue
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-foreground">
+                    <Checkbox
+                      checked={draftFilters.priority.unpaid}
+                      onCheckedChange={(value) =>
+                        setDraftFilters((prev) => ({
+                          ...prev,
+                          priority: { ...prev.priority, unpaid: Boolean(value) },
+                        }))
+                      }
+                    />
+                    Unpaid
+                  </label>
+                </div>
+              </section>
+            </div>
+            <DialogFooter className="flex flex-col sm:flex-row gap-2">
+              <Button variant="ghost" className="flex-1" onClick={cancelFilters}>
+                Cancel
+              </Button>
+              <Button variant="outline" className="flex-1" onClick={resetFilters}>
+                Reset all filters
+              </Button>
+              <Button className="flex-1" onClick={applyFilters}>
+                Apply filters
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <div className="flex-1 flex flex-col">
+          {editingManagerPaginatedGroups.length === 0 ? (
+            <div className="flex-1 w-full min-h-[120px] flex items-center justify-center text-center text-sm text-slate-500">
+              {activeEditingManagerTab?.emptyStateText || 'No shoots found.'}
+            </div>
+          ) : (
+            <div
+              ref={scrollContainerRef}
+              onScroll={handleScroll}
+              className="flex-1 min-h-0 space-y-6 overflow-y-auto hidden-scrollbar pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:pb-0"
+            >
+              {editingManagerPaginatedGroups.map((group) => (
+                <div key={group.label} className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-primary" />
+                    <p className="text-xs font-semibold text-muted-foreground">
+                      {getRelativeGroupLabel(group)}
+                    </p>
+                  </div>
+                  {group.shoots.map((shoot) => renderShootCard(shoot, false))}
+                </div>
+              ))}
+              {editingManagerHasMore && (
+                <div className="flex justify-center py-2 text-xs text-muted-foreground">
+                  Scroll for more
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <Card className="flex flex-col h-full flex-1 relative">

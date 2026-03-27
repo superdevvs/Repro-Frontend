@@ -64,7 +64,7 @@ import { useForm, type FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import AddressLookupField from '@/components/AddressLookupField';
+import AddressLookupField, { buildNormalizedPropertyDetails } from '@/components/AddressLookupField';
 import { normalizeState, STATE_OPTIONS } from '@/utils/stateUtils';
 // add near other imports at top
 import { AccountForm } from '@/components/accounts/AccountForm';
@@ -665,6 +665,41 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
     return null;
   }, [watchedSqft, derivedSqftFromDetails]);
 
+  const clearAddressDerivedState = React.useCallback(
+    ({ keepSearchField = true }: { keepSearchField?: boolean } = {}) => {
+      const resetOptions = {
+        shouldDirty: true,
+        shouldTouch: false,
+        shouldValidate: false,
+      };
+
+      if (!keepSearchField) {
+        form.setValue('propertyAddress', '', resetOptions);
+      }
+
+      form.setValue('aptSuite', '', resetOptions);
+      form.setValue('propertyCity', '', resetOptions);
+      form.setValue('propertyState', '', resetOptions);
+      form.setValue('propertyZip', '', resetOptions);
+      form.setValue('bedRooms' as any, undefined, resetOptions);
+      form.setValue('bathRooms' as any, undefined, resetOptions);
+      form.setValue('sqft' as any, undefined, resetOptions);
+      setCompleteAddress('');
+      setPropertyDetailsData(null);
+      onAddressFieldsChange?.({
+        address: keepSearchField ? form.getValues('propertyAddress') || '' : '',
+        city: '',
+        state: '',
+        zip: '',
+      });
+    },
+    [form, onAddressFieldsChange],
+  );
+
+  const buildLookupPropertyDetails = React.useCallback((address: any) => {
+    return buildNormalizedPropertyDetails(address);
+  }, []);
+
   // Recalculate selected services prices when sqft changes
   React.useEffect(() => {
     if (selectedServices.length === 0) return;
@@ -1261,173 +1296,71 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
           <div className="space-y-4">
             <FormField
               control={form.control}
-              name="propertyType"
+              name="propertyAddress"
               render={({ field }) => (
-                <FormItem className="space-y-2">
-                  <FormLabel className="text-sm font-semibold text-foreground">Property Type</FormLabel>
+                <FormItem>
+                  <FormLabel className="text-sm font-semibold text-foreground">Search Address</FormLabel>
                   <FormControl>
-                    <RadioGroup
-                      onValueChange={field.onChange}
+                    <AddressLookupField
                       value={field.value}
-                      className="grid grid-cols-2 gap-2 sm:gap-3"
-                    >
-                      <div className="relative">
-                        <RadioGroupItem value="residential" id="residential" className="peer sr-only" />
-                        <Label
-                          htmlFor="residential"
-                          className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/20 px-4 py-3 text-sm font-medium transition hover:border-primary/60 hover:bg-primary/5 peer-data-[state=checked]:border-primary/70 peer-data-[state=checked]:bg-primary/10 peer-data-[state=checked]:text-primary"
-                        >
-                          <Home className="h-4 w-4" />
-                          Residential
-                        </Label>
-                      </div>
-                      <div className="relative">
-                        <RadioGroupItem value="commercial" id="commercial" className="peer sr-only" />
-                        <Label
-                          htmlFor="commercial"
-                          className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/20 px-4 py-3 text-sm font-medium transition hover:border-primary/60 hover:bg-primary/5 peer-data-[state=checked]:border-primary/70 peer-data-[state=checked]:bg-primary/10 peer-data-[state=checked]:text-primary"
-                        >
-                          <Building2 className="h-4 w-4" />
-                          Commercial
-                        </Label>
-                      </div>
-                    </RadioGroup>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                      onChange={field.onChange}
+                      onSelectionReset={() => {
+                        clearAddressDerivedState();
+                      }}
+                      onSelectionStarted={() => {
+                        clearAddressDerivedState({ keepSearchField: false });
+                      }}
+                      onAddressSelect={(address) => {
+                        const city = address.city || '';
+                        const normalizedState = normalizeState(address.state) || address.state || '';
+                        const zip = address.zip || '';
 
-            <FormField
-              control={form.control}
-              name={"listingType" as any}
-              render={({ field }) => (
-                <FormItem className="space-y-2">
-                  <FormLabel className="text-sm font-semibold text-foreground">Listing Type</FormLabel>
-                  <FormControl>
-                    <RadioGroup
-                      onValueChange={field.onChange}
-                      value={field.value || ''}
-                      className="grid grid-cols-2 gap-2 sm:gap-3"
-                    >
-                      <div className="relative">
-                        <RadioGroupItem value="for_sale" id="for_sale" className="peer sr-only" />
-                        <Label
-                          htmlFor="for_sale"
-                          className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/20 px-4 py-3 text-sm font-medium transition hover:border-green-500/60 hover:bg-green-500/5 peer-data-[state=checked]:border-green-500/70 peer-data-[state=checked]:bg-green-500/10 peer-data-[state=checked]:text-green-700 dark:peer-data-[state=checked]:text-green-400"
-                        >
-                          <Tag className="h-4 w-4" />
-                          For Sale
-                        </Label>
-                      </div>
-                      <div className="relative">
-                        <RadioGroupItem value="for_rent" id="for_rent" className="peer sr-only" />
-                        <Label
-                          htmlFor="for_rent"
-                          className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/20 px-4 py-3 text-sm font-medium transition hover:border-blue-500/60 hover:bg-blue-500/5 peer-data-[state=checked]:border-blue-500/70 peer-data-[state=checked]:bg-blue-500/10 peer-data-[state=checked]:text-blue-700 dark:peer-data-[state=checked]:text-blue-400"
-                        >
-                          <Tag className="h-4 w-4" />
-                          For Rent
-                        </Label>
-                      </div>
-                    </RadioGroup>
+                        let streetAddress = address.address || address.formatted_address || '';
+                        if (streetAddress && (city || normalizedState || zip)) {
+                          const escRx = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                          if (city) streetAddress = streetAddress.replace(new RegExp(`\\s*,?\\s*\\b${escRx(city)}\\b\\s*,?`, 'gi'), '');
+                          if (normalizedState) streetAddress = streetAddress.replace(new RegExp(`\\s*,?\\s*\\b${escRx(normalizedState)}\\b\\s*,?`, 'gi'), '');
+                          if (address.state && address.state !== normalizedState) {
+                            streetAddress = streetAddress.replace(new RegExp(`\\s*,?\\s*\\b${escRx(address.state)}\\b\\s*,?`, 'gi'), '');
+                          }
+                          if (zip) streetAddress = streetAddress.replace(new RegExp(`\\s*,?\\s*\\b${escRx(zip)}\\b\\s*`, 'gi'), '');
+                          streetAddress = streetAddress.replace(/^[,\s]+|[,\s]+$/g, '').trim();
+                        }
+
+                        const { streetAddress: normalizedStreet, aptSuite } = extractAptSuite(streetAddress);
+                        const resolvedAptSuite = (address.apt_suite || aptSuite || '').trim();
+
+                        form.setValue('propertyAddress', normalizedStreet, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
+                        form.setValue('aptSuite', resolvedAptSuite, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
+                        form.setValue('propertyCity', city, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
+                        form.setValue('propertyState', normalizedState, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
+                        form.setValue('propertyZip', zip, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
+                        form.setValue('bedRooms' as any, address.bedrooms ?? undefined, { shouldDirty: true, shouldTouch: true, shouldValidate: false });
+                        form.setValue('bathRooms' as any, address.bathrooms ?? undefined, { shouldDirty: true, shouldTouch: true, shouldValidate: false });
+                        form.setValue('sqft' as any, address.sqft ?? undefined, { shouldDirty: true, shouldTouch: true, shouldValidate: false });
+
+                        setCompleteAddress(normalizedStreet);
+                        setPropertyDetailsData(buildLookupPropertyDetails(address));
+
+                        onAddressFieldsChange?.({
+                          address: normalizedStreet,
+                          city,
+                          state: normalizedState,
+                          zip,
+                        });
+                      }}
+                      placeholder="Start typing the property address..."
+                    />
                   </FormControl>
+                  <FormDescription className="text-xs text-muted-foreground">
+                    Start typing to see address suggestions. Selecting an address will auto-fill city, state, ZIP code, and available property data.
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
             <div className="grid grid-cols-1 gap-4">
-              <FormField
-                control={form.control}
-                name="propertyAddress"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-sm font-semibold text-foreground">Search Address</FormLabel>
-                    <FormControl>
-                      <AddressLookupField
-                        value={field.value}
-                        onChange={field.onChange}
-                        onAddressSelect={(address) => {
-                          console.log('🏠 ClientPropertyForm onAddressSelect called:', address);
-                          
-                          // Auto-fill city, state, and zip when address is selected
-                          const city = address.city || '';
-                          form.setValue('propertyCity', city, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
-                          // Normalize state to 2-letter abbreviation
-                          const normalizedState = normalizeState(address.state) || address.state || '';
-                          form.setValue('propertyState', normalizedState, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
-                          const zip = address.zip || '';
-                          form.setValue('propertyZip', zip, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
-                          
-                          // Extract only street address by removing city/state/zip from full address
-                          let streetAddress = address.address || address.formatted_address || '';
-                          if (streetAddress && (city || normalizedState || zip)) {
-                            // Escape special regex characters in values
-                            const escRx = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                            // Remove city, state, zip from the address string (word-boundary safe)
-                            if (city) streetAddress = streetAddress.replace(new RegExp(`\\s*,?\\s*\\b${escRx(city)}\\b\\s*,?`, 'gi'), '');
-                            if (normalizedState) streetAddress = streetAddress.replace(new RegExp(`\\s*,?\\s*\\b${escRx(normalizedState)}\\b\\s*,?`, 'gi'), '');
-                            if (address.state && address.state !== normalizedState) {
-                              streetAddress = streetAddress.replace(new RegExp(`\\s*,?\\s*\\b${escRx(address.state)}\\b\\s*,?`, 'gi'), '');
-                            }
-                            if (zip) streetAddress = streetAddress.replace(new RegExp(`\\s*,?\\s*\\b${escRx(zip)}\\b\\s*`, 'gi'), '');
-                            // Clean up trailing/leading commas and spaces
-                            streetAddress = streetAddress.replace(/^[,\s]+|[,\s]+$/g, '').trim();
-                          }
-
-                          const { streetAddress: normalizedStreet, aptSuite } = extractAptSuite(streetAddress);
-                          const resolvedAptSuite = (address.apt_suite || aptSuite || '').trim();
-
-                          form.setValue('propertyAddress', normalizedStreet, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
-                          form.setValue('aptSuite', resolvedAptSuite, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
-                          
-                          // Set only street address (not full address with city/state/zip)
-                          setCompleteAddress(normalizedStreet);
-
-                          onAddressFieldsChange?.({
-                            address: normalizedStreet,
-                            city,
-                            state: normalizedState,
-                            zip,
-                          });
-                          
-                          // Auto-fill property details (bedrooms, bathrooms, sqft) from address lookup
-                          console.log('🏠 Property metrics from address:', {
-                            bedrooms: address.bedrooms,
-                            bathrooms: address.bathrooms,
-                            sqft: address.sqft,
-                          });
-                          
-                          if (address.bedrooms !== undefined && address.bedrooms !== null) {
-                            console.log('Setting bedRooms to:', address.bedrooms);
-                            form.setValue('bedRooms' as any, address.bedrooms, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
-                          }
-                          if (address.bathrooms !== undefined && address.bathrooms !== null) {
-                            console.log('Setting bathRooms to:', address.bathrooms);
-                            form.setValue('bathRooms' as any, address.bathrooms, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
-                          }
-                          if (address.sqft !== undefined && address.sqft !== null) {
-                            console.log('Setting sqft to:', address.sqft);
-                            form.setValue('sqft' as any, address.sqft, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
-                          }
-                          
-                          // Store property details if available
-                          if (address.property_details) {
-                            setPropertyDetailsData(address.property_details);
-                          }
-                        }}
-                        placeholder="Start typing the property address..."
-                      />
-                    </FormControl>
-                    <FormDescription className="text-xs text-muted-foreground">
-                      Start typing to see address suggestions. Selecting an address will auto-fill city, state, and ZIP code.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
               {/* Editable Street Address Field - always visible */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-2 sm:col-span-2">
@@ -1623,6 +1556,88 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                             const value = e.target.value;
                             field.onChange(value === '' ? undefined : Number(value));
                           }} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="space-y-4 pt-1">
+                <Separator className="bg-border/70" />
+
+                <FormField
+                  control={form.control}
+                  name="propertyType"
+                  render={({ field }) => (
+                    <FormItem className="space-y-2">
+                      <FormLabel className="text-sm font-semibold text-foreground">Property Type</FormLabel>
+                      <FormControl>
+                        <RadioGroup
+                          onValueChange={field.onChange}
+                          value={field.value}
+                          className="grid grid-cols-2 gap-2 sm:gap-3"
+                        >
+                          <div className="relative">
+                            <RadioGroupItem value="residential" id="residential" className="peer sr-only" />
+                            <Label
+                              htmlFor="residential"
+                              className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/20 px-4 py-3 text-sm font-medium transition hover:border-primary/60 hover:bg-primary/5 peer-data-[state=checked]:border-primary/70 peer-data-[state=checked]:bg-primary/10 peer-data-[state=checked]:text-primary"
+                            >
+                              <Home className="h-4 w-4" />
+                              Residential
+                            </Label>
+                          </div>
+                          <div className="relative">
+                            <RadioGroupItem value="commercial" id="commercial" className="peer sr-only" />
+                            <Label
+                              htmlFor="commercial"
+                              className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/20 px-4 py-3 text-sm font-medium transition hover:border-primary/60 hover:bg-primary/5 peer-data-[state=checked]:border-primary/70 peer-data-[state=checked]:bg-primary/10 peer-data-[state=checked]:text-primary"
+                            >
+                              <Building2 className="h-4 w-4" />
+                              Commercial
+                            </Label>
+                          </div>
+                        </RadioGroup>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name={"listingType" as any}
+                  render={({ field }) => (
+                    <FormItem className="space-y-2">
+                      <FormLabel className="text-sm font-semibold text-foreground">Listing Type</FormLabel>
+                      <FormControl>
+                        <RadioGroup
+                          onValueChange={field.onChange}
+                          value={field.value || ''}
+                          className="grid grid-cols-2 gap-2 sm:gap-3"
+                        >
+                          <div className="relative">
+                            <RadioGroupItem value="for_sale" id="for_sale" className="peer sr-only" />
+                            <Label
+                              htmlFor="for_sale"
+                              className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/20 px-4 py-3 text-sm font-medium transition hover:border-green-500/60 hover:bg-green-500/5 peer-data-[state=checked]:border-green-500/70 peer-data-[state=checked]:bg-green-500/10 peer-data-[state=checked]:text-green-700 dark:peer-data-[state=checked]:text-green-400"
+                            >
+                              <Tag className="h-4 w-4" />
+                              For Sale
+                            </Label>
+                          </div>
+                          <div className="relative">
+                            <RadioGroupItem value="for_rent" id="for_rent" className="peer sr-only" />
+                            <Label
+                              htmlFor="for_rent"
+                              className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/20 px-4 py-3 text-sm font-medium transition hover:border-blue-500/60 hover:bg-blue-500/5 peer-data-[state=checked]:border-blue-500/70 peer-data-[state=checked]:bg-blue-500/10 peer-data-[state=checked]:text-blue-700 dark:peer-data-[state=checked]:text-blue-400"
+                            >
+                              <Tag className="h-4 w-4" />
+                              For Rent
+                            </Label>
+                          </div>
+                        </RadioGroup>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
