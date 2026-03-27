@@ -33,6 +33,7 @@ interface SidebarLinksProps {
 export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
   const { pathname } = useLocation();
   const permission = usePermission();
+  const isEditingManager = role === 'editing_manager';
   
   // Define permissions for each section
   const dashboardPermission = permission.forResource('dashboard');
@@ -97,7 +98,7 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
           isActive={pathname === '/accounts'}
         />
       )}
-      {canViewScheduling && (
+      {canViewScheduling && !isEditingManager && (
         <NavLink
           to="/scheduling-settings"
           icon={<Settings2Icon className="h-5 w-5" />}
@@ -158,7 +159,7 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
       )}
       
       {/* Availability */}
-      {availabilityPermission.canView() && (
+      {availabilityPermission.canView() && !isEditingManager && (
         <NavLink
           to="/availability"
           icon={<CalendarIcon className="h-5 w-5" />}

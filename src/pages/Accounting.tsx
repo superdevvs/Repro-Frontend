@@ -41,6 +41,7 @@ import { useShoots } from '@/context/ShootsContext';
 import { WeeklyInvoiceReview } from '@/components/invoices/WeeklyInvoiceReview';
 import { PayoutReportPanel } from '@/components/accounting/PayoutReportPanel';
 import { PendingInvoiceApprovals } from '@/components/accounting/PendingInvoiceApprovals';
+import { EditingManagerVerificationView } from '@/components/accounting/EditingManagerVerificationView';
 
 const toNumber = (value: unknown) => {
   const num = Number(value);
@@ -358,6 +359,7 @@ const AccountingPage = () => {
   const canMarkAsPaid = can('payments', 'mark-paid'); // Only Super Admin can mark as paid
   const isAdmin = ['admin', 'superadmin'].includes(role || '');
   const isSuperAdmin = role === 'superadmin'; // Only Super Admin can see payment status
+  const isEditingManagerAccounting = role === 'editing_manager';
 
   const handleDownloadInvoice = (invoice: InvoiceData) => {
     toast({
@@ -484,8 +486,9 @@ const AccountingPage = () => {
           <AccountingHeader
             onCreateInvoice={() => canCreateInvoice && setCreateDialogOpen(true)}
             onCreateBatch={() => canCreateInvoice && setBatchDialogOpen(true)}
-            title={config.pageTitle}
+            title={isEditingManagerAccounting ? 'Editing Accounting' : config.pageTitle}
             description={
+              isEditingManagerAccounting ? 'Verify editor work against linked invoices' :
               accountingMode === 'photographer' ? 'View your earnings and payout status' :
               accountingMode === 'editor' ? 'Track your editing jobs and pay' :
               accountingMode === 'client' ? 'View your invoices and payment history' :
@@ -493,18 +496,27 @@ const AccountingPage = () => {
               'Manage your finances, invoices, and payments'
             }
             badge={config.sidebarLabel}
-            showCreateButton={canCreateInvoice && accountingMode === 'admin'}
+            showCreateButton={!isEditingManagerAccounting && canCreateInvoice && accountingMode === 'admin'}
             activeTab={activeTab}
             onTabChange={setActiveTab}
-            showTabs={accountingMode === 'admin'}
-            daysWindow={daysWindow}
-            onDaysWindowChange={setDaysWindow}
-            payoutActions={payoutActions}
+            showTabs={!isEditingManagerAccounting && accountingMode === 'admin'}
+            daysWindow={isEditingManagerAccounting ? undefined : daysWindow}
+            onDaysWindowChange={isEditingManagerAccounting ? undefined : setDaysWindow}
+            payoutActions={isEditingManagerAccounting ? null : payoutActions}
           />
 
-          {/* Home Tab Content */}
-          {(activeTab === 'home' || accountingMode !== 'admin') && (
+          {isEditingManagerAccounting ? (
+            <EditingManagerVerificationView
+              shoots={contextShoots}
+              invoices={filteredInvoices}
+              loading={loading}
+              onViewInvoice={handleViewInvoice}
+            />
+          ) : (
             <>
+              {/* Home Tab Content */}
+              {(activeTab === 'home' || accountingMode !== 'admin') && (
+                <>
               {config.showOverviewCards && (
                 accountingMode === 'admin' ? (
                   <OverviewCards 
@@ -624,18 +636,20 @@ const AccountingPage = () => {
                   )}
                 </>
               )}
-            </>
-          )}
+                </>
+              )}
 
-          {/* Photographers Tab Content - Payout Report and Pending Invoice Approvals */}
-          {activeTab === 'photographers' && accountingMode === 'admin' && (
-            <div className="space-y-4 sm:space-y-6">
-              <PayoutReportPanel 
-                hideHeaderButtons={true}
-                registerActions={setPayoutActions}
-              />
-              <PendingInvoiceApprovals />
-            </div>
+              {/* Photographers Tab Content - Payout Report and Pending Invoice Approvals */}
+              {activeTab === 'photographers' && accountingMode === 'admin' && (
+                <div className="space-y-4 sm:space-y-6">
+                  <PayoutReportPanel 
+                    hideHeaderButtons={true}
+                    registerActions={setPayoutActions}
+                  />
+                  <PendingInvoiceApprovals />
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -647,7 +661,7 @@ const AccountingPage = () => {
         />
       )}
 
-      {selectedInvoice && canMarkAsPaid && (
+      {!isEditingManagerAccounting && selectedInvoice && canMarkAsPaid && (
         <PaymentDialog
           isOpen={paymentDialogOpen}
           onClose={closePaymentDialog}
@@ -656,7 +670,7 @@ const AccountingPage = () => {
         />
       )}
 
-      {canCreateInvoice && (
+      {!isEditingManagerAccounting && canCreateInvoice && (
         <CreateInvoiceDialog
           isOpen={createDialogOpen}
           onClose={() => setCreateDialogOpen(false)}
@@ -664,7 +678,7 @@ const AccountingPage = () => {
         />
       )}
 
-      {canCreateInvoice && (
+      {!isEditingManagerAccounting && canCreateInvoice && (
         <BatchInvoiceDialog
           isOpen={batchDialogOpen}
           onClose={() => setBatchDialogOpen(false)}
@@ -672,7 +686,7 @@ const AccountingPage = () => {
         />
       )}
 
-      {selectedInvoice && canEditInvoice && (
+      {!isEditingManagerAccounting && selectedInvoice && canEditInvoice && (
         <EditInvoiceDialog
           isOpen={editDialogOpen}
           onClose={() => setEditDialogOpen(false)}

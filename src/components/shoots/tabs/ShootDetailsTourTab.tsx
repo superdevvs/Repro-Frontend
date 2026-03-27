@@ -207,10 +207,26 @@ export function ShootDetailsTourTab({
     
     // Initialize property info fields
     const tl = sourceTourLinks;
+    const normalizedMls =
+      tl?.property_mls ||
+      (shoot as any)?.mls_id ||
+      sourcePropertyDetails?.mls_id ||
+      sourcePropertyDetails?.mlsId ||
+      '';
+    const normalizedPrice =
+      tl?.property_price ??
+      sourcePropertyDetails?.price ??
+      sourcePropertyDetails?.listPrice ??
+      '';
+    const normalizedLotSize =
+      tl?.property_lot_size ??
+      sourcePropertyDetails?.lot_size ??
+      sourcePropertyDetails?.lotSize ??
+      '';
     setPropertyDescription(tl?.property_description || '');
-    setPropertyMls(tl?.property_mls || (shoot as any)?.mls_id || '');
-    setPropertyPrice(tl?.property_price || '');
-    setPropertyLotSize(tl?.property_lot_size || '');
+    setPropertyMls(normalizedMls ? String(normalizedMls) : '');
+    setPropertyPrice(normalizedPrice !== '' && normalizedPrice !== null && normalizedPrice !== undefined ? String(normalizedPrice) : '');
+    setPropertyLotSize(normalizedLotSize !== '' && normalizedLotSize !== null && normalizedLotSize !== undefined ? String(normalizedLotSize) : '');
     const propertyDetails = sourcePropertyDetails;
     setPropertyBedrooms(
       (shoot as any)?.bedrooms !== undefined && (shoot as any)?.bedrooms !== null

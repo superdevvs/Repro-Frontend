@@ -80,6 +80,17 @@ interface PropertyDetails {
   sqft?: number;
   yearBuilt?: number;
   lotSize?: number;
+  mls_id?: string;
+  price?: number;
+  lot_size?: number;
+  year_built?: number;
+  property_type?: string;
+  zpid?: string;
+  source?: string;
+  confidence?: number;
+  field_sources?: Record<string, string>;
+  property_source_chain?: string[];
+  [key: string]: unknown;
 }
 
 interface ShootDetails {
@@ -158,6 +169,59 @@ const loadPhotographerOptions = async (): Promise<Photographer[]> => {
     console.error('[ShootEditModal] Public photographers endpoint failed:', error);
     return [];
   }
+};
+
+const extractLookupPropertyDetails = (details: any): PropertyDetails => {
+  const lookupDetails =
+    details?.property_details && typeof details.property_details === 'object'
+      ? details.property_details
+      : {};
+
+  const sqft =
+    details?.sqft ??
+    details?.squareFeet ??
+    details?.square_feet ??
+    lookupDetails.sqft ??
+    lookupDetails.squareFeet ??
+    lookupDetails.square_feet ??
+    lookupDetails.livingArea ??
+    lookupDetails.living_area;
+  const bedrooms = details?.bedrooms ?? lookupDetails.bedrooms ?? lookupDetails.beds;
+  const bathrooms = details?.bathrooms ?? lookupDetails.bathrooms ?? lookupDetails.baths;
+  const lotSize = details?.lot_size ?? lookupDetails.lot_size ?? lookupDetails.lotSize;
+  const yearBuilt = details?.year_built ?? lookupDetails.year_built ?? lookupDetails.yearBuilt;
+
+  return {
+    ...lookupDetails,
+    bedrooms: bedrooms ?? undefined,
+    beds: bedrooms ?? lookupDetails.beds ?? undefined,
+    bathrooms: bathrooms ?? undefined,
+    baths: bathrooms ?? lookupDetails.baths ?? undefined,
+    sqft: sqft ? Number(sqft) : undefined,
+    squareFeet: sqft ? Number(sqft) : lookupDetails.squareFeet ?? undefined,
+    mls_id:
+      details?.mls_id ??
+      lookupDetails.mls_id ??
+      lookupDetails.mlsId ??
+      lookupDetails.mlsNumber ??
+      undefined,
+    price: details?.price ?? lookupDetails.price ?? lookupDetails.listPrice ?? undefined,
+    lot_size: lotSize ? Number(lotSize) : undefined,
+    lotSize: lotSize ? Number(lotSize) : lookupDetails.lotSize ?? undefined,
+    year_built: yearBuilt ? Number(yearBuilt) : undefined,
+    yearBuilt: yearBuilt ? Number(yearBuilt) : lookupDetails.yearBuilt ?? undefined,
+    property_type:
+      details?.property_type ??
+      lookupDetails.property_type ??
+      lookupDetails.propertyType ??
+      undefined,
+    zpid: details?.zpid ?? lookupDetails.zpid ?? undefined,
+    source: details?.source ?? lookupDetails.source ?? undefined,
+    confidence: details?.confidence ?? lookupDetails.confidence ?? undefined,
+    field_sources: details?.field_sources ?? lookupDetails.field_sources ?? undefined,
+    property_source_chain:
+      details?.property_source_chain ?? lookupDetails.property_source_chain ?? undefined,
+  };
 };
 
 const resolveSelectedServiceIds = (serviceSource: any[], servicesCatalog: Service[]) => {
@@ -319,11 +383,15 @@ export function ShootEditModal({
             shoot.property_details?.living_area ||
             null;
           setPropertySqft(sqft ? Number(sqft) : null);
-          setPropertyDetails({
-            bedrooms: shoot.bedrooms || shoot.property_details?.bedrooms,
-            bathrooms: shoot.bathrooms || shoot.property_details?.bathrooms,
-            sqft: sqft ? Number(sqft) : undefined,
-          });
+          setPropertyDetails(
+            extractLookupPropertyDetails({
+              ...shoot,
+              sqft: sqft ? Number(sqft) : undefined,
+              bedrooms: shoot.bedrooms || shoot.property_details?.bedrooms,
+              bathrooms: shoot.bathrooms || shoot.property_details?.bathrooms,
+              property_details: shoot.property_details,
+            })
+          );
           
           // Set date/time
           const dateStr = shoot.scheduled_date || shoot.scheduledDate;
@@ -415,6 +483,14 @@ export function ShootEditModal({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, shootId]);
 
+  const clearAddressDerivedState = React.useCallback(() => {
+    setCity('');
+    setState('');
+    setZip('');
+    setPropertySqft(null);
+    setPropertyDetails(null);
+  }, []);
+
   // Handle address selection from AddressLookupField
   const handleAddressSelect = (details: any) => {
     if (details) {
@@ -422,25 +498,10 @@ export function ShootEditModal({
       setCity(details.city || '');
       setState(details.state || '');
       setZip(details.zip || '');
-      
-      // Update property details from lookup
-      const sqft =
-        details.sqft ||
-        details.squareFeet ||
-        details.square_feet ||
-        details.property_details?.sqft ||
-        details.property_details?.squareFeet ||
-        details.property_details?.square_feet ||
-        details.property_details?.livingArea ||
-        details.property_details?.living_area;
-      if (sqft) {
-        setPropertySqft(Number(sqft));
-      }
-      setPropertyDetails({
-        bedrooms: details.bedrooms || details.property_details?.bedrooms || details.property_details?.beds,
-        bathrooms: details.bathrooms || details.property_details?.bathrooms || details.property_details?.baths,
-        sqft: sqft ? Number(sqft) : undefined,
-      });
+
+      const nextPropertyDetails = extractLookupPropertyDetails(details);
+      setPropertySqft(nextPropertyDetails.sqft ? Number(nextPropertyDetails.sqft) : null);
+      setPropertyDetails(nextPropertyDetails);
     }
   };
 
@@ -692,14 +753,25 @@ export function ShootEditModal({
     }
 
     // Add property details
-    if (propertySqft) {
+    const mergedPropertyDetails = propertyDetails
+      ? {
+          ...propertyDetails,
+          sqft: propertySqft ?? propertyDetails.sqft ?? undefined,
+          squareFeet: propertySqft ?? (propertyDetails as any).squareFeet ?? propertyDetails.sqft ?? undefined,
+        }
+      : null;
+
+    if (propertySqft !== null && propertySqft !== undefined) {
       payload.sqft = propertySqft;
     }
-    if (propertyDetails?.bedrooms) {
+    if (propertyDetails?.bedrooms !== null && propertyDetails?.bedrooms !== undefined) {
       payload.bedrooms = propertyDetails.bedrooms;
     }
-    if (propertyDetails?.bathrooms) {
+    if (propertyDetails?.bathrooms !== null && propertyDetails?.bathrooms !== undefined) {
       payload.bathrooms = propertyDetails.bathrooms;
+    }
+    if (mergedPropertyDetails && Object.keys(mergedPropertyDetails).length > 0) {
+      payload.property_details = mergedPropertyDetails;
     }
 
     return payload;
@@ -896,6 +968,11 @@ export function ShootEditModal({
                 <AddressLookupField
                   value={address}
                   onChange={setAddress}
+                  onSelectionReset={clearAddressDerivedState}
+                  onSelectionStarted={() => {
+                    setAddress('');
+                    clearAddressDerivedState();
+                  }}
                   onAddressSelect={handleAddressSelect}
                   placeholder="Search address..."
                 />

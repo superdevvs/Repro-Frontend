@@ -23,6 +23,14 @@ export const DELIVERED_STATUS_KEYWORDS = [
 export const CANCELED_STATUS_KEYWORDS = ["canceled", "cancelled", "no_show"];
 export const DECLINED_STATUS_KEYWORDS = ["declined"];
 export const REQUESTED_STATUS_KEYWORDS = ["requested"];
+export const SCHEDULED_STATUS_KEYWORDS = ["scheduled", "booked", "confirmed"];
+export const UPLOADED_STATUS_KEYWORDS = [
+  "uploaded",
+  "photos_uploaded",
+  "raw_uploaded",
+  "completed",
+  "editing_complete",
+];
 export const PENDING_REVIEW_KEYWORDS = [
   "pending_review",
   "pending review",
@@ -450,6 +458,57 @@ export const filterCompletedShoots = (shoots: DashboardShootSummary[]) =>
 
 export const filterDeliveredShoots = (shoots: DashboardShootSummary[]) =>
   shoots.filter((shoot) => matchesStatus(shoot, DELIVERED_STATUS_KEYWORDS)).sort(sortByStartDesc);
+
+export const filterScheduledShoots = (shoots: DashboardShootSummary[]) =>
+  shoots
+    .filter((shoot) => {
+      if (matchesStatus(shoot, [...CANCELED_STATUS_KEYWORDS, ...DECLINED_STATUS_KEYWORDS, ...REQUESTED_STATUS_KEYWORDS])) {
+        return false;
+      }
+      if (matchesStatus(shoot, DELIVERED_STATUS_KEYWORDS)) {
+        return false;
+      }
+      if (matchesStatus(shoot, UPLOADED_STATUS_KEYWORDS)) {
+        return false;
+      }
+      return matchesStatus(shoot, SCHEDULED_STATUS_KEYWORDS);
+    })
+    .sort(sortByStartAsc);
+
+export const filterUploadedShoots = (shoots: DashboardShootSummary[]) =>
+  shoots
+    .filter((shoot) => {
+      if (matchesStatus(shoot, [...CANCELED_STATUS_KEYWORDS, ...DECLINED_STATUS_KEYWORDS, ...REQUESTED_STATUS_KEYWORDS])) {
+        return false;
+      }
+      if (matchesStatus(shoot, DELIVERED_STATUS_KEYWORDS)) {
+        return false;
+      }
+      return matchesStatus(shoot, UPLOADED_STATUS_KEYWORDS);
+    })
+    .sort(sortByStartDesc);
+
+export const filterReadyToDeliverShoots = (shoots: DashboardShootSummary[]) =>
+  filterUploadedShoots(shoots);
+
+export const filterEditingManagerUpcomingShoots = (shoots: DashboardShootSummary[]) =>
+  shoots
+    .filter((shoot) => {
+      if (matchesStatus(shoot, [...CANCELED_STATUS_KEYWORDS, ...DECLINED_STATUS_KEYWORDS, ...REQUESTED_STATUS_KEYWORDS])) {
+        return false;
+      }
+      if (matchesStatus(shoot, DELIVERED_STATUS_KEYWORDS)) {
+        return false;
+      }
+      if (matchesStatus(shoot, SCHEDULED_STATUS_KEYWORDS)) {
+        return false;
+      }
+      if (matchesStatus(shoot, UPLOADED_STATUS_KEYWORDS)) {
+        return false;
+      }
+      return true;
+    })
+    .sort(sortByStartAsc);
 
 export const filterPendingReviews = (shoots: DashboardShootSummary[]) =>
   []; // No pending reviews - review status removed

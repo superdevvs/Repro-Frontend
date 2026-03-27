@@ -66,7 +66,7 @@ import {
   normalizeShootServiceCategoryKey,
 } from '@/utils/shootPhotographerAssignments';
 import { to12Hour } from '@/utils/availabilityUtils';
-import AddressLookupField from '@/components/AddressLookupField';
+import AddressLookupField, { buildNormalizedPropertyDetails } from '@/components/AddressLookupField';
 
 const serviceCurrencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -137,6 +137,16 @@ type AddressDetailsForLookup = {
   bedrooms?: number;
   bathrooms?: number;
   sqft?: number;
+  mls_id?: string;
+  price?: number;
+  lot_size?: number;
+  year_built?: number;
+  property_type?: string;
+  zpid?: string;
+  source?: string;
+  confidence?: number;
+  field_sources?: Record<string, string>;
+  property_source_chain?: string[];
   property_details?: Record<string, unknown>;
   latitude?: number;
   longitude?: number;
@@ -613,16 +623,48 @@ export function ShootDetailsOverviewTab({
     return { bedrooms, bathrooms, sqft: sqftVal };
   };
 
+  const clearAddressDerivedState = React.useCallback(
+    ({ keepAddressInput = true }: { keepAddressInput?: boolean } = {}) => {
+      if (!keepAddressInput) {
+        setAddressInput('');
+        updateField('location.address', '');
+        updateField('location.fullAddress', '');
+      }
+      updateField('location.city', '');
+      updateField('location.state', '');
+      updateField('location.zip', '');
+      updateField('location.latitude', undefined);
+      updateField('location.longitude', undefined);
+      updateField('propertyDetails', {});
+      setPropertyMetricsEdit({
+        beds: '',
+        baths: '',
+        sqft: '',
+      });
+    },
+    [updateField],
+  );
+
+  const extractLookupPropertyDetails = (details: AddressDetailsForLookup) =>
+    buildNormalizedPropertyDetails({
+      ...details,
+      property_details:
+        details.property_details && typeof details.property_details === 'object'
+          ? (details.property_details as Record<string, any>)
+          : {},
+    });
+
   const handleAddressSelect = (details: AddressDetailsForLookup) => {
     const mergedAddress = details.address || details.formatted_address || '';
     setAddressInput(mergedAddress);
     updateField('location.address', mergedAddress);
     updateField('location.fullAddress', details.formatted_address || mergedAddress);
-    if (details.city) updateField('location.city', details.city);
-    if (details.state) updateField('location.state', details.state);
-    if (details.zip) updateField('location.zip', details.zip);
-    if (details.latitude) updateField('location.latitude', details.latitude);
-    if (details.longitude) updateField('location.longitude', details.longitude);
+    updateField('location.city', details.city || '');
+    updateField('location.state', details.state || '');
+    updateField('location.zip', details.zip || '');
+    updateField('location.latitude', details.latitude);
+    updateField('location.longitude', details.longitude);
+    updateField('propertyDetails', extractLookupPropertyDetails(details));
 
     const derived = deriveMetricsFromAddress(details);
     setPropertyMetricsEdit({
@@ -867,10 +909,41 @@ export function ShootDetailsOverviewTab({
   const handleSave = () => {
     if (onSave) {
       const updates = { ...editedShoot };
+      const incomingPropertyDetails =
+        updates.propertyDetails && typeof updates.propertyDetails === 'object'
+          ? { ...(updates.propertyDetails as Record<string, any>) }
+          : null;
       const basePropertyDetails = {
         ...(shoot.propertyDetails || (shoot as any).property_details || {}),
-        ...(updates.propertyDetails || {}),
-      };
+      } as Record<string, any>;
+
+      if (incomingPropertyDetails) {
+        [
+          'beds',
+          'bedrooms',
+          'baths',
+          'bathrooms',
+          'sqft',
+          'squareFeet',
+          'mls_id',
+          'mlsId',
+          'price',
+          'lot_size',
+          'lotSize',
+          'year_built',
+          'yearBuilt',
+          'property_type',
+          'propertyType',
+          'zpid',
+          'source',
+          'confidence',
+          'field_sources',
+          'property_source_chain',
+        ].forEach((key) => {
+          delete basePropertyDetails[key];
+        });
+        Object.assign(basePropertyDetails, incomingPropertyDetails);
+      }
 
       const bedsValue = toNumberOrUndefined(propertyMetricsEdit.beds);
       const bathsValue = toNumberOrUndefined(propertyMetricsEdit.baths);
@@ -879,14 +952,23 @@ export function ShootDetailsOverviewTab({
       if (bedsValue !== undefined) {
         basePropertyDetails.beds = bedsValue;
         basePropertyDetails.bedrooms = bedsValue;
+      } else if (incomingPropertyDetails) {
+        delete basePropertyDetails.beds;
+        delete basePropertyDetails.bedrooms;
       }
       if (bathsValue !== undefined) {
         basePropertyDetails.baths = bathsValue;
         basePropertyDetails.bathrooms = bathsValue;
+      } else if (incomingPropertyDetails) {
+        delete basePropertyDetails.baths;
+        delete basePropertyDetails.bathrooms;
       }
       if (sqftValue !== undefined) {
         basePropertyDetails.sqft = sqftValue;
         basePropertyDetails.squareFeet = sqftValue;
+      } else if (incomingPropertyDetails) {
+        delete basePropertyDetails.sqft;
+        delete basePropertyDetails.squareFeet;
       }
 
       updates.propertyDetails = {
@@ -2049,6 +2131,12 @@ export function ShootDetailsOverviewTab({
                 onChange={(value) => {
                   setAddressInput(value);
                   updateField('location.address', value);
+                }}
+                onSelectionReset={() => {
+                  clearAddressDerivedState();
+                }}
+                onSelectionStarted={() => {
+                  clearAddressDerivedState({ keepAddressInput: false });
                 }}
                 onAddressSelect={handleAddressSelect as any}
                 className="text-xs"

@@ -48,6 +48,10 @@ import { Avatar, Card, StatBadge } from "@/components/dashboard/v2/SharedCompone
 import { formatWorkflowStatus } from "@/utils/status";
 import {
   currencyFormatter,
+  filterEditingManagerUpcomingShoots,
+  filterReadyToDeliverShoots,
+  filterScheduledShoots,
+  filterUploadedShoots,
   getGreetingPrefix,
   getSpecialInstructions,
   matchesStatus,
@@ -224,9 +228,10 @@ const Dashboard = () => {
   const { can } = usePermission();
   const { shoots, fetchShoots } = useShoots();
   const isMobile = useIsMobile();
+  const isEditingManager = role === "editing_manager";
   const isAdminExperience = ["admin", "superadmin", "editing_manager"].includes(role);
   const canViewAdminDashboard = can("dashboard-admin", "view");
-  const canLoadAvailability = can("dashboard-availability", "view");
+  const canLoadAvailability = !isEditingManager && can("dashboard-availability", "view");
   const canViewDashboardEditingRequests = can("dashboard-editing-requests", "view");
   const canViewContactActions = can("dashboard-contact-actions", "view");
   const canViewClientBillingWidget = can("dashboard-client-billing", "view");
@@ -504,6 +509,26 @@ const Dashboard = () => {
   const clientBillingSummary = canViewClientBillingWidget
     ? clientBillingData?.summary ?? emptyClientBillingSummary
     : emptyClientBillingSummary;
+
+  const editingManagerScheduledShoots = useMemo(
+    () => filterScheduledShoots(allSummaries),
+    [allSummaries],
+  );
+
+  const editingManagerUpcomingShoots = useMemo(
+    () => filterEditingManagerUpcomingShoots(allSummaries),
+    [allSummaries],
+  );
+
+  const editingManagerUploadedShoots = useMemo(
+    () => filterUploadedShoots(allSummaries),
+    [allSummaries],
+  );
+
+  const editingManagerReadyToDeliverShoots = useMemo(
+    () => filterReadyToDeliverShoots(allSummaries).slice(0, 6),
+    [allSummaries],
+  );
   
   const shouldLoadEditingRequests = canViewDashboardEditingRequests;
   const { 
@@ -1020,6 +1045,21 @@ const Dashboard = () => {
     </Suspense>
   );
 
+  const renderEditingManagerReadyToDeliverCard = () => (
+    <Suspense fallback={<CompletedShootsCardSkeleton />}>
+      <LazyCompletedShootsCard
+        shoots={editingManagerReadyToDeliverShoots}
+        title="Ready to deliver"
+        subtitle="Uploaded shoots"
+        emptyStateText="No uploaded shoots ready to deliver."
+        ctaLabel="View all shoots"
+        onSelect={handleSelectShoot}
+        onViewInvoice={handleViewInvoice}
+        onViewAll={() => navigate("/shoot-history")}
+      />
+    </Suspense>
+  );
+
   const renderEditingRequestsCard = () =>
     shouldLoadEditingRequests ? (
       <Suspense fallback={<EditingRequestsCardSkeletonWrapper />}>
@@ -1060,6 +1100,44 @@ const Dashboard = () => {
       <ShootsTabsCard
         upcomingShoots={upcomingShootsWithoutRequested}
         requestedShoots={requestedShoots}
+        onSelect={handleSelectShoot}
+        onApprove={(shoot) => setApprovalModalShoot(shoot)}
+        onDecline={(shoot) => setDeclineModalShoot(shoot)}
+        onModify={(shoot) => setEditModalShoot(shoot)}
+        onViewInvoice={handleViewInvoice}
+        role={role}
+      />
+    );
+
+  const renderEditingManagerShootsTabsCard = () =>
+    loading && !data ? (
+      <UpcomingShootsCardSkeleton />
+    ) : (
+      <ShootsTabsCard
+        mode="editing_manager"
+        title="Shoots"
+        customTabs={[
+          {
+            id: "scheduled",
+            label: "Scheduled",
+            shoots: editingManagerScheduledShoots,
+            emptyStateText: "No scheduled shoots found.",
+          },
+          {
+            id: "upcoming",
+            label: "Upcoming",
+            shoots: editingManagerUpcomingShoots,
+            emptyStateText: "No upcoming shoots found.",
+          },
+          {
+            id: "uploaded",
+            label: "Uploaded",
+            shoots: editingManagerUploadedShoots,
+            emptyStateText: "No uploaded shoots found.",
+          },
+        ]}
+        upcomingShoots={[]}
+        requestedShoots={[]}
         onSelect={handleSelectShoot}
         onApprove={(shoot) => setApprovalModalShoot(shoot)}
         onDecline={(shoot) => setDeclineModalShoot(shoot)}
@@ -1964,6 +2042,18 @@ const Dashboard = () => {
     </>
   );
 
+  const editingManagerContent = (
+    <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 sm:gap-6 items-start">
+      <div className="xl:col-span-9 flex flex-col gap-4 sm:gap-6 min-w-0">
+        {renderEditingManagerShootsTabsCard()}
+      </div>
+      <div className="xl:col-span-3 flex flex-col gap-4 sm:gap-6 xl:sticky xl:top-6">
+        {renderPendingReviewsCard()}
+        {renderEditingManagerReadyToDeliverCard()}
+      </div>
+    </div>
+  );
+
   const adminMobileContent = (
     <Tabs
       value={mobileDashboardTab}
@@ -2036,7 +2126,7 @@ const Dashboard = () => {
           </div>
         )}
 
-        {isMobile ? adminMobileContent : adminDesktopContent}
+        {isEditingManager ? editingManagerContent : isMobile ? adminMobileContent : adminDesktopContent}
       </div>
 
       {shootDetailsModal}

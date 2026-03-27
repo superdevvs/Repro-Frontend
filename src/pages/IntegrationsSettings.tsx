@@ -11,6 +11,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
+import { AddressLookupTester } from '@/components/settings/AddressLookupTester';
 import { useToast } from '@/hooks/use-toast';
 import { apiClient } from '@/services/api';
 import API_ROUTES from '@/lib/api';
@@ -126,6 +128,7 @@ export const IntegrationsSettingsContent = () => {
   });
   const [testingZillow, setTestingZillow] = useState(false);
   const [zillowTestResult, setZillowTestResult] = useState<any>(null);
+  const [zillowAddressOverrides, setZillowAddressOverrides] = useState('{\n\n}');
 
   // Bright MLS Settings
   const [brightMlsSettings, setBrightMlsSettings] = useState<BrightMlsSettings>(
@@ -185,8 +188,9 @@ export const IntegrationsSettingsContent = () => {
     try {
       // Try to load from database settings first
       try {
-        const [zillowRes, brightMlsRes, iguideRes, dropboxRes, mmmRes] = await Promise.all([
+        const [zillowRes, zillowOverridesRes, brightMlsRes, iguideRes, dropboxRes, mmmRes] = await Promise.all([
           apiClient.get(API_ROUTES.admin.settings.get('integrations.zillow')).catch(() => null),
+          apiClient.get(API_ROUTES.admin.settings.get('integrations.zillow.address_overrides')).catch(() => null),
           apiClient.get(API_ROUTES.admin.settings.get('integrations.bright_mls')).catch(() => null),
           apiClient.get(API_ROUTES.admin.settings.get('integrations.iguide')).catch(() => null),
           apiClient.get(API_ROUTES.admin.settings.get('integrations.dropbox')).catch(() => null),
@@ -195,6 +199,10 @@ export const IntegrationsSettingsContent = () => {
 
         if (zillowRes?.data?.success && zillowRes.data.data?.value) {
           setZillowSettings({ ...zillowRes.data.data.value, enabled: zillowRes.data.data.value.enabled ?? true });
+        }
+
+        if (zillowOverridesRes?.data?.success) {
+          setZillowAddressOverrides(JSON.stringify(zillowOverridesRes.data.data?.value ?? {}, null, 2));
         }
 
         if (brightMlsRes?.data?.success && brightMlsRes.data.data?.value) {
@@ -229,6 +237,10 @@ export const IntegrationsSettingsContent = () => {
           browserToken: '',
           enabled: true,
         });
+      }
+
+      if (!zillowAddressOverrides.trim()) {
+        setZillowAddressOverrides('{\n\n}');
       }
 
       if (!brightMlsSettings.apiUrl) {
@@ -269,12 +281,34 @@ export const IntegrationsSettingsContent = () => {
   const saveSettings = async () => {
     setSaving(true);
     try {
+      let parsedZillowAddressOverrides: Record<string, unknown> = {};
+      try {
+        parsedZillowAddressOverrides = JSON.parse(zillowAddressOverrides || '{}');
+        if (!parsedZillowAddressOverrides || Array.isArray(parsedZillowAddressOverrides) || typeof parsedZillowAddressOverrides !== 'object') {
+          throw new Error('Overrides must be a JSON object keyed by address.');
+        }
+      } catch (parseError: any) {
+        toast({
+          title: "Invalid override JSON",
+          description: parseError.message || "Address overrides must be valid JSON.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       // Save Zillow settings
       await apiClient.post(API_ROUTES.admin.settings.store, {
         key: 'integrations.zillow',
         value: zillowSettings,
         type: 'json',
         description: 'Zillow/Bridge Data Output API credentials',
+      });
+
+      await apiClient.post(API_ROUTES.admin.settings.store, {
+        key: 'integrations.zillow.address_overrides',
+        value: parsedZillowAddressOverrides,
+        type: 'json',
+        description: 'Manual property fact overrides keyed by address',
       });
 
       // Save Bright MLS settings
@@ -716,6 +750,36 @@ export const IntegrationsSettingsContent = () => {
                       </p>
                     </div>
                   )}
+
+                  <Separator />
+
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-sm font-medium">Manual Address Overrides</p>
+                      <p className="text-xs text-muted-foreground">
+                        Optional JSON map for known bad upstream records. Keys can be normal addresses and values can include `beds`, `baths`, `sqft`, `garage_cars`, `garage_sqft`, `year_built`, `lot_size`, `property_type`, `zpid`, and `notes`.
+                      </p>
+                    </div>
+                    <Textarea
+                      value={zillowAddressOverrides}
+                      onChange={(e) => setZillowAddressOverrides(e.target.value)}
+                      rows={10}
+                      className="font-mono text-xs"
+                      placeholder={`{\n  "6 Water Street Hackettstown NJ 07840": {\n    "zpid": "40106778",\n    "beds": 2,\n    "baths": 1,\n    "sqft": 1016,\n    "notes": "Manual correction after admin review"\n  }\n}`}
+                    />
+                  </div>
+
+                  <Separator />
+
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-sm font-medium">Address Data Tester</p>
+                      <p className="text-xs text-muted-foreground">
+                        Search an address here to compare the compact Book Shoot payload with the full Zillow and parcel data available behind it.
+                      </p>
+                    </div>
+                    <AddressLookupTester />
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>

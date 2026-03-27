@@ -30,7 +30,12 @@ import WatermarkEditor from '@/components/settings/WatermarkEditor';
 import { RobbieSettings } from '@/components/settings/RobbieSettings';
 
 const BASE_TABS = ['profile', 'account', 'branding', 'notifications'] as const;
-type TabValue = (typeof BASE_TABS)[number] | 'coupons' | 'integrations' | 'watermark' | 'robbie';
+type TabValue =
+  | (typeof BASE_TABS)[number]
+  | 'coupons'
+  | 'integrations'
+  | 'watermark'
+  | 'robbie';
 
 const Settings = () => {
   const { user, role, setUser } = useAuth();
