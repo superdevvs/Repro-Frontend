@@ -1,11 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, MapPin, CheckCircle, AlertCircle, Loader } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import {
-  API_BASE_URL,
-  BRIDGE_DATA_ACCESS_TOKEN,
-  BRIDGE_DATA_BASE_URL,
-} from '@/config/env';
+import { API_BASE_URL } from '@/config/env';
 
 interface AddressSuggestion {
   place_id: string;
@@ -124,6 +120,54 @@ const areaTypePriority = [
   'Gross Building Area',
 ];
 
+const supplementalFinishedAreaTypes = [
+  'Basement Finished',
+  'Game Room/Recreation',
+  'Lower Level Finished',
+  'Finished Basement',
+  'Basement Partially Finished',
+  'Finished Rec Room',
+];
+
+const getAreaSquareFeet = (area: any): number | undefined => {
+  const value = normalizeNumber(area?.areaSquareFeet);
+  return value && value > 0 ? value : undefined;
+};
+
+const getPreferredFinishedSqft = (areas: any[]): number | undefined => {
+  let primarySqft: number | undefined;
+  let primaryType: string | undefined;
+
+  for (const type of areaTypePriority) {
+    const candidates = areas
+      .filter((area) => area?.type === type)
+      .map(getAreaSquareFeet)
+      .filter((value): value is number => value !== undefined);
+
+    if (candidates.length > 0) {
+      primarySqft = Math.max(...candidates);
+      primaryType = type;
+      break;
+    }
+  }
+
+  if (!primarySqft) {
+    return undefined;
+  }
+
+  if (primaryType !== 'Living Building Area') {
+    return primarySqft;
+  }
+
+  const supplementalSqft = areas
+    .filter((area) => supplementalFinishedAreaTypes.includes(area?.type))
+    .map(getAreaSquareFeet)
+    .filter((value): value is number => value !== undefined)
+    .reduce((sum, value) => sum + value, 0);
+
+  return primarySqft + supplementalSqft;
+};
+
 const deriveBridgeMetrics = (parcelResponse: any) => {
   if (!parcelResponse) return null;
   const rawProperty =
@@ -136,13 +180,7 @@ const deriveBridgeMetrics = (parcelResponse: any) => {
   const buildingData = rawProperty.building ?? [];
   const building = Array.isArray(buildingData) ? buildingData[0] ?? {} : buildingData ?? {};
 
-  let sqft: number | undefined;
-  for (const area of areas) {
-    if (area?.type && areaTypePriority.includes(area.type) && area.areaSquareFeet) {
-      sqft = Number(area.areaSquareFeet);
-      break;
-    }
-  }
+  const sqft = getPreferredFinishedSqft(areas);
 
   const bedrooms = normalizeNumber(building.bedrooms ?? building.totalRooms);
   const fullBaths = Number(building.fullBaths ?? 0);
@@ -209,166 +247,17 @@ const deriveBridgeMetrics = (parcelResponse: any) => {
   };
 };
 
-// Search Bridge Data by address - returns ListingKey and optionally property data (exactly like PropertyLookup.tsx)
-// Tries multiple address formats for better matching
-const searchBridgeDataByAddress = async (addressQuery: string, suggestion?: AddressSuggestion): Promise<{ listingKey?: string; propertyData?: any } | null> => {
-  // Searching Bridge Data by address
-  
-  if (!BRIDGE_DATA_ACCESS_TOKEN) {
-    console.warn('Bridge Data access token missing. Skipping search.');
-    return null;
+const getAuthHeaders = (): Record<string, string> => {
+  const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+  };
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
   }
 
-  // Try multiple address formats for better matching
-  const addressVariations: string[] = [];
-  if (suggestion) {
-    // Try street address only first (most specific match)
-    if (suggestion.main_text || suggestion.address) {
-      addressVariations.push(suggestion.main_text || suggestion.address || '');
-    }
-    // Try street + city
-    if (suggestion.city) {
-      const streetCity = [suggestion.main_text || suggestion.address, suggestion.city].filter(Boolean).join(', ');
-      if (streetCity) addressVariations.push(streetCity);
-    }
-    // Try full address
-    if (addressQuery) addressVariations.push(addressQuery);
-  } else {
-    addressVariations.push(addressQuery);
-  }
-  
-  // Remove duplicates and empty strings
-  const uniqueAddresses = [...new Set(addressVariations)].filter(Boolean);
-
-  for (const searchAddress of uniqueAddresses) {
-    try {
-      // First, try RESO Web API OData with contains filter (exactly like PropertyLookup.tsx line 84-93)
-      const filter = `contains(tolower(UnparsedAddress), '${searchAddress.toLowerCase().replace(/'/g, "''")}')`;
-      const resoUrl = `${BRIDGE_DATA_BASE_URL}/OData/pub/Property?access_token=${BRIDGE_DATA_ACCESS_TOKEN}&$filter=${encodeURIComponent(filter)}&$top=10&$select=ListingKey,UnparsedAddress,City,StateOrProvince,PostalCode,BedroomsTotal,BathroomsTotalInteger,LivingArea,GarageSpaces,YearBuilt,LotSizeSquareFeet`;
-      
-      // Making Bridge Data RESO OData search call
-      
-      const resoResponse = await fetch(resoUrl, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-        },
-      });
-
-      if (resoResponse.ok) {
-        const data = await resoResponse.json();
-        const results = data.value || [];
-        // Bridge Data RESO search results received
-
-        if (results.length > 0) {
-          // Return ListingKey and property data from first result (like PropertyLookup.tsx line 98-112)
-          const firstResult = results[0];
-          const listingKey = firstResult.ListingKey || firstResult['@odata.id']?.split('/').pop();
-          
-          // Extract property data from RESO response (keep undefined for missing values so fallbacks can run)
-          const propertyData = {
-            bedrooms: firstResult.BedroomsTotal || undefined,
-            bathrooms: firstResult.BathroomsTotalInteger || undefined,
-            sqft: firstResult.LivingArea || undefined,
-            garage: firstResult.GarageSpaces || undefined,
-            yearBuilt: firstResult.YearBuilt || undefined,
-            lotSize: firstResult.LotSizeSquareFeet || undefined,
-            address: firstResult.UnparsedAddress || '',
-            city: firstResult.City || '',
-            state: firstResult.StateOrProvince || '',
-            zip: firstResult.PostalCode || '',
-          };
-          
-          return { listingKey, propertyData };
-        }
-      } else {
-        // Continue to next variation if this one failed
-        continue;
-      }
-    } catch (error) {
-      console.warn('Bridge Data RESO search error for:', searchAddress, error);
-      continue;
-    }
-  }
-
-  // If RESO failed for all variations, try parcels endpoint fallback (exactly like PropertyLookup.tsx line 119-143)
-  // RESO API failed, trying parcels endpoint fallback
-  for (const searchAddress of uniqueAddresses) {
-    try {
-      const parcelsUrl = `${BRIDGE_DATA_BASE_URL}/pub/parcels?access_token=${BRIDGE_DATA_ACCESS_TOKEN}&address.full=${encodeURIComponent(searchAddress)}&limit=10`;
-      
-      const parcelsResponse = await fetch(parcelsUrl, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-        },
-      });
-      
-      if (parcelsResponse.ok) {
-        const parcelsData = await parcelsResponse.json();
-        // Parcels API response received
-        const parcels = parcelsData.bundle || [];
-        
-        if (parcels.length > 0) {
-          const firstParcel = parcels[0];
-          const listingKey = firstParcel.id || firstParcel._id;
-          return { listingKey };
-        }
-      }
-    } catch (error) {
-      console.warn('Bridge Data parcels search error for:', searchAddress, error);
-      continue;
-    }
-  }
-
-  return null;
-};
-
-const fetchBridgeParcelDetails = async (parcelId: string) => {
-  // Fetching Bridge Data parcel details
-  
-  if (!BRIDGE_DATA_ACCESS_TOKEN) {
-    console.warn('Bridge Data access token missing. Skipping direct lookup.');
-    return null;
-  }
-
-  // Use the exact same endpoint as the working PropertyLookup.tsx
-  const url = `${BRIDGE_DATA_BASE_URL}/pub/parcels/${parcelId}?access_token=${BRIDGE_DATA_ACCESS_TOKEN}`;
-    // Making Bridge Data parcels API call
-  
-  try {
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: { 
-        Accept: 'application/json',
-      },
-    });
-
-    // Bridge Data parcels API response received
-
-    if (!response.ok) {
-      console.error('Bridge Data parcels lookup failed', {
-        parcelId,
-        status: response.status,
-        statusText: response.statusText,
-      });
-      return null;
-    }
-
-    const data = await response.json();
-
-    // Prefer the shared parser (uses areas priority + bathroom fractions), matching PropertyLookup.tsx
-    const derived = deriveBridgeMetrics(data);
-    if (!derived) return null;
-
-    return {
-      ...derived,
-      zpid: derived.zpid ?? parcelId,
-    };
-  } catch (error) {
-    console.error('Bridge Data parcels lookup error', { parcelId, error });
-    return null;
-  }
+  return headers;
 };
 
 interface AddressLookupFieldProps {
@@ -393,6 +282,7 @@ const AddressLookupField: React.FC<AddressLookupFieldProps> = ({
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState<AddressDetails | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [sqftNotice, setSqftNotice] = useState<string | null>(null);
   const [inputValue, setInputValue] = useState(value || '');
   
   const inputRef = useRef<HTMLInputElement>(null);
@@ -509,94 +399,11 @@ const AddressLookupField: React.FC<AddressLookupFieldProps> = ({
     return mockDetails[placeId] || mockDetails['mock_1'];
   };
 
-  // Search Bridge API directly (like PropertyLookup.tsx)
-  const searchBridgeApiDirect = async (searchQuery: string): Promise<AddressSuggestion[]> => {
-    if (!BRIDGE_DATA_ACCESS_TOKEN) {
-      console.warn('Bridge Data access token missing');
-      return [];
-    }
-
-    try {
-      // Use RESO Web API OData with contains filter (exactly like PropertyLookup.tsx)
-      const filter = `contains(tolower(UnparsedAddress), '${searchQuery.toLowerCase().replace(/'/g, "''")}')`;
-      const url = `${BRIDGE_DATA_BASE_URL}/OData/pub/Property?access_token=${BRIDGE_DATA_ACCESS_TOKEN}&$filter=${encodeURIComponent(filter)}&$top=10&$select=ListingKey,UnparsedAddress,City,StateOrProvince,PostalCode,BedroomsTotal,BathroomsTotalInteger,LivingArea,GarageSpaces,YearBuilt,LotSizeSquareFeet`;
-
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Bridge RESO API Response:', data);
-        
-        const results: AddressSuggestion[] = (data.value || []).map((property: any) => ({
-          place_id: property.ListingKey || property['@odata.id'] || `bridge_${Date.now()}_${Math.random()}`,
-          description: property.UnparsedAddress || '',
-          main_text: property.UnparsedAddress || '',
-          secondary_text: `${property.City || ''}, ${property.StateOrProvince || ''} ${property.PostalCode || ''}`.trim(),
-          types: ['street_address'],
-          address: property.UnparsedAddress || '',
-          city: property.City || '',
-          state: property.StateOrProvince || '',
-          zip: property.PostalCode || '',
-          source: 'bridge_reso',
-          raw: {
-            bedrooms: property.BedroomsTotal || undefined,
-            bathrooms: property.BathroomsTotalInteger || undefined,
-            sqft: property.LivingArea || undefined,
-            garage: property.GarageSpaces || undefined,
-            yearBuilt: property.YearBuilt || undefined,
-            lotSize: property.LotSizeSquareFeet || undefined,
-          },
-        }));
-
-        if (results.length > 0) {
-          return results;
-        }
-      }
-
-      // Fallback: Try parcels endpoint (like PropertyLookup.tsx)
-      console.log('RESO failed, trying parcels endpoint');
-      const parcelsUrl = `${BRIDGE_DATA_BASE_URL}/pub/parcels?access_token=${BRIDGE_DATA_ACCESS_TOKEN}&address.full=${encodeURIComponent(searchQuery)}&limit=10`;
-      
-      const parcelsResponse = await fetch(parcelsUrl, {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' },
-      });
-
-      if (parcelsResponse.ok) {
-        const parcelsData = await parcelsResponse.json();
-        console.log('Bridge Parcels API Response:', parcelsData);
-        
-        const results: AddressSuggestion[] = (parcelsData.bundle || []).map((parcel: any) => ({
-          place_id: parcel.id || parcel._id || `parcel_${Date.now()}_${Math.random()}`,
-          description: parcel.address?.full || `${parcel.address?.deliveryLine || ''}, ${parcel.address?.city || ''}, ${parcel.address?.state || ''} ${parcel.address?.zip || ''}`,
-          main_text: parcel.address?.deliveryLine || parcel.address?.full || '',
-          secondary_text: `${parcel.address?.city || ''}, ${parcel.address?.state || ''} ${parcel.address?.zip || ''}`.trim(),
-          types: ['street_address'],
-          address: parcel.address?.deliveryLine || '',
-          city: parcel.address?.city || '',
-          state: parcel.address?.state || '',
-          zip: parcel.address?.zip || '',
-          source: 'bridge_parcels',
-          raw: parcel,
-        }));
-
-        return results;
-      }
-    } catch (error) {
-      console.error('Bridge API direct search error:', error);
-    }
-
-    return [];
-  };
-
-  // Debounced search function - matching PropertyLookup.tsx behavior
+  // Debounced search function
   const searchAddresses = async (searchQuery: string) => {
-    // Minimum 1 character for immediate search
     if (searchQuery.length < 1) {
       setSuggestions([]);
+      setShowSuggestions(false);
       return;
     }
 
@@ -604,74 +411,28 @@ const AddressLookupField: React.FC<AddressLookupFieldProps> = ({
     setError(null);
 
     try {
-      // Try Bridge API FIRST for faster property data (skip backend which is slow)
-      console.log('🔍 Searching Bridge API directly for:', searchQuery);
-      const bridgeSuggestions = await searchBridgeApiDirect(searchQuery);
-      
-      if (bridgeSuggestions.length > 0) {
-        console.log('✅ Bridge API returned', bridgeSuggestions.length, 'results');
-        setSuggestions(bridgeSuggestions);
-        setShowSuggestions(true);
-        return;
-      }
-      
-      // Fallback to backend API if Bridge returns nothing
-      console.log('Bridge API returned no results, trying backend API');
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      const headers: Record<string, string> = {
-        'Accept': 'application/json',
-      };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-
       const base = API_BASE_URL;
       const url = `${base}/api/address/search?query=${encodeURIComponent(searchQuery)}`;
-      const response = await fetch(url, { headers });
+      const response = await fetch(url, { headers: getAuthHeaders() });
 
-      let backendSuggestions: AddressSuggestion[] = [];
-      
-      if (response.ok) {
-        const data = await response.json();
-        backendSuggestions = data.data || [];
-      }
-      
-      // If backend returned results, use them
-      if (backendSuggestions.length > 0) {
-        console.log('✅ Backend API returned', backendSuggestions.length, 'results');
-        setSuggestions(backendSuggestions);
-        setShowSuggestions(true);
-        return;
+      if (!response.ok) {
+        throw new Error(`Address search failed with status ${response.status}`);
       }
 
-      // If both failed, show no results
-      console.warn('No address suggestions from Bridge or backend API', { query: searchQuery });
-      setSuggestions([]);
-      setShowSuggestions(false);
+      const data = await response.json();
+      const backendSuggestions: AddressSuggestion[] = data.data || [];
+      setSuggestions(backendSuggestions);
+      setShowSuggestions(true);
     } catch (err) {
       console.error('Address search error:', err);
-      
-      // Try backend API as fallback
-      try {
-        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-        const headers: Record<string, string> = { 'Accept': 'application/json' };
-        if (token) headers['Authorization'] = `Bearer ${token}`;
-        const base = API_BASE_URL;
-        const url = `${base}/api/address/search?query=${encodeURIComponent(searchQuery)}`;
-        const response = await fetch(url, { headers });
-        if (response.ok) {
-          const data = await response.json();
-          const backendSuggestions = data.data || [];
-          if (backendSuggestions.length > 0) {
-            setSuggestions(backendSuggestions);
-            setShowSuggestions(true);
-            return;
-          }
-        }
-      } catch (backendErr) {
-        console.error('Backend API fallback also failed:', backendErr);
+
+      const mockSuggestions = getMockSuggestions(searchQuery);
+      setSuggestions(mockSuggestions);
+      setShowSuggestions(true);
+
+      if (mockSuggestions.length === 0) {
+        setError('Address search temporarily unavailable. Please enter address manually.');
       }
-      
-      setSuggestions([]);
-      setError('Address search temporarily unavailable. Please enter address manually.');
     } finally {
       setIsLoading(false);
     }
@@ -683,6 +444,7 @@ const AddressLookupField: React.FC<AddressLookupFieldProps> = ({
     setInputValue(newValue);
     onChange(newValue);
     setSelectedAddress(null);
+    setSqftNotice(null);
 
     // Clear previous debounce
     if (debounceRef.current) {
@@ -705,215 +467,36 @@ const AddressLookupField: React.FC<AddressLookupFieldProps> = ({
     setError(null);
 
     try {
-      let backendDetails: Partial<AddressDetails> | null = null;
+      const base = API_BASE_URL;
+      const url = `${base}/api/address/details?place_id=${encodeURIComponent(suggestion.place_id)}`;
+      const response = await fetch(url, { headers: getAuthHeaders() });
 
-      // Check if suggestion came from Bridge API with pre-populated property data
-      if (suggestion.source === 'bridge_reso' && suggestion.raw) {
-        console.log('✅ Using pre-populated Bridge RESO data:', suggestion.raw);
-        const rawBeds = normalizeNumber(suggestion.raw.bedrooms);
-        const rawBaths = normalizeNumber(suggestion.raw.bathrooms);
-        const rawSqft = normalizeNumber(suggestion.raw.sqft);
-        // Only use Bridge RESO data if at least one metric is a real positive value (not 0)
-        if ((rawBeds && rawBeds > 0) || (rawBaths && rawBaths > 0) || (rawSqft && rawSqft > 0)) {
-          backendDetails = {
-            bedrooms: rawBeds,
-            bathrooms: rawBaths,
-            sqft: rawSqft,
-            garage_cars: normalizeNumber(suggestion.raw.garage),
-            property_details: suggestion.raw,
-            zpid: suggestion.place_id,
-          };
-        }
-        console.log('✅ Extracted backendDetails:', backendDetails);
-      } else if (suggestion.source === 'bridge_parcels' && suggestion.raw) {
-        // Parse parcel data using deriveBridgeMetrics
-        console.log('Parsing Bridge parcels data:', suggestion.raw);
-        const derived = deriveBridgeMetrics({ bundle: suggestion.raw });
-        if (derived) {
-          backendDetails = {
-            bedrooms: derived.bedrooms,
-            bathrooms: derived.bathrooms,
-            sqft: derived.sqft,
-            garage_cars: derived.garage_cars,
-            garage_sqft: derived.garage_sqft,
-            property_details: suggestion.raw,
-            zpid: suggestion.place_id,
-          };
-        }
+      if (!response.ok) {
+        throw new Error(`Address details failed with status ${response.status}`);
       }
 
-      // If we have valid Bridge data, use it immediately (skip all fallbacks for speed)
-      const hasValidBridgeData = backendDetails && (
-        backendDetails.bedrooms !== undefined ||
-        backendDetails.bathrooms !== undefined ||
-        backendDetails.sqft !== undefined
-      );
-      
-      if (hasValidBridgeData) {
-        // Fast path: We already have Bridge data, use it directly
-        console.log('⚡ Fast path: Using Bridge data directly');
-        const mergedDetails = buildDetailsFromSuggestion(suggestion, backendDetails);
-        console.log('📍 Address selected (fast path):', {
-          bedrooms: mergedDetails.bedrooms,
-          bathrooms: mergedDetails.bathrooms,
-          sqft: mergedDetails.sqft,
-        });
-        setSelectedAddress(mergedDetails);
-        onAddressSelect(mergedDetails);
-        // Clear search input display after selection (don't touch form field)
-        setInputValue('');
-        setShowSuggestions(false);
-        setIsLoading(false);
-        return;
-      }
-      
-      // No Bridge data, try backend API
-      if (!backendDetails) {
-        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-        const headers: Record<string, string> = { 'Accept': 'application/json' };
-        if (token) headers['Authorization'] = `Bearer ${token}`;
+      const data = await response.json();
+      const payload = data.data || data || {};
+      const derived = payload?.property_details ? deriveBridgeMetrics(payload.property_details) : null;
 
-        const base = API_BASE_URL;
-        const url = `${base}/api/address/details?place_id=${encodeURIComponent(suggestion.place_id)}`;
-        const response = await fetch(url, { headers });
-
-        if (response.ok) {
-          const data = await response.json();
-          const payload = data.data || data;
-          backendDetails = {
-            bedrooms: normalizeNumber(payload?.bedrooms),
-            bathrooms: normalizeNumber(payload?.bathrooms),
-            sqft: normalizeNumber(payload?.sqft),
-            garage_cars: normalizeNumber(payload?.garage_cars),
-            garage_sqft: normalizeNumber(payload?.garage_sqft),
-            property_details: payload?.property_details,
-            zpid: payload?.zpid ?? suggestion.place_id,
-          };
-
-          // If backend provided raw property details, parse them using Bridge-like logic
-          if (payload?.property_details) {
-            const derived = deriveBridgeMetrics(payload.property_details);
-            if (derived && (derived.bedrooms !== undefined || derived.bathrooms !== undefined || derived.sqft !== undefined)) {
-              backendDetails = {
-                ...backendDetails,
-                bedrooms: derived.bedrooms ?? backendDetails.bedrooms,
-                bathrooms: derived.bathrooms ?? backendDetails.bathrooms,
-                sqft: derived.sqft ?? backendDetails.sqft,
-                garage_cars: derived.garage_cars ?? backendDetails.garage_cars,
-                garage_sqft: derived.garage_sqft ?? backendDetails.garage_sqft,
-                property_details: backendDetails.property_details,
-                zpid: backendDetails.zpid ?? derived.zpid,
-              };
-            }
-          }
-        } else {
-          console.warn('Primary address details endpoint failed, attempting Bridge Data fallback');
-        }
-      }
-
-      // Check for undefined, not falsy - 0 is a valid value
-      const missingMetrics =
-        !backendDetails ||
-        (backendDetails.bedrooms === undefined && backendDetails.bathrooms === undefined && backendDetails.sqft === undefined);
-
-      // Checking if metrics are missing and fallback is needed
-
-      // Helper function to search Bridge Data by address and fetch parcel details
-      const tryBridgeDataSearchByAddress = async () => {
-        // Build address query from suggestion - prefer full description, fallback to building full address
-        let addressQuery = suggestion.description || suggestion.main_text || suggestion.address || '';
-        
-        // If description doesn't include city/state/zip, build full address from components
-        if (addressQuery && (!addressQuery.includes(',') || !(suggestion.zip || suggestion.state))) {
-          const parts = [
-            suggestion.main_text || suggestion.address,
-            suggestion.city,
-            suggestion.state,
-            suggestion.zip,
-          ].filter(Boolean);
-          const fullAddress = parts.join(', ');
-          if (fullAddress) {
-            addressQuery = fullAddress;
-          }
-        }
-        
-        if (!addressQuery) {
-          return;
-        }
-        const searchResult = await searchBridgeDataByAddress(addressQuery, suggestion);
-        
-        if (searchResult) {
-          // If we got property data directly from RESO search, use it (like PropertyLookup.tsx)
-          if (searchResult.propertyData && (searchResult.propertyData.bedrooms !== undefined || searchResult.propertyData.bathrooms !== undefined || searchResult.propertyData.sqft !== undefined)) {
-            backendDetails = {
-              bedrooms: normalizeNumber(searchResult.propertyData.bedrooms),
-              bathrooms: normalizeNumber(searchResult.propertyData.bathrooms),
-              sqft: normalizeNumber(searchResult.propertyData.sqft),
-              garage_cars: normalizeNumber(searchResult.propertyData.garage),
-              property_details: searchResult.propertyData,
-            };
-            
-            // If we have a ListingKey, try to fetch full parcel details to enrich the data
-            if (searchResult.listingKey) {
-              const bridgeDetails = await fetchBridgeParcelDetails(searchResult.listingKey);
-              if (bridgeDetails && (bridgeDetails.bedrooms !== undefined || bridgeDetails.bathrooms !== undefined || bridgeDetails.sqft !== undefined)) {
-                // Prefer parcel-derived metrics (usually the most accurate)
-                const derivedMetrics = deriveBridgeMetrics(bridgeDetails.property_details);
-                backendDetails = {
-                  ...backendDetails,
-                  bedrooms: derivedMetrics.bedrooms ?? backendDetails.bedrooms,
-                  bathrooms: derivedMetrics.bathrooms ?? backendDetails.bathrooms,
-                  sqft: derivedMetrics.sqft ?? backendDetails.sqft,
-                  garage_cars: derivedMetrics.garage_cars ?? backendDetails.garage_cars,
-                  garage_sqft: derivedMetrics.garage_sqft ?? backendDetails.garage_sqft,
-                  property_details: derivedMetrics.property_details ?? backendDetails.property_details,
-                  zpid: derivedMetrics.zpid ?? backendDetails.zpid,
-                };
-              }
-            }
-          } else if (searchResult.listingKey) {
-            // If we only got ListingKey, fetch full parcel details (like PropertyLookup.tsx line 163-228)
-            const bridgeDetails = await fetchBridgeParcelDetails(searchResult.listingKey);
-            if (bridgeDetails && (bridgeDetails.bedrooms !== undefined || bridgeDetails.bathrooms !== undefined || bridgeDetails.sqft !== undefined)) {
-              const derivedMetrics = deriveBridgeMetrics(bridgeDetails.property_details);
-              backendDetails = {
-                bedrooms: derivedMetrics.bedrooms,
-                bathrooms: derivedMetrics.bathrooms,
-                sqft: derivedMetrics.sqft,
-                garage_cars: derivedMetrics.garage_cars,
-                garage_sqft: derivedMetrics.garage_sqft,
-                property_details: derivedMetrics.property_details,
-              };
-            }
-          }
-        }
-      };
-
-      if (missingMetrics) {
-        // First, try to parse property_details from backend if available
-        if (backendDetails?.property_details) {
-          const parsedMetrics = deriveBridgeMetrics(backendDetails.property_details);
-          if (parsedMetrics && (parsedMetrics.bedrooms !== undefined || parsedMetrics.bathrooms !== undefined || parsedMetrics.sqft !== undefined)) {
-            backendDetails = parsedMetrics;
-          } else {
-            await tryBridgeDataSearchByAddress();
-          }
-        } else {
-          await tryBridgeDataSearchByAddress();
-        }
-      }
-
-      if (!backendDetails) {
-        const fallbackDetails = buildDetailsFromSuggestion(suggestion);
-        setSelectedAddress(fallbackDetails);
-        onAddressSelect(fallbackDetails);
-        // Clear search input display after selection (don't touch form field)
-        setInputValue('');
-        setShowSuggestions(false);
-        return;
-      }
-
-      const mergedDetails = buildDetailsFromSuggestion(suggestion, backendDetails);
+      const mergedDetails = buildDetailsFromSuggestion(suggestion, {
+        formatted_address: payload?.formatted_address ?? derived?.formatted_address,
+        address: payload?.address ?? derived?.address,
+        apt_suite: payload?.apt_suite,
+        city: payload?.city ?? derived?.city,
+        state: payload?.state ?? derived?.state,
+        zip: payload?.zip ?? derived?.zip,
+        country: payload?.country ?? derived?.country,
+        latitude: payload?.latitude ?? derived?.latitude,
+        longitude: payload?.longitude ?? derived?.longitude,
+        bedrooms: normalizeNumber(payload?.bedrooms ?? derived?.bedrooms),
+        bathrooms: normalizeNumber(payload?.bathrooms ?? derived?.bathrooms),
+        sqft: normalizeNumber(payload?.sqft ?? derived?.sqft),
+        garage_cars: normalizeNumber(payload?.garage_cars ?? derived?.garage_cars),
+        garage_sqft: normalizeNumber(payload?.garage_sqft ?? derived?.garage_sqft),
+        property_details: payload?.property_details ?? derived?.property_details,
+        zpid: payload?.zpid ?? derived?.zpid,
+      });
       
       console.log('📍 Address selected - mergedDetails:', {
         address: mergedDetails.address,
@@ -926,23 +509,27 @@ const AddressLookupField: React.FC<AddressLookupFieldProps> = ({
       });
       
       setSelectedAddress(mergedDetails);
+      setSqftNotice(
+        mergedDetails.sqft
+          ? null
+          : 'Square footage could not be fetched for this address. Please fill the sqft manually.'
+      );
       onAddressSelect(mergedDetails);
       // Clear search input display after selection (don't touch form field)
       setInputValue('');
       setShowSuggestions(false);
     } catch (err) {
       console.warn('Address details fetch error:', err);
-      const fallbackDetails: AddressDetails = {
-        formatted_address: suggestion.description,
-        address: suggestion.main_text,
-        city: (suggestion as any).city || '',
-        state: (suggestion as any).state || '',
-        zip: (suggestion as any).zip || '',
-        country: (suggestion as any).country || '',
-        latitude: (suggestion as any).latitude,
-        longitude: (suggestion as any).longitude,
-      };
+      const fallbackDetails =
+        suggestion.place_id.startsWith('mock_')
+          ? getMockAddressDetails(suggestion.place_id)
+          : buildDetailsFromSuggestion(suggestion);
       setSelectedAddress(fallbackDetails);
+      setSqftNotice(
+        fallbackDetails.sqft
+          ? null
+          : 'Square footage could not be fetched for this address. Please fill the sqft manually.'
+      );
       onAddressSelect(fallbackDetails);
       // Clear search input display after selection (don't touch form field)
       setInputValue('');
@@ -1011,6 +598,13 @@ const AddressLookupField: React.FC<AddressLookupFieldProps> = ({
         <p className="mt-1 text-xs text-red-600 flex items-center">
           <AlertCircle className="w-3 h-3 mr-1" />
           {error}
+        </p>
+      )}
+
+      {sqftNotice && !error && (
+        <p className="mt-1 flex items-center rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-800">
+          <AlertCircle className="mr-1 h-3 w-3 shrink-0" />
+          {sqftNotice}
         </p>
       )}
 

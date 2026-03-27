@@ -12,6 +12,7 @@ import type {
   SmsThreadDetail,
   SmsMessageDetail,
   SmsContact,
+  SmsNumberConfig,
   EmailRecipient,
 } from '@/types/messaging';
 
@@ -333,27 +334,22 @@ export const testEmailChannel = async (id: number, test_email: string): Promise<
   await apiClient.post(`/messaging/settings/email/channels/${id}/test`, { test_email });
 };
 
-export const getSmsSettings = async (): Promise<{ numbers: any[] }> => {
+export const getSmsSettings = async (): Promise<{ numbers: SmsNumberConfig[] }> => {
   const response = await apiClient.get('/messaging/settings/sms');
   return response.data;
 };
 
-export const saveSmsSettings = async (data: { numbers: any[] }): Promise<any> => {
+export const saveSmsSettings = async (data: { numbers: SmsNumberConfig[] }): Promise<{ status: string; numbers: SmsNumberConfig[] }> => {
   const response = await apiClient.post('/messaging/settings/sms', data);
-  return response;
+  return response.data;
 };
 
-export const testSmsConnection = async (apiKey?: string): Promise<{ success: boolean; message?: string; error?: string }> => {
-  const response = await apiClient.post('/messaging/settings/sms/test-connection', { api_key: apiKey });
+export const testSmsConnection = async (sms_number_id?: number): Promise<{ success: boolean; message?: string; error?: string }> => {
+  const response = await apiClient.post('/messaging/settings/sms/test-connection', { sms_number_id });
   return response.data;
 };
 
 export const testSmsSend = async (data: { to: string; message: string; sms_number_id?: number }): Promise<{ success: boolean; message_id?: string; error?: string }> => {
   const response = await apiClient.post('/messaging/settings/sms/test-send', data);
-  return response.data;
-};
-
-export const syncSmsMessages = async (hours?: number): Promise<{ success: boolean; message?: string; output?: string; error?: string }> => {
-  const response = await apiClient.post('/messaging/settings/sms/sync', { hours });
   return response.data;
 };

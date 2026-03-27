@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
-import { Plus, Trash2, Check, AlertCircle, Send, Loader2, RefreshCw } from 'lucide-react';
+import { Plus, Trash2, Check, AlertCircle, Send, Loader2 } from 'lucide-react';
 import {
   getEmailSettings,
   getSmsSettings,
@@ -19,10 +19,9 @@ import {
   testEmailChannel,
   testSmsConnection,
   testSmsSend,
-  syncSmsMessages,
 } from '@/services/messaging';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import type { EmailProviderType } from '@/types/messaging';
+import type { EmailProviderType, SmsNumberConfig } from '@/types/messaging';
 import {
   Select,
   SelectContent,
@@ -67,18 +66,17 @@ export default function MessagingSettings() {
   };
   const [newChannel, setNewChannel] = useState<ChannelFormState>(() => ({ ...emptyChannelState }));
   const [editingChannelId, setEditingChannelId] = useState<number | null>(null);
-  const [newNumber, setNewNumber] = useState({
+  const [newNumber, setNewNumber] = useState<SmsNumberConfig>({
     phone_number: '',
     label: '',
-    mighty_call_key: '',
+    twilio_phone_number_sid: '',
     is_default: false,
   });
   const [showTestSend, setShowTestSend] = useState(false);
   const [testPhone, setTestPhone] = useState('');
-  const [testMessage, setTestMessage] = useState('Hello! This is a test message from MightyCall.');
+  const [testMessage, setTestMessage] = useState('Hello! This is a test message from Twilio.');
   const [testingConnection, setTestingConnection] = useState(false);
   const [testingSend, setTestingSend] = useState(false);
-  const [syncing, setSyncing] = useState(false);
 
   // Fetch email settings
   const { data: emailSettings, isLoading: emailLoading } = useQuery({
@@ -148,35 +146,29 @@ export default function MessagingSettings() {
   // Save SMS settings mutation
   const saveSmsMutation = useMutation({
     mutationFn: saveSmsSettings,
-    onSuccess: (response: any) => {
-      toast.success('SMS numbers saved successfully');
-      // Update the query cache with the returned numbers if available
-      if (response?.data?.numbers) {
-        queryClient.setQueryData(['sms-settings'], { numbers: response.data.numbers });
-      } else {
-        // Otherwise, refetch
-        queryClient.invalidateQueries({ queryKey: ['sms-settings'] });
-      }
+    onSuccess: (response) => {
+      toast.success('Twilio sender saved successfully');
+      queryClient.setQueryData(['sms-settings'], { numbers: response.numbers });
       setShowAddNumber(false);
       setNewNumber({
         phone_number: '',
         label: '',
-        mighty_call_key: '',
+        twilio_phone_number_sid: '',
         is_default: false,
       });
     },
     onError: (error: any) => {
-      console.error('Failed to save SMS numbers:', error);
+      console.error('Failed to save SMS sender:', error);
       const errorMessage = error?.response?.data?.message 
         || error?.response?.data?.error 
         || error?.message 
-        || 'Failed to save SMS numbers';
+        || 'Failed to save SMS sender';
       toast.error(errorMessage);
     },
   });
 
   const channels = emailSettings?.channels || [];
-  const numbers = smsSettings?.numbers || [];
+  const numbers: SmsNumberConfig[] = smsSettings?.numbers || [];
   const isEditing = editingChannelId !== null;
 
   const buildCakemailConfig = () => {
@@ -281,28 +273,23 @@ export default function MessagingSettings() {
   };
 
   const handleAddNumber = () => {
-    if (!newNumber.phone_number || !newNumber.mighty_call_key) {
-      toast.error('Phone number and API key are required');
+    if (!newNumber.phone_number) {
+      toast.error('Phone number is required');
       return;
     }
 
-    // Preserve existing numbers with their IDs, add new number without ID
     const updatedNumbers = [
-      ...numbers.map((n: any) => ({ 
-        ...n, 
-        id: n.id || undefined // Keep ID if exists
-      })),
       {
         ...newNumber,
-        // Don't include id for new numbers
-      }
+        provider: 'TWILIO' as const,
+        is_default: true,
+      },
     ];
-    
-    console.log('Saving SMS numbers:', updatedNumbers);
+
     saveSmsMutation.mutate({ numbers: updatedNumbers });
   };
 
-  const handleUpdateNumber = (index: number, updatedNumber: any) => {
+  const handleUpdateNumber = (index: number, updatedNumber: Partial<SmsNumberConfig>) => {
     const updatedNumbers = [...numbers];
     updatedNumbers[index] = { ...updatedNumbers[index], ...updatedNumber };
     saveSmsMutation.mutate({ numbers: updatedNumbers });
@@ -318,9 +305,9 @@ export default function MessagingSettings() {
   const handleTestConnection = async () => {
     setTestingConnection(true);
     try {
-      const result = await testSmsConnection();
+      const result = await testSmsConnection(numbers[0]?.id);
       if (result.success) {
-        toast.success('MightyCall connection successful!');
+        toast.success('Twilio connection successful!');
       } else {
         toast.error(result.error || 'Connection test failed');
       }
@@ -353,22 +340,6 @@ export default function MessagingSettings() {
     }
   };
 
-  const handleSync = async () => {
-    setSyncing(true);
-    try {
-      const result = await syncSmsMessages(24);
-      if (result.success) {
-        toast.success('Messages synced successfully!');
-      } else {
-        toast.error(result.error || 'Sync failed');
-      }
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || error.message || 'Sync failed');
-    } finally {
-      setSyncing(false);
-    }
-  };
-
   return (
     <DashboardLayout>
       <div className="space-y-4 px-2 pt-3 pb-3 sm:space-y-6 sm:p-6">
@@ -380,7 +351,7 @@ export default function MessagingSettings() {
         <Tabs defaultValue="email">
           <TabsList className="mb-6">
             <TabsTrigger value="email">Email Providers</TabsTrigger>
-            <TabsTrigger value="sms">SMS (MightyCall)</TabsTrigger>
+            <TabsTrigger value="sms">SMS (Twilio)</TabsTrigger>
           </TabsList>
 
           {/* Email Settings */}
@@ -614,12 +585,12 @@ export default function MessagingSettings() {
           {/* SMS Settings */}
           <TabsContent value="sms" className="space-y-6">
             <div className="flex items-center justify-between flex-wrap gap-2">
-              <h2 className="text-xl font-semibold">MightyCall Configuration</h2>
+              <h2 className="text-xl font-semibold">Twilio Configuration</h2>
               <div className="flex gap-2 flex-wrap">
                 <Button
                   variant="outline"
                   onClick={handleTestConnection}
-                  disabled={testingConnection || numbers.length === 0}
+                  disabled={testingConnection}
                 >
                   {testingConnection ? (
                     <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Testing...</>
@@ -648,11 +619,11 @@ export default function MessagingSettings() {
                         />
                       </div>
                       <div>
-                        <Label>Message</Label>
-                        <Input
-                          value={testMessage}
-                          onChange={(e) => setTestMessage(e.target.value)}
-                          placeholder="Test message"
+                      <Label>Message</Label>
+                      <Input
+                        value={testMessage}
+                        onChange={(e) => setTestMessage(e.target.value)}
+                        placeholder="Test message"
                         />
                       </div>
                       <Button
@@ -669,27 +640,16 @@ export default function MessagingSettings() {
                     </div>
                   </DialogContent>
                 </Dialog>
-                <Button
-                  variant="outline"
-                  onClick={handleSync}
-                  disabled={syncing || numbers.length === 0}
-                >
-                  {syncing ? (
-                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Syncing...</>
-                  ) : (
-                    <><RefreshCw className="mr-2 h-4 w-4" />Sync Messages</>
-                  )}
-                </Button>
                 <Dialog open={showAddNumber} onOpenChange={setShowAddNumber}>
                   <DialogTrigger asChild>
-                    <Button>
+                    <Button disabled={numbers.length >= 1}>
                       <Plus className="mr-2 h-4 w-4" />
-                      Add Number
+                      Add Sender
                     </Button>
                   </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Add SMS Number</DialogTitle>
+                    <DialogTitle>Add Twilio Sender</DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4">
                     <div>
@@ -709,30 +669,29 @@ export default function MessagingSettings() {
                       />
                     </div>
                     <div>
-                      <Label>MightyCall API Key</Label>
+                      <Label>Twilio Phone Number SID (Optional)</Label>
                       <Input
-                        type="password"
-                        value={newNumber.mighty_call_key}
-                        onChange={(e) => setNewNumber({ ...newNumber, mighty_call_key: e.target.value })}
-                        placeholder="Enter API key for this number"
+                        value={newNumber.twilio_phone_number_sid ?? ''}
+                        onChange={(e) => setNewNumber({ ...newNumber, twilio_phone_number_sid: e.target.value })}
+                        placeholder="PNXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
                       />
                       <p className="text-xs text-muted-foreground mt-1">
-                        Each phone number has its own API key from MightyCall
+                        Leave blank to use the default `TWILIO_PHONE_NUMBER_SID` from the backend environment.
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
                       <Switch
-                        checked={newNumber.is_default}
-                        onCheckedChange={(checked) => setNewNumber({ ...newNumber, is_default: checked })}
+                        checked={true}
+                        disabled
                       />
-                      <Label>Set as default</Label>
+                      <Label>Single sender rollout: this number will be the default sender</Label>
                     </div>
                     <Button
                       onClick={handleAddNumber}
-                      disabled={saveSmsMutation.isPending || !newNumber.phone_number || !newNumber.mighty_call_key}
+                      disabled={saveSmsMutation.isPending || !newNumber.phone_number}
                       className="w-full"
                     >
-                      {saveSmsMutation.isPending ? 'Adding...' : 'Add Number'}
+                      {saveSmsMutation.isPending ? 'Saving...' : 'Save Sender'}
                     </Button>
                   </div>
                 </DialogContent>
@@ -745,7 +704,7 @@ export default function MessagingSettings() {
                 <div className="flex items-center gap-3">
                   <div className={`w-3 h-3 rounded-full ${numbers.length > 0 ? 'bg-green-500' : 'bg-red-500'}`} />
                   <span className="font-medium">
-                    {numbers.length > 0 ? 'MightyCall Connected' : 'MightyCall Not Connected'}
+                    {numbers.length > 0 ? 'Twilio Sender Configured' : 'Twilio Sender Not Configured'}
                   </span>
                 </div>
 
@@ -758,16 +717,16 @@ export default function MessagingSettings() {
                   <div className="bg-yellow-50 border border-yellow-200 rounded p-4 flex gap-3">
                     <AlertCircle className="h-5 w-5 text-yellow-600 shrink-0" />
                     <div>
-                      <p className="font-medium text-yellow-800">No SMS numbers configured</p>
+                      <p className="font-medium text-yellow-800">No Twilio sender configured</p>
                       <p className="text-sm text-yellow-700 mt-1">
-                        Add your MightyCall phone numbers and their API keys to enable SMS functionality.
+                        Add your Twilio toll-free number to enable SMS notifications, reminders, and replies.
                       </p>
                     </div>
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    <Label>Configured Numbers</Label>
-                    {numbers.map((number: any, idx: number) => (
+                    <Label>Configured Sender</Label>
+                    {numbers.map((number, idx: number) => (
                       <Card key={number.id || idx} className="p-4">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
@@ -779,12 +738,13 @@ export default function MessagingSettings() {
                                   Default
                                 </Badge>
                               )}
+                              <Badge variant="outline">{number.provider ?? 'TWILIO'}</Badge>
                             </div>
                             {number.label && (
                               <div className="text-sm text-muted-foreground mb-1">{number.label}</div>
                             )}
                             <div className="text-xs text-muted-foreground">
-                              API Key: {number.mighty_call_key ? '••••••••' : 'Not set'}
+                              Phone Number SID: {number.twilio_phone_number_sid ? 'Configured' : 'Using backend default'}
                             </div>
                           </div>
                           <div className="flex gap-2">
@@ -821,4 +781,3 @@ export default function MessagingSettings() {
     </DashboardLayout>
   );
 }
-

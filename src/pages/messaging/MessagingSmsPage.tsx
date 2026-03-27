@@ -19,7 +19,7 @@ type SmsThread = {
     id?: number | string;
     name?: string; 
     phone?: string;
-    primaryNumber?: string; // MightyCall uses primaryNumber
+    primaryNumber?: string;
     numbers?: Array<{ number: string; label?: string; is_primary?: boolean }>;
   };
   lastMessageAt?: string;
@@ -238,7 +238,7 @@ const MessagingSmsPage = () => {
       <div className="space-y-4 px-2 pt-3 pb-3 sm:space-y-6 sm:p-6">
       <PageHeader
         title="SMS inbox"
-        description="Keep up with MightyCall conversations from one workspace."
+          description="Keep up with Twilio SMS conversations from one workspace."
         actions={
           <Button variant="outline" size="sm" onClick={loadThreads} disabled={loading}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -435,7 +435,6 @@ const MessagingSmsPage = () => {
 };
 
 export default MessagingSmsPage;
-
 
 
 

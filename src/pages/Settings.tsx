@@ -905,21 +905,21 @@ const Settings = () => {
                     <IntegrationsGrid />
                   </div>
 
-                  {/* SMS / MightyCall Settings Card */}
+                  {/* SMS / Twilio Settings Card */}
                   <Card className="border-primary/20">
                     <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <MessageSquare className="h-5 w-5 text-primary" />
-                        SMS Settings (MightyCall)
-                      </CardTitle>
-                      <CardDescription>
-                        Configure MightyCall phone numbers and API keys for SMS messaging
-                      </CardDescription>
+                        <CardTitle className="flex items-center gap-2">
+                          <MessageSquare className="h-5 w-5 text-primary" />
+                          SMS Settings (Twilio)
+                        </CardTitle>
+                        <CardDescription>
+                          Configure your Twilio sender and messaging settings
+                        </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <p className="text-sm text-muted-foreground mb-4">
-                        Manage your MightyCall SMS integration including phone numbers, API keys, and messaging settings.
-                      </p>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          Manage your Twilio SMS integration including sender configuration and messaging settings.
+                        </p>
                       <Button onClick={() => navigate('/messaging/settings')}>
                         <MessageSquare className="mr-2 h-4 w-4" />
                         Open SMS Settings

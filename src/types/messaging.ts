@@ -129,7 +129,7 @@ export interface AutomationRun {
 export interface MessageChannelConfig {
   id: number;
   type: 'EMAIL' | 'SMS';
-  provider: EmailProviderType | 'MIGHTYCALL';
+  provider: EmailProviderType | 'TWILIO';
   display_name: string;
   label?: string;
   from_email?: string;
@@ -295,6 +295,15 @@ export interface SmsThreadDetail {
   thread: SmsThreadSummary;
   messages: SmsMessageDetail[];
   contact: SmsContact;
+}
+
+export interface SmsNumberConfig {
+  id?: number;
+  provider?: 'TWILIO';
+  phone_number: string;
+  label?: string;
+  twilio_phone_number_sid?: string | null;
+  is_default?: boolean;
 }
 
 export interface AutomationRule {

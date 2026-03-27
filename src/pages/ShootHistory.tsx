@@ -1232,7 +1232,12 @@ const CompletedAlbumCard = ({
     try { return formatDatePref(new Date(value)) } catch { return value ?? '—' }
   }
   const heroImage = resolveShootThumbnail(shoot, 'thumb')
-  const photoCount = shoot.media?.images?.length ?? shoot.editedPhotoCount ?? shoot.rawPhotoCount ?? shoot.files?.length ?? 0
+  const isInProgress = (shoot.status === 'in_progress' || shoot.workflowStatus === 'in_progress' || 
+                        shoot.status === 'uploaded' || shoot.workflowStatus === 'uploaded' ||
+                        shoot.status === 'editing' || shoot.workflowStatus === 'editing')
+  const photoCount = isInProgress 
+    ? (shoot.rawPhotoCount ?? shoot.files?.length ?? 0)
+    : (shoot.media?.images?.length ?? shoot.editedPhotoCount ?? shoot.rawPhotoCount ?? shoot.files?.length ?? 0)
   const placeholderImage = getShootPlaceholderSrc(theme)
   const hasNoImages = !heroImage
   const showPlaceholder = hasNoImages || imgErrored
@@ -1483,7 +1488,12 @@ const CompletedShootListRow = ({
     try { return formatDatePref(new Date(value)) } catch { return value ?? '—' }
   }
   const heroImage = resolveShootThumbnail(shoot, 'thumb')
-  const photoCount = shoot.media?.images?.length ?? shoot.editedPhotoCount ?? shoot.rawPhotoCount ?? shoot.files?.length ?? 0
+  const isInProgress = (shoot.status === 'in_progress' || shoot.workflowStatus === 'in_progress' || 
+                        shoot.status === 'uploaded' || shoot.workflowStatus === 'uploaded' ||
+                        shoot.status === 'editing' || shoot.workflowStatus === 'editing')
+  const photoCount = isInProgress 
+    ? (shoot.rawPhotoCount ?? shoot.files?.length ?? 0)
+    : (shoot.media?.images?.length ?? shoot.editedPhotoCount ?? shoot.rawPhotoCount ?? shoot.files?.length ?? 0)
   const hasTour = shoot.tourPurchased || Boolean(shoot.tourLinks?.branded || shoot.tourLinks?.mls)
   const isPaid = isSuperAdmin ? ((shoot.payment?.totalPaid ?? 0) >= (shoot.payment?.totalQuote ?? 0)) : false
   const statusValue = shoot.workflowStatus ?? shoot.status ?? ''

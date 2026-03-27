@@ -30,7 +30,7 @@ type SmsNumber = {
   id?: number;
   phone_number: string;
   label?: string;
-  mighty_call_key?: string;
+  twilio_phone_number_sid?: string;
   is_default?: boolean;
 };
 
@@ -217,7 +217,7 @@ const MessagingSettingsPage = () => {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>MightyCall numbers</CardTitle>
+            <CardTitle>Twilio sender</CardTitle>
             <Button
               size="icon"
               variant="ghost"
@@ -255,11 +255,11 @@ const MessagingSettingsPage = () => {
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-sm font-medium">MightyCall key</label>
+                    <label className="text-sm font-medium">Twilio phone number SID</label>
                     <Input
-                      value={number.mighty_call_key ?? ''}
-                      onChange={(event) => updateNumber(index, 'mighty_call_key', event.target.value)}
-                      placeholder="API key"
+                      value={number.twilio_phone_number_sid ?? ''}
+                      onChange={(event) => updateNumber(index, 'twilio_phone_number_sid', event.target.value)}
+                      placeholder="PNXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
                     />
                   </div>
                 </div>
@@ -275,7 +275,7 @@ const MessagingSettingsPage = () => {
 
             {smsNumbers.length === 0 && (
               <p className="text-sm text-muted-foreground">
-                No MightyCall numbers connected yet. Add one to enable SMS.
+                No Twilio sender configured yet. Add one to enable SMS.
               </p>
             )}
 
