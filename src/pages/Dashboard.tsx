@@ -420,6 +420,7 @@ const Dashboard = () => {
           onShootUpdate={handleShootUpdate}
           onViewInvoice={handleViewInvoice}
           openDownloadDialog={openDownloadOnSelect}
+          useLegacyOverview={isEditingManager}
         />
       </Suspense>
       {/* Invoice View Dialog */}

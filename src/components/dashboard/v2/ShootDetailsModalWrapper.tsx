@@ -1,5 +1,6 @@
 import React from 'react';
-import { ShootDetailsModal } from '@/components/shoots/ShootDetailsModal';
+import { ShootDetailsModal as DashboardOverviewModal } from '@/components/dashboard/v2/ShootDetailsModal';
+import { ShootDetailsModal as UnifiedShootDetailsModal } from '@/components/shoots/ShootDetailsModal';
 import { DashboardShootSummary } from '@/types/dashboard';
 import { WeatherInfo } from '@/services/weatherService';
 
@@ -11,6 +12,7 @@ interface ShootDetailsModalWrapperProps {
   onViewInvoice?: (shoot: DashboardShootSummary) => void; // Callback to view invoice
   initialTab?: 'overview' | 'notes' | 'issues' | 'tours' | 'settings';
   openDownloadDialog?: boolean;
+  useLegacyOverview?: boolean;
 }
 
 /**
@@ -25,14 +27,25 @@ export const ShootDetailsModalWrapper: React.FC<ShootDetailsModalWrapperProps> =
   onViewInvoice,
   initialTab,
   openDownloadDialog,
+  useLegacyOverview = false,
 }) => {
   if (!shoot) return null;
+
+  if (useLegacyOverview) {
+    return (
+      <DashboardOverviewModal
+        shoot={shoot}
+        onClose={onClose}
+        onViewInvoice={onViewInvoice}
+      />
+    );
+  }
 
   // Extract shoot ID from the shoot object
   const shootId = String(shoot.id);
 
   return (
-    <ShootDetailsModal
+    <UnifiedShootDetailsModal
       shootId={shootId}
       isOpen={Boolean(shoot)}
       onClose={onClose}

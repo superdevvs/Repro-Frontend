@@ -883,7 +883,7 @@ export function ShootDetailsOverviewTab({
   }, [isEditMode, photographerAssignments.groups, shoot]);
   
   // Update edited shoot field - with proper deep cloning
-  const updateField = (field: string, value: unknown) => {
+  function updateField(field: string, value: unknown) {
     setEditedShoot(prev => {
       const keys = field.split('.');
       // Deep clone the entire previous state to avoid mutation
@@ -903,7 +903,7 @@ export function ShootDetailsOverviewTab({
       current[keys[keys.length - 1]] = value;
       return newState;
     });
-  };
+  }
   
   // Handle save
   const handleSave = () => {

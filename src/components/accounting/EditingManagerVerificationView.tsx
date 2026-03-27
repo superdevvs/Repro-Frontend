@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { endOfMonth, format, parseISO, startOfMonth, subMonths } from 'date-fns';
 import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, ExternalLink, FileText } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 
+import { ShootDetailsModal as DashboardShootDetailsModal } from '@/components/dashboard/v2/ShootDetailsModal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,9 +23,14 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
+import type { DashboardShootSummary } from '@/types/dashboard';
 import type { ShootData, ShootServiceObject } from '@/types/shoots';
 import type { InvoiceData } from '@/utils/invoiceUtils';
-import { DELIVERED_STATUS_KEYWORDS, UPLOADED_STATUS_KEYWORDS } from '@/utils/dashboardDerivedUtils';
+import {
+  DELIVERED_STATUS_KEYWORDS,
+  UPLOADED_STATUS_KEYWORDS,
+  shootDataToSummary,
+} from '@/utils/dashboardDerivedUtils';
 
 type DatePreset = 'this_month' | 'last_month' | 'custom';
 type VerificationStatusFilter = 'all' | 'uploaded' | 'delivered' | 'paid' | 'unpaid';
@@ -437,7 +442,6 @@ export function EditingManagerVerificationView({
   loading = false,
   onViewInvoice,
 }: EditingManagerVerificationViewProps) {
-  const navigate = useNavigate();
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
   const [datePreset, setDatePreset] = useState<DatePreset>('this_month');
   const defaultRange = useMemo(() => getPresetDateRange('this_month'), []);
@@ -445,6 +449,15 @@ export function EditingManagerVerificationView({
   const [toDate, setToDate] = useState(formatInputDate(defaultRange.to));
   const [editorFilter, setEditorFilter] = useState('all_editors');
   const [statusFilter, setStatusFilter] = useState<VerificationStatusFilter>('all');
+  const [selectedShoot, setSelectedShoot] = useState<DashboardShootSummary | null>(null);
+
+  const shootLookup = useMemo(() => {
+    const map = new Map<string, ShootData>();
+    shoots.forEach((shoot) => {
+      map.set(String(shoot.id), shoot);
+    });
+    return map;
+  }, [shoots]);
 
   const invoiceLookup = useMemo(() => {
     const map = new Map<string, InvoiceData[]>();
@@ -566,8 +579,15 @@ export function EditingManagerVerificationView({
     setToDate(formatInputDate(range.to));
   };
 
+  const handleOpenShootOverview = (shootId: string) => {
+    const shoot = shootLookup.get(shootId);
+    if (!shoot) return;
+    setSelectedShoot(shootDataToSummary(shoot));
+  };
+
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <>
+      <div className="space-y-4 sm:space-y-6">
       <Card>
         <CardHeader className="pb-4">
           <CardTitle className="text-lg sm:text-xl">Verification filters</CardTitle>
@@ -744,7 +764,7 @@ export function EditingManagerVerificationView({
                               type="button"
                               variant="link"
                               className="h-auto p-0 text-left font-semibold"
-                              onClick={() => navigate(`/shoots/${row.shootId}`)}
+                              onClick={() => handleOpenShootOverview(row.shootId)}
                             >
                               #{row.shootId}
                             </Button>
@@ -923,6 +943,12 @@ export function EditingManagerVerificationView({
           )}
         </CardContent>
       </Card>
-    </div>
+      </div>
+
+      <DashboardShootDetailsModal
+        shoot={selectedShoot}
+        onClose={() => setSelectedShoot(null)}
+      />
+    </>
   );
 }
