@@ -27,11 +27,15 @@ import { usePermission } from '@/hooks/usePermission';
 
 const DEFAULT_WEATHER_COORDS = { lat: 40.7128, lon: -74.006 };
 const WEATHER_COORDS_KEY = 'dashboard.weatherCoords';
+const WEATHER_COORDS_SOURCE_KEY = 'dashboard.weatherCoordsSource';
 const IP_LOCATION_KEY = 'dashboard.ipLocation';
 const IP_LOCATION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+type WeatherCoordSource = 'device' | 'ip' | 'default';
 
 const readStoredCoords = () => {
   if (typeof window === 'undefined') return null;
+  const source = window.localStorage.getItem(WEATHER_COORDS_SOURCE_KEY);
+  if (source !== 'device') return null;
   const stored = window.localStorage.getItem(WEATHER_COORDS_KEY);
   if (!stored) return null;
   try {
@@ -103,6 +107,20 @@ const fetchIpLocation = async (signal?: AbortSignal) => {
   return null;
 };
 
+const resolveInitialWeatherState = () => {
+  const storedCoords = readStoredCoords();
+  if (storedCoords) {
+    return { coords: storedCoords, source: 'device' as const };
+  }
+
+  const cachedIpCoords = readCachedIpLocation();
+  if (cachedIpCoords) {
+    return { coords: cachedIpCoords, source: 'ip' as const };
+  }
+
+  return { coords: DEFAULT_WEATHER_COORDS, source: 'default' as const };
+};
+
 export function Navbar() {
   const { user, logout, role } = useAuth();
   const { can } = usePermission();
@@ -111,8 +129,9 @@ export function Navbar() {
   const { theme, setTheme } = useTheme();
   const [weather, setWeather] = useState<WeatherInfo | null>(null);
   const [providerVersion, setProviderVersion] = useState(0);
-  const [weatherCoords, setWeatherCoords] = useState(
-    () => readStoredCoords() ?? readCachedIpLocation() ?? DEFAULT_WEATHER_COORDS
+  const [weatherCoords, setWeatherCoords] = useState(() => resolveInitialWeatherState().coords);
+  const [weatherCoordSource, setWeatherCoordSource] = useState<WeatherCoordSource>(
+    () => resolveInitialWeatherState().source,
   );
   const [isLocating, setIsLocating] = useState(false);
   const isLocatingRef = useRef(false);
@@ -166,11 +185,19 @@ export function Navbar() {
 
   const canUseGeolocation = typeof navigator !== 'undefined' && Boolean(navigator.geolocation);
 
-  const storeWeatherCoords = useCallback((coords: { lat: number; lon: number }) => {
+  const storeDeviceWeatherCoords = useCallback((coords: { lat: number; lon: number }) => {
     setWeatherCoords(coords);
+    setWeatherCoordSource('device');
     if (typeof window !== 'undefined') {
       window.localStorage.setItem(WEATHER_COORDS_KEY, JSON.stringify(coords));
+      window.localStorage.setItem(WEATHER_COORDS_SOURCE_KEY, 'device');
     }
+  }, []);
+
+  const storeIpWeatherCoords = useCallback((coords: { lat: number; lon: number }) => {
+    setWeatherCoords(coords);
+    setWeatherCoordSource('ip');
+    cacheIpLocation(coords);
   }, []);
 
   const requestDeviceLocation = useCallback(() => {
@@ -180,7 +207,7 @@ export function Navbar() {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const coords = { lat: pos.coords.latitude, lon: pos.coords.longitude };
-        storeWeatherCoords(coords);
+        storeDeviceWeatherCoords(coords);
         isLocatingRef.current = false;
         setIsLocating(false);
       },
@@ -190,13 +217,54 @@ export function Navbar() {
       },
       { enableHighAccuracy: false, timeout: 5000, maximumAge: 600000 },
     );
-  }, [canUseGeolocation]);
+  }, [canUseGeolocation, storeDeviceWeatherCoords]);
+
+  useEffect(() => {
+    if (!canUseGeolocation || typeof navigator === 'undefined' || !navigator.permissions?.query) {
+      return;
+    }
+
+    let cancelled = false;
+    let permissionStatus: PermissionStatus | null = null;
+
+    const handlePermissionChange = () => {
+      if (!cancelled && permissionStatus?.state === 'granted') {
+        requestDeviceLocation();
+      }
+    };
+
+    navigator.permissions
+      .query({ name: 'geolocation' as PermissionName })
+      .then((status) => {
+        if (cancelled) return;
+        permissionStatus = status;
+
+        if (status.state === 'granted') {
+          requestDeviceLocation();
+        }
+
+        status.addEventListener?.('change', handlePermissionChange);
+      })
+      .catch(() => {
+        // ignore permissions API failures
+      });
+
+    return () => {
+      cancelled = true;
+      permissionStatus?.removeEventListener?.('change', handlePermissionChange);
+    };
+  }, [canUseGeolocation, requestDeviceLocation]);
 
   // Prefer IP-based location (no prompt). Falls back to stored/default.
   useEffect(() => {
+    if (weatherCoordSource === 'device') {
+      return;
+    }
+
     const cached = readCachedIpLocation();
     if (cached) {
-      storeWeatherCoords(cached);
+      setWeatherCoords(cached);
+      setWeatherCoordSource('ip');
       return;
     }
 
@@ -205,8 +273,7 @@ export function Navbar() {
     fetchIpLocation(controller.signal)
       .then((coords) => {
         if (coords) {
-          cacheIpLocation(coords);
-          storeWeatherCoords(coords);
+          storeIpWeatherCoords(coords);
         }
       })
       .catch(() => {
@@ -216,7 +283,7 @@ export function Navbar() {
     return () => {
       controller.abort();
     };
-  }, [storeWeatherCoords]);
+  }, [storeIpWeatherCoords, weatherCoordSource]);
 
   const toggleTheme = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark');
@@ -239,7 +306,7 @@ export function Navbar() {
         <div
           className={cn(
             "flex min-w-0 items-center gap-2 sm:gap-4 pl-0 sm:pl-4",
-            showRobbieStrip ? "flex-1 xl:flex-none xl:w-[280px]" : "flex-1"
+            showRobbieStrip ? "flex-1 lg:flex-none lg:w-[280px]" : "flex-1"
           )}
         >
         {/* Logo for simplified layout (photographer/editor) */}
@@ -315,7 +382,7 @@ export function Navbar() {
 
         {/* Hide Robbie strip for photographer and editor roles */}
         {showRobbieStrip && (
-          <div className="hidden xl:flex flex-[1.6] min-w-0 px-3 items-center">
+          <div className="hidden lg:flex flex-[1.6] min-w-0 px-3 items-center">
             <div className="h-8 w-px bg-border/60" />
             <RobbieInsightStrip
               role={role}
@@ -330,7 +397,7 @@ export function Navbar() {
         {weather && (
           <div className="hidden md:flex items-center gap-2 text-sm text-muted-foreground">
             <span>
-              {weather.location ? `${weather.location} · ` : ''}
+              {weatherCoordSource === 'device' && weather.location ? `${weather.location} · ` : ''}
             </span>
             <CloudIcon className="h-4 w-4" />
             <span>

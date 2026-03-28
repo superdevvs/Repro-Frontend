@@ -49,7 +49,6 @@ export function ShootSettingsTab({
   const [isFinalized, setIsFinalized] = useState<boolean>(() => !!(shoot as any)?.meta?.finalized);
   const [isDownloadable, setIsDownloadable] = useState<boolean>(() => !!(shoot as any)?.meta?.downloadable);
   const [isMarkedPaid, setIsMarkedPaid] = useState<boolean>(() => !!(shoot as any)?.payment?.totalPaid);
-  const [isSortLocked, setIsSortLocked] = useState<boolean>(() => !!(shoot as any)?.meta?.sortLocked);
   const [autoEditEnabled, setAutoEditEnabled] = useState<boolean>(() => !!(shoot as any)?.auto_edit_enabled);
   const [autoEditStyle, setAutoEditStyle] = useState<string>(() => (shoot as any)?.auto_edit_preferences?.style || 'signature');
   const [autoEditType, setAutoEditType] = useState<string>(() => (shoot as any)?.auto_edit_preferences?.editing_type || 'enhance');
@@ -74,7 +73,6 @@ export function ShootSettingsTab({
     setIsFinalized(!!(shoot as any)?.meta?.finalized);
     setIsDownloadable(!!(shoot as any)?.meta?.downloadable);
     setIsMarkedPaid(!!(shoot as any)?.payment?.totalPaid);
-    setIsSortLocked(!!(shoot as any)?.meta?.sortLocked);
     setAutoEditEnabled(!!(shoot as any)?.auto_edit_enabled);
     setAutoEditStyle((shoot as any)?.auto_edit_preferences?.style || 'signature');
     setAutoEditType((shoot as any)?.auto_edit_preferences?.editing_type || 'enhance');

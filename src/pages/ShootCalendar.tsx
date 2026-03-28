@@ -152,11 +152,12 @@ const ShootCalendar = () => {
   return (
     <DashboardLayout>
       <div className="space-y-6 pb-10">
-        <PageHeader
-          badge="Calendar"
-          title="Shoot Calendar"
-          description="Track and manage your photography schedule."
-        />
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <PageHeader
+            badge="Calendar"
+            title="Shoot Calendar"
+            description="Track and manage your photography schedule."
+          />
           <div className="flex flex-col sm:flex-row gap-2 mt-4 sm:mt-0">
             <Button variant="outline" onClick={() => navigate('/book-shoot')}>
               <PlusCircle className="h-4 w-4 mr-2" />
@@ -173,7 +174,7 @@ const ShootCalendar = () => {
             </Select>
           </div>
         </div>
-        
+
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

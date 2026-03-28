@@ -1,7 +1,9 @@
+import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { DashboardOverview } from '@/types/dashboard';
 import { fetchDashboardOverview } from '@/services/dashboardService';
+import { registerDashboardOverviewRefresh } from '@/realtime/realtimeRefreshBus';
 
 const getToken = (sessionToken?: string | null) => {
   const localToken =
@@ -40,6 +42,8 @@ export const useDashboardOverview = (): UseDashboardOverviewResult => {
     await queryClient.invalidateQueries({ queryKey: ['dashboardOverview'] });
     await refetch();
   };
+
+  useEffect(() => registerDashboardOverviewRefresh(refresh), [refresh]);
 
   return {
     data: data ?? null,

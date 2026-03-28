@@ -1,0 +1,186 @@
+import { useState } from 'react';
+import { QueryClient } from '@tanstack/react-query';
+import { NavigateFunction } from 'react-router-dom';
+import { InvoiceData } from '@/utils/invoiceUtils';
+import { ShootData } from '@/types/shoots';
+import { API_BASE_URL } from '@/config/env';
+import { MarkAsPaidPayload } from '@/components/payments/MarkAsPaidDialog';
+import { blurActiveElement } from '../dialogFocusUtils';
+
+interface ToastApi {
+  toast: (options: {
+    title: string;
+    description: string;
+    variant?: 'default' | 'destructive';
+  }) => void;
+}
+
+interface UseShootDetailsModalPaymentsOptions {
+  shoot: ShootData | null;
+  queryClient: QueryClient;
+  refreshShoot: () => Promise<ShootData | null>;
+  formatTime: (value: string) => string;
+  navigate: NavigateFunction;
+  toast: ToastApi['toast'];
+}
+
+export function useShootDetailsModalPayments({
+  shoot,
+  queryClient,
+  refreshShoot,
+  formatTime,
+  navigate,
+  toast,
+}: UseShootDetailsModalPaymentsOptions) {
+  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [isMarkPaidDialogOpen, setIsMarkPaidDialogOpen] = useState(false);
+  const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState<InvoiceData | null>(null);
+  const [isLoadingInvoice, setIsLoadingInvoice] = useState(false);
+
+  const amountDue = shoot
+    ? Math.max((shoot.payment?.totalQuote || 0) - (shoot.payment?.totalPaid || 0), 0)
+    : 0;
+  const isPaid = amountDue <= 0.01;
+
+  const handleProcessPayment = () => {
+    blurActiveElement();
+    setIsPaymentDialogOpen(true);
+  };
+
+  const handleMarkPaidConfirm = async (payload: MarkAsPaidPayload) => {
+    if (!shoot) return;
+
+    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+    const outstandingAmount = Math.max((shoot.payment?.totalQuote ?? 0) - (shoot.payment?.totalPaid ?? 0), 0);
+    if (outstandingAmount <= 0.01) {
+      toast({ title: 'Already Paid', description: 'This shoot is already fully paid.' });
+      return;
+    }
+
+    const body: Record<string, unknown> = {
+      payment_type: payload.paymentMethod,
+      amount: outstandingAmount,
+    };
+
+    if (payload.paymentDetails) {
+      body.payment_details = payload.paymentDetails;
+    }
+    if (payload.paymentDate) {
+      body.payment_date = payload.paymentDate;
+    }
+
+    const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/mark-paid`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({ message: 'Failed to mark as paid' }));
+      throw new Error(errorData.message || errorData.error || 'Failed to mark as paid');
+    }
+
+    await refreshShoot();
+    queryClient.invalidateQueries({ queryKey: ['shootFiles', String(shoot.id)] });
+    queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id] });
+    toast({
+      title: 'Success',
+      description: 'Shoot marked as paid successfully.',
+    });
+  };
+
+  const handlePaymentSuccess = () => {
+    toast({
+      title: 'Payment Successful',
+      description: 'Payment has been processed successfully.',
+    });
+    refreshShoot();
+    if (shoot) {
+      queryClient.invalidateQueries({ queryKey: ['shootFiles', String(shoot.id)] });
+      queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id] });
+    }
+  };
+
+  const handleShowInvoice = async () => {
+    if (!shoot) return;
+
+    setIsLoadingInvoice(true);
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/invoice`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/json',
+        },
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to fetch invoice');
+      }
+
+      const data = await res.json();
+      const invoiceData = data.data || data;
+      const invoice: InvoiceData = {
+        id: invoiceData.id?.toString() || '',
+        number: invoiceData.invoice_number || invoiceData.number || `Invoice ${invoiceData.id}`,
+        client: typeof invoiceData.client === 'string'
+          ? invoiceData.client
+          : invoiceData.client?.name || invoiceData.shoot?.client?.name || 'Unknown Client',
+        property: invoiceData.shoot?.location?.fullAddress
+          || invoiceData.shoot?.address
+          || invoiceData.property
+          || 'N/A',
+        date: invoiceData.issue_date || invoiceData.date || new Date().toISOString(),
+        dueDate: invoiceData.due_date || invoiceData.dueDate || new Date().toISOString(),
+        amount: invoiceData.total || invoiceData.amount || 0,
+        status: invoiceData.status === 'paid' ? 'paid' : invoiceData.status === 'sent' ? 'pending' : 'pending',
+        services: invoiceData.items?.map((item: any) => item.description) || invoiceData.services || [],
+        paymentMethod: invoiceData.payment_method || invoiceData.paymentMethod || 'N/A',
+        paymentDetails: invoiceData.payment_details || invoiceData.paymentDetails || undefined,
+        paidAt: invoiceData.paid_at || invoiceData.paidAt || undefined,
+        items: invoiceData.items || [],
+        subtotal: invoiceData.subtotal || invoiceData.total || invoiceData.amount || 0,
+        tax: invoiceData.tax || 0,
+        total: invoiceData.total || invoiceData.amount || 0,
+      };
+
+      setSelectedInvoice(invoice);
+      blurActiveElement();
+      setIsInvoiceDialogOpen(true);
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to load invoice',
+        variant: 'destructive',
+      });
+      navigate('/accounting');
+    } finally {
+      setIsLoadingInvoice(false);
+    }
+  };
+
+  return {
+    amountDue,
+    isPaid,
+    isPaymentDialogOpen,
+    setIsPaymentDialogOpen,
+    isMarkPaidDialogOpen,
+    setIsMarkPaidDialogOpen,
+    isInvoiceDialogOpen,
+    setIsInvoiceDialogOpen,
+    selectedInvoice,
+    setSelectedInvoice,
+    isLoadingInvoice,
+    handleProcessPayment,
+    handleMarkPaidConfirm,
+    handlePaymentSuccess,
+    handleShowInvoice,
+    formatTime,
+  };
+}

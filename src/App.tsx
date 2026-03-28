@@ -18,9 +18,11 @@ import { ShootsProvider } from './context/ShootsContext';
 import { UploadProvider } from './context/UploadContext';
 import { toast } from "./components/ui/use-toast";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
+import { SystemTelemetryProvider } from '@/features/system-overview/SystemTelemetryProvider';
 import { startRealtimeListener } from '@/realtime/realtimeListener';
 import { subscribeRealtimeEvents } from '@/realtime/realtimeEvents';
 import {
+  triggerDashboardOverviewRefresh,
   triggerEditingRequestsRefresh,
   triggerShootDetailRefresh,
   triggerShootHistoryRefresh,
@@ -231,17 +233,21 @@ const RealtimeBridge = () => {
       switch (event.type) {
         case 'shoot.updated':
         case 'shoot.assigned':
+          triggerDashboardOverviewRefresh();
           triggerShootListRefresh();
           triggerShootHistoryRefresh();
           triggerShootDetailRefresh(event.shootId);
           break;
         case 'request.updated':
+          triggerDashboardOverviewRefresh();
           triggerEditingRequestsRefresh();
           triggerShootDetailRefresh(event.shootId);
           break;
         case 'invoice.paid':
+          triggerDashboardOverviewRefresh();
           triggerInvoicesRefresh();
           triggerShootListRefresh();
+          triggerShootHistoryRefresh();
           triggerShootDetailRefresh(event.shootId);
           break;
         default:
@@ -613,10 +619,12 @@ function App() {
                     <PermissionsProvider>
                       <ShootsProvider>
                         <UploadProvider>
-                          <RealtimeBridge />
-                          <ErrorBoundary>
-                            <AppRoutes />
-                          </ErrorBoundary>
+                          <SystemTelemetryProvider>
+                            <RealtimeBridge />
+                            <ErrorBoundary>
+                              <AppRoutes />
+                            </ErrorBoundary>
+                          </SystemTelemetryProvider>
                         </UploadProvider>
                       </ShootsProvider>
                     </PermissionsProvider>

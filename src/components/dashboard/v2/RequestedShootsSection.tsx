@@ -156,7 +156,10 @@ export const RequestedShootsSection: React.FC<RequestedShootsSectionProps> = ({
 
       await Promise.all(
         shootsNeedingWeather.map(async (shoot) => {
-          const location = shoot.cityStateZip || shoot.addressLine!;
+          const location = [shoot.addressLine, shoot.cityStateZip]
+            .filter((part): part is string => Boolean(part && part.trim()))
+            .join(', ');
+          if (!location) return;
           try {
             const info = await getWeatherForLocation(location, shoot.startTime, controller.signal);
             if (info && isMounted) {

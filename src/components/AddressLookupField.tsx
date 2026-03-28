@@ -25,6 +25,17 @@ interface SuggestionPreviewState {
   details?: AddressDetails;
 }
 
+type AddressDetailsApiPayload = Partial<AddressDetails> & {
+  property_details?: Record<string, any>;
+  propertyDetails?: Record<string, any>;
+};
+
+type SuggestionMetric = {
+  key: string;
+  label: string;
+  icon: React.ReactElement;
+};
+
 export interface AddressDetails {
   formatted_address: string;
   address: string;
@@ -412,6 +423,7 @@ const deriveBridgeMetrics = (parcelResponse: any) => {
     city: address.city,
     state: address.state ?? address.stateCode,
     zip: address.zip ?? address.zipcode ?? address.postalCode,
+    country: address.country ?? address.countryCode,
     latitude: address.latitude ?? rawProperty.latitude,
     longitude: address.longitude ?? rawProperty.longitude,
     bedrooms,
@@ -720,7 +732,7 @@ const AddressLookupField: React.FC<AddressLookupFieldProps> = ({
     }
 
     const data = await response.json();
-    const payload = data.data || data || {};
+    const payload: AddressDetailsApiPayload = data.data || data || {};
     const derived = payload?.property_details ? deriveBridgeMetrics(payload.property_details) : null;
 
     const mergedDetails = buildDetailsFromSuggestion(suggestion, {
@@ -974,7 +986,7 @@ const AddressLookupField: React.FC<AddressLookupFieldProps> = ({
     const bedroomValue = formatMetricValue(preview.details?.bedrooms);
     const bathroomValue = formatMetricValue(preview.details?.bathrooms);
     const sqftValue = formatMetricValue(preview.details?.sqft);
-    const metrics = [
+    const metrics: SuggestionMetric[] = [
       bedroomValue
         ? {
             key: 'bedrooms',
@@ -996,7 +1008,7 @@ const AddressLookupField: React.FC<AddressLookupFieldProps> = ({
             icon: <Ruler className="h-3.5 w-3.5" />,
           }
         : null,
-    ].filter((metric): metric is { key: string; label: string; icon: React.ReactNode } => Boolean(metric));
+    ].filter((metric): metric is SuggestionMetric => Boolean(metric));
 
     if (metrics.length === 0) {
       return (

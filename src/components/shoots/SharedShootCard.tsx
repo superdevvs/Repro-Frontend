@@ -28,6 +28,7 @@ import { format } from 'date-fns';
 import { getStateFullName } from '@/utils/stateUtils';
 import { formatWorkflowStatus } from '@/utils/status';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
+import { normalizeImageUrl } from '@/utils/imageUrl';
 
 interface SharedShootCardProps {
   shoot: ShootData;
@@ -96,7 +97,7 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
   const { formatTemperature, formatTime, formatDate } = useUserPreferences();
   const normalizedStatus = String(shoot.workflowStatus || shoot.status || '').toLowerCase();
   const isPreShootStatus = normalizedStatus === 'scheduled' || normalizedStatus === 'booked' || normalizedStatus === 'requested' || normalizedStatus === 'on_hold';
-  const heroImage = shoot.heroImage || (!isPreShootStatus ? '/placeholder.svg' : null);
+  const heroImage = normalizeImageUrl(shoot.heroImage) || (!isPreShootStatus ? '/placeholder.svg' : null);
   // Get status color - check both workflowStatus and status, and handle case-insensitive lookup
   const statusKey = normalizedStatus;
   const statusClass =
@@ -441,4 +442,3 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
 };
 
 export default SharedShootCard;
-

@@ -85,8 +85,28 @@ const normalizeBrightMlsUrl = (
   return normalized;
 };
 
+const inferBrightMlsMode = (value?: Partial<BrightMlsSettings> | null): 'legacy' | 'new' => {
+  if (value?.apiMode === 'legacy' || value?.apiMode === 'new') {
+    return value.apiMode;
+  }
+
+  const apiUrl = value?.apiUrl?.trim().toLowerCase() ?? '';
+  const importUrlBase = value?.importUrlBase?.trim().toLowerCase() ?? '';
+  const combined = `${apiUrl} ${importUrlBase}`;
+
+  if (combined.includes('bright-solutions.co')) {
+    return 'new';
+  }
+
+  if (combined.includes('brightmls.com')) {
+    return 'legacy';
+  }
+
+  return 'new';
+};
+
 const normalizeBrightMlsSettings = (value?: Partial<BrightMlsSettings> | null): BrightMlsSettings => {
-  const apiMode = value?.apiMode === 'legacy' ? 'legacy' : 'new';
+  const apiMode = inferBrightMlsMode(value);
   const environment = value?.environment === 't1' ? 't1' : 'p1';
   const defaults = getBrightMlsDefaults(apiMode, environment);
   const knownApiUrls = new Set(

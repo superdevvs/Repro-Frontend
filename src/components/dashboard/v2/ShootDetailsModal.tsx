@@ -151,7 +151,9 @@ export const ShootDetailsModal: React.FC<ShootDetailsModalProps> = ({ shoot, onC
       return;
     }
 
-    const location = shoot.cityStateZip || shoot.addressLine;
+    const location = [shoot.addressLine, shoot.cityStateZip]
+      .filter((part): part is string => Boolean(part && part.trim()))
+      .join(', ');
     if (!location) {
       setWeather(null);
       return;
@@ -440,4 +442,3 @@ export const ShootDetailsModal: React.FC<ShootDetailsModalProps> = ({ shoot, onC
     </Dialog>
   );
 };
-

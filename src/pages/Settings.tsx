@@ -18,8 +18,7 @@ import { ImageUpload } from '@/components/profile/ImageUpload';
 import { BrandingImageUpload } from '@/components/profile/BrandingImageUpload';
 import { usePermission } from '@/hooks/usePermission';
 import { IntegrationsSettingsContent } from '@/pages/IntegrationsSettings';
-import { IntegrationsGrid } from '@/components/integrations/IntegrationsGrid';
-import { IntegrationsHeader } from '@/components/integrations/IntegrationsHeader';
+import { ToursSection } from '@/components/integrations/sections/ToursSection';
 import { CouponsList } from '@/components/coupons/CouponsList';
 import { CreateCouponDialog } from '@/components/coupons/CreateCouponDialog';
 import { User, Settings as SettingsIcon, Palette, Bell, Plug, MessageSquare, Droplets, Ticket, Plus, Bot, ExternalLink, Camera } from 'lucide-react';
@@ -28,14 +27,18 @@ import axios from 'axios';
 import { API_BASE_URL } from '@/config/env';
 import WatermarkEditor from '@/components/settings/WatermarkEditor';
 import { RobbieSettings } from '@/components/settings/RobbieSettings';
+import SystemOverviewTab from '@/components/settings/SystemOverviewTab';
 
 const BASE_TABS = ['profile', 'account', 'branding', 'notifications'] as const;
+const SYSTEM_OVERVIEW_UNLOCK_CLICKS = 5;
+const SYSTEM_OVERVIEW_UNLOCK_STORAGE_KEY = 'settings.systemOverview.unlocked';
 type TabValue =
   | (typeof BASE_TABS)[number]
   | 'coupons'
   | 'integrations'
   | 'watermark'
-  | 'robbie';
+  | 'robbie'
+  | 'overview';
 
 const Settings = () => {
   const { user, role, setUser } = useAuth();
@@ -49,11 +52,20 @@ const Settings = () => {
   const canCreateCoupons = couponsPermission.canCreate();
   const canViewWatermark = permission.can('watermark-settings', 'view');
   const canViewRobbieSettings = permission.can('robbie-settings', 'view');
+  const canViewSystemOverview = role === 'superadmin' || permission.can('system-overview', 'view');
+  const [systemOverviewUnlocked, setSystemOverviewUnlocked] = React.useState<boolean>(() => {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+
+    return window.sessionStorage.getItem(SYSTEM_OVERVIEW_UNLOCK_STORAGE_KEY) === 'true';
+  });
+  const [, setAccountTabTapCount] = React.useState(0);
   const [searchParams, setSearchParams] = useSearchParams();
   // Use clientId from URL if present (for admin editing), otherwise use logged-in user's id
   const clientIdFromUrl = searchParams.get('clientId');
   const clientIdForStorage = clientIdFromUrl || (user?.id ? String(user.id) : 'default');
-  const storageKey = (key: string) => `client-${clientIdForStorage}-${key}`;
+  const storageKey = React.useCallback((key: string) => `client-${clientIdForStorage}-${key}`, [clientIdForStorage]);
   const [avatar, setAvatar] = React.useState(user?.avatar || '');
   const [brandLogo, setBrandLogo] = React.useState('');
   const [brandBanner, setBrandBanner] = React.useState('');
@@ -72,6 +84,7 @@ const Settings = () => {
   const [name, setName] = useState(user?.name || '');
   const [isSaving, setIsSaving] = useState(false);
   const [avatarDrawerOpen, setAvatarDrawerOpen] = useState(false);
+  const showSystemOverviewTab = canViewSystemOverview && systemOverviewUnlocked;
 
   const availableTabs = React.useMemo<TabValue[]>(() => {
     // Hide branding tab for photographer, editor, and editing_manager roles
@@ -89,8 +102,11 @@ const Settings = () => {
     if (canViewRobbieSettings) {
       tabs.push('robbie');
     }
+    if (showSystemOverviewTab) {
+      tabs.push('overview');
+    }
     return tabs;
-  }, [canViewCoupons, canViewIntegrations, canViewRobbieSettings, canViewWatermark, role]);
+  }, [canViewCoupons, canViewIntegrations, canViewRobbieSettings, canViewWatermark, role, showSystemOverviewTab]);
 
   const getValidTab = React.useCallback(
     (tabParam: string | null): TabValue => {
@@ -130,7 +146,7 @@ const Settings = () => {
         }
       }).catch((err) => console.error('Failed to load branding:', err));
     }
-  }, [clientIdForStorage]);
+  }, [clientIdFromUrl, storageKey, user?.id]);
 
   const [activeTab, setActiveTab] = React.useState<TabValue>(() => getValidTab(searchParams.get('tab')));
 
@@ -138,6 +154,30 @@ const Settings = () => {
     const nextTab = getValidTab(searchParams.get('tab'));
     setActiveTab((current) => (current === nextTab ? current : nextTab));
   }, [searchParams, getValidTab]);
+
+  React.useEffect(() => {
+    const requestedTab = searchParams.get('tab');
+    if (!requestedTab || availableTabs.includes(requestedTab as TabValue)) {
+      return;
+    }
+
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('tab');
+    setSearchParams(nextParams, { replace: true });
+  }, [availableTabs, searchParams, setSearchParams]);
+
+  React.useEffect(() => {
+    if (canViewSystemOverview) {
+      return;
+    }
+
+    setSystemOverviewUnlocked(false);
+    setAccountTabTapCount(0);
+
+    if (typeof window !== 'undefined') {
+      window.sessionStorage.removeItem(SYSTEM_OVERVIEW_UNLOCK_STORAGE_KEY);
+    }
+  }, [canViewSystemOverview]);
 
   const handleTabChange = (value: string) => {
     const nextTab = getValidTab(value);
@@ -152,6 +192,38 @@ const Settings = () => {
 
     setSearchParams(nextParams, { replace: true });
   };
+
+  const handleTabInteraction = React.useCallback((value: string) => {
+    if (!canViewSystemOverview || systemOverviewUnlocked) {
+      return;
+    }
+
+    if (value !== 'account') {
+      setAccountTabTapCount(0);
+      return;
+    }
+
+    setAccountTabTapCount((current) => {
+      const nextCount = current + 1;
+
+      if (nextCount < SYSTEM_OVERVIEW_UNLOCK_CLICKS) {
+        return nextCount;
+      }
+
+      setSystemOverviewUnlocked(true);
+
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.setItem(SYSTEM_OVERVIEW_UNLOCK_STORAGE_KEY, 'true');
+      }
+
+      toast({
+        title: 'System Overview unlocked',
+        description: 'The overview tab is now available in Settings for this session.',
+      });
+
+      return 0;
+    });
+  }, [canViewSystemOverview, systemOverviewUnlocked, toast]);
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -333,7 +405,7 @@ const Settings = () => {
 
   // Auto-expanding tabs configuration
   const tabsConfig: AutoExpandingTab[] = useMemo(() => {
-    const tabMeta: Record<Exclude<TabValue, 'integrations' | 'watermark' | 'robbie'>, { icon: typeof User; label: string }> = {
+    const tabMeta: Record<Exclude<TabValue, 'integrations' | 'watermark' | 'robbie' | 'overview'>, { icon: typeof User; label: string }> = {
       profile: { icon: User, label: 'Profile' },
       account: { icon: SettingsIcon, label: 'Account' },
       branding: { icon: Palette, label: 'Branding' },
@@ -342,11 +414,11 @@ const Settings = () => {
     };
 
     const mappedTabs: AutoExpandingTab[] = availableTabs
-      .filter((tab) => tab !== 'integrations' && tab !== 'watermark' && tab !== 'robbie')
+      .filter((tab) => tab !== 'integrations' && tab !== 'watermark' && tab !== 'robbie' && tab !== 'overview')
       .map((tab) => ({
         value: tab,
-        icon: tabMeta[tab as Exclude<TabValue, 'integrations' | 'watermark' | 'robbie'>].icon,
-        label: tabMeta[tab as Exclude<TabValue, 'integrations' | 'watermark' | 'robbie'>].label,
+        icon: tabMeta[tab as Exclude<TabValue, 'integrations' | 'watermark' | 'robbie' | 'overview'>].icon,
+        label: tabMeta[tab as Exclude<TabValue, 'integrations' | 'watermark' | 'robbie' | 'overview'>].label,
       }));
 
     if (availableTabs.includes('integrations')) {
@@ -373,6 +445,14 @@ const Settings = () => {
       });
     }
 
+    if (availableTabs.includes('overview')) {
+      mappedTabs.push({
+        value: 'overview',
+        icon: ExternalLink,
+        label: 'Overview',
+      });
+    }
+
     return mappedTabs;
   }, [availableTabs]);
 
@@ -389,6 +469,7 @@ const Settings = () => {
               tabs={tabsConfig} 
               value={activeTab}
               className="mb-6"
+              onTabInteraction={handleTabInteraction}
             />
 
             <TabsContent value="profile" className="space-y-4">
@@ -904,11 +985,30 @@ const Settings = () => {
             {canViewIntegrations && (
               <TabsContent value="integrations" className="space-y-6">
                 <div className="space-y-8">
-                  {/* Main Integrations Grid */}
-                  <div className="space-y-6">
-                    <IntegrationsHeader />
-                    <IntegrationsGrid />
-                  </div>
+                  <Card className="border-primary/20">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Plug className="h-5 w-5 text-primary" />
+                        Integration Controls
+                      </CardTitle>
+                      <CardDescription>
+                        This page now uses the API-backed integrations editor as the single source of truth.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <p className="text-sm text-muted-foreground">
+                        Summary cards stay read-only unless the underlying integration has real saved settings.
+                        Configure providers below so tours, storage, and external sync behavior stay consistent
+                        across admin and client views.
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <ToursSection
+                    onOpenSettings={() => {
+                      document.getElementById('api-integrations')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }}
+                  />
 
                   {/* SMS / Twilio Settings Card */}
                   <Card className="border-primary/20">
@@ -933,7 +1033,7 @@ const Settings = () => {
                   </Card>
 
                   {/* API Integrations Section */}
-                  <div className="space-y-6 pt-8 border-t">
+                  <div id="api-integrations" className="space-y-6 pt-8 border-t">
                     <div>
                       <h3 className="text-lg font-semibold mb-2">API Integrations</h3>
                       <p className="text-sm text-muted-foreground mb-6">
@@ -955,6 +1055,12 @@ const Settings = () => {
             {canViewRobbieSettings && (
               <TabsContent value="robbie" className="space-y-6">
                 <RobbieSettings />
+              </TabsContent>
+            )}
+
+            {showSystemOverviewTab && (
+              <TabsContent value="overview" className="space-y-6">
+                <SystemOverviewTab />
               </TabsContent>
             )}
           </Tabs>

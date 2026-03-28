@@ -17,6 +17,7 @@ import { format, parseISO, isValid } from 'date-fns';
 import { API_BASE_URL, STRIPE_PUBLISHABLE_KEY } from '@/config/env';
 import axios from 'axios';
 import { loadStripe } from '@stripe/stripe-js';
+import { blurActiveElement } from '@/components/shoots/dialogFocusUtils';
 
 interface SquarePaymentFormProps {
   amount: number;
@@ -135,6 +136,7 @@ export function SquarePaymentForm({
       return;
     }
 
+    blurActiveElement();
     setShowConfirmationDialog(true);
   };
 

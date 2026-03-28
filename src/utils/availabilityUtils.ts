@@ -211,6 +211,13 @@ export async function getPhotographerAvailability(
       availabilitySlots: availableSlots,
     };
   } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      return {
+        isAvailable: false,
+        nextAvailableTimes: [],
+        availabilitySlots: [],
+      };
+    }
     console.error('Error fetching photographer availability:', error);
     return {
       isAvailable: false,

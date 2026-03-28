@@ -66,12 +66,6 @@ export const withApiBase = (path: string) =>
     ? path
     : `${API_BASE_URL}${path.startsWith('/') ? '' : '/'}${path}`;
 
-export const OPEN_WEATHER_API_KEY = import.meta.env?.VITE_OPEN_WEATHER_API_KEY;
-
-export const ACCU_WEATHER_API_KEY = import.meta.env?.VITE_ACCU_WEATHER_API_KEY;
-
-export const WEATHER_API_KEY = import.meta.env?.VITE_WEATHER_API_KEY;
-
 // Square Payment Configuration
 // These are optional - if not set, the component will fetch from backend
 export const SQUARE_APPLICATION_ID =
@@ -83,4 +77,3 @@ export const SQUARE_LOCATION_ID =
 // Stripe Payment Configuration
 export const STRIPE_PUBLISHABLE_KEY =
   import.meta.env?.VITE_STRIPE_PUBLISHABLE_KEY?.trim() || '';
-

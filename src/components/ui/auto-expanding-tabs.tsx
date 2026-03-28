@@ -16,6 +16,7 @@ interface AutoExpandingTabsListProps {
   className?: string
   variant?: 'default' | 'compact'
   desktopExpanded?: boolean
+  onTabInteraction?: (value: string) => void
 }
 
 export function AutoExpandingTabsList({
@@ -24,6 +25,7 @@ export function AutoExpandingTabsList({
   className,
   variant = 'default',
   desktopExpanded = false,
+  onTabInteraction,
 }: AutoExpandingTabsListProps) {
   const [hoveredTab, setHoveredTab] = React.useState<string | null>(null)
 
@@ -57,6 +59,11 @@ export function AutoExpandingTabsList({
               <TabsPrimitive.Trigger
                 value={tab.value}
                 disabled={tab.disabled}
+                onClick={() => {
+                  if (!tab.disabled) {
+                    onTabInteraction?.(tab.value)
+                  }
+                }}
                 className={cn(
                   "relative flex items-center justify-center z-10",
                   "rounded-full",

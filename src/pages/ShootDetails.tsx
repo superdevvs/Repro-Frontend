@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { apiClient, getApiHeaders } from '@/services/api';
 import {
@@ -31,16 +31,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { toast } from '@/components/ui/use-toast';
 import { withErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { useAuth } from '@/components/auth';
@@ -51,7 +42,14 @@ import { format } from 'date-fns';
 import { API_BASE_URL } from '@/config/env';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import { registerShootDetailRefresh } from '@/realtime/realtimeRefreshBus';
-import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary';
+import { useShootDetailsScreen } from '@/components/shoots/modal/useShootDetailsScreen';
+import {
+  getShootDetailsPaymentBadge,
+  getShootDetailsServiceNames,
+  getShootDetailsWorkflowBadge,
+} from '@/components/shoots/details/shootDetailsPresentation';
+import { ShootDetailsPageHeader } from '@/components/shoots/details/ShootDetailsPageHeader';
+import { ShootDetailsPageDialogs } from '@/components/shoots/details/ShootDetailsPageDialogs';
 
 // Import tab components
 import { ShootDetailsMediaTab } from '@/components/shoots/tabs/ShootDetailsMediaTab';
@@ -67,139 +65,12 @@ import { SquarePaymentDialog } from '@/components/payments/SquarePaymentDialog';
 import { MarkAsPaidDialog, MarkAsPaidPayload } from '@/components/payments/MarkAsPaidDialog';
 import { RescheduleDialog } from '@/components/dashboard/RescheduleDialog';
 
-const statusBadgeMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
-  requested: { label: 'Requested', variant: 'secondary' },
-  booked: { label: 'Scheduled', variant: 'secondary' },
-  scheduled: { label: 'Scheduled', variant: 'default' },
-  raw_upload_pending: { label: 'Awaiting RAW', variant: 'outline' },
-  uploaded: { label: 'Uploaded', variant: 'default' },
-  raw_uploaded: { label: 'Uploaded', variant: 'default' },
-  photos_uploaded: { label: 'Uploaded', variant: 'default' },
-  in_progress: { label: 'Uploaded', variant: 'default' },
-  raw_issue: { label: 'RAW Issue', variant: 'destructive' },
-  editing: { label: 'Editing', variant: 'secondary' },
-  editing_uploaded: { label: 'In Review', variant: 'default' },
-  ready_for_review: { label: 'In Review', variant: 'default' },
-  pending_review: { label: 'In Review', variant: 'default' },
-  review: { label: 'In Review', variant: 'default' },
-  editing_issue: { label: 'Editing Issue', variant: 'destructive' },
-  delivered: { label: 'Delivered', variant: 'default' },
-  ready_for_client: { label: 'Delivered', variant: 'default' },
-  admin_verified: { label: 'Delivered', variant: 'default' },
-  ready: { label: 'Ready', variant: 'default' },
-  on_hold: { label: 'On Hold', variant: 'destructive' },
-  hold_on: { label: 'On Hold', variant: 'destructive' },
-  cancelled: { label: 'Cancelled', variant: 'destructive' },
-  canceled: { label: 'Cancelled', variant: 'destructive' },
-  declined: { label: 'Declined', variant: 'destructive' },
-};
-
-const paymentBadgeMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' }> = {
-  paid: { label: 'Paid', variant: 'default' },
-  unpaid: { label: 'Unpaid', variant: 'destructive' },
-  partial: { label: 'Partial', variant: 'secondary' },
-};
-
-const normalizeStatusKey = (value?: string | null) => {
-  if (!value) return '';
-  const key = value.toLowerCase();
-  const map: Record<string, string> = {
-    booked: 'scheduled',
-    raw_upload_pending: 'scheduled',
-    raw_uploaded: 'uploaded',
-    photos_uploaded: 'uploaded',
-    in_progress: 'uploaded',
-    completed: 'uploaded',
-    editing_uploaded: 'review',
-    editing_complete: 'review',
-    editing_issue: 'review',
-    pending_review: 'review',
-    ready_for_review: 'review',
-    qc: 'review',
-    ready_for_client: 'delivered',
-    admin_verified: 'delivered',
-  };
-  return map[key] || key;
-};
-
-const extractServiceNames = (input: any): string[] => {
-  if (!input) return [];
-
-  const toName = (value: any) => {
-    if (!value) return null;
-    if (typeof value === 'string') return value;
-    if (typeof value === 'object') {
-      return (
-        value.name ??
-        value.label ??
-        value.service_name ??
-        value.serviceName ??
-        value.title ??
-        null
-      );
-    }
-    return String(value);
-  };
-
-  const normalizeArray = (value: any): any[] => {
-    if (!value) return [];
-    if (Array.isArray(value)) return value;
-    if (typeof value === 'string') return [value];
-    if (value && typeof value === 'object') {
-      if (Array.isArray(value.data)) return value.data;
-      return Object.values(value);
-    }
-    return [];
-  };
-
-  return normalizeArray(input)
-    .map(toName)
-    .filter((name): name is string => Boolean(name && typeof name === 'string'));
-};
-
-const normalizeShootServices = (shootData: any): string[] => {
-  if (!shootData) return [];
-
-  const sources: any[] = [
-    shootData.services,
-    shootData.services_list,
-    shootData.servicesList,
-    shootData.package?.servicesIncluded,
-    shootData.package_details?.servicesIncluded,
-    shootData.service ? [shootData.service] : null,
-    shootData.service_name,
-  ];
-
-  for (const source of sources) {
-    const names = extractServiceNames(source);
-    if (names.length) {
-      return names;
-    }
-  }
-
-  return [];
-};
-
 const ShootDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
   const { formatTemperature, formatTime, formatDate } = useUserPreferences();
-  const role = user?.role || 'client';
-  const normalizedRole = role.toLowerCase();
-  const isSuperAdmin = normalizedRole === 'superadmin';
-  const isEditingManager = normalizedRole === 'editing_manager';
-  const isAdmin = normalizedRole === 'admin' || isSuperAdmin || isEditingManager;
-  const isAdminOrSuperAdmin = isAdmin; // Admin, superadmin, and editing_manager can access most features
-  const isRep = ['salesrep', 'sales_rep', 'rep', 'representative'].includes(normalizedRole);
-  const isAdminOrRep = isAdmin || isRep;
-  const isEditor = normalizedRole === 'editor';
-  const isPhotographer = normalizedRole === 'photographer';
-  const isClient = normalizedRole === 'client';
-  
-  const [shoot, setShoot] = useState<ShootData | null>(null);
-  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('media');
   const [creatingPayment, setCreatingPayment] = useState(false);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
@@ -211,104 +82,63 @@ const ShootDetails: React.FC = () => {
   const [isRescheduleDialogOpen, setIsRescheduleDialogOpen] = useState(false);
   const [isEditorDownloading, setIsEditorDownloading] = useState(false);
   const [isGeneratingShareLink, setIsGeneratingShareLink] = useState(false);
-  const [rawFileCount, setRawFileCount] = useState(0);
-
-  const rawMediaCount = Number(
-    shoot?.rawPhotoCount ??
-      (shoot as any)?.raw_photo_count ??
-      shoot?.mediaSummary?.rawUploaded ??
-      0
-  );
-  const editedMediaCount = Number(
-    shoot?.editedPhotoCount ??
-      (shoot as any)?.edited_photo_count ??
-      shoot?.mediaSummary?.editedUploaded ??
-      0
-  );
-  const hasEditedWithoutRaw = editedMediaCount > 0 && rawMediaCount === 0;
-
-  const loadShoot = useCallback(async (): Promise<ShootData | null> => {
-    if (!id) return null;
-    try {
-      const headers = getApiHeaders();
-      const res = await fetch(`${API_BASE_URL}/api/shoots/${id}`, {
-        headers,
-      });
-      
-      if (!res.ok) throw new Error('Failed to fetch shoot');
-      
-      const json = await res.json();
-      let shootData = json.data || json;
-      
-      // Normalize the data structure
-      if (shootData) {
-        if (shootData.isPrivateListing === undefined && shootData.is_private_listing !== undefined) {
-          shootData.isPrivateListing = Boolean(shootData.is_private_listing);
-        }
-        if (!shootData.location && (shootData.address || shootData.city)) {
-          shootData.location = {
-            address: shootData.address || '',
-            city: shootData.city || '',
-            state: shootData.state || '',
-            zip: shootData.zip || '',
-            fullAddress: shootData.fullAddress || shootData.address || '',
-          };
-        }
-        
-        const normalizedServices = normalizeShootServices(shootData);
-        if (normalizedServices.length) {
-          shootData.services = normalizedServices;
-          shootData.services_list = normalizedServices;
-        } else if (!Array.isArray(shootData.services)) {
-          shootData.services = [];
-        }
-        
-        if (!shootData.scheduledDate && shootData.scheduled_date) {
-          shootData.scheduledDate = shootData.scheduled_date;
-        }
-        
-        const paymentSummary = normalizeShootPaymentSummary(shootData);
-        
-        if (!shootData.payment) {
-          shootData.payment = {
-            baseQuote: paymentSummary.baseQuote,
-            taxRate: paymentSummary.taxRate,
-            taxAmount: paymentSummary.taxAmount,
-            totalQuote: paymentSummary.totalQuote,
-            totalPaid: paymentSummary.totalPaid,
-            lastPaymentDate: paymentSummary.lastPaymentDate,
-            lastPaymentType: paymentSummary.lastPaymentType,
-          };
-        } else {
-          shootData.payment = {
-            ...shootData.payment,
-            baseQuote: paymentSummary.baseQuote,
-            taxRate: paymentSummary.taxRate,
-            taxAmount: paymentSummary.taxAmount,
-            totalQuote: paymentSummary.totalQuote,
-            totalPaid: paymentSummary.totalPaid,
-            lastPaymentDate: paymentSummary.lastPaymentDate ?? shootData.payment.lastPaymentDate,
-            lastPaymentType: paymentSummary.lastPaymentType ?? shootData.payment.lastPaymentType,
-          };
-        }
-      }
-      
-      setShoot(shootData);
-      return shootData;
-    } catch (error: any) {
-      console.error('Error fetching shoot details:', error);
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to fetch shoot details';
-      toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
-      setShoot(null);
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, [id, toast]);
+  const {
+    shoot,
+    shootLoading: loading,
+    shootError,
+    refreshShoot: loadShoot,
+    rawFileCount,
+    currentUserRole: role,
+    roleFlags: {
+      isEditingManager,
+      isAdmin,
+      isRep,
+      isAdminOrRep,
+      isPhotographer,
+      isEditor,
+      isClient,
+    },
+    visibleTabs,
+    capabilities: {
+      normalizedStatus: workflowStatusKey,
+      hasEditedWithoutRaw,
+      canFinalise,
+      canSendToEditing,
+      isHoldRequested,
+      canDirectHold,
+      canRequestHold,
+      canUserPutOnHold,
+      holdActionLabel,
+      holdDialogTitle,
+      holdDialogDescription,
+      holdSubmitLabel,
+    },
+  } = useShootDetailsScreen({
+    shootId: id,
+    enabled: Boolean(id),
+    authRole: user?.role,
+    userId: user?.id,
+  });
+  const normalizedRole = role.toLowerCase();
+  const isSuperAdmin = normalizedRole === 'superadmin';
+  const isAdminOrSuperAdmin = isAdmin;
+  const canReviewHoldRequest = isAdminOrRep && isHoldRequested;
+  const workflowBadge = getShootDetailsWorkflowBadge(shoot?.workflowStatus || shoot?.status);
+  const paymentBadge = getShootDetailsPaymentBadge(shoot?.payment);
+  const shootServices = getShootDetailsServiceNames(shoot);
 
   useEffect(() => {
-    loadShoot();
-  }, [loadShoot]);
+    if (!shootError) return;
+    const errorMessage =
+      shootError instanceof Error
+        ? shootError.message
+        : 'Failed to fetch shoot details';
+    toast({
+      title: 'Error',
+      description: errorMessage,
+      variant: 'destructive',
+    });
+  }, [shootError]);
 
   useEffect(() => {
     if (!id) return;
@@ -322,41 +152,20 @@ const ShootDetails: React.FC = () => {
     if (!hashValue) return;
 
     const mappedTab = hashValue === 'requests' ? 'issues' : hashValue;
+    const sharedVisibleTabIds = new Set(
+      visibleTabs.map((tab) => (tab.id === 'tours' ? 'tour' : tab.id)),
+    );
     const validTabs = new Set([
       'media',
-      'tour',
       'slideshow',
-      'settings',
       'activity',
-      'notes',
-      'issues',
+      ...sharedVisibleTabIds,
     ]);
 
     if (validTabs.has(mappedTab)) {
       setActiveTab(mappedTab);
     }
-  }, [location.hash]);
-
-  // Fetch raw file count for editor
-  useEffect(() => {
-    const fetchRawFileCount = async () => {
-      if (!id || !isEditor) return;
-      try {
-        const headers = getApiHeaders();
-        const res = await fetch(`${API_BASE_URL}/api/shoots/${id}/files?type=raw`, {
-          headers,
-        });
-        if (res.ok) {
-          const data = await res.json();
-          const files = data.data || data.files || data || [];
-          setRawFileCount(Array.isArray(files) ? files.length : 0);
-        }
-      } catch (error) {
-        console.error('Failed to fetch raw file count:', error);
-      }
-    };
-    fetchRawFileCount();
-  }, [id, isEditor]);
+  }, [location.hash, visibleTabs]);
 
   // Editor download raw files
   const handleEditorDownloadRaw = async () => {
@@ -555,19 +364,6 @@ const ShootDetails: React.FC = () => {
     loadShoot(); // Reload shoot data to update payment status
   };
 
-  // Check if shoot can be put on hold
-  const canPutOnHold = shoot && (
-    (shoot.status === 'scheduled' || shoot.status === 'booked' || shoot.workflowStatus === 'booked') &&
-    shoot.status !== 'on_hold' &&
-    shoot.workflowStatus !== 'on_hold'
-  );
-
-  const isHoldRequested = Boolean(shoot?.holdRequestedAt);
-  // Check if user can put shoot on hold
-  const canDirectHold = isAdminOrRep && !isEditor && !isEditingManager && canPutOnHold && !isHoldRequested;
-  const canRequestHold = isClient && canPutOnHold && !isHoldRequested;
-  const canReviewHoldRequest = isAdminOrRep && isHoldRequested;
-
   const handleMarkOnHold = async () => {
     if (!shoot || !onHoldReason.trim()) {
       toast({
@@ -743,23 +539,12 @@ const ShootDetails: React.FC = () => {
     window.open(`https://www.google.com/maps/search/?api=1&query=${address}`, '_blank');
   };
 
-  const workflowStatusKey = normalizeStatusKey(shoot?.workflowStatus || shoot?.status || '');
-  const workflowBadge = statusBadgeMap[workflowStatusKey];
-  
-  // Calculate payment status from totalQuote and totalPaid (payment_status doesn't exist in type)
-  const calculatePaymentStatus = (payment: any) => {
-    if (!payment) return 'unpaid';
-    const totalQuote = payment.totalQuote || 0;
-    const totalPaid = payment.totalPaid || 0;
-    if (totalPaid >= totalQuote) return 'paid';
-    if (totalPaid > 0) return 'partial';
-    return 'unpaid';
-  };
-  
-  const paymentBadge = paymentBadgeMap[calculatePaymentStatus(shoot?.payment)];
-
   const fullAddress = shoot?.location?.fullAddress || 
     (shoot?.location ? `${shoot.location.address}, ${shoot.location.city}, ${getStateFullName(shoot.location.state)} ${shoot.location.zip}`.trim() : '');
+  const canShowIssuesTab = visibleTabs.some((tab) => tab.id === 'issues');
+  const canShowToursTab = visibleTabs.some((tab) => tab.id === 'tours');
+  const canShowSettingsTab = visibleTabs.some((tab) => tab.id === 'settings');
+  const canShowNotesTab = visibleTabs.some((tab) => tab.id === 'notes');
 
   if (loading) {
     return (
@@ -797,296 +582,47 @@ const ShootDetails: React.FC = () => {
   return (
     <DashboardLayout className="!p-0">
       <div className="flex flex-col min-h-screen bg-background">
-        {/* Tiered Header - Multi-layer hierarchy */}
-        <div className="sticky top-0 z-50 bg-background border-b">
-            {/* Top Bar - Breadcrumb & Navigation */}
-            <div className="px-3 sm:px-6 py-1.5 border-b bg-muted/30">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2"
-                    onClick={() => navigate('/shoot-history')}
-                  >
-                    <ArrowLeft className="h-3 w-3 mr-1" />
-                    <span className="hidden sm:inline">Shoots</span>
-                  </Button>
-                  <ChevronRight className="h-3 w-3" />
-                  <span className="font-medium text-foreground">Shoot #{shoot.id}</span>
-                  {/* Status badge and photographer info */}
-                  {workflowBadge && (
-                    <Badge variant={workflowBadge.variant} className="text-xs px-2 py-0.5 ml-2">
-                      {workflowBadge.label}
-                    </Badge>
-                  )}
-                  {/* Photographer info in breadcrumb - hidden for editor/photographer (shown in services section instead) */}
-                  {!isEditor && !isPhotographer && shoot.photographer?.name && (
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground ml-2">
-                      <Camera className="h-3 w-3" />
-                      <span className="font-medium">{shoot.photographer.name}</span>
-                      <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-                      <span className="hidden sm:inline">Online</span>
-                    </div>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 sm:gap-3 text-xs text-muted-foreground flex-wrap">
-                  <span className="whitespace-nowrap">{formattedDate}</span>
-                  {formattedTime && <span className="hidden sm:inline">•</span>}
-                  {formattedTime && <span className="whitespace-nowrap">{formattedTime}</span>}
-                  {shoot.weather?.temperature && (
-                    <>
-                      <span className="hidden sm:inline">•</span>
-                      <span className="flex items-center gap-1 whitespace-nowrap">
-                        <Cloud className="h-3 w-3" />
-                        <span className="hidden sm:inline">{(() => { const num = typeof shoot.weather.temperature === 'number' ? shoot.weather.temperature : parseInt(String(shoot.weather.temperature), 10); return Number.isFinite(num) ? formatTemperature(num) : shoot.weather.temperature; })()} {shoot.weather.summary}</span>
-                        <span className="sm:hidden">{(() => { const num = typeof shoot.weather.temperature === 'number' ? shoot.weather.temperature : parseInt(String(shoot.weather.temperature), 10); return Number.isFinite(num) ? formatTemperature(num) : shoot.weather.temperature; })()}</span>
-                      </span>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Main Header - Property Address */}
-            <div className="px-3 sm:px-6 py-2 sm:py-3">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
-                <div className="flex-1 min-w-0 w-full sm:w-auto">
-                  <div className="flex items-center gap-2 sm:gap-3 mb-2">
-                    <h1 className="text-lg sm:text-2xl font-bold text-foreground truncate flex-1">
-                      {shoot.id ? `#${shoot.id} · ` : ''}
-                      {shoot.location?.address || 'Shoot Details'}
-                    </h1>
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0 hover:bg-muted"
-                        onClick={copyAddress}
-                        title="Copy address"
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0 hover:bg-muted"
-                        onClick={openInMaps}
-                        title="Open in Maps"
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                  {addressParts.length > 1 && (
-                    <p className="text-xs sm:text-sm text-muted-foreground">
-                      {addressParts.slice(1).join(',').trim()}
-                    </p>
-                  )}
-                </div>
-
-                {/* Action Bar - Stack on mobile */}
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-shrink-0 w-full sm:w-auto">
-                  {canDirectHold && (
-                    <Button
-                      variant="default"
-                      size="sm"
-                      className="bg-amber-600 hover:bg-amber-700 text-white w-full sm:w-auto"
-                      onClick={() => setIsOnHoldDialogOpen(true)}
-                    >
-                      <PauseCircle className="h-3 w-3 mr-1.5" />
-                      <span className="hidden sm:inline">Mark on hold</span>
-                      <span className="sm:hidden">Hold</span>
-                    </Button>
-                  )}
-                  {canRequestHold && (
-                    <Button
-                      variant="default"
-                      size="sm"
-                      className="bg-amber-600 hover:bg-amber-700 text-white w-full sm:w-auto"
-                      onClick={() => setIsOnHoldDialogOpen(true)}
-                    >
-                      <PauseCircle className="h-3 w-3 mr-1.5" />
-                      <span className="hidden sm:inline">Request hold</span>
-                      <span className="sm:hidden">Hold</span>
-                    </Button>
-                  )}
-                  {isClient && isHoldRequested && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full sm:w-auto"
-                      disabled
-                    >
-                      <PauseCircle className="h-3 w-3 mr-1.5" />
-                      <span className="hidden sm:inline">Hold requested</span>
-                      <span className="sm:hidden">Requested</span>
-                    </Button>
-                  )}
-                  {canReviewHoldRequest && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="border-amber-200 text-amber-700 hover:bg-amber-50 w-full sm:w-auto"
-                      onClick={() => setIsHoldApprovalDialogOpen(true)}
-                    >
-                      <PauseCircle className="h-3 w-3 mr-1.5" />
-                      <span className="hidden sm:inline">Review hold request</span>
-                      <span className="sm:hidden">Review hold</span>
-                    </Button>
-                  )}
-                  {isAdmin && !hasEditedWithoutRaw && ['uploaded', 'scheduled'].includes(workflowStatusKey) && (
-                    <Button
-                      variant="default"
-                      size="sm"
-                      className="bg-purple-600 hover:bg-purple-700 text-white w-full sm:w-auto"
-                      onClick={handleSendToEditing}
-                    >
-                      <Send className="h-3 w-3 mr-1.5" />
-                      <span className="hidden sm:inline">Send to Editing</span>
-                      <span className="sm:hidden">Send to Editing</span>
-                    </Button>
-                  )}
-                  {isAdmin && ['uploaded', 'editing', 'ready'].includes(workflowStatusKey) && (
-                    <Button
-                      variant="default"
-                      size="sm"
-                      className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
-                      onClick={handleFinalise}
-                    >
-                      <CheckCircle className="h-3 w-3 mr-1.5" />
-                      <span className="hidden sm:inline">Finalize & Deliver</span>
-                      <span className="sm:hidden">Finalize</span>
-                    </Button>
-                  )}
-                  {isAdminOrSuperAdmin && !isEditor && !isEditingManager && !['cancelled', 'canceled', 'declined'].includes(workflowStatusKey) && (
-                    <Button
-                      variant="default"
-                      size="sm"
-                      className="bg-orange-600 hover:bg-orange-700 text-white w-full sm:w-auto"
-                      onClick={handleProcessPayment}
-                    >
-                      <DollarSign className="h-3 w-3 mr-1.5" />
-                      <span className="hidden sm:inline">Process Payment</span>
-                      <span className="sm:hidden">Payment</span>
-                    </Button>
-                  )}
-                  {/* Editor-specific: Download Raw and Share Link buttons */}
-                  {isEditor && (
-                    <>
-                      <Button
-                        variant="default"
-                        size="sm"
-                        className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
-                        onClick={handleEditorDownloadRaw}
-                        disabled={isEditorDownloading || rawFileCount === 0}
-                      >
-                        {isEditorDownloading ? (
-                          <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
-                        ) : (
-                          <Download className="h-3 w-3 mr-1.5" />
-                        )}
-                        <span className="hidden sm:inline">
-                          {isEditorDownloading ? 'Downloading...' : `Download RAW (${rawFileCount})`}
-                        </span>
-                        <span className="sm:hidden">
-                          {isEditorDownloading ? '...' : `RAW (${rawFileCount})`}
-                        </span>
-                      </Button>
-                      <Button
-                        variant="default"
-                        size="sm"
-                        className="bg-purple-600 hover:bg-purple-700 text-white w-full sm:w-auto"
-                        onClick={handleGenerateShareLink}
-                        disabled={isGeneratingShareLink || rawFileCount === 0}
-                      >
-                        {isGeneratingShareLink ? (
-                          <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
-                        ) : (
-                          <Share2 className="h-3 w-3 mr-1.5" />
-                        )}
-                        <span className="hidden sm:inline">
-                          {isGeneratingShareLink ? 'Generating...' : 'Share Link'}
-                        </span>
-                        <span className="sm:hidden">
-                          {isGeneratingShareLink ? '...' : 'Share'}
-                        </span>
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Meta Bar - Payment Badge only for admins */}
-            {isAdminOrSuperAdmin && paymentBadge && (
-              <div className="px-3 sm:px-6 py-1 border-t bg-muted/20">
-                <div className="flex items-center gap-2">
-                  <Badge variant={paymentBadge.variant} className="text-xs px-2.5 py-1">
-                    {paymentBadge.label}
-                  </Badge>
-                </div>
-              </div>
-            )}
-
-            {/* Enhanced Tab Bar - Sticks with header */}
-            <div className="border-t bg-background shadow-sm flex-shrink-0">
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="w-full justify-start h-12 sm:h-14 px-3 sm:px-6 bg-transparent gap-1 overflow-x-auto">
-                  <TabsTrigger 
-                    value="media" 
-                    className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-semibold data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-10 sm:h-12 px-3 sm:px-4 text-xs sm:text-sm whitespace-nowrap"
-                  >
-                    Media
-                  </TabsTrigger>
-                  <TabsTrigger 
-                    value="issues" 
-                    className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-semibold data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-10 sm:h-12 px-3 sm:px-4 text-xs sm:text-sm whitespace-nowrap"
-                  >
-                    Requests
-                  </TabsTrigger>
-                  {/* Tour, Slideshow, Settings tabs hidden for photographers and editors */}
-                  {!isPhotographer && !isEditor && (
-                    <>
-                      <TabsTrigger 
-                        value="tour" 
-                        className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-semibold data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-10 sm:h-12 px-3 sm:px-4 text-xs sm:text-sm whitespace-nowrap"
-                      >
-                        Tour
-                      </TabsTrigger>
-                      <TabsTrigger 
-                        value="slideshow" 
-                        className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-semibold data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-10 sm:h-12 px-3 sm:px-4 text-xs sm:text-sm whitespace-nowrap"
-                      >
-                        Slideshow
-                      </TabsTrigger>
-                      <TabsTrigger 
-                        value="settings" 
-                        className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-semibold data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-10 sm:h-12 px-3 sm:px-4 text-xs sm:text-sm whitespace-nowrap"
-                      >
-                        Settings
-                      </TabsTrigger>
-                    </>
-                  )}
-                  {(isAdmin || isRep) && (
-                    <TabsTrigger 
-                      value="activity" 
-                      className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-semibold data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-10 sm:h-12 px-3 sm:px-4 text-xs sm:text-sm whitespace-nowrap"
-                    >
-                      <span className="hidden sm:inline">Activity Log</span>
-                      <span className="sm:hidden">Activity</span>
-                    </TabsTrigger>
-                  )}
-                  <TabsTrigger 
-                    value="notes" 
-                    className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-semibold data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-10 sm:h-12 px-3 sm:px-4 text-xs sm:text-sm whitespace-nowrap"
-                  >
-                    Notes
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
-            </div>
-          </div>
+        <ShootDetailsPageHeader
+          shoot={shoot}
+          workflowBadge={workflowBadge}
+          paymentBadge={paymentBadge}
+          formattedDate={formattedDate}
+          formattedTime={formattedTime}
+          addressParts={addressParts}
+          formatTemperature={formatTemperature}
+          isEditor={isEditor}
+          isPhotographer={isPhotographer}
+          isEditingManager={isEditingManager}
+          isAdminOrSuperAdmin={isAdminOrSuperAdmin}
+          isClient={isClient}
+          canDirectHold={canDirectHold}
+          canRequestHold={canRequestHold}
+          isHoldRequested={isHoldRequested}
+          canReviewHoldRequest={canReviewHoldRequest}
+          canSendToEditing={canSendToEditing}
+          canFinalise={canFinalise}
+          canShowIssuesTab={canShowIssuesTab}
+          canShowToursTab={canShowToursTab}
+          canShowSettingsTab={canShowSettingsTab}
+          canShowNotesTab={canShowNotesTab}
+          canShowActivity={isAdmin || isRep}
+          holdActionLabel={holdActionLabel}
+          activeTab={activeTab}
+          onActiveTabChange={setActiveTab}
+          onBack={() => navigate('/shoot-history')}
+          onCopyAddress={copyAddress}
+          onOpenInMaps={openInMaps}
+          onOpenHoldDialog={() => setIsOnHoldDialogOpen(true)}
+          onOpenHoldApprovalDialog={() => setIsHoldApprovalDialogOpen(true)}
+          onSendToEditing={handleSendToEditing}
+          onFinalise={handleFinalise}
+          onProcessPayment={handleProcessPayment}
+          onDownloadRaw={handleEditorDownloadRaw}
+          onGenerateShareLink={handleGenerateShareLink}
+          rawFileCount={rawFileCount}
+          isEditorDownloading={isEditorDownloading}
+          isGeneratingShareLink={isGeneratingShareLink}
+        />
 
           {/* Premium Summary Card */}
           <div className="px-3 sm:px-6 py-3 sm:py-4">
@@ -1264,131 +800,37 @@ const ShootDetails: React.FC = () => {
         </div>
 
       {shoot && (
-        <>
-          <SquarePaymentDialog
-            isOpen={isPaymentDialogOpen}
-            onClose={() => setIsPaymentDialogOpen(false)}
-            amount={amountDue}
-            shootId={shoot.id}
-            shootAddress={shoot.location?.fullAddress || shoot.location?.address}
-            shootServices={normalizeShootServices(shoot)}
-            shootDate={shoot.scheduledDate ? formatDate(shoot.scheduledDate) : undefined}
-            shootTime={(shoot as any)?.scheduled_at ? formatTime((shoot as any).scheduled_at) : ((shoot as any)?.time ? formatTime((shoot as any).time) : undefined)}
-            clientName={shoot.client?.name}
-            clientEmail={shoot.client?.email}
-            totalQuote={shoot.payment?.totalQuote}
-            totalPaid={shoot.payment?.totalPaid}
-            onPaymentSuccess={handlePaymentSuccess}
-          />
-
-          <MarkAsPaidDialog
-            isOpen={isMarkPaidDialogOpen}
-            onClose={() => setIsMarkPaidDialogOpen(false)}
-            onConfirm={handleMarkPaidConfirm}
-            title="Mark Shoot as Paid"
-            description="Select the payment method and provide any required details."
-            confirmLabel="Mark as Paid"
-          />
-
-          {/* Reschedule Dialog */}
-          {shoot && (
-            <RescheduleDialog
-              shoot={shoot}
-              isOpen={isRescheduleDialogOpen}
-              onClose={() => {
-                setIsRescheduleDialogOpen(false);
-                loadShoot();
-              }}
-            />
-          )}
-
-          {/* Mark on hold / Request hold Dialog */}
-          <Dialog open={isOnHoldDialogOpen} onOpenChange={setIsOnHoldDialogOpen}>
-            <DialogContent className="sm:max-w-[500px]">
-              <DialogHeader>
-                <DialogTitle>{isClient ? 'Request hold' : 'Mark on hold'}</DialogTitle>
-                <DialogDescription>
-                  {isClient
-                    ? 'Tell us why you need to put this shoot on hold. Your request will be reviewed by an admin.'
-                    : 'Please provide a reason for putting this shoot on hold. This will help track why the shoot was paused.'}
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="onHoldReason">Reason <span className="text-destructive">*</span></Label>
-                  <Textarea
-                    id="onHoldReason"
-                    placeholder={isClient
-                      ? 'Enter the reason for requesting a hold...'
-                      : 'Enter the reason for putting this shoot on hold...'}
-                    value={onHoldReason}
-                    onChange={(e) => setOnHoldReason(e.target.value)}
-                    rows={4}
-                    className="resize-none"
-                  />
-                </div>
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setIsOnHoldDialogOpen(false);
-                    setOnHoldReason('');
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleMarkOnHold}
-                  disabled={!onHoldReason.trim()}
-                  className="bg-amber-600 hover:bg-amber-700"
-                >
-                  <PauseCircle className="h-4 w-4 mr-2" />
-                  {isClient ? 'Submit request' : 'Mark on hold'}
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-
-          {/* Hold Approval Dialog */}
-          <Dialog open={isHoldApprovalDialogOpen} onOpenChange={setIsHoldApprovalDialogOpen}>
-            <DialogContent className="sm:max-w-[500px]">
-              <DialogHeader>
-                <DialogTitle>Hold request</DialogTitle>
-                <DialogDescription>
-                  {shoot?.holdReason
-                    ? `Reason: ${shoot.holdReason}`
-                    : 'No reason was provided for this hold request.'}
-                </DialogDescription>
-              </DialogHeader>
-              <div className="flex justify-end gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setIsHoldApprovalDialogOpen(false)}
-                  disabled={holdProcessing}
-                >
-                  Close
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={handleRejectHold}
-                  disabled={holdProcessing}
-                >
-                  {holdProcessing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-                  Reject
-                </Button>
-                <Button
-                  className="bg-amber-600 hover:bg-amber-700"
-                  onClick={handleApproveHold}
-                  disabled={holdProcessing}
-                >
-                  {holdProcessing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-                  Approve hold
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </>
+        <ShootDetailsPageDialogs
+          shoot={shoot}
+          amountDue={amountDue}
+          shootServices={shootServices}
+          formatDate={formatDate}
+          formatTime={formatTime}
+          isPaymentDialogOpen={isPaymentDialogOpen}
+          isMarkPaidDialogOpen={isMarkPaidDialogOpen}
+          isRescheduleDialogOpen={isRescheduleDialogOpen}
+          isOnHoldDialogOpen={isOnHoldDialogOpen}
+          isHoldApprovalDialogOpen={isHoldApprovalDialogOpen}
+          onHoldReason={onHoldReason}
+          holdDialogTitle={holdDialogTitle}
+          holdDialogDescription={holdDialogDescription}
+          holdSubmitLabel={holdSubmitLabel}
+          holdProcessing={holdProcessing}
+          onPaymentDialogClose={() => setIsPaymentDialogOpen(false)}
+          onMarkPaidDialogClose={() => setIsMarkPaidDialogOpen(false)}
+          onRescheduleClose={() => {
+            setIsRescheduleDialogOpen(false);
+            void loadShoot();
+          }}
+          onOnHoldDialogChange={setIsOnHoldDialogOpen}
+          onHoldApprovalDialogChange={setIsHoldApprovalDialogOpen}
+          onOnHoldReasonChange={setOnHoldReason}
+          onPaymentSuccess={handlePaymentSuccess}
+          onMarkPaidConfirm={handleMarkPaidConfirm}
+          onSubmitHold={handleMarkOnHold}
+          onRejectHold={handleRejectHold}
+          onApproveHold={handleApproveHold}
+        />
       )}
     </DashboardLayout>
   );

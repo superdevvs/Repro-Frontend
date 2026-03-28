@@ -14,6 +14,17 @@ export default defineConfig(({ mode }) => ({
         changeOrigin: true,
         secure: false,
       },
+      '/nominatim': {
+        target: 'https://nominatim.openstreetmap.org',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/nominatim/, ''),
+      },
+      '/storage': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
+        secure: false,
+      },
     },
   },
   plugins: [

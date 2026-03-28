@@ -20,6 +20,7 @@ import { format } from 'date-fns';
 import { API_BASE_URL } from '@/config/env';
 import axios from 'axios';
 import { MarkAsPaidDialog, MarkAsPaidPayload } from '@/components/payments/MarkAsPaidDialog';
+import { blurActiveElement } from '@/components/shoots/dialogFocusUtils';
 
 interface PayMultipleShootsDialogProps {
   isOpen: boolean;
@@ -86,12 +87,14 @@ export function PayMultipleShootsDialog({
       });
       return;
     }
+    blurActiveElement();
     setShowConfirmationDialog(true);
   };
 
   const handleConfirmPayment = async () => {
     setShowConfirmationDialog(false);
     if (paymentMethod === 'mark-paid') {
+      blurActiveElement();
       setIsMarkPaidDialogOpen(true);
       return;
     }

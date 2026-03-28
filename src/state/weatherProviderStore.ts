@@ -1,12 +1,12 @@
 const STORAGE_KEY = 'dashboard.weatherProvider';
 
-export type WeatherProvider = 'openweather' | 'accuweather' | 'weatherapi';
+export type WeatherProvider = 'google';
 
-const DEFAULT_PROVIDER: WeatherProvider = 'openweather';
+const DEFAULT_PROVIDER: WeatherProvider = 'google';
 const listeners = new Set<(provider: WeatherProvider) => void>();
 
 const isValidProvider = (value: string | null): value is WeatherProvider =>
-  value === 'openweather' || value === 'accuweather' || value === 'weatherapi';
+  value === 'google';
 
 export const getWeatherProvider = (): WeatherProvider => {
   if (typeof window === 'undefined') {
@@ -34,8 +34,6 @@ const notify = (provider: WeatherProvider) => {
 
 export const setWeatherProvider = (provider: WeatherProvider) => {
   if (typeof window === 'undefined') return;
-  const current = getWeatherProvider();
-  if (current === provider) return;
   window.localStorage.setItem(STORAGE_KEY, provider);
   notify(provider);
 };

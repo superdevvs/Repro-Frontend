@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { DashboardShootSummary } from '@/types/dashboard';
-import { withApiBase } from '@/config/env';
+import { normalizeImageUrl } from '@/utils/imageUrl';
 import { Card } from './SharedComponents';
 
 interface CompletedShootsCardProps {
@@ -17,9 +17,8 @@ interface CompletedShootsCardProps {
 
 const resolveImageUrl = (value?: string | null): string | null => {
   if (!value) return null;
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  return withApiBase(trimmed);
+  const resolved = normalizeImageUrl(value);
+  return resolved || null;
 };
 
 const FLOORPLAN_PATTERNS = ['floorplan', 'floor-plan', 'floor_plan', 'fp_', 'fp-', 'layout', 'blueprint'];
@@ -198,4 +197,3 @@ export const CompletedShootsCard: React.FC<CompletedShootsCardProps> = ({
     </Card>
   );
 };
-

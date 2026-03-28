@@ -3,6 +3,7 @@ export type RefreshHandler = () => void | Promise<void>;
 const editingRequestHandlers = new Set<RefreshHandler>();
 const shootListHandlers = new Set<RefreshHandler>();
 const shootHistoryHandlers = new Set<RefreshHandler>();
+const dashboardOverviewHandlers = new Set<RefreshHandler>();
 const invoiceHandlers = new Set<RefreshHandler>();
 const shootDetailHandlers = new Map<string, Set<RefreshHandler>>();
 const shootDetailDebounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -64,6 +65,17 @@ export const registerShootHistoryRefresh = (handler: RefreshHandler) => {
 
 export const triggerShootHistoryRefresh = createDebouncedTrigger(() => {
   shootHistoryHandlers.forEach(safeInvoke);
+});
+
+export const registerDashboardOverviewRefresh = (handler: RefreshHandler) => {
+  dashboardOverviewHandlers.add(handler);
+  return () => {
+    dashboardOverviewHandlers.delete(handler);
+  };
+};
+
+export const triggerDashboardOverviewRefresh = createDebouncedTrigger(() => {
+  dashboardOverviewHandlers.forEach(safeInvoke);
 });
 
 export const registerInvoicesRefresh = (handler: RefreshHandler) => {

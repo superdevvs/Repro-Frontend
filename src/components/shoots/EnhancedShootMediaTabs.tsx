@@ -19,10 +19,10 @@ import {
   uploadRawPhotos,
   uploadExtraPhotos,
   uploadEditedPhotos,
-  downloadMediaZip,
   getMediaUploadErrorMessage,
   type DropboxMediaFile,
 } from '@/services/dropboxMediaService';
+import { downloadShootMediaArchive } from '@/utils/shootMediaDownload';
 import { MissingPhotosAlert, PhotoCountsSummary } from './MissingPhotosAlert';
 import { BracketModeSelector, type BracketMode } from './BracketModeSelector';
 import { MediaUploadProgress } from './MediaUploadProgress';
@@ -281,15 +281,11 @@ export const EnhancedShootMediaTabs: React.FC<EnhancedShootMediaTabsProps> = ({
   };
 
   const handleDownloadZip = async (type: 'raw' | 'edited') => {
-    if (!session?.access_token) return;
-
     try {
-      const response = await downloadMediaZip(shootId, type, session.access_token);
-      
-      if (response.type === 'redirect' && response.url) {
-        window.open(response.url, '_blank');
-      }
-      
+      await downloadShootMediaArchive({
+        shootId,
+        type,
+      });
       toast({
         title: 'Download Started',
         description: `Downloading ${type} photos as ZIP`,

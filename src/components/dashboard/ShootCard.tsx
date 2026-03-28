@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -27,9 +27,10 @@ import { ShootData } from '@/types/shoots';
 import { useWeatherData } from '@/hooks/useWeatherData';
 import { formatWorkflowStatus } from '@/utils/status';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
+import { normalizeImageUrl } from '@/utils/imageUrl';
 
 interface WeatherInfo {
-  temp: number;
+  temp?: number | null;
   condition: string;
   icon: React.ReactNode;
 }
@@ -98,9 +99,6 @@ export function ShootCard(props: ShootCardProps) {
     return timeString;
   };
 
-  // Get weather data for the shoot location and date
-  const [weather, setWeather] = useState<WeatherInfo | null>(null);
-  
   const getWeatherIcon = (condition: string) => {
     condition = condition.toLowerCase();
     if (condition.includes('sun') || condition.includes('clear')) {
@@ -116,32 +114,38 @@ export function ShootCard(props: ShootCardProps) {
     }
   };
 
-  useEffect(() => {
-    // Mock weather API call
-    // In a real app, you would fetch from a weather API using the shoot date and location
-    const getRandomWeather = () => {
-      const conditions = ['Sunny', 'Partly Cloudy', 'Cloudy', 'Light Rain', 'Snow'];
-      const randomCondition = conditions[Math.floor(Math.random() * conditions.length)];
-      const randomTemp = Math.floor(Math.random() * 23) + 10; // Random temp in °C (10-32)
-      
-      return {
-        temp: randomTemp,
-        condition: randomCondition,
-        icon: getWeatherIcon(randomCondition)
-      };
-    };
-    
-    setWeather(getRandomWeather());
-  }, []);
+  const weatherAddress = isNewProps ? props.shoot.location.fullAddress || props.shoot.location.address : props.address;
+  const weatherTime = isNewProps ? props.shoot.time : props.time;
+  const weatherDateValue = isNewProps ? props.shoot.scheduledDate : props.date;
+  const parsedWeatherDate = weatherDateValue ? new Date(weatherDateValue) : undefined;
+  const weatherDate =
+    parsedWeatherDate && !Number.isNaN(parsedWeatherDate.getTime()) ? parsedWeatherDate : undefined;
+  const { temperature: weatherTemperature, condition: weatherCondition } = useWeatherData({
+    date: weatherDate,
+    time: weatherTime,
+    address: weatherAddress,
+  });
+  const parsedWeatherTemperature =
+    weatherTemperature !== undefined && !Number.isNaN(Number(weatherTemperature))
+      ? Number(weatherTemperature)
+      : null;
+  const weather =
+    weatherCondition || parsedWeatherTemperature !== null
+      ? {
+          temp: parsedWeatherTemperature,
+          condition: weatherCondition || 'Weather unavailable',
+          icon: getWeatherIcon(weatherCondition || 'Cloudy'),
+        }
+      : null;
 
   // Helper function to get media images regardless of format
   const getMediaImages = (media?: ShootData['media']): string[] => {
     if (!media) return [];
     if (media.images && media.images.length > 0) {
-      return media.images.map(img => img.url);
+      return media.images.map(img => normalizeImageUrl(img.url)).filter(Boolean);
     }
     if (media.photos && media.photos.length > 0) {
-      return media.photos;
+      return media.photos.map((photo) => normalizeImageUrl(photo)).filter(Boolean);
     }
     return [];
   };
@@ -154,7 +158,7 @@ export function ShootCard(props: ShootCardProps) {
     const { shoot } = props;
     const mediaImages = getMediaImages(shoot.media);
     const hasDropboxFiles = shoot.dropboxPaths?.rawFolder || shoot.dropboxPaths?.editedFolder;
-    const heroImage = shoot.heroImage || (mediaImages.length > 0 ? mediaImages[0] : null);
+    const heroImage = normalizeImageUrl(shoot.heroImage) || (mediaImages.length > 0 ? mediaImages[0] : null);
     
     return (
       <div 
@@ -189,7 +193,9 @@ export function ShootCard(props: ShootCardProps) {
             {weather && (
               <div className="flex items-center gap-1.5 bg-muted/60 p-1.5 px-2 rounded-full">
                 {weather.icon}
-                <span className="font-medium text-sm">{formatTemperature(weather.temp)}</span>
+                <span className="font-medium text-sm">
+                  {typeof weather.temp === 'number' ? formatTemperature(weather.temp) : '--°'}
+                </span>
               </div>
             )}
           </div>
@@ -335,7 +341,9 @@ export function ShootCard(props: ShootCardProps) {
           {weather && (
             <div className="flex items-center gap-1.5 bg-muted/60 p-1.5 px-2 rounded-full">
               {weather.icon}
-              <span className="font-medium text-sm">{formatTemperature(weather.temp)}</span>
+              <span className="font-medium text-sm">
+                {typeof weather.temp === 'number' ? formatTemperature(weather.temp) : '--°'}
+              </span>
             </div>
           )}
         </div>

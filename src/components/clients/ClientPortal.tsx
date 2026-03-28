@@ -28,6 +28,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/use-toast";
+import { normalizeImageUrl } from "@/utils/imageUrl";
+import { getPreferredIguideUrl, normalizePropertyDetails } from "@/utils/shootTourData";
 
 type PortfolioItem = {
   id: string;
@@ -62,6 +64,7 @@ const extractUrls = (arr: any[] | undefined | null): string[] => {
       if (item?.thumbnail_path) return item.thumbnail_path;
       return null;
     })
+    .map((value) => normalizeImageUrl(value))
     .filter((x): x is string => Boolean(x));
 };
 
@@ -193,29 +196,25 @@ export function ClientPortal() {
 
           const primaryImage = s.preview_image || gallery[0] || '';
 
-          const iguideUrl =
-            s.iguide_tour_url ||
-            s.tour_links?.iguide_branded ||
-            s.tour_links?.iguide_mls ||
-            s.tour_links?.iGuide ||
-            '';
+          const normalizedPropertyDetails = normalizePropertyDetails(s);
+          const iguideUrl = getPreferredIguideUrl(s);
 
           return {
             id: String(s.id),
             title: s.address || 'Untitled Property',
             subtitle: [s.city, s.state].filter(Boolean).join(', ') || 'Location pending',
-            image: primaryImage || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=600&h=400&fit=crop&q=80',
+            image: normalizeImageUrl(primaryImage) || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=600&h=400&fit=crop&q=80',
             category: 'residential',
             photos: s.files_count || gallery.length || 0,
             badge: s.status || 'Completed',
             status: (s.workflow_status || s.status || '').toLowerCase(),
-            gallery: gallery.length ? gallery : (primaryImage ? [primaryImage] : []),
+            gallery: gallery.length ? gallery : (primaryImage ? [normalizeImageUrl(primaryImage)].filter(Boolean) : []),
             iguideUrl: iguideUrl || undefined,
             listingType: s.listing_type || s.listingType,
             propertyStatus: s.property_status || s.propertyStatus || 'available',
-            bedrooms: s.bedrooms || s.property_details?.bedrooms,
-            bathrooms: s.bathrooms || s.property_details?.bathrooms,
-            sqft: s.sqft || s.property_details?.sqft,
+            bedrooms: (normalizedPropertyDetails?.bedrooms as number | undefined) || undefined,
+            bathrooms: (normalizedPropertyDetails?.bathrooms as number | undefined) || undefined,
+            sqft: (normalizedPropertyDetails?.sqft as number | undefined) || undefined,
           };
         });
         
@@ -303,8 +302,8 @@ export function ClientPortal() {
   const storedAvatar = typeof window !== 'undefined' ? localStorage.getItem(storageKey('avatar')) : '';
   const customAbout = typeof window !== 'undefined' ? localStorage.getItem(storageKey('brandAbout')) || '' : '';
 
-  const logoImage = storedBrandLogo || clientInfo?.logo || '';
-  const bannerImage = storedBanner || clientInfo?.banner_image || '';
+  const logoImage = normalizeImageUrl(storedBrandLogo || clientInfo?.logo || '') || '';
+  const bannerImage = normalizeImageUrl(storedBanner || clientInfo?.banner_image || '') || '';
   const hasBanner = Boolean(bannerImage);
 
   if (loading) {
@@ -687,7 +686,7 @@ export function ClientPortal() {
                   <div className="flex items-center gap-3 rounded-2xl border p-4 bg-background/60">
                     <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
                       {clientInfo.rep.avatar ? (
-                        <img src={clientInfo.rep.avatar} alt={clientInfo.rep.name} className="h-full w-full object-cover" />
+                        <img src={normalizeImageUrl(clientInfo.rep.avatar)} alt={clientInfo.rep.name} className="h-full w-full object-cover" />
                       ) : (
                         <UserCircle className="h-5 w-5 text-primary" />
                       )}
