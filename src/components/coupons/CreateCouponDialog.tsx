@@ -59,7 +59,7 @@ export function CreateCouponDialog() {
       // Ensure user is authenticated
       const token = session?.accessToken || localStorage.getItem('authToken');
       if (!token) {
-        throw new Error('You must be logged in to create coupons');
+        throw new Error('You must be logged in to create discounts');
       }
       
       // Format the date for Postgres if it exists
@@ -78,7 +78,7 @@ export function CreateCouponDialog() {
         current_uses: 0,
       };
 
-      console.log("Creating coupon with data:", couponData);
+      console.log("Creating discount with data:", couponData);
       
       const response = await axios.post(
         `${API_BASE_URL}/api/coupons`,
@@ -95,12 +95,12 @@ export function CreateCouponDialog() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['coupons'] });
-      toast.success('Coupon created successfully');
+      toast.success('Discount created successfully');
       form.reset();
     },
     onError: (error) => {
-      console.error('Error creating coupon:', error);
-      toast.error(`Failed to create coupon: ${error.message || 'Unknown error'}`);
+      console.error('Error creating discount:', error);
+      toast.error(`Failed to create discount: ${error.message || 'Unknown error'}`);
     },
   });
 
@@ -111,7 +111,7 @@ export function CreateCouponDialog() {
   return (
     <DialogContent className="sm:max-w-[425px]">
       <DialogHeader>
-        <DialogTitle>Create New Code</DialogTitle>
+        <DialogTitle>Create Discount</DialogTitle>
         <DialogDescription>
           Add a new discount code
         </DialogDescription>
@@ -125,7 +125,7 @@ export function CreateCouponDialog() {
             render={({ field }) => (
               <FormItem>
                 <FormControl>
-                  <Input {...field} placeholder="Enter code (e.g., SUMMER2024)" className="text-center text-lg uppercase" />
+                  <Input {...field} placeholder="Enter discount code (e.g., SUMMER2024)" className="text-center text-lg uppercase" />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -240,7 +240,7 @@ export function CreateCouponDialog() {
               type="submit" 
               disabled={createCouponMutation.isPending}
             >
-              {createCouponMutation.isPending ? 'Creating...' : 'Create Code'}
+              {createCouponMutation.isPending ? 'Creating Discount...' : 'Create Discount'}
             </Button>
           </div>
         </form>

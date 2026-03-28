@@ -410,7 +410,7 @@ const Settings = () => {
       account: { icon: SettingsIcon, label: 'Account' },
       branding: { icon: Palette, label: 'Branding' },
       notifications: { icon: Bell, label: 'Notifications' },
-      coupons: { icon: Ticket, label: 'Coupons' },
+      coupons: { icon: Ticket, label: 'Discounts' },
     };
 
     const mappedTabs: AutoExpandingTab[] = availableTabs
@@ -961,9 +961,9 @@ const Settings = () => {
               <TabsContent value="coupons" className="space-y-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <h3 className="text-lg font-semibold">Coupons & Discounts</h3>
+                    <h3 className="text-lg font-semibold">Discounts</h3>
                     <p className="text-sm text-muted-foreground">
-                      Manage promotional codes and discounts
+                      Manage discount codes and discounts
                     </p>
                   </div>
                   {canCreateCoupons && (
@@ -971,7 +971,7 @@ const Settings = () => {
                       <DialogTrigger asChild>
                         <Button>
                           <Plus className="h-4 w-4 mr-2" />
-                          Create Coupon
+                          Create Discount
                         </Button>
                       </DialogTrigger>
                       <CreateCouponDialog />

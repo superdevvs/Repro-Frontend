@@ -28,7 +28,7 @@ export function CouponsList() {
     queryFn: async () => {
       const token = session?.accessToken || localStorage.getItem('authToken');
       if (!token) {
-        throw new Error('Authentication required to view coupons');
+        throw new Error('Authentication required to view discounts');
       }
 
       const response = await axios.get(`${API_BASE_URL}/api/coupons`, {
@@ -45,7 +45,7 @@ export function CouponsList() {
 
   React.useEffect(() => {
     if (error) {
-      toast.error(`Failed to load coupons: ${(error as Error).message}`);
+      toast.error(`Failed to load discounts: ${(error as Error).message}`);
     }
   }, [error]);
 
@@ -71,9 +71,9 @@ export function CouponsList() {
                    bg-white border border-gray-200 text-gray-700
                    dark:bg-slate-900 dark:border-slate-800 dark:text-slate-300"
       >
-        <p className="text-lg font-medium mb-2">No Coupons Found</p>
+        <p className="text-lg font-medium mb-2">No Discounts Found</p>
         <p className="text-sm opacity-90">
-          Create your first coupon by clicking the "Create Coupon" button above.
+          Create your first discount by clicking the "Create Discount" button above.
         </p>
       </div>
     );

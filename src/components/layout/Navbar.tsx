@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SearchIcon, SunIcon, MoonIcon, PlusCircleIcon, CloudIcon, HomeIcon, HistoryIcon, CalendarIcon, BarChart3Icon, Settings2Icon, MapPinIcon } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -137,6 +137,21 @@ export function Navbar() {
   const isLocatingRef = useRef(false);
   const { formatTemperature } = useUserPreferences();
   const [commandOpen, setCommandOpen] = useState(false);
+  const weatherLocationLabel = useMemo(() => {
+    if (!weather?.location) {
+      return null;
+    }
+
+    if (weatherCoordSource === 'device') {
+      return weather.location;
+    }
+
+    if (weatherCoordSource === 'ip') {
+      return `Near ${weather.location}`;
+    }
+
+    return null;
+  }, [weather?.location, weatherCoordSource]);
 
   // Allow client users to create new shoots
   const canBookShoot = can('book-shoot', 'create');
@@ -396,9 +411,7 @@ export function Navbar() {
         {/* Weather Info */}
         {weather && (
           <div className="hidden md:flex items-center gap-2 text-sm text-muted-foreground">
-            <span>
-              {weatherCoordSource === 'device' && weather.location ? `${weather.location} · ` : ''}
-            </span>
+            {weatherLocationLabel && <span>{weatherLocationLabel} · </span>}
             <CloudIcon className="h-4 w-4" />
             <span>
               {typeof weather.temperatureC === 'number'

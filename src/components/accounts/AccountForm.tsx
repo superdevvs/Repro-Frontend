@@ -1785,6 +1785,29 @@ export function AccountForm({
                     )}
                   />
                 </div>
+
+                <FormField
+                  control={form.control}
+                  name="serviceGroupIds"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Service Groups</FormLabel>
+                      <FormControl>
+                        <MultiSelectChecklist
+                          options={serviceGroupOptions}
+                          value={field.value || []}
+                          onChange={field.onChange}
+                          placeholder="Leave empty to let this client see the full service catalog."
+                          emptyMessage="No service groups available yet."
+                        />
+                      </FormControl>
+                      <p className="text-xs text-muted-foreground">
+                        Choose which services this client can book by default.
+                      </p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
             )}
 
@@ -1804,27 +1827,6 @@ export function AccountForm({
                 </FormItem>
               )}
             />
-            {isClientRole && (
-              <FormField
-                control={form.control}
-                name="serviceGroupIds"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Service Groups</FormLabel>
-                    <FormControl>
-                      <MultiSelectChecklist
-                        options={serviceGroupOptions}
-                        value={field.value || []}
-                        onChange={field.onChange}
-                        placeholder="Leave empty to let this client see the full service catalog."
-                        emptyMessage="No service groups available yet."
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
               </div>
             </div>
 

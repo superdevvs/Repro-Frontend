@@ -85,7 +85,7 @@ export function SquarePaymentForm({
   const checkoutMountRef = useRef<HTMLDivElement>(null);
   const checkoutSessionIdRef = useRef<string | null>(null);
   
-  // Coupon state
+  // Discount code state
   const [couponCode, setCouponCode] = useState('');
   const [couponLoading, setCouponLoading] = useState(false);
   const [couponError, setCouponError] = useState<string | null>(null);
@@ -552,11 +552,11 @@ export function SquarePaymentForm({
             </div>
           )}
 
-          {/* Coupon Code Input */}
+          {/* Discount Code Input */}
           <div className="p-3 border rounded-lg bg-muted/30">
             <Label htmlFor="couponCode" className="text-xs flex items-center gap-1 mb-2">
               <Tag className="h-3 w-3" />
-              Coupon Code (Optional)
+              Discount Code (Optional)
             </Label>
             {appliedCoupon ? (
               <div className="flex items-center justify-between p-2 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-md">
@@ -593,7 +593,7 @@ export function SquarePaymentForm({
                     setCouponCode(e.target.value.toUpperCase());
                     setCouponError(null);
                   }}
-                  placeholder="Enter coupon code"
+                  placeholder="Enter discount code"
                   className="h-9 text-sm flex-1"
                   disabled={couponLoading}
                 />
@@ -620,12 +620,12 @@ export function SquarePaymentForm({
                           discount: res.data.discount || res.data.discount_amount || 0,
                           discountType: res.data.discount_type || 'fixed',
                         });
-                        toast({ title: 'Coupon Applied!', description: `Discount of ${res.data.discount_type === 'percentage' ? `${res.data.discount}%` : `$${res.data.discount}`} applied.` });
+                        toast({ title: 'Discount Applied!', description: `Discount of ${res.data.discount_type === 'percentage' ? `${res.data.discount}%` : `$${res.data.discount}`} applied.` });
                       } else {
-                        setCouponError(res.data.message || 'Invalid coupon code');
+                        setCouponError(res.data.message || 'Invalid discount code');
                       }
                     } catch (err: any) {
-                      setCouponError(err.response?.data?.message || 'Failed to validate coupon');
+                      setCouponError(err.response?.data?.message || 'Failed to validate discount code');
                     } finally {
                       setCouponLoading(false);
                     }

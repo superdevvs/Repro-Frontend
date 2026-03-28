@@ -18,9 +18,9 @@ export function CouponsHeader() {
           <Badge className="mb-2 bg-primary/10 text-primary hover:bg-primary/20 border-primary/20">
             Admin Settings
           </Badge>
-          <h1 className="text-3xl font-bold">Coupons & Discounts</h1>
+          <h1 className="text-3xl font-bold">Discounts</h1>
           <p className="text-muted-foreground">
-            Manage promotional codes and discounts
+            Manage discount codes and discounts
           </p>
         </div>
 
@@ -29,7 +29,7 @@ export function CouponsHeader() {
             <DialogTrigger asChild>
               <Button>
                 <Plus className="h-4 w-4 mr-2" />
-                Create Coupon
+                Create Discount
               </Button>
             </DialogTrigger>
             <CreateCouponDialog />
