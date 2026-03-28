@@ -67,6 +67,12 @@ const repCategoryOptions = [
   "Editing Upsell",
 ] as const;
 
+const parseShootCcEmails = (value?: string) =>
+  String(value || '')
+    .split(/[\n,;]+/)
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
+
 // Create schema with viewer role parameter - superadmin can skip mandatory fields
 const createAccountFormSchema = (viewerRole?: string) => z.object({
   firstName: z.string().min(2, "First name must be at least 2 characters"),
@@ -80,6 +86,9 @@ const createAccountFormSchema = (viewerRole?: string) => z.object({
   zipcode: z.string().optional(),
   company: z.string().optional(),
   licenseNumber: z.string().optional(),
+  shootCcEmailsText: z.string().optional(),
+  clientDiscountType: z.enum(['fixed', 'percent']).optional(),
+  clientDiscountValue: z.string().optional(),
   avatar: z.string().optional(),
   companyNotes: z.string().optional(),
   bio: z.string().optional(),
@@ -142,6 +151,27 @@ const createAccountFormSchema = (viewerRole?: string) => z.object({
       });
     }
   }
+
+  const ccEmails = parseShootCcEmails(data.shootCcEmailsText);
+  const invalidCcEmail = ccEmails.find((email) => !z.string().email().safeParse(email).success);
+  if (invalidCcEmail) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `Invalid email: ${invalidCcEmail}`,
+      path: ["shootCcEmailsText"],
+    });
+  }
+
+  if (data.role === "client") {
+    const discountValue = data.clientDiscountValue?.trim() || '';
+    if (discountValue && !data.clientDiscountType) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Choose a discount type before entering a discount value",
+        path: ["clientDiscountType"],
+      });
+    }
+  }
 });
 
 // Default schema for type inference
@@ -198,6 +228,9 @@ export function AccountForm({
       zipcode: "",
       company: "",
       licenseNumber: "",
+      shootCcEmailsText: "",
+      clientDiscountType: undefined,
+      clientDiscountValue: "",
       avatar: "",
       bio: "",
           companyNotes: "",
@@ -256,6 +289,15 @@ export function AccountForm({
           state: initialData.state || "",
           zipcode: initialData.zipcode || "",
           company: initialData.company || "",
+          licenseNumber: (initialData as any).licenseNumber || (initialData as any).license_number || "",
+          shootCcEmailsText: Array.isArray((initialData as any).shootCcEmails ?? (initialData as any).shoot_cc_emails)
+            ? ((initialData as any).shootCcEmails ?? (initialData as any).shoot_cc_emails).join('\n')
+            : "",
+          clientDiscountType: ((initialData as any).clientDiscountType ?? (initialData as any).client_discount_type ?? undefined) || undefined,
+          clientDiscountValue: ((initialData as any).clientDiscountValue ?? (initialData as any).client_discount_value) !== undefined
+            && ((initialData as any).clientDiscountValue ?? (initialData as any).client_discount_value) !== null
+            ? String((initialData as any).clientDiscountValue ?? (initialData as any).client_discount_value)
+            : "",
           avatar: initialData.avatar || "",
           companyNotes: initialData.companyNotes || "",
           isActive: initialData.isActive !== undefined ? initialData.isActive : true,
@@ -300,6 +342,10 @@ export function AccountForm({
           state: "",
           zipcode: "",
           company: "",
+          licenseNumber: "",
+          shootCcEmailsText: "",
+          clientDiscountType: undefined,
+          clientDiscountValue: "",
           avatar: "",
           bio: "",
           companyNotes: "",
@@ -481,6 +527,13 @@ export function AccountForm({
   const handleSubmit = async (values: AccountFormValues) => {
     console.log("Form submitted with values:", values);
     const fullName = `${values.firstName} ${values.lastName}`.trim();
+    const parsedShootCcEmails = values.role === 'client' ? parseShootCcEmails(values.shootCcEmailsText) : [];
+    const normalizedDiscountType = values.role === 'client'
+      ? values.clientDiscountType || null
+      : null;
+    const normalizedDiscountValue = values.role === 'client' && values.clientDiscountValue?.trim()
+      ? Number(values.clientDiscountValue)
+      : null;
     const payload: AccountFormValues = {
       ...values,
       name: fullName,
@@ -562,6 +615,13 @@ export function AccountForm({
         if (values.zipcode) formData.append('zip', values.zipcode);
         if (values.licenseNumber) formData.append('license_number', values.licenseNumber);
         if (values.companyNotes) formData.append('company_notes', values.companyNotes);
+        if (parsedShootCcEmails.length > 0) {
+          parsedShootCcEmails.forEach((email) => formData.append('shoot_cc_emails[]', email));
+        } else {
+          formData.append('clear_shoot_cc_emails', '1');
+        }
+        formData.append('client_discount_type', normalizedDiscountType ?? '');
+        formData.append('client_discount_value', normalizedDiscountValue !== null ? String(normalizedDiscountValue) : '');
         formData.append('role', values.role || 'client');
         if (values.bio) formData.append('bio', values.bio);
         // Only include avatar if it's a valid URL (not a blob URL)
@@ -625,6 +685,12 @@ export function AccountForm({
           metadata: payload.metadata,
           created_by_name: updated.created_by_name || currentUser?.name,
           createdBy: updated.created_by_name || currentUser?.name,
+          shootCcEmails: parsedShootCcEmails,
+          shoot_cc_emails: parsedShootCcEmails,
+          clientDiscountType: normalizedDiscountType,
+          client_discount_type: normalizedDiscountType,
+          clientDiscountValue: normalizedDiscountValue,
+          client_discount_value: normalizedDiscountValue,
           serviceGroupIds: values.serviceGroupIds,
           service_group_ids: values.serviceGroupIds,
           service_groups: serviceGroups.filter((group) => values.serviceGroupIds?.includes(group.id)).map((group) => ({
@@ -667,6 +733,13 @@ export function AccountForm({
       if (values.zipcode) formData.append('zip', values.zipcode);
       if (values.licenseNumber) formData.append('license_number', values.licenseNumber);
       if (values.companyNotes) formData.append('company_notes', values.companyNotes);
+      if (parsedShootCcEmails.length > 0) {
+        parsedShootCcEmails.forEach((email) => formData.append('shoot_cc_emails[]', email));
+      } else {
+        formData.append('clear_shoot_cc_emails', '1');
+      }
+      formData.append('client_discount_type', normalizedDiscountType ?? '');
+      formData.append('client_discount_value', normalizedDiscountValue !== null ? String(normalizedDiscountValue) : '');
       formData.append('role', values.role || 'client');
       if (values.bio) formData.append('bio', values.bio);
       if (values.specialties && Array.isArray(values.specialties) && values.specialties.length > 0) {
@@ -731,6 +804,12 @@ export function AccountForm({
         metadata: payload.metadata,
         created_by_name: created.created_by_name || currentUser?.name,
         createdBy: created.created_by_name || currentUser?.name,
+        shootCcEmails: parsedShootCcEmails,
+        shoot_cc_emails: parsedShootCcEmails,
+        clientDiscountType: normalizedDiscountType,
+        client_discount_type: normalizedDiscountType,
+        clientDiscountValue: normalizedDiscountValue,
+        client_discount_value: normalizedDiscountValue,
         serviceGroupIds: values.serviceGroupIds,
         service_group_ids: values.serviceGroupIds,
         service_groups: serviceGroups.filter((group) => values.serviceGroupIds?.includes(group.id)).map((group) => ({
@@ -1620,6 +1699,93 @@ export function AccountForm({
                   />
                 </div>
               </>
+            )}
+
+            {isClientRole && (
+              <div className="space-y-4 rounded-lg border border-border/60 bg-muted/30 p-4">
+                <div className="space-y-1">
+                  <h3 className="text-sm font-semibold">Client Booking Defaults</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Save extra recipients for shoot emails and a default discount for future bookings.
+                  </p>
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="shootCcEmailsText"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Shoot Email CCs</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder={"one@email.com\nteam@email.com"}
+                          {...field}
+                        />
+                      </FormControl>
+                      <p className="text-xs text-muted-foreground">
+                        Add one email per line. These recipients will be copied on shoot and payment emails.
+                      </p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="grid grid-cols-1 gap-2.5 sm:gap-4 md:grid-cols-2">
+                  <FormField
+                    control={form.control}
+                    name="clientDiscountType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Default Discount Type</FormLabel>
+                        <FormControl>
+                          <Select
+                            value={field.value || 'none'}
+                            onValueChange={(value) => {
+                              const nextValue = value === 'none' ? undefined : value;
+                              field.onChange(nextValue);
+                              if (!nextValue) {
+                                form.setValue('clientDiscountValue', '');
+                              }
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="No discount" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">No discount</SelectItem>
+                              <SelectItem value="fixed">Dollar Amount</SelectItem>
+                              <SelectItem value="percent">Percentage</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="clientDiscountValue"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>
+                          Default Discount Value {form.watch('clientDiscountType') === 'percent' ? '(%)' : '($)'}
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            max={form.watch('clientDiscountType') === 'percent' ? '100' : undefined}
+                            placeholder={form.watch('clientDiscountType') === 'percent' ? '10' : '25'}
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
             )}
 
             <FormField

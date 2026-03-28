@@ -85,6 +85,17 @@ export interface ShootFileData {
   watermarked_placeholder_path?: string;
   processing_failed_at?: string;
   processing_error?: string;
+  comments?: Array<{
+    author?: string | null;
+    comment: string;
+    timestamp?: string | null;
+  }>;
+  comment_count?: number;
+  latest_comment?: {
+    author?: string | null;
+    comment: string;
+    timestamp?: string | null;
+  } | null;
 }
 
 export interface ShootMediaPayload {
@@ -199,10 +210,16 @@ export interface ShootData {
     avatar?: string;
     email?: string;
   };
+  editorId?: string;
   services: string[];
   serviceObjects?: ShootServiceObject[];
   payment: {
+    serviceSubtotal?: number;
     baseQuote: number;
+    discountType?: 'fixed' | 'percent' | 'percentage' | null;
+    discountValue?: number | null;
+    discountAmount?: number;
+    discountedSubtotal?: number;
     taxRate: number;
     taxAmount: number;
     totalQuote: number;

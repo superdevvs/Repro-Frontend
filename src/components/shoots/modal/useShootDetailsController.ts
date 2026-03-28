@@ -25,7 +25,7 @@ export function useShootDetailsController({
     const isAdmin =
       ['admin', 'superadmin'].includes(currentUserRole) || isEditingManager;
     const isRep =
-      currentUserRole === 'rep' || currentUserRole === 'representative';
+      currentUserRole === 'salesRep' || currentUserRole === 'rep' || currentUserRole === 'representative';
     const isPhotographer = currentUserRole === 'photographer';
     const isEditor = currentUserRole === 'editor';
     const isClient = currentUserRole === 'client';

@@ -7,6 +7,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { SquarePaymentForm } from './SquarePaymentForm';
+import type { PricingBreakdown } from '@/utils/pricing';
 
 interface SquarePaymentDialogProps {
   isOpen: boolean;
@@ -23,6 +24,7 @@ interface SquarePaymentDialogProps {
   clientName?: string;
   totalQuote?: number;
   totalPaid?: number;
+  pricing?: PricingBreakdown;
   onPaymentSuccess?: (payment: any) => void;
   onPaymentError?: (error: any) => void;
 }
@@ -42,6 +44,7 @@ export function SquarePaymentDialog({
   clientName,
   totalQuote,
   totalPaid,
+  pricing,
   onPaymentSuccess,
   onPaymentError,
 }: SquarePaymentDialogProps) {
@@ -79,7 +82,7 @@ export function SquarePaymentDialog({
   };
 
   // Check if we have shoot details to display (determines dialog width)
-  const hasShootDetails = shootAddress || (shootServices && shootServices.length > 0) || totalQuote !== undefined || clientName || shootDate;
+  const hasShootDetails = shootAddress || (shootServices && shootServices.length > 0) || totalQuote !== undefined || pricing !== undefined || clientName || shootDate;
 
   const dialogWidth = checkoutActive
     ? 'sm:max-w-[95vw] lg:max-w-[1300px]'
@@ -138,6 +141,7 @@ export function SquarePaymentDialog({
               shootTime={shootTime}
               totalQuote={totalQuote}
               totalPaid={totalPaid}
+              pricing={pricing}
               onPaymentSuccess={handlePaymentSuccess}
               onPaymentError={onPaymentError}
               onCheckoutActiveChange={handleCheckoutActiveChange}

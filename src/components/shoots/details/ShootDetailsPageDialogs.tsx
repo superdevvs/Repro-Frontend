@@ -86,6 +86,16 @@ export function ShootDetailsPageDialogs({
         clientEmail={shoot.client?.email}
         totalQuote={shoot.payment?.totalQuote}
         totalPaid={shoot.payment?.totalPaid}
+        pricing={shoot.payment ? {
+          serviceSubtotal: shoot.payment.serviceSubtotal ?? shoot.payment.baseQuote + (shoot.payment.discountAmount ?? 0),
+          discountType: shoot.payment.discountType ?? null,
+          discountValue: shoot.payment.discountValue ?? null,
+          discountAmount: shoot.payment.discountAmount ?? 0,
+          discountedSubtotal: shoot.payment.discountedSubtotal ?? shoot.payment.baseQuote,
+          taxAmount: shoot.payment.taxAmount,
+          totalQuote: shoot.payment.totalQuote,
+          totalPaid: shoot.payment.totalPaid,
+        } : undefined}
         onPaymentSuccess={onPaymentSuccess}
       />
 

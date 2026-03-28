@@ -121,6 +121,7 @@ type ApiShoot = {
     id?: string | number;
     name?: string;
     avatar?: string;
+    email?: string;
   } | null;
   editor?: {
     id?: string | number;
@@ -307,6 +308,39 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
     shoot.editing_completed_at ||
     shoot.admin_verified_at ||
     shoot.completed_date;
+  const scheduledAtValue =
+    (shoot as any).scheduled_at ||
+    (shoot as any).scheduledAt ||
+    null;
+  const normalizedScheduledDate = (() => {
+    if (shoot.scheduled_date) {
+      return shoot.scheduled_date;
+    }
+    if ((shoot as any).scheduledDate) {
+      return String((shoot as any).scheduledDate);
+    }
+    if (scheduledAtValue) {
+      try {
+        return new Date(String(scheduledAtValue)).toISOString().slice(0, 10);
+      } catch {
+        return '';
+      }
+    }
+    return '';
+  })();
+  const normalizedTime = (() => {
+    if (shoot.time) {
+      return shoot.time;
+    }
+    if (scheduledAtValue) {
+      try {
+        return new Date(String(scheduledAtValue)).toISOString().slice(11, 16);
+      } catch {
+        return '';
+      }
+    }
+    return '';
+  })();
   const isPrivateListing =
     typeof (shoot as any).is_private_listing === 'boolean'
       ? Boolean((shoot as any).is_private_listing)
@@ -440,8 +474,8 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
 
   return {
     id: String(shoot.id),
-    scheduledDate: shoot.scheduled_date || '',
-    time: shoot.time || '',
+    scheduledDate: normalizedScheduledDate,
+    time: normalizedTime,
     client: {
       id: client.id ? String(client.id) : undefined,
       name: client.name || 'Client',

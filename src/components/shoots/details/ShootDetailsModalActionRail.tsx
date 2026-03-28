@@ -49,6 +49,7 @@ interface ShootDetailsModalActionRailProps {
   selectedFileIds: string[];
   isPublishingToBrightMls: boolean;
   holdActionLabel: string;
+  cancelActionLabel: string;
   isMobileActionsOpen: boolean;
   setIsMobileActionsOpen: (open: boolean) => void;
   setIsApprovalModalOpen: (open: boolean) => void;
@@ -96,6 +97,7 @@ export function ShootDetailsModalActionRail({
   selectedFileIds,
   isPublishingToBrightMls,
   holdActionLabel,
+  cancelActionLabel,
   isMobileActionsOpen,
   setIsMobileActionsOpen,
   setIsApprovalModalOpen,
@@ -218,7 +220,7 @@ export function ShootDetailsModalActionRail({
                   onClick={handleCancelShootClick}
                 >
                   <XCircle className="h-3 w-3 mr-1" />
-                  <span>{isDelivered ? 'Delete Shoot' : 'Cancel Shoot'}</span>
+                  <span>{cancelActionLabel}</span>
                 </Button>
               )}
               {isDelivered && !isEditor && !isPhotographer && (
@@ -413,7 +415,7 @@ export function ShootDetailsModalActionRail({
                 <div className="flex items-center justify-center h-9 w-9 rounded-full bg-red-100 dark:bg-red-900/40">
                   <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
                 </div>
-                {isDelivered ? 'Delete shoot' : 'Cancel shoot'}
+                {cancelActionLabel}
               </button>
             )}
           </div>

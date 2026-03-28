@@ -21,6 +21,11 @@ export function ShootDetailsMediaTabDialogs(props: any) {
     isAdmin,
     isClient,
     onShootUpdate,
+    canInteractSingleMedia,
+    onToggleFavorite,
+    onAddComment,
+    onToggleHidden,
+    onDownloadSingle,
     showAiEditDialog,
     setShowAiEditDialog,
     selectedFiles,
@@ -50,6 +55,11 @@ export function ShootDetailsMediaTabDialogs(props: any) {
         isAdmin={isAdmin}
         isClient={isClient}
         onShootUpdate={onShootUpdate}
+        canInteractSingleMedia={canInteractSingleMedia}
+        onToggleFavorite={onToggleFavorite}
+        onAddComment={onAddComment}
+        onToggleHidden={onToggleHidden}
+        onDownloadSingle={onDownloadSingle}
       />
 
       {/* AI Edit Dialog */}

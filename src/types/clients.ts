@@ -1,5 +1,6 @@
 
 import type { ServiceGroupSummary } from '@/types/serviceGroups';
+import type { ClientDiscountType } from '@/types/auth';
 
 /**
  * Client type definition
@@ -24,6 +25,12 @@ export interface Client {
   companyNotes?: string;
   service_groups?: ServiceGroupSummary[];
   service_group_ids?: string[];
+  shootCcEmails?: string[];
+  shoot_cc_emails?: string[];
+  clientDiscountType?: ClientDiscountType;
+  client_discount_type?: ClientDiscountType;
+  clientDiscountValue?: number | null;
+  client_discount_value?: number | null;
 }
 
 /**

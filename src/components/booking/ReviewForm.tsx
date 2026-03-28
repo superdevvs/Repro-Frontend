@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { getStateFullName } from '@/utils/stateUtils';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useIsMobile } from '@/hooks/use-mobile';
+import type { PricingBreakdown } from '@/utils/pricing';
 
 interface ReviewFormProps {
   client: string; // Client ID
@@ -35,6 +36,7 @@ interface ReviewFormProps {
   sendNotification: boolean;
   setSendNotification: (value: boolean) => void;
   packagePrice: number; // Changed from getPackagePrice function to packagePrice value
+  pricing: PricingBreakdown;
   photographerRate: number;
   // tax: number;
   // total: number;
@@ -106,6 +108,7 @@ export function ReviewForm({
   sendNotification,
   setSendNotification,
   packagePrice,
+  pricing,
   photographerRate,
   photographers,
   onSubmit,
@@ -120,15 +123,6 @@ export function ReviewForm({
   // Hide admin-only options for clients and when impersonating
   const showAdminOptions = !isClientRole && !isImpersonating;
 
-  /* ---------------- TAX LOGIC ---------------- */
-  const TAXABLE_STATES = ['MD', 'DC', 'VA'];
-
-  const subtotal = packagePrice; // Only package price, photographer fee is internal
-  const isTaxableState = TAXABLE_STATES.includes(state);
-  const taxRate = isTaxableState ? 0.06 : 0;
-
-  const tax = Number((subtotal * taxRate).toFixed(2));
-  const total = Number((subtotal + tax).toFixed(2));
   const fullAddress = buildNormalizedAddress({ address, city, state, zip });
 
   // Only show toggles section if user has admin options to show
@@ -336,16 +330,21 @@ export function ReviewForm({
 
         <div className="space-y-1">
           <div className="flex justify-between">
-            <span className="text-sm text-slate-700 dark:text-slate-200">Package:</span>
-            <span className="text-sm text-slate-900 dark:text-slate-100">${packagePrice.toFixed(2)}</span>
+            <span className="text-sm text-slate-700 dark:text-slate-200">Subtotal:</span>
+            <span className="text-sm text-slate-900 dark:text-slate-100">${pricing.serviceSubtotal.toFixed(2)}</span>
           </div>
 
+          {pricing.discountAmount > 0 && (
+            <div className="flex justify-between">
+              <span className="text-sm text-slate-700 dark:text-slate-200">Client Discount:</span>
+              <span className="text-sm text-emerald-600 dark:text-emerald-400">-${pricing.discountAmount.toFixed(2)}</span>
+            </div>
+          )}
+
           <div className="flex justify-between">
-            <span className="text-sm text-slate-700 dark:text-slate-200">
-              Tax {isTaxableState ? "(6%)" : "(0%)"}:
-            </span>
+            <span className="text-sm text-slate-700 dark:text-slate-200">Tax:</span>
             <span className="text-sm text-slate-900 dark:text-slate-100">
-              ${tax.toFixed(2)}
+              ${pricing.taxAmount.toFixed(2)}
             </span>
           </div>
 
@@ -353,7 +352,7 @@ export function ReviewForm({
 
           <div className="flex justify-between font-bold text-slate-900 dark:text-slate-100">
             <span>Total:</span>
-            <span>${total.toFixed(2)}</span>
+            <span>${pricing.totalQuote.toFixed(2)}</span>
           </div>
         </div>
       </div>

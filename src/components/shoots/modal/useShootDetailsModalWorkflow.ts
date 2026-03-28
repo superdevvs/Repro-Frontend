@@ -16,6 +16,8 @@ interface ToastApi {
 interface UseShootDetailsModalWorkflowOptions {
   shoot: ShootData | null;
   isClient: boolean;
+  canWithdrawRequestedShoot: boolean;
+  canRequestCancellation: boolean;
   isWithinCancellationFeeWindow: boolean;
   refreshShoot: () => Promise<ShootData | null>;
   setShoot: Dispatch<SetStateAction<ShootData | null>>;
@@ -27,6 +29,8 @@ interface UseShootDetailsModalWorkflowOptions {
 export function useShootDetailsModalWorkflow({
   shoot,
   isClient,
+  canWithdrawRequestedShoot,
+  canRequestCancellation,
   isWithinCancellationFeeWindow,
   refreshShoot,
   setShoot,
@@ -42,6 +46,7 @@ export function useShootDetailsModalWorkflow({
   const [isCancelShootDialogOpen, setIsCancelShootDialogOpen] = useState(false);
   const [cancelShootReason, setCancelShootReason] = useState('');
   const [isCancellingShoot, setIsCancellingShoot] = useState(false);
+  const shouldShowCancellationFeePrompt = !isClient && isWithinCancellationFeeWindow;
 
   const handleSendToEditing = async () => {
     if (!shoot) return;
@@ -289,16 +294,32 @@ export function useShootDetailsModalWorkflow({
     setIsCancellingShoot(true);
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const isClientImmediateWithdrawal = canWithdrawRequestedShoot;
+      const isClientCancellationRequest = canRequestCancellation && !canWithdrawRequestedShoot;
       const payload: Record<string, unknown> = {
-        reason: cancelShootReason.trim() || 'Cancelled by admin',
-        notify_client: true,
+        reason:
+          cancelShootReason.trim() ||
+          (isClientImmediateWithdrawal
+            ? 'Client withdrew requested shoot'
+            : isClientCancellationRequest
+              ? 'Client requested cancellation'
+              : 'Cancelled by admin'),
       };
 
-      if (isWithinCancellationFeeWindow && shouldAddCancellationFee) {
+      if (!isClientImmediateWithdrawal && !isClientCancellationRequest) {
+        payload.notify_client = true;
+      }
+
+      if (!isClient && isWithinCancellationFeeWindow && shouldAddCancellationFee) {
         payload.cancellation_fee = 60;
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/cancel`, {
+      const endpoint = isClientImmediateWithdrawal
+        ? 'withdraw-request'
+        : isClientCancellationRequest
+          ? 'request-cancellation'
+          : 'cancel';
+      const response = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/${endpoint}`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -316,10 +337,14 @@ export function useShootDetailsModalWorkflow({
       await refreshShoot();
 
       toast({
-        title: 'Shoot cancelled',
-        description: shouldAddCancellationFee
+        title: isClientCancellationRequest ? 'Cancellation request submitted' : 'Shoot cancelled',
+        description: isClientCancellationRequest
+          ? 'Your cancellation request is pending admin approval.'
+          : shouldAddCancellationFee && !isClient
           ? 'The shoot has been cancelled. $60 cancellation fee has been added.'
-          : 'The shoot has been successfully cancelled.',
+          : isClientImmediateWithdrawal
+            ? 'Your requested shoot has been cancelled.'
+            : 'The shoot has been successfully cancelled.',
       });
 
       setIsCancelShootDialogOpen(false);
@@ -341,7 +366,7 @@ export function useShootDetailsModalWorkflow({
 
   const handleCancelShootClick = () => {
     blurActiveElement();
-    if (isWithinCancellationFeeWindow) {
+    if (shouldShowCancellationFeePrompt) {
       setPendingAction('cancel');
       setIsCancellationFeeDialogOpen(true);
     } else {

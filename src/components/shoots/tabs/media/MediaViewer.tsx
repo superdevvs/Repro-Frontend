@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -10,8 +10,7 @@ import { type ShootData } from '@/types/shoots';
 import { type MediaFile } from '@/hooks/useShootFiles';
 import { isRawFile } from '@/services/rawPreviewService';
 import { blurActiveElement } from '../../dialogFocusUtils';
-import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, FileIcon, Play, X } from 'lucide-react';
-import { isPreviewableImage, isVideoFile } from './mediaPreviewUtils';
+import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Download, Eye, EyeOff, FileIcon, Heart, MessageSquare, Play, X } from 'lucide-react';
 // Media Viewer Component
 interface MediaViewerProps {
   isOpen: boolean;
@@ -24,6 +23,11 @@ interface MediaViewerProps {
   shoot?: ShootData;
   isAdmin?: boolean;
   isClient?: boolean;
+  canInteractSingleMedia?: boolean;
+  onToggleFavorite?: (fileId: string) => void;
+  onAddComment?: (fileId: string, comment: string) => void;
+  onToggleHidden?: (fileId: string, hidden: boolean) => void;
+  onDownloadSingle?: (fileId: string) => void;
   onShootUpdate?: () => void;
 }
 
@@ -38,6 +42,11 @@ export function MediaViewer({
   shoot,
   isAdmin = false,
   isClient = false,
+  canInteractSingleMedia = false,
+  onToggleFavorite,
+  onAddComment,
+  onToggleHidden,
+  onDownloadSingle,
   onShootUpdate,
 }: MediaViewerProps) {
   const { toast } = useToast();
@@ -87,7 +96,18 @@ export function MediaViewer({
   const [showFlagDialog, setShowFlagDialog] = useState(false);
   const [flagReason, setFlagReason] = useState('');
   const [flagging, setFlagging] = useState(false);
+  const [commentDraft, setCommentDraft] = useState('');
   const currentFile = files[currentIndex];
+  const latestComment =
+    currentFile?.latest_comment?.comment ||
+    (currentFile?.comments && currentFile.comments.length > 0
+      ? currentFile.comments[currentFile.comments.length - 1]?.comment
+      : '') ||
+    '';
+
+  useEffect(() => {
+    setCommentDraft('');
+  }, [currentFile?.id]);
 
   const handleFlagImage = async () => {
     if (!shoot || !currentFile || !flagReason.trim()) return;
@@ -309,6 +329,39 @@ export function MediaViewer({
                   Make Hero
                 </Button>
               )}
+              {canInteractSingleMedia && onToggleFavorite && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs text-white hover:bg-white/20"
+                  onClick={() => onToggleFavorite(currentFile.id)}
+                >
+                  <Heart className={`h-3 w-3 mr-1 ${currentFile.is_favorite ? 'fill-current' : ''}`} />
+                  {currentFile.is_favorite ? 'Liked' : 'Like'}
+                </Button>
+              )}
+              {canInteractSingleMedia && onDownloadSingle && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs text-white hover:bg-white/20"
+                  onClick={() => onDownloadSingle(currentFile.id)}
+                >
+                  <Download className="h-3 w-3 mr-1" />
+                  Download
+                </Button>
+              )}
+              {onToggleHidden && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs text-white hover:bg-white/20"
+                  onClick={() => onToggleHidden(currentFile.id, !currentFile.is_hidden)}
+                >
+                  {currentFile.is_hidden ? <Eye className="h-3 w-3 mr-1" /> : <EyeOff className="h-3 w-3 mr-1" />}
+                  {currentFile.is_hidden ? 'Unhide' : 'Hide'}
+                </Button>
+              )}
             </div>
           )}
 
@@ -417,6 +470,40 @@ export function MediaViewer({
                 Use ← → arrow keys to navigate • + - to zoom • ESC to close
               </div>
             </div>
+            {(latestComment || canInteractSingleMedia) && (
+              <div className="mb-3 rounded-lg border border-white/10 bg-white/5 p-3">
+                <div className="flex items-center gap-2 text-xs font-medium text-white/80">
+                  <MessageSquare className="h-3.5 w-3.5" />
+                  Image comments
+                </div>
+                {latestComment ? (
+                  <p className="mt-2 text-xs text-white/90">{latestComment}</p>
+                ) : (
+                  <p className="mt-2 text-xs text-white/60">No comments yet.</p>
+                )}
+                {canInteractSingleMedia && onAddComment && (
+                  <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                    <Textarea
+                      value={commentDraft}
+                      onChange={(event) => setCommentDraft(event.target.value)}
+                      placeholder="Add a comment for this image..."
+                      className="min-h-[72px] border-white/10 bg-black/30 text-white placeholder:text-white/45"
+                    />
+                    <Button
+                      className="sm:self-end"
+                      onClick={() => {
+                        if (!commentDraft.trim()) return;
+                        onAddComment(currentFile.id, commentDraft);
+                        setCommentDraft('');
+                      }}
+                      disabled={!commentDraft.trim()}
+                    >
+                      Save comment
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
             
             {/* Filmstrip Thumbnails */}
             <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-1 sm:pb-2 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">

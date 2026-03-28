@@ -45,6 +45,17 @@ export interface MediaFile {
   is_favorite?: boolean;
   is_hidden?: boolean;
   sort_order?: number;
+  comments?: Array<{
+    author?: string | null;
+    comment: string;
+    timestamp?: string | null;
+  }>;
+  comment_count?: number;
+  latest_comment?: {
+    author?: string | null;
+    comment: string;
+    timestamp?: string | null;
+  } | null;
 }
 
 const fetchShootFiles = async (
@@ -110,6 +121,9 @@ const fetchShootFiles = async (
         is_favorite: f.is_favorite || false,
         is_hidden: f.is_hidden || false,
         sort_order: f.sort_order ?? 0,
+        comments: Array.isArray(f.comments) ? f.comments : [],
+        comment_count: Number(f.comment_count ?? 0),
+        latest_comment: f.latest_comment ?? null,
       }));
 
     return [...mapFiles(rawJson), ...mapFiles(editedJson)];
@@ -151,6 +165,9 @@ const fetchShootFiles = async (
       is_favorite: f.is_favorite || false,
       is_hidden: f.is_hidden || false,
       sort_order: f.sort_order ?? 0,
+      comments: Array.isArray(f.comments) ? f.comments : [],
+      comment_count: Number(f.comment_count ?? 0),
+      latest_comment: f.latest_comment ?? null,
     }));
   }
 };

@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import { useAuth } from '@/components/auth/AuthProvider';
+import type { PricingBreakdown } from '@/utils/pricing';
 
 interface BookingSummaryProps {
   summaryInfo: {
@@ -15,6 +16,7 @@ interface BookingSummaryProps {
     packageLabel?: string;
     services?: Array<{ id: string; name: string; description: string; price: number }>;
     packagePrice: number;
+    pricing?: PricingBreakdown;
     address: string;
     bedrooms: number;
     bathrooms: number;
@@ -140,7 +142,7 @@ export function BookingSummary({
               <h3 className="text-sm font-medium text-blue-600 dark:text-blue-400">Selected Services</h3>
               <div className="flex items-center gap-1 text-green-600 dark:text-green-400">
                 <DollarSign className="h-4 w-4" />
-                <span className="font-bold">{summaryInfo.packagePrice.toFixed(2)}</span>
+                <span className="font-bold">{(summaryInfo.pricing?.totalQuote ?? summaryInfo.packagePrice).toFixed(2)}</span>
               </div>
             </div>
             <div className="space-y-1.5">
@@ -161,6 +163,28 @@ export function BookingSummary({
                 </div>
               ))}
             </div>
+            {summaryInfo.pricing && (
+              <div className="rounded-md border border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 space-y-1.5">
+                <div className="flex items-center justify-between text-sm text-slate-600 dark:text-slate-300">
+                  <span>Subtotal</span>
+                  <span className="font-medium text-slate-900 dark:text-white">${summaryInfo.pricing.serviceSubtotal.toFixed(2)}</span>
+                </div>
+                {summaryInfo.pricing.discountAmount > 0 && (
+                  <div className="flex items-center justify-between text-sm text-emerald-600 dark:text-emerald-400">
+                    <span>Discount</span>
+                    <span>- ${summaryInfo.pricing.discountAmount.toFixed(2)}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between text-sm text-slate-600 dark:text-slate-300">
+                  <span>Tax</span>
+                  <span className="font-medium text-slate-900 dark:text-white">${summaryInfo.pricing.taxAmount.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between border-t border-gray-100 pt-1.5 text-sm font-semibold text-slate-900 dark:border-slate-700 dark:text-white">
+                  <span>Total</span>
+                  <span>${summaryInfo.pricing.totalQuote.toFixed(2)}</span>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

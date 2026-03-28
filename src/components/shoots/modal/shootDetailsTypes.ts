@@ -50,7 +50,14 @@ export interface ShootDetailsCapabilities {
   holdDialogDescription: string;
   holdSubmitLabel: string;
   canResumeFromHold: boolean;
+  isCancellationRequested: boolean;
+  canWithdrawRequestedShoot: boolean;
+  canRequestCancellation: boolean;
   canCancelShoot: boolean;
+  cancelActionLabel: string;
+  cancelDialogTitle: string;
+  cancelDialogDescription: string;
+  cancelSubmitLabel: string;
 }
 
 export interface ShootDetailsTabDefinition {

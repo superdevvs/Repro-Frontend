@@ -15,9 +15,9 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { 
   CalendarIcon, 
   Edit, 
@@ -26,9 +26,9 @@ import {
   User, 
   Clock, 
   Layers,
-  Save,
+  Check,
+  BellOff,
   FileText,
-  Camera,
   Home,
   Search,
   Bath,
@@ -77,14 +77,24 @@ interface Photographer {
 interface PropertyDetails {
   bedrooms?: number;
   bathrooms?: number;
+  beds?: number;
+  baths?: number;
   sqft?: number;
+  squareFeet?: number;
+  square_feet?: number;
+  livingArea?: number;
+  living_area?: number;
   yearBuilt?: number;
   lotSize?: number;
   mls_id?: string;
+  mlsId?: string;
+  mlsNumber?: string;
   price?: number;
+  listPrice?: number;
   lot_size?: number;
   year_built?: number;
   property_type?: string;
+  propertyType?: string;
   zpid?: string;
   source?: string;
   confidence?: number;
@@ -93,13 +103,82 @@ interface PropertyDetails {
   [key: string]: unknown;
 }
 
+type PhotographerSource = {
+  id?: string | number;
+  name?: string;
+  avatar?: string;
+  profile_image?: string;
+  profile_photo_url?: string;
+  email?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  zipcode?: string;
+  metadata?: {
+    address?: string;
+    homeAddress?: string;
+    city?: string;
+    state?: string;
+    zip?: string;
+    zipcode?: string;
+  };
+};
+
+type PropertyLookupInput = {
+  property_details?: Record<string, unknown> | null;
+  sqft?: number | string;
+  squareFeet?: number | string;
+  square_feet?: number | string;
+  bedrooms?: number | string;
+  bathrooms?: number | string;
+  lot_size?: number | string;
+  year_built?: number | string;
+  mls_id?: string;
+  price?: number | string;
+  property_type?: string;
+  zpid?: string;
+  source?: string;
+  confidence?: number;
+  field_sources?: Record<string, string>;
+  property_source_chain?: string[];
+  [key: string]: unknown;
+};
+
+type SelectedServiceSource =
+  | string
+  | {
+      id?: string | number;
+      service_id?: string | number;
+      name?: string;
+      label?: string;
+    };
+
+type ServiceApiRange = {
+  id?: number;
+  sqft_from?: number | string;
+  sqft_to?: number | string;
+  price?: number | string;
+  photographer_pay?: number | string | null;
+};
+
+type ServiceApiRecord = {
+  id?: string | number;
+  name?: string;
+  price?: number | string;
+  pricing_type?: 'fixed' | 'variable' | string;
+  category?: { id?: string | number; name?: string };
+  sqft_ranges?: ServiceApiRange[];
+  sqftRanges?: ServiceApiRange[];
+};
+
 interface ShootDetails {
   id: number;
   address?: string;
   city?: string;
   state?: string;
   zip?: string;
-  client?: { id: number; name: string; email?: string };
+  client?: { id: number; name: string; email?: string; phonenumber?: string; phone?: string };
   services?: Service[];
   serviceObjects?: Service[];
   scheduledAt?: string;
@@ -132,7 +211,7 @@ type PhotographerPickerContext = {
 const normalizeCategoryKey = (value?: string) =>
   (value || 'other').trim().toLowerCase().replace(/s$/, '') || 'other';
 
-const mapPhotographerOption = (photographer: any): Photographer => ({
+const mapPhotographerOption = (photographer: PhotographerSource): Photographer => ({
   id: photographer.id?.toString() || '',
   name: photographer.name || 'Unknown',
   avatar: photographer.avatar || photographer.profile_image || photographer.profile_photo_url,
@@ -171,10 +250,10 @@ const loadPhotographerOptions = async (): Promise<Photographer[]> => {
   }
 };
 
-const extractLookupPropertyDetails = (details: any): PropertyDetails => {
+const extractLookupPropertyDetails = (details: PropertyLookupInput | null | undefined): PropertyDetails => {
   const lookupDetails =
     details?.property_details && typeof details.property_details === 'object'
-      ? details.property_details
+      ? (details.property_details as PropertyDetails)
       : {};
 
   const sqft =
@@ -224,7 +303,7 @@ const extractLookupPropertyDetails = (details: any): PropertyDetails => {
   };
 };
 
-const resolveSelectedServiceIds = (serviceSource: any[], servicesCatalog: Service[]) => {
+const resolveSelectedServiceIds = (serviceSource: SelectedServiceSource[], servicesCatalog: Service[]) => {
   const ids = new Set<string>();
 
   serviceSource.forEach((service) => {
@@ -271,16 +350,12 @@ export function ShootEditModal({
   const [photographerPickerContext, setPhotographerPickerContext] = useState<PhotographerPickerContext>(null);
   const [pickerPhotographerId, setPickerPhotographerId] = useState('');
   const [photographerSearchQuery, setPhotographerSearchQuery] = useState('');
-  const [isSaveConfirmOpen, setIsSaveConfirmOpen] = useState(false);
-  const [pendingPayload, setPendingPayload] = useState<Record<string, any> | null>(null);
-  const [notifyClientOnSave, setNotifyClientOnSave] = useState(true);
-  const [notifyPhotographerOnSave, setNotifyPhotographerOnSave] = useState(true);
+  const [expandedServiceCategoryKeys, setExpandedServiceCategoryKeys] = useState<string[]>([]);
   
   // Role checks
   const userRole = user?.role?.toLowerCase() || '';
   const isAdmin = userRole === 'admin' || userRole === 'superadmin';
   const isRep = userRole === 'rep' || userRole === 'salesrep';
-  const isClient = userRole === 'client';
   const isAdminOrRep = isAdmin || isRep;
   
   // Editable fields
@@ -307,7 +382,6 @@ export function ShootEditModal({
   // Property details
   const [propertyDetails, setPropertyDetails] = useState<PropertyDetails | null>(null);
   const [propertySqft, setPropertySqft] = useState<number | null>(null);
-  const [isLookingUpProperty, setIsLookingUpProperty] = useState(false);
   const [taxPercent, setTaxPercent] = useState<number>(0);
 
   // Fetch shoot details, services, and photographers when modal opens
@@ -316,6 +390,10 @@ export function ShootEditModal({
       if (!isOpen || !shootId) return;
       
       setIsLoading(true);
+      setSelectedServiceIds(new Set());
+      setPerCategoryPhotographers({});
+      setPhotographerId('');
+      setExpandedServiceCategoryKeys([]);
       try {
         const token = localStorage.getItem('authToken') || localStorage.getItem('token');
         
@@ -330,13 +408,13 @@ export function ShootEditModal({
         
         // Process services with sqft_ranges
         const servicesData = servicesResponse.data?.data || [];
-        const mappedServices = servicesData.map((s: any) => ({
+        const mappedServices = servicesData.map((s: ServiceApiRecord) => ({
           id: s.id?.toString() || s.id,
           name: s.name,
           price: Number(s.price || 0),
           pricing_type: s.pricing_type || 'fixed',
           category: s.category ? { id: s.category.id, name: s.category.name } : undefined,
-          sqft_ranges: (s.sqft_ranges || s.sqftRanges || []).map((r: any) => ({
+          sqft_ranges: (s.sqft_ranges || s.sqftRanges || []).map((r: ServiceApiRange) => ({
             ...r,
             sqft_from: Number(r.sqft_from) || 0,
             sqft_to: Number(r.sqft_to) || 0,
@@ -464,13 +542,13 @@ export function ShootEditModal({
             setPerCategoryPhotographers(catPhotogMap);
           }
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Error fetching data:', error);
         // Only show error if we don't already have shoot details loaded
         if (!shootDetails) {
           toast({
             title: 'Error',
-            description: error?.message || 'Failed to load shoot details.',
+            description: error instanceof Error ? error.message : 'Failed to load shoot details.',
             variant: 'destructive',
           });
         }
@@ -492,7 +570,7 @@ export function ShootEditModal({
   }, []);
 
   // Handle address selection from AddressLookupField
-  const handleAddressSelect = (details: any) => {
+  const handleAddressSelect = (details: PropertyLookupInput | null | undefined) => {
     if (details) {
       setAddress(details.address || '');
       setCity(details.city || '');
@@ -544,17 +622,17 @@ export function ShootEditModal({
 
   const clientName = shootDetails?.client?.name || 'Unknown Client';
   const clientEmail = shootDetails?.client?.email || '';
+  const clientPhone = shootDetails?.client?.phonenumber || shootDetails?.client?.phone || '';
   const photographerEmail =
     shootDetails?.photographer?.email ||
     photographers.find((photographer) => String(photographer.id) === String(photographerId || shootDetails?.photographer?.id))?.email ||
     '';
 
-  const serviceCategoryGroups = useMemo(() => {
-    const groups = new Map<string, { key: string; name: string; serviceIds: string[] }>();
+  const availableServiceCategoryGroups = useMemo(() => {
+    const groups = new Map<string, { key: string; name: string; services: Service[]; serviceIds: string[] }>();
 
-    Array.from(selectedServiceIds).forEach((serviceId) => {
-      const service = availableServices.find((item) => String(item.id) === String(serviceId));
-      if (!service) return;
+    availableServices.forEach((service) => {
+      const serviceId = String(service.id);
       const categoryName =
         typeof service.category === 'string'
           ? service.category
@@ -562,16 +640,46 @@ export function ShootEditModal({
       const key = normalizeCategoryKey(categoryName);
       const existing = groups.get(key);
       if (existing) {
-        existing.serviceIds.push(String(serviceId));
+        existing.services.push(service);
+        existing.serviceIds.push(serviceId);
       } else {
-        groups.set(key, { key, name: categoryName, serviceIds: [String(serviceId)] });
+        groups.set(key, {
+          key,
+          name: categoryName,
+          services: [service],
+          serviceIds: [serviceId],
+        });
       }
     });
 
     return Array.from(groups.values());
-  }, [availableServices, selectedServiceIds]);
+  }, [availableServices]);
 
-  const hasMultiplePhotographerCategories = serviceCategoryGroups.length > 1;
+  const selectedServiceCategoryGroups = useMemo(
+    () =>
+      availableServiceCategoryGroups
+        .map((group) => ({
+          ...group,
+          serviceIds: group.serviceIds.filter((serviceId) => selectedServiceIds.has(serviceId)),
+        }))
+        .filter((group) => group.serviceIds.length > 0),
+    [availableServiceCategoryGroups, selectedServiceIds],
+  );
+
+  useEffect(() => {
+    const selectedCategoryKeys = availableServiceCategoryGroups
+      .filter((group) => group.serviceIds.some((serviceId) => selectedServiceIds.has(serviceId)))
+      .map((group) => group.key);
+
+    setExpandedServiceCategoryKeys((previous) => {
+      const validPrevious = previous.filter((key) =>
+        availableServiceCategoryGroups.some((group) => group.key === key),
+      );
+      return Array.from(new Set([...validPrevious, ...selectedCategoryKeys]));
+    });
+  }, [availableServiceCategoryGroups, selectedServiceIds]);
+
+  const hasMultiplePhotographerCategories = selectedServiceCategoryGroups.length > 1;
 
   const resolvePhotographerDetails = (value?: string | number | null) => {
     if (value === null || value === undefined || value === '') return null;
@@ -596,7 +704,7 @@ export function ShootEditModal({
   }, [photographerSearchQuery, photographers]);
 
   const openPhotographerPicker = (context: PhotographerPickerContext) => {
-    const singleCategory = serviceCategoryGroups[0];
+    const singleCategory = selectedServiceCategoryGroups[0];
     const initialId = context?.categoryKey
       ? perCategoryPhotographers[context.categoryKey] || photographerId || ''
       : singleCategory
@@ -628,10 +736,10 @@ export function ShootEditModal({
       }
     } else {
       setPhotographerId(pickerPhotographerId);
-      if (serviceCategoryGroups.length === 1) {
+      if (selectedServiceCategoryGroups.length === 1) {
         setPerCategoryPhotographers((prev) => ({
           ...prev,
-          [serviceCategoryGroups[0].key]: pickerPhotographerId,
+          [selectedServiceCategoryGroups[0].key]: pickerPhotographerId,
         }));
       }
     }
@@ -644,21 +752,21 @@ export function ShootEditModal({
       const nextAssignments = { ...perCategoryPhotographers };
       delete nextAssignments[photographerPickerContext.categoryKey];
       setPerCategoryPhotographers(nextAssignments);
-      if (serviceCategoryGroups.length <= 1) {
+      if (selectedServiceCategoryGroups.length <= 1) {
         setPhotographerId('');
       }
     } else {
       setPhotographerId('');
-      if (serviceCategoryGroups.length === 1) {
+      if (selectedServiceCategoryGroups.length === 1) {
         const nextAssignments = { ...perCategoryPhotographers };
-        delete nextAssignments[serviceCategoryGroups[0].key];
+        delete nextAssignments[selectedServiceCategoryGroups[0].key];
         setPerCategoryPhotographers(nextAssignments);
       }
     }
     closePhotographerPicker();
   };
 
-  const buildSavePayload = () => {
+  const buildApprovalPayload = () => {
     if (!address.trim()) {
       toast({
         title: 'Address required',
@@ -698,7 +806,7 @@ export function ShootEditModal({
     const normalizedTaxRate = taxPercent > 1 ? taxPercent / 100 : taxPercent;
     const calculatedTax = Number((servicesTotal * normalizedTaxRate).toFixed(2));
 
-    const payload: Record<string, any> = {
+    const payload: Record<string, unknown> = {
       address: address.trim(),
       city: city.trim(),
       state: state.trim(),
@@ -757,7 +865,7 @@ export function ShootEditModal({
       ? {
           ...propertyDetails,
           sqft: propertySqft ?? propertyDetails.sqft ?? undefined,
-          squareFeet: propertySqft ?? (propertyDetails as any).squareFeet ?? propertyDetails.sqft ?? undefined,
+          squareFeet: propertySqft ?? propertyDetails.squareFeet ?? propertyDetails.sqft ?? undefined,
         }
       : null;
 
@@ -778,72 +886,87 @@ export function ShootEditModal({
   };
 
   const canNotifyClient = Boolean(clientEmail);
+  const notificationPhotographerId = photographerId || shootDetails?.photographer?.id;
   const canNotifyPhotographer = Boolean(
-    photographerEmail && (!shootDetails?.client?.id || shootDetails?.photographer?.id !== shootDetails?.client?.id)
+    photographerEmail
+      && (
+        !shootDetails?.client?.id
+        || String(notificationPhotographerId) !== String(shootDetails?.client?.id)
+      )
   );
 
-  const handleSaveRequest = () => {
-    if (isSubmitting || isLoading || isSaveConfirmOpen) return;
-    const payload = buildSavePayload();
+  const submitApproval = async ({
+    notifyClient,
+    notifyPhotographer,
+    silent,
+  }: {
+    notifyClient: boolean;
+    notifyPhotographer: boolean;
+    silent: boolean;
+  }) => {
+    if (isSubmitting || isLoading) return;
+    const payload = buildApprovalPayload();
     if (!payload) return;
-
-    setPendingPayload(payload);
-    setNotifyClientOnSave(canNotifyClient);
-    setNotifyPhotographerOnSave(canNotifyPhotographer);
-    setIsSaveConfirmOpen(true);
-  };
-
-  const handleConfirmSave = async () => {
-    if (!pendingPayload) {
-      setIsSaveConfirmOpen(false);
-      return;
-    }
 
     setIsSubmitting(true);
 
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      const payload = {
-        ...pendingPayload,
-        notify_client: notifyClientOnSave,
-        notify_photographer: notifyPhotographerOnSave,
+      const approvalPayload = {
+        ...payload,
+        notify_client: notifyClient,
+        notify_photographer: notifyPhotographer,
       };
 
-      const response = await fetch(`${API_BASE_URL}/api/shoots/${shootId}`, {
-        method: 'PATCH',
+      const response = await fetch(`${API_BASE_URL}/api/shoots/${shootId}/approve`, {
+        method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(approvalPayload),
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || 'Failed to update shoot');
+        throw new Error(error.message || 'Failed to approve shoot');
       }
 
       toast({
-        title: 'Shoot updated',
-        description: 'The shoot request has been updated successfully.',
+        title: 'Shoot approved',
+        description: silent
+          ? 'The shoot request has been approved without sending notifications.'
+          : 'The shoot request has been approved successfully.',
       });
 
       onSaved?.();
       onClose();
     } catch (error) {
-      console.error('Error updating shoot:', error);
+      console.error('Error approving shoot:', error);
       toast({
         title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to update shoot. Please try again.',
+        description: error instanceof Error ? error.message : 'Failed to approve shoot. Please try again.',
         variant: 'destructive',
       });
     } finally {
       setIsSubmitting(false);
-      setIsSaveConfirmOpen(false);
-      setPendingPayload(null);
     }
   };
+
+  const handleApprove = () =>
+    submitApproval({
+      notifyClient: canNotifyClient,
+      notifyPhotographer: canNotifyPhotographer,
+      silent: false,
+    });
+
+  const handleApproveWithoutNotification = () =>
+    submitApproval({
+      notifyClient: false,
+      notifyPhotographer: false,
+      silent: true,
+    });
 
   const toggleService = (serviceId: string) => {
     const newSet = new Set(selectedServiceIds);
@@ -955,6 +1078,9 @@ export function ShootEditModal({
                 <p className="font-medium">{clientName}</p>
                 {clientEmail && (
                   <p className="text-sm text-muted-foreground">{clientEmail}</p>
+                )}
+                {clientPhone && (
+                  <p className="text-sm text-muted-foreground">{clientPhone}</p>
                 )}
               </div>
 
@@ -1080,7 +1206,7 @@ export function ShootEditModal({
                           )}
                         >
                           <CalendarIcon className="mr-1.5 h-3 w-3" />
-                          {scheduledDate ? format(scheduledDate, 'MMM d') : 'Select'}
+                          {scheduledDate ? format(scheduledDate, 'MMM d, yyyy') : 'Select'}
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0" align="start">
@@ -1118,7 +1244,7 @@ export function ShootEditModal({
                     return (
                       <div className="space-y-2">
                         <Label className="text-[10px]">Photographers (per category)</Label>
-                        {serviceCategoryGroups.map((group) => {
+                        {selectedServiceCategoryGroups.map((group) => {
                           const selectedPhotographer = resolvePhotographerDetails(
                             perCategoryPhotographers[group.key] || photographerId,
                           );
@@ -1307,41 +1433,81 @@ export function ShootEditModal({
                   )}
                 </div>
 
-                <div className="space-y-1.5 max-h-[280px] overflow-y-auto pr-1">
-                  {availableServices.map((service) => {
-                    const serviceId = service.id?.toString();
-                    const isSelected = selectedServiceIds.has(serviceId);
-                    const price = getServicePrice(service);
-                    const isVariablePricing = service.pricing_type === 'variable' && service.sqft_ranges?.length;
-                    const showVariablePlaceholder = isVariablePricing && !propertySqft;
-                    return (
-                      <div
-                        key={serviceId}
-                        className={cn(
-                          "flex items-center justify-between p-2 rounded-md border cursor-pointer transition-colors",
-                          isSelected 
-                            ? "border-primary bg-primary/5" 
-                            : "border-border hover:border-primary/50"
-                        )}
-                        onClick={() => toggleService(serviceId)}
-                      >
-                        <div className="flex items-center gap-1.5">
-                          <Checkbox 
-                            checked={isSelected}
-                            onCheckedChange={() => toggleService(serviceId)}
-                            className="h-3.5 w-3.5"
-                          />
-                          <span className="text-xs font-medium">{service.name}</span>
-                        </div>
-                        <span className={cn(
-                          "text-xs font-medium",
-                          isVariablePricing && propertySqft ? "text-emerald-600" : "text-muted-foreground"
-                        )}>
-                          {showVariablePlaceholder ? 'Varies' : `$${price.toFixed(0)}`}
-                        </span>
-                      </div>
-                    );
-                  })}
+                <div className="max-h-[320px] overflow-y-auto pr-1">
+                  <Accordion
+                    type="multiple"
+                    value={expandedServiceCategoryKeys}
+                    onValueChange={setExpandedServiceCategoryKeys}
+                    className="space-y-2"
+                  >
+                    {availableServiceCategoryGroups.map((group) => {
+                      const selectedCount = group.serviceIds.filter((serviceId) =>
+                        selectedServiceIds.has(serviceId),
+                      ).length;
+
+                      return (
+                        <AccordionItem
+                          key={group.key}
+                          value={group.key}
+                          className="rounded-md border border-border px-2"
+                        >
+                          <AccordionTrigger className="py-2 text-xs hover:no-underline">
+                            <div className="flex min-w-0 flex-1 items-center justify-between gap-3 pr-2">
+                              <span className="truncate font-semibold">{group.name}</span>
+                              <Badge variant="outline" className="shrink-0 text-[10px]">
+                                {selectedCount} selected
+                              </Badge>
+                            </div>
+                          </AccordionTrigger>
+                          <AccordionContent className="pb-2">
+                            <div className="space-y-1.5">
+                              {group.services.map((service) => {
+                                const serviceId = String(service.id);
+                                const isSelected = selectedServiceIds.has(serviceId);
+                                const price = getServicePrice(service);
+                                const isVariablePricing =
+                                  service.pricing_type === 'variable' && service.sqft_ranges?.length;
+                                const showVariablePlaceholder = isVariablePricing && !propertySqft;
+
+                                return (
+                                  <div
+                                    key={serviceId}
+                                    className={cn(
+                                      'flex items-center justify-between rounded-md border p-2 transition-colors',
+                                      isSelected
+                                        ? 'border-primary bg-primary/5'
+                                        : 'border-border hover:border-primary/50',
+                                    )}
+                                    onClick={() => toggleService(serviceId)}
+                                  >
+                                    <div className="flex min-w-0 items-center gap-1.5">
+                                      <Checkbox
+                                        checked={isSelected}
+                                        onCheckedChange={() => toggleService(serviceId)}
+                                        onClick={(event) => event.stopPropagation()}
+                                        className="h-3.5 w-3.5"
+                                      />
+                                      <span className="truncate text-xs font-medium">{service.name}</span>
+                                    </div>
+                                    <span
+                                      className={cn(
+                                        'shrink-0 text-xs font-medium',
+                                        isVariablePricing && propertySqft
+                                          ? 'text-emerald-600'
+                                          : 'text-muted-foreground',
+                                      )}
+                                    >
+                                      {showVariablePlaceholder ? 'Varies' : `$${price.toFixed(0)}`}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      );
+                    })}
+                  </Accordion>
                 </div>
 
                 {selectedServiceIds.size > 0 && (() => {
@@ -1400,20 +1566,38 @@ export function ShootEditModal({
           <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>
+          <Button
+            variant="outline"
+            onClick={handleApproveWithoutNotification}
+            disabled={isSubmitting || isLoading}
+            className="min-w-[220px]"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Approving...
+              </>
+            ) : (
+              <>
+                <BellOff className="mr-2 h-4 w-4" />
+                Approve without notification
+              </>
+            )}
+          </Button>
           <Button 
-            onClick={handleSaveRequest} 
+            onClick={handleApprove} 
             disabled={isSubmitting || isLoading} 
             className="bg-blue-600 hover:bg-blue-700 min-w-[140px]"
           >
             {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
+                Approving...
               </>
             ) : (
               <>
-                <Save className="mr-2 h-4 w-4" />
-                Save Changes
+                <Check className="mr-2 h-4 w-4" />
+                Approve
               </>
             )}
           </Button>
@@ -1531,71 +1715,6 @@ export function ShootEditModal({
         </Dialog>
       </DialogContent>
 
-      <Dialog
-        open={isSaveConfirmOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            setIsSaveConfirmOpen(false);
-            setPendingPayload(null);
-          }
-        }}
-      >
-        <DialogContent className="sm:max-w-[460px]">
-          <DialogHeader>
-            <DialogTitle>Confirm update</DialogTitle>
-            <DialogDescription>
-              Choose who should receive update notifications for this shoot.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 py-4">
-            <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
-              <div>
-                <p className="text-sm font-medium">Client</p>
-                <p className="text-xs text-muted-foreground">{clientEmail || 'No client email on file'}</p>
-              </div>
-              <Checkbox
-                checked={notifyClientOnSave}
-                onCheckedChange={(value) => setNotifyClientOnSave(Boolean(value))}
-                disabled={!canNotifyClient}
-              />
-            </div>
-            <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
-              <div>
-                <p className="text-sm font-medium">Photographer</p>
-                <p className="text-xs text-muted-foreground">
-                  {photographerEmail || 'No photographer email on file'}
-                </p>
-              </div>
-              <Checkbox
-                checked={notifyPhotographerOnSave}
-                onCheckedChange={(value) => setNotifyPhotographerOnSave(Boolean(value))}
-                disabled={!canNotifyPhotographer}
-              />
-            </div>
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsSaveConfirmOpen(false);
-                setPendingPayload(null);
-              }}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleConfirmSave} disabled={isSubmitting}>
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                'Save changes'
-              )}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </Dialog>
   );
 }

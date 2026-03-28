@@ -114,6 +114,7 @@ export const getShootDetailsCapabilities = ({
         shoot.status === 'hold_on' ||
         shoot.workflowStatus === 'on_hold'),
   );
+  const isCancellationRequested = Boolean(shoot?.cancellationRequestedAt);
   const canPutOnHold = Boolean(
     shoot &&
       !isOnHold &&
@@ -145,10 +146,47 @@ export const getShootDetailsCapabilities = ({
           shoot?.photographer?.id != null &&
           String(shoot.photographer.id) === String(userId ?? ''))),
   );
-  const canCancelShoot =
-    isAdmin &&
-    Boolean(shoot) &&
-    !['cancelled', 'canceled', 'declined'].includes(normalizedStatus);
+  const canWithdrawRequestedShoot = Boolean(
+    shoot &&
+      isClient &&
+      normalizedStatus === 'requested' &&
+      !isCancellationRequested,
+  );
+  const canRequestCancellation = Boolean(
+    shoot &&
+      isClient &&
+      !isCancellationRequested &&
+      ['scheduled', 'booked', 'on_hold', 'editing', 'uploaded'].includes(normalizedStatus),
+  );
+  const canCancelShoot = Boolean(
+    (isAdmin &&
+      shoot &&
+      !['cancelled', 'canceled', 'declined'].includes(normalizedStatus)) ||
+      canWithdrawRequestedShoot ||
+      canRequestCancellation,
+  );
+  const cancelActionLabel = isAdmin
+    ? (isDelivered ? 'Delete shoot' : 'Cancel shoot')
+    : canWithdrawRequestedShoot
+      ? 'Cancel shoot'
+      : 'Request cancellation';
+  const cancelDialogTitle = isAdmin
+    ? (isDelivered ? 'Delete Shoot' : 'Cancel Shoot')
+    : canWithdrawRequestedShoot
+      ? 'Cancel Shoot Request'
+      : 'Request Shoot Cancellation';
+  const cancelDialogDescription = isAdmin
+    ? (isDelivered
+      ? 'This will permanently delete the shoot and all associated data.'
+      : 'This will permanently cancel the shoot. The client will be notified of the cancellation.')
+    : canWithdrawRequestedShoot
+      ? 'This will cancel your unapproved shoot request immediately.'
+      : 'Tell us why you want to cancel this scheduled shoot. Your request will be reviewed by an admin.';
+  const cancelSubmitLabel = isAdmin
+    ? (isDelivered ? 'Delete Shoot' : 'Cancel Shoot')
+    : canWithdrawRequestedShoot
+      ? 'Cancel Shoot'
+      : 'Submit request';
 
   return {
     normalizedStatus,
@@ -180,6 +218,13 @@ export const getShootDetailsCapabilities = ({
     holdDialogDescription,
     holdSubmitLabel,
     canResumeFromHold,
+    isCancellationRequested,
+    canWithdrawRequestedShoot,
+    canRequestCancellation,
     canCancelShoot,
+    cancelActionLabel,
+    cancelDialogTitle,
+    cancelDialogDescription,
+    cancelSubmitLabel,
   };
 };

@@ -7,6 +7,7 @@ import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { SquarePaymentDialog } from '@/components/payments/SquarePaymentDialog';
 import { useToast } from '@/hooks/use-toast';
+import type { PricingBreakdown } from '@/utils/pricing';
 
 interface BookingCompleteProps {
   date: Date | undefined;
@@ -15,6 +16,7 @@ interface BookingCompleteProps {
   isClientRequest?: boolean;
   shootId?: string | number;
   totalAmount?: number;
+  pricing?: PricingBreakdown;
   shootAddress?: string;
   shootServices?: string[];
   clientName?: string;
@@ -28,6 +30,7 @@ export function BookingComplete({
   isClientRequest = false, 
   shootId, 
   totalAmount = 0,
+  pricing,
   shootAddress,
   shootServices = [],
   clientName,
@@ -99,6 +102,28 @@ export function BookingComplete({
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
           >
+            {pricing && (
+              <div className="mb-4 rounded-md bg-white/70 dark:bg-slate-900/50 p-3 text-left text-sm">
+                <div className="flex justify-between">
+                  <span>Subtotal</span>
+                  <span>${pricing.serviceSubtotal.toFixed(2)}</span>
+                </div>
+                {pricing.discountAmount > 0 && (
+                  <div className="mt-1 flex justify-between text-emerald-600 dark:text-emerald-400">
+                    <span>Discount</span>
+                    <span>-${pricing.discountAmount.toFixed(2)}</span>
+                  </div>
+                )}
+                <div className="mt-1 flex justify-between">
+                  <span>Tax</span>
+                  <span>${pricing.taxAmount.toFixed(2)}</span>
+                </div>
+                <div className="mt-2 flex justify-between border-t pt-2 font-semibold">
+                  <span>Total</span>
+                  <span>${pricing.totalQuote.toFixed(2)}</span>
+                </div>
+              </div>
+            )}
             {!countdownComplete ? (
               <p className="text-blue-700 dark:text-blue-300 font-medium flex items-center justify-center gap-2">
                 <CreditCard className="h-5 w-5" />
@@ -144,6 +169,7 @@ export function BookingComplete({
         clientName={clientName}
         clientEmail={clientEmail}
         totalQuote={totalAmount}
+        pricing={pricing}
         totalPaid={0}
         onPaymentSuccess={handlePaymentSuccess}
       />

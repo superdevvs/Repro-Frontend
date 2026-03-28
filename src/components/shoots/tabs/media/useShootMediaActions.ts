@@ -610,6 +610,121 @@ export function useShootMediaActions({
     }
   };
 
+  const updateSingleFile = (fileId: string, updater: (file: MediaFile) => MediaFile) => {
+    const apply = (files: MediaFile[]) => files.map((file) => (file.id === fileId ? updater(file) : file));
+    setRawFiles((prev) => apply(prev));
+    setEditedFiles((prev) => apply(prev));
+  };
+
+  const handleToggleFavorite = async (fileId: string) => {
+    const targetFile = [...rawFiles, ...editedFiles].find((file) => file.id === fileId);
+    if (!targetFile) return;
+
+    const nextFavoriteValue = !targetFile.is_favorite;
+    updateSingleFile(fileId, (file) => ({ ...file, is_favorite: nextFavoriteValue }));
+
+    try {
+      const headers = getApiHeaders();
+      const response = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/media/${fileId}/favorite`, {
+        method: 'POST',
+        headers,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to update favorite' }));
+        throw new Error(errorData.message || 'Failed to update favorite');
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'raw'] });
+      queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'edited'] });
+      queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'all'] });
+    } catch (error: unknown) {
+      updateSingleFile(fileId, (file) => ({ ...file, is_favorite: !nextFavoriteValue }));
+      toast({
+        title: 'Favorite update failed',
+        description: error instanceof Error ? error.message : 'Failed to update favorite',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleAddComment = async (fileId: string, comment: string) => {
+    const trimmedComment = comment.trim();
+    if (!trimmedComment) {
+      return;
+    }
+
+    const optimisticComment = {
+      author: 'You',
+      comment: trimmedComment,
+      timestamp: new Date().toISOString(),
+    };
+    const previousFile = [...rawFiles, ...editedFiles].find((file) => file.id === fileId);
+    updateSingleFile(fileId, (file) => ({
+      ...file,
+      comments: [...(file.comments ?? []), optimisticComment],
+      comment_count: Number(file.comment_count ?? 0) + 1,
+      latest_comment: optimisticComment,
+    }));
+
+    try {
+      const headers = getApiHeaders();
+      const response = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/media/${fileId}/comment`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ comment: trimmedComment }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to add comment' }));
+        throw new Error(errorData.message || 'Failed to add comment');
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'raw'] });
+      queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'edited'] });
+      queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'all'] });
+      onShootUpdate();
+    } catch (error: unknown) {
+      if (previousFile) {
+        updateSingleFile(fileId, () => previousFile);
+      }
+      toast({
+        title: 'Comment failed',
+        description: error instanceof Error ? error.message : 'Failed to add comment',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDownloadSingleFile = async (fileId: string) => {
+    try {
+      const headers = getApiHeaders();
+      delete headers['Content-Type'];
+      const response = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/media/${fileId}/download`, {
+        method: 'GET',
+        headers,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to download file' }));
+        throw new Error(errorData.message || 'Failed to download file');
+      }
+
+      const data = await response.json();
+      if (!data?.url) {
+        throw new Error('Download link not available');
+      }
+
+      window.open(data.url, '_blank', 'noopener,noreferrer');
+    } catch (error: unknown) {
+      toast({
+        title: 'Download failed',
+        description: error instanceof Error ? error.message : 'Failed to download file',
+        variant: 'destructive',
+      });
+    }
+  };
+
   return {
     handleDirectDrop,
     handleTabDragEnter,
@@ -624,5 +739,8 @@ export function useShootMediaActions({
     handleDeleteFiles,
     handleReclassify,
     toggleFileHidden,
+    handleToggleFavorite,
+    handleAddComment,
+    handleDownloadSingleFile,
   };
 }

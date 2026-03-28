@@ -18,6 +18,7 @@ import { API_BASE_URL, STRIPE_PUBLISHABLE_KEY } from '@/config/env';
 import axios from 'axios';
 import { loadStripe } from '@stripe/stripe-js';
 import { blurActiveElement } from '@/components/shoots/dialogFocusUtils';
+import type { PricingBreakdown } from '@/utils/pricing';
 
 interface SquarePaymentFormProps {
   amount: number;
@@ -33,6 +34,7 @@ interface SquarePaymentFormProps {
   shootTime?: string;
   totalQuote?: number;
   totalPaid?: number;
+  pricing?: PricingBreakdown;
   onPaymentSuccess?: (payment: any) => void;
   onPaymentError?: (error: any) => void;
   disabled?: boolean;
@@ -59,6 +61,7 @@ export function SquarePaymentForm({
   shootTime,
   totalQuote,
   totalPaid,
+  pricing,
   onPaymentSuccess,
   onPaymentError,
   disabled = false,
@@ -414,13 +417,31 @@ export function SquarePaymentForm({
             )}
 
             {/* Payment Summary */}
-            {(totalQuote !== undefined || totalPaid !== undefined) && (
+            {(totalQuote !== undefined || totalPaid !== undefined || pricing) && (
               <div className="p-3 border rounded-lg bg-muted/30">
                 <p className="text-xs text-muted-foreground mb-2">Payment Summary</p>
                 <div className="space-y-1 text-sm">
+                  {pricing && (
+                    <>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Subtotal</span>
+                        <span className="font-semibold">${pricing.serviceSubtotal.toFixed(2)}</span>
+                      </div>
+                      {pricing.discountAmount > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Discount</span>
+                          <span className="font-semibold text-green-600">-${pricing.discountAmount.toFixed(2)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Tax</span>
+                        <span className="font-semibold">${pricing.taxAmount.toFixed(2)}</span>
+                      </div>
+                    </>
+                  )}
                   {totalQuote !== undefined && (
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Total Quote</span>
+                      <span className="text-muted-foreground">{pricing ? 'Total' : 'Total Quote'}</span>
                       <span className="font-semibold">${totalQuote.toFixed(2)}</span>
                     </div>
                   )}

@@ -151,7 +151,13 @@ export function ShootDetailsModal({
       holdDialogDescription,
       holdSubmitLabel,
       canResumeFromHold,
+      canWithdrawRequestedShoot,
+      canRequestCancellation,
       canCancelShoot,
+      cancelActionLabel,
+      cancelDialogTitle,
+      cancelDialogDescription,
+      cancelSubmitLabel,
     },
   } = useShootDetailsScreen({
     shootId: isOpen ? shootId : null,
@@ -380,6 +386,8 @@ export function ShootDetailsModal({
   } = useShootDetailsModalWorkflow({
     shoot,
     isClient,
+    canWithdrawRequestedShoot,
+    canRequestCancellation,
     isWithinCancellationFeeWindow,
     refreshShoot,
     setShoot,
@@ -594,6 +602,7 @@ export function ShootDetailsModal({
           selectedFileIds={selectedFileIds}
           isPublishingToBrightMls={isPublishingToBrightMls}
           holdActionLabel={holdActionLabel}
+          cancelActionLabel={cancelActionLabel}
           isMobileActionsOpen={isMobileActionsOpen}
           setIsMobileActionsOpen={setIsMobileActionsOpen}
           setIsApprovalModalOpen={setIsApprovalModalOpen}
@@ -695,6 +704,9 @@ export function ShootDetailsModal({
         holdSubmitLabel={holdSubmitLabel}
         isCancelShootDialogOpen={isCancelShootDialogOpen}
         isDelivered={isDelivered}
+        cancelDialogTitle={cancelDialogTitle}
+        cancelDialogDescription={cancelDialogDescription}
+        cancelSubmitLabel={cancelSubmitLabel}
         cancelShootReason={cancelShootReason}
         isWithinCancellationFeeWindow={isWithinCancellationFeeWindow}
         isCancellingShoot={isCancellingShoot}

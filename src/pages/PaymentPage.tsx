@@ -20,6 +20,11 @@ interface ShootDetails {
   time?: string;
   total_quote: number;
   base_quote: number;
+  service_subtotal?: number;
+  discount_type?: 'fixed' | 'percent' | 'percentage' | null;
+  discount_value?: number | null;
+  discount_amount?: number;
+  discounted_subtotal?: number;
   tax_amount: number;
   services: Array<{ name: string; pivot?: { price: number; quantity: number } }>;
   client?: { name: string; email: string };
@@ -416,8 +421,14 @@ export default function PaymentPage() {
                 <div className="rounded-xl border border-gray-800 bg-[#0f1524] p-4 space-y-3">
                   <div className="flex justify-between text-sm text-gray-400">
                     <span>Subtotal</span>
-                    <span>${(shoot?.base_quote || 0).toFixed(2)}</span>
+                    <span>${(shoot?.service_subtotal ?? ((shoot?.base_quote || 0) + (shoot?.discount_amount || 0))).toFixed(2)}</span>
                   </div>
+                  {(shoot?.discount_amount || 0) > 0 && (
+                    <div className="flex justify-between text-sm text-emerald-400">
+                      <span>Discount</span>
+                      <span>-${(shoot?.discount_amount || 0).toFixed(2)}</span>
+                    </div>
+                  )}
                   {(shoot?.tax_amount || 0) > 0 && (
                     <div className="flex justify-between text-sm text-gray-400">
                       <span>Tax</span>

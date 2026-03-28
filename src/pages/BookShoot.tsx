@@ -22,6 +22,7 @@ import axios from 'axios';
 import API_ROUTES from '@/lib/api';
 import { API_BASE_URL } from '@/config/env';
 import { normalizeState, isValidState } from '@/utils/stateUtils';
+import { calculatePricingBreakdown, getTaxRateForState } from '@/utils/pricing';
 
 type SqftRange = {
   id?: number;
@@ -46,6 +47,21 @@ type ServicePackage = {
   };
   service_groups?: Array<{ id: string; name: string; description?: string | null }>;
   service_group_ids?: string[];
+};
+
+const resolveSelectedServicePrice = (service: ServicePackage, sqft?: number | null) => {
+  let price = Number(service.price ?? 0);
+
+  if (service.pricing_type === 'variable' && sqft && service.sqft_ranges?.length) {
+    const matchingRange = service.sqft_ranges.find(
+      (range) => sqft >= range.sqft_from && sqft <= range.sqft_to
+    );
+    if (matchingRange) {
+      price = Number(matchingRange.price);
+    }
+  }
+
+  return price;
 };
 
 const normalizeAddressPart = (value?: string | null) =>
@@ -389,6 +405,12 @@ const BookShoot = () => {
             ...client,
             id: client.id.toString(),
             companyNotes: client.companyNotes ?? client.company_notes ?? '',
+            shootCcEmails: client.shootCcEmails ?? client.shoot_cc_emails ?? [],
+            shoot_cc_emails: client.shoot_cc_emails ?? client.shootCcEmails ?? [],
+            clientDiscountType: client.clientDiscountType ?? client.client_discount_type ?? null,
+            client_discount_type: client.client_discount_type ?? client.clientDiscountType ?? null,
+            clientDiscountValue: client.clientDiscountValue ?? client.client_discount_value ?? null,
+            client_discount_value: client.client_discount_value ?? client.clientDiscountValue ?? null,
             service_groups: Array.isArray(client.service_groups)
               ? client.service_groups.map((group: any) => ({
                   id: String(group.id),
@@ -721,54 +743,58 @@ const BookShoot = () => {
   }, [editShootId, packagesLoading, packages, toast]);
 
   // Removed geolocation permission prompt to avoid asking for location on this page.
+  const selectedClientData = React.useMemo(() => {
+    if (isClientAccount) {
+      return user
+        ? {
+            ...user,
+            id: String(user.id),
+            shootCcEmails: user.shootCcEmails ?? user.shoot_cc_emails ?? [],
+            shoot_cc_emails: user.shoot_cc_emails ?? user.shootCcEmails ?? [],
+            clientDiscountType: user.clientDiscountType ?? user.client_discount_type ?? null,
+            client_discount_type: user.client_discount_type ?? user.clientDiscountType ?? null,
+            clientDiscountValue: user.clientDiscountValue ?? user.client_discount_value ?? null,
+            client_discount_value: user.client_discount_value ?? user.clientDiscountValue ?? null,
+          }
+        : undefined;
+    }
 
+    return clients.find((clientRecord) => clientRecord.id === client);
+  }, [client, clients, isClientAccount, user]);
 
-  const getPackagePrice = () => {
+  const selectedServiceSqft = propertySqft ?? propertyDetails?.sqft ?? propertyDetails?.livingArea ?? null;
+
+  const serviceSubtotal = React.useMemo(() => {
     if (!selectedServices.length) {
       return 0;
     }
-    
-    // Get sqft from property details for variable pricing
-    const sqft = propertySqft ?? propertyDetails?.sqft ?? propertyDetails?.livingArea ?? null;
-    
-    const total = selectedServices.reduce((sum, service) => {
-      let price = Number(service.price ?? 0);
-      
-      // If variable pricing and sqft available, find matching range
-      if (service.pricing_type === 'variable' && sqft && service.sqft_ranges?.length) {
-        const matchingRange = service.sqft_ranges.find(
-          range => sqft >= range.sqft_from && sqft <= range.sqft_to
-        );
-        if (matchingRange) {
-          price = Number(matchingRange.price);
-        }
-      }
-      
-      return sum + price;
-    }, 0);
-    return Math.round(total * 100) / 100;
-  };
+
+    return Math.round(
+      selectedServices.reduce((sum, service) => sum + resolveSelectedServicePrice(service, selectedServiceSqft), 0) * 100
+    ) / 100;
+  }, [selectedServiceSqft, selectedServices]);
+
+  const pricingBreakdown = React.useMemo(
+    () =>
+      calculatePricingBreakdown({
+        serviceSubtotal,
+        discountType: selectedClientData?.clientDiscountType ?? selectedClientData?.client_discount_type ?? null,
+        discountValue: selectedClientData?.clientDiscountValue ?? selectedClientData?.client_discount_value ?? null,
+        taxRate: getTaxRateForState(state),
+      }),
+    [selectedClientData, serviceSubtotal, state]
+  );
+
+  const getPackagePrice = () => serviceSubtotal;
 
   const getPhotographerRate = () => {
 
     return 0;
   };
 
-  const getTax = () => {
-    const subtotal = getPackagePrice(); // Only package price, photographer fee is internal
-    return Math.round(subtotal * 0.06);
-  };
+  const getTax = () => pricingBreakdown.taxAmount;
 
-  const getTotal = () => {
-    const packagePrice = getPackagePrice();
-    const tax = getTax();
-
-    const packageCents = Math.round(packagePrice * 100);
-    const taxCents = Math.round(tax * 100);
-
-    const totalCents = packageCents + taxCents;
-    return totalCents / 100;
-  };
+  const getTotal = () => pricingBreakdown.totalQuote;
 
   const getAvailablePhotographers = () => {
     const role = user?.role;
@@ -1018,30 +1044,18 @@ const BookShoot = () => {
       ) : new Date();
 
       // Calculate pricing information
-      const baseQuote = getPackagePrice();
+      const baseQuote = pricingBreakdown.discountedSubtotal;
       const photographerRate = getPackagePrice();
-      const taxAmount = getTax();
-      const totalQuote = getTotal();
+      const taxAmount = pricingBreakdown.taxAmount;
+      const totalQuote = pricingBreakdown.totalQuote;
 
       // Get sqft for variable pricing
       const sqft = propertySqft ?? propertyDetails?.sqft ?? propertyDetails?.livingArea ?? null;
       
       const servicesPayload = selectedServices.map(service => {
-        let price = Number(service.price ?? 0);
-        
-        // If variable pricing and sqft available, find matching range
-        if (service.pricing_type === 'variable' && sqft && service.sqft_ranges?.length) {
-          const matchingRange = service.sqft_ranges.find(
-            range => sqft >= range.sqft_from && sqft <= range.sqft_to
-          );
-          if (matchingRange) {
-            price = Number(matchingRange.price);
-          }
-        }
-        
         return {
           id: service.id,
-          price,
+          price: resolveSelectedServicePrice(service, sqft),
           quantity: 1,
         };
       });
@@ -1088,6 +1102,10 @@ const BookShoot = () => {
         property_details: propertyDetails || undefined,
         // Add the missing required fields based on API error
         base_quote: baseQuote,
+        service_subtotal: pricingBreakdown.serviceSubtotal,
+        discount_type: pricingBreakdown.discountType,
+        discount_value: pricingBreakdown.discountValue,
+        discount_amount: pricingBreakdown.discountAmount,
         tax_amount: taxAmount,
         total_quote: totalQuote,
         payment_status: bypassPayment ? 'pending' : 'paid', // or whatever statuses your API expects
@@ -1361,7 +1379,6 @@ const BookShoot = () => {
 
 
   const getSummaryInfo = () => {
-    const selectedClientData = clients.find(c => c.id === client);
     const serviceNames = selectedServices.map(service => service.name).join(', ');
 
     // Extract rep name from various possible fields
@@ -1398,7 +1415,8 @@ const BookShoot = () => {
       clientRep: repName,
       services: selectedServices,
       packageLabel: serviceNames,
-      packagePrice: getPackagePrice(),
+      packagePrice: pricingBreakdown.serviceSubtotal,
+      pricing: pricingBreakdown,
       address: fullAddress || address || '',
       bedrooms: 0,
       bathrooms: 0,
@@ -1450,6 +1468,7 @@ const BookShoot = () => {
                 isClientRequest={isClientAccount}
                 shootId={createdShootId}
                 totalAmount={getTotal()}
+                pricing={pricingBreakdown}
                 shootAddress={buildNormalizedAddress({ address, city, state, zip })}
                 shootServices={selectedServices.map(s => s.name)}
                 clientName={user?.name}
@@ -1513,6 +1532,7 @@ const BookShoot = () => {
                   sendNotification={sendNotification}
                   setSendNotification={setSendNotification}
                   getPackagePrice={getPackagePrice}
+                  pricingBreakdown={pricingBreakdown}
                   getPhotographerRate={getPhotographerRate}
                   clients={clients}
                   photographers={photographers}
@@ -1546,10 +1566,4 @@ const BookShoot = () => {
 };
 
 export default BookShoot;
-
-
-
-
-
-
 

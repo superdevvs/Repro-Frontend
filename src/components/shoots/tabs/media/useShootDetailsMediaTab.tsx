@@ -212,10 +212,24 @@ export function useShootDetailsMediaTab({
     viewerIndex,
     setViewerIndex,
     viewerFiles,
+    setViewerFiles,
     openViewer,
     toggleSelection,
     clearSelection,
   } = useShootMediaSelectionState({ onSelectionChange });
+
+  useEffect(() => {
+    if (!viewerOpen || viewerFiles.length === 0) {
+      return;
+    }
+
+    const allFiles = [...rawFiles, ...editedFiles];
+    const nextViewerFiles = viewerFiles.map((file) => allFiles.find((candidate) => candidate.id === file.id) ?? file);
+    const hasChanged = nextViewerFiles.some((file, index) => file !== viewerFiles[index]);
+    if (hasChanged) {
+      setViewerFiles(nextViewerFiles);
+    }
+  }, [editedFiles, rawFiles, setViewerFiles, viewerFiles, viewerOpen]);
 
   // Load editing types - only for admin/editor users (clients don't have access)
   const canAccessFotello = ['admin', 'superadmin', 'editing_manager', 'editor'].includes(role || '');
@@ -522,6 +536,9 @@ export function useShootDetailsMediaTab({
     handleDeleteFiles,
     handleReclassify,
     toggleFileHidden,
+    handleToggleFavorite,
+    handleAddComment,
+    handleDownloadSingleFile,
   } = useShootMediaActions({
     shoot,
     isAdmin,
@@ -548,6 +565,7 @@ export function useShootDetailsMediaTab({
     dragCounterRef,
     setDragOverTab,
   });
+  const canInteractSingleMedia = isClient || ['admin', 'superadmin', 'editing_manager', 'salesRep', 'rep', 'representative'].includes(role || '');
 
   const normalizedShootStatus = String(shoot?.workflowStatus || (shoot as any)?.status || '').toLowerCase();
   const normalizeClientProgressStatus = (value: string) => {
@@ -736,6 +754,10 @@ export function useShootDetailsMediaTab({
           isClient={isClient}
           toggleFileHidden={toggleFileHidden}
           separateExtras={separateExtras}
+          canInteractSingleMedia={canInteractSingleMedia}
+          onToggleFavorite={handleToggleFavorite}
+          onAddComment={handleAddComment}
+          onDownloadSingle={handleDownloadSingleFile}
         />
         {showUploadTab && (
           <div className="sm:hidden sticky bottom-2 z-20 flex justify-center pointer-events-none mt-2 pb-2">
@@ -945,6 +967,11 @@ export function useShootDetailsMediaTab({
         isAdmin={isAdmin}
         isClient={isClient}
         onShootUpdate={onShootUpdate}
+        canInteractSingleMedia={canInteractSingleMedia}
+        onToggleFavorite={handleToggleFavorite}
+        onAddComment={handleAddComment}
+        onToggleHidden={toggleFileHidden}
+        onDownloadSingle={handleDownloadSingleFile}
         showAiEditDialog={showAiEditDialog}
         setShowAiEditDialog={setShowAiEditDialog}
         selectedFiles={selectedFiles}

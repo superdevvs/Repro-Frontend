@@ -11,6 +11,7 @@ export type UserRole =
   | 'client';
 
 export type RepPayoutFrequency = 'weekly' | 'biweekly' | 'monthly';
+export type ClientDiscountType = 'fixed' | 'percent' | null;
 
 export interface AddressInfo {
   line1?: string;
@@ -76,6 +77,12 @@ export interface UserData {
   linkedProperties?: PropertyData[];
   service_groups?: ServiceGroupSummary[];
   service_group_ids?: string[];
+  shootCcEmails?: string[];
+  shoot_cc_emails?: string[];
+  clientDiscountType?: ClientDiscountType;
+  client_discount_type?: ClientDiscountType;
+  clientDiscountValue?: number | null;
+  client_discount_value?: number | null;
 }
 
 export interface LinkedAccount {

@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { CheckCircle2, Circle, Eye, EyeOff, GripVertical, Image as ImageIcon, MinusCircle, Play } from 'lucide-react';
+import { CheckCircle2, Circle, Download, Eye, EyeOff, GripVertical, Heart, Image as ImageIcon, MessageSquare, MinusCircle, Play } from 'lucide-react';
 import { type MediaFile } from '@/hooks/useShootFiles';
 import { isRawFile } from '@/services/rawPreviewService';
 import VideoThumbnail from '../../VideoThumbnail';
@@ -56,6 +56,10 @@ interface MediaGridProps {
   isClient?: boolean;
   toggleFileHidden?: (fileId: string, hidden: boolean) => void;
   separateExtras?: boolean;
+  canInteractSingleMedia?: boolean;
+  onToggleFavorite?: (fileId: string) => void;
+  onAddComment?: (fileId: string, comment: string) => void;
+  onDownloadSingle?: (fileId: string) => void;
 }
 
 export function MediaGrid({ 
@@ -78,6 +82,10 @@ export function MediaGrid({
   isClient = false,
   toggleFileHidden,
   separateExtras = true,
+  canInteractSingleMedia = false,
+  onToggleFavorite,
+  onAddComment,
+  onDownloadSingle,
 }: MediaGridProps) {
   const isManualSortEnabled = sortOrder === 'manual' && manualSortActive;
   const [draggedId, setDraggedId] = useState<string | null>(null);
@@ -209,6 +217,76 @@ export function MediaGrid({
     onManualOrderChange?.(remainingOrder);
   };
   const showMultiSortHint = isManualSortEnabled && selectedFiles.size > 1;
+  const openCommentPrompt = (file: MediaFile) => {
+    if (!onAddComment) return;
+    const nextComment = window.prompt('Add a comment for this image', '');
+    if (nextComment && nextComment.trim()) {
+      onAddComment(file.id, nextComment);
+    }
+  };
+  const getLatestCommentText = (file: MediaFile) =>
+    file.latest_comment?.comment?.trim() ||
+    file.comments?.[file.comments.length - 1]?.comment?.trim() ||
+    '';
+  const renderSingleMediaActions = (file: MediaFile, alwaysVisible = false) => {
+    const showHiddenToggle = Boolean(toggleFileHidden);
+    if (!canInteractSingleMedia && !showHiddenToggle) {
+      return null;
+    }
+
+    return (
+      <div className={`absolute top-2 right-2 z-[3] flex items-center gap-1 transition-opacity ${alwaysVisible ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+        {canInteractSingleMedia && onToggleFavorite && (
+          <button
+            className={`h-7 w-7 rounded-full backdrop-blur-sm flex items-center justify-center ${file.is_favorite ? 'bg-red-500/90 text-white' : 'bg-black/55 text-white'}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleFavorite(file.id);
+            }}
+            title={file.is_favorite ? 'Unlike image' : 'Like image'}
+          >
+            <Heart className={`h-3.5 w-3.5 ${file.is_favorite ? 'fill-current' : ''}`} />
+          </button>
+        )}
+        {canInteractSingleMedia && onAddComment && (
+          <button
+            className="h-7 w-7 rounded-full bg-black/55 backdrop-blur-sm text-white flex items-center justify-center"
+            onClick={(e) => {
+              e.stopPropagation();
+              openCommentPrompt(file);
+            }}
+            title="Add comment"
+          >
+            <MessageSquare className="h-3.5 w-3.5" />
+          </button>
+        )}
+        {canInteractSingleMedia && onDownloadSingle && (
+          <button
+            className="h-7 w-7 rounded-full bg-black/55 backdrop-blur-sm text-white flex items-center justify-center"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDownloadSingle(file.id);
+            }}
+            title="Download image"
+          >
+            <Download className="h-3.5 w-3.5" />
+          </button>
+        )}
+        {showHiddenToggle && (
+          <button
+            className={`h-7 w-7 rounded-full backdrop-blur-sm flex items-center justify-center ${file.is_hidden ? 'bg-yellow-500/90 text-white opacity-100' : 'bg-black/55 text-white'}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleFileHidden?.(file.id, !file.is_hidden);
+            }}
+            title={file.is_hidden ? 'Unhide image' : 'Hide image'}
+          >
+            {file.is_hidden ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+          </button>
+        )}
+      </div>
+    );
+  };
 
   // Helper function to format file size
   const formatFileSize = (bytes?: number): string => {
@@ -258,6 +336,7 @@ export function MediaGrid({
     
     const isDragging = draggedId === file.id;
     const isDragOver = dragOverId === file.id;
+    const latestCommentText = getLatestCommentText(file);
     
     return (
       <div
@@ -268,13 +347,14 @@ export function MediaGrid({
         onDragLeave={handleDragLeave}
         onDrop={(e) => handleDrop(e, file.id)}
         onDragEnd={handleDragEnd}
-        className={`relative aspect-square rounded overflow-hidden border cursor-pointer transition-all group ${
+        className={`relative rounded-xl overflow-hidden border cursor-pointer transition-all group bg-card flex flex-col ${
           isSelected ? 'border-primary ring-1 ring-primary' : 'border-border hover:border-primary/50'
         } ${isExtraSection ? 'opacity-90' : ''} ${isDragging ? 'opacity-50 scale-95' : ''} ${isDragOver ? 'ring-2 ring-blue-500 border-blue-500' : ''} ${isManualSortEnabled && !isExtraSection ? 'cursor-grab active:cursor-grabbing' : ''}`}
         onClick={() => {
           onFileClick(actualIndex, sortedFiles);
         }}
       >
+        <div className="relative aspect-[4/3] bg-muted/40">
         {/* Grid thumbnails use the smallest available size (thumb/placeholder) */}
         {/* No srcSet — avoids browser loading medium/web images for small grid cells */}
         {(() => {
@@ -296,13 +376,13 @@ export function MediaGrid({
             ) : null;
           }
           
-          return hasDisplayableImage ? (
-            <img
-              src={thumbSrc}
-              alt={file.filename}
-              className="w-full h-full object-cover"
-              loading="lazy"
-              draggable={false}
+            return hasDisplayableImage ? (
+              <img
+                src={thumbSrc}
+                alt={file.filename}
+                className="w-full h-full object-contain bg-muted/20"
+                loading="lazy"
+                draggable={false}
               onError={(e) => {
                 // On error, hide image and show fallback
                 e.currentTarget.style.display = 'none';
@@ -338,7 +418,7 @@ export function MediaGrid({
             </div>
           </div>
         )}
-        
+
         {/* Hidden overlay */}
         {file.is_hidden && (
           <div className="absolute inset-0 bg-black/50 z-[2] flex items-center justify-center pointer-events-none">
@@ -346,20 +426,7 @@ export function MediaGrid({
           </div>
         )}
 
-        {/* Hide/Unhide toggle button (top-right, hover reveal) */}
-        {!isClient && (
-          <button
-            className={`absolute top-1 right-1 z-[3] h-6 w-6 rounded-full flex items-center justify-center transition-all ${
-              file.is_hidden
-                ? 'bg-yellow-500/90 text-white opacity-100'
-                : 'bg-black/50 backdrop-blur-sm text-white opacity-0 group-hover:opacity-100'
-            }`}
-            onClick={(e) => { e.stopPropagation(); toggleFileHidden(file.id, !file.is_hidden); }}
-            title={file.is_hidden ? 'Unhide image' : 'Hide from tours & portfolio'}
-          >
-            {file.is_hidden ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
-          </button>
-        )}
+        {renderSingleMediaActions(file)}
 
         {/* Extra badge */}
         {file.isExtra && (
@@ -372,6 +439,12 @@ export function MediaGrid({
         {file.is_cover && !file.isExtra && (
           <div className="absolute top-1 left-1 bg-blue-600 text-white text-[8px] px-1 py-0.5 rounded font-medium">
             HERO
+          </div>
+        )}
+        {Number(file.comment_count ?? 0) > 0 && (
+          <div className="absolute bottom-2 left-2 bg-white/90 text-slate-900 text-[10px] px-1.5 py-0.5 rounded-full font-medium z-[3] flex items-center gap-1">
+            <MessageSquare className="h-3 w-3" />
+            {file.comment_count}
           </div>
         )}
         
@@ -387,25 +460,16 @@ export function MediaGrid({
             />
           </div>
         )}
-        
-        <div
-          className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] p-1 opacity-0 group-hover:opacity-100 transition-opacity overflow-hidden whitespace-nowrap"
-          ref={(el) => {
-            if (!el) return;
-            const span = el.firstElementChild as HTMLElement;
-            if (!span) return;
-            requestAnimationFrame(() => {
-              const overflow = span.scrollWidth - el.clientWidth;
-              span.style.setProperty('--scroll-dist', `${overflow > 0 ? -overflow : 0}px`);
-            });
-          }}
-        >
-          <span
-            className="inline-block group-hover:animate-marquee"
-            style={{ animationDuration: `${Math.max(2, file.filename.length * 0.12)}s`, '--scroll-dist': '0px' } as React.CSSProperties}
-          >
+        </div>
+        <div className="px-2 py-2 bg-card">
+          <p className="text-[11px] font-medium truncate" title={file.filename}>
             {file.filename}
-          </span>
+          </p>
+          {latestCommentText && (
+            <p className="mt-1 text-[10px] text-muted-foreground line-clamp-2 max-h-0 opacity-0 group-hover:max-h-10 group-hover:opacity-100 transition-all">
+              {latestCommentText}
+            </p>
+          )}
         </div>
       </div>
     );
@@ -419,16 +483,18 @@ export function MediaGrid({
     const thumbUrl = getImageUrl(file, 'thumb');
     const ext = file.filename.split('.').pop()?.toUpperCase();
     const actualIndex = sortedFiles.findIndex(f => f.id === file.id);
+    const latestCommentText = getLatestCommentText(file);
 
     return (
       <SortableItemWrapper key={file.id} id={file.id}>
         {({ attributes, listeners, isDragging }) => (
           <div
-            className={`relative aspect-square rounded overflow-hidden border transition-all group select-none ${
+            className={`relative rounded-xl overflow-hidden border transition-all group select-none bg-card flex flex-col ${
               isSelected ? 'border-primary ring-1 ring-primary' : 'border-border hover:border-primary/50'
             } ${isDragging ? 'opacity-60 scale-95 shadow-xl' : ''}`}
             onClick={() => onFileClick(actualIndex, sortedFiles)}
           >
+            <div className="relative aspect-[4/3] bg-muted/40">
             {(() => {
               const hasProcessedThumb = isRaw ? !!(file.thumbnail_path || file.web_path) : true;
               const hasDisplayableImage = hasProcessedThumb && (file.thumb || thumbUrl);
@@ -449,7 +515,7 @@ export function MediaGrid({
                 <img
                   src={thumbSrc}
                   alt={file.filename}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain bg-muted/20"
                   loading="lazy"
                   draggable={false}
                   onDoubleClick={() => onFileClick(actualIndex, sortedFiles)}
@@ -484,19 +550,7 @@ export function MediaGrid({
               </div>
             )}
 
-            {!isClient && toggleFileHidden && (
-              <button
-                className={`absolute top-1 right-1 z-[3] h-6 w-6 rounded-full flex items-center justify-center transition-all ${
-                  file.is_hidden
-                    ? 'bg-yellow-500/90 text-white opacity-0 group-hover:opacity-100'
-                    : 'bg-black/50 backdrop-blur-sm text-white opacity-0 group-hover:opacity-100'
-                }`}
-                onClick={(e) => { e.stopPropagation(); toggleFileHidden(file.id, !file.is_hidden); }}
-                title={file.is_hidden ? 'Unhide image' : 'Hide from tours & portfolio'}
-              >
-                {file.is_hidden ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
-              </button>
-            )}
+            {renderSingleMediaActions(file)}
 
             <div className="absolute inset-0 z-[3] flex items-center justify-center pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
               <div
@@ -522,25 +576,22 @@ export function MediaGrid({
                 />
               </div>
             )}
-
-            <div
-              className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] p-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity overflow-hidden whitespace-nowrap"
-              ref={(el) => {
-                if (!el) return;
-                const span = el.firstElementChild as HTMLElement;
-                if (!span) return;
-                requestAnimationFrame(() => {
-                  const overflow = span.scrollWidth - el.clientWidth;
-                  span.style.setProperty('--scroll-dist', `${overflow > 0 ? -overflow : 0}px`);
-                });
-              }}
-            >
-              <span
-                className="inline-block group-hover:animate-marquee"
-                style={{ animationDuration: `${Math.max(2, file.filename.length * 0.12)}s`, '--scroll-dist': '0px' } as React.CSSProperties}
-              >
+            {Number(file.comment_count ?? 0) > 0 && (
+              <div className="absolute bottom-2 left-2 bg-white/90 text-slate-900 text-[10px] px-1.5 py-0.5 rounded-full font-medium z-[3] flex items-center gap-1">
+                <MessageSquare className="h-3 w-3" />
+                {file.comment_count}
+              </div>
+            )}
+            </div>
+            <div className="px-2 py-2 bg-card">
+              <p className="text-[11px] font-medium truncate" title={file.filename}>
                 {file.filename}
-              </span>
+              </p>
+              {latestCommentText && (
+                <p className="mt-1 text-[10px] text-muted-foreground line-clamp-2 max-h-0 opacity-0 group-hover:max-h-10 group-hover:opacity-100 transition-all">
+                  {latestCommentText}
+                </p>
+              )}
             </div>
           </div>
         )}
@@ -558,6 +609,7 @@ export function MediaGrid({
     const actualIndex = sortedFiles.findIndex(f => f.id === file.id);
     const isDragging = draggedId === file.id;
     const isDragOver = dragOverId === file.id;
+    const latestCommentText = getLatestCommentText(file);
 
     const hasProcessedThumb = isRaw 
       ? !!(file.thumbnail_path || file.web_path)
@@ -598,12 +650,12 @@ export function MediaGrid({
         )}
 
         {/* Thumbnail - wide aspect ratio */}
-        <div className="relative w-20 h-12 sm:w-28 sm:h-16 flex-shrink-0 rounded overflow-hidden border bg-muted">
+        <div className="relative w-24 h-16 sm:w-32 sm:h-20 flex-shrink-0 rounded overflow-hidden border bg-muted/40">
           {hasDisplayableImage ? (
             <img
               src={file.thumb || imageUrl}
               alt={file.filename}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain bg-muted/20"
               loading="lazy"
               draggable={false}
               onError={(e) => {
@@ -640,6 +692,12 @@ export function MediaGrid({
               EXTRA
             </div>
           )}
+          {Number(file.comment_count ?? 0) > 0 && (
+            <div className="absolute bottom-1 left-1 bg-white/90 text-slate-900 text-[9px] px-1 py-0.5 rounded-full font-medium flex items-center gap-1">
+              <MessageSquare className="h-2.5 w-2.5" />
+              {file.comment_count}
+            </div>
+          )}
         </div>
 
         {/* Filename - takes remaining space */}
@@ -647,6 +705,11 @@ export function MediaGrid({
           <p className="text-xs font-medium truncate" title={file.filename}>
             {file.filename}
           </p>
+          {latestCommentText && (
+            <p className="text-[10px] text-muted-foreground line-clamp-2 mt-0.5">
+              {latestCommentText}
+            </p>
+          )}
           {!isClient && (
             <p className="text-[10px] text-muted-foreground sm:hidden">
               {formatDateTime(file.captured_at || file.created_at)}
@@ -671,19 +734,57 @@ export function MediaGrid({
         )}
 
         {/* Hide/Unhide toggle */}
-        {!isClient && toggleFileHidden && (
-          <button
-            className={`flex-shrink-0 h-7 w-7 rounded-full flex items-center justify-center transition-all ${
-              file.is_hidden
-                ? 'bg-yellow-500/20 text-yellow-500 hover:bg-yellow-500/30'
-                : 'text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground hover:bg-muted'
-            }`}
-            onClick={(e) => { e.stopPropagation(); toggleFileHidden(file.id, !file.is_hidden); }}
-            title={file.is_hidden ? 'Unhide image' : 'Hide from tours & portfolio'}
-          >
-            {file.is_hidden ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-          </button>
-        )}
+        <div className="flex items-center gap-1 flex-shrink-0">
+          {canInteractSingleMedia && onToggleFavorite && (
+            <button
+              className={`h-7 w-7 rounded-full flex items-center justify-center ${file.is_favorite ? 'bg-red-500/15 text-red-500' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleFavorite(file.id);
+              }}
+              title={file.is_favorite ? 'Unlike image' : 'Like image'}
+            >
+              <Heart className={`h-3.5 w-3.5 ${file.is_favorite ? 'fill-current' : ''}`} />
+            </button>
+          )}
+          {canInteractSingleMedia && onAddComment && (
+            <button
+              className="h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted"
+              onClick={(e) => {
+                e.stopPropagation();
+                openCommentPrompt(file);
+              }}
+              title="Add comment"
+            >
+              <MessageSquare className="h-3.5 w-3.5" />
+            </button>
+          )}
+          {canInteractSingleMedia && onDownloadSingle && (
+            <button
+              className="h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDownloadSingle(file.id);
+              }}
+              title="Download image"
+            >
+              <Download className="h-3.5 w-3.5" />
+            </button>
+          )}
+          {toggleFileHidden && (
+            <button
+              className={`h-7 w-7 rounded-full flex items-center justify-center transition-all ${
+                file.is_hidden
+                  ? 'bg-yellow-500/20 text-yellow-500 hover:bg-yellow-500/30'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+              }`}
+              onClick={(e) => { e.stopPropagation(); toggleFileHidden(file.id, !file.is_hidden); }}
+              title={file.is_hidden ? 'Unhide image' : 'Hide image'}
+            >
+              {file.is_hidden ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+            </button>
+          )}
+        </div>
 
         {/* Hidden indicator overlay on thumbnail */}
         {file.is_hidden && (
@@ -705,6 +806,7 @@ export function MediaGrid({
     const actualIndex = sortedFiles.findIndex(f => f.id === file.id);
     const hasProcessedThumb = isRaw ? !!(file.thumbnail_path || file.web_path) : true;
     const hasDisplayableImage = hasProcessedThumb && (file.thumb || imageUrl);
+    const latestCommentText = getLatestCommentText(file);
 
     return (
       <SortableItemWrapper key={file.id} id={file.id}>
@@ -741,12 +843,12 @@ export function MediaGrid({
               <GripVertical className="h-4 w-4" />
             </div>
 
-            <div className="relative w-20 h-12 sm:w-28 sm:h-16 flex-shrink-0 rounded overflow-hidden border bg-muted">
+            <div className="relative w-24 h-16 sm:w-32 sm:h-20 flex-shrink-0 rounded overflow-hidden border bg-muted/40">
               {hasDisplayableImage ? (
                 <img
                   src={file.thumb || imageUrl}
                   alt={file.filename}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain bg-muted/20"
                   loading="lazy"
                   draggable={false}
                   onError={(e) => {
@@ -777,6 +879,11 @@ export function MediaGrid({
               <p className="text-xs font-medium truncate" title={file.filename}>
                 {file.filename}
               </p>
+              {latestCommentText && (
+                <p className="text-[10px] text-muted-foreground line-clamp-2 mt-0.5">
+                  {latestCommentText}
+                </p>
+              )}
               {!isClient && (
                 <p className="text-[10px] text-muted-foreground sm:hidden">
                   {formatDateTime(file.captured_at || file.created_at)}
@@ -797,19 +904,57 @@ export function MediaGrid({
               </>
             )}
 
-            {!isClient && toggleFileHidden && (
-              <button
-                className={`flex-shrink-0 h-7 w-7 rounded-full flex items-center justify-center transition-all ${
-                  file.is_hidden
-                    ? 'bg-yellow-500/20 text-yellow-500 hover:bg-yellow-500/30'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                }`}
-                onClick={(e) => { e.stopPropagation(); toggleFileHidden(file.id, !file.is_hidden); }}
-                title={file.is_hidden ? 'Unhide image' : 'Hide from tours & portfolio'}
-              >
-                {file.is_hidden ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-              </button>
-            )}
+            <div className="flex items-center gap-1 flex-shrink-0">
+              {canInteractSingleMedia && onToggleFavorite && (
+                <button
+                  className={`h-7 w-7 rounded-full flex items-center justify-center ${file.is_favorite ? 'bg-red-500/15 text-red-500' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleFavorite(file.id);
+                  }}
+                  title={file.is_favorite ? 'Unlike image' : 'Like image'}
+                >
+                  <Heart className={`h-3.5 w-3.5 ${file.is_favorite ? 'fill-current' : ''}`} />
+                </button>
+              )}
+              {canInteractSingleMedia && onAddComment && (
+                <button
+                  className="h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openCommentPrompt(file);
+                  }}
+                  title="Add comment"
+                >
+                  <MessageSquare className="h-3.5 w-3.5" />
+                </button>
+              )}
+              {canInteractSingleMedia && onDownloadSingle && (
+                <button
+                  className="h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDownloadSingle(file.id);
+                  }}
+                  title="Download image"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                </button>
+              )}
+              {toggleFileHidden && (
+                <button
+                  className={`h-7 w-7 rounded-full flex items-center justify-center transition-all ${
+                    file.is_hidden
+                      ? 'bg-yellow-500/20 text-yellow-500 hover:bg-yellow-500/30'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  }`}
+                  onClick={(e) => { e.stopPropagation(); toggleFileHidden(file.id, !file.is_hidden); }}
+                  title={file.is_hidden ? 'Unhide image' : 'Hide image'}
+                >
+                  {file.is_hidden ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                </button>
+              )}
+            </div>
           </div>
         )}
       </SortableItemWrapper>
@@ -850,13 +995,13 @@ export function MediaGrid({
         {isManualSortEnabled ? (
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleManualSortEnd}>
             <SortableContext items={visibleRegularIds} strategy={rectSortingStrategy}>
-              <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5 sm:gap-2">
+              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">
                 {regularFiles.map((file, index) => renderSortableFileCard(file, index))}
               </div>
-            </SortableContext>
-          </DndContext>
-        ) : (
-          <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5 sm:gap-2">
+          </SortableContext>
+        </DndContext>
+      ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">
             {regularFiles.map((file, index) => renderFileCard(file, index, false))}
           </div>
         )}
@@ -871,7 +1016,7 @@ export function MediaGrid({
               </span>
               <div className="flex-1 h-px bg-orange-500/30" />
             </div>
-            <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5 sm:gap-2">
+            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">
               {extraFiles.map((file, index) => renderFileCard(file, index, true))}
             </div>
           </>

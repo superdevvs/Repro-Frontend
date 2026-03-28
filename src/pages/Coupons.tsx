@@ -3,7 +3,7 @@ import React from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { CouponsList } from '@/components/coupons/CouponsList';
-import { useAuth } from '@/components/auth/AuthProvider';
+import { usePermission } from '@/hooks/usePermission';
 import { Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
@@ -11,11 +11,12 @@ import { Dialog, DialogTrigger } from '@/components/ui/dialog';
 import { CreateCouponDialog } from '@/components/coupons/CreateCouponDialog';
 
 const Coupons = () => {
-  const { role } = useAuth();
-  const canCreateCoupons = ['admin', 'superadmin', 'editing_manager'].includes(role);
-  
-  // Only allow admin and superadmin to access this page
-  if (!['admin', 'superadmin', 'editing_manager'].includes(role)) {
+  const permission = usePermission();
+  const couponsPermission = permission.forResource('coupons');
+  const canViewCoupons = couponsPermission.canView();
+  const canCreateCoupons = couponsPermission.canCreate();
+
+  if (!canViewCoupons) {
     return <Navigate to="/dashboard" replace />;
   }
   

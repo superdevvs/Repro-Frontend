@@ -3,6 +3,7 @@ import React from 'react';
 import { ClientPropertyForm } from './ClientPropertyForm';
 import { SchedulingForm } from './SchedulingForm';
 import { ReviewForm } from './ReviewForm';
+import type { PricingBreakdown } from '@/utils/pricing';
 
 type SelectedService = {
   id: string;
@@ -47,6 +48,7 @@ interface BookingContentAreaProps {
   sendNotification: boolean;
   setSendNotification: React.Dispatch<React.SetStateAction<boolean>>;
   getPackagePrice: () => number;
+  pricingBreakdown: PricingBreakdown;
   getPhotographerRate: () => number;
   clients: any[];
   photographers: any[];
@@ -91,6 +93,7 @@ export function BookingContentArea({
   sendNotification,
   setSendNotification,
   getPackagePrice,
+  pricingBreakdown,
   getPhotographerRate,
   clients,
   photographers,
@@ -167,6 +170,7 @@ export function BookingContentArea({
           photographers={photographers}
           selectedServices={selectedServices}
           packagePrice={getPackagePrice()}
+          pricing={pricingBreakdown}
           photographerRate={getPhotographerRate()}
           additionalNotes={notes}
           setAdditionalNotes={setNotes}

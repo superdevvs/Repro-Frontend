@@ -42,6 +42,9 @@ interface ShootDetailsModalDialogsProps {
   holdSubmitLabel: string;
   isCancelShootDialogOpen: boolean;
   isDelivered: boolean;
+  cancelDialogTitle: string;
+  cancelDialogDescription: string;
+  cancelSubmitLabel: string;
   cancelShootReason: string;
   isWithinCancellationFeeWindow: boolean;
   isCancellingShoot: boolean;
@@ -109,6 +112,9 @@ export function ShootDetailsModalDialogs({
   holdSubmitLabel,
   isCancelShootDialogOpen,
   isDelivered,
+  cancelDialogTitle,
+  cancelDialogDescription,
+  cancelSubmitLabel,
   cancelShootReason,
   isWithinCancellationFeeWindow,
   isCancellingShoot,
@@ -338,27 +344,25 @@ export function ShootDetailsModalDialogs({
       <Dialog open={isCancelShootDialogOpen} onOpenChange={setIsCancelShootDialogOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>{isDelivered ? 'Delete Shoot' : 'Cancel Shoot'}</DialogTitle>
-            <DialogDescription>
-              {isDelivered
-                ? 'This will permanently delete the shoot and all associated data.'
-                : 'This will permanently cancel the shoot. The client will be notified of the cancellation.'}
-            </DialogDescription>
+            <DialogTitle>{cancelDialogTitle}</DialogTitle>
+            <DialogDescription>{cancelDialogDescription}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg p-4">
               <p className="text-sm text-red-800 dark:text-red-200">
-                <strong>Warning:</strong> This action cannot be undone. {isDelivered
-                  ? 'The shoot and all associated files will be permanently deleted.'
-                  : 'The shoot will be marked as cancelled and the client will be notified.'}
+                <strong>Warning:</strong> {isDelivered
+                  ? 'This action cannot be undone. The shoot and all associated files will be permanently deleted.'
+                  : isClient
+                    ? 'Your request will be processed immediately for unapproved shoots, or sent for admin review for scheduled shoots.'
+                    : 'This action cannot be undone. The shoot will be marked as cancelled and the client will be notified.'}
               </p>
             </div>
             {!isDelivered && (
               <div className="space-y-2">
-                <Label htmlFor="cancelShootReason">Reason (optional)</Label>
+                <Label htmlFor="cancelShootReason">{isClient ? 'Reason' : 'Reason (optional)'}</Label>
                 <Textarea
                   id="cancelShootReason"
-                  placeholder="Enter the reason for cancelling this shoot..."
+                  placeholder={isClient ? 'Tell us why you want to cancel this shoot...' : 'Enter the reason for cancelling this shoot...'}
                   value={cancelShootReason}
                   onChange={(e) => setCancelShootReason(e.target.value)}
                   rows={4}
@@ -405,7 +409,7 @@ export function ShootDetailsModalDialogs({
               ) : (
                 <>
                   <XCircle className="h-4 w-4 mr-2" />
-                  {isDelivered ? 'Delete Shoot' : 'Cancel Shoot'}
+                  {cancelSubmitLabel}
                 </>
               )}
             </Button>

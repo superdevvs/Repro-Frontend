@@ -1247,20 +1247,27 @@ const Dashboard = () => {
       const handleCancelShoot = async (record: ClientShootRecord) => {
         try {
           const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-          const response = await fetch(`${API_BASE_URL}/api/shoots/${record.data.id}/request-cancellation`, {
+          const normalizedStatus = (record.summary.workflowStatus || record.summary.status || '').toLowerCase();
+          const isRequestedShoot = normalizedStatus === 'requested';
+          const endpoint = isRequestedShoot ? 'withdraw-request' : 'request-cancellation';
+          const response = await fetch(`${API_BASE_URL}/api/shoots/${record.data.id}/${endpoint}`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json',
               'Accept': 'application/json',
             },
-            body: JSON.stringify({ reason: 'Client requested cancellation' }),
+            body: JSON.stringify({
+              reason: isRequestedShoot ? 'Client withdrew requested shoot' : 'Client requested cancellation',
+            }),
           });
           
           if (response.ok) {
             toast({
-              title: "Cancellation request submitted",
-              description: `Your cancellation request for ${record.summary.addressLine} is pending admin approval.`,
+              title: isRequestedShoot ? 'Shoot cancelled' : 'Cancellation request submitted',
+              description: isRequestedShoot
+                ? `Your requested shoot for ${record.summary.addressLine} has been cancelled.`
+                : `Your cancellation request for ${record.summary.addressLine} is pending admin approval.`,
             });
             refresh();
           } else {
@@ -2907,13 +2914,12 @@ const ClientShootTile: React.FC<ClientShootTileProps> = React.memo(({
               {/* Only show cancel button for requested shoots (not yet approved) */}
               {(summary.workflowStatus || summary.status || '').toLowerCase() === 'requested' && (
                 <Button 
-                  size="sm" 
-                  variant={record.data.cancellationRequestedAt ? "outline" : "destructive"}
-                  className={`text-xs sm:text-sm ${record.data.cancellationRequestedAt ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  onClick={() => !record.data.cancellationRequestedAt && onCancel(record)}
-                  disabled={!!record.data.cancellationRequestedAt}
+                  size="sm"
+                  variant="destructive"
+                  className="text-xs sm:text-sm"
+                  onClick={() => onCancel(record)}
                 >
-                  {record.data.cancellationRequestedAt ? 'Requested cancellation' : 'Cancel shoot'}
+                  Cancel shoot
                 </Button>
               )}
             </>
