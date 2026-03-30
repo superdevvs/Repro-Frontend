@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Textarea } from '@/components/ui/textarea';
 import { CheckCircle2, Circle, Download, Eye, EyeOff, GripVertical, Heart, Image as ImageIcon, MessageSquare, MinusCircle, Play } from 'lucide-react';
 import { type MediaFile } from '@/hooks/useShootFiles';
 import { isRawFile } from '@/services/rawPreviewService';
@@ -90,6 +92,8 @@ export function MediaGrid({
   const isManualSortEnabled = sortOrder === 'manual' && manualSortActive;
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const [commentPopoverFileId, setCommentPopoverFileId] = useState<string | null>(null);
+  const [commentDraft, setCommentDraft] = useState('');
 
   // Sort files based on sortOrder, then separate regular and extra files
   const sortedFiles = useMemo(
@@ -217,25 +221,112 @@ export function MediaGrid({
     onManualOrderChange?.(remainingOrder);
   };
   const showMultiSortHint = isManualSortEnabled && selectedFiles.size > 1;
-  const openCommentPrompt = (file: MediaFile) => {
-    if (!onAddComment) return;
-    const nextComment = window.prompt('Add a comment for this image', '');
-    if (nextComment && nextComment.trim()) {
-      onAddComment(file.id, nextComment);
-    }
-  };
   const getLatestCommentText = (file: MediaFile) =>
     file.latest_comment?.comment?.trim() ||
     file.comments?.[file.comments.length - 1]?.comment?.trim() ||
     '';
+  const handleCommentPopoverChange = (fileId: string, open: boolean) => {
+    if (open) {
+      setCommentPopoverFileId(fileId);
+      setCommentDraft('');
+      return;
+    }
+
+    if (commentPopoverFileId === fileId) {
+      setCommentPopoverFileId(null);
+      setCommentDraft('');
+    }
+  };
+  const submitInlineComment = (fileId: string) => {
+    if (!onAddComment) {
+      return;
+    }
+
+    const trimmedComment = commentDraft.trim();
+    if (!trimmedComment) {
+      return;
+    }
+
+    onAddComment(fileId, trimmedComment);
+    setCommentPopoverFileId(null);
+    setCommentDraft('');
+  };
+  const renderCommentAction = (file: MediaFile, buttonClassName: string) => {
+    if (!canInteractSingleMedia || !onAddComment) {
+      return null;
+    }
+
+    return (
+      <Popover
+        open={commentPopoverFileId === file.id}
+        onOpenChange={(open) => handleCommentPopoverChange(file.id, open)}
+      >
+        <PopoverTrigger asChild>
+          <button
+            className={buttonClassName}
+            onClick={(e) => {
+              e.stopPropagation();
+            }}
+            title="Add comment"
+          >
+            <MessageSquare className="h-3.5 w-3.5" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent
+          align="end"
+          side="bottom"
+          className="z-[80] w-80 rounded-xl border-border/70 bg-background/95 p-3 shadow-2xl backdrop-blur"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <p className="text-sm font-medium">Comment on image</p>
+              <p className="line-clamp-2 text-xs text-muted-foreground">{file.filename}</p>
+            </div>
+            <Textarea
+              value={commentDraft}
+              onChange={(event) => setCommentDraft(event.target.value)}
+              placeholder="Add a quick note for this image..."
+              className="min-h-[88px] resize-none"
+            />
+            <div className="flex items-center justify-end gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCommentPopoverFileId(null);
+                  setCommentDraft('');
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  submitInlineComment(file.id);
+                }}
+                disabled={!commentDraft.trim()}
+              >
+                Save
+              </Button>
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
+    );
+  };
   const renderSingleMediaActions = (file: MediaFile, alwaysVisible = false) => {
     const showHiddenToggle = Boolean(toggleFileHidden);
     if (!canInteractSingleMedia && !showHiddenToggle) {
       return null;
     }
 
+    const isCommentPopoverOpen = commentPopoverFileId === file.id;
+
     return (
-      <div className={`absolute top-2 right-2 z-[3] flex items-center gap-1 transition-opacity ${alwaysVisible ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+      <div className={`absolute top-2 right-2 z-[3] flex items-center gap-1 transition-opacity ${alwaysVisible || isCommentPopoverOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
         {canInteractSingleMedia && onToggleFavorite && (
           <button
             className={`h-7 w-7 rounded-full backdrop-blur-sm flex items-center justify-center ${file.is_favorite ? 'bg-red-500/90 text-white' : 'bg-black/55 text-white'}`}
@@ -248,18 +339,7 @@ export function MediaGrid({
             <Heart className={`h-3.5 w-3.5 ${file.is_favorite ? 'fill-current' : ''}`} />
           </button>
         )}
-        {canInteractSingleMedia && onAddComment && (
-          <button
-            className="h-7 w-7 rounded-full bg-black/55 backdrop-blur-sm text-white flex items-center justify-center"
-            onClick={(e) => {
-              e.stopPropagation();
-              openCommentPrompt(file);
-            }}
-            title="Add comment"
-          >
-            <MessageSquare className="h-3.5 w-3.5" />
-          </button>
-        )}
+        {renderCommentAction(file, 'h-7 w-7 rounded-full bg-black/55 backdrop-blur-sm text-white flex items-center justify-center')}
         {canInteractSingleMedia && onDownloadSingle && (
           <button
             className="h-7 w-7 rounded-full bg-black/55 backdrop-blur-sm text-white flex items-center justify-center"
@@ -380,7 +460,7 @@ export function MediaGrid({
               <img
                 src={thumbSrc}
                 alt={file.filename}
-                className="w-full h-full object-contain bg-muted/20"
+                className="w-full h-full object-cover"
                 loading="lazy"
                 draggable={false}
               onError={(e) => {
@@ -515,7 +595,7 @@ export function MediaGrid({
                 <img
                   src={thumbSrc}
                   alt={file.filename}
-                  className="w-full h-full object-contain bg-muted/20"
+                  className="w-full h-full object-cover"
                   loading="lazy"
                   draggable={false}
                   onDoubleClick={() => onFileClick(actualIndex, sortedFiles)}
@@ -655,7 +735,7 @@ export function MediaGrid({
             <img
               src={file.thumb || imageUrl}
               alt={file.filename}
-              className="w-full h-full object-contain bg-muted/20"
+              className="w-full h-full object-cover"
               loading="lazy"
               draggable={false}
               onError={(e) => {
@@ -747,18 +827,7 @@ export function MediaGrid({
               <Heart className={`h-3.5 w-3.5 ${file.is_favorite ? 'fill-current' : ''}`} />
             </button>
           )}
-          {canInteractSingleMedia && onAddComment && (
-            <button
-              className="h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted"
-              onClick={(e) => {
-                e.stopPropagation();
-                openCommentPrompt(file);
-              }}
-              title="Add comment"
-            >
-              <MessageSquare className="h-3.5 w-3.5" />
-            </button>
-          )}
+          {renderCommentAction(file, 'h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted')}
           {canInteractSingleMedia && onDownloadSingle && (
             <button
               className="h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted"
@@ -848,7 +917,7 @@ export function MediaGrid({
                 <img
                   src={file.thumb || imageUrl}
                   alt={file.filename}
-                  className="w-full h-full object-contain bg-muted/20"
+                  className="w-full h-full object-cover"
                   loading="lazy"
                   draggable={false}
                   onError={(e) => {
@@ -917,18 +986,7 @@ export function MediaGrid({
                   <Heart className={`h-3.5 w-3.5 ${file.is_favorite ? 'fill-current' : ''}`} />
                 </button>
               )}
-              {canInteractSingleMedia && onAddComment && (
-                <button
-                  className="h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    openCommentPrompt(file);
-                  }}
-                  title="Add comment"
-                >
-                  <MessageSquare className="h-3.5 w-3.5" />
-                </button>
-              )}
+              {renderCommentAction(file, 'h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted')}
               {canInteractSingleMedia && onDownloadSingle && (
                 <button
                   className="h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted"

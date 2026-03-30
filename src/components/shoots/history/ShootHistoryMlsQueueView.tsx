@@ -14,6 +14,13 @@ import { HorizontalLoader } from '@/components/ui/horizontal-loader'
 import { useToast } from '@/hooks/use-toast'
 import { apiClient } from '@/services/api'
 import API_ROUTES from '@/lib/api'
+import type { ShootData } from '@/types/shoots'
+import {
+  buildBrightMlsPublishPayload,
+  closePendingBrightMlsWindow,
+  navigateBrightMlsWindow,
+  openPendingBrightMlsWindow,
+} from '@/utils/brightMls'
 
 export const ShootHistoryMlsQueueView: React.FC = () => {
   const { toast } = useToast()
@@ -50,43 +57,46 @@ export const ShootHistoryMlsQueueView: React.FC = () => {
 
   const handleRetry = async (shootId: number) => {
     setRetryingId(shootId)
+    let pendingWindow: Window | null = null
     try {
       const shootResponse = await apiClient.get(`/shoots/${shootId}`)
       const shoot = shootResponse.data.data
 
-      const photos = shoot.files
-        ?.filter((f: any) => f.path || f.url)
-        .map((f: any) => ({
-          id: f.id,
-          url: f.path || f.url || '',
-          filename: f.filename || `photo-${f.id}`,
-          selected: true,
-        })) || []
+      const payload = buildBrightMlsPublishPayload(
+        shoot as unknown as Partial<ShootData> & Record<string, unknown>
+      )
+      if (payload.photos.length === 0) {
+        throw new Error('No images found to send. Please ensure the shoot has completed images.')
+      }
+
+      pendingWindow = openPendingBrightMlsWindow()
 
       const publishResponse = await apiClient.post(
         API_ROUTES.integrations.brightMls.publish(shootId),
-        {
-          photos,
-          iguide_tour_url: shoot.iguide_tour_url,
-          documents: shoot.iguide_floorplans?.map((fp: any) => ({
-            url: fp.url || fp,
-            filename: fp.filename || 'floorplan.pdf',
-            visibility: 'private',
-          })) || [],
-        }
+        payload
       )
 
       if (publishResponse.data.success) {
+        const redirectUrl = publishResponse.data.data?.redirect_url || publishResponse.data.redirect_url
+        const openedInBrowser = navigateBrightMlsWindow(pendingWindow, redirectUrl)
+        if (!openedInBrowser) {
+          closePendingBrightMlsWindow(pendingWindow)
+        }
         toast({
           title: 'Republished',
-          description: 'Media manifest has been republished successfully.',
+          description: openedInBrowser
+            ? 'Bright MLS opened in a new tab. Complete the import there.'
+            : 'Media manifest has been republished successfully.',
         })
         loadQueue()
+      } else {
+        throw new Error(publishResponse.data.message || 'Failed to republish.')
       }
     } catch (error: any) {
+      closePendingBrightMlsWindow(pendingWindow)
       toast({
         title: 'Error',
-        description: error.response?.data?.message || 'Failed to republish.',
+        description: error.response?.data?.message || error.message || 'Failed to republish.',
         variant: 'destructive',
       })
     } finally {

@@ -20,6 +20,55 @@ import { loadStripe } from '@stripe/stripe-js';
 import { blurActiveElement } from '@/components/shoots/dialogFocusUtils';
 import type { PricingBreakdown } from '@/utils/pricing';
 
+type EmbeddedCheckoutInstance = {
+  mount: (element: HTMLElement | string) => void;
+  destroy: () => void;
+};
+
+type PaymentRecord = {
+  status?: string;
+  amount?: number | string;
+};
+
+type ShootPaymentStatusResponse = {
+  total_quote?: number | string;
+  payments?: PaymentRecord[];
+};
+
+type CouponValidationResponse = {
+  valid?: boolean;
+  discount?: number;
+  discount_amount?: number;
+  discount_type?: 'percentage' | 'fixed';
+  message?: string;
+};
+
+export interface SquarePaymentSuccessPayload {
+  status: 'success';
+  amount: number;
+}
+
+const getErrorMessage = (error: unknown, fallback: string): string => {
+  if (axios.isAxiosError(error)) {
+    const responseData = error.response?.data;
+    if (typeof responseData === 'object' && responseData && 'error' in responseData && typeof responseData.error === 'string') {
+      return responseData.error;
+    }
+    if (typeof responseData === 'object' && responseData && 'message' in responseData && typeof responseData.message === 'string') {
+      return responseData.message;
+    }
+    return error.message || fallback;
+  }
+
+  return error instanceof Error ? error.message : fallback;
+};
+
+const getCompletedPaymentTotal = (payments?: PaymentRecord[]): number => {
+  return payments
+    ?.filter((payment) => payment.status === 'completed')
+    .reduce((sum, payment) => sum + Number(payment.amount || 0), 0) || 0;
+};
+
 interface SquarePaymentFormProps {
   amount: number;
   paymentAmount?: number;
@@ -35,8 +84,8 @@ interface SquarePaymentFormProps {
   totalQuote?: number;
   totalPaid?: number;
   pricing?: PricingBreakdown;
-  onPaymentSuccess?: (payment: any) => void;
-  onPaymentError?: (error: any) => void;
+  onPaymentSuccess?: (payment: SquarePaymentSuccessPayload) => void;
+  onPaymentError?: (error: unknown) => void;
   disabled?: boolean;
   showShootDetails?: boolean;
   showAmountControls?: boolean;
@@ -81,16 +130,16 @@ export function SquarePaymentForm({
   const [embeddedCheckoutLoading, setEmbeddedCheckoutLoading] = useState(false);
   const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const authTokenRef = useRef<string | null>(null);
-  const embeddedCheckoutRef = useRef<any>(null);
+  const embeddedCheckoutRef = useRef<EmbeddedCheckoutInstance | null>(null);
   const checkoutMountRef = useRef<HTMLDivElement>(null);
   const checkoutSessionIdRef = useRef<string | null>(null);
-  
+
   // Discount code state
   const [couponCode, setCouponCode] = useState('');
   const [couponLoading, setCouponLoading] = useState(false);
   const [couponError, setCouponError] = useState<string | null>(null);
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discount: number; discountType: 'percentage' | 'fixed' } | null>(null);
-  
+
   // Partial payment state
   const [paymentAmount, setPaymentAmount] = useState(amount);
   const [paymentAmountInput, setPaymentAmountInput] = useState(amount.toFixed(2));
@@ -119,22 +168,22 @@ export function SquarePaymentForm({
       }
     };
   }, []);
-  
+
   const remainingBalanceAfterPayment = outstandingAmount - effectivePaymentAmount;
 
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-      if (effectivePaymentAmount <= 0 || effectivePaymentAmount > outstandingAmount) {
-        toast({
-          title: 'Invalid Payment Amount',
-          description: `Payment amount must be between $0.01 and $${outstandingAmount.toFixed(2)}`,
-          variant: 'destructive',
-        });
-        return;
-      }
-    
+    if (effectivePaymentAmount <= 0 || effectivePaymentAmount > outstandingAmount) {
+      toast({
+        title: 'Invalid Payment Amount',
+        description: `Payment amount must be between $0.01 and $${outstandingAmount.toFixed(2)}`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
     if (isProcessing || disabled) {
       return;
     }
@@ -203,19 +252,16 @@ export function SquarePaymentForm({
             }
           };
           waitForMount();
-        } catch (mountErr: any) {
+        } catch (mountErr) {
           console.error('Stripe embedded checkout mount error:', mountErr);
           setEmbeddedCheckoutLoading(false);
         }
       });
 
       startPaymentPolling();
-    } catch (error: any) {
+    } catch (error) {
       setStripeLoading(false);
-      const errorMessage =
-        error.response?.data?.error ||
-        error.message ||
-        'Failed to create Stripe checkout session.';
+      const errorMessage = getErrorMessage(error, 'Failed to create Stripe checkout session.');
 
       setStripeError(errorMessage);
       toast({
@@ -257,9 +303,9 @@ export function SquarePaymentForm({
           let totalCurrentDue = 0;
           for (const res of results) {
             if (!res) continue;
-            const d = res.data?.data || res.data;
-            const paid = d?.payments?.filter((p: any) => p.status === 'completed').reduce((s: number, p: any) => s + (p.amount || 0), 0) || 0;
-            totalCurrentDue += Math.max((d?.total_quote || 0) - paid, 0);
+            const d = (res.data?.data || res.data) as ShootPaymentStatusResponse;
+            const paid = getCompletedPaymentTotal(d.payments);
+            totalCurrentDue += Math.max(Number(d.total_quote || 0) - paid, 0);
           }
           if (totalCurrentDue < outstandingAmount) {
             if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
@@ -277,11 +323,9 @@ export function SquarePaymentForm({
             `${API_BASE_URL}/api/shoots/${shootId}/payment-details`,
             { headers }
           );
-          const shootData = statusRes.data?.data || statusRes.data;
-          const totalPaid = shootData?.payments
-            ?.filter((p: any) => p.status === 'completed')
-            .reduce((sum: number, p: any) => sum + (p.amount || 0), 0) || 0;
-          const currentDue = (shootData?.total_quote || 0) - totalPaid;
+          const shootData = (statusRes.data?.data || statusRes.data) as ShootPaymentStatusResponse;
+          const totalPaid = getCompletedPaymentTotal(shootData.payments);
+          const currentDue = Number(shootData.total_quote || 0) - totalPaid;
 
           if (currentDue < outstandingAmount) {
             if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
@@ -609,7 +653,7 @@ export function SquarePaymentForm({
                     setCouponError(null);
                     try {
                       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-                      const res = await axios.post(
+                      const res = await axios.post<CouponValidationResponse>(
                         `${API_BASE_URL}/api/coupons/validate`,
                         { code: couponCode.trim(), amount: effectivePaymentAmount },
                         { headers: token ? { Authorization: `Bearer ${token}` } : {} }
@@ -624,8 +668,8 @@ export function SquarePaymentForm({
                       } else {
                         setCouponError(res.data.message || 'Invalid discount code');
                       }
-                    } catch (err: any) {
-                      setCouponError(err.response?.data?.message || 'Failed to validate discount code');
+                    } catch (err) {
+                      setCouponError(getErrorMessage(err, 'Failed to validate discount code'));
                     } finally {
                       setCouponLoading(false);
                     }

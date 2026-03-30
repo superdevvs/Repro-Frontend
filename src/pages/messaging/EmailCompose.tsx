@@ -48,18 +48,80 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
-import type { Message } from '@/types/messaging';
+import type { ComposeEmailPayload, Message, MessagingJsonObject, MessagingJsonValue } from '@/types/messaging';
 
 type Priority = 'normal' | 'high' | 'urgent';
+
+type EmailComposeMode = 'compose' | 'reply' | 'forward';
+
+type EmailComposeLocationState = {
+  mode?: EmailComposeMode;
+  message?: Message;
+};
+
+const isMessagingJsonValue = (value: unknown): value is MessagingJsonValue => {
+  if (value == null) {
+    return true;
+  }
+
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return true;
+  }
+
+  if (Array.isArray(value)) {
+    return value.every(isMessagingJsonValue);
+  }
+
+  if (typeof value === 'object') {
+    return Object.values(value as Record<string, unknown>).every(isMessagingJsonValue);
+  }
+
+  return false;
+};
+
+const isMessagingJsonObject = (value: unknown): value is MessagingJsonObject => {
+  return Boolean(value)
+    && typeof value === 'object'
+    && !Array.isArray(value)
+    && Object.values(value as Record<string, unknown>).every(isMessagingJsonValue);
+};
+
+const getEmailComposeErrorMessage = (error: unknown, fallback: string) => {
+  if (error && typeof error === 'object') {
+    const response = 'response' in error
+      ? (error as { response?: { data?: { error?: unknown; message?: unknown } } }).response
+      : undefined;
+    const responseMessage = response?.data?.message;
+    if (typeof responseMessage === 'string' && responseMessage) {
+      return responseMessage;
+    }
+
+    const responseError = response?.data?.error;
+    if (typeof responseError === 'string' && responseError) {
+      return responseError;
+    }
+
+    const message = 'message' in error ? (error as { message?: unknown }).message : undefined;
+    if (typeof message === 'string' && message) {
+      return message;
+    }
+  }
+
+  return fallback;
+};
 
 export default function EmailCompose() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { role, user } = useAuth();
+  const { role } = useAuth();
   const isAdmin = role === 'admin' || role === 'superadmin';
   const canUseTemplates = isAdmin || role === 'salesRep';
-  const composeMode: 'compose' | 'reply' | 'forward' = (location.state as any)?.mode || 'compose';
-  const originalMessage: Message | undefined = (location.state as any)?.message;
+  const composeState = (location.state as EmailComposeLocationState | null) ?? {};
+  const composeMode: EmailComposeMode =
+    composeState.mode === 'reply' || composeState.mode === 'forward' || composeState.mode === 'compose'
+      ? composeState.mode
+      : 'compose';
+  const originalMessage = composeState.message;
   const composeLabel =
     composeMode === 'reply' ? 'Send Reply' : composeMode === 'forward' ? 'Forward Message' : isAdmin ? 'Compose Email' : 'Compose Message';
   const sendLabel = composeMode === 'reply' ? 'Send Reply' : composeMode === 'forward' ? 'Forward' : isAdmin ? 'Send Now' : 'Send Message';
@@ -153,11 +215,12 @@ export default function EmailCompose() {
     }
 
     try {
-      return JSON.parse(formData.variables) as Record<string, any>;
+      const parsed = JSON.parse(formData.variables) as unknown;
+      return isMessagingJsonObject(parsed) ? parsed : undefined;
     } catch (error) {
       return undefined;
     }
-  }, [formData.variables]);
+  }, [formData.variables]) as ComposeEmailPayload['variables'];
 
   // Fetch channels
   const { data: settingsData } = useQuery({
@@ -186,7 +249,7 @@ export default function EmailCompose() {
     enabled: !isAdmin,
   });
 
-  const channels = isAdmin ? settingsData?.channels || [] : [];
+  const channels = useMemo(() => (isAdmin ? settingsData?.channels ?? [] : []), [isAdmin, settingsData?.channels]);
   const recipients = recipientsData;
   const recentRecipients = useMemo(() => {
     const messages = recentMessagesData?.data ?? [];
@@ -254,8 +317,8 @@ export default function EmailCompose() {
       toast.success(isAdmin ? 'Email sent successfully' : 'Message sent to admin inbox');
       navigate('/messaging/email/inbox');
     },
-    onError: (error: any) => {
-      toast.error(error.message || 'Failed to send email');
+    onError: (error: unknown) => {
+      toast.error(getEmailComposeErrorMessage(error, 'Failed to send email'));
     },
   });
 
@@ -266,8 +329,8 @@ export default function EmailCompose() {
       toast.success('Email scheduled successfully');
       navigate('/messaging/email/inbox');
     },
-    onError: (error: any) => {
-      toast.error(error.message || 'Failed to schedule email');
+    onError: (error: unknown) => {
+      toast.error(getEmailComposeErrorMessage(error, 'Failed to schedule email'));
     },
   });
 

@@ -10,6 +10,29 @@ import type { ShootData } from "@/types/shoots";
 import type { UserData } from "@/types/auth";
 import { getStateFullName } from "@/utils/stateUtils";
 
+type ClientWithLegacyPhoneNumber = ShootData["client"] & {
+  phonenumber?: string | null;
+};
+
+const hasLegacyPhoneNumber = (
+  client: ShootData["client"] | null | undefined,
+): client is ClientWithLegacyPhoneNumber => {
+  return Boolean(client && "phonenumber" in client);
+};
+
+const getClientPhone = (client: ShootData["client"] | null | undefined): string | null => {
+  if (!client) return null;
+  if (client.phone) return client.phone;
+  if (hasLegacyPhoneNumber(client) && typeof client.phonenumber === "string" && client.phonenumber.trim()) {
+    return client.phonenumber;
+  }
+  return null;
+};
+
+const getPreviewImageUrl = (file: NonNullable<ShootData["files"]>[number]): string | null => {
+  return file.thumbnail_path || file.web_path || file.url || file.path || null;
+};
+
 // Only exclude delivered/finalized shoots from dashboard
 // Keep uploaded, editing, review visible until delivered
 export const DELIVERED_STATUS_KEYWORDS = [
@@ -314,7 +337,7 @@ export const shootDataToSummary = (shoot: ShootData): DashboardShootSummary => {
     workflowStatus: shoot.workflowStatus || shoot.status || null,
     clientName: shoot.client?.name || null,
     clientId: shoot.client?.id,
-    clientPhone: shoot.client?.phone || (shoot.client as any)?.phonenumber || null,
+    clientPhone: getClientPhone(shoot.client),
     temperature: undefined,
     services: normalizeServices(shoot.services),
     photographer: shoot.photographer?.name
@@ -335,8 +358,8 @@ export const shootDataToSummary = (shoot: ShootData): DashboardShootSummary => {
     heroImage: shoot.heroImage || null,
     previewImages: shoot.files
       ?.slice(0, 6)
-      .map((f: any) => f.thumbnail_path || f.web_path || f.url || f.path)
-      .filter(Boolean) || [],
+      .map(getPreviewImageUrl)
+      .filter((image): image is string => Boolean(image)) || [],
   };
 
   // Cache the result for this shoot object reference

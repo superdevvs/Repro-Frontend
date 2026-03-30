@@ -49,46 +49,84 @@ const normalizeApiPath = (url?: string, baseUrl?: string) => {
 const isTelemetryEndpoint = (url?: string, baseUrl?: string) =>
   normalizeApiPath(url, baseUrl).startsWith('/api/system-telemetry/events');
 
-const extractShootId = (path: string, payload?: any): string | number | null => {
+type MutationPayloadRecord = Record<string, unknown>;
+
+const isMutationPayloadRecord = (value: unknown): value is MutationPayloadRecord =>
+  Boolean(value) && typeof value === 'object';
+
+const getMutationPayloadValue = (payload: unknown, ...path: string[]) => {
+  let current: unknown = payload;
+
+  for (const key of path) {
+    if (!isMutationPayloadRecord(current)) {
+      return undefined;
+    }
+
+    current = current[key];
+  }
+
+  return current;
+};
+
+const getMutationPayloadId = (...values: unknown[]): string | number | null => {
+  for (const value of values) {
+    if (typeof value === 'string' || typeof value === 'number') {
+      return value;
+    }
+  }
+
+  return null;
+};
+
+const extractShootId = (path: string, payload?: unknown): string | number | null => {
   const pathMatch = path.match(/\/shoots\/([^/?#]+)/i);
   if (pathMatch?.[1]) {
     return pathMatch[1];
   }
 
-  return (
-    payload?.data?.shoot_id ??
-    payload?.data?.shootId ??
-    payload?.data?.id ??
-    payload?.shoot_id ??
-    payload?.shootId ??
-    payload?.id ??
-    null
+  return getMutationPayloadId(
+    getMutationPayloadValue(payload, 'data', 'shoot_id'),
+    getMutationPayloadValue(payload, 'data', 'shootId'),
+    getMutationPayloadValue(payload, 'data', 'id'),
+    getMutationPayloadValue(payload, 'shoot_id'),
+    getMutationPayloadValue(payload, 'shootId'),
+    getMutationPayloadValue(payload, 'id'),
   );
 };
 
-const extractInvoiceId = (path: string, payload?: any): string | number | null => {
+const extractInvoiceId = (path: string, payload?: unknown): string | number | null => {
   const pathMatch = path.match(/\/invoices\/([^/?#]+)/i);
   if (pathMatch?.[1]) {
     return pathMatch[1];
   }
 
-  return payload?.data?.invoice_id ?? payload?.data?.invoiceId ?? payload?.invoice_id ?? payload?.invoiceId ?? null;
+  return getMutationPayloadId(
+    getMutationPayloadValue(payload, 'data', 'invoice_id'),
+    getMutationPayloadValue(payload, 'data', 'invoiceId'),
+    getMutationPayloadValue(payload, 'invoice_id'),
+    getMutationPayloadValue(payload, 'invoiceId'),
+  );
 };
 
-const extractRequestId = (path: string, payload?: any): string | number | null => {
+const extractRequestId = (path: string, payload?: unknown): string | number | null => {
   const pathMatch = path.match(/\/editing-requests\/([^/?#]+)/i);
   if (pathMatch?.[1]) {
     return pathMatch[1];
   }
 
-  return payload?.data?.request_id ?? payload?.data?.requestId ?? payload?.request_id ?? payload?.requestId ?? null;
+  return getMutationPayloadId(
+    getMutationPayloadValue(payload, 'data', 'request_id'),
+    getMutationPayloadValue(payload, 'data', 'requestId'),
+    getMutationPayloadValue(payload, 'request_id'),
+    getMutationPayloadValue(payload, 'requestId'),
+  );
 };
 
 const buildRealtimeEventsForMutation = (
   method?: string,
   url?: string,
   baseUrl?: string,
-  payload?: any,
+  payload?: unknown,
 ): RealtimeEventPayload[] => {
   const normalizedMethod = method?.toLowerCase();
   if (!normalizedMethod || !MUTATING_METHODS.has(normalizedMethod)) {
@@ -133,7 +171,7 @@ const buildRealtimeEventsForMutation = (
   return [];
 };
 
-const emitLocalMutationEvents = (method?: string, url?: string, baseUrl?: string, payload?: any) => {
+const emitLocalMutationEvents = (method?: string, url?: string, baseUrl?: string, payload?: unknown) => {
   buildRealtimeEventsForMutation(method, url, baseUrl, payload).forEach((event) => {
     emitRealtimeEvent(event);
   });

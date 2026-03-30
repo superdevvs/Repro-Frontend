@@ -110,6 +110,62 @@ const isInvoiceInDaysWindow = (invoice: InvoiceData, daysWindow: number) => {
 };
 
 type ViewableInvoice = InvoiceData | ClientBillingInvoiceViewData;
+type InvoiceViewDialogInvoice = React.ComponentProps<typeof InvoiceViewDialog>['invoice'];
+type ShootWithLegacyEditorFields = ShootData & {
+  editor_id?: string | number | null;
+  editorId?: string | number | null;
+};
+
+const toInvoiceViewDialogInvoice = (invoice: ViewableInvoice): InvoiceViewDialogInvoice => {
+  if (!('amountPaid' in invoice)) {
+    return invoice;
+  }
+
+  const mapShoot = (shoot: ClientBillingInvoiceViewData['shoot']) =>
+    shoot
+      ? {
+          id: shoot.id,
+          client_id: shoot.client_id ?? undefined,
+          photographer_id: shoot.photographer_id ?? undefined,
+          address: shoot.address ?? undefined,
+          city: shoot.city ?? undefined,
+          state: shoot.state ?? undefined,
+          zip: shoot.zip ?? undefined,
+          location: shoot.location
+            ? {
+                address: shoot.location.address ?? undefined,
+                city: shoot.location.city ?? undefined,
+                state: shoot.location.state ?? undefined,
+                zip: shoot.location.zip ?? undefined,
+                fullAddress: shoot.location.fullAddress ?? undefined,
+              }
+            : null,
+          client: shoot.client
+            ? {
+                id: shoot.client.id,
+                name: shoot.client.name,
+                email: shoot.client.email,
+              }
+            : null,
+          photographer: shoot.photographer
+            ? {
+                id: shoot.photographer.id,
+                name: shoot.photographer.name,
+              }
+            : null,
+        }
+      : null;
+
+  return {
+    ...invoice,
+    items: invoice.items?.map((item) => ({
+      ...item,
+      meta: item.meta ? { ...item.meta } : null,
+    })),
+    shoot: mapShoot(invoice.shoot),
+    shoots: invoice.shoots?.map(mapShoot).filter(Boolean) as InvoiceViewDialogInvoice['shoots'],
+  };
+};
 
 const AccountingPage = () => {
   const { toast } = useToast();
@@ -201,7 +257,7 @@ const AccountingPage = () => {
     }
 
     loadInvoices();
-  }, [loadInvoices]);
+  }, [accountingMode, loadInvoices]);
 
   useEffect(() => {
     if (accountingMode === 'client') {
@@ -226,6 +282,11 @@ const AccountingPage = () => {
     // For editor, invoices might not be the primary data
     return invoices;
   }, [invoices, accountingMode, user]);
+
+  const selectedInvoiceForView = useMemo(
+    () => (selectedInvoice ? toInvoiceViewDialogInvoice(selectedInvoice) : null),
+    [selectedInvoice],
+  );
 
   const clientBillingSummary = clientBillingData?.summary ?? emptyClientBillingSummary;
   const clientBillingItems = clientBillingData?.items ?? [];
@@ -282,10 +343,11 @@ const AccountingPage = () => {
     const jobs: EditorJob[] = [];
 
     shoots.forEach((shoot) => {
+      const legacyShoot = shoot as ShootWithLegacyEditorFields;
       const shootEditorId =
         (shoot.editor?.id ? String(shoot.editor.id) : null) ||
-        ((shoot as any).editor_id ? String((shoot as any).editor_id) : null) ||
-        ((shoot as any).editorId ? String((shoot as any).editorId) : null);
+        (legacyShoot.editor_id ? String(legacyShoot.editor_id) : null) ||
+        (legacyShoot.editorId ? String(legacyShoot.editorId) : null);
 
       if (editorId && shootEditorId && editorId !== shootEditorId) {
         return;
@@ -653,11 +715,11 @@ const AccountingPage = () => {
           )}
         </div>
 
-      {selectedInvoice && (
+      {selectedInvoiceForView && (
         <InvoiceViewDialog
           isOpen={viewDialogOpen}
           onClose={closeViewDialog}
-          invoice={selectedInvoice}
+          invoice={selectedInvoiceForView}
         />
       )}
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -60,12 +60,36 @@ export const EnhancedShootMediaTabs: React.FC<EnhancedShootMediaTabsProps> = ({
 }) => {
   const { session } = useAuth();
   const { toast } = useToast();
+  const accessToken = session?.accessToken;
+
+  const normalizeCounts = (nextCounts: {
+    raw_photo_count: number;
+    edited_photo_count: number;
+    extra_photo_count: number;
+    expected_raw_count: number;
+    expected_final_count: number;
+    raw_missing_count: number;
+    edited_missing_count: number;
+    bracket_mode: number | null;
+  }): {
+    raw_photo_count: number;
+    edited_photo_count: number;
+    extra_photo_count: number;
+    expected_raw_count: number;
+    expected_final_count: number;
+    raw_missing_count: number;
+    edited_missing_count: number;
+    bracket_mode: BracketMode;
+  } => ({
+    ...nextCounts,
+    bracket_mode: nextCounts.bracket_mode === 3 || nextCounts.bracket_mode === 5 ? nextCounts.bracket_mode : null,
+  });
   
   const [activeTab, setActiveTab] = useState('raw');
   const [rawFiles, setRawFiles] = useState<DropboxMediaFile[]>([]);
   const [editedFiles, setEditedFiles] = useState<DropboxMediaFile[]>([]);
   const [extraFiles, setExtraFiles] = useState<DropboxMediaFile[]>([]);
-  const [flaggedFiles, setFlaggedFiles] = useState<any[]>([]);
+  const [flaggedFiles, setFlaggedFiles] = useState<DropboxMediaFile[]>([]);
   
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -86,24 +110,14 @@ export const EnhancedShootMediaTabs: React.FC<EnhancedShootMediaTabsProps> = ({
     bracket_mode: initialBracketMode,
   });
 
-  useEffect(() => {
-    if (activeTab === 'raw') {
-      loadRawFiles();
-    } else if (activeTab === 'edited') {
-      loadEditedFiles();
-    } else if (activeTab === 'extra') {
-      loadExtraFiles();
-    }
-  }, [activeTab, shootId]);
-
-  const loadRawFiles = async () => {
-    if (!session?.access_token) return;
+  const loadRawFiles = useCallback(async () => {
+    if (!accessToken) return;
     
     setLoading(true);
     try {
-      const response = await fetchShootMedia(shootId, 'raw', session.access_token);
+      const response = await fetchShootMedia(shootId, 'raw', accessToken);
       setRawFiles(response.data);
-      setCounts(response.counts);
+      setCounts(normalizeCounts(response.counts));
     } catch (error) {
       console.error('Failed to load RAW files:', error);
       toast({
@@ -114,16 +128,16 @@ export const EnhancedShootMediaTabs: React.FC<EnhancedShootMediaTabsProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [accessToken, shootId, toast]);
 
-  const loadEditedFiles = async () => {
-    if (!session?.access_token) return;
+  const loadEditedFiles = useCallback(async () => {
+    if (!accessToken) return;
     
     setLoading(true);
     try {
-      const response = await fetchShootMedia(shootId, 'edited', session.access_token);
+      const response = await fetchShootMedia(shootId, 'edited', accessToken);
       setEditedFiles(response.data);
-      setCounts(response.counts);
+      setCounts(normalizeCounts(response.counts));
     } catch (error) {
       console.error('Failed to load edited files:', error);
       toast({
@@ -134,16 +148,16 @@ export const EnhancedShootMediaTabs: React.FC<EnhancedShootMediaTabsProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [accessToken, shootId, toast]);
 
-  const loadExtraFiles = async () => {
-    if (!session?.access_token) return;
+  const loadExtraFiles = useCallback(async () => {
+    if (!accessToken) return;
     
     setLoading(true);
     try {
-      const response = await fetchShootMedia(shootId, 'extra', session.access_token);
+      const response = await fetchShootMedia(shootId, 'extra', accessToken);
       setExtraFiles(response.data);
-      setCounts(response.counts);
+      setCounts(normalizeCounts(response.counts));
     } catch (error) {
       console.error('Failed to load extra files:', error);
       toast({
@@ -154,10 +168,20 @@ export const EnhancedShootMediaTabs: React.FC<EnhancedShootMediaTabsProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [accessToken, shootId, toast]);
+
+  useEffect(() => {
+    if (activeTab === 'raw') {
+      void loadRawFiles();
+    } else if (activeTab === 'edited') {
+      void loadEditedFiles();
+    } else if (activeTab === 'extra') {
+      void loadExtraFiles();
+    }
+  }, [activeTab, loadEditedFiles, loadExtraFiles, loadRawFiles]);
 
   const handleRawUpload = async (files: FileList) => {
-    if (!session?.access_token || files.length === 0) return;
+    if (!accessToken || files.length === 0) return;
 
     setUploading(true);
     setUploadProgress(0);
@@ -170,7 +194,7 @@ export const EnhancedShootMediaTabs: React.FC<EnhancedShootMediaTabsProps> = ({
         shootId,
         fileArray,
         selectedBracketMode,
-        session.access_token,
+        accessToken,
         (progress) => {
           setUploadProgress(progress);
           if (fileArray[Math.floor((progress / 100) * fileArray.length)]) {
@@ -201,7 +225,7 @@ export const EnhancedShootMediaTabs: React.FC<EnhancedShootMediaTabsProps> = ({
   };
 
   const handleExtraUpload = async (files: FileList) => {
-    if (!session?.access_token || files.length === 0) return;
+    if (!accessToken || files.length === 0) return;
 
     setUploading(true);
     setUploadProgress(0);
@@ -213,7 +237,7 @@ export const EnhancedShootMediaTabs: React.FC<EnhancedShootMediaTabsProps> = ({
       const response = await uploadExtraPhotos(
         shootId,
         fileArray,
-        session.access_token,
+        accessToken,
         (progress) => setUploadProgress(progress)
       );
 
@@ -239,7 +263,7 @@ export const EnhancedShootMediaTabs: React.FC<EnhancedShootMediaTabsProps> = ({
   };
 
   const handleEditedUpload = async (files: FileList) => {
-    if (!session?.access_token || files.length === 0) return;
+    if (!accessToken || files.length === 0) return;
 
     setUploading(true);
     setUploadProgress(0);
@@ -251,7 +275,7 @@ export const EnhancedShootMediaTabs: React.FC<EnhancedShootMediaTabsProps> = ({
       const response = await uploadEditedPhotos(
         shootId,
         fileArray,
-        session.access_token,
+        accessToken,
         (progress) => setUploadProgress(progress)
       );
 
@@ -546,4 +570,5 @@ export const EnhancedShootMediaTabs: React.FC<EnhancedShootMediaTabsProps> = ({
     </div>
   );
 };
+
 

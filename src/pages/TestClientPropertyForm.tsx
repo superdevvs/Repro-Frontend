@@ -29,14 +29,20 @@ const TestClientPropertyForm: React.FC = () => {
       name: 'John Smith',
       email: 'john@example.com',
       phone: '(555) 123-4567',
-      company: 'ABC Realty'
+      company: 'ABC Realty',
+      status: 'active' as const,
+      shootsCount: 12,
+      lastActivity: new Date().toISOString(),
     },
     {
       id: '2',
       name: 'Jane Doe',
       email: 'jane@example.com',
       phone: '(555) 987-6543',
-      company: 'XYZ Properties'
+      company: 'XYZ Properties',
+      status: 'active' as const,
+      shootsCount: 8,
+      lastActivity: new Date().toISOString(),
     }
   ];
 
@@ -60,7 +66,9 @@ const TestClientPropertyForm: React.FC = () => {
     selectedPackage: ''
   };
 
-  const handleComplete = (data: any) => {
+  const [selectedServices, setSelectedServices] = React.useState<typeof mockPackages>([]);
+
+  const handleComplete = (data: unknown) => {
     console.log('Form completed with data:', data);
     alert('Form submitted! Check console for data.');
   };
@@ -85,6 +93,8 @@ const TestClientPropertyForm: React.FC = () => {
               isClientAccount={false}
               packages={mockPackages}
               clients={mockClients}
+              selectedServices={selectedServices}
+              onSelectedServicesChange={setSelectedServices}
             />
           </div>
           

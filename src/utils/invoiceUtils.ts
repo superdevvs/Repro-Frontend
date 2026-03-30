@@ -1,7 +1,49 @@
-
 import { jsPDF } from "jspdf";
 import { format } from "date-fns";
-import { formatPaymentMethod } from '@/utils/paymentUtils';
+import { formatPaymentMethod, type PaymentDetails } from '@/utils/paymentUtils';
+
+export interface InvoiceParty {
+  id?: number | string;
+  name?: string;
+  email?: string;
+  [key: string]: unknown;
+}
+
+export interface InvoiceLocation {
+  address?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  fullAddress?: string;
+  full?: string;
+  [key: string]: unknown;
+}
+
+export interface InvoiceShootRef {
+  id?: number | string;
+  client_id?: number;
+  photographer_id?: number;
+  client?: InvoiceParty | null;
+  photographer?: InvoiceParty | null;
+  location?: InvoiceLocation | null;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  [key: string]: unknown;
+}
+
+export interface InvoiceItem {
+  id?: number | string;
+  description?: string;
+  quantity?: number;
+  unit_amount?: number;
+  total_amount?: number;
+  type?: string;
+  shoot_id?: number | string;
+  meta?: Record<string, unknown> | null;
+  [key: string]: unknown;
+}
 
 // Invoice data type
 export interface InvoiceData {
@@ -15,7 +57,7 @@ export interface InvoiceData {
   status: 'paid' | 'pending' | 'overdue';
   services: string[];
   paymentMethod: string;
-  paymentDetails?: Record<string, any>;
+  paymentDetails?: PaymentDetails;
 
   // Optional fields filled when data comes from the backend
   invoiceNumber?: string;
@@ -36,16 +78,9 @@ export interface InvoiceData {
   paidAt?: string;
   shootsCount?: number;
   shoot_id?: number;
-  shoot?: any;
-  shoots?: any[];
-  items?: Array<{
-    id?: number | string;
-    description?: string;
-    quantity?: number;
-    unit_amount?: number;
-    total_amount?: number;
-    [key: string]: any;
-  }>;
+  shoot?: InvoiceShootRef;
+  shoots?: InvoiceShootRef[];
+  items?: InvoiceItem[];
   notes?: string;
 }
 

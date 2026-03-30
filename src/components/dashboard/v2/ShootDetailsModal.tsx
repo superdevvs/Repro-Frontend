@@ -93,7 +93,9 @@ export const ShootDetailsModal: React.FC<ShootDetailsModalProps> = ({ shoot, onC
     const unsubscribe = subscribeToWeatherProvider(() =>
       setProviderVersion((version) => version + 1),
     );
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -177,6 +179,7 @@ export const ShootDetailsModal: React.FC<ShootDetailsModalProps> = ({ shoot, onC
       controller.abort();
     };
   }, [
+    shoot,
     shoot?.id,
     shoot?.cityStateZip,
     shoot?.addressLine,

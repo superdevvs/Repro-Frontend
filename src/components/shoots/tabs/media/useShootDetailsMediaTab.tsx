@@ -96,6 +96,14 @@ interface ShootDetailsMediaTabProps {
 
 type MediaSubTab = 'photos' | 'videos' | 'iguide' | 'floorplans' | 'virtualStaging' | 'extras';
 
+type ShootMediaTabSource = ShootData & {
+  editor_notes?: string;
+  editorNotes?: string;
+  status?: string;
+  raw_photo_count?: number;
+  edited_photo_count?: number;
+};
+
 // MediaFile interface is imported from useShootFiles hook
 
 export function useShootDetailsMediaTab({
@@ -135,8 +143,8 @@ export function useShootDetailsMediaTab({
   const [selectedEditingType, setSelectedEditingType] = useState<string>('');
   const [submittingAiEdit, setSubmittingAiEdit] = useState(false);
   const [editingNotesValue, setEditingNotesValue] = useState(() => {
-    const anyShoot = shoot as any;
-      return String(anyShoot?.editor_notes || anyShoot?.editorNotes || (typeof shoot.notes === 'object' && shoot.notes?.editingNotes) || '');
+    const mediaShoot = shoot as ShootMediaTabSource;
+    return String(mediaShoot.editor_notes || mediaShoot.editorNotes || (typeof shoot.notes === 'object' && shoot.notes?.editingNotes) || '');
   });
   const [requestManagerOpen, setRequestManagerOpen] = useState(false);
   const [rawFiles, setRawFiles] = useState<MediaFile[]>([]);
@@ -301,17 +309,21 @@ export function useShootDetailsMediaTab({
   // Restore manual order from saved sort_order when files load
   const lastSortFingerprint = useRef('');
   const getAllFiles = useCallback(() => [...rawFiles, ...editedFiles], [editedFiles, rawFiles]);
+  const getSortableFiles = useCallback(
+    () => (isClient ? [...editedFiles] : [...rawFiles, ...editedFiles]),
+    [editedFiles, isClient, rawFiles],
+  );
   useEffect(() => {
-    const allFiles = getAllFiles();
-    if (allFiles.length === 0) return;
+    const sortableFiles = getSortableFiles();
+    if (sortableFiles.length === 0) return;
     if (hasPendingManualOrder.current || (sortOrder === 'manual' && manualOrder.length > 0)) {
       return;
     }
     // Check if any file has a non-zero sort_order (meaning order was previously saved)
-    const hasSavedOrder = allFiles.some(f => (f.sort_order ?? 0) > 0);
+    const hasSavedOrder = sortableFiles.some(f => (f.sort_order ?? 0) > 0);
     if (hasSavedOrder) {
-      const sorted = [...allFiles].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
-      const newOrder = normalizeManualOrder(sorted.map((file) => file.id), allFiles);
+      const sorted = [...sortableFiles].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+      const newOrder = normalizeManualOrder(sorted.map((file) => file.id), sortableFiles);
       // Only update if the order fingerprint changed (avoids infinite loops)
       const fingerprint = newOrder.join(',');
       if (fingerprint !== lastSortFingerprint.current) {
@@ -320,24 +332,24 @@ export function useShootDetailsMediaTab({
         setManualOrder(newOrder);
       }
     }
-  }, [getAllFiles, manualOrder.length, sortOrder]);
+  }, [getSortableFiles, manualOrder.length, sortOrder]);
 
   useEffect(() => {
-    const allFiles = getAllFiles();
-    if (allFiles.length === 0) {
+    const sortableFiles = getSortableFiles();
+    if (sortableFiles.length === 0) {
       if (manualOrder.length > 0) {
         setManualOrder([]);
       }
       return;
     }
 
-    const normalizedOrder = normalizeManualOrder(manualOrder, allFiles);
+    const normalizedOrder = normalizeManualOrder(manualOrder, sortableFiles);
     const currentFingerprint = manualOrder.join(',');
     const normalizedFingerprint = normalizedOrder.join(',');
     if (normalizedFingerprint !== currentFingerprint) {
       setManualOrder(normalizedOrder);
     }
-  }, [getAllFiles, manualOrder]);
+  }, [getSortableFiles, manualOrder]);
 
   useEffect(() => {
     if (sortOrder !== 'manual' && isDragMode) {
@@ -355,7 +367,10 @@ export function useShootDetailsMediaTab({
 
   const persistManualOrder = useCallback(
     async (nextOrder: string[]) => {
+      const sortableFiles = getSortableFiles();
+      const sortableFileIds = new Set(sortableFiles.map((file) => file.id));
       const numericFileIds = nextOrder
+        .filter((id) => sortableFileIds.has(id))
         .map((id) => Number.parseInt(id, 10))
         .filter((id) => Number.isFinite(id));
 
@@ -384,7 +399,9 @@ export function useShootDetailsMediaTab({
             orderMap.has(file.id) ? { ...file, sort_order: orderMap.get(file.id) ?? file.sort_order ?? 0 } : file,
           );
 
-        setRawFiles((prev) => applyOrder(prev));
+        if (!isClient) {
+          setRawFiles((prev) => applyOrder(prev));
+        }
         setEditedFiles((prev) => applyOrder(prev));
         lastSortFingerprint.current = nextOrder.join(',');
         hasPendingManualOrder.current = false;
@@ -393,16 +410,16 @@ export function useShootDetailsMediaTab({
         queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'raw'] });
         queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'edited'] });
         queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'all'] });
-      } catch (error: any) {
+      } catch (error: unknown) {
         setSortSaveStatus('idle');
         toast({
           title: 'Sort order update failed',
-          description: error.message || 'Failed to save file order',
+          description: error instanceof Error ? error.message : 'Failed to save file order',
           variant: 'destructive',
         });
       }
     },
-    [queryClient, shoot.id, toast],
+    [getSortableFiles, isClient, queryClient, shoot.id, toast],
   );
 
   useEffect(() => {
@@ -461,11 +478,11 @@ export function useShootDetailsMediaTab({
 
   const changeSortOrder = useCallback((nextSortOrder: MediaSortOrder) => {
     if (nextSortOrder === 'manual') {
-      const allFiles = getAllFiles();
+      const sortableFiles = getSortableFiles();
       const baselineSort = sortOrder === 'manual' ? 'time' : sortOrder;
       const nextManualOrder = normalizeManualOrder(
-        manualOrder.length > 0 ? manualOrder : getSortedMediaIds(allFiles, baselineSort),
-        allFiles,
+        manualOrder.length > 0 ? manualOrder : getSortedMediaIds(sortableFiles, baselineSort),
+        sortableFiles,
       );
       setManualOrder(nextManualOrder);
       lastSortFingerprint.current = nextManualOrder.join(',');
@@ -477,7 +494,7 @@ export function useShootDetailsMediaTab({
       setIsDragMode(false);
       setSelectedFiles(new Set());
     }
-  }, [getAllFiles, manualOrder, sortOrder]);
+  }, [getSortableFiles, manualOrder, setSelectedFiles, sortOrder]);
 
   const toggleDragMode = useCallback(() => {
     if (sortOrder !== 'manual') {
@@ -486,12 +503,12 @@ export function useShootDetailsMediaTab({
 
     setIsDragMode((current) => !current);
     setSelectedFiles(new Set());
-  }, [sortOrder]);
+  }, [setSelectedFiles, sortOrder]);
 
   const handleManualOrderChange = useCallback(
     (contextFiles: MediaFile[], nextContextOrder: string[], separateExtras = true) => {
-      const allFiles = getAllFiles();
-      const normalizedGlobalOrder = normalizeManualOrder(manualOrder, allFiles);
+      const sortableFiles = getSortableFiles();
+      const normalizedGlobalOrder = normalizeManualOrder(manualOrder, sortableFiles);
       const contextFileMap = new Map(contextFiles.map((file) => [file.id, file]));
       const contextRegularIds = normalizeManualOrder(
         normalizedGlobalOrder.filter((id) => contextFileMap.has(id)),
@@ -519,7 +536,7 @@ export function useShootDetailsMediaTab({
       hasPendingManualOrder.current = true;
       setManualOrder(nextGlobalOrder);
     },
-    [getAllFiles, manualOrder],
+    [getSortableFiles, manualOrder],
   );
 
   const {
@@ -567,7 +584,8 @@ export function useShootDetailsMediaTab({
   });
   const canInteractSingleMedia = isClient || ['admin', 'superadmin', 'editing_manager', 'salesRep', 'rep', 'representative'].includes(role || '');
 
-  const normalizedShootStatus = String(shoot?.workflowStatus || (shoot as any)?.status || '').toLowerCase();
+  const mediaShoot = shoot as ShootMediaTabSource;
+  const normalizedShootStatus = String(shoot?.workflowStatus || mediaShoot.status || '').toLowerCase();
   const normalizeClientProgressStatus = (value: string) => {
     const statusKey = String(value || '').toLowerCase();
     const aliases: Record<string, 'scheduled' | 'uploaded' | 'editing' | 'review' | 'ready'> = {
@@ -600,14 +618,14 @@ export function useShootDetailsMediaTab({
 
   const rawMediaCount = Number(
     shoot?.rawPhotoCount ??
-      (shoot as any)?.raw_photo_count ??
+      mediaShoot.raw_photo_count ??
       shoot?.mediaSummary?.rawUploaded ??
       rawFiles.length ??
       0,
   );
   const editedMediaCount = Number(
     shoot?.editedPhotoCount ??
-      (shoot as any)?.edited_photo_count ??
+      mediaShoot.edited_photo_count ??
       shoot?.mediaSummary?.editedUploaded ??
       editedFiles.length ??
       0,
@@ -712,6 +730,7 @@ export function useShootDetailsMediaTab({
             <p className="text-sm text-muted-foreground mb-6">{emptyDescription}</p>
             {showUploadTab && (
               <Button
+                type="button"
                 variant="default"
                 size="lg"
                 className="bg-blue-600 hover:bg-blue-700 text-white"
@@ -762,6 +781,7 @@ export function useShootDetailsMediaTab({
         {showUploadTab && (
           <div className="sm:hidden sticky bottom-2 z-20 flex justify-center pointer-events-none mt-2 pb-2">
             <Button
+              type="button"
               variant="default"
               size="sm"
               className="pointer-events-auto h-9 px-4 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg"
@@ -796,7 +816,7 @@ export function useShootDetailsMediaTab({
           <div className="text-sm text-muted-foreground mb-4">
             Upload final, edited files ready for client delivery. Supported formats: JPG, PNG (photos){shootHasVideoService ? ', MP4 (videos)' : ''}.
           </div>
-          <EditedUploadSection shoot={shoot} onUploadComplete={onEditedUploadComplete} isEditor={false} />
+          <EditedUploadSection shoot={shoot} onUploadComplete={onEditedUploadComplete} isEditor={isEditor} />
         </div>
       );
     }

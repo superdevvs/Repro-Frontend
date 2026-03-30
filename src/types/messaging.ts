@@ -7,6 +7,13 @@ export type TemplateCategory = 'BOOKING' | 'REMINDER' | 'PAYMENT' | 'INVOICE' | 
 export type EmailProviderType = 'CAKEMAIL';
 export type ChannelScope = 'GLOBAL' | 'ACCOUNT' | 'USER';
 
+export type MessagingJsonPrimitive = string | number | boolean | null;
+export type MessagingJsonValue = MessagingJsonPrimitive | MessagingJsonObject | MessagingJsonValue[];
+
+export interface MessagingJsonObject {
+  [key: string]: MessagingJsonValue;
+}
+
 export type AutomationTriggerType =
   | 'ACCOUNT_CREATED'
   | 'ACCOUNT_VERIFIED'
@@ -38,6 +45,17 @@ export type AutomationTriggerType =
   | 'EDITING_COMPLETE'
   | 'PROPERTY_CONTACT_REMINDER';
 
+export type AutomationRecipientRole = 'client' | 'photographer' | 'admin' | 'rep';
+
+export interface AutomationScheduleJson {
+  type?: string;
+  day_of_week?: number;
+  time?: string;
+  offset?: string;
+  cron?: string;
+  command?: string;
+}
+
 export type WorkflowNodeType =
   | 'trigger.event'
   | 'trigger.schedule'
@@ -56,7 +74,7 @@ export interface WorkflowNode {
     x: number;
     y: number;
   };
-  config: Record<string, any>;
+  config: MessagingJsonObject;
   validation?: string[];
 }
 
@@ -75,7 +93,7 @@ export interface WorkflowDefinition {
     y: number;
     zoom: number;
   };
-  meta?: Record<string, any>;
+  meta?: MessagingJsonObject;
 }
 
 export interface AutomationValidationState {
@@ -90,6 +108,37 @@ export interface AutomationValidationState {
   };
 }
 
+export interface AutomationSimulationRecipient {
+  email?: string | null;
+  phone?: string | null;
+  name?: string | null;
+  [key: string]: unknown;
+}
+
+export interface AutomationSimulationTraceEntry {
+  node_id: string;
+  node_type: string;
+  status?: string | null;
+  branch?: string | null;
+  scheduled_for?: string | null;
+  preview_recipients?: AutomationSimulationRecipient[];
+  [key: string]: unknown;
+}
+
+export interface AutomationSimulationResult {
+  trace?: AutomationSimulationTraceEntry[];
+  errors?: string[];
+  [key: string]: unknown;
+}
+
+export interface AutomationTestResult {
+  status?: string;
+  message?: string;
+  errors?: string[];
+  trace?: AutomationSimulationTraceEntry[];
+  [key: string]: unknown;
+}
+
 export interface AutomationRunStep {
   id: number;
   automation_run_id: number;
@@ -101,8 +150,8 @@ export interface AutomationRunStep {
   scheduled_for?: string | null;
   started_at?: string | null;
   completed_at?: string | null;
-  input_json?: Record<string, any> | null;
-  output_json?: Record<string, any> | null;
+  input_json?: MessagingJsonObject | null;
+  output_json?: MessagingJsonObject | null;
   error_message?: string | null;
   created_at: string;
   updated_at: string;
@@ -113,7 +162,7 @@ export interface AutomationRun {
   automation_rule_id: number;
   trigger_type?: string | null;
   status: 'pending' | 'running' | 'waiting' | 'completed' | 'failed';
-  context_json?: Record<string, any> | null;
+  context_json?: MessagingJsonObject | null;
   related_shoot_id?: number | null;
   related_account_id?: number | null;
   related_invoice_id?: number | null;
@@ -138,7 +187,7 @@ export interface MessageChannelConfig {
   is_default: boolean;
   owner_scope: ChannelScope;
   owner_id?: number;
-  config_json?: Record<string, any>;
+  config_json?: MessagingJsonObject;
   created_at: string;
   updated_at: string;
 }
@@ -214,8 +263,8 @@ export interface Message {
   // Relations
   template?: MessageTemplate;
   channel_config?: MessageChannelConfig;
-  shoot?: any;
-  invoice?: any;
+  shoot?: MessageRelatedRecord | null;
+  invoice?: MessageRelatedRecord | null;
   thread?: MessageThread;
   creator?: {
     id: number;
@@ -318,26 +367,19 @@ export interface AutomationRule {
   owner_id?: number;
   template_id?: number;
   channel_id?: number;
-  condition_json?: Record<string, any>;
-  schedule_json?: {
-    type?: string;
-    day_of_week?: number;
-    time?: string;
-    offset?: string;
-    cron?: string;
-    command?: string;
-  };
+  condition_json?: MessagingJsonObject;
+  schedule_json?: AutomationScheduleJson;
   workflow_definition_json?: WorkflowDefinition;
   entry_trigger_json?: {
     trigger_type?: string;
     node_id?: string | null;
     node_type?: string | null;
-    config?: Record<string, any>;
+    config?: MessagingJsonObject;
   };
   is_system_locked?: boolean;
-  recipients_json?: Array<'client' | 'photographer' | 'admin' | 'rep'> | {
+  recipients_json?: AutomationRecipientRole[] | {
     type?: string;
-    roles?: string[];
+    roles?: AutomationRecipientRole[];
   };
   created_by?: number;
   updated_by?: number;
@@ -382,7 +424,7 @@ export interface ComposeEmailPayload {
   related_shoot_id?: number;
   related_account_id?: number;
   related_invoice_id?: number;
-  variables?: Record<string, any>;
+  variables?: MessagingJsonObject;
   cc?: string[];
   bcc?: string[];
   attachments?: File[];
@@ -405,4 +447,42 @@ export interface MessagingOverview {
   unread_sms_count: number;
   recent_activity: Message[];
   active_automations: number;
+  delivery_rate?: number | null;
+  average_response_time?: string | null;
+  delivery_score?: number | null;
+  template_usage?: {
+    active?: number | null;
+    [key: string]: unknown;
+  } | null;
+  automation_summary?: {
+    coverage?: string | number | null;
+    paused?: number | null;
+    [key: string]: unknown;
+  } | null;
+  upcoming_broadcasts?: string | null;
+}
+
+export interface MessageRelatedRecord {
+  id?: number | string;
+  [key: string]: unknown;
+}
+
+export interface TemplatePreviewResult {
+  subject?: string | null;
+  body_html?: string | null;
+  body_text?: string | null;
+  variables?: MessagingJsonObject | null;
+  missing_variables?: string[];
+  [key: string]: unknown;
+}
+
+export interface PaginatedResponseMeta {
+  current_page?: number;
+  last_page?: number;
+  per_page?: number;
+  total?: number;
+  from?: number | null;
+  to?: number | null;
+  path?: string;
+  [key: string]: unknown;
 }

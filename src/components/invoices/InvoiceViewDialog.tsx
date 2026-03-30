@@ -10,7 +10,8 @@ import { Logo } from "@/components/layout/Logo";
 import { useToast } from '@/hooks/use-toast';
 import { usePermission } from '@/hooks/usePermission';
 import { addInvoiceMiscItem, removeInvoiceMiscItem } from '@/services/invoiceService';
-import { formatPaymentMethod } from '@/utils/paymentUtils';
+import { formatPaymentMethod, type PaymentDetails } from '@/utils/paymentUtils';
+import type { InvoiceData, InvoiceItem as SharedInvoiceItem, InvoiceParty, InvoiceShootRef } from '@/utils/invoiceUtils';
 
 const COMPANY_NAME = 'REPRO Photos';
 const COMPANY_PHONE = '(202) 868-1663';
@@ -20,93 +21,42 @@ const COMPANY_ADDRESS_LINES = COMPANY_ADDRESS
   ? COMPANY_ADDRESS.split('|').map((line) => line.trim()).filter(Boolean)
   : [];
 
-interface InvoiceItem {
-  id?: number | string;
-  description?: string;
-  quantity?: number;
-  unit_amount?: number;
-  total_amount?: number;
-  type?: string;
-  shoot_id?: number | string;
+type InvoiceItem = SharedInvoiceItem & {
   meta?: {
     extra_description?: string;
     service_name?: string;
     photographer_name?: string;
     source?: string;
-  };
-}
+    [key: string]: unknown;
+  } | null;
+};
+
+type InvoiceViewDialogInvoice = Omit<
+  Partial<InvoiceData>,
+  'id' | 'number' | 'client' | 'photographer' | 'shoot' | 'shoots' | 'items' | 'paymentMethod' | 'paymentDetails' | 'paidAt'
+> & {
+  id?: string | number;
+  invoice_number?: string | number;
+  number?: string;
+  client?: string | InvoiceParty | null;
+  photographer?: string | InvoiceParty | null;
+  shoot?: InvoiceShootRef | null;
+  shoots?: InvoiceShootRef[];
+  items?: InvoiceItem[];
+  paymentMethod?: string;
+  payment_method?: string;
+  paymentDetails?: PaymentDetails;
+  payment_details?: PaymentDetails;
+  paidAt?: string | null;
+  paid_at?: string | null;
+  issue_date?: string;
+  due_date?: string;
+};
 
 interface InvoiceViewDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  invoice: {
-    id?: string | number;
-    invoice_number?: string;
-    number?: string;
-    client?: string | { name?: string; email?: string; [key: string]: any };
-    client_id?: number;
-    photographer?: string | { name?: string; [key: string]: any };
-    shoot?: {
-      client?: {
-        name?: string;
-        email?: string;
-        [key: string]: any;
-      };
-      photographer?: {
-        name?: string;
-        [key: string]: any;
-      };
-      location?: {
-        address?: string;
-        city?: string;
-        state?: string;
-        zip?: string;
-        fullAddress?: string;
-        full?: string;
-      };
-      address?: string;
-      city?: string;
-      state?: string;
-      zip?: string;
-    };
-    shoots?: Array<{
-      id?: number | string;
-      photographer?: {
-        name?: string;
-        [key: string]: any;
-      };
-      location?: {
-        address?: string;
-        city?: string;
-        state?: string;
-        zip?: string;
-        fullAddress?: string;
-        full?: string;
-      };
-      address?: string;
-      city?: string;
-      state?: string;
-      zip?: string;
-    }>;
-    property?: string;
-    issue_date?: string;
-    date?: string;
-    due_date?: string;
-    dueDate?: string;
-    status?: string;
-    subtotal?: number;
-    tax?: number;
-    total?: number;
-    amount?: number;
-    items?: InvoiceItem[];
-    services?: string[];
-    paymentMethod?: string;
-    payment_method?: string;
-    paymentDetails?: Record<string, any> | null;
-    payment_details?: Record<string, any> | null;
-    paidAt?: string | null;
-    paid_at?: string | null;
-  };
+  invoice: InvoiceViewDialogInvoice;
 }
 
 export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialogProps) {
@@ -186,7 +136,7 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
   const tax = invoiceData.tax ?? 0;
   const total = invoiceData.total ?? invoiceData.amount ?? 0;
   const status = invoiceData.status || 'pending';
-  const isPaid = status === 'paid' || status === 'Paid';
+  const isPaid = status.toLowerCase() === 'paid';
   const paymentDetails = invoiceData.paymentDetails ?? invoiceData.payment_details ?? null;
   const paidAt = invoiceData.paidAt || invoiceData.paid_at || null;
   const paymentMethodValue = invoiceData.paymentMethod || invoiceData.payment_method;
@@ -616,7 +566,7 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
     } finally {
       setIsPdfGenerating(false);
     }
-  }, [clientName, formatDate, formatDateTime, invoiceNumber, invoiceData, isPaid, issueDate, isPdfGenerating, items, loadLogoPngForPdf, propertyAddress, subtotal, tax, total, displayInvoiceNumber, resolvePhotographerName, paymentMethodLabel, paidAt]);
+  }, [clientEmail, clientName, formatDate, formatDateTime, invoiceNumber, isPaid, issueDate, isPdfGenerating, items, loadLogoPngForPdf, propertyAddress, subtotal, tax, total, displayInvoiceNumber, resolvePhotographerName, paymentMethodLabel, paidAt]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

@@ -7,23 +7,8 @@ import { CalendarIcon, FileTextIcon } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format, parseISO } from "date-fns";
-import { InvoiceData } from '@/utils/invoiceUtils';
+import type { InvoiceData, InvoiceItem } from '@/utils/invoiceUtils';
 import { useToast } from '@/hooks/use-toast';
-
-interface InvoiceItem {
-  id?: number | string;
-  description?: string;
-  quantity?: number;
-  unit_amount?: number;
-  total_amount?: number;
-  type?: string;
-  meta?: {
-    extra_description?: string;
-    service_name?: string;
-    photographer_name?: string;
-    source?: string;
-  };
-}
 
 interface EditInvoiceDialogProps {
   isOpen: boolean;
@@ -198,7 +183,10 @@ export function EditInvoiceDialog({ isOpen, onClose, invoice, onInvoiceEdit }: E
                   </thead>
                   <tbody>
                     {items.map((item, index) => {
-                      const description = item.description || item.meta?.service_name || 'Service';
+                      const description =
+                        (typeof item.description === 'string' && item.description) ||
+                        (typeof item.meta?.service_name === 'string' && item.meta.service_name) ||
+                        'Service';
                       const quantity = item.quantity ?? 1;
                       const unitAmount = item.unit_amount ?? 0;
                       const totalAmount = item.total_amount ?? unitAmount * quantity;
@@ -206,7 +194,7 @@ export function EditInvoiceDialog({ isOpen, onClose, invoice, onInvoiceEdit }: E
                         <tr key={item.id || index} className="border-t border-border">
                           <td className="py-2 px-3">
                             <span className="font-medium">{description}</span>
-                            {item.meta?.photographer_name && (
+                            {typeof item.meta?.photographer_name === 'string' && item.meta.photographer_name && (
                               <span className="block text-xs text-muted-foreground">
                                 Photographer: {item.meta.photographer_name}
                               </span>

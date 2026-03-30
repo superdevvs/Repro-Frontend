@@ -6,7 +6,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { SquarePaymentForm } from './SquarePaymentForm';
+import { SquarePaymentForm, type SquarePaymentSuccessPayload } from './SquarePaymentForm';
 import type { PricingBreakdown } from '@/utils/pricing';
 
 interface SquarePaymentDialogProps {
@@ -25,8 +25,8 @@ interface SquarePaymentDialogProps {
   totalQuote?: number;
   totalPaid?: number;
   pricing?: PricingBreakdown;
-  onPaymentSuccess?: (payment: any) => void;
-  onPaymentError?: (error: any) => void;
+  onPaymentSuccess?: (payment: SquarePaymentSuccessPayload) => void;
+  onPaymentError?: (error: unknown) => void;
 }
 
 export function SquarePaymentDialog({
@@ -63,7 +63,7 @@ export function SquarePaymentDialog({
     }
   }, []);
 
-  const handlePaymentSuccess = (payment: any) => {
+  const handlePaymentSuccess = (payment: SquarePaymentSuccessPayload) => {
     setPaymentCompleted(true);
     if (onPaymentSuccess) {
       onPaymentSuccess(payment);

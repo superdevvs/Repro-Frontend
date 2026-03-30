@@ -176,23 +176,23 @@ export const getShootDetailsPaymentBadge = (payment?: ShootData['payment']) =>
 
 export const getShootDetailsCreatedByLabel = (shoot: ShootData | null) => {
   if (!shoot) return null;
+  const legacyShoot = shoot as ShootData & {
+    created_by?: string | null;
+    created_by_name?: string | null;
+    userCreatedBy?: string | null;
+  };
   return (
     shoot.createdBy ||
-    (shoot as any).created_by ||
-    (shoot as any).created_by_name ||
-    (shoot as any).userCreatedBy ||
+    legacyShoot.created_by ||
+    legacyShoot.created_by_name ||
+    legacyShoot.userCreatedBy ||
     null
   );
 };
 
 export const getShootDetailsServiceNames = (shoot: ShootData | null): string[] => {
   if (!shoot) return [];
-  const services = Array.isArray(shoot.services) ? shoot.services : [];
-  return services
-    .map((service) =>
-      typeof service === 'string'
-        ? service
-        : service?.name || service?.label || String(service ?? ''),
-    )
+  return (Array.isArray(shoot.services) ? shoot.services : [])
+    .map((service) => String(service ?? '').trim())
     .filter(Boolean);
 };

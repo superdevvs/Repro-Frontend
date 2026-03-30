@@ -10,13 +10,13 @@ import { InvoiceData } from '@/utils/invoiceUtils';
 import { useToast } from '@/hooks/use-toast';
 import { SquarePaymentForm } from '@/components/payments/SquarePaymentForm';
 import { MarkAsPaidDialog, MarkAsPaidPayload } from '@/components/payments/MarkAsPaidDialog';
-import { formatPaymentMethod } from '@/utils/paymentUtils';
+import { formatPaymentMethod, type PaymentDetails } from '@/utils/paymentUtils';
 
 export interface InvoicePaymentCompletePayload {
   invoiceId: string;
   paymentMethod: string;
   amount?: number;
-  paymentDetails?: Record<string, any> | null;
+  paymentDetails?: PaymentDetails;
   paymentDate?: string | null;
 }
 
@@ -68,7 +68,7 @@ export function PaymentDialog({
   const outstandingAmount = invoice.amount;
   const remainingBalanceAfterPayment = outstandingAmount - paymentAmount;
 
-  const handleSquarePaymentSuccess = async (payment: any) => {
+  const handleSquarePaymentSuccess = async () => {
     try {
       if (onPaymentComplete) {
         await onPaymentComplete({
@@ -128,7 +128,7 @@ export function PaymentDialog({
         variant: "default",
       });
       onClose();
-    } catch (error: any) {
+    } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to record payment.';
       throw new Error(message);
     } finally {

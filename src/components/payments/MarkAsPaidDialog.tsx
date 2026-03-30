@@ -14,12 +14,13 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import type { PaymentDetailMap, PaymentDetails } from '@/utils/paymentUtils';
 
 export type MarkAsPaidMethod = 'zelle' | 'cash' | 'check' | 'ach' | 'other';
 
 export interface MarkAsPaidPayload {
   paymentMethod: MarkAsPaidMethod;
-  paymentDetails?: Record<string, any> | null;
+  paymentDetails?: PaymentDetails;
   paymentDate?: string | null;
 }
 
@@ -82,7 +83,7 @@ export function MarkAsPaidDialog({
       return;
     }
 
-    const details: Record<string, any> = {};
+    const details: PaymentDetailMap = {};
     if (method === 'check') {
       details.check_number = checkNumber.trim();
     }
@@ -99,8 +100,8 @@ export function MarkAsPaidDialog({
         paymentDate: requiresDate ? paymentDate : null,
       });
       onClose();
-    } catch (submitError: any) {
-      setError(submitError?.message || 'Unable to record payment details.');
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : 'Unable to record payment details.');
     } finally {
       setIsSubmitting(false);
     }

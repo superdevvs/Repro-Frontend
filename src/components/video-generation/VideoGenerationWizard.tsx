@@ -33,6 +33,27 @@ export function VideoGenerationWizard() {
   const [endFrameId, setEndFrameId] = useState<number | null>(null);
   const [aspectRatio, setAspectRatio] = useState<'horizontal' | 'vertical' | 'square' | 'standard'>('horizontal');
 
+  const getRequestAspectRatio = (value: typeof aspectRatio): 'horizontal' | 'vertical' =>
+    value === 'vertical' ? 'vertical' : 'horizontal';
+
+  const getSubmitErrorMessage = (error: unknown) => {
+    if (error && typeof error === 'object' && 'response' in error) {
+      const response = error.response;
+      if (response && typeof response === 'object' && 'data' in response) {
+        const data = response.data;
+        if (data && typeof data === 'object' && 'message' in data && typeof data.message === 'string') {
+          return data.message;
+        }
+      }
+    }
+
+    if (error instanceof Error && error.message) {
+      return error.message;
+    }
+
+    return 'An error occurred';
+  };
+
   const canGoNext = () => {
     switch (step) {
       case 1:
@@ -66,7 +87,7 @@ export function VideoGenerationWizard() {
         start_frame_file_id: startFrameId,
         end_frame_file_id: endFrameId || undefined,
         preset_id: selectedPreset.id,
-        aspect_ratio: aspectRatio,
+        aspect_ratio: getRequestAspectRatio(aspectRatio),
       });
 
       setSubmittedJobId(job.id);
@@ -76,10 +97,10 @@ export function VideoGenerationWizard() {
           ? 'Converting images to vertical format...'
           : 'Your video is being generated...',
       });
-    } catch (err: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Failed to submit',
-        description: err?.response?.data?.message || 'An error occurred',
+        description: getSubmitErrorMessage(error),
         variant: 'destructive',
       });
     }

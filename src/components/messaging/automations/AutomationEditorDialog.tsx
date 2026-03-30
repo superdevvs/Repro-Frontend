@@ -25,7 +25,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { createAutomation, getEmailSettings, getTemplates, updateAutomation } from '@/services/messaging';
-import type { AutomationRule } from '@/types/messaging';
+import type { AutomationRule, MessageChannelConfig } from '@/types/messaging';
 import {
   buildSimpleConditionJson,
   buildSimpleWorkflowFromDraft,
@@ -36,6 +36,7 @@ import {
   triggerLabels,
   type SimpleAutomationActionType,
   type SimpleAutomationDraft,
+  type SimpleTriggerMode,
 } from '@/components/messaging/automations/workflow-utils';
 
 interface AutomationEditorDialogProps {
@@ -53,7 +54,7 @@ const actionOptions: Array<{ value: SimpleAutomationActionType; label: string; d
   { value: 'system_command', label: 'System command', description: 'Run a scheduled internal automation command.', icon: Clock3 },
 ];
 
-const recipientRoleOptions = [
+const recipientRoleOptions: Array<{ value: AutomationRecipientRole; label: string }> = [
   { value: 'client', label: 'Client' },
   { value: 'photographer', label: 'Photographer' },
   { value: 'admin', label: 'Admin team' },
@@ -75,6 +76,33 @@ const contextRecipientOptions = [
   { value: 'photographer', label: 'Photographer from trigger' },
   { value: 'rep', label: 'Rep from trigger' },
 ] as const;
+
+type AutomationRecipientRole = 'client' | 'photographer' | 'admin' | 'rep';
+
+const automationRecipientRoles: AutomationRecipientRole[] = ['client', 'photographer', 'admin', 'rep'];
+
+const isAutomationRecipientRole = (value: string): value is AutomationRecipientRole => {
+  return automationRecipientRoles.includes(value as AutomationRecipientRole);
+};
+
+const getAutomationEditorErrorMessage = (error: unknown, fallback: string) => {
+  if (error && typeof error === 'object') {
+    const response = 'response' in error
+      ? (error as { response?: { data?: { message?: unknown } } }).response
+      : undefined;
+    const responseMessage = response?.data?.message;
+    if (typeof responseMessage === 'string' && responseMessage) {
+      return responseMessage;
+    }
+
+    const message = 'message' in error ? (error as { message?: unknown }).message : undefined;
+    if (typeof message === 'string' && message) {
+      return message;
+    }
+  }
+
+  return fallback;
+};
 
 const createDefaultDraft = (): SimpleAutomationDraft => ({
   name: '',
@@ -145,7 +173,7 @@ const getInitialDraft = (automation: AutomationRule | null) => {
     ...base,
     name: automation.name,
     description: automation.description || '',
-    trigger_mode: automation.schedule_json?.type === 'weekly' ? 'schedule' : 'event',
+    trigger_mode: (automation.schedule_json?.type === 'weekly' ? 'schedule' : 'event') as SimpleTriggerMode,
     trigger_type: automation.trigger_type,
     template_id: automation.template_id ? String(automation.template_id) : '',
     channel_id: automation.channel_id ? String(automation.channel_id) : '',
@@ -187,7 +215,7 @@ export function AutomationEditorDialog({ automation, mode, open, onClose, onSucc
     queryFn: getEmailSettings,
   });
 
-  const emailChannels = settingsData?.channels || [];
+  const emailChannels: MessageChannelConfig[] = settingsData?.channels ?? [];
   const filteredTemplates = useMemo(
     () =>
       templates.filter((template) =>
@@ -261,12 +289,12 @@ export function AutomationEditorDialog({ automation, mode, open, onClose, onSucc
       );
       onSuccess(savedAutomation);
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || error.message || 'Failed to save automation');
+    onError: (error: unknown) => {
+      toast.error(getAutomationEditorErrorMessage(error, 'Failed to save automation'));
     },
   });
 
-  const toggleRecipient = (role: string) => {
+  const toggleRecipient = (role: AutomationRecipientRole) => {
     setDraft((current) => {
       const roles = current.recipient_roles.includes(role)
         ? current.recipient_roles.filter((item) => item !== role)
@@ -333,12 +361,12 @@ export function AutomationEditorDialog({ automation, mode, open, onClose, onSucc
 
     const workflow = buildSimpleWorkflowFromDraft(draft);
     const scheduleOffset = draft.timing_mode === 'offset' ? formatLegacyOffset(draft) : null;
-    const selectedRoles =
+    const selectedRoles: AutomationRecipientRole[] =
       draft.recipient_mode === 'roles'
-        ? draft.recipient_roles
+        ? draft.recipient_roles.filter(isAutomationRecipientRole)
         : draft.recipient_mode === 'context'
           ? [draft.context_key]
-          : draft.recipient_roles;
+          : draft.recipient_roles.filter(isAutomationRecipientRole);
 
     const scheduleJson =
       draft.trigger_mode === 'schedule'
@@ -368,7 +396,7 @@ export function AutomationEditorDialog({ automation, mode, open, onClose, onSucc
         draft.action_type !== 'email' || !draft.channel_id
           ? null
           : Number(draft.channel_id),
-      recipients_json: selectedRoles as any,
+      recipients_json: selectedRoles,
       condition_json: buildSimpleConditionJson(draft) ?? null,
       schedule_json: scheduleJson,
       workflow_definition_json: workflow,
@@ -673,7 +701,7 @@ export function AutomationEditorDialog({ automation, mode, open, onClose, onSucc
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="default">Use default sending channel</SelectItem>
-                          {emailChannels.map((channel: any) => (
+                          {emailChannels.map((channel) => (
                             <SelectItem key={channel.id} value={String(channel.id)}>
                               {channel.display_name}
                             </SelectItem>

@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 "use client"
 
 import * as React from "react"
@@ -37,13 +38,12 @@ const Map = React.forwardRef<HTMLDivElement, MapProps>(
       const darkStyle = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
 
       let timeoutId: NodeJS.Timeout | undefined
-      let initTimer: NodeJS.Timeout
       let isMounted = true
       let handleLoad: (() => void) | undefined
-      let handleError: ((e: any) => void) | undefined
+      let handleError: ((error: unknown) => void) | undefined
 
       // Wait a bit for container to be ready (in case it's not visible yet)
-      initTimer = setTimeout(() => {
+      const initTimer: NodeJS.Timeout = setTimeout(() => {
         if (!mapContainer.current || map.current || !isMounted) return
 
         try {
@@ -53,7 +53,6 @@ const Map = React.forwardRef<HTMLDivElement, MapProps>(
             center: center,
             zoom: zoom,
             attributionControl: false,
-            antialias: true,
             fadeDuration: 0,
           })
 
@@ -66,8 +65,8 @@ const Map = React.forwardRef<HTMLDivElement, MapProps>(
             }
           }
 
-          handleError = (e: any) => {
-            console.error('Map error:', e)
+          handleError = (error: unknown) => {
+            console.error('Map error:', error)
             // Don't clear timeout on error - let the fallback timeout handle it
             // Errors during loading are common and might recover
           }
@@ -126,6 +125,7 @@ const Map = React.forwardRef<HTMLDivElement, MapProps>(
         }
         setMapLoaded(false)
       }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [mounted]) // Only re-run if mounted state changes
 
     // Update theme when it changes

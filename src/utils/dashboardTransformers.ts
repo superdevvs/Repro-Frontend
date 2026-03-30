@@ -184,7 +184,7 @@ export const transformDashboardOverview = (
             id: s.id,
             address: s.address_line || `Shoot #${s.id}`,
             clientName: s.client_name || undefined,
-            cancellationReason: (s as any).cancellation_reason || undefined,
+            cancellationReason: s.cancellation_reason || undefined,
           }))
         : [],
     };

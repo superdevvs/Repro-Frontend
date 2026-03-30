@@ -41,8 +41,9 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { API_BASE_URL } from '@/config/env';
 import API_ROUTES from '@/lib/api';
-import AddressLookupField from '@/components/AddressLookupField';
+import AddressLookupField, { type AddressDetails } from '@/components/AddressLookupField';
 import { getShootPhotographerAssignmentGroups } from '@/utils/shootPhotographerAssignments';
+import { calculatePricingBreakdown, type PricingDiscountType } from '@/utils/pricing';
 import axios from 'axios';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
@@ -178,7 +179,17 @@ interface ShootDetails {
   city?: string;
   state?: string;
   zip?: string;
-  client?: { id: number; name: string; email?: string; phonenumber?: string; phone?: string };
+  client?: {
+    id: number;
+    name: string;
+    email?: string;
+    phonenumber?: string;
+    phone?: string;
+    client_discount_type?: PricingDiscountType;
+    client_discount_value?: number | string | null;
+    clientDiscountType?: PricingDiscountType;
+    clientDiscountValue?: number | string | null;
+  };
   services?: Service[];
   serviceObjects?: Service[];
   scheduledAt?: string;
@@ -187,13 +198,30 @@ interface ShootDetails {
   shoot_notes?: string;
   shootNotes?: string;
   location?: { address?: string; city?: string; state?: string; zip?: string };
-  payment?: { totalQuote?: number };
+  payment?: {
+    totalQuote?: number;
+    taxRate?: number | string | null;
+    discount_type?: PricingDiscountType;
+    discount_value?: number | string | null;
+    discount_amount?: number | string | null;
+    discountType?: PricingDiscountType;
+    discountValue?: number | string | null;
+    discountAmount?: number | string | null;
+  };
   photographer_id?: number | string;
   photographer?: { id: number; name: string; email?: string };
   sqft?: number;
   bedrooms?: number;
   bathrooms?: number;
   property_details?: PropertyDetails;
+  tax_percent?: number | string | null;
+  taxPercent?: number | string | null;
+  discount_type?: PricingDiscountType;
+  discount_value?: number | string | null;
+  discount_amount?: number | string | null;
+  discountType?: PricingDiscountType;
+  discountValue?: number | string | null;
+  discountAmount?: number | string | null;
 }
 
 interface ShootEditModalProps {
@@ -250,16 +278,23 @@ const loadPhotographerOptions = async (): Promise<Photographer[]> => {
   }
 };
 
-const extractLookupPropertyDetails = (details: PropertyLookupInput | null | undefined): PropertyDetails => {
+const extractLookupPropertyDetails = (details: PropertyLookupInput | AddressDetails | null | undefined): PropertyDetails => {
+  const toOptionalNumber = (value: unknown): number | undefined => {
+    if (value === null || value === undefined || value === '') return undefined;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  };
+
   const lookupDetails =
     details?.property_details && typeof details.property_details === 'object'
       ? (details.property_details as PropertyDetails)
       : {};
+  const lookupInput = details as PropertyLookupInput | null | undefined;
 
   const sqft =
     details?.sqft ??
-    details?.squareFeet ??
-    details?.square_feet ??
+    lookupInput?.squareFeet ??
+    lookupInput?.square_feet ??
     lookupDetails.sqft ??
     lookupDetails.squareFeet ??
     lookupDetails.square_feet ??
@@ -272,23 +307,23 @@ const extractLookupPropertyDetails = (details: PropertyLookupInput | null | unde
 
   return {
     ...lookupDetails,
-    bedrooms: bedrooms ?? undefined,
-    beds: bedrooms ?? lookupDetails.beds ?? undefined,
-    bathrooms: bathrooms ?? undefined,
-    baths: bathrooms ?? lookupDetails.baths ?? undefined,
-    sqft: sqft ? Number(sqft) : undefined,
-    squareFeet: sqft ? Number(sqft) : lookupDetails.squareFeet ?? undefined,
+    bedrooms: toOptionalNumber(bedrooms) ?? lookupDetails.bedrooms ?? undefined,
+    beds: toOptionalNumber(bedrooms) ?? lookupDetails.beds ?? undefined,
+    bathrooms: toOptionalNumber(bathrooms) ?? lookupDetails.bathrooms ?? undefined,
+    baths: toOptionalNumber(bathrooms) ?? lookupDetails.baths ?? undefined,
+    sqft: toOptionalNumber(sqft),
+    squareFeet: toOptionalNumber(sqft) ?? lookupDetails.squareFeet ?? undefined,
     mls_id:
       details?.mls_id ??
       lookupDetails.mls_id ??
       lookupDetails.mlsId ??
       lookupDetails.mlsNumber ??
       undefined,
-    price: details?.price ?? lookupDetails.price ?? lookupDetails.listPrice ?? undefined,
-    lot_size: lotSize ? Number(lotSize) : undefined,
-    lotSize: lotSize ? Number(lotSize) : lookupDetails.lotSize ?? undefined,
-    year_built: yearBuilt ? Number(yearBuilt) : undefined,
-    yearBuilt: yearBuilt ? Number(yearBuilt) : lookupDetails.yearBuilt ?? undefined,
+    price: toOptionalNumber(details?.price) ?? lookupDetails.price ?? lookupDetails.listPrice ?? undefined,
+    lot_size: toOptionalNumber(lotSize),
+    lotSize: toOptionalNumber(lotSize) ?? lookupDetails.lotSize ?? undefined,
+    year_built: toOptionalNumber(yearBuilt),
+    yearBuilt: toOptionalNumber(yearBuilt) ?? lookupDetails.yearBuilt ?? undefined,
     property_type:
       details?.property_type ??
       lookupDetails.property_type ??
@@ -570,7 +605,7 @@ export function ShootEditModal({
   }, []);
 
   // Handle address selection from AddressLookupField
-  const handleAddressSelect = (details: PropertyLookupInput | null | undefined) => {
+  const handleAddressSelect = (details: AddressDetails) => {
     if (details) {
       setAddress(details.address || '');
       setCity(details.city || '');
@@ -623,6 +658,22 @@ export function ShootEditModal({
   const clientName = shootDetails?.client?.name || 'Unknown Client';
   const clientEmail = shootDetails?.client?.email || '';
   const clientPhone = shootDetails?.client?.phonenumber || shootDetails?.client?.phone || '';
+  const activeDiscountType = (shootDetails?.discount_type ??
+    shootDetails?.discountType ??
+    shootDetails?.payment?.discount_type ??
+    shootDetails?.payment?.discountType ??
+    shootDetails?.client?.client_discount_type ??
+    shootDetails?.client?.clientDiscountType ??
+    null) as PricingDiscountType;
+  const activeDiscountValue = Number(
+    shootDetails?.discount_value ??
+      shootDetails?.discountValue ??
+      shootDetails?.payment?.discount_value ??
+      shootDetails?.payment?.discountValue ??
+      shootDetails?.client?.client_discount_value ??
+      shootDetails?.client?.clientDiscountValue ??
+      0,
+  ) || 0;
   const photographerEmail =
     shootDetails?.photographer?.email ||
     photographers.find((photographer) => String(photographer.id) === String(photographerId || shootDetails?.photographer?.id))?.email ||
@@ -804,7 +855,12 @@ export function ShootEditModal({
       return sum + (service ? getServicePrice(service) : 0);
     }, 0);
     const normalizedTaxRate = taxPercent > 1 ? taxPercent / 100 : taxPercent;
-    const calculatedTax = Number((servicesTotal * normalizedTaxRate).toFixed(2));
+    const pricing = calculatePricingBreakdown({
+      serviceSubtotal: servicesTotal,
+      discountType: activeDiscountType,
+      discountValue: activeDiscountValue,
+      taxRate: normalizedTaxRate,
+    });
 
     const payload: Record<string, unknown> = {
       address: address.trim(),
@@ -821,9 +877,12 @@ export function ShootEditModal({
           price: service ? getServicePrice(service) : undefined
         };
       }),
-      base_quote: Number(servicesTotal.toFixed(2)),
-      tax_amount: calculatedTax,
-      total_quote: Number((servicesTotal + calculatedTax).toFixed(2)),
+      base_quote: pricing.discountedSubtotal,
+      discount_type: pricing.discountType,
+      discount_value: pricing.discountValue,
+      discount_amount: pricing.discountAmount,
+      tax_amount: pricing.taxAmount,
+      total_quote: pricing.totalQuote,
     };
 
     // Add photographer if selected (admin/rep only)
@@ -1199,6 +1258,7 @@ export function ShootEditModal({
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button
+                          type="button"
                           variant="outline"
                           className={cn(
                             'w-full justify-start text-left font-normal h-8 text-xs',
@@ -1518,8 +1578,15 @@ export function ShootEditModal({
                         return sum + (service ? getServicePrice(service) : 0);
                       }, 0);
                   const normalizedTaxRate = taxPercent > 1 ? taxPercent / 100 : taxPercent;
-                  const calculatedTax = Number((servicesTotal * normalizedTaxRate).toFixed(2));
-                  const total = servicesTotal + calculatedTax;
+                  const pricing = calculatePricingBreakdown({
+                    serviceSubtotal: servicesTotal,
+                    discountType: activeDiscountType,
+                    discountValue: activeDiscountValue,
+                    taxRate: normalizedTaxRate,
+                  });
+                  const discountLabel = pricing.discountType === 'fixed'
+                    ? `Discount ($${pricing.discountValue?.toFixed?.(2) ?? Number(pricing.discountValue || 0).toFixed(2)})`
+                    : `Discount (${Number(pricing.discountValue || 0)}%)`;
                   return (
                     <div className="pt-2 border-t mt-2 space-y-1">
                       <div className="flex items-center justify-between text-xs">
@@ -1535,10 +1602,16 @@ export function ShootEditModal({
                           {hasVariablePricingWithoutSqft ? 'TBD' : `$${servicesTotal.toFixed(2)}`}
                         </span>
                       </div>
+                      {!hasVariablePricingWithoutSqft && pricing.discountAmount > 0 && (
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-muted-foreground">{discountLabel}:</span>
+                          <span className="font-medium text-emerald-600">-${pricing.discountAmount.toFixed(2)}</span>
+                        </div>
+                      )}
                       {!hasVariablePricingWithoutSqft && taxPercent > 0 && (
                         <div className="flex items-center justify-between text-xs">
                           <span className="text-muted-foreground">Tax ({taxPercent > 1 ? taxPercent : (taxPercent * 100).toFixed(1)}%):</span>
-                          <span className="font-medium">${calculatedTax.toFixed(2)}</span>
+                          <span className="font-medium">${pricing.taxAmount.toFixed(2)}</span>
                         </div>
                       )}
                       <div className="flex items-center justify-between text-xs font-semibold">
@@ -1546,7 +1619,7 @@ export function ShootEditModal({
                         <span className={cn(
                           hasVariablePricingWithoutSqft ? "text-amber-600" : "text-emerald-600"
                         )}>
-                          {hasVariablePricingWithoutSqft ? 'TBD' : `$${total.toFixed(2)}`}
+                          {hasVariablePricingWithoutSqft ? 'TBD' : `$${pricing.totalQuote.toFixed(2)}`}
                         </span>
                       </div>
                       {hasVariablePricingWithoutSqft && (

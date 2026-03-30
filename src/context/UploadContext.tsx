@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { API_BASE_URL } from '@/config/env';
@@ -35,6 +36,15 @@ interface TrackUploadParams {
   uploadFn: (onProgress: (progress: number) => void) => Promise<void>;
   onComplete?: () => void;
   onError?: (error: string) => void;
+}
+
+interface UploadRequestError {
+  message?: string;
+  response?: {
+    data?: {
+      message?: string;
+    };
+  };
 }
 
 interface UploadContextType {
@@ -99,8 +109,8 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setUploads(prev => [...prev, newUpload]);
 
     const formData = new FormData();
-    params.files.forEach((file, idx) => {
-      formData.append(`files[${idx}]`, file);
+    params.files.forEach((file) => {
+      formData.append('files[]', file);
     });
     formData.append('service_category', params.serviceCategory || 'P');
     formData.append('upload_type', params.uploadType);
@@ -185,14 +195,14 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         params.onComplete?.();
         autoCleanup(uploadId);
       })
-      .catch((error: any) => {
+      .catch((error: unknown) => {
         setUploads(prev =>
           prev.map(u => u.id === uploadId
-            ? { ...u, status: 'failed', error: error?.message || 'Upload failed' }
+            ? { ...u, status: 'failed', error: (error as UploadRequestError)?.message || 'Upload failed' }
             : u
           )
         );
-        params.onError?.(error?.message || 'Upload failed');
+        params.onError?.((error as UploadRequestError)?.message || 'Upload failed');
       });
 
     return uploadId;

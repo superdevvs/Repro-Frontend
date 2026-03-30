@@ -99,6 +99,7 @@ export function UploadDropzone({
         <h3 className="text-lg font-semibold mb-2">{title}</h3>
         <p className="text-sm text-muted-foreground text-center mb-6 max-w-md">{description}</p>
         <Button
+          type="button"
           variant="default"
           size="lg"
           className="bg-primary hover:bg-primary/90"

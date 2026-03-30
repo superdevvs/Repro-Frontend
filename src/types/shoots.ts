@@ -169,6 +169,15 @@ export interface ShootServiceObject {
   photographer?: ShootServicePhotographer | null;
 }
 
+export type ShootTourLinkValue =
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | Record<string, unknown>
+  | unknown[];
+
 export interface ShootData {
   id: string;
   scheduledDate: string;
@@ -221,6 +230,7 @@ export interface ShootData {
     discountAmount?: number;
     discountedSubtotal?: number;
     taxRate: number;
+    taxPercent?: number;
     taxAmount: number;
     totalQuote: number;
     totalPaid: number;  // Making this required
@@ -245,15 +255,26 @@ export interface ShootData {
   issuesResolvedAt?: string;
   issuesResolvedBy?: string;
   submittedForReviewAt?: string;
-  createdBy: string;
+  createdBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
   completedDate?: string;
   package?: ShootPackageInfo;
+  package_details?: ShootPackageInfo;
   bracketMode?: BracketMode;
+  baseQuote?: number;
+  totalQuote?: number;
+  totalPaid?: number;
+  taxAmount?: number;
   expectedFinalCount?: number;
   expectedRawCount?: number;
   rawPhotoCount?: number;
   editedPhotoCount?: number;
   extraPhotoCount?: number;
+  totalPhotographerPay?: number;
+  photographerPay?: number;
+  taxPercent?: number;
+  tax_percent?: number;
   rawMissingCount?: number;
   editedMissingCount?: number;
   missingRaw?: boolean;
@@ -280,7 +301,7 @@ export interface ShootData {
     video_mls?: string;
     video_generic?: string;
     tour_style?: string;
-    [key: string]: any;
+    [key: string]: ShootTourLinkValue;
   };
   iguideTourUrl?: string;
   iguideFloorplans?: Array<{ url?: string; filename?: string; [key: string]: unknown } | string>;
@@ -294,8 +315,21 @@ export interface ShootData {
     lockboxLocation?: string;
     accessContactName?: string;
     accessContactPhone?: string;
+    bedrooms?: string | number | null;
+    bathrooms?: string | number | null;
+    sqft?: string | number | null;
+    beds?: string | number | null;
+    baths?: string | number | null;
+    squareFeet?: string | number | null;
+    square_feet?: string | number | null;
+    price?: string | number | null;
+    mls_id?: string | number | null;
+    lot_size?: string | number | null;
+    year_built?: string | number | null;
     [key: string]: unknown;
   };
+  property_details?: ShootData['propertyDetails'];
+  extraData?: Record<string, unknown>;
   cancellationRequestedAt?: string;
   cancellationReason?: string;
   holdRequestedAt?: string;

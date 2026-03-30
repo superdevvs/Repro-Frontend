@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { API_BASE_URL } from '@/config/env';
 import { getApiHeaders } from '@/services/api';
@@ -30,6 +32,50 @@ interface MediaViewerProps {
   onDownloadSingle?: (fileId: string) => void;
   onShootUpdate?: () => void;
 }
+
+interface MediaIssueRequest {
+  id: string;
+  mediaId?: string;
+  mediaIds?: string[];
+  note: string;
+  status: 'open' | 'in-progress' | 'resolved' | string;
+  createdAt?: string;
+  updatedAt?: string;
+  assignedToRole?: 'editor' | 'photographer' | string;
+  raisedBy?: {
+    id?: string;
+    name?: string;
+    role?: string;
+  };
+}
+
+const formatViewerFileSize = (bytes?: number) => {
+  if (!bytes) return '—';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+};
+
+const formatViewerDateTime = (value?: string | null) => {
+  if (!value) return '—';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '—';
+  return parsed.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+};
+
+const getRequestStatusClassName = (status?: string) => {
+  if (status === 'resolved') return 'border-emerald-500/30 bg-emerald-500/15 text-emerald-200';
+  if (status === 'in-progress') return 'border-amber-500/30 bg-amber-500/15 text-amber-100';
+  return 'border-rose-500/30 bg-rose-500/15 text-rose-100';
+};
 
 export function MediaViewer({ 
   isOpen, 
@@ -97,17 +143,104 @@ export function MediaViewer({
   const [flagReason, setFlagReason] = useState('');
   const [flagging, setFlagging] = useState(false);
   const [commentDraft, setCommentDraft] = useState('');
+  const [viewerRequests, setViewerRequests] = useState<MediaIssueRequest[]>([]);
+  const [requestsLoading, setRequestsLoading] = useState(false);
+  const [requestRefreshKey, setRequestRefreshKey] = useState(0);
   const currentFile = files[currentIndex];
-  const latestComment =
-    currentFile?.latest_comment?.comment ||
-    (currentFile?.comments && currentFile.comments.length > 0
-      ? currentFile.comments[currentFile.comments.length - 1]?.comment
-      : '') ||
-    '';
+  const fileComments = useMemo(
+    () => {
+      const comments = Array.isArray(currentFile?.comments)
+        ? currentFile.comments.filter((comment) => comment?.comment?.trim())
+        : [];
+
+      if (comments.length > 0) {
+        return comments;
+      }
+
+      const latestSingleComment = currentFile?.latest_comment;
+      return latestSingleComment && latestSingleComment.comment?.trim() ? [latestSingleComment] : [];
+    },
+    [currentFile],
+  );
+  const latestComment = fileComments.length > 0 ? fileComments[fileComments.length - 1]?.comment ?? '' : '';
+  const relatedRequests = useMemo(
+    () => {
+      const currentFileId = String(currentFile?.id ?? '');
+      if (!currentFileId) {
+        return [];
+      }
+
+      return viewerRequests
+        .filter((request) => {
+          const mediaIds = [
+            ...(Array.isArray(request.mediaIds) ? request.mediaIds : []),
+            request.mediaId,
+          ]
+            .filter(Boolean)
+            .map((value) => String(value));
+
+          return mediaIds.includes(currentFileId);
+        })
+        .sort((a, b) => {
+          const aTime = new Date(a.updatedAt || a.createdAt || 0).getTime();
+          const bTime = new Date(b.updatedAt || b.createdAt || 0).getTime();
+          return bTime - aTime;
+        });
+    },
+    [currentFile?.id, viewerRequests],
+  );
 
   useEffect(() => {
     setCommentDraft('');
   }, [currentFile?.id]);
+
+  useEffect(() => {
+    if (!isOpen || !shoot?.id) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadViewerRequests = async () => {
+      setRequestsLoading(true);
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/issues`, {
+          method: 'GET',
+          headers: getApiHeaders(),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to load image requests');
+        }
+
+        const payload = await response.json();
+        const nextRequests = Array.isArray(payload?.data)
+          ? payload.data
+          : Array.isArray(payload)
+            ? payload
+            : [];
+
+        if (!cancelled) {
+          setViewerRequests(nextRequests);
+        }
+      } catch {
+        if (!cancelled) {
+          setViewerRequests([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setRequestsLoading(false);
+        }
+      }
+    };
+
+    void loadViewerRequests();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, requestRefreshKey, shoot?.id]);
 
   const handleFlagImage = async () => {
     if (!shoot || !currentFile || !flagReason.trim()) return;
@@ -149,6 +282,7 @@ export function MediaViewer({
       });
       setShowFlagDialog(false);
       setFlagReason('');
+      setRequestRefreshKey((current) => current + 1);
       onShootUpdate?.();
     } catch (error) {
       toast({
@@ -158,6 +292,34 @@ export function MediaViewer({
       });
     } finally {
       setFlagging(false);
+    }
+  };
+
+  const handleSetHeroImage = async () => {
+    if (!shoot || !currentFile) {
+      return;
+    }
+
+    try {
+      const headers = getApiHeaders();
+      const response = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/media/${currentFile.id}/cover`, {
+        method: 'POST',
+        headers,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+        throw new Error(errorData.message || `HTTP ${response.status}`);
+      }
+
+      toast({ title: 'Hero Image', description: 'Hero image updated successfully' });
+      onShootUpdate?.();
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to set hero image',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -238,6 +400,32 @@ export function MediaViewer({
         mediaType !== 'extra' &&
         mediaType !== 'floorplan' &&
         ['completed', 'verified'].includes((currentFile.workflowStage || '').toLowerCase())));
+  const detailRows: Array<{ label: string; value: string }> = [
+    {
+      label: 'Type',
+      value: currentFile.fileType?.split('/').pop()?.toUpperCase() || fileExt || '—',
+    },
+    {
+      label: 'Media',
+      value: currentFile.media_type ? String(currentFile.media_type).replace(/_/g, ' ') : '—',
+    },
+    {
+      label: 'Stage',
+      value: currentFile.workflowStage ? String(currentFile.workflowStage).replace(/_/g, ' ') : '—',
+    },
+    {
+      label: 'Resolution',
+      value: currentFile.width && currentFile.height ? `${currentFile.width} × ${currentFile.height}` : '—',
+    },
+    {
+      label: 'Captured',
+      value: formatViewerDateTime(currentFile.captured_at || currentFile.created_at),
+    },
+    {
+      label: 'Size',
+      value: !isClient ? formatViewerFileSize(currentFile.fileSize) : '—',
+    },
+  ];
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -277,172 +465,10 @@ export function MediaViewer({
             <Button
               variant="ghost"
               size="icon"
-              className="absolute left-1 sm:left-4 z-10 text-white hover:bg-white/20 h-10 w-10 sm:h-12 sm:w-12"
+              className="absolute left-2 top-1/2 z-20 h-10 w-10 -translate-y-1/2 text-white hover:bg-white/20 sm:left-4 sm:h-12 sm:w-12"
               onClick={handlePrevious}
             >
               <ChevronLeft className="h-6 w-6 sm:h-8 sm:w-8" />
-            </Button>
-          )}
-
-          {/* Top Metadata Bar */}
-          {(isImg || isVid) && currentFile && (
-            <div className="absolute top-12 sm:top-4 left-1/2 -translate-x-1/2 z-20 bg-black/60 backdrop-blur-md rounded-lg px-3 sm:px-4 py-1.5 sm:py-2 flex items-center gap-2 sm:gap-4 text-white text-xs sm:text-sm max-w-[90vw]">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="font-medium truncate">{currentFile.filename}</span>
-              </div>
-              {currentFile.width && currentFile.height && (
-                <div className="text-white/70 hidden sm:block">
-                  {currentFile.width} × {currentFile.height}
-                </div>
-              )}
-              {!isClient && currentFile.fileSize && (
-                <div className="text-white/70 hidden sm:block">
-                  {(currentFile.fileSize / 1024 / 1024).toFixed(2)} MB
-                </div>
-              )}
-              {canSetHero && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-xs text-white hover:bg-white/20"
-                  onClick={async () => {
-                    try {
-                      const headers = getApiHeaders();
-                      const response = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/media/${currentFile.id}/cover`, {
-                        method: 'POST',
-                        headers,
-                      });
-                      if (!response.ok) {
-                        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
-                        console.error('Cover API error:', response.status, errorData);
-                        throw new Error(errorData.message || `HTTP ${response.status}`);
-                      }
-                      toast({ title: 'Hero Image', description: 'Hero image updated successfully' });
-                      onShootUpdate();
-                    } catch (error) {
-                      console.error('Set cover error:', error);
-                      toast({ title: 'Error', description: error instanceof Error ? error.message : 'Failed to set hero image', variant: 'destructive' });
-                    }
-                  }}
-                >
-                  <CheckCircle2 className="h-3 w-3 mr-1" />
-                  Make Hero
-                </Button>
-              )}
-              {canInteractSingleMedia && onToggleFavorite && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-xs text-white hover:bg-white/20"
-                  onClick={() => onToggleFavorite(currentFile.id)}
-                >
-                  <Heart className={`h-3 w-3 mr-1 ${currentFile.is_favorite ? 'fill-current' : ''}`} />
-                  {currentFile.is_favorite ? 'Liked' : 'Like'}
-                </Button>
-              )}
-              {canInteractSingleMedia && onDownloadSingle && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-xs text-white hover:bg-white/20"
-                  onClick={() => onDownloadSingle(currentFile.id)}
-                >
-                  <Download className="h-3 w-3 mr-1" />
-                  Download
-                </Button>
-              )}
-              {onToggleHidden && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-xs text-white hover:bg-white/20"
-                  onClick={() => onToggleHidden(currentFile.id, !currentFile.is_hidden)}
-                >
-                  {currentFile.is_hidden ? <Eye className="h-3 w-3 mr-1" /> : <EyeOff className="h-3 w-3 mr-1" />}
-                  {currentFile.is_hidden ? 'Unhide' : 'Hide'}
-                </Button>
-              )}
-            </div>
-          )}
-
-          <div className="flex items-center justify-center p-2 sm:p-8 overflow-auto" style={{ transform: isVid ? undefined : `scale(${zoom})`, transformOrigin: 'center' }}>
-            {isImg ? (
-              <img
-                src={imageUrl}
-                srcSet={srcSet}
-                sizes="95vw"
-                alt={currentFile.filename}
-                className="max-w-full max-h-[60vh] sm:max-h-[70vh] object-contain select-none rounded-lg shadow-2xl"
-                loading="eager"
-                draggable={false}
-              />
-            ) : isVid ? (
-              <video
-                key={currentFile.id}
-                src={videoUrl}
-                controls
-                autoPlay
-                className="max-w-full max-h-[60vh] sm:max-h-[70vh] object-contain select-none rounded-lg shadow-2xl"
-                style={{ outline: 'none' }}
-              />
-            ) : (
-              <div className="text-white text-center">
-                <FileIcon className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-4" />
-                <p className="text-sm sm:text-base">{currentFile.filename}</p>
-              </div>
-            )}
-          </div>
-
-          {/* Zoom Controls */}
-          {isImg && (
-            <div className="absolute top-2 sm:top-4 left-2 sm:left-4 z-20 flex items-center gap-1 sm:gap-2 bg-black/60 backdrop-blur-md rounded-lg p-1 sm:p-1.5">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 sm:h-8 sm:w-8 text-white hover:bg-white/20"
-                onClick={handleZoomOut}
-                disabled={zoom <= 0.5}
-                title="Zoom out"
-              >
-                <span className="text-sm">−</span>
-              </Button>
-              <span className="text-white text-[10px] sm:text-xs min-w-[2.5rem] sm:min-w-[3rem] text-center font-medium">{Math.round(zoom * 100)}%</span>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 sm:h-8 sm:w-8 text-white hover:bg-white/20"
-                onClick={handleZoomIn}
-                disabled={zoom >= 3}
-                title="Zoom in"
-              >
-                <span className="text-sm">+</span>
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 sm:h-8 text-[10px] sm:text-xs text-white hover:bg-white/20 hidden sm:inline-flex"
-                onClick={handleResetZoom}
-                title="Reset zoom (0)"
-              >
-                Reset
-              </Button>
-            </div>
-          )}
-
-          {/* Flag Image Button (Admin only) */}
-          {isAdmin && isImg && shoot && (
-            <Button
-              variant="destructive"
-              size="sm"
-              className="absolute top-2 sm:top-4 right-14 sm:left-1/2 sm:-translate-x-1/2 sm:right-auto z-10 h-7 sm:h-8 text-xs"
-              onClick={() => {
-                blurActiveElement();
-                setShowFlagDialog(true);
-              }}
-            >
-              <AlertCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1" />
-              <span className="hidden sm:inline">Flag Issue</span>
-              <span className="sm:hidden">Flag</span>
             </Button>
           )}
 
@@ -450,119 +476,390 @@ export function MediaViewer({
             <Button
               variant="ghost"
               size="icon"
-              className="absolute right-1 sm:right-4 z-10 text-white hover:bg-white/20 h-10 w-10 sm:h-12 sm:w-12"
+              className="absolute right-2 top-1/2 z-20 h-10 w-10 -translate-y-1/2 text-white hover:bg-white/20 sm:right-4 sm:h-12 sm:w-12"
               onClick={handleNext}
             >
               <ChevronRight className="h-6 w-6 sm:h-8 sm:w-8" />
             </Button>
           )}
 
-          {/* Bottom Filmstrip */}
-          <div className="absolute bottom-0 left-0 right-0 bg-black/80 backdrop-blur-md text-white p-2 sm:p-4 z-20">
-            <div className="flex items-center justify-between mb-2 sm:mb-3">
-              <div className="min-w-0">
-                <div className="font-medium text-xs sm:text-sm truncate">{currentFile.filename}</div>
-                <div className="text-[10px] sm:text-xs text-gray-300">
-                  {currentIndex + 1} of {files.length}
-                </div>
-              </div>
-              <div className="text-xs text-gray-400 hidden sm:block">
-                Use ← → arrow keys to navigate • + - to zoom • ESC to close
-              </div>
-            </div>
-            {(latestComment || canInteractSingleMedia) && (
-              <div className="mb-3 rounded-lg border border-white/10 bg-white/5 p-3">
-                <div className="flex items-center gap-2 text-xs font-medium text-white/80">
-                  <MessageSquare className="h-3.5 w-3.5" />
-                  Image comments
-                </div>
-                {latestComment ? (
-                  <p className="mt-2 text-xs text-white/90">{latestComment}</p>
-                ) : (
-                  <p className="mt-2 text-xs text-white/60">No comments yet.</p>
-                )}
-                {canInteractSingleMedia && onAddComment && (
-                  <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-                    <Textarea
-                      value={commentDraft}
-                      onChange={(event) => setCommentDraft(event.target.value)}
-                      placeholder="Add a comment for this image..."
-                      className="min-h-[72px] border-white/10 bg-black/30 text-white placeholder:text-white/45"
-                    />
-                    <Button
-                      className="sm:self-end"
-                      onClick={() => {
-                        if (!commentDraft.trim()) return;
-                        onAddComment(currentFile.id, commentDraft);
-                        setCommentDraft('');
-                      }}
-                      disabled={!commentDraft.trim()}
-                    >
-                      Save comment
-                    </Button>
+          <div className="flex h-full w-full min-h-0 flex-col px-3 pb-3 pt-14 sm:px-4 sm:pb-4 sm:pt-16 lg:px-6 lg:pb-6">
+            <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-[minmax(0,65fr)_minmax(320px,35fr)] lg:gap-4">
+              <div className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md">
+                {/* Top Metadata Bar */}
+                <div className="flex flex-wrap items-start justify-between gap-3 border-b border-white/10 px-3 py-3 sm:px-4">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-white sm:text-base">{currentFile.filename}</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-white/60">
+                      <span>{currentIndex + 1} of {files.length}</span>
+                      {currentFile.width && currentFile.height && <span>{currentFile.width} × {currentFile.height}</span>}
+                      {!isClient && currentFile.fileSize && <span>{formatViewerFileSize(currentFile.fileSize)}</span>}
+                    </div>
                   </div>
-                )}
-              </div>
-            )}
-            
-            {/* Filmstrip Thumbnails */}
-            <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-1 sm:pb-2 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
-              {files.map((file, index) => {
-                const isActive = index === currentIndex;
-                const fileImageUrl = getImageUrl(file, 'thumb');
-                const fileIsImg = isImageFile(file);
-                const fileIsVid = isVideoFile(file);
-                const fileIsRaw = isRawFile(file.filename);
-                // For RAW files, only show thumbnail if processed (thumbnail_path exists)
-                const hasDisplayableThumb = fileIsRaw 
-                  ? !!(file.thumbnail_path || file.web_path)
-                  : fileIsImg;
-                
-                return (
-                  <button
-                    key={file.id}
-                    onClick={() => {
-                      onIndexChange(index);
-                      setZoom(1);
-                    }}
-                    className={`relative flex-shrink-0 w-12 h-12 sm:w-16 sm:h-16 rounded overflow-hidden border-2 transition-all ${
-                      isActive 
-                        ? 'border-white ring-2 ring-white/50 scale-105' 
-                        : 'border-white/30 hover:border-white/60 opacity-70 hover:opacity-100'
-                    }`}
-                  >
-                    {hasDisplayableThumb && fileImageUrl ? (
-                      <img
-                        src={fileImageUrl}
-                        alt={file.filename}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none';
-                          const fallback = e.currentTarget.nextElementSibling as HTMLElement;
-                          if (fallback) fallback.style.display = 'flex';
-                        }}
-                      />
-                    ) : null}
-                    <div 
-                      className="w-full h-full bg-muted items-center justify-center"
-                      style={{ display: hasDisplayableThumb && fileImageUrl ? 'none' : 'flex' }}
-                    >
-                      {fileIsVid ? (
-                        <Play className="h-6 w-6 text-muted-foreground" />
+                  {/* Zoom Controls */}
+                  {isImg ? (
+                    <div className="flex items-center gap-1 rounded-lg bg-black/30 p-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-white hover:bg-white/15"
+                        onClick={handleZoomOut}
+                        disabled={zoom <= 0.5}
+                        title="Zoom out"
+                      >
+                        <span className="text-sm">−</span>
+                      </Button>
+                      <span className="min-w-[3rem] text-center text-xs font-medium text-white">{Math.round(zoom * 100)}%</span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-white hover:bg-white/15"
+                        onClick={handleZoomIn}
+                        disabled={zoom >= 3}
+                        title="Zoom in"
+                      >
+                        <span className="text-sm">+</span>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="hidden h-8 text-xs text-white hover:bg-white/15 sm:inline-flex"
+                        onClick={handleResetZoom}
+                        title="Reset zoom (0)"
+                      >
+                        Reset
+                      </Button>
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-white/55">Use ← → to navigate • ESC to close</p>
+                  )}
+                </div>
+
+                <div className="flex min-h-0 flex-1 flex-col">
+                  <div className="flex min-h-0 flex-1 items-center justify-center p-3 sm:p-4">
+                    <div className="flex h-full min-h-[260px] w-full items-center justify-center overflow-auto rounded-xl bg-black/45 p-3 sm:p-4">
+                      {isImg ? (
+                        <img
+                          src={imageUrl}
+                          srcSet={srcSet}
+                          sizes="(min-width: 1024px) 60vw, 100vw"
+                          alt={currentFile.filename}
+                          className="max-h-full max-w-full select-none rounded-xl object-contain shadow-2xl transition-transform duration-200"
+                          style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
+                          loading="eager"
+                          draggable={false}
+                        />
+                      ) : isVid ? (
+                        <video
+                          key={currentFile.id}
+                          src={videoUrl}
+                          controls
+                          autoPlay
+                          className="max-h-full max-w-full rounded-xl object-contain shadow-2xl"
+                          style={{ outline: 'none' }}
+                        />
                       ) : (
-                        <FileIcon className="h-6 w-6 text-muted-foreground" />
+                        <div className="text-white text-center">
+                          <FileIcon className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-4" />
+                          <p className="text-sm sm:text-base">{currentFile.filename}</p>
+                        </div>
                       )}
                     </div>
-                    {fileIsVid && (
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="bg-black/50 rounded-full p-0.5">
-                          <Play className="h-3 w-3 sm:h-4 sm:w-4 text-white fill-white" />
+                  </div>
+
+                  {(latestComment || canInteractSingleMedia) && (
+                    <div className="border-t border-white/10 px-3 py-3 sm:px-4">
+                      <div className="rounded-xl border border-white/10 bg-black/25 p-3">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 text-sm font-medium text-white">
+                              <MessageSquare className="h-4 w-4" />
+                              Comment on this image
+                            </div>
+                            <p className="mt-1 line-clamp-1 text-[11px] text-white/55">
+                              {latestComment ? `Latest: ${latestComment}` : 'Add feedback without covering the preview.'}
+                            </p>
+                          </div>
+                          <Badge className="border-white/10 bg-white/10 text-white/80 hover:bg-white/10">
+                            {Number(currentFile.comment_count ?? fileComments.length)} comment{Number(currentFile.comment_count ?? fileComments.length) === 1 ? '' : 's'}
+                          </Badge>
+                        </div>
+                        {canInteractSingleMedia && onAddComment && (
+                          <div className="mt-3 flex flex-col gap-2">
+                            <Textarea
+                              value={commentDraft}
+                              onChange={(event) => setCommentDraft(event.target.value)}
+                              placeholder="Add a comment for this image..."
+                              className="min-h-[72px] resize-none border-white/10 bg-black/30 text-white placeholder:text-white/45"
+                            />
+                            <div className="flex items-center justify-end gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-white hover:bg-white/10 hover:text-white"
+                                onClick={() => setCommentDraft('')}
+                                disabled={!commentDraft.trim()}
+                              >
+                                Clear
+                              </Button>
+                              <Button
+                                size="sm"
+                                className="bg-blue-600 text-white hover:bg-blue-700"
+                                onClick={() => {
+                                  if (!commentDraft.trim()) return;
+                                  onAddComment(currentFile.id, commentDraft);
+                                  setCommentDraft('');
+                                }}
+                                disabled={!commentDraft.trim()}
+                              >
+                                Save comment
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {/* Bottom Filmstrip */}
+                  <div className="border-t border-white/10 px-3 py-3 sm:px-4">
+                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-medium text-white">All media</p>
+                        <p className="text-[11px] text-white/55">
+                          {isImg ? 'Use ← → to navigate • + - to zoom • ESC to close' : 'Use ← → to navigate • ESC to close'}
+                        </p>
+                      </div>
+                      <p className="text-[11px] text-white/50">{currentIndex + 1} of {files.length}</p>
+                    </div>
+
+                    {/* Filmstrip Thumbnails */}
+                    <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
+                      {files.map((file, index) => {
+                        const isActive = index === currentIndex;
+                        const fileImageUrl = getImageUrl(file, 'thumb');
+                        const fileIsImg = isImageFile(file);
+                        const fileIsVid = isVideoFile(file);
+                        const fileIsRaw = isRawFile(file.filename);
+                        const hasDisplayableThumb = fileIsRaw
+                          ? !!(file.thumbnail_path || file.web_path)
+                          : fileIsImg;
+
+                        return (
+                          <button
+                            key={file.id}
+                            onClick={() => {
+                              onIndexChange(index);
+                              setZoom(1);
+                            }}
+                            className={`relative flex-shrink-0 w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden border-2 transition-all ${
+                              isActive
+                                ? 'border-white ring-2 ring-white/50 scale-[1.03]'
+                                : 'border-white/20 hover:border-white/60 opacity-70 hover:opacity-100'
+                            }`}
+                          >
+                            {hasDisplayableThumb && fileImageUrl ? (
+                              <img
+                                src={fileImageUrl}
+                                alt={file.filename}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                  const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                                  if (fallback) fallback.style.display = 'flex';
+                                }}
+                              />
+                            ) : null}
+                            <div
+                              className="w-full h-full bg-muted items-center justify-center"
+                              style={{ display: hasDisplayableThumb && fileImageUrl ? 'none' : 'flex' }}
+                            >
+                              {fileIsVid ? (
+                                <Play className="h-6 w-6 text-muted-foreground" />
+                              ) : (
+                                <FileIcon className="h-6 w-6 text-muted-foreground" />
+                              )}
+                            </div>
+                            {fileIsVid && (
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <div className="bg-black/50 rounded-full p-0.5">
+                                  <Play className="h-3 w-3 sm:h-4 sm:w-4 text-white fill-white" />
+                                </div>
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="min-h-0 overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md">
+                <ScrollArea className="h-full">
+                  <div className="space-y-4 p-3 text-white sm:p-4">
+                    <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-xs uppercase tracking-[0.18em] text-white/45">Current file</p>
+                          <p className="mt-1 text-lg font-semibold leading-tight">{currentFile.filename}</p>
+                          <p className="mt-1 text-xs text-white/55">
+                            {fileExt ? `${fileExt} file` : 'Preview item'}{currentFile.isExtra ? ' • Extra delivery' : ''}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {currentFile.is_cover && <Badge className="border-blue-500/30 bg-blue-500/15 text-blue-100 hover:bg-blue-500/15">Hero</Badge>}
+                          {currentFile.is_favorite && <Badge className="border-rose-500/30 bg-rose-500/15 text-rose-100 hover:bg-rose-500/15">Liked</Badge>}
+                          {currentFile.is_hidden && <Badge className="border-amber-500/30 bg-amber-500/15 text-amber-100 hover:bg-amber-500/15">Hidden</Badge>}
+                          {currentFile.isExtra && <Badge className="border-orange-500/30 bg-orange-500/15 text-orange-100 hover:bg-orange-500/15">Extra</Badge>}
                         </div>
                       </div>
+                    </div>
+
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {canSetHero && (
+                        <Button
+                          variant="outline"
+                          className="justify-start border-white/10 bg-white/5 text-white hover:bg-white/10 hover:text-white"
+                          onClick={handleSetHeroImage}
+                        >
+                          <CheckCircle2 className="mr-2 h-4 w-4" />
+                          Make hero
+                        </Button>
+                      )}
+                      {canInteractSingleMedia && onToggleFavorite && (
+                        <Button
+                          variant="outline"
+                          className="justify-start border-white/10 bg-white/5 text-white hover:bg-white/10 hover:text-white"
+                          onClick={() => onToggleFavorite(currentFile.id)}
+                        >
+                          <Heart className={`mr-2 h-4 w-4 ${currentFile.is_favorite ? 'fill-current' : ''}`} />
+                          {currentFile.is_favorite ? 'Liked' : 'Like'}
+                        </Button>
+                      )}
+                      {canInteractSingleMedia && onDownloadSingle && (
+                        <Button
+                          variant="outline"
+                          className="justify-start border-white/10 bg-white/5 text-white hover:bg-white/10 hover:text-white"
+                          onClick={() => onDownloadSingle(currentFile.id)}
+                        >
+                          <Download className="mr-2 h-4 w-4" />
+                          Download
+                        </Button>
+                      )}
+                      {onToggleHidden && (
+                        <Button
+                          variant="outline"
+                          className="justify-start border-white/10 bg-white/5 text-white hover:bg-white/10 hover:text-white"
+                          onClick={() => onToggleHidden(currentFile.id, !currentFile.is_hidden)}
+                        >
+                          {currentFile.is_hidden ? <Eye className="mr-2 h-4 w-4" /> : <EyeOff className="mr-2 h-4 w-4" />}
+                          {currentFile.is_hidden ? 'Unhide image' : 'Hide image'}
+                        </Button>
+                      )}
+                      {/* Flag Image Button (Admin only) */}
+                      {isAdmin && isImg && shoot && (
+                        <Button
+                          variant="destructive"
+                          className="justify-start"
+                          onClick={() => {
+                            blurActiveElement();
+                            setShowFlagDialog(true);
+                          }}
+                        >
+                          <AlertCircle className="mr-2 h-4 w-4" />
+                          Flag issue
+                        </Button>
+                      )}
+                    </div>
+
+                    <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+                      <p className="text-sm font-medium">File details</p>
+                      <div className="mt-3 space-y-3">
+                        {detailRows.map((row) => (
+                          <div key={row.label} className="flex items-start justify-between gap-3 text-sm">
+                            <span className="text-white/55">{row.label}</span>
+                            <span className="text-right text-white/90">{row.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-medium">Comments</p>
+                        <Badge className="border-white/10 bg-white/10 text-white/80 hover:bg-white/10">
+                          {Number(currentFile.comment_count ?? fileComments.length)}
+                        </Badge>
+                      </div>
+                      {fileComments.length > 0 ? (
+                        <div className="mt-3 space-y-3">
+                          {fileComments.slice().reverse().map((comment, index) => (
+                            <div key={`${comment.timestamp ?? comment.comment}-${index}`} className="rounded-lg border border-white/10 bg-white/5 p-3">
+                              <div className="flex items-center justify-between gap-2 text-xs text-white/55">
+                                <span>{comment.author || 'Team note'}</span>
+                                <span>{formatViewerDateTime(comment.timestamp)}</span>
+                              </div>
+                              <p className="mt-2 whitespace-pre-wrap break-words text-sm text-white/90">{comment.comment}</p>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="mt-3 text-sm text-white/55">
+                          {canInteractSingleMedia && onAddComment ? 'No comments yet. Use the composer on the left to add one.' : 'No comments on this image yet.'}
+                        </p>
+                      )}
+                    </div>
+
+                    {(relatedRequests.length > 0 || requestsLoading) && (
+                      <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-medium">Revision history</p>
+                          {requestsLoading ? (
+                            <span className="text-xs text-white/55">Loading...</span>
+                          ) : (
+                            <Badge className="border-white/10 bg-white/10 text-white/80 hover:bg-white/10">
+                              {relatedRequests.length} request{relatedRequests.length === 1 ? '' : 's'}
+                            </Badge>
+                          )}
+                        </div>
+                        {requestsLoading ? (
+                          <p className="mt-3 text-sm text-white/55">Loading request history...</p>
+                        ) : (
+                          <div className="mt-3 space-y-3">
+                            {relatedRequests.map((request) => (
+                              <div key={request.id} className="rounded-lg border border-white/10 bg-white/5 p-3">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <Badge className={`${getRequestStatusClassName(request.status)} border capitalize`}>
+                                    {String(request.status || 'open').replace(/-/g, ' ')}
+                                  </Badge>
+                                  <span className="text-xs text-white/50">{formatViewerDateTime(request.updatedAt || request.createdAt)}</span>
+                                </div>
+                                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-white/55">
+                                  <span>{request.raisedBy?.name || 'Client request'}</span>
+                                  {request.assignedToRole && <span>Assigned to {request.assignedToRole}</span>}
+                                </div>
+                                <p className="mt-2 whitespace-pre-wrap break-words text-sm text-white/90">{request.note}</p>
+                              </div>
+                            ))}
+                            {shoot?.issuesResolvedAt && (
+                              <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/10 p-3">
+                                <p className="text-sm font-medium text-emerald-100">Issues resolved</p>
+                                <p className="mt-1 text-xs text-emerald-50/80">{formatViewerDateTime(shoot.issuesResolvedAt)}</p>
+                              </div>
+                            )}
+                            {shoot?.submittedForReviewAt && (
+                              <div className="rounded-lg border border-blue-500/25 bg-blue-500/10 p-3">
+                                <p className="text-sm font-medium text-blue-100">Submitted for review</p>
+                                <p className="mt-1 text-xs text-blue-50/80">{formatViewerDateTime(shoot.submittedForReviewAt)}</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     )}
-                  </button>
-                );
-              })}
+                  </div>
+                </ScrollArea>
+              </div>
             </div>
           </div>
         </div>

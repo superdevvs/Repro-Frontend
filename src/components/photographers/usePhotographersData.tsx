@@ -43,7 +43,7 @@ export function usePhotographersData() {
           .sort((a, b) => b[1] - a[1])[0]?.[0] || '';
         
         photographersMap.set(photographer.name, {
-          id: photographer.id || photographer.name.replace(/\s+/g, '-').toLowerCase(),
+          id: String(photographer.id || photographer.name.replace(/\s+/g, '-').toLowerCase()),
           name: photographer.name,
           // Generate default email since it's not available in the shoot data
           email: `${photographer.name.toLowerCase().replace(/\s+/g, '.')}@example.com`,

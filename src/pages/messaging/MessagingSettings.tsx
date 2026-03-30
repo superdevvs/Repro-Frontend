@@ -1,96 +1,47 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Plus, Trash2, Check, AlertCircle, Send, Loader2 } from 'lucide-react';
+import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
+  createEmailChannel,
+  deleteEmailChannel,
   getEmailSettings,
   getSmsSettings,
   saveSmsSettings,
-  createEmailChannel,
-  updateEmailChannel,
-  deleteEmailChannel,
   testEmailChannel,
   testSmsConnection,
   testSmsSend,
+  updateEmailChannel,
 } from '@/services/messaging';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import type { EmailProviderType, SmsNumberConfig } from '@/types/messaging';
+import { EmailSettingsPanel } from './settings/EmailSettingsPanel';
+import { SmsSettingsPanel } from './settings/SmsSettingsPanel';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
+  buildCakemailConfig,
+  emptyChannelState,
+  emptyNumberState,
+  getMessagingSettingsErrorMessage,
+  mapChannelToFormState,
+  type ChannelFormState,
+} from './settings/messagingSettingsHelpers';
+import type { MessageChannelConfig, SmsNumberConfig } from '@/types/messaging';
 
 export default function MessagingSettings() {
-  type ChannelFormState = {
-    provider: EmailProviderType;
-    display_name: string;
-    from_email: string;
-    reply_to_email: string;
-    is_default: boolean;
-    cakemail_sender_id: string;
-    cakemail_list_id: string;
-    cakemail_type: 'transactional' | 'marketing';
-    cakemail_tags: string;
-  };
-
   const queryClient = useQueryClient();
   const [showAddChannel, setShowAddChannel] = useState(false);
   const [showAddNumber, setShowAddNumber] = useState(false);
-  const emptyChannelState: ChannelFormState = {
-    provider: 'CAKEMAIL',
-    display_name: '',
-    from_email: '',
-    reply_to_email: '',
-    is_default: false,
-    cakemail_sender_id: '',
-    cakemail_list_id: '',
-    cakemail_type: 'transactional',
-    cakemail_tags: '',
-  };
-  const [newChannel, setNewChannel] = useState<ChannelFormState>(() => ({ ...emptyChannelState }));
+  const [newChannel, setNewChannel] = useState<ChannelFormState>({ ...emptyChannelState });
   const [editingChannelId, setEditingChannelId] = useState<number | null>(null);
-  const [newNumber, setNewNumber] = useState<SmsNumberConfig>({
-    phone_number: '',
-    label: '',
-    twilio_phone_number_sid: '',
-    is_default: false,
-  });
+  const [newNumber, setNewNumber] = useState<SmsNumberConfig>({ ...emptyNumberState });
   const [showTestSend, setShowTestSend] = useState(false);
   const [testPhone, setTestPhone] = useState('');
   const [testMessage, setTestMessage] = useState('Hello! This is a test message from Twilio.');
   const [testingConnection, setTestingConnection] = useState(false);
   const [testingSend, setTestingSend] = useState(false);
 
-  // Fetch email settings
-  const { data: emailSettings, isLoading: emailLoading } = useQuery({
-    queryKey: ['email-settings'],
-    queryFn: getEmailSettings,
-  });
+  const { data: emailSettings, isLoading: emailLoading } = useQuery({ queryKey: ['email-settings'], queryFn: getEmailSettings });
+  const { data: smsSettings, isLoading: smsLoading } = useQuery({ queryKey: ['sms-settings'], queryFn: getSmsSettings });
 
-  // Fetch SMS settings
-  const { data: smsSettings, isLoading: smsLoading } = useQuery({
-    queryKey: ['sms-settings'],
-    queryFn: getSmsSettings,
-  });
-
-  // Create channel mutation
   const createMutation = useMutation({
     mutationFn: createEmailChannel,
     onSuccess: () => {
@@ -100,14 +51,11 @@ export default function MessagingSettings() {
       setEditingChannelId(null);
       setNewChannel({ ...emptyChannelState });
     },
-    onError: (error: any) => {
-      toast.error(error.message || 'Failed to add email channel');
-    },
+    onError: (error) => toast.error(getMessagingSettingsErrorMessage(error, 'Failed to add email channel')),
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Record<string, unknown> }) =>
-      updateEmailChannel(id, data),
+    mutationFn: ({ id, data }: { id: number; data: Partial<MessageChannelConfig> }) => updateEmailChannel(id, data),
     onSuccess: () => {
       toast.success('Email channel updated successfully');
       queryClient.invalidateQueries({ queryKey: ['email-settings'] });
@@ -115,98 +63,46 @@ export default function MessagingSettings() {
       setEditingChannelId(null);
       setNewChannel({ ...emptyChannelState });
     },
-    onError: (error: any) => {
-      toast.error(error.message || 'Failed to update email channel');
-    },
+    onError: (error) => toast.error(getMessagingSettingsErrorMessage(error, 'Failed to update email channel')),
   });
 
-  // Delete channel mutation
   const deleteMutation = useMutation({
     mutationFn: deleteEmailChannel,
     onSuccess: () => {
       toast.success('Email channel deleted successfully');
       queryClient.invalidateQueries({ queryKey: ['email-settings'] });
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.error || 'Failed to delete channel');
-    },
+    onError: (error) => toast.error(getMessagingSettingsErrorMessage(error, 'Failed to delete channel')),
   });
 
-  // Test channel mutation
   const testMutation = useMutation({
     mutationFn: ({ id, email }: { id: number; email: string }) => testEmailChannel(id, email),
-    onSuccess: () => {
-      toast.success('Test email sent successfully');
-    },
-    onError: (error: any) => {
-      toast.error(error.message || 'Failed to send test email');
-    },
+    onSuccess: () => toast.success('Test email sent successfully'),
+    onError: (error) => toast.error(getMessagingSettingsErrorMessage(error, 'Failed to send test email')),
   });
 
-  // Save SMS settings mutation
   const saveSmsMutation = useMutation({
     mutationFn: saveSmsSettings,
     onSuccess: (response) => {
       toast.success('Twilio sender saved successfully');
       queryClient.setQueryData(['sms-settings'], { numbers: response.numbers });
       setShowAddNumber(false);
-      setNewNumber({
-        phone_number: '',
-        label: '',
-        twilio_phone_number_sid: '',
-        is_default: false,
-      });
+      setNewNumber({ ...emptyNumberState });
     },
-    onError: (error: any) => {
-      console.error('Failed to save SMS sender:', error);
-      const errorMessage = error?.response?.data?.message 
-        || error?.response?.data?.error 
-        || error?.message 
-        || 'Failed to save SMS sender';
-      toast.error(errorMessage);
-    },
+    onError: (error) => toast.error(getMessagingSettingsErrorMessage(error, 'Failed to save SMS sender')),
   });
 
-  const channels = emailSettings?.channels || [];
-  const numbers: SmsNumberConfig[] = smsSettings?.numbers || [];
+  const channels = emailSettings?.channels ?? [];
+  const numbers = smsSettings?.numbers ?? [];
   const isEditing = editingChannelId !== null;
 
-  const buildCakemailConfig = () => {
-    const config: Record<string, string | string[]> = {};
-
-    if (newChannel.cakemail_sender_id.trim()) {
-      config.cakemail_sender_id = newChannel.cakemail_sender_id.trim();
-    }
-
-    if (newChannel.cakemail_list_id.trim()) {
-      config.cakemail_list_id = newChannel.cakemail_list_id.trim();
-    }
-
-    if (newChannel.cakemail_type) {
-      config.cakemail_type = newChannel.cakemail_type;
-    }
-
-    if (newChannel.cakemail_tags.trim()) {
-      const tags = newChannel.cakemail_tags
-        .split(',')
-        .map((tag) => tag.trim())
-        .filter(Boolean);
-
-      if (tags.length) {
-        config.cakemail_tags = tags;
-      }
-    }
-
-    return config;
-  };
-
-  const handleAddChannel = () => {
+  const handleSaveChannel = () => {
     if (!newChannel.display_name || !newChannel.from_email) {
       toast.error('Name and email are required');
       return;
     }
 
-    const cakemailConfig = newChannel.provider === 'CAKEMAIL' ? buildCakemailConfig() : undefined;
+    const cakemailConfig = newChannel.provider === 'CAKEMAIL' ? buildCakemailConfig(newChannel) : undefined;
 
     if (isEditing && editingChannelId) {
       updateMutation.mutate({
@@ -216,9 +112,7 @@ export default function MessagingSettings() {
           from_email: newChannel.from_email,
           reply_to_email: newChannel.reply_to_email,
           is_default: newChannel.is_default,
-          ...(cakemailConfig && Object.keys(cakemailConfig).length > 0
-            ? { config_json: cakemailConfig }
-            : {}),
+          ...(cakemailConfig ? { config_json: cakemailConfig } : {}),
         },
       });
       return;
@@ -232,9 +126,7 @@ export default function MessagingSettings() {
       reply_to_email: newChannel.reply_to_email,
       is_default: newChannel.is_default,
       owner_scope: 'GLOBAL',
-      ...(cakemailConfig && Object.keys(cakemailConfig).length > 0
-        ? { config_json: cakemailConfig }
-        : {}),
+      ...(cakemailConfig ? { config_json: cakemailConfig } : {}),
     });
   };
 
@@ -244,24 +136,9 @@ export default function MessagingSettings() {
     setShowAddChannel(true);
   };
 
-  const handleEditChannel = (channel: any) => {
-    const config = channel?.config_json ?? {};
-    const tagsValue = Array.isArray(config.cakemail_tags)
-      ? config.cakemail_tags.join(', ')
-      : config.cakemail_tags ?? '';
-
+  const handleEditChannel = (channel: MessageChannelConfig) => {
     setEditingChannelId(channel.id ?? null);
-    setNewChannel({
-      provider: (channel.provider as EmailProviderType) ?? 'CAKEMAIL',
-      display_name: channel.display_name ?? '',
-      from_email: channel.from_email ?? '',
-      reply_to_email: channel.reply_to_email ?? '',
-      is_default: !!channel.is_default,
-      cakemail_sender_id: config.cakemail_sender_id ?? '',
-      cakemail_list_id: config.cakemail_list_id ?? '',
-      cakemail_type: config.cakemail_type ?? 'transactional',
-      cakemail_tags: tagsValue,
-    });
+    setNewChannel(mapChannelToFormState(channel));
     setShowAddChannel(true);
   };
 
@@ -272,32 +149,40 @@ export default function MessagingSettings() {
     }
   };
 
+  const handleDeleteChannel = (channelId: number) => {
+    if (confirm('Delete this email account?')) {
+      deleteMutation.mutate(channelId);
+    }
+  };
+
   const handleAddNumber = () => {
     if (!newNumber.phone_number) {
       toast.error('Phone number is required');
       return;
     }
 
-    const updatedNumbers = [
-      {
-        ...newNumber,
-        provider: 'TWILIO' as const,
-        is_default: true,
-      },
-    ];
-
-    saveSmsMutation.mutate({ numbers: updatedNumbers });
-  };
-
-  const handleUpdateNumber = (index: number, updatedNumber: Partial<SmsNumberConfig>) => {
-    const updatedNumbers = [...numbers];
-    updatedNumbers[index] = { ...updatedNumbers[index], ...updatedNumber };
-    saveSmsMutation.mutate({ numbers: updatedNumbers });
+    saveSmsMutation.mutate({
+      numbers: [
+        {
+          ...newNumber,
+          provider: 'TWILIO',
+          is_default: true,
+        },
+      ],
+    });
   };
 
   const handleDeleteNumber = (index: number) => {
     if (confirm('Delete this SMS number?')) {
-      const updatedNumbers = numbers.filter((_: any, i: number) => i !== index);
+      saveSmsMutation.mutate({ numbers: numbers.filter((_, i) => i !== index) });
+    }
+  };
+
+  const handleEditNumber = (index: number) => {
+    const updatedLabel = prompt('Enter label:', numbers[index]?.label || '');
+    if (updatedLabel !== null) {
+      const updatedNumbers = [...numbers];
+      updatedNumbers[index] = { ...updatedNumbers[index], label: updatedLabel };
       saveSmsMutation.mutate({ numbers: updatedNumbers });
     }
   };
@@ -306,13 +191,10 @@ export default function MessagingSettings() {
     setTestingConnection(true);
     try {
       const result = await testSmsConnection(numbers[0]?.id);
-      if (result.success) {
-        toast.success('Twilio connection successful!');
-      } else {
-        toast.error(result.error || 'Connection test failed');
-      }
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || error.message || 'Connection test failed');
+      if (result.success) toast.success('Twilio connection successful!');
+      else toast.error(result.error || 'Connection test failed');
+    } catch (error) {
+      toast.error(getMessagingSettingsErrorMessage(error, 'Connection test failed'));
     } finally {
       setTestingConnection(false);
     }
@@ -323,6 +205,7 @@ export default function MessagingSettings() {
       toast.error('Please enter a phone number');
       return;
     }
+
     setTestingSend(true);
     try {
       const result = await testSmsSend({ to: testPhone, message: testMessage });
@@ -333,8 +216,8 @@ export default function MessagingSettings() {
       } else {
         toast.error(result.error || 'Failed to send test SMS');
       }
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || error.message || 'Failed to send test SMS');
+    } catch (error) {
+      toast.error(getMessagingSettingsErrorMessage(error, 'Failed to send test SMS'));
     } finally {
       setTestingSend(false);
     }
@@ -354,427 +237,48 @@ export default function MessagingSettings() {
             <TabsTrigger value="sms">SMS (Twilio)</TabsTrigger>
           </TabsList>
 
-          {/* Email Settings */}
-          <TabsContent value="email" className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold">Connected Email Accounts</h2>
-              <Dialog open={showAddChannel} onOpenChange={setShowAddChannel}>
-                <DialogTrigger asChild>
-                  <Button onClick={handleOpenAddChannel}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Account
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>{isEditing ? 'Edit Email Account' : 'Add Email Account'}</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div>
-                      <Label>Provider</Label>
-                      <Select
-                        value={newChannel.provider}
-                        onValueChange={(value) =>
-                          setNewChannel({ ...newChannel, provider: value as EmailProviderType })
-                        }
-                        disabled={isEditing}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="CAKEMAIL">Cakemail</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>Display Name</Label>
-                      <Input
-                        value={newChannel.display_name}
-                        onChange={(e) => setNewChannel({ ...newChannel, display_name: e.target.value })}
-                        placeholder="e.g., Sales Team"
-                      />
-                    </div>
-                    <div>
-                      <Label>From Email</Label>
-                      <Input
-                        type="email"
-                        value={newChannel.from_email}
-                        onChange={(e) => setNewChannel({ ...newChannel, from_email: e.target.value })}
-                        placeholder="sales@company.com"
-                      />
-                    </div>
-                    <div>
-                      <Label>Reply-To Email (Optional)</Label>
-                      <Input
-                        type="email"
-                        value={newChannel.reply_to_email}
-                        onChange={(e) => setNewChannel({ ...newChannel, reply_to_email: e.target.value })}
-                        placeholder="noreply@company.com"
-                      />
-                    </div>
-                    {newChannel.provider === 'CAKEMAIL' && (
-                      <div className="space-y-4 rounded-md border border-dashed border-muted p-4">
-                        <div>
-                          <Label>Cakemail Sender ID</Label>
-                          <Input
-                            value={newChannel.cakemail_sender_id}
-                            onChange={(e) =>
-                              setNewChannel({ ...newChannel, cakemail_sender_id: e.target.value })
-                            }
-                            placeholder="e.g., HeCJuYblJuMz441KoKwN"
-                          />
-                        </div>
-                        <div>
-                          <Label>Cakemail List ID</Label>
-                          <Input
-                            value={newChannel.cakemail_list_id}
-                            onChange={(e) =>
-                              setNewChannel({ ...newChannel, cakemail_list_id: e.target.value })
-                            }
-                            placeholder="e.g., 8651530"
-                          />
-                        </div>
-                        <div>
-                          <Label>Email Type</Label>
-                          <Select
-                            value={newChannel.cakemail_type}
-                            onValueChange={(value) =>
-                              setNewChannel({
-                                ...newChannel,
-                                cakemail_type: value as 'transactional' | 'marketing',
-                              })
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select type" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="transactional">Transactional</SelectItem>
-                              <SelectItem value="marketing">Marketing</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label>Tags (comma-separated)</Label>
-                          <Input
-                            value={newChannel.cakemail_tags}
-                            onChange={(e) =>
-                              setNewChannel({ ...newChannel, cakemail_tags: e.target.value })
-                            }
-                            placeholder="welcome, onboarding"
-                          />
-                        </div>
-                      </div>
-                    )}
-                    <div className="flex items-center gap-2">
-                      <Switch
-                        checked={newChannel.is_default}
-                        onCheckedChange={(checked) => setNewChannel({ ...newChannel, is_default: checked })}
-                      />
-                      <Label>Set as default</Label>
-                    </div>
-                    <Button
-                      onClick={handleAddChannel}
-                      disabled={createMutation.isPending || updateMutation.isPending}
-                      className="w-full"
-                    >
-                      {isEditing
-                        ? updateMutation.isPending
-                          ? 'Saving...'
-                          : 'Save Changes'
-                        : createMutation.isPending
-                        ? 'Adding...'
-                        : 'Add Account'}
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </div>
-
-            {emailLoading ? (
-              <div className="space-y-3">
-                {[...Array(3)].map((_, i) => (
-                  <Card key={i} className="p-6 animate-pulse">
-                    <div className="h-4 bg-muted rounded w-3/4" />
-                  </Card>
-                ))}
-              </div>
-            ) : channels.length === 0 ? (
-              <Card className="p-12 text-center">
-                <p className="text-muted-foreground">No email accounts configured</p>
-              </Card>
-            ) : (
-              <div className="space-y-3">
-                {channels.map((channel) => (
-                  <Card key={channel.id} className="p-6">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h3 className="font-semibold">{channel.display_name}</h3>
-                          {channel.is_default && (
-                            <Badge variant="secondary">
-                              <Check className="mr-1 h-3 w-3" />
-                              Default
-                            </Badge>
-                          )}
-                          <Badge variant="outline">{channel.provider}</Badge>
-                        </div>
-                        <div className="text-sm text-muted-foreground space-y-1">
-                          <p>From: {channel.from_email}</p>
-                          {channel.reply_to_email && <p>Reply-To: {channel.reply_to_email}</p>}
-                          <p>Scope: {channel.owner_scope}</p>
-                          {channel.provider === 'CAKEMAIL' && channel.config_json && (
-                            <div className="pt-2 text-xs text-muted-foreground space-y-1">
-                              {channel.config_json.cakemail_sender_id && (
-                                <p>Sender ID: {channel.config_json.cakemail_sender_id}</p>
-                              )}
-                              {channel.config_json.cakemail_list_id && (
-                                <p>List ID: {channel.config_json.cakemail_list_id}</p>
-                              )}
-                              {channel.config_json.cakemail_type && (
-                                <p>Type: {channel.config_json.cakemail_type}</p>
-                              )}
-                              {channel.config_json.cakemail_tags && (
-                                <p>
-                                  Tags:{' '}
-                                  {Array.isArray(channel.config_json.cakemail_tags)
-                                    ? channel.config_json.cakemail_tags.join(', ')
-                                    : channel.config_json.cakemail_tags}
-                                </p>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEditChannel(channel)}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleTestChannel(channel.id)}
-                        >
-                          Test
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            if (confirm('Delete this email account?')) {
-                              deleteMutation.mutate(channel.id);
-                            }
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            )}
+          <TabsContent value="email">
+            <EmailSettingsPanel
+              channels={channels}
+              emailLoading={emailLoading}
+              isEditing={isEditing}
+              showAddChannel={showAddChannel}
+              newChannel={newChannel}
+              createPending={createMutation.isPending}
+              updatePending={updateMutation.isPending}
+              onOpenChange={setShowAddChannel}
+              onOpenAddChannel={handleOpenAddChannel}
+              onChannelChange={setNewChannel}
+              onSave={handleSaveChannel}
+              onEdit={handleEditChannel}
+              onTest={handleTestChannel}
+              onDelete={handleDeleteChannel}
+            />
           </TabsContent>
 
-          {/* SMS Settings */}
-          <TabsContent value="sms" className="space-y-6">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <h2 className="text-xl font-semibold">Twilio Configuration</h2>
-              <div className="flex gap-2 flex-wrap">
-                <Button
-                  variant="outline"
-                  onClick={handleTestConnection}
-                  disabled={testingConnection}
-                >
-                  {testingConnection ? (
-                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Testing...</>
-                  ) : (
-                    'Test Connection'
-                  )}
-                </Button>
-                <Dialog open={showTestSend} onOpenChange={setShowTestSend}>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" disabled={numbers.length === 0}>
-                      <Send className="mr-2 h-4 w-4" />
-                      Test Send
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Send Test SMS</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <Label>Phone Number</Label>
-                        <Input
-                          value={testPhone}
-                          onChange={(e) => setTestPhone(e.target.value)}
-                          placeholder="+1 (555) 123-4567"
-                        />
-                      </div>
-                      <div>
-                      <Label>Message</Label>
-                      <Input
-                        value={testMessage}
-                        onChange={(e) => setTestMessage(e.target.value)}
-                        placeholder="Test message"
-                        />
-                      </div>
-                      <Button
-                        onClick={handleTestSend}
-                        disabled={testingSend || !testPhone}
-                        className="w-full"
-                      >
-                        {testingSend ? (
-                          <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending...</>
-                        ) : (
-                          <><Send className="mr-2 h-4 w-4" />Send Test SMS</>
-                        )}
-                      </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-                <Dialog open={showAddNumber} onOpenChange={setShowAddNumber}>
-                  <DialogTrigger asChild>
-                    <Button disabled={numbers.length >= 1}>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add Sender
-                    </Button>
-                  </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Add Twilio Sender</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div>
-                      <Label>Phone Number</Label>
-                      <Input
-                        value={newNumber.phone_number}
-                        onChange={(e) => setNewNumber({ ...newNumber, phone_number: e.target.value })}
-                        placeholder="(202) 868-1663"
-                      />
-                    </div>
-                    <div>
-                      <Label>Label (Optional)</Label>
-                      <Input
-                        value={newNumber.label}
-                        onChange={(e) => setNewNumber({ ...newNumber, label: e.target.value })}
-                        placeholder="e.g., Main Number"
-                      />
-                    </div>
-                    <div>
-                      <Label>Twilio Phone Number SID (Optional)</Label>
-                      <Input
-                        value={newNumber.twilio_phone_number_sid ?? ''}
-                        onChange={(e) => setNewNumber({ ...newNumber, twilio_phone_number_sid: e.target.value })}
-                        placeholder="PNXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Leave blank to use the default `TWILIO_PHONE_NUMBER_SID` from the backend environment.
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Switch
-                        checked={true}
-                        disabled
-                      />
-                      <Label>Single sender rollout: this number will be the default sender</Label>
-                    </div>
-                    <Button
-                      onClick={handleAddNumber}
-                      disabled={saveSmsMutation.isPending || !newNumber.phone_number}
-                      className="w-full"
-                    >
-                      {saveSmsMutation.isPending ? 'Saving...' : 'Save Sender'}
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
-              </div>
-            </div>
-
-            <Card className="p-6">
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className={`w-3 h-3 rounded-full ${numbers.length > 0 ? 'bg-green-500' : 'bg-red-500'}`} />
-                  <span className="font-medium">
-                    {numbers.length > 0 ? 'Twilio Sender Configured' : 'Twilio Sender Not Configured'}
-                  </span>
-                </div>
-
-                {smsLoading ? (
-                  <div className="animate-pulse space-y-3">
-                    <div className="h-4 bg-muted rounded w-full" />
-                    <div className="h-4 bg-muted rounded w-3/4" />
-                  </div>
-                ) : numbers.length === 0 ? (
-                  <div className="bg-yellow-50 border border-yellow-200 rounded p-4 flex gap-3">
-                    <AlertCircle className="h-5 w-5 text-yellow-600 shrink-0" />
-                    <div>
-                      <p className="font-medium text-yellow-800">No Twilio sender configured</p>
-                      <p className="text-sm text-yellow-700 mt-1">
-                        Add your Twilio toll-free number to enable SMS notifications, reminders, and replies.
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <Label>Configured Sender</Label>
-                    {numbers.map((number, idx: number) => (
-                      <Card key={number.id || idx} className="p-4">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-2">
-                              <div className="font-medium">{number.phone_number}</div>
-                              {number.is_default && (
-                                <Badge variant="secondary">
-                                  <Check className="mr-1 h-3 w-3" />
-                                  Default
-                                </Badge>
-                              )}
-                              <Badge variant="outline">{number.provider ?? 'TWILIO'}</Badge>
-                            </div>
-                            {number.label && (
-                              <div className="text-sm text-muted-foreground mb-1">{number.label}</div>
-                            )}
-                            <div className="text-xs text-muted-foreground">
-                              Phone Number SID: {number.twilio_phone_number_sid ? 'Configured' : 'Using backend default'}
-                            </div>
-                          </div>
-                          <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                const updatedLabel = prompt('Enter label:', number.label || '');
-                                if (updatedLabel !== null) {
-                                  handleUpdateNumber(idx, { label: updatedLabel });
-                                }
-                              }}
-                            >
-                              Edit
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleDeleteNumber(idx)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </Card>
+          <TabsContent value="sms">
+            <SmsSettingsPanel
+              numbers={numbers}
+              smsLoading={smsLoading}
+              showTestSend={showTestSend}
+              showAddNumber={showAddNumber}
+              newNumber={newNumber}
+              testPhone={testPhone}
+              testMessage={testMessage}
+              testingConnection={testingConnection}
+              testingSend={testingSend}
+              savePending={saveSmsMutation.isPending}
+              onShowTestSendChange={setShowTestSend}
+              onShowAddNumberChange={setShowAddNumber}
+              onNewNumberChange={setNewNumber}
+              onTestPhoneChange={setTestPhone}
+              onTestMessageChange={setTestMessage}
+              onTestConnection={handleTestConnection}
+              onTestSend={handleTestSend}
+              onAddNumber={handleAddNumber}
+              onEditNumber={handleEditNumber}
+              onDeleteNumber={handleDeleteNumber}
+            />
           </TabsContent>
         </Tabs>
       </div>

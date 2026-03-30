@@ -1,6 +1,48 @@
-import type { AutomationRule, AutomationTriggerType, WorkflowDefinition, WorkflowEdge, WorkflowNode, WorkflowNodeType } from '@/types/messaging';
-import type { Edge, Node } from '@xyflow/react';
-import { Mail, MessageSquare, Bell, Diamond, Clock3, Split, Flag, Timer } from 'lucide-react';
+import type {
+  AutomationRecipientRole,
+  AutomationRule,
+  AutomationTriggerType,
+  MessagingJsonObject,
+  WorkflowDefinition,
+  WorkflowEdge,
+  WorkflowNode,
+  WorkflowNodeType,
+} from '@/types/messaging';
+import { Mail, MessageSquare, Bell, Diamond, Clock3, Split, Flag, Timer, type LucideIcon } from 'lucide-react';
+import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/react';
+import type { AutomationFlowNodeData } from '@/components/messaging/automations/automationWorkflowTypes';
+
+const configStr = (config: MessagingJsonObject | undefined, key: string, fallback = ''): string => {
+  const val = config?.[key];
+  if (typeof val === 'string') return val;
+  if (typeof val === 'number' || typeof val === 'boolean') return String(val);
+  return fallback;
+};
+
+const configObj = (config: MessagingJsonObject | undefined, key: string): MessagingJsonObject | undefined => {
+  const val = config?.[key];
+  if (val && typeof val === 'object' && !Array.isArray(val)) return val as MessagingJsonObject;
+  return undefined;
+};
+
+const configArr = (config: MessagingJsonObject | undefined, key: string): unknown[] | undefined => {
+  const val = config?.[key];
+  return Array.isArray(val) ? val : undefined;
+};
+
+const configNum = (config: MessagingJsonObject | undefined, key: string, fallback = 0): number => {
+  const val = config?.[key];
+  if (typeof val === 'number' && Number.isFinite(val)) return val;
+  if (typeof val === 'string' && Number.isFinite(Number(val))) return Number(val);
+  return fallback;
+};
+
+const configRoleArray = (config: MessagingJsonObject | undefined, key: string): AutomationRecipientRole[] => {
+  const values = configArr(config, key);
+  return values?.filter((value): value is AutomationRecipientRole =>
+    value === 'client' || value === 'photographer' || value === 'admin' || value === 'rep',
+  ) ?? [];
+};
 
 export const triggerLabels: Record<string, string> = {
   ACCOUNT_CREATED: 'Account Created',
@@ -73,7 +115,7 @@ export interface SimpleAutomationDraft {
   scope: AutomationRule['scope'];
   is_active: boolean;
   recipient_mode: SimpleRecipientMode;
-  recipient_roles: string[];
+  recipient_roles: AutomationRecipientRole[];
   context_key: 'client' | 'photographer' | 'rep';
   template_id: string;
   channel_id: string;
@@ -283,7 +325,7 @@ export const buildSimpleWorkflowFromDraft = (draft: SimpleAutomationDraft): Work
           }
         : {
             recipientMode: draft.recipient_mode === 'context' ? 'roles' : draft.recipient_mode,
-            recipientRoles: draft.recipient_mode === 'context' ? ['admin'] : draft.recipient_roles,
+            recipientRoles: draft.recipient_mode === 'context' ? (['admin'] satisfies AutomationRecipientRole[]) : draft.recipient_roles,
             title: draft.title.trim(),
             body: draft.body_text.trim(),
             destinationUrl: draft.destination_url.trim() || '/shoot-history',
@@ -429,8 +471,8 @@ export const extractSimpleAutomationDraft = (automation?: Partial<AutomationRule
   }
 
   const recipientMode = (actionNode?.config?.recipientMode as SimpleRecipientMode | undefined) ?? 'automation_default';
-  const recipientRoles = Array.isArray(actionNode?.config?.recipientRoles)
-    ? actionNode.config.recipientRoles.map(String)
+  const recipientRoles = configRoleArray(actionNode?.config, 'recipientRoles').length
+    ? configRoleArray(actionNode?.config, 'recipientRoles')
     : Array.isArray(automation.recipients_json)
       ? automation.recipients_json
       : automation.recipients_json?.roles ?? (actionType === 'internal_notification' ? ['admin'] : ['client']);
@@ -449,10 +491,10 @@ export const extractSimpleAutomationDraft = (automation?: Partial<AutomationRule
     context_key: (actionNode?.config?.contextKey || 'client') as 'client' | 'photographer' | 'rep',
     template_id: actionNode?.config?.templateId ? String(actionNode.config.templateId) : automation.template_id ? String(automation.template_id) : '',
     channel_id: actionNode?.config?.channelId ? String(actionNode.config.channelId) : automation.channel_id ? String(automation.channel_id) : '',
-    subject: actionNode?.config?.subject ?? '',
-    body_text: actionNode?.config?.bodyText ?? actionNode?.config?.body ?? '',
-    title: actionNode?.config?.title ?? '',
-    destination_url: actionNode?.config?.destinationUrl ?? '/shoot-history',
+    subject: configStr(actionNode?.config, 'subject'),
+    body_text: configStr(actionNode?.config, 'bodyText') || configStr(actionNode?.config, 'body'),
+    title: configStr(actionNode?.config, 'title'),
+    destination_url: configStr(actionNode?.config, 'destinationUrl', '/shoot-history'),
     priority: (actionNode?.config?.priority as 'normal' | 'high' | 'urgent') ?? 'normal',
     timing_mode: 'immediate',
     offset_direction: 'before',
@@ -463,28 +505,28 @@ export const extractSimpleAutomationDraft = (automation?: Partial<AutomationRule
     condition_field: conditionRule?.field ?? '',
     condition_operator: conditionRule?.operator ?? 'eq',
     condition_value: conditionRule?.value != null ? String(conditionRule.value) : '',
-    schedule_day_of_week: String(triggerNode.config?.schedule?.day_of_week ?? automation.schedule_json?.day_of_week ?? 1),
-    schedule_time: triggerNode.config?.schedule?.time ?? automation.schedule_json?.time ?? '01:00',
-    system_command: triggerNode.config?.command ?? workflow.meta?.system_command ?? automation.schedule_json?.command ?? '',
+    schedule_day_of_week: String(configObj(triggerNode.config, 'schedule')?.day_of_week ?? automation.schedule_json?.day_of_week ?? 1),
+    schedule_time: configStr(configObj(triggerNode.config, 'schedule'), 'time') || automation.schedule_json?.time || '01:00',
+    system_command: configStr(triggerNode.config, 'command') || configStr(workflow.meta, 'system_command') || automation.schedule_json?.command || '',
   };
 
   if (waitNode) {
     draft.timing_mode = 'offset';
     if (waitNode.type === 'wait.datetime_offset') {
-      draft.offset_direction = waitNode.config?.direction === 'after' ? 'after' : 'before';
-      draft.offset_value = String(waitNode.config?.amount ?? 24);
-      draft.offset_unit = waitNode.config?.unit === 'days' ? 'd' : waitNode.config?.unit === 'minutes' ? 'm' : 'h';
+      draft.offset_direction = configStr(waitNode.config, 'direction', 'before') === 'after' ? 'after' : 'before';
+      draft.offset_value = String(configNum(waitNode.config, 'amount', 24));
+      draft.offset_unit = configStr(waitNode.config, 'unit', 'hours') === 'days' ? 'd' : configStr(waitNode.config, 'unit', 'hours') === 'minutes' ? 'm' : 'h';
     } else {
       draft.offset_direction = 'after';
-      draft.offset_value = String(waitNode.config?.amount ?? 30);
-      draft.offset_unit = waitNode.config?.unit === 'days' ? 'd' : waitNode.config?.unit === 'hours' ? 'h' : 'm';
+      draft.offset_value = String(configNum(waitNode.config, 'amount', 30));
+      draft.offset_unit = configStr(waitNode.config, 'unit', 'minutes') === 'days' ? 'd' : configStr(waitNode.config, 'unit', 'minutes') === 'hours' ? 'h' : 'm';
     }
   }
 
   return draft;
 };
 
-const nodeMeta: Record<WorkflowNodeType, { label: string; accent: string; icon: any }> = {
+const nodeMeta: Record<WorkflowNodeType, { label: string; accent: string; icon: LucideIcon }> = {
   'trigger.event': { label: 'Event Trigger', accent: 'from-blue-600 to-cyan-500', icon: Flag },
   'trigger.schedule': { label: 'Schedule Trigger', accent: 'from-violet-600 to-fuchsia-500', icon: Clock3 },
   'condition.if': { label: 'Condition', accent: 'from-amber-500 to-orange-500', icon: Split },
@@ -538,7 +580,10 @@ export const createEmptyWorkflow = (triggerType: AutomationTriggerType = 'SHOOT_
   meta: {},
 });
 
-export const getNodePresentation = (node: WorkflowNode, automation?: Partial<AutomationRule>) => {
+export const getNodePresentation = (
+  node: WorkflowNode,
+  automation?: Partial<AutomationRule>,
+): Pick<AutomationFlowNodeData, 'label' | 'subtitle' | 'accent' | 'icon'> => {
   const meta = nodeMeta[node.type];
   let subtitle = '';
 
@@ -546,26 +591,30 @@ export const getNodePresentation = (node: WorkflowNode, automation?: Partial<Aut
     case 'trigger.event':
       subtitle = triggerLabels[node.config?.triggerType as string] || 'Select trigger';
       break;
-    case 'trigger.schedule':
-      subtitle = `${node.config?.schedule?.type || 'weekly'} ${node.config?.schedule?.time || ''}`.trim();
+    case 'trigger.schedule': {
+      const sched = configObj(node.config, 'schedule');
+      subtitle = `${configStr(sched, 'type', 'weekly')} ${configStr(sched, 'time')}`.trim();
       break;
-    case 'condition.if':
-      subtitle = `${node.config?.rules?.length || 0} rule${node.config?.rules?.length === 1 ? '' : 's'}`;
+    }
+    case 'condition.if': {
+      const rules = configArr(node.config, 'rules');
+      subtitle = `${rules?.length || 0} rule${rules?.length === 1 ? '' : 's'}`;
       break;
+    }
     case 'wait.duration':
-      subtitle = `${node.config?.amount || 0} ${node.config?.unit || 'minutes'}`;
+      subtitle = `${configNum(node.config, 'amount')} ${configStr(node.config, 'unit', 'minutes')}`;
       break;
     case 'wait.datetime_offset':
-      subtitle = `${node.config?.direction || 'before'} ${node.config?.amount || 0} ${node.config?.unit || 'hours'}`;
+      subtitle = `${configStr(node.config, 'direction', 'before')} ${configNum(node.config, 'amount')} ${configStr(node.config, 'unit', 'hours')}`;
       break;
     case 'action.email':
-      subtitle = node.config?.templateId ? `Template #${node.config.templateId}` : 'Inline or template email';
+      subtitle = configNum(node.config, 'templateId') ? `Template #${configNum(node.config, 'templateId')}` : 'Inline or template email';
       break;
     case 'action.sms':
-      subtitle = node.config?.templateId ? `Template #${node.config.templateId}` : 'Inline SMS';
+      subtitle = configNum(node.config, 'templateId') ? `Template #${configNum(node.config, 'templateId')}` : 'Inline SMS';
       break;
     case 'action.internal_notification':
-      subtitle = node.config?.title || 'Team inbox item';
+      subtitle = configStr(node.config, 'title', 'Team inbox item');
       break;
     case 'end':
       subtitle = automation?.is_system_locked ? 'Protected flow' : 'Stop workflow';
@@ -579,19 +628,19 @@ export const getNodePresentation = (node: WorkflowNode, automation?: Partial<Aut
 };
 
 export const workflowToFlow = (workflow: WorkflowDefinition, automation?: Partial<AutomationRule>) => {
-  const nodes: Node[] = workflow.nodes.map((node) => ({
+  const nodes: Array<FlowNode<AutomationFlowNodeData>> = workflow.nodes.map((node) => ({
     id: node.id,
-    type: 'automationNode',
+    type: 'automationNode' as const,
     position: node.position,
     data: {
       ...getNodePresentation(node, automation),
       rawNode: node,
       locked: Boolean(automation?.is_system_locked),
       validationErrors: automation?.validation_state?.node_errors?.[node.id] ?? [],
-    },
+    } as AutomationFlowNodeData,
   }));
 
-  const edges: Edge[] = workflow.edges.map((edge) => ({
+  const edges: FlowEdge[] = workflow.edges.map((edge) => ({
     id: edge.id,
     source: edge.source,
     target: edge.target,
@@ -604,14 +653,20 @@ export const workflowToFlow = (workflow: WorkflowDefinition, automation?: Partia
   return { nodes, edges };
 };
 
-export const flowToWorkflow = (nodes: Node[], edges: Edge[], previous?: WorkflowDefinition): WorkflowDefinition => ({
-  nodes: nodes.map((node) => ({
-    id: node.id,
-    type: (node.data?.rawNode?.type || 'end') as WorkflowNodeType,
-    position: node.position,
-    config: node.data?.rawNode?.config || {},
-    validation: node.data?.rawNode?.validation || [],
-  })),
+export const flowToWorkflow = (
+  nodes: Array<FlowNode<AutomationFlowNodeData>>,
+  edges: FlowEdge[],
+  previous?: WorkflowDefinition,
+): WorkflowDefinition => ({
+  nodes: nodes.map((node) => {
+    return {
+      id: node.id,
+      type: (node.data?.rawNode?.type || 'end') as WorkflowNodeType,
+      position: node.position,
+      config: node.data?.rawNode?.config || {},
+      validation: node.data?.rawNode?.validation ?? [],
+    };
+  }),
   edges: edges.map((edge) => ({
     id: edge.id,
     source: edge.source,
@@ -625,7 +680,7 @@ export const flowToWorkflow = (nodes: Node[], edges: Edge[], previous?: Workflow
 export const createNodeDefinition = (type: WorkflowNodeType, index: number): WorkflowNode => {
   const id = `${type.replace(/\./g, '_')}_${Date.now()}_${index}`;
 
-  const config: Record<string, any> = {
+  const configMap: Record<WorkflowNodeType, WorkflowNode['config']> = {
     'trigger.event': { triggerType: 'SHOOT_BOOKED' },
     'trigger.schedule': { triggerType: 'WEEKLY_AUTOMATED_INVOICING', schedule: { type: 'weekly', day_of_week: 1, time: '01:00' } },
     'condition.if': { match: 'all', rules: [{ field: 'status', operator: 'eq', value: 'scheduled' }] },
@@ -635,7 +690,8 @@ export const createNodeDefinition = (type: WorkflowNodeType, index: number): Wor
     'action.sms': { recipientMode: 'automation_default', recipientRoles: ['client'] },
     'action.internal_notification': { recipientMode: 'roles', recipientRoles: ['admin'], title: 'Review workflow event', body: 'Check {{shoot_address}}', destinationUrl: '/shoot-history' },
     end: {},
-  }[type] ?? {};
+  };
+  const config = configMap[type] ?? {};
 
   return {
     id,

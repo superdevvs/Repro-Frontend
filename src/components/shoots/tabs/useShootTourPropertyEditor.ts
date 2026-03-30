@@ -4,7 +4,27 @@ import { API_BASE_URL } from '@/config/env'
 import { ShootData } from '@/types/shoots'
 import type { NormalizedPropertyDetails } from '@/utils/shootTourData'
 
-type SourceMap = Record<string, any>
+type SourceMapValue = string | number | null | undefined
+
+type SourceMap = Record<string, SourceMapValue>
+
+type ShootWithLegacyMls = ShootData & {
+  mls_id?: SourceMapValue
+  mlsId?: SourceMapValue
+}
+
+const getShootMlsValue = (shoot: ShootData): SourceMapValue => {
+  const legacyShoot = shoot as ShootWithLegacyMls
+  return legacyShoot.mls_id ?? legacyShoot.mlsId
+}
+
+const getShootTourPropertyErrorMessage = (error: unknown, fallback: string) => {
+  if (error instanceof Error && error.message) {
+    return error.message
+  }
+
+  return fallback
+}
 
 type UseShootTourPropertyEditorArgs = {
   shoot: ShootData
@@ -44,39 +64,10 @@ export function useShootTourPropertyEditor({
   const isClientView = Boolean(isClient && !isAdmin)
   const canEditPropertyInfo = Boolean(isAdmin || isClientView)
 
-  const propertySyncKey = useMemo(
-    () =>
-      JSON.stringify({
-        propertyDescription: sourceTourLinks?.property_description || '',
-        propertyMls:
-          sourceTourLinks?.property_mls ||
-          (shoot as any)?.mls_id ||
-          sourcePropertyDetails?.mls_id ||
-          sourcePropertyDetails?.mlsId ||
-          '',
-        propertyPrice:
-          sourceTourLinks?.property_price ??
-          sourcePropertyDetails?.price ??
-          sourcePropertyDetails?.listPrice ??
-          '',
-        propertyLotSize:
-          sourceTourLinks?.property_lot_size ??
-          sourcePropertyDetails?.lot_size ??
-          sourcePropertyDetails?.lotSize ??
-          '',
-        bedrooms: normalizedPropertyDetails?.bedrooms ?? '',
-        bathrooms: normalizedPropertyDetails?.bathrooms ?? '',
-        sqft: normalizedPropertyDetails?.sqft ?? '',
-        listingType: (shoot as any)?.listing_type || (shoot as any)?.listingType || '',
-        propertyStatus: (shoot as any)?.property_status || (shoot as any)?.propertyStatus || 'available',
-      }),
-    [normalizedPropertyDetails, shoot, sourcePropertyDetails, sourceTourLinks],
-  )
-
-  useEffect(() => {
+  const normalizedPropertyValues = useMemo(() => {
     const normalizedMls =
       sourceTourLinks?.property_mls ||
-      (shoot as any)?.mls_id ||
+      getShootMlsValue(shoot) ||
       sourcePropertyDetails?.mls_id ||
       sourcePropertyDetails?.mlsId ||
       ''
@@ -91,28 +82,39 @@ export function useShootTourPropertyEditor({
       sourcePropertyDetails?.lotSize ??
       ''
 
-    setPropertyDescription(sourceTourLinks?.property_description || '')
-    setPropertyMls(normalizedMls ? String(normalizedMls) : '')
-    setPropertyPrice(normalizedPrice !== '' && normalizedPrice !== null && normalizedPrice !== undefined ? String(normalizedPrice) : '')
-    setPropertyLotSize(normalizedLotSize !== '' && normalizedLotSize !== null && normalizedLotSize !== undefined ? String(normalizedLotSize) : '')
-    setPropertyBedrooms(
-      normalizedPropertyDetails?.bedrooms !== undefined && normalizedPropertyDetails?.bedrooms !== null
-        ? String(normalizedPropertyDetails.bedrooms)
-        : ''
-    )
-    setPropertyBathrooms(
-      normalizedPropertyDetails?.bathrooms !== undefined && normalizedPropertyDetails?.bathrooms !== null
-        ? String(normalizedPropertyDetails.bathrooms)
-        : ''
-    )
-    setPropertySqft(
-      normalizedPropertyDetails?.sqft !== undefined && normalizedPropertyDetails?.sqft !== null
-        ? String(normalizedPropertyDetails.sqft)
-        : ''
-    )
-    setListingType((shoot as any)?.listing_type || (shoot as any)?.listingType || '')
-    setPropertyStatus((shoot as any)?.property_status || (shoot as any)?.propertyStatus || 'available')
-  }, [propertySyncKey])
+    return {
+      propertyDescription: String(sourceTourLinks?.property_description || ''),
+      propertyMls: normalizedMls ? String(normalizedMls) : '',
+      propertyPrice: normalizedPrice !== '' && normalizedPrice !== null && normalizedPrice !== undefined ? String(normalizedPrice) : '',
+      propertyLotSize: normalizedLotSize !== '' && normalizedLotSize !== null && normalizedLotSize !== undefined ? String(normalizedLotSize) : '',
+      propertyBedrooms:
+        normalizedPropertyDetails?.bedrooms !== undefined && normalizedPropertyDetails?.bedrooms !== null
+          ? String(normalizedPropertyDetails.bedrooms)
+          : '',
+      propertyBathrooms:
+        normalizedPropertyDetails?.bathrooms !== undefined && normalizedPropertyDetails?.bathrooms !== null
+          ? String(normalizedPropertyDetails.bathrooms)
+          : '',
+      propertySqft:
+        normalizedPropertyDetails?.sqft !== undefined && normalizedPropertyDetails?.sqft !== null
+          ? String(normalizedPropertyDetails.sqft)
+          : '',
+      listingType: shoot.listing_type || shoot.listingType || '',
+      propertyStatus: shoot.property_status || shoot.propertyStatus || 'available',
+    }
+  }, [normalizedPropertyDetails, shoot, sourcePropertyDetails, sourceTourLinks])
+
+  useEffect(() => {
+    setPropertyDescription(normalizedPropertyValues.propertyDescription)
+    setPropertyMls(normalizedPropertyValues.propertyMls)
+    setPropertyPrice(normalizedPropertyValues.propertyPrice)
+    setPropertyLotSize(normalizedPropertyValues.propertyLotSize)
+    setPropertyBedrooms(normalizedPropertyValues.propertyBedrooms)
+    setPropertyBathrooms(normalizedPropertyValues.propertyBathrooms)
+    setPropertySqft(normalizedPropertyValues.propertySqft)
+    setListingType(normalizedPropertyValues.listingType)
+    setPropertyStatus(normalizedPropertyValues.propertyStatus)
+  }, [normalizedPropertyValues])
 
   const savePropertyField = async (field: string, value: string) => {
     if (!canEditPropertyInfo) return
@@ -136,8 +138,8 @@ export function useShootTourPropertyEditor({
         throw new Error(errorData.message || 'Failed to save')
       }
       onShootUpdate()
-    } catch (err: any) {
-      toast({ title: 'Error', description: err?.message || 'Failed to save property info.', variant: 'destructive' })
+    } catch (err: unknown) {
+      toast({ title: 'Error', description: getShootTourPropertyErrorMessage(err, 'Failed to save property info.'), variant: 'destructive' })
     }
   }
 
@@ -193,8 +195,8 @@ export function useShootTourPropertyEditor({
 
       toast({ title: 'Saved', description: 'Property details updated successfully.' })
       onShootUpdate()
-    } catch (err: any) {
-      toast({ title: 'Error', description: err?.message || 'Failed to save property info.', variant: 'destructive' })
+    } catch (err: unknown) {
+      toast({ title: 'Error', description: getShootTourPropertyErrorMessage(err, 'Failed to save property info.'), variant: 'destructive' })
     } finally {
       setIsSavingPropertyDetails(false)
     }
@@ -220,8 +222,8 @@ export function useShootTourPropertyEditor({
       }
       toast({ title: 'Saved', description: `${field.replace('_', ' ')} updated.` })
       onShootUpdate()
-    } catch (err: any) {
-      toast({ title: 'Error', description: err?.message || 'Failed to save.', variant: 'destructive' })
+    } catch (err: unknown) {
+      toast({ title: 'Error', description: getShootTourPropertyErrorMessage(err, 'Failed to save.'), variant: 'destructive' })
     } finally {
       setLoading(false)
     }
@@ -252,8 +254,8 @@ export function useShootTourPropertyEditor({
           description: `AI description generated using ${data.images_used || 0} images. Click Save Description to apply it.`,
         })
       }
-    } catch (err: any) {
-      toast({ title: 'Error', description: err?.message || 'Failed to generate description.', variant: 'destructive' })
+    } catch (err: unknown) {
+      toast({ title: 'Error', description: getShootTourPropertyErrorMessage(err, 'Failed to generate description.'), variant: 'destructive' })
     } finally {
       setIsGeneratingDescription(false)
     }

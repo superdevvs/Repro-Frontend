@@ -3,6 +3,12 @@ import { ShootData } from '@/types/shoots';
 import { API_BASE_URL } from '@/config/env';
 import { getApiHeaders } from '@/services/api';
 import { downloadShootMediaArchive } from '@/utils/shootMediaDownload';
+import {
+  buildBrightMlsPublishPayload,
+  closePendingBrightMlsWindow,
+  navigateBrightMlsWindow,
+  openPendingBrightMlsWindow,
+} from '@/utils/brightMls';
 
 interface ToastApi {
   toast: (options: {
@@ -36,70 +42,19 @@ export function useShootDetailsModalActions({
   const handleSendToBrightMls = async () => {
     if (!shoot) return;
 
+    let pendingWindow: Window | null = null;
+
     try {
       setIsPublishingToBrightMls(true);
+      setBrightMlsRedirectUrl(null);
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
 
-      const photos: Array<{ id?: number; url: string; filename: string; selected: boolean }> = [];
-
-      if (shoot.files && Array.isArray(shoot.files)) {
-        shoot.files
-          .filter((file: any) => {
-            const isImage =
-              file.fileType === 'image' ||
-              file.workflowStage === 'edited' ||
-              file.file_type === 'image' ||
-              (file.filename && /\.(jpg|jpeg|png|gif|webp)$/i.test(file.filename));
-            const hasUrl = !!(file.url || file.path || file.original_url || file.large_url);
-            return isImage && hasUrl;
-          })
-          .forEach((file: any) => {
-            const url = file.url || file.path || file.original_url || file.large_url || '';
-            if (url) {
-              photos.push({
-                id: file.id,
-                url,
-                filename: file.filename || `photo-${file.id}`,
-                selected: true,
-              });
-            }
-          });
-      }
-
-      if (photos.length === 0 && shoot.media?.images && Array.isArray(shoot.media.images)) {
-        shoot.media.images.forEach((image: any, idx: number) => {
-          const url = image.url || image.path || image.original_url || image.large_url || '';
-          if (url) {
-            photos.push({
-              url,
-              filename: image.filename || `photo-${idx + 1}`,
-              selected: true,
-            });
-          }
-        });
-      }
-
-      if (photos.length === 0) {
+      const payload = buildBrightMlsPublishPayload(shoot as ShootData & Record<string, unknown>);
+      if (payload.photos.length === 0) {
         throw new Error('No images found to send. Please ensure the shoot has completed images.');
       }
 
-      const documents: Array<{ url: string; filename: string; visibility: string }> = [];
-      const iguideFloorplans = (shoot as any)?.iguide_floorplans;
-      if (iguideFloorplans && Array.isArray(iguideFloorplans)) {
-        iguideFloorplans.forEach((floorplan: any) => {
-          const url = typeof floorplan === 'string' ? floorplan : floorplan?.url || floorplan;
-          if (url) {
-            documents.push({
-              url,
-              filename:
-                typeof floorplan === 'string'
-                  ? 'floorplan.pdf'
-                  : floorplan?.filename || 'floorplan.pdf',
-              visibility: 'private',
-            });
-          }
-        });
-      }
+      pendingWindow = openPendingBrightMlsWindow();
 
       const response = await fetch(
         `${API_BASE_URL}/api/integrations/shoots/${shoot.id}/bright-mls/publish`,
@@ -110,11 +65,7 @@ export function useShootDetailsModalActions({
             'Content-Type': 'application/json',
             Accept: 'application/json',
           },
-          body: JSON.stringify({
-            photos,
-            iguide_tour_url: (shoot as any)?.iguide_tour_url || null,
-            documents,
-          }),
+          body: JSON.stringify(payload),
         },
       );
 
@@ -129,17 +80,22 @@ export function useShootDetailsModalActions({
 
       const result = await response.json();
       const redirectUrl = result.data?.redirect_url || result.redirect_url;
-      if (redirectUrl) {
-        setBrightMlsRedirectUrl(redirectUrl);
+      const openedInBrowser = navigateBrightMlsWindow(pendingWindow, redirectUrl);
+      if (!openedInBrowser) {
+        closePendingBrightMlsWindow(pendingWindow);
+        setBrightMlsRedirectUrl(redirectUrl || null);
       }
 
       toast({
         title: 'Manifest Sent',
-        description: 'Complete the import by logging in to Bright MLS.',
+        description: openedInBrowser
+          ? 'Bright MLS opened in a new tab. Complete the import there.'
+          : 'Complete the import by opening Bright MLS from the dialog.',
       });
 
       await refreshShoot();
     } catch (error) {
+      closePendingBrightMlsWindow(pendingWindow);
       console.error('Error sending images to Bright MLS:', error);
       toast({
         title: 'Error',

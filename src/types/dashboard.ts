@@ -62,6 +62,7 @@ export interface DashboardShootSummaryResponse {
   client_name?: string | null;
   client_id?: number | null;
   client_phone?: string | null;
+  cancellation_reason?: string | null;
   temperature?: string | null;
   services: DashboardShootServiceTagResponse[];
   photographer?: {
@@ -86,7 +87,7 @@ export interface DashboardShootSummaryResponse {
     bedrooms?: number;
     bathrooms?: number;
     sqft?: number;
-    [key: string]: any;
+    [key: string]: unknown;
   } | null;
 }
 
@@ -228,7 +229,7 @@ export interface DashboardShootSummary {
     bedrooms?: number;
     bathrooms?: number;
     sqft?: number;
-    [key: string]: any;
+    [key: string]: unknown;
   } | null;
 }
 

@@ -33,37 +33,7 @@ import { Switch } from '@/components/ui/switch';
 import { deleteAutomation, getAutomations, runAutomation, toggleAutomation } from '@/services/messaging';
 import type { AutomationRule, WorkflowDefinition } from '@/types/messaging';
 import { extractSimpleAutomationDraft, triggerLabels } from '@/components/messaging/automations/workflow-utils';
-
-const weekdayLabels = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-
-const formatDateTime = (value?: string | null) => {
-  if (!value) return 'Not run yet';
-
-  return new Date(value).toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-};
-
-const summarizeSchedule = (automation: AutomationRule) => {
-  const workflow = automation.workflow_definition_json;
-  const triggerNode = workflow?.nodes?.find((node) => String(node.type).startsWith('trigger.'));
-
-  if (triggerNode?.type === 'trigger.schedule') {
-    const schedule = triggerNode.config?.schedule ?? {};
-    const dayLabel = weekdayLabels[Math.max(0, Math.min(6, Number(schedule.day_of_week ?? 1)))] ?? 'Monday';
-    return `${schedule.type || 'weekly'} on ${dayLabel} at ${schedule.time || '01:00'}`;
-  }
-
-  if (automation.schedule_json?.offset) {
-    return `Offset ${automation.schedule_json.offset}`;
-  }
-
-  return 'Event-driven';
-};
+import { asString, formatDateTime, getMutationErrorMessage, summarizeSchedule } from './automation-workflow-editor/helpers';
 
 const summarizeFlow = (workflow?: WorkflowDefinition) => {
   const nodes = workflow?.nodes ?? [];
@@ -97,11 +67,11 @@ const getPrimaryActionSummary = (automation: AutomationRule) => {
 
   switch (actionNode.type) {
     case 'action.sms':
-      return actionNode.config?.templateId ? 'SMS template' : 'Inline SMS';
+      return Number(actionNode.config?.templateId) ? 'SMS template' : 'Inline SMS';
     case 'action.internal_notification':
-      return actionNode.config?.title || 'Internal notification';
+      return asString(actionNode.config?.title, 'Internal notification');
     default:
-      return actionNode.config?.templateId ? 'Email template' : 'Inline email';
+      return Number(actionNode.config?.templateId) ? 'Email template' : 'Inline email';
   }
 };
 
@@ -176,7 +146,7 @@ function AutomationCard({
             </div>
             <div className="rounded-2xl border bg-muted/20 p-3">
               <div className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Timing</div>
-              <div className="mt-1 text-sm text-muted-foreground">{summarizeSchedule(automation)}</div>
+              <div className="mt-1 text-sm text-muted-foreground">{summarizeSchedule(automation.workflow_definition_json ?? { nodes: [], edges: [] }, automation)}</div>
             </div>
             <div className="rounded-2xl border bg-muted/20 p-3">
               <div className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Action</div>
@@ -296,8 +266,8 @@ export default function Automations() {
       toast.success('Automation deleted successfully');
       await queryClient.invalidateQueries({ queryKey: ['automations'] });
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.error || error.message || 'Failed to delete automation');
+    onError: (error: unknown) => {
+      toast.error(getMutationErrorMessage(error, 'Failed to delete automation'));
     },
   });
 
@@ -308,8 +278,8 @@ export default function Automations() {
       await queryClient.invalidateQueries({ queryKey: ['automations'] });
       await queryClient.invalidateQueries({ queryKey: ['automation', updatedAutomation.id] });
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.error || error.message || 'Failed to toggle automation');
+    onError: (error: unknown) => {
+      toast.error(getMutationErrorMessage(error, 'Failed to toggle automation'));
     },
   });
 
@@ -320,8 +290,8 @@ export default function Automations() {
       await queryClient.invalidateQueries({ queryKey: ['automations'] });
       await queryClient.invalidateQueries({ queryKey: ['automation', automation.id] });
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.error || error.message || 'Failed to run automation');
+    onError: (error: unknown) => {
+      toast.error(getMutationErrorMessage(error, 'Failed to run automation'));
     },
   });
 

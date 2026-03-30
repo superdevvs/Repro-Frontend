@@ -342,6 +342,7 @@ export function ShootDetailsMediaTabView(props: any) {
             {/* Upload More button - only shown when files already exist */}
             {showUploadTab && (rawFiles.length > 0 || editedFiles.length > 0) && (
               <Button
+                type="button"
                 variant="default"
                 size="sm"
                 className="h-7 text-[11px] px-2 bg-blue-600 hover:bg-blue-700 text-white"

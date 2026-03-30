@@ -13,6 +13,9 @@ const targets = [
   'src/components/shoots/ShootDetailsModal.tsx',
   'src/components/shoots/tabs/ShootDetailsTourTab.tsx',
   'src/pages/ShootDetails.tsx',
+  'src/hooks/useShootHistoryActions.ts',
+  'src/pages/messaging/AutomationWorkflowEditor.tsx',
+  'src/pages/messaging/MessagingSettings.tsx',
 ];
 
 const countLines = (contents) => {

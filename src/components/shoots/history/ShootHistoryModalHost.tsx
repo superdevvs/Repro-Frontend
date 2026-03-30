@@ -196,38 +196,24 @@ export function ShootHistoryModalHost({
           }
         }}
       >
-        <DialogContent className="max-w-4xl w-[90vw] h-[80vh] p-0 gap-0 overflow-hidden">
-          <DialogHeader className="px-4 py-3 border-b flex-row items-center justify-between space-y-0">
-            <div>
-              <DialogTitle className="text-base">Bright MLS Import</DialogTitle>
-              <DialogDescription className="text-xs text-muted-foreground">
-                Complete the import in the Bright MLS portal below
-              </DialogDescription>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs"
-                onClick={() => {
-                  if (brightMlsRedirectUrl) {
-                    window.open(brightMlsRedirectUrl, '_blank');
-                  }
-                }}
-              >
-                <ExternalLink className="h-3 w-3 mr-1" /> Open in Browser
-              </Button>
-            </div>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-base">Bright MLS Import</DialogTitle>
+            <DialogDescription>
+              Bright MLS needs to finish the import in a separate browser tab.
+            </DialogDescription>
           </DialogHeader>
           {brightMlsRedirectUrl && (
-            <iframe
-              src={brightMlsRedirectUrl}
-              className="w-full flex-1 border-0"
-              style={{ height: 'calc(80vh - 60px)' }}
-              title="Bright MLS Import"
-              sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-storage-access-by-user-activation"
-              allow="clipboard-write"
-            />
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Use the button below to open Bright MLS and complete the login/import flow.
+              </p>
+              <div className="flex justify-end">
+                <Button onClick={() => window.open(brightMlsRedirectUrl, '_blank')}>
+                  <ExternalLink className="h-4 w-4 mr-2" /> Open Bright MLS
+                </Button>
+              </div>
+            </div>
           )}
         </DialogContent>
       </Dialog>

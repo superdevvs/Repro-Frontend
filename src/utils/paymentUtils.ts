@@ -1,4 +1,10 @@
-export type PaymentDetails = Record<string, any> | null | undefined;
+export interface PaymentDetailMap {
+  check_number?: string | number | null;
+  notes?: string | null;
+  [key: string]: unknown;
+}
+
+export type PaymentDetails = PaymentDetailMap | null | undefined;
 
 const METHOD_LABELS: Record<string, string> = {
   square: 'Card (Square)',

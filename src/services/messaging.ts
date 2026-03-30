@@ -4,17 +4,47 @@ import type {
   MessageTemplate,
   MessageChannelConfig,
   AutomationRule,
+  AutomationRun,
+  AutomationSimulationResult,
+  AutomationTestResult,
+  AutomationValidationState,
   MessageThread,
   ComposeEmailPayload,
   ScheduleEmailPayload,
   MessagingOverview,
+  PaginatedResponseMeta,
   SmsThreadSummary,
   SmsThreadDetail,
   SmsMessageDetail,
   SmsContact,
   SmsNumberConfig,
   EmailRecipient,
+  TemplatePreviewResult,
 } from '@/types/messaging';
+
+const toEmailRecipient = (value: unknown, fallbackId: number): EmailRecipient | null => {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  if (typeof record.email !== 'string' || !record.email) {
+    return null;
+  }
+
+  const numericId =
+    typeof record.id === 'number' && Number.isFinite(record.id)
+      ? record.id
+      : typeof record.id === 'string' && Number.isFinite(Number(record.id))
+        ? Number(record.id)
+        : fallbackId;
+
+  return {
+    id: numericId,
+    name: typeof record.name === 'string' ? record.name : undefined,
+    email: record.email,
+  };
+};
 
 // Overview
 export const getMessagingOverview = async (): Promise<MessagingOverview> => {
@@ -57,11 +87,17 @@ export const duplicateTemplate = async (id: number): Promise<MessageTemplate> =>
   return response.data;
 };
 
-export const testSendTemplate = async (id: number, data: { to: string; variables?: Record<string, any> }): Promise<void> => {
+export const testSendTemplate = async (
+  id: number,
+  data: { to: string; variables?: ComposeEmailPayload['variables'] },
+): Promise<void> => {
   await apiClient.post(`/messaging/templates/${id}/test-send`, data);
 };
 
-export const previewTemplate = async (id: number, variables?: Record<string, any>): Promise<any> => {
+export const previewTemplate = async (
+  id: number,
+  variables?: ComposeEmailPayload['variables'],
+): Promise<TemplatePreviewResult> => {
   const response = await apiClient.post(`/messaging/templates/${id}/preview`, { variables });
   return response.data;
 };
@@ -104,26 +140,34 @@ export const runAutomation = async (id: number): Promise<{ status: string; outpu
   return response.data;
 };
 
-export const testAutomation = async (id: number, data: { test_email: string; test_context?: Record<string, any> }): Promise<any> => {
+export const testAutomation = async (
+  id: number,
+  data: { test_email: string; test_context?: ComposeEmailPayload['variables'] },
+): Promise<AutomationTestResult> => {
   const response = await apiClient.post(`/messaging/automations/${id}/test`, data);
   return response.data;
 };
 
-export const validateAutomationWorkflow = async (workflow_definition_json: AutomationRule['workflow_definition_json']) => {
+export const validateAutomationWorkflow = async (
+  workflow_definition_json: AutomationRule['workflow_definition_json'],
+): Promise<AutomationValidationState> => {
   const response = await apiClient.post('/messaging/automations/validate', {
     workflow_definition_json,
   });
   return response.data;
 };
 
-export const simulateAutomation = async (id: number, test_context?: Record<string, any>) => {
+export const simulateAutomation = async (
+  id: number,
+  test_context?: ComposeEmailPayload['variables'],
+): Promise<AutomationSimulationResult> => {
   const response = await apiClient.post(`/messaging/automations/${id}/simulate`, {
     test_context,
   });
   return response.data;
 };
 
-export const getAutomationRuns = async (id: number) => {
+export const getAutomationRuns = async (id: number): Promise<AutomationRun[]> => {
   const response = await apiClient.get(`/messaging/automations/${id}/runs`);
   return response.data?.data ?? [];
 };
@@ -151,11 +195,9 @@ export const getEmailRecipients = async (): Promise<EmailRecipient[]> => {
   // API commonly returns { users: [...] }
   const users = response.data?.users ?? response.data ?? [];
   return Array.isArray(users)
-    ? users.map((u: any, idx: number) => ({
-        id: u.id ?? idx,
-        name: u.name,
-        email: u.email,
-      }))
+    ? users
+        .map((user, idx) => toEmailRecipient(user, idx))
+        .filter((recipient): recipient is EmailRecipient => Boolean(recipient))
     : [];
 };
 
@@ -248,7 +290,7 @@ export const getSmsThreads = async (params?: {
   page?: number;
   filter?: string;
   search?: string;
-}): Promise<{ data: SmsThreadSummary[]; meta: any }> => {
+}): Promise<{ data: SmsThreadSummary[]; meta: PaginatedResponseMeta }> => {
   const response = await apiClient.get('/messaging/sms/threads', { params });
   return {
     data: response.data.data ?? [],

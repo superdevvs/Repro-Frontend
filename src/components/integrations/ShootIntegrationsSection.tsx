@@ -1,21 +1,24 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
+import type { ShootData } from '@/types/shoots';
 import { apiClient } from '@/services/api';
 import API_ROUTES from '@/lib/api';
+import {
+  buildBrightMlsPublishPayload,
+  closePendingBrightMlsWindow,
+  navigateBrightMlsWindow,
+  openPendingBrightMlsWindow,
+} from '@/utils/brightMls';
 import { 
   Home, 
   ExternalLink, 
   RefreshCw, 
   Upload, 
   Loader2,
-  Building2,
-  Calendar,
-  DollarSign,
-  MapPin,
   Layers
 } from 'lucide-react';
 import {
@@ -29,7 +32,6 @@ import {
 } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 
 const BRIGHT_MLS_BUTTON_SRC = '/brightmls-media-sync-button.svg';
 
@@ -64,7 +66,8 @@ export function ShootIntegrationsSection({ shoot, onRefresh }: ShootIntegrations
   const [selectedPhotos, setSelectedPhotos] = useState<Set<number>>(new Set());
 
   const propertyDetails = shoot.property_details || {};
-  
+  const allPhotoIds = shoot.files?.map((file) => file.id) || [];
+
   const handleRefreshProperty = async () => {
     setRefreshingProperty(true);
     try {
@@ -110,48 +113,48 @@ export function ShootIntegrationsSection({ shoot, onRefresh }: ShootIntegrations
   };
 
   const handlePublishToBrightMls = async () => {
+    let pendingWindow: Window | null = null;
     setPublishingBrightMls(true);
     try {
-      const photos = shoot.files
-        ?.filter((f, idx) => selectedPhotos.has(f.id) || idx === 0) // Include first photo by default
-        .map((f) => ({
-          id: f.id,
-          url: f.path || f.url || '',
-          filename: f.filename || `photo-${f.id}`,
-          selected: true,
-        })) || [];
+      setBrightMlsRedirectUrl(null);
+      const payload = buildBrightMlsPublishPayload(
+        shoot as unknown as Partial<ShootData> & Record<string, unknown>,
+        { selectedPhotoIds: selectedPhotos.size > 0 ? selectedPhotos : allPhotoIds },
+      );
+
+      if (payload.photos.length === 0) {
+        throw new Error('No images found to send. Please ensure the shoot has completed images.');
+      }
+
+      pendingWindow = openPendingBrightMlsWindow();
 
       const response = await apiClient.post(
         API_ROUTES.integrations.brightMls.publish(shoot.id),
-        {
-          photos,
-          iguide_tour_url: shoot.iguide_tour_url,
-          documents: shoot.iguide_floorplans?.map((fp: any) => ({
-            url: fp.url || fp,
-            filename: fp.filename || 'floorplan.pdf',
-            type: 'floor_plan',
-            visibility: 'private',
-          })) || [],
-        }
+        payload
       );
 
       if (response.data.success) {
-        // Open the BrightMLS SSO redirect URL in an in-app modal
         const redirectUrl = response.data.data?.redirect_url || response.data.redirect_url;
-        if (redirectUrl) {
-          setBrightMlsRedirectUrl(redirectUrl);
+        const openedInBrowser = navigateBrightMlsWindow(pendingWindow, redirectUrl);
+        if (!openedInBrowser) {
+          closePendingBrightMlsWindow(pendingWindow);
+          setBrightMlsRedirectUrl(redirectUrl || null);
         }
 
         toast({
           title: "Manifest Sent",
-          description: "Complete the import by logging in to Bright MLS.",
+          description: openedInBrowser
+            ? "Bright MLS opened in a new tab. Complete the import there."
+            : "Complete the import by opening Bright MLS from the dialog.",
         });
         setBrightMlsDialogOpen(false);
+        setSelectedPhotos(new Set());
         onRefresh?.();
       } else {
         throw new Error(response.data.message || 'Publishing failed');
       }
     } catch (error: any) {
+      closePendingBrightMlsWindow(pendingWindow);
       const errorData = error.response?.data;
       let description = errorData?.message || "Failed to publish to Bright MLS.";
       // Show detailed validation errors if available
@@ -390,11 +393,19 @@ export function ShootIntegrationsSection({ shoot, onRefresh }: ShootIntegrations
               Not yet published to Bright MLS.
             </p>
           )}
-          <Dialog open={brightMlsDialogOpen} onOpenChange={setBrightMlsDialogOpen}>
+          <Dialog
+            open={brightMlsDialogOpen}
+            onOpenChange={(open) => {
+              setBrightMlsDialogOpen(open);
+              if (!open) {
+                setSelectedPhotos(new Set());
+              }
+            }}
+          >
             <DialogTrigger asChild>
               <Button variant="ghost" disabled={!shoot.mls_id} className="h-auto p-0 hover:bg-transparent">
                 <img
-                  src="/brightmls-media-sync-button.svg"
+                  src={BRIGHT_MLS_BUTTON_SRC}
                   alt="Publish to Bright MLS"
                   className="h-10 w-auto rounded-full"
                 />
@@ -415,9 +426,9 @@ export function ShootIntegrationsSection({ shoot, onRefresh }: ShootIntegrations
                       <div key={file.id} className="flex items-center space-x-2">
                         <Checkbox
                           id={`photo-${file.id}`}
-                          checked={selectedPhotos.has(file.id) || idx === 0}
+                          checked={selectedPhotos.size === 0 || selectedPhotos.has(file.id)}
                           onCheckedChange={(checked) => {
-                            const newSet = new Set(selectedPhotos);
+                            const newSet = selectedPhotos.size === 0 ? new Set(allPhotoIds) : new Set(selectedPhotos);
                             if (checked) {
                               newSet.add(file.id);
                             } else {
@@ -457,7 +468,10 @@ export function ShootIntegrationsSection({ shoot, onRefresh }: ShootIntegrations
               <DialogFooter>
                 <Button
                   variant="outline"
-                  onClick={() => setBrightMlsDialogOpen(false)}
+                  onClick={() => {
+                    setBrightMlsDialogOpen(false);
+                    setSelectedPhotos(new Set());
+                  }}
                 >
                   Cancel
                 </Button>
@@ -483,27 +497,24 @@ export function ShootIntegrationsSection({ shoot, onRefresh }: ShootIntegrations
 
     {/* BrightMLS SSO Redirect Modal */}
     <Dialog open={!!brightMlsRedirectUrl} onOpenChange={(open) => { if (!open) setBrightMlsRedirectUrl(null); }}>
-      <DialogContent className="max-w-4xl w-[90vw] h-[80vh] p-0 gap-0 overflow-hidden">
-        <DialogHeader className="px-4 py-3 border-b flex-row items-center justify-between space-y-0">
-          <div>
-            <DialogTitle className="text-base">Bright MLS Import</DialogTitle>
-            <DialogDescription className="text-xs text-muted-foreground">Complete the import in the Bright MLS portal below</DialogDescription>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => { if (brightMlsRedirectUrl) window.open(brightMlsRedirectUrl, '_blank'); }}>
-              <ExternalLink className="h-3 w-3 mr-1" /> Open in Browser
-            </Button>
-          </div>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="text-base">Bright MLS Import</DialogTitle>
+          <DialogDescription>
+            Bright MLS needs to finish the import in a separate browser tab.
+          </DialogDescription>
         </DialogHeader>
         {brightMlsRedirectUrl && (
-          <iframe
-            src={brightMlsRedirectUrl}
-            className="w-full flex-1 border-0"
-            style={{ height: 'calc(80vh - 60px)' }}
-            title="Bright MLS Import"
-            sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-storage-access-by-user-activation"
-            allow="clipboard-write"
-          />
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Use the button below to open Bright MLS and complete the login/import flow.
+            </p>
+            <div className="flex justify-end">
+              <Button onClick={() => window.open(brightMlsRedirectUrl, '_blank')}>
+                <ExternalLink className="h-4 w-4 mr-2" /> Open Bright MLS
+              </Button>
+            </div>
+          </div>
         )}
       </DialogContent>
     </Dialog>

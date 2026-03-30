@@ -1,7 +1,22 @@
 import type { ShootData } from '@/types/shoots';
 
 type LooseRecord = Record<string, unknown>;
-type ShootLike = Partial<ShootData> & Record<string, unknown>;
+type ShootLike = Partial<ShootData> & {
+  tour_links?: LooseRecord;
+  property_details?: LooseRecord;
+  iguide_tour_url?: string;
+  iguide_floorplans?: unknown;
+  iguide_property_id?: string;
+  iguide_last_synced_at?: string;
+  mls_compliant_link?: string;
+  bedrooms?: string | number | null;
+  bedRooms?: string | number | null;
+  bathrooms?: string | number | null;
+  bathRooms?: string | number | null;
+  sqft?: string | number | null;
+  squareFeet?: string | number | null;
+  square_feet?: string | number | null;
+};
 
 export type NormalizedTourLinks = LooseRecord & {
   branded: string;
@@ -34,11 +49,23 @@ export type NormalizedPropertyDetails = LooseRecord & {
 const pickFirst = <T>(...values: T[]): T | undefined =>
   values.find((value) => value !== undefined && value !== null && value !== '');
 
+const pickStringOrNumber = (...values: unknown[]): string | number | undefined => {
+  for (const value of values) {
+    if (value === undefined || value === null || value === '') continue;
+    if (typeof value === 'string' || typeof value === 'number') return value;
+  }
+
+  return undefined;
+};
+
+const asLooseRecord = (value: unknown): LooseRecord =>
+  value && typeof value === 'object' ? (value as LooseRecord) : {};
+
 export const getRawTourLinks = (shoot?: ShootLike | null): LooseRecord =>
-  ((shoot?.tourLinks as LooseRecord) || (shoot?.tour_links as LooseRecord) || {}) as LooseRecord;
+  asLooseRecord(shoot?.tourLinks ?? shoot?.tour_links);
 
 export const getRawPropertyDetails = (shoot?: ShootLike | null): LooseRecord =>
-  ((shoot?.propertyDetails as LooseRecord) || (shoot?.property_details as LooseRecord) || {}) as LooseRecord;
+  asLooseRecord(shoot?.propertyDetails ?? shoot?.property_details);
 
 export const normalizeTourLinks = (shoot?: ShootLike | null): NormalizedTourLinks => {
   const rawLinks = getRawTourLinks(shoot);
@@ -69,7 +96,7 @@ export const normalizePropertyDetails = (shoot?: ShootLike | null): NormalizedPr
 
   return {
     ...rawDetails,
-    bedrooms: pickFirst(
+    bedrooms: pickStringOrNumber(
       shoot?.bedrooms,
       shoot?.bedRooms,
       rawDetails.bedrooms,
@@ -77,7 +104,7 @@ export const normalizePropertyDetails = (shoot?: ShootLike | null): NormalizedPr
       rawDetails.beds,
       rawDetails.bed,
     ),
-    bathrooms: pickFirst(
+    bathrooms: pickStringOrNumber(
       shoot?.bathrooms,
       shoot?.bathRooms,
       rawDetails.bathrooms,
@@ -85,7 +112,7 @@ export const normalizePropertyDetails = (shoot?: ShootLike | null): NormalizedPr
       rawDetails.baths,
       rawDetails.bath,
     ),
-    sqft: pickFirst(
+    sqft: pickStringOrNumber(
       shoot?.sqft,
       shoot?.squareFeet,
       shoot?.square_feet,
@@ -95,11 +122,11 @@ export const normalizePropertyDetails = (shoot?: ShootLike | null): NormalizedPr
       rawDetails.livingArea,
       rawDetails.living_area,
     ),
-    mls_id: pickFirst(rawDetails.mls_id, rawDetails.mlsId, rawDetails.mlsNumber),
-    price: pickFirst(rawDetails.price, rawDetails.listPrice, rawDetails.listingPrice),
-    lot_size: pickFirst(rawDetails.lot_size, rawDetails.lotSize, rawDetails.lotSizeSqft),
-    year_built: pickFirst(rawDetails.year_built, rawDetails.yearBuilt),
-    property_type: pickFirst(rawDetails.property_type, rawDetails.propertyType),
+    mls_id: pickStringOrNumber(rawDetails.mls_id, rawDetails.mlsId, rawDetails.mlsNumber),
+    price: pickStringOrNumber(rawDetails.price, rawDetails.listPrice, rawDetails.listingPrice),
+    lot_size: pickStringOrNumber(rawDetails.lot_size, rawDetails.lotSize, rawDetails.lotSizeSqft),
+    year_built: pickStringOrNumber(rawDetails.year_built, rawDetails.yearBuilt),
+    property_type: pickStringOrNumber(rawDetails.property_type, rawDetails.propertyType),
   };
 };
 
@@ -144,7 +171,7 @@ export const normalizeIguideFloorplans = (
         filename: String((floorplan as LooseRecord).filename || 'Floorplan'),
       };
     })
-    .filter((floorplan): floorplan is { url: string; filename?: string } => Boolean(floorplan?.url));
+    .filter((floorplan): floorplan is { url: string; filename: string } => Boolean(floorplan?.url));
 };
 
 export const getNormalizedIguideSync = (shoot?: ShootLike | null) => ({

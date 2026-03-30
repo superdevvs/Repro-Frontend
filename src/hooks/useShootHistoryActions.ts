@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect } from 'react'
 import axios from 'axios'
 import { API_BASE_URL } from '@/config/env'
 import API_ROUTES from '@/lib/api'
@@ -7,7 +7,14 @@ import { registerShootHistoryRefresh } from '@/realtime/realtimeRefreshBus'
 import { deriveFilterOptionsFromShoots, mapShootApiToShootData } from '@/components/shoots/history/shootHistoryTransforms'
 import { downloadShootMediaArchive } from '@/utils/shootMediaDownload'
 import {
+  buildBrightMlsPublishPayload,
+  closePendingBrightMlsWindow,
+  navigateBrightMlsWindow,
+  openPendingBrightMlsWindow,
+} from '@/utils/brightMls'
+import {
   FilterCollections,
+  HistoryMeta,
   HistoryFiltersState,
   OperationalFiltersState,
   formatCurrency,
@@ -19,8 +26,24 @@ import {
   ShootHistoryServiceAggregate,
 } from '@/types/shoots'
 
+type ToastFn = (args: { title: string; description?: string; variant?: 'default' | 'destructive' }) => void
+type InvoicePayload = Record<string, unknown>
+type ApiErrorResponse = { message?: string; error?: string }
+type OperationalMeta = { current_page: number; per_page: number; total: number }
+type ShootHistoryRecordWithMls = ShootHistoryRecord & { mls_id?: string | number | null }
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (axios.isAxiosError<ApiErrorResponse>(error)) {
+    return error.response?.data?.message || error.response?.data?.error || error.message || fallback
+  }
+  if (error instanceof Error) {
+    return error.message || fallback
+  }
+  return fallback
+}
+
 export interface UseShootHistoryActionsArgs {
-  toast: any
+  toast: ToastFn
   navigate: (path: string) => void
   role: string | null | undefined
   user: { id?: string | number; email?: string; name?: string } | null | undefined
@@ -41,31 +64,39 @@ export interface UseShootHistoryActionsArgs {
   isEditor: boolean
   formatDatePref: (date: Date) => string
   formatTime: (value: string) => string
-  refreshActiveTabData: () => Promise<void>
+  parentRefreshActiveTabData: () => Promise<void>
   loadShootById: (shootId: string | number, options?: { openDetail?: boolean; quiet?: boolean }) => Promise<ShootData | null>
   setLoading: (value: boolean) => void
   setDetailLoading: (value: boolean) => void
   setOperationalData: (value: ShootData[] | ((prev: ShootData[]) => ShootData[])) => void
   setHistoryRecords: (value: ShootHistoryRecord[]) => void
   setHistoryAggregates: (value: ShootHistoryServiceAggregate[]) => void
-  setHistoryMeta: (value: any) => void
-  setOperationalMeta: (value: { current_page: number; per_page: number; total: number } | null) => void
+  setHistoryMeta: (value: HistoryMeta | null) => void
+  setOperationalMeta: (value: OperationalMeta | null) => void
   setOperationalOptions: (value: FilterCollections) => void
   setHistoryOptions: (value: FilterCollections) => void
   setBulkShoots: (value: ShootData[]) => void
   setBulkShootsLoading: (value: boolean) => void
+  deleteShootId: string | number | null
   setDeleteShootId: (value: string | number | null) => void
   setIsDeleting: (value: boolean) => void
+  selectedShoot: ShootData | null
   setSelectedShoot: (value: ShootData | null) => void
+  isDetailOpen: boolean
   setIsDetailOpen: (value: boolean) => void
   setIsUploadDialogOpen: (value: boolean) => void
   setApprovalModalShoot: (value: ShootData | null) => void
   setDeclineModalShoot: (value: ShootData | null) => void
   setEditModalShoot: (value: ShootData | null) => void
   setInvoiceDialogOpen: (value: boolean) => void
-  setSelectedInvoice: (value: any) => void
+  setSelectedInvoice: (value: InvoicePayload | null) => void
   setInvoiceLoading: (value: boolean) => void
   setBrightMlsRedirectUrl: (value: string | null) => void
+  historyRecords: ShootHistoryRecord[]
+  historyMeta: HistoryMeta | null
+  operationalMeta: OperationalMeta | null
+  setHistoryPage: (value: number) => void
+  setOperationalPage: (value: number) => void
 }
 
 export function useShootHistoryActions(args: UseShootHistoryActionsArgs) {
@@ -91,7 +122,7 @@ export function useShootHistoryActions(args: UseShootHistoryActionsArgs) {
     isEditor,
     formatDatePref,
     formatTime,
-    refreshActiveTabData,
+    parentRefreshActiveTabData: _parentRefresh,
     loadShootById,
     setLoading,
     setDetailLoading,
@@ -116,6 +147,14 @@ export function useShootHistoryActions(args: UseShootHistoryActionsArgs) {
     setSelectedInvoice,
     setInvoiceLoading,
     setBrightMlsRedirectUrl,
+    deleteShootId,
+    selectedShoot,
+    isDetailOpen,
+    historyRecords,
+    historyMeta,
+    operationalMeta,
+    setHistoryPage,
+    setOperationalPage,
   } = args
 
   const handleDetailDialogToggle = useCallback((open: boolean) => {
@@ -149,15 +188,15 @@ export function useShootHistoryActions(args: UseShootHistoryActionsArgs) {
     try {
       const shootId = 'id' in shoot ? shoot.id : (shoot as ShootData).id
       const response = await apiClient.get(`/shoots/${shootId}/invoice`)
-      const invoiceData = response.data?.data || response.data
+      const invoiceData = (response.data?.data || response.data) as InvoicePayload | null
       if (invoiceData) {
         setSelectedInvoice(invoiceData)
         setInvoiceDialogOpen(true)
       } else {
         toast({ title: 'Invoice not found', description: 'Unable to load invoice for this shoot.', variant: 'destructive' })
       }
-    } catch (error: any) {
-      toast({ title: 'Error loading invoice', description: error.response?.data?.message || 'Unable to load invoice. Please try again.', variant: 'destructive' })
+    } catch (error) {
+      toast({ title: 'Error loading invoice', description: getErrorMessage(error, 'Unable to load invoice. Please try again.'), variant: 'destructive' })
     } finally {
       setInvoiceLoading(false)
     }
@@ -246,7 +285,7 @@ export function useShootHistoryActions(args: UseShootHistoryActionsArgs) {
             return true
           })
       setOperationalData(roleFilteredShoots)
-      const meta = payload.meta as any
+      const meta = payload.meta as (Partial<OperationalMeta> & { count?: number }) | undefined
       if (meta && (meta.current_page !== undefined || meta.total !== undefined || meta.count !== undefined)) {
         setOperationalMeta({ current_page: meta.current_page ?? operationalPage, per_page: 12, total: meta.total ?? meta.count ?? 0 })
       } else {
@@ -343,67 +382,135 @@ export function useShootHistoryActions(args: UseShootHistoryActionsArgs) {
   }, [refreshActiveTabData, canViewHistory])
 
   const handlePublishMls = useCallback(async (record: ShootHistoryRecord) => {
-    if (!record?.id || !(record as any).mls_id) {
+    const mlsRecord = record as ShootHistoryRecordWithMls
+    if (!record?.id || !mlsRecord.mls_id) {
       toast({ title: 'Cannot publish', description: 'This shoot does not have an MLS ID.', variant: 'destructive' })
       return
     }
+    let pendingWindow: Window | null = null
     try {
       const shoot = await loadShootById(record.id, { quiet: true })
       if (!shoot) throw new Error('Shoot not found')
-      const photos = (shoot.files || []).filter((f: any) => f.path || f.url).map((f: any) => ({ id: f.id, url: f.path || f.url || '', filename: f.filename || `photo-${f.id}`, selected: true }))
-      const response = await apiClient.post(API_ROUTES.integrations.brightMls.publish(record.id), {
-        photos,
-        iguide_tour_url: (shoot as any).iguide_tour_url,
-        documents: ((shoot as any).iguide_floorplans || []).map((fp: any) => ({ url: fp.url || fp, filename: fp.filename || 'floorplan.pdf', visibility: 'private' })),
-      })
+      setBrightMlsRedirectUrl(null)
+      const payload = buildBrightMlsPublishPayload(shoot as ShootData & Record<string, unknown>)
+      if (payload.photos.length === 0) {
+        throw new Error('No images found to send. Please ensure the shoot has completed images.')
+      }
+
+      pendingWindow = openPendingBrightMlsWindow()
+
+      const response = await apiClient.post(API_ROUTES.integrations.brightMls.publish(record.id), payload)
       if (response.data.success) {
         const redirectUrl = response.data.data?.redirect_url || response.data.redirect_url
-        if (redirectUrl) setBrightMlsRedirectUrl(redirectUrl)
-        toast({ title: 'Manifest Sent', description: 'Complete the import by logging in to Bright MLS.' })
+        const openedInBrowser = navigateBrightMlsWindow(pendingWindow, redirectUrl)
+        if (!openedInBrowser) {
+          closePendingBrightMlsWindow(pendingWindow)
+          setBrightMlsRedirectUrl(redirectUrl || null)
+        }
+        toast({
+          title: 'Manifest Sent',
+          description: openedInBrowser
+            ? 'Bright MLS opened in a new tab. Complete the import there.'
+            : 'Complete the import by opening Bright MLS from the dialog.',
+        })
         await fetchHistoryData()
       } else {
         throw new Error(response.data.message || 'Publishing failed')
       }
-    } catch (error: any) {
-      toast({ title: 'Publish failed', description: error.response?.data?.message || error.message || 'Failed to publish to Bright MLS.', variant: 'destructive' })
+    } catch (error) {
+      closePendingBrightMlsWindow(pendingWindow)
+      toast({ title: 'Publish failed', description: getErrorMessage(error, 'Failed to publish to Bright MLS.'), variant: 'destructive' })
     }
   }, [loadShootById, toast, fetchHistoryData, setBrightMlsRedirectUrl])
 
+  const handleSendToEditing = useCallback(async (shoot: ShootData) => {
+    if (!shoot?.id) return
+    try {
+      const currentStatus = shoot.status || shoot.workflowStatus || 'booked'
+      if (String(currentStatus).toLowerCase() !== 'uploaded') {
+        throw new Error('Shoot must be in Uploaded status before sending to editing')
+      }
+
+      await apiClient.post(`/shoots/${shoot.id}/start-editing`)
+      toast({ title: 'Success', description: 'Shoot sent to editing' })
+      await refreshActiveTabData()
+
+      if (selectedShoot?.id && String(selectedShoot.id) === String(shoot.id)) {
+        await loadShootById(selectedShoot.id, { openDetail: isDetailOpen, quiet: true })
+      }
+    } catch (error) {
+      toast({ title: 'Error', description: getErrorMessage(error, 'Failed to send to editing'), variant: 'destructive' })
+    }
+  }, [toast, refreshActiveTabData, selectedShoot, loadShootById, isDetailOpen])
+
   const confirmDeleteShoot = useCallback(async () => {
-    if (!args?.deleteShootId && args.deleteShootId !== 0) return
-  }, [])
+    if (!deleteShootId && deleteShootId !== 0) return
+
+    setIsDeleting(true)
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token')
+      const response = await fetch(`${API_BASE_URL}/api/shoots/${deleteShootId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = (await response.json().catch(() => ({ message: 'Failed to delete shoot' }))) as ApiErrorResponse
+        throw new Error(errorData.message || 'Failed to delete shoot')
+      }
+
+      toast({ title: 'Success', description: 'Shoot deleted successfully' })
+
+      if (selectedShoot?.id && String(selectedShoot.id) === String(deleteShootId)) {
+        setSelectedShoot(null)
+        setIsDetailOpen(false)
+      }
+
+      const deletedId = String(deleteShootId)
+      setOperationalData((prev) => prev.filter((shoot) => String(shoot.id) !== deletedId))
+      await refreshActiveTabData()
+    } catch (error) {
+      toast({ title: 'Error', description: getErrorMessage(error, 'Failed to delete shoot'), variant: 'destructive' })
+    } finally {
+      setIsDeleting(false)
+      setDeleteShootId(null)
+    }
+  }, [deleteShootId, setIsDeleting, toast, selectedShoot, setSelectedShoot, setIsDetailOpen, setOperationalData, refreshActiveTabData, setDeleteShootId])
 
   const handleUploadComplete = useCallback(async () => {
     setIsUploadDialogOpen(false)
     await refreshActiveTabData()
-    if (args.selectedShoot?.id) {
-      await loadShootById(args.selectedShoot.id, { openDetail: args.isDetailOpen, quiet: true })
+    if (selectedShoot?.id) {
+      await loadShootById(selectedShoot.id, { openDetail: isDetailOpen, quiet: true })
     }
-  }, [refreshActiveTabData, loadShootById, setIsUploadDialogOpen, args?.selectedShoot, args?.isDetailOpen])
+  }, [refreshActiveTabData, loadShootById, setIsUploadDialogOpen, selectedShoot, isDetailOpen])
 
   const handleHistoryPageChange = useCallback((direction: 'prev' | 'next') => {
-    if (!args.historyMeta) return
+    if (!historyMeta) return
     const currentPage = historyPage
     let newPage = currentPage
     if (direction === 'prev' && currentPage > 1) newPage = currentPage - 1
     else if (direction === 'next') {
-      const totalPages = Math.ceil(args.historyMeta.total / args.historyMeta.per_page)
+      const totalPages = Math.ceil(historyMeta.total / historyMeta.per_page)
       if (currentPage < totalPages) newPage = currentPage + 1
     }
-    if (newPage !== currentPage) args.setHistoryPage(newPage)
-  }, [args?.historyMeta, historyPage, args?.setHistoryPage])
+    if (newPage !== currentPage) setHistoryPage(newPage)
+  }, [historyMeta, historyPage, setHistoryPage])
 
   const handleOperationalPageChange = useCallback((direction: 'prev' | 'next') => {
-    if (!args.operationalMeta) return
+    if (!operationalMeta) return
     const currentPage = operationalPage
     let newPage = currentPage
     if (direction === 'prev' && currentPage > 1) newPage = currentPage - 1
     else if (direction === 'next') {
-      const totalPages = Math.ceil(args.operationalMeta.total / args.operationalMeta.per_page)
+      const totalPages = Math.ceil(operationalMeta.total / operationalMeta.per_page)
       if (currentPage < totalPages) newPage = currentPage + 1
     }
-    if (newPage !== currentPage) args.setOperationalPage(newPage)
-  }, [args?.operationalMeta, operationalPage, args?.setOperationalPage])
+    if (newPage !== currentPage) setOperationalPage(newPage)
+  }, [operationalMeta, operationalPage, setOperationalPage])
 
   const buildHistoryParams = useCallback(() => {
     const params: Record<string, unknown> = { group_by: historyFilters.groupBy, page: historyPage, per_page: 12 }
@@ -446,7 +553,7 @@ export function useShootHistoryActions(args: UseShootHistoryActionsArgs) {
 
   const handleCopyHistory = useCallback(async () => {
     try {
-      if (!args.historyRecords.length) {
+      if (!historyRecords.length) {
         toast({ title: 'Nothing to copy', description: 'Run a history search first.' })
         return
       }
@@ -454,7 +561,7 @@ export function useShootHistoryActions(args: UseShootHistoryActionsArgs) {
       const headers = isSuperAdmin
         ? includeClientDetails ? ['Scheduled Date', 'Completed Date', 'Client', 'Address', 'Total Paid'] : ['Scheduled Date', 'Completed Date', 'Address', 'Total Paid']
         : includeClientDetails ? ['Scheduled Date', 'Completed Date', 'Client', 'Address'] : ['Scheduled Date', 'Completed Date', 'Address']
-      const rows = args.historyRecords.map((record) => {
+      const rows = historyRecords.map((record) => {
         const baseRow = [formatDatePref(new Date(record.scheduledDate)), formatDatePref(new Date(record.completedDate || record.scheduledDate))]
         if (includeClientDetails) baseRow.push(record.client?.name ?? '—')
         baseRow.push(record.address?.full ?? '—')
@@ -467,7 +574,7 @@ export function useShootHistoryActions(args: UseShootHistoryActionsArgs) {
     } catch (error) {
       toast({ title: 'Copy failed', description: 'Clipboard permissions denied.', variant: 'destructive' })
     }
-  }, [args?.historyRecords, isSuperAdmin, shouldHideClientDetails, toast, formatDatePref])
+  }, [historyRecords, isSuperAdmin, shouldHideClientDetails, toast, formatDatePref])
 
   const handleDownloadShoot = useCallback(async (shoot: ShootData, type: 'full' | 'web') => {
     try {

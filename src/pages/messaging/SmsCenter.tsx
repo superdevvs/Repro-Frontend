@@ -13,7 +13,7 @@ import {
   updateSmsContactComment,
   getTemplates,
 } from '@/services/messaging';
-import type { SmsContact, SmsThreadDetail, SmsThreadFilter, SmsThreadSummary } from '@/types/messaging';
+import type { PaginatedResponseMeta, SmsContact, SmsThreadDetail, SmsThreadFilter, SmsThreadSummary } from '@/types/messaging';
 import { useSmsRealtime } from '@/hooks/use-sms-realtime';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { Drawer, DrawerContent } from '@/components/ui/drawer';
@@ -46,7 +46,7 @@ export default function SmsCenter() {
       }),
   });
 
-  const threads = threadsQuery.data?.data ?? [];
+  const threads = useMemo(() => threadsQuery.data?.data ?? [], [threadsQuery.data?.data]);
 
   useEffect(() => {
     if (requestedThreadId && requestedThreadId !== activeThreadId) {
@@ -83,18 +83,18 @@ export default function SmsCenter() {
 
   const threadDetail = threadDetailQuery.data;
 
-const templatesQuery = useQuery({
-  queryKey: ['sms-templates'],
-  queryFn: () => getTemplates({ channel: 'SMS' }),
-  staleTime: 1000 * 60 * 5,
-});
+  const templatesQuery = useQuery({
+    queryKey: ['sms-templates'],
+    queryFn: () => getTemplates({ channel: 'SMS' }),
+    staleTime: 1000 * 60 * 5,
+  });
 
-const smsTemplates =
-  templatesQuery.data?.map((template) => ({
-    id: template.id,
-    name: template.name,
-    body_text: template.body_text,
-  })) ?? [];
+  const smsTemplates =
+    templatesQuery.data?.map((template) => ({
+      id: template.id,
+      name: template.name,
+      body_text: template.body_text,
+    })) ?? [];
 
   const markReadMutation = useMutation({
     mutationFn: (threadId: string) => markSmsThreadRead(threadId),
@@ -102,14 +102,15 @@ const smsTemplates =
       queryClient.invalidateQueries({ queryKey: threadsKey });
     },
   });
+  const { mutate: markThreadRead } = markReadMutation;
 
   useEffect(() => {
     if (activeThreadId) {
-      markReadMutation.mutate(activeThreadId);
+      markThreadRead(activeThreadId);
       setContactPanelOpen(false);
       setContactDrawerOpen(false);
     }
-  }, [activeThreadId]);
+  }, [activeThreadId, markThreadRead]);
 
   const sendMutation = useMutation({
     mutationFn: (body: string) => sendSmsMessageToThread(activeThreadId!, { body }),
@@ -155,7 +156,7 @@ const smsTemplates =
       });
     },
     onThreadUpdated: (updated) => {
-      queryClient.setQueryData(threadsKey, (prev: { data: SmsThreadSummary[]; meta: any } | undefined) => {
+      queryClient.setQueryData(threadsKey, (prev: { data: SmsThreadSummary[]; meta: PaginatedResponseMeta } | undefined) => {
         if (!prev) return prev;
         const existingIndex = prev.data.findIndex((thread) => thread.id === updated.id);
         if (existingIndex === -1) {

@@ -20,6 +20,15 @@ import {
   Search
 } from 'lucide-react';
 
+type ServiceManagementItem = {
+  id: string;
+  name: string;
+  category_id: string;
+  price: number | string;
+  description?: string | null;
+  delivery_time?: number | string | null;
+};
+
 export function ServicesManagement() {
   const { toast } = useToast();
   const { data: categories, isLoading: categoriesLoading } = useServiceCategories();
@@ -28,7 +37,7 @@ export function ServicesManagement() {
   const [searchTerm, setSearchTerm] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [currentService, setCurrentService] = useState<any>(null);
+  const [currentService, setCurrentService] = useState<ServiceManagementItem | null>(null);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -175,19 +184,21 @@ export function ServicesManagement() {
       name: '',
       category_id: categories?.[0]?.id || '',
       price: '',
-      description: ''
+      description: '',
+      delivery_time: '',
     });
     setDialogOpen(true);
   };
 
-  const handleEditService = (service: any) => {
+  const handleEditService = (service: ServiceManagementItem) => {
     setIsEditing(true);
     setCurrentService(service);
     setFormData({
       name: service.name,
       category_id: service.category_id,
       price: service.price.toString(),
-      description: service.description || ''
+      description: service.description || '',
+      delivery_time: service.delivery_time ? String(service.delivery_time) : '',
     });
     setDialogOpen(true);
   };

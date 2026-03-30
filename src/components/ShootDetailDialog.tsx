@@ -10,6 +10,11 @@ import { format } from 'date-fns';
 import { User, Camera, Building, DollarSign, List, Info, Clock, Calendar as CalendarIcon, Loader2 } from 'lucide-react';
 import { API_BASE_URL } from '@/config/env';
 import { SquarePaymentDialog } from '@/components/payments/SquarePaymentDialog';
+import type { SquarePaymentSuccessPayload } from '@/components/payments/SquarePaymentForm';
+
+const normalizeShootServices = (services: ShootData['services']): string[] => {
+  return Array.isArray(services) ? services.filter((service): service is string => typeof service === 'string') : [];
+};
 
 interface ShootDetailDialogProps {
   shoot: ShootData | null;
@@ -37,7 +42,7 @@ export const ShootDetailDialog = ({ shoot, isOpen, onOpenChange }: ShootDetailDi
   const amountDue = shoot.payment.totalQuote - shoot.payment.totalPaid;
   const isPaid = amountDue <= 0.01; // Use a small epsilon for float comparison
 
-  const handlePaymentSuccess = (payment: any) => {
+  const handlePaymentSuccess = (_payment: SquarePaymentSuccessPayload) => {
     toast({
       title: "Payment Successful",
       description: `Payment of $${amountDue.toFixed(2)} has been processed successfully.`,
@@ -69,24 +74,24 @@ export const ShootDetailDialog = ({ shoot, isOpen, onOpenChange }: ShootDetailDi
             <DetailRow icon={User} label="Contact Email" value={shoot.client.email} />
             <DetailRow icon={List} label="Services" value={
               <div className="flex flex-wrap gap-2 mt-1">
-                {shoot.services.map((service, i) => <Badge key={i} variant="secondary">{service}</Badge>)}
+                {normalizeShootServices(shoot.services).map((service, i) => <Badge key={i} variant="secondary">{service}</Badge>)}
               </div>
             } />
           </div>
         </div>
 
         <DialogFooter className="border-t pt-4 flex sm:justify-between items-center">
-            <div className="text-left">
-                <p className="text-sm text-muted-foreground">Amount Due</p>
-                <p className="text-xl font-bold text-green-500">${amountDue.toFixed(2)}</p>
-            </div>
-            {isPaid ? (
-                <Button disabled variant="outline">Fully Paid</Button>
-            ) : (
-                <Button onClick={() => setIsPaymentDialogOpen(true)} size="lg">
-                  Pay ${amountDue.toFixed(2)}
-                </Button>
-            )}
+          <div className="text-left">
+            <p className="text-sm text-muted-foreground">Amount Due</p>
+            <p className="text-xl font-bold text-green-500">${amountDue.toFixed(2)}</p>
+          </div>
+          {isPaid ? (
+            <Button disabled variant="outline">Fully Paid</Button>
+          ) : (
+            <Button onClick={() => setIsPaymentDialogOpen(true)} size="lg">
+              Pay ${amountDue.toFixed(2)}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
 
@@ -96,9 +101,9 @@ export const ShootDetailDialog = ({ shoot, isOpen, onOpenChange }: ShootDetailDi
         amount={amountDue}
         shootId={shoot.id}
         shootAddress={shoot.location?.fullAddress || shoot.location?.address}
-        shootServices={Array.isArray(shoot.services) ? shoot.services.map((s: any) => typeof s === 'string' ? s : s?.name || s?.label || String(s)).filter(Boolean) : []}
+        shootServices={normalizeShootServices(shoot.services)}
         shootDate={shoot.scheduledDate}
-        shootTime={shoot.scheduledTime}
+        shootTime={shoot.time}
         clientName={shoot.client?.name}
         clientEmail={shoot.client?.email}
         totalQuote={shoot.payment?.totalQuote}

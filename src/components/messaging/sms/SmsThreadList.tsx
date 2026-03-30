@@ -39,8 +39,7 @@ export const SmsThreadList = ({
           </div>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon" onClick={onRefresh} disabled={isRefreshing} title="Refresh conversations">
-              <RefreshCcw className="h-4 w-4 animate-spin" hidden={!isRefreshing} />
-              <RefreshCcw className="h-4 w-4" hidden={!!isRefreshing} />
+              <RefreshCcw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -90,4 +89,3 @@ export const SmsThreadList = ({
     </div>
   );
 };
-

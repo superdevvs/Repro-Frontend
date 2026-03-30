@@ -6,6 +6,12 @@ import { registerShootHistoryRefresh } from '@/realtime/realtimeRefreshBus'
 import API_ROUTES from '@/lib/api'
 import { downloadShootMediaArchive } from '@/utils/shootMediaDownload'
 import {
+  buildBrightMlsPublishPayload,
+  closePendingBrightMlsWindow,
+  navigateBrightMlsWindow,
+  openPendingBrightMlsWindow,
+} from '@/utils/brightMls'
+import {
   deriveFilterOptionsFromShoots,
   mapShootApiToShootData,
 } from '@/components/shoots/history/shootHistoryTransforms'
@@ -967,40 +973,37 @@ export function useShootHistoryData({
         return
       }
 
+      let pendingWindow: Window | null = null
+
       try {
         const shoot = await loadShootById(record.id, { quiet: true })
         if (!shoot) {
           throw new Error('Shoot not found')
         }
 
-        const photos = (shoot.files || [])
-          .filter((file: any) => file.path || file.url)
-          .map((file: any) => ({
-            id: file.id,
-            url: file.path || file.url || '',
-            filename: file.filename || `photo-${file.id}`,
-            selected: true,
-          }))
+        setBrightMlsRedirectUrl(null)
+        const payload = buildBrightMlsPublishPayload(shoot as Partial<ShootData> & Record<string, unknown>)
+        if (payload.photos.length === 0) {
+          throw new Error('No images found to send. Please ensure the shoot has completed images.')
+        }
 
-        const response = await apiClient.post(API_ROUTES.integrations.brightMls.publish(record.id), {
-          photos,
-          iguide_tour_url: (shoot as any).iguide_tour_url,
-          documents: ((shoot as any).iguide_floorplans || []).map((floorplan: any) => ({
-            url: floorplan.url || floorplan,
-            filename: floorplan.filename || 'floorplan.pdf',
-            visibility: 'private',
-          })),
-        })
+        pendingWindow = openPendingBrightMlsWindow()
+
+        const response = await apiClient.post(API_ROUTES.integrations.brightMls.publish(record.id), payload)
 
         if (response.data.success) {
           const redirectUrl = response.data.data?.redirect_url || response.data.redirect_url
-          if (redirectUrl) {
-            setBrightMlsRedirectUrl(redirectUrl)
+          const openedInBrowser = navigateBrightMlsWindow(pendingWindow, redirectUrl)
+          if (!openedInBrowser) {
+            closePendingBrightMlsWindow(pendingWindow)
+            setBrightMlsRedirectUrl(redirectUrl || null)
           }
 
           toast({
             title: 'Manifest Sent',
-            description: 'Complete the import by logging in to Bright MLS.',
+            description: openedInBrowser
+              ? 'Bright MLS opened in a new tab. Complete the import there.'
+              : 'Complete the import by opening Bright MLS from the dialog.',
           })
 
           await fetchHistoryData()
@@ -1008,6 +1011,7 @@ export function useShootHistoryData({
           throw new Error(response.data.message || 'Publishing failed')
         }
       } catch (error: any) {
+        closePendingBrightMlsWindow(pendingWindow)
         toast({
           title: 'Publish failed',
           description:

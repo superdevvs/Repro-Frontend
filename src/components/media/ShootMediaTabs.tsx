@@ -201,7 +201,7 @@ const MediaTile: React.FC<{
         )}
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           {item.uploadedBy && <span>Uploaded by {item.uploadedBy}</span>}
-          {item.metadata?.uploadedAt && <span>· {item.metadata.uploadedAt}</span>}
+          {item.metadata?.uploadedAt && <span>· {String(item.metadata.uploadedAt)}</span>}
         </div>
 
         <div className="flex items-center justify-between pt-2">
@@ -430,4 +430,3 @@ const ShootMediaTabs: React.FC<ShootMediaTabsProps> = ({
 };
 
 export default ShootMediaTabs;
-

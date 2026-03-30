@@ -109,8 +109,8 @@ export function EmailMessageDetail({ message, onClose, onRefresh }: EmailMessage
       setShowReply(false);
       setReplyBody('');
       onRefresh();
-    } catch (error: any) {
-      toast.error(error?.message || 'Failed to send reply');
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Failed to send reply');
     } finally {
       setSendingReply(false);
     }
@@ -122,8 +122,8 @@ export function EmailMessageDetail({ message, onClose, onRefresh }: EmailMessage
       await retryEmail(message.id);
       toast.success('Message resent successfully');
       onRefresh();
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to resend message');
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Failed to resend message');
     } finally {
       setIsRetrying(false);
     }
@@ -140,8 +140,8 @@ export function EmailMessageDetail({ message, onClose, onRefresh }: EmailMessage
       await cancelEmail(message.id);
       toast.success('Message cancelled successfully');
       onRefresh();
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to cancel message');
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Failed to cancel message');
     } finally {
       setIsCancelling(false);
     }

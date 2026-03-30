@@ -29,6 +29,18 @@ interface PayMultipleShootsDialogProps {
   onPaymentComplete?: () => void;
 }
 
+const getRequestErrorMessage = (error: unknown, fallback: string): string => {
+  if (axios.isAxiosError(error)) {
+    const responseData = error.response?.data;
+    if (typeof responseData === 'object' && responseData && 'message' in responseData && typeof responseData.message === 'string') {
+      return responseData.message;
+    }
+    return error.message || fallback;
+  }
+
+  return error instanceof Error ? error.message : fallback;
+};
+
 export function PayMultipleShootsDialog({
   isOpen,
   onClose,
@@ -125,12 +137,10 @@ export function PayMultipleShootsDialog({
           onClose();
         }
       }
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: 'Error',
-        description:
-          error.response?.data?.message ||
-          'Failed to process payment. Please try again.',
+        description: getRequestErrorMessage(error, 'Failed to process payment. Please try again.'),
         variant: 'destructive',
       });
     } finally {
@@ -143,7 +153,12 @@ export function PayMultipleShootsDialog({
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       const promises = selectedShootsData.map((shoot) => {
-        const body: Record<string, any> = {
+        const body: {
+          payment_type: MarkAsPaidPayload['paymentMethod'];
+          amount: number;
+          payment_details?: MarkAsPaidPayload['paymentDetails'];
+          payment_date?: string;
+        } = {
           payment_type: payload.paymentMethod,
           amount: (shoot.payment?.totalQuote ?? 0) - (shoot.payment?.totalPaid ?? 0),
         };
@@ -174,10 +189,8 @@ export function PayMultipleShootsDialog({
         onPaymentComplete();
       }
       onClose();
-    } catch (error: any) {
-      const message =
-        error.response?.data?.message ||
-        'Failed to process payment. Please try again.';
+    } catch (error) {
+      const message = getRequestErrorMessage(error, 'Failed to process payment. Please try again.');
       throw new Error(message);
     } finally {
       setProcessing(false);

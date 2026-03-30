@@ -187,7 +187,7 @@ export const resolveShootThumbnail = (
     resolvePreviewUrl(shoot.media?.images?.[0]?.thumbnail) ||
     heroPreview ||
     resolvePreviewUrl(shoot.media?.images?.[0]?.url) ||
-    resolvePreviewUrl((shoot.media as any)?.photos?.[0])
+    resolvePreviewUrl(toOptionalString(toObjectValue<LegacyMediaShape>(shoot.media)?.photos?.[0]))
 
   if (editedMediaPreview) {
     return editedMediaPreview
@@ -238,6 +238,20 @@ export function toArrayValue<T>(value: unknown): T[] {
   return Array.isArray(value) ? (value as T[]) : []
 }
 
+type LegacyMediaShape = {
+  photos?: unknown[]
+}
+
+type ServiceCollection = {
+  data?: unknown[]
+}
+
+type ServiceLike = {
+  name?: unknown
+  label?: unknown
+  service_name?: unknown
+}
+
 export const toOptionalString = (value: unknown): string | undefined => {
   if (typeof value !== 'string') return undefined
   const trimmed = value.trim()
@@ -284,7 +298,8 @@ export const mapShootApiToShootData = (item: Record<string, unknown>): ShootData
     if (Array.isArray(item.services)) {
       servicesArray = item.services
     } else if (typeof item.services === 'object' && 'data' in item.services) {
-      servicesArray = Array.isArray((item.services as any).data) ? (item.services as any).data : []
+      const serviceCollection = toObjectValue<ServiceCollection>(item.services)
+      servicesArray = Array.isArray(serviceCollection?.data) ? serviceCollection.data : []
     } else if (typeof item.services === 'object') {
       servicesArray = Object.values(item.services)
     }
@@ -308,7 +323,8 @@ export const mapShootApiToShootData = (item: Record<string, unknown>): ShootData
       return service
     }
     if (service && typeof service === 'object') {
-      return (service as any).name ?? (service as any).label ?? (service as any).service_name ?? String(service)
+      const serviceItem = service as ServiceLike
+      return serviceItem.name ?? serviceItem.label ?? serviceItem.service_name ?? String(service)
     }
     return String(service)
   }).filter(Boolean) as string[]
@@ -421,6 +437,7 @@ export const mapShootApiToShootData = (item: Record<string, unknown>): ShootData
       totalQuote: paymentSummary.totalQuote,
       totalPaid: paymentSummary.totalPaid,
       baseQuote: paymentSummary.baseQuote,
+      taxRate: paymentSummary.taxRate,
       taxAmount: paymentSummary.taxAmount,
       taxPercent: paymentSummary.taxPercent,
       lastPaymentDate: paymentDetails?.lastPaymentDate ?? toStringValue(item.last_payment_date),

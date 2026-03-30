@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { QueryClient } from '@tanstack/react-query';
 import { NavigateFunction } from 'react-router-dom';
-import { InvoiceData } from '@/utils/invoiceUtils';
+import { InvoiceData, InvoiceItem, InvoiceParty, InvoiceShootRef } from '@/utils/invoiceUtils';
 import { ShootData } from '@/types/shoots';
 import { API_BASE_URL } from '@/config/env';
 import { MarkAsPaidPayload } from '@/components/payments/MarkAsPaidDialog';
 import { blurActiveElement } from '../dialogFocusUtils';
+import type { PaymentDetails } from '@/utils/paymentUtils';
 
 interface ToastApi {
   toast: (options: {
@@ -23,6 +24,32 @@ interface UseShootDetailsModalPaymentsOptions {
   navigate: NavigateFunction;
   toast: ToastApi['toast'];
 }
+
+type InvoiceResponseLike = {
+  id?: string | number;
+  number?: string;
+  invoice_number?: string | number;
+  client?: string | InvoiceParty | null;
+  shoot?: InvoiceShootRef | null;
+  property?: string;
+  issue_date?: string;
+  date?: string;
+  due_date?: string;
+  dueDate?: string;
+  total?: number | string;
+  amount?: number | string;
+  status?: string;
+  services?: string[];
+  paymentMethod?: string;
+  payment_method?: string;
+  paymentDetails?: PaymentDetails;
+  payment_details?: PaymentDetails;
+  paidAt?: string;
+  paid_at?: string;
+  items?: InvoiceItem[];
+  subtotal?: number | string;
+  tax?: number | string;
+};
 
 export function useShootDetailsModalPayments({
   shoot,
@@ -125,10 +152,15 @@ export function useShootDetailsModalPayments({
       }
 
       const data = await res.json();
-      const invoiceData = data.data || data;
+      const invoiceData = (data.data || data) as InvoiceResponseLike;
+      const normalizedStatus = invoiceData.status === 'paid'
+        ? 'paid'
+        : invoiceData.status === 'overdue'
+          ? 'overdue'
+          : 'pending';
       const invoice: InvoiceData = {
         id: invoiceData.id?.toString() || '',
-        number: invoiceData.invoice_number || invoiceData.number || `Invoice ${invoiceData.id}`,
+        number: String(invoiceData.invoice_number ?? invoiceData.number ?? `Invoice ${invoiceData.id ?? ''}`),
         client: typeof invoiceData.client === 'string'
           ? invoiceData.client
           : invoiceData.client?.name || invoiceData.shoot?.client?.name || 'Unknown Client',
@@ -138,25 +170,28 @@ export function useShootDetailsModalPayments({
           || 'N/A',
         date: invoiceData.issue_date || invoiceData.date || new Date().toISOString(),
         dueDate: invoiceData.due_date || invoiceData.dueDate || new Date().toISOString(),
-        amount: invoiceData.total || invoiceData.amount || 0,
-        status: invoiceData.status === 'paid' ? 'paid' : invoiceData.status === 'sent' ? 'pending' : 'pending',
-        services: invoiceData.items?.map((item: any) => item.description) || invoiceData.services || [],
+        amount: Number(invoiceData.total || invoiceData.amount || 0),
+        status: normalizedStatus,
+        services: invoiceData.items
+          ?.map((item: InvoiceItem) => item.description)
+          .filter((description): description is string => Boolean(description))
+          || invoiceData.services || [],
         paymentMethod: invoiceData.payment_method || invoiceData.paymentMethod || 'N/A',
         paymentDetails: invoiceData.payment_details || invoiceData.paymentDetails || undefined,
         paidAt: invoiceData.paid_at || invoiceData.paidAt || undefined,
         items: invoiceData.items || [],
-        subtotal: invoiceData.subtotal || invoiceData.total || invoiceData.amount || 0,
-        tax: invoiceData.tax || 0,
-        total: invoiceData.total || invoiceData.amount || 0,
+        subtotal: Number(invoiceData.subtotal || invoiceData.total || invoiceData.amount || 0),
+        tax: Number(invoiceData.tax || 0),
+        total: Number(invoiceData.total || invoiceData.amount || 0),
       };
 
       setSelectedInvoice(invoice);
       blurActiveElement();
       setIsInvoiceDialogOpen(true);
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: 'Error',
-        description: error.message || 'Failed to load invoice',
+        description: error instanceof Error ? error.message : 'Failed to load invoice',
         variant: 'destructive',
       });
       navigate('/accounting');

@@ -3,10 +3,19 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { SquarePaymentDialog } from '@/components/payments/SquarePaymentDialog';
+import type { SquarePaymentSuccessPayload } from '@/components/payments/SquarePaymentForm';
 import { MarkAsPaidDialog, MarkAsPaidPayload } from '@/components/payments/MarkAsPaidDialog';
 import { RescheduleDialog } from '@/components/dashboard/RescheduleDialog';
 import { PauseCircle, Loader2 } from 'lucide-react';
 import { ShootData } from '@/types/shoots';
+
+type ShootWithLegacyScheduledAt = ShootData & {
+  scheduled_at?: string | null;
+};
+
+const hasLegacyScheduledAt = (shoot: ShootData): shoot is ShootWithLegacyScheduledAt => {
+  return 'scheduled_at' in shoot;
+};
 
 interface ShootDetailsPageDialogsProps {
   shoot: ShootData;
@@ -30,7 +39,7 @@ interface ShootDetailsPageDialogsProps {
   onOnHoldDialogChange: (open: boolean) => void;
   onHoldApprovalDialogChange: (open: boolean) => void;
   onOnHoldReasonChange: (value: string) => void;
-  onPaymentSuccess: (payment: any) => void;
+  onPaymentSuccess: (payment: SquarePaymentSuccessPayload) => void;
   onMarkPaidConfirm: (payload: MarkAsPaidPayload) => void | Promise<void>;
   onSubmitHold: () => void;
   onRejectHold: () => void;
@@ -65,6 +74,13 @@ export function ShootDetailsPageDialogs({
   onRejectHold,
   onApproveHold,
 }: ShootDetailsPageDialogsProps) {
+  const legacyScheduledAt = hasLegacyScheduledAt(shoot) ? shoot.scheduled_at : undefined;
+  const shootTime = legacyScheduledAt
+    ? formatTime(legacyScheduledAt)
+    : shoot.time
+      ? formatTime(shoot.time)
+      : undefined;
+
   return (
     <>
       <SquarePaymentDialog
@@ -75,13 +91,7 @@ export function ShootDetailsPageDialogs({
         shootAddress={shoot.location?.fullAddress || shoot.location?.address}
         shootServices={shootServices}
         shootDate={shoot.scheduledDate ? formatDate(shoot.scheduledDate) : undefined}
-        shootTime={
-          (shoot as any)?.scheduled_at
-            ? formatTime((shoot as any).scheduled_at)
-            : (shoot as any)?.time
-              ? formatTime((shoot as any).time)
-              : undefined
-        }
+        shootTime={shootTime}
         clientName={shoot.client?.name}
         clientEmail={shoot.client?.email}
         totalQuote={shoot.payment?.totalQuote}

@@ -22,6 +22,22 @@ import {
 } from '@/realtime/realtimeRefreshBus';
 import { UploadDropzone, UploadProgressCard } from './MediaUploadPanels';
 
+type ShootMediaServiceObject = {
+  name?: string;
+  service_name?: string;
+  title?: string;
+  count?: number | string;
+  quantity?: number | string;
+  photo_count?: number | string;
+};
+
+type ShootWithMediaServiceObjects = ShootData & {
+  serviceObjects?: ShootMediaServiceObject[];
+  service_objects?: ShootMediaServiceObject[];
+  editor_notes?: string;
+  editorNotes?: string;
+};
+
 const FULL_UPLOAD_ACCEPT = 'image/*,video/*,application/pdf,.pdf,.raw,.cr2,.cr3,.nef,.nrw,.arw,.srf,.sr2,.dng,.raf,.orf,.pef,.rw2,.srw,.3fr,.fff,.iiq,.rwl,.x3f,.erf,.kdc,.mef,.mos,.mrw,.bay,.bmq,.cap,.cine,.dc2,.dcr,.drf,.eip,.gpr,.mdc,.mdf,.mrw,.obm,.ptx,.pxn,.r3d,.rdc,.rmf';
 
 const triggerUploadRefreshes = (shootId: string | number) => {
@@ -46,9 +62,10 @@ function isHdrShoot(services: string[]): boolean {
 
 function extractPhotoServicesFromServiceObjects(shoot: ShootData): Array<{ name: string; count: number }> {
   const photoServices: Array<{ name: string; count: number }> = [];
-  const serviceObjects = (shoot as any)?.serviceObjects || (shoot as any)?.service_objects || [];
+  const legacyShoot = shoot as ShootWithMediaServiceObjects;
+  const serviceObjects = legacyShoot.serviceObjects || legacyShoot.service_objects || [];
   if (!Array.isArray(serviceObjects)) return photoServices;
-  serviceObjects.forEach((service: any) => {
+  serviceObjects.forEach((service) => {
     const name = String(service?.name || service?.service_name || service?.title || '').trim();
     const count = Number(service?.count || service?.quantity || service?.photo_count || 0);
     if (name && count > 0 && !/video/i.test(name)) photoServices.push({ name, count });
@@ -103,6 +120,7 @@ interface EditedUploadSectionProps {
 export function EditedUploadSection({ shoot, onUploadComplete, isEditor = false }: EditedUploadSectionProps) {
   const { toast } = useToast();
   const { trackUpload, uploads } = useUpload();
+  const legacyShoot = shoot as ShootWithMediaServiceObjects;
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const [editingNotes, setEditingNotes] = useState('');
@@ -127,7 +145,14 @@ export function EditedUploadSection({ shoot, onUploadComplete, isEditor = false 
   const existingEditedCount = shoot.editedPhotoCount || 0;
   const expectedFinalCount = shoot.expectedFinalCount || shoot.package?.expectedDeliveredCount || 0;
   const editedMissingCount = Math.max(0, expectedFinalCount - existingEditedCount - uploadedFiles.length);
-  const photographerNotes = String((shoot as any)?.editor_notes || (shoot as any)?.editorNotes || (typeof shoot.notes === 'object' && shoot.notes?.editingNotes) || '').trim();
+  const photographerNotes = String(legacyShoot.editor_notes || legacyShoot.editorNotes || (typeof shoot.notes === 'object' && shoot.notes?.editingNotes) || '').trim();
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    if (files.length === 0) return;
+    setUploadedFiles((prev) => [...prev, ...files]);
+    event.target.value = '';
+  };
 
   const handleConfirmSubmit = async () => {
     setUploading(true);
@@ -185,7 +210,9 @@ export function EditedUploadSection({ shoot, onUploadComplete, isEditor = false 
                   try {
                     const errorData = JSON.parse(xhr.responseText);
                     errorMsg = errorData.message || errorMsg;
-                  } catch {}
+                  } catch {
+                    // Ignore malformed error payloads and keep the fallback message.
+                  }
                   resolve({ success: false, error: `${file.name}: ${errorMsg}` });
                 }
               });
@@ -605,7 +632,9 @@ export function RawUploadSection({ shoot, onUploadComplete }: RawUploadSectionPr
               resolve({ success: true });
             } else {
               let msg = 'Upload failed';
-              try { msg = JSON.parse(xhr.responseText).message || msg; } catch {}
+              try { msg = JSON.parse(xhr.responseText).message || msg; } catch {
+                // Ignore malformed error payloads and keep the fallback message.
+              }
               resolve({ success: false, error: `${file.name}: ${msg}` });
             }
           });

@@ -65,6 +65,50 @@ import { SquarePaymentDialog } from '@/components/payments/SquarePaymentDialog';
 import { MarkAsPaidDialog, MarkAsPaidPayload } from '@/components/payments/MarkAsPaidDialog';
 import { RescheduleDialog } from '@/components/dashboard/RescheduleDialog';
 
+type ShootWorkflowLog = {
+  action?: string | null;
+  [key: string]: unknown;
+};
+
+type ShootWithWorkflowLogs = ShootData & {
+  workflowLogs?: ShootWorkflowLog[];
+  workflow_logs?: ShootWorkflowLog[];
+};
+
+const getShootDetailsErrorMessage = (error: unknown, fallback: string) => {
+  if (error && typeof error === 'object') {
+    const errorWithResponse = error as {
+      message?: unknown;
+      response?: { data?: { message?: unknown; error?: unknown } };
+    };
+
+    const responseMessage = errorWithResponse.response?.data?.message;
+    if (typeof responseMessage === 'string' && responseMessage.trim()) {
+      return responseMessage;
+    }
+
+    const responseError = errorWithResponse.response?.data?.error;
+    if (typeof responseError === 'string' && responseError.trim()) {
+      return responseError;
+    }
+
+    if (typeof errorWithResponse.message === 'string' && errorWithResponse.message.trim()) {
+      return errorWithResponse.message;
+    }
+  }
+
+  return fallback;
+};
+
+const getShootWorkflowLogs = (shoot: ShootData | null | undefined): ShootWorkflowLog[] => {
+  if (!shoot) {
+    return [];
+  }
+
+  const shootWithWorkflowLogs = shoot as ShootWithWorkflowLogs;
+  return shootWithWorkflowLogs.workflowLogs ?? shootWithWorkflowLogs.workflow_logs ?? [];
+};
+
 const ShootDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -129,10 +173,7 @@ const ShootDetails: React.FC = () => {
 
   useEffect(() => {
     if (!shootError) return;
-    const errorMessage =
-      shootError instanceof Error
-        ? shootError.message
-        : 'Failed to fetch shoot details';
+    const errorMessage = getShootDetailsErrorMessage(shootError, 'Failed to fetch shoot details');
     toast({
       title: 'Error',
       description: errorMessage,
@@ -202,8 +243,8 @@ const ShootDetails: React.FC = () => {
         window.URL.revokeObjectURL(url);
         toast({ title: 'Download started', description: 'Raw files downloaded.' });
       }
-    } catch (error: any) {
-      toast({ title: 'Error', description: error.message || 'Failed to download raw files.', variant: 'destructive' });
+    } catch (error: unknown) {
+      toast({ title: 'Error', description: getShootDetailsErrorMessage(error, 'Failed to download raw files.'), variant: 'destructive' });
     } finally {
       setIsEditorDownloading(false);
     }
@@ -229,8 +270,8 @@ const ShootDetails: React.FC = () => {
       await navigator.clipboard.writeText(data.share_link);
       toast({ title: 'Share link generated!', description: 'Link copied to clipboard. Lifetime link.' });
       loadShoot();
-    } catch (error: any) {
-      toast({ title: 'Error', description: error.message || 'Failed to generate share link.', variant: 'destructive' });
+    } catch (error: unknown) {
+      toast({ title: 'Error', description: getShootDetailsErrorMessage(error, 'Failed to generate share link.'), variant: 'destructive' });
     } finally {
       setIsGeneratingShareLink(false);
     }
@@ -248,8 +289,8 @@ const ShootDetails: React.FC = () => {
       } else {
         throw new Error('Checkout URL not returned');
       }
-    } catch (error: any) {
-      const errorMessage = error?.response?.data?.message || error?.response?.data?.error || error?.message || 'Failed to create payment link';
+    } catch (error: unknown) {
+      const errorMessage = getShootDetailsErrorMessage(error, 'Failed to create payment link');
       toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
     } finally {
       setCreatingPayment(false);
@@ -265,9 +306,9 @@ const ShootDetails: React.FC = () => {
         headers,
         body: JSON.stringify({ editor_id: shoot.editor?.id }),
       });
-      
+
       if (!res.ok) throw new Error('Failed to send to editing');
-      
+
       toast({
         title: 'Success',
         description: 'Shoot sent to editing',
@@ -323,9 +364,9 @@ const ShootDetails: React.FC = () => {
           return;
         }
 
-        const workflowLogs = (latestShoot as any)?.workflowLogs || (latestShoot as any)?.workflow_logs || [];
+        const workflowLogs = getShootWorkflowLogs(latestShoot);
         const hasFinalizeFailure = Array.isArray(workflowLogs)
-          && workflowLogs.some((log: any) => String(log?.action || '').toLowerCase() === 'finalize_failed');
+          && workflowLogs.some((log) => String(log.action || '').toLowerCase() === 'finalize_failed');
 
         if (hasFinalizeFailure) {
           toast({
@@ -343,10 +384,10 @@ const ShootDetails: React.FC = () => {
         title: 'Still processing',
         description: 'Finalize is still running in background. Check back in a moment.',
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Error',
-        description: error?.message || 'Failed to finalize shoot',
+        description: getShootDetailsErrorMessage(error, 'Failed to finalize shoot'),
         variant: 'destructive',
       });
     }
@@ -356,7 +397,7 @@ const ShootDetails: React.FC = () => {
     setIsPaymentDialogOpen(true);
   };
 
-  const handlePaymentSuccess = (payment: any) => {
+  const handlePaymentSuccess = () => {
     toast({
       title: 'Payment Successful',
       description: 'Payment has been processed successfully.',
@@ -499,7 +540,12 @@ const ShootDetails: React.FC = () => {
     }
     const amount = outstandingAmount;
 
-    const body: Record<string, any> = {
+    const body: {
+      payment_type: MarkAsPaidPayload['paymentMethod'];
+      amount: number;
+      payment_details?: MarkAsPaidPayload['paymentDetails'];
+      payment_date?: MarkAsPaidPayload['paymentDate'];
+    } = {
       payment_type: payload.paymentMethod,
       amount,
     };
@@ -637,16 +683,13 @@ const ShootDetails: React.FC = () => {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-xs text-muted-foreground mb-1.5">Services</p>
-                        {shoot.services && shoot.services.length > 0 ? (
+                        {shootServices.length > 0 ? (
                           <div className="flex flex-wrap gap-1.5">
-                            {shoot.services.map((service, index) => {
-                              const serviceName = typeof service === 'string' ? service : (service as any).name || (service as any).label || String(service);
-                              return (
-                                <Badge key={index} variant="outline" className="text-xs px-2 py-0.5">
-                                  {serviceName}
-                                </Badge>
-                              );
-                            })}
+                            {shootServices.map((serviceName, index) => (
+                              <Badge key={index} variant="outline" className="text-xs px-2 py-0.5">
+                                {serviceName}
+                              </Badge>
+                            ))}
                           </div>
                         ) : (
                           <p className="text-sm text-muted-foreground">No services</p>

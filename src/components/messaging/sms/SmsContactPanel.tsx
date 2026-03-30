@@ -45,9 +45,9 @@ export const SmsContactPanel = ({ contact, onUpdateContact, onUpdateComment, onC
 
   const numbers = localContact?.numbers ?? [];
 
-  const handleFieldBlur = async (field: 'name' | 'email' | 'type', value: string) => {
+  const handleFieldBlur = async (field: keyof SmsContact, value: string) => {
     if (!localContact) return;
-    if ((localContact as any)[field] === value) return;
+    if (localContact[field] === value) return;
     await onUpdateContact({
       name: field === 'name' ? value : localContact.name,
       email: field === 'email' ? value : localContact.email,

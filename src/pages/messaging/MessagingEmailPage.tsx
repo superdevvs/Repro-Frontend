@@ -6,32 +6,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useAuth } from '@/components/auth/AuthProvider';
-import { getAuthToken } from '@/utils/authToken';
-import {
-  fetchEmailMessages,
-  fetchMessagingTemplates,
-  sendEmailMessage,
-} from '@/services/messagingService';
+import { composeEmail, getEmailMessages, getTemplates } from '@/services/messaging';
 import { Loader2, Send, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-
-type EmailMessage = {
-  id: number;
-  subject: string | null;
-  to_address: string;
-  status: string;
-  created_at: string;
-  body_text: string | null;
-};
+import type { Message, MessageTemplate } from '@/types/messaging';
 
 const MessagingEmailPage = () => {
-  const { session } = useAuth();
-  const token = getAuthToken(session?.accessToken);
   const { toast } = useToast();
 
-  const [messages, setMessages] = useState<EmailMessage[]>([]);
-  const [templates, setTemplates] = useState<any[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [templates, setTemplates] = useState<MessageTemplate[]>([]);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<string | undefined>();
@@ -47,8 +31,8 @@ const MessagingEmailPage = () => {
     try {
       setLoading(true);
       const [messagesResponse, templatesResponse] = await Promise.all([
-        fetchEmailMessages<{ data: EmailMessage[] }>(token),
-        fetchMessagingTemplates<any[]>(token, 'EMAIL'),
+        getEmailMessages(),
+        getTemplates({ channel: 'EMAIL' }),
       ]);
 
       setMessages(messagesResponse.data ?? []);
@@ -62,7 +46,7 @@ const MessagingEmailPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [token, toast]);
+  }, [toast]);
 
   useEffect(() => {
     loadInitialData();
@@ -96,7 +80,7 @@ const MessagingEmailPage = () => {
 
     try {
       setSending(true);
-      await sendEmailMessage(formValues, token);
+      await composeEmail(formValues);
       toast({ title: 'Email sent successfully' });
       setFormValues({
         to: '',
@@ -122,7 +106,7 @@ const MessagingEmailPage = () => {
       <PageHeader
         title="Email workspace"
         description="Compose one-off emails, review history, and manage templates."
-        actions={
+        action={
           <Button size="sm" variant="outline" onClick={loadInitialData} disabled={loading}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Refresh

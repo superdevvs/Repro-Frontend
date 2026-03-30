@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { AlertTriangle, CheckCircle2, Check, Bell, MoreVertical } from 'lucide-react';
 import { Card } from './SharedComponents';
-import { DashboardIssueItem } from '@/types/dashboard';
+import { DashboardClientRequest, DashboardIssueItem } from '@/types/dashboard';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -25,6 +25,18 @@ const severityStyles: Record<DashboardIssueItem['severity'], string> = {
   medium: 'border-amber-300 bg-amber-50 text-amber-700',
   low: 'border-muted bg-muted/60 text-muted-foreground',
 };
+
+const toClientRequests = (issues: DashboardIssueItem[]): DashboardClientRequest[] =>
+  issues.map((issue) => ({
+    id: String(issue.id),
+    note: issue.message,
+    status:
+      issue.status === 'resolved' || issue.status === 'in_progress' || issue.status === 'in-progress'
+        ? issue.status
+        : 'open',
+    shootId: issue.shootId ?? issue.shoot_id ?? issue.id,
+    updatedAt: issue.updatedAt ?? null,
+  }));
 
 export const IssuesListCard: React.FC<IssuesListCardProps> = ({
   issues,
@@ -71,7 +83,7 @@ export const IssuesListCard: React.FC<IssuesListCardProps> = ({
           {visibleIssues.map((issue) => (
             <div
               key={issue.id}
-              onClick={() => openModal(visibleIssues, issue.id)}
+              onClick={() => openModal(toClientRequests(visibleIssues), String(issue.id))}
               className={cn(
                 'rounded-2xl border p-3 flex items-start gap-3 cursor-pointer hover:shadow-md transition-all',
                 severityStyles[issue.severity],
@@ -151,4 +163,3 @@ export const IssuesListCard: React.FC<IssuesListCardProps> = ({
     </Card>
   );
 };
-

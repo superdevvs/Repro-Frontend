@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable react-hooks/exhaustive-deps */
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { format, isValid, parse } from 'date-fns';
@@ -122,7 +124,9 @@ const parseFlexibleDate = (value?: string | null) => {
     try {
       const parsedDate = parse(trimmed, formatString, new Date());
       if (isValid(parsedDate)) return parsedDate;
-    } catch {}
+    } catch {
+      // Ignore invalid matches and continue through the fallback formats.
+    }
   }
   return null;
 };
@@ -1175,20 +1179,20 @@ export function useShootOverviewEditor({
   const editModePhotographerRows = useMemo(() => {
     const groupedRows = photographerAssignments.groups.map((group) => {
       const selectedId = perCategoryPhotographers[group.key] || group.photographer?.id || selectedPhotographerIdEdit || '';
-      return {
-        key: group.key,
-        name: group.name,
-        photographer: resolvePhotographerDetails(selectedId) || group.photographer || null,
-      };
-    });
+        return {
+          key: group.key,
+          name: group.name,
+          photographer: resolvePhotographerDetails(String(selectedId)) || group.photographer || null,
+        };
+      });
 
     const fallbackRows = groupedRows.length > 0
       ? groupedRows
-      : [{
-          key: 'photographer',
-          name: 'Photographer',
-          photographer: resolvePhotographerDetails(selectedPhotographerIdEdit || shoot.photographer?.id || '') || shoot.photographer || null,
-        }];
+        : [{
+            key: 'photographer',
+            name: 'Photographer',
+            photographer: resolvePhotographerDetails(String(selectedPhotographerIdEdit || shoot.photographer?.id || '')) || shoot.photographer || null,
+          }];
 
     if (!isEditMode || selectedServiceIds.length === 0 || servicesList.length === 0) return fallbackRows;
 
@@ -1203,7 +1207,7 @@ export function useShootOverviewEditor({
       rows.set(categoryKey, {
         key: categoryKey,
         name: categoryName,
-        photographer: resolvePhotographerDetails(selectedId) || existingGroup?.photographer || null,
+        photographer: resolvePhotographerDetails(String(selectedId)) || existingGroup?.photographer || null,
       });
     });
 

@@ -1,5 +1,6 @@
 import { API_BASE_URL } from '@/config/env';
-import { InvoiceData } from '@/utils/invoiceUtils';
+import { InvoiceData, InvoiceItem, InvoiceParty, InvoiceShootRef } from '@/utils/invoiceUtils';
+import type { PaymentDetails } from '@/utils/paymentUtils';
 
 const getAuthToken = (): string | null => {
   if (typeof window === 'undefined') return null;
@@ -15,7 +16,51 @@ const buildHeaders = () => {
   };
 };
 
-const buildFullAddress = (shoot?: any) => {
+type InvoiceApiRecord = {
+  id?: string | number;
+  invoice_number?: string | number;
+  invoiceNumber?: string | number;
+  issue_date?: string;
+  billing_period_start?: string;
+  created_at?: string;
+  due_date?: string;
+  billing_period_end?: string;
+  total_amount?: number | string;
+  total?: number | string;
+  amount?: number | string;
+  amount_paid?: number | string;
+  paid_amount?: number | string;
+  balance_due?: number | string;
+  is_paid?: boolean;
+  status?: string;
+  shoot?: InvoiceShootRef | null;
+  property?: string;
+  items?: InvoiceItem[];
+  services?: string[];
+  client?: string | InvoiceParty | null;
+  client_name?: string;
+  client_id?: number | string;
+  photographer?: string | InvoiceParty | null;
+  photographer_name?: string;
+  photographer_id?: number | string;
+  salesRep?: string | InvoiceParty | null;
+  sales_rep_name?: string;
+  sales_rep_id?: number | string;
+  period_start?: string;
+  period_end?: string;
+  paid_at?: string;
+  payment_method?: string;
+  paymentMethod?: string;
+  payment_details?: PaymentDetails;
+  paymentDetails?: PaymentDetails;
+  notes?: string;
+  shoots_count?: number | string;
+  shoot_id?: number | string;
+  shoots?: InvoiceShootRef[];
+  [key: string]: unknown;
+};
+
+const buildFullAddress = (shoot?: InvoiceShootRef | null) => {
   if (!shoot) return '';
   const location = shoot?.location;
   const locationAddress = typeof location === 'object' ? location.address : undefined;
@@ -33,16 +78,27 @@ const buildFullAddress = (shoot?: any) => {
   return locationFullAddress || (addressParts.length > 0 ? addressParts.join(', ') : '');
 };
 
-const mapInvoiceResponse = (invoice: any, fallbackId?: string | number): InvoiceData => {
+const toNumber = (value: string | number | undefined | null, fallback = 0): number => {
+  const normalized = typeof value === 'string' || typeof value === 'number' ? Number(value) : Number.NaN;
+  return Number.isFinite(normalized) ? normalized : fallback;
+};
+
+const toOptionalNumber = (value: string | number | undefined | null): number | undefined => {
+  if (value === undefined || value === null || value === '') {
+    return undefined;
+  }
+  const normalized = Number(value);
+  return Number.isFinite(normalized) ? normalized : undefined;
+};
+
+const mapInvoiceResponse = (invoice: InvoiceApiRecord, fallbackId?: string | number): InvoiceData => {
   const fallbackDate = new Date().toISOString().split('T')[0];
   const issueDate = invoice.issue_date || invoice.billing_period_start || invoice.created_at || fallbackDate;
   const dueDate = invoice.due_date || invoice.billing_period_end || issueDate;
-  const baseAmount = parseFloat(invoice.total_amount || invoice.total || invoice.amount || '0');
-  const amountPaid = parseFloat(invoice.amount_paid || invoice.paid_amount || '0');
-  const balance = parseFloat(
-    invoice.balance_due || String(baseAmount - (amountPaid || 0)) || '0'
-  );
-  const invoiceNumber = invoice.invoice_number || invoice.invoiceNumber || String(invoice.id || fallbackId || '');
+  const baseAmount = toNumber(invoice.total_amount ?? invoice.total ?? invoice.amount);
+  const amountPaid = toNumber(invoice.amount_paid ?? invoice.paid_amount);
+  const balance = toNumber(invoice.balance_due, baseAmount - amountPaid);
+  const invoiceNumber = String(invoice.invoice_number ?? invoice.invoiceNumber ?? invoice.id ?? fallbackId ?? '');
   const isPaid = invoice.is_paid || (invoice.status || '').toLowerCase() === 'paid';
   const overdue = !isPaid && dueDate && new Date(dueDate) < new Date();
   const normalizedStatus = isPaid
@@ -52,6 +108,9 @@ const mapInvoiceResponse = (invoice: any, fallbackId?: string | number): Invoice
       : (invoice.status || 'pending').toLowerCase();
 
   const shoot = invoice.shoot;
+  const clientRecord = typeof invoice.client === 'object' && invoice.client ? invoice.client : null;
+  const photographerRecord = typeof invoice.photographer === 'object' && invoice.photographer ? invoice.photographer : null;
+  const salesRepRecord = typeof invoice.salesRep === 'object' && invoice.salesRep ? invoice.salesRep : null;
   const fullAddress = buildFullAddress(shoot);
   const property =
     fullAddress ||
@@ -61,8 +120,8 @@ const mapInvoiceResponse = (invoice: any, fallbackId?: string | number): Invoice
 
   const services = Array.isArray(invoice.items)
     ? invoice.items
-        .filter((item: any) => item?.description)
-        .map((item: any) => item.description)
+        .map((item: InvoiceItem) => item.description)
+        .filter((description): description is string => Boolean(description))
     : invoice.services || [];
 
   return {
@@ -71,12 +130,14 @@ const mapInvoiceResponse = (invoice: any, fallbackId?: string | number): Invoice
     invoiceNumber,
     client: typeof invoice.client === 'string'
       ? invoice.client
-      : invoice.client?.name || shoot?.client?.name || invoice.client_name || 'Unknown Client',
-    client_id: invoice.client_id || invoice.client?.id || shoot?.client_id,
-    photographer: invoice.photographer?.name || shoot?.photographer?.name || invoice.photographer_name || 'Unassigned',
-    photographer_id: invoice.photographer_id || invoice.photographer?.id || shoot?.photographer_id,
-    salesRep: invoice.salesRep?.name || invoice.sales_rep_name,
-    sales_rep_id: invoice.sales_rep_id,
+      : clientRecord?.name || shoot?.client?.name || invoice.client_name || 'Unknown Client',
+    client_id: toOptionalNumber(invoice.client_id ?? clientRecord?.id ?? shoot?.client_id),
+    photographer: typeof invoice.photographer === 'string'
+      ? invoice.photographer
+      : photographerRecord?.name || shoot?.photographer?.name || invoice.photographer_name || 'Unassigned',
+    photographer_id: toOptionalNumber(invoice.photographer_id ?? photographerRecord?.id ?? shoot?.photographer_id),
+    salesRep: typeof invoice.salesRep === 'string' ? invoice.salesRep : salesRepRecord?.name || invoice.sales_rep_name,
+    sales_rep_id: toOptionalNumber(invoice.sales_rep_id),
     amount: baseAmount,
     amountPaid,
     balance,
@@ -91,8 +152,8 @@ const mapInvoiceResponse = (invoice: any, fallbackId?: string | number): Invoice
     paymentMethod: invoice.payment_method || invoice.paymentMethod || 'N/A',
     paymentDetails: invoice.payment_details || invoice.paymentDetails || undefined,
     notes: invoice.notes || undefined,
-    shootsCount: invoice.shoots_count || (Array.isArray(invoice.shoots) ? invoice.shoots.length : 0),
-    shoot_id: invoice.shoot_id,
+    shootsCount: toNumber(invoice.shoots_count, Array.isArray(invoice.shoots) ? invoice.shoots.length : 0),
+    shoot_id: toOptionalNumber(invoice.shoot_id),
     shoot,
     shoots: invoice.shoots,
     property,
@@ -151,7 +212,7 @@ export const fetchInvoices = async (params: FetchInvoicesParams = {}): Promise<I
   const json = await response.json();
   
   // Transform API response to match InvoiceData format
-  const invoices: InvoiceData[] = (json.data || []).map((invoice: any) => mapInvoiceResponse(invoice));
+  const invoices: InvoiceData[] = (json.data || []).map((invoice: InvoiceApiRecord) => mapInvoiceResponse(invoice));
 
   return {
     data: invoices,
@@ -171,7 +232,7 @@ export const markInvoiceAsPaid = async (
     amount_paid?: number;
     paid_at?: string;
     payment_method?: string;
-    payment_details?: Record<string, any> | null;
+    payment_details?: PaymentDetails | null;
   }
 ): Promise<InvoiceData> => {
   const token = getAuthToken();
@@ -279,7 +340,7 @@ export interface WeeklyInvoice {
   photographer?: { id: number; name: string; email: string };
   salesRep?: { id: number; name: string; email: string };
   items: WeeklyInvoiceItem[];
-  shoots: any[];
+  shoots: InvoiceShootRef[];
 }
 
 export interface WeeklyInvoiceItem {
@@ -292,7 +353,7 @@ export interface WeeklyInvoiceItem {
   unit_amount: number;
   total_amount: number;
   recorded_at?: string;
-  meta?: Record<string, any>;
+  meta?: Record<string, unknown> | null;
 }
 
 /**

@@ -40,11 +40,24 @@ import { API_BASE_URL } from '@/config/env';
 import { InvoiceData } from '@/utils/invoiceUtils';
 import { PaymentDialog } from "@/components/invoices/PaymentDialog";
 
+type LegacyShootStatusFields = ShootData & {
+  photographerPaidAt?: string | null;
+  salesRepPaidAt?: string | null;
+};
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return fallback;
+};
+
 interface ShootDetailProps {
   shoot: ShootData | null;
   isOpen: boolean;
   onClose: () => void;
-  onPay: (invoice: InvoiceData) => void;
+  onPay?: (invoice: InvoiceData) => void;
   invoice?: InvoiceData;
 }
 
@@ -52,6 +65,7 @@ export function ShootDetail({ shoot, isOpen, onClose, onPay, invoice }: ShootDet
   const navigate = useNavigate();
   const { role } = useAuth();
   const { updateShoot, deleteShoot } = useShoots();
+  const legacyShoot = shoot as LegacyShootStatusFields | null;
   const [activeTab, setActiveTab] = useState("details");
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -128,8 +142,8 @@ export function ShootDetail({ shoot, isOpen, onClose, onPay, invoice }: ShootDet
       const json = await res.json();
       if (!res.ok) throw new Error(json?.message || 'Failed to update shoot');
       toast({ title: 'Shoot marked as completed' });
-    } catch (e:any) {
-      toast({ title: 'Update failed', description: e?.message || 'Could not update shoot', variant: 'destructive' });
+    } catch (error: unknown) {
+      toast({ title: 'Update failed', description: getErrorMessage(error, 'Could not update shoot'), variant: 'destructive' });
     }
   };
 
@@ -154,8 +168,8 @@ export function ShootDetail({ shoot, isOpen, onClose, onPay, invoice }: ShootDet
       if (!url) throw new Error('Checkout URL not returned');
       window.open(url, '_blank');
       toast({ title: 'Redirecting to payment', description: 'Secure checkout opened in a new tab.' });
-    } catch (e:any) {
-      toast({ title: 'Payment error', description: e?.message || 'Could not initialize payment', variant: 'destructive' });
+    } catch (error: unknown) {
+      toast({ title: 'Payment error', description: getErrorMessage(error, 'Could not initialize payment'), variant: 'destructive' });
     }
   };
 
@@ -193,13 +207,13 @@ export function ShootDetail({ shoot, isOpen, onClose, onPay, invoice }: ShootDet
                 )}
                 {getStatusBadge(shoot.status)}
                 {isSuperAdmin && getPaymentStatus()}
-                {(isAdmin || isPhotographer) && (shoot as any).photographerPaidAt && (
+                {(isAdmin || isPhotographer) && legacyShoot?.photographerPaidAt && (
                   <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
                     <CheckCircle className="w-3 h-3 mr-1" />
                     Photographer Paid
                   </Badge>
                 )}
-                {isAdmin && (shoot as any).salesRepPaidAt && (
+                {isAdmin && legacyShoot?.salesRepPaidAt && (
                   <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
                     <CheckCircle className="w-3 h-3 mr-1" />
                     Rep Paid

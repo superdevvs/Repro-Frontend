@@ -47,6 +47,7 @@ type RawPaymentContainer = {
 export type NormalizedShootPaymentSummary = {
   baseQuote: number;
   taxRate: number;
+  taxPercent: number;
   taxAmount: number;
   totalQuote: number;
   totalPaid: number;
@@ -175,6 +176,7 @@ export const normalizeShootPaymentSummary = (
   return {
     baseQuote,
     taxRate,
+    taxPercent: taxRate > 1 ? taxRate : taxRate * 100,
     taxAmount,
     totalQuote,
     totalPaid,

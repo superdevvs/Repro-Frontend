@@ -21,7 +21,12 @@ export type ServiceWithPricing = {
   delivery_time?: number | string;
   photographer_pay?: number | string | null;
   sqft_ranges?: SqftRange[];
-  [key: string]: any;
+  sqftRanges?: SqftRange[];
+  [key: string]: unknown;
+};
+
+const getSqftRanges = (service: ServiceWithPricing): SqftRange[] => {
+  return service.sqft_ranges || service.sqftRanges || [];
 };
 
 /**
@@ -41,7 +46,7 @@ export function findSqftRange(sqftRanges: SqftRange[], sqft: number): SqftRange 
  */
 export function calculateServicePrice(service: ServiceWithPricing, sqft: number | null | undefined): number {
   const basePrice = typeof service.price === 'string' ? parseFloat(service.price) : service.price;
-  const sqftRanges = (service.sqft_ranges || (service as any).sqftRanges || []) as SqftRange[];
+  const sqftRanges = getSqftRanges(service);
 
   if (!sqft || service.pricing_type !== 'variable' || !sqftRanges.length) {
     return basePrice || 0;
@@ -58,7 +63,7 @@ export function calculatePhotographerPay(service: ServiceWithPricing, sqft: numb
   const basePay = service.photographer_pay 
     ? (typeof service.photographer_pay === 'string' ? parseFloat(service.photographer_pay) : service.photographer_pay)
     : null;
-  const sqftRanges = (service.sqft_ranges || (service as any).sqftRanges || []) as SqftRange[];
+  const sqftRanges = getSqftRanges(service);
 
   if (!sqft || service.pricing_type !== 'variable' || !sqftRanges.length) {
     return basePay;
@@ -76,7 +81,7 @@ export function calculateServiceDuration(service: ServiceWithPricing, sqft: numb
   const baseTime = service.delivery_time 
     ? (typeof service.delivery_time === 'string' ? parseInt(service.delivery_time) : service.delivery_time)
     : null;
-  const sqftRanges = (service.sqft_ranges || (service as any).sqftRanges || []) as SqftRange[];
+  const sqftRanges = getSqftRanges(service);
 
   if (!sqft || service.pricing_type !== 'variable' || !sqftRanges.length) {
     return baseTime;
@@ -102,7 +107,7 @@ export function getServicePricingForSqft(
   matchedRange: SqftRange | null;
 } {
   const isVariable = service.pricing_type === 'variable';
-  const sqftRanges = (service.sqft_ranges || (service as any).sqftRanges || []) as SqftRange[];
+  const sqftRanges = getSqftRanges(service);
   const matchedRange = sqft && isVariable && sqftRanges.length
     ? findSqftRange(sqftRanges, sqft) 
     : null;

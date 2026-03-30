@@ -19,6 +19,30 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
+const getTemplateErrorMessage = (error: unknown, fallback: string) => {
+  if (error && typeof error === 'object') {
+    const response = 'response' in error
+      ? (error as { response?: { data?: { error?: unknown; message?: unknown } } }).response
+      : undefined;
+    const responseError = response?.data?.error;
+    if (typeof responseError === 'string' && responseError) {
+      return responseError;
+    }
+
+    const responseMessage = response?.data?.message;
+    if (typeof responseMessage === 'string' && responseMessage) {
+      return responseMessage;
+    }
+
+    const message = 'message' in error ? (error as { message?: unknown }).message : undefined;
+    if (typeof message === 'string' && message) {
+      return message;
+    }
+  }
+
+  return fallback;
+};
+
 export default function Templates() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
@@ -43,8 +67,8 @@ export default function Templates() {
       toast.success('Template deleted successfully');
       queryClient.invalidateQueries({ queryKey: ['templates'] });
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.error || 'Failed to delete template');
+    onError: (error: unknown) => {
+      toast.error(getTemplateErrorMessage(error, 'Failed to delete template'));
     },
   });
 
@@ -55,8 +79,8 @@ export default function Templates() {
       toast.success('Template duplicated successfully');
       queryClient.invalidateQueries({ queryKey: ['templates'] });
     },
-    onError: (error: any) => {
-      toast.error(error.message || 'Failed to duplicate template');
+    onError: (error: unknown) => {
+      toast.error(getTemplateErrorMessage(error, 'Failed to duplicate template'));
     },
   });
 

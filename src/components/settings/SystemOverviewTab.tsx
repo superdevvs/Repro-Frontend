@@ -8,6 +8,7 @@ import {
   ReactFlow,
   type Edge,
   type Node,
+  type NodeTypes,
   type NodeProps,
   useEdgesState,
   useNodesState,
@@ -55,7 +56,7 @@ import type {
   SystemSnapshot,
 } from '@/types/systemOverview';
 
-type FlowData = {
+type FlowNodeData = {
   id: string;
   label: string;
   kind: 'domain' | 'page' | 'component' | 'api' | 'service' | 'external';
@@ -72,6 +73,8 @@ type FlowData = {
   externalName?: string;
 };
 
+type FlowNode = Node<FlowNodeData, 'overviewNode'>;
+
 const ICONS = {
   shield: Shield,
   layout: LayoutDashboard,
@@ -86,8 +89,8 @@ const ICONS = {
 
 const STORAGE_KEY = 'system-overview.flow.positions';
 
-function SystemOverviewNode({ data, selected }: NodeProps<FlowData>) {
-  const kindStyles: Record<FlowData['kind'], string> = {
+function SystemOverviewNode({ data, selected }: NodeProps<FlowNode>) {
+  const kindStyles: Record<FlowNodeData['kind'], string> = {
     domain: 'border-sky-400/60 bg-slate-950 text-slate-50',
     page: 'border-sky-300/50 bg-slate-900/90 text-slate-50',
     component: 'border-slate-300/60 bg-white text-slate-900',
@@ -137,7 +140,7 @@ function SystemOverviewNode({ data, selected }: NodeProps<FlowData>) {
 
 const nodeTypes = {
   overviewNode: SystemOverviewNode,
-};
+} satisfies NodeTypes;
 
 const loadSavedPositions = () => {
   try {
@@ -147,7 +150,7 @@ const loadSavedPositions = () => {
   }
 };
 
-const saveNodePositions = (nodes: Node<FlowData>[]) => {
+const saveNodePositions = (nodes: FlowNode[]) => {
   try {
     const positions = nodes.reduce<Record<string, { x: number; y: number }>>((acc, node) => {
       acc[node.id] = node.position;
@@ -191,7 +194,7 @@ const buildFlow = (
   showEverything: boolean,
 ) => {
   const savedPositions = loadSavedPositions();
-  const nodes: Node<FlowData>[] = [];
+  const nodes: FlowNode[] = [];
   const edges: Edge[] = [];
   const domainSpacingX = 320;
   const domainSpacingY = 240;
@@ -476,7 +479,7 @@ export function SystemOverviewTab() {
     () => buildFlow(snapshot, routes, expandedDomains, showEverything),
     [expandedDomains, routes, showEverything, snapshot],
   );
-  const [nodes, setNodes, onNodesChange] = useNodesState(flow.nodes);
+  const [nodes, setNodes, onNodesChange] = useNodesState<FlowNode>(flow.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(flow.edges);
 
   const selectedNode = useMemo(

@@ -52,8 +52,8 @@ const scopes = [
 type TemplateFormState = {
   name: string;
   description: string;
-  category: string;
-  scope: string;
+  category: TemplateCategory;
+  scope: TemplateScope;
   subject: string;
   body_html: string;
   body_text: string;
@@ -92,21 +92,6 @@ const PREVIEW_EMAIL_STYLES = `
   width: 136px;
   height: auto;
 }
-.preview-brand-copy {
-  text-align: right;
-  color: #1d2940;
-  font-size: 14px;
-  line-height: 1.4;
-  font-weight: 800;
-}
-.preview-brand-copy span {
-  display: block;
-  color: #7f90a7;
-  font-size: 10px;
-  letter-spacing: 1.4px;
-  text-transform: uppercase;
-  font-weight: 700;
-}
 .preview-overline {
   display: block;
   margin-bottom: 12px;
@@ -136,82 +121,6 @@ const PREVIEW_EMAIL_STYLES = `
   color: #667a96;
   font-size: 15px;
   line-height: 1.8;
-}
-.preview-illustration {
-  position: absolute;
-  top: 28px;
-  right: 6px;
-  width: 220px;
-  height: 168px;
-  pointer-events: none;
-  opacity: 0.95;
-}
-.preview-camera-body,
-.preview-camera-top,
-.preview-camera-lens,
-.preview-camera-lens-inner,
-.preview-camera-flash,
-.preview-camera-line {
-  position: absolute;
-  border: 1.5px solid #e6edf7;
-  background: transparent;
-}
-.preview-camera-body {
-  left: 22px;
-  top: 56px;
-  width: 170px;
-  height: 96px;
-  border-radius: 28px;
-}
-.preview-camera-top {
-  left: 54px;
-  top: 36px;
-  width: 70px;
-  height: 30px;
-  border-bottom: 0;
-  border-radius: 16px 16px 0 0;
-}
-.preview-camera-lens {
-  left: 78px;
-  top: 72px;
-  width: 60px;
-  height: 60px;
-  border-radius: 999px;
-}
-.preview-camera-lens-inner {
-  left: 91px;
-  top: 85px;
-  width: 34px;
-  height: 34px;
-  border-radius: 999px;
-}
-.preview-camera-flash {
-  left: 158px;
-  top: 78px;
-  width: 14px;
-  height: 14px;
-  border-radius: 999px;
-}
-.preview-camera-line-one {
-  left: 182px;
-  top: 40px;
-  width: 34px;
-  height: 0;
-  border-width: 1.5px 0 0 0;
-}
-.preview-camera-line-two {
-  left: 194px;
-  top: 54px;
-  width: 20px;
-  height: 0;
-  border-width: 1.5px 0 0 0;
-}
-.preview-camera-line-three {
-  left: 192px;
-  top: 66px;
-  width: 0;
-  height: 20px;
-  border-width: 0 0 0 1.5px;
 }
 .preview-journey {
   position: relative;
@@ -590,8 +499,8 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
       onSuccess();
       onClose();
     },
-    onError: (error: any) => {
-      toast.error(error.message || 'Failed to save template');
+    onError: (error: unknown) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to save template');
     },
   });
 
@@ -709,7 +618,7 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
           <Label htmlFor="category">Category</Label>
           <Select
             value={formData.category}
-            onValueChange={(value) => setFormData({ ...formData, category: value })}
+            onValueChange={(value) => setFormData({ ...formData, category: value as TemplateCategory })}
             disabled={template?.is_system}
           >
             <SelectTrigger id="category">
@@ -729,7 +638,7 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
           <Label htmlFor="scope">Scope</Label>
           <Select
             value={formData.scope}
-            onValueChange={(value) => setFormData({ ...formData, scope: value })}
+            onValueChange={(value) => setFormData({ ...formData, scope: value as TemplateScope })}
             disabled={template?.is_system}
           >
             <SelectTrigger id="scope">
@@ -809,23 +718,9 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
           <div className="max-w-4xl mx-auto">
             <div className="preview-shell">
               <div className="preview-hero">
-                <div className="preview-illustration" aria-hidden="true">
-                  <div className="preview-camera-top" />
-                  <div className="preview-camera-body" />
-                  <div className="preview-camera-lens" />
-                  <div className="preview-camera-lens-inner" />
-                  <div className="preview-camera-flash" />
-                  <div className="preview-camera-line preview-camera-line-one" />
-                  <div className="preview-camera-line preview-camera-line-two" />
-                  <div className="preview-camera-line preview-camera-line-three" />
-                </div>
                 <div className="preview-brand">
                   <div className="preview-brand-logo">
                     <img src="https://api.reprodashboard.com/images/Repro%20HQ%20dark.png" alt="R/E Pro Photos" />
-                  </div>
-                  <div className="preview-brand-copy">
-                    <span>{formData.category || 'Workflow update'}</span>
-                    R/E Pro Photos
                   </div>
                 </div>
                 <h1 className="preview-title">

@@ -1,7 +1,8 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { AlertTriangle } from 'lucide-react';
+import type { AutomationFlowNode } from '@/components/messaging/automations/automationWorkflowTypes';
 
-export function AutomationWorkflowNode({ data }: NodeProps) {
+export function AutomationWorkflowNode({ data }: NodeProps<AutomationFlowNode>) {
   const Icon = data.icon;
   const hasError = Array.isArray(data.validationErrors) && data.validationErrors.length > 0;
   const isCondition = data.rawNode?.type === 'condition.if';
