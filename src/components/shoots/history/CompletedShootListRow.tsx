@@ -203,13 +203,18 @@ export const CompletedShootListRow = ({
       className="cursor-pointer hover:border-primary/60 hover:shadow-md transition-all group"
       onClick={() => onSelect(shoot)}
     >
-      <div className="flex gap-3 sm:gap-4 p-3 sm:p-4">
+      <div className="flex items-stretch gap-3 sm:gap-4 p-3 sm:p-4">
         {/* Thumbnail - Small square on mobile, rectangular landscape on desktop */}
-        <div className={cn('w-24 h-24 sm:w-36 sm:h-24 rounded-lg overflow-hidden flex-shrink-0 shadow-sm', showPlaceholder ? 'bg-transparent' : 'bg-muted')}>
+        <div
+          className={cn(
+            'w-24 self-stretch overflow-hidden rounded-lg flex-shrink-0 shadow-sm sm:w-36 min-[1180px]:w-40',
+            showPlaceholder ? 'bg-transparent' : 'bg-muted'
+          )}
+        >
           <img 
             src={displayImage} 
             alt={shoot.location.address} 
-            className={cn('w-full h-full', showPlaceholder ? 'object-contain' : 'object-cover')}
+            className={cn('w-full h-full min-h-full', showPlaceholder ? 'object-contain' : 'object-cover')}
             loading="lazy"
             onError={() => setImgErrored(true)}
           />
@@ -262,8 +267,8 @@ export const CompletedShootListRow = ({
             {(() => {
               const services = Array.isArray(shoot.services) ? shoot.services : [];
               return (
-                <div className="space-y-2 pt-2 border-t border-border/50">
-                  <div className="flex items-center gap-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                <div className="flex flex-wrap items-start gap-2 pt-2 border-t border-border/50">
+                  <div className="flex items-center gap-2 pt-0.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
                     <Layers className="h-3.5 w-3.5" />
                     <span>Services</span>
                   </div>
@@ -284,7 +289,7 @@ export const CompletedShootListRow = ({
                       })}
                     </div>
                   ) : (
-                    <p className="text-xs text-muted-foreground/70 italic">No services assigned</p>
+                    <p className="pt-0.5 text-xs text-muted-foreground/70 italic">No services assigned</p>
                   )}
                 </div>
               );
