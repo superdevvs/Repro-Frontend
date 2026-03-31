@@ -265,7 +265,7 @@ const Index = () => {
   // Desktop layout
   return (
     <div
-      className="dark h-[calc(100dvh-2rem)] w-full flex flex-row gap-4 p-4 md:overflow-hidden relative"
+      className="dark box-border h-dvh w-full flex flex-row gap-4 p-4 md:overflow-hidden relative"
       style={{ background: '#060a0e' }}
     >
       {/* Left Side - Slideshow */}
