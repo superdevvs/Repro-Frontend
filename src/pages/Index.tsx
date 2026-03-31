@@ -29,6 +29,22 @@ const LOGIN_PANEL_GRADIENT =
 const DESKTOP_LOGIN_CARD_GRADIENT =
   'linear-gradient(to top, rgba(27,149,255,0.26) 0%, rgba(20,109,255,0.17) 18%, rgba(8,26,48,0.06) 38%, rgba(6,10,14,0) 58%)';
 
+const markImageReady = async (
+  image: HTMLImageElement,
+  src: string,
+  markLoaded: (src: string) => void,
+) => {
+  try {
+    if (typeof image.decode === 'function') {
+      await image.decode();
+    }
+  } catch {
+    // Ignore decode failures and still allow the image to be used.
+  }
+
+  markLoaded(src);
+};
+
 const Index = () => {
   const isMobile = useIsMobile();
   const { isAuthenticated } = useAuth();
@@ -85,17 +101,23 @@ const Index = () => {
       setLoadedImages((prev) => (prev[src] ? prev : { ...prev, [src]: true }));
     };
 
-    LOGIN_SLIDES.forEach((src) => {
+    LOGIN_SLIDES.forEach((src, index) => {
       const image = new Image();
       image.decoding = 'async';
+      if ('fetchPriority' in image) {
+        (image as HTMLImageElement & { fetchPriority?: string }).fetchPriority =
+          index < 2 ? 'high' : 'auto';
+      }
       image.src = src;
 
       if (image.complete) {
-        markLoaded(src);
+        void markImageReady(image, src, markLoaded);
         return;
       }
 
-      image.onload = () => markLoaded(src);
+      image.onload = () => {
+        void markImageReady(image, src, markLoaded);
+      };
       image.onerror = () => markLoaded(src);
     });
 
@@ -135,7 +157,7 @@ const Index = () => {
     const scheduleDesktopGradient = () => {
       fadeTimer = setTimeout(() => {
         setDesktopGradientVisible(true);
-      }, 2000);
+      }, 1000);
     };
 
     if (document.readyState === 'complete') {
@@ -193,11 +215,11 @@ const Index = () => {
                 key={activeSlide}
                 src={activeSlide}
                 alt=""
-                initial={{ opacity: 0, scale: 1.018, filter: 'blur(6px)' }}
+                initial={{ opacity: 0, scale: 1.01, filter: 'blur(4px)' }}
                 animate={{ opacity: loadedImages[activeSlide] ? 1 : 0, scale: 1, filter: 'blur(0px)' }}
-                exit={{ opacity: 0, scale: 0.99, filter: 'blur(2px)' }}
-                transition={{ duration: 1.15, ease: [0.22, 1, 0.36, 1] }}
-                className="absolute inset-0 w-full h-full object-cover"
+                exit={{ opacity: 0, scale: 0.996, filter: 'blur(1px)' }}
+                transition={{ duration: 0.95, ease: [0.22, 1, 0.36, 1] }}
+                className="absolute inset-0 h-full w-full object-cover will-change-transform"
                 loading="eager"
                 decoding="async"
               />
@@ -254,11 +276,11 @@ const Index = () => {
               key={activeSlide}
               src={activeSlide}
               alt=""
-              initial={{ opacity: 0, scale: 1.018, filter: 'blur(8px)' }}
+              initial={{ opacity: 0, scale: 1.01, filter: 'blur(4px)' }}
               animate={{ opacity: loadedImages[activeSlide] ? 1 : 0, scale: 1, filter: 'blur(0px)' }}
-              exit={{ opacity: 0, scale: 0.992, filter: 'blur(2px)' }}
-              transition={{ duration: 1.15, ease: [0.22, 1, 0.36, 1] }}
-              className="absolute inset-0 w-full h-full object-cover"
+              exit={{ opacity: 0, scale: 0.996, filter: 'blur(1px)' }}
+              transition={{ duration: 0.95, ease: [0.22, 1, 0.36, 1] }}
+              className="absolute inset-0 h-full w-full object-cover will-change-transform"
               loading="eager"
               decoding="async"
             />
@@ -277,12 +299,12 @@ const Index = () => {
 
       {/* Right Side - Login Section */}
       <motion.div
-        className="w-1/2"
+        className="flex w-1/2"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.05 }}
       >
-        <div className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-3xl bg-[#05080d] px-8 py-10 xl:px-12">
+        <div className="relative flex min-h-full w-full items-center justify-center overflow-hidden rounded-3xl bg-[#05080d] px-8 py-10 xl:px-12">
           <motion.div
             className="pointer-events-none absolute inset-0"
             initial={false}
