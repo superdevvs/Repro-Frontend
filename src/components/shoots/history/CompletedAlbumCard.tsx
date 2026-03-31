@@ -425,24 +425,6 @@ export const CompletedAlbumCard = ({
           </div>
         </div>
 
-        {onViewInvoice && (
-          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border/50">
-            <Button
-              onClick={(e) => {
-                e.stopPropagation()
-                onViewInvoice(shoot)
-              }}
-              size="sm"
-              variant="outline"
-              className="h-8 gap-1.5"
-              title="View Invoice"
-            >
-              <FileText className="h-3.5 w-3.5" />
-              Invoice
-            </Button>
-          </div>
-        )}
-
       </div>
       {/* Editing Notes - full-width bottom banner */}
       {canShowEditingNotes && editingNotes && (

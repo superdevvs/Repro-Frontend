@@ -205,7 +205,7 @@ export const CompletedShootListRow = ({
     >
       <div className="flex gap-3 sm:gap-4 p-3 sm:p-4">
         {/* Thumbnail - Small square on mobile, rectangular landscape on desktop */}
-        <div className={cn('w-24 h-24 sm:w-40 sm:h-28 rounded-lg overflow-hidden flex-shrink-0 shadow-sm', showPlaceholder ? 'bg-transparent' : 'bg-muted')}>
+        <div className={cn('w-24 h-24 sm:w-36 sm:h-24 rounded-lg overflow-hidden flex-shrink-0 shadow-sm', showPlaceholder ? 'bg-transparent' : 'bg-muted')}>
           <img 
             src={displayImage} 
             alt={shoot.location.address} 
@@ -217,11 +217,12 @@ export const CompletedShootListRow = ({
 
         {/* Content */}
         <div className="flex-1 min-w-0 flex flex-col">
-          {/* Top row: Date, Address and Status badges */}
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4 mb-3">
+          <div className="flex flex-col gap-3">
+            {/* Top row: Address + date */}
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4">
             <div className="min-w-0 flex-1">
               <h3
-                className="mb-1 text-[0.95rem] font-bold leading-[1.1] break-words text-balance min-[1180px]:text-[1rem]"
+                className="mb-1 text-[0.92rem] font-bold leading-[1.1] break-words text-balance min-[1180px]:text-[0.98rem]"
                 title={shoot.location.address}
               >
                 {shoot.location.address}
@@ -250,15 +251,14 @@ export const CompletedShootListRow = ({
                 </Badge>
               )}
             </div>
-          </div>
+            </div>
 
-          {/* Middle row: Services */}
-          {(() => {
-            const services = Array.isArray(shoot.services) ? shoot.services : [];
-            return (
-              <div className="space-y-3 pt-2 border-t border-border/50">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+            {/* Services */}
+            {(() => {
+              const services = Array.isArray(shoot.services) ? shoot.services : [];
+              return (
+                <div className="space-y-2 pt-2 border-t border-border/50">
+                  <div className="flex items-center gap-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
                     <Layers className="h-3.5 w-3.5" />
                     <span>Services</span>
                   </div>
@@ -282,116 +282,105 @@ export const CompletedShootListRow = ({
                     <p className="text-xs text-muted-foreground/70 italic">No services assigned</p>
                   )}
                 </div>
+              );
+            })()}
 
-                <div
-                  className={cn(
-                    'grid gap-4 pt-2 border-t border-border/50',
-                    shouldHideClientDetails ? 'grid-cols-1' : 'grid-cols-2'
-                  )}
-                >
+            {/* Footer metadata + actions */}
+            <div className="flex flex-col gap-2 pt-2 border-t border-border/50 min-[1180px]:flex-row min-[1180px]:items-end min-[1180px]:justify-between">
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
                   {!shouldHideClientDetails && (
-                    <div className="space-y-1 min-w-0">
-                      <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                        <User className="h-3.5 w-3.5" />
-                        <span>Client</span>
-                      </div>
-                      <p className="text-sm font-semibold truncate">{shoot.client.name}</p>
-                      {shoot.client.email && (
-                        <p className="text-xs text-muted-foreground truncate">{shoot.client.email}</p>
-                      )}
-                    </div>
-                  )}
-                  <div className="space-y-1 min-w-0">
-                    <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                      <Camera className="h-3.5 w-3.5" />
-                      <span>Photographer</span>
-                    </div>
-                    <p className="text-sm font-semibold truncate">{shoot.photographer?.name ?? 'Unassigned'}</p>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border/50">
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <Image className="h-3.5 w-3.5" />
-                      <span>{photoCount} photos</span>
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <User className="h-3.5 w-3.5 flex-shrink-0" />
+                      <span className="truncate"><span className="font-semibold text-foreground">{shoot.client.name}</span></span>
                     </span>
-                    {hasTour && (
-                      <Badge variant="secondary" className="text-[10px] font-medium py-0 px-1.5">
-                        Tour
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1.5 ml-auto">
-                    {isSuperAdmin && !isPaid && (
-                      <div onClick={(e) => e.stopPropagation()}>
-                        <PaymentButton shoot={shoot} onViewInvoice={onViewInvoice} />
-                      </div>
-                    )}
-                    {canSendToEditing && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-7 gap-1 text-xs opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity border-purple-300 text-purple-700 hover:bg-purple-50"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onSendToEditing?.(shoot)
-                        }}
-                        title="Send to Editing"
-                      >
-                        <Send className="h-3.5 w-3.5" />
-                        <span className="hidden sm:inline">Send to Editing</span>
-                      </Button>
-                    )}
-                    {onViewInvoice && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-7 gap-1 text-xs opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onViewInvoice(shoot)
-                        }}
-                        title="View Invoice"
-                      >
-                        <FileText className="h-3.5 w-3.5" />
-                        <span className="hidden sm:inline">Invoice</span>
-                      </Button>
-                    )}
-                    {onDownload && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-7 gap-1 text-xs opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onDownload(shoot, 'full')
-                        }}
-                        title="Download"
-                      >
-                        <Download className="h-3.5 w-3.5" />
-                        <span className="hidden sm:inline">Download</span>
-                      </Button>
-                    )}
-                    {(isSuperAdmin || isAdmin) && onDelete && (
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        className="h-7 w-7 sm:w-auto sm:px-2 p-0 bg-red-500 hover:bg-red-600 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onDelete(shoot)
-                        }}
-                        title="Delete"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
-                  </div>
+                  )}
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <Camera className="h-3.5 w-3.5 flex-shrink-0" />
+                    <span className="truncate"><span className="font-semibold text-foreground">{shoot.photographer?.name ?? 'Unassigned'}</span></span>
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <Image className="h-3.5 w-3.5" />
+                    <span>{photoCount} photos</span>
+                  </span>
+                  {hasTour && (
+                    <Badge variant="secondary" className="text-[10px] font-medium py-0 px-1.5">
+                      Tour
+                    </Badge>
+                  )}
                 </div>
+                {!shouldHideClientDetails && shoot.client.email && (
+                  <p className="mt-1 text-xs text-muted-foreground truncate">{shoot.client.email}</p>
+                )}
               </div>
-            );
-          })()}
+              <div className="flex flex-wrap items-center gap-1.5 min-[1180px]:justify-end">
+                {isSuperAdmin && !isPaid && (
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <PaymentButton shoot={shoot} onViewInvoice={onViewInvoice} />
+                  </div>
+                )}
+                {canSendToEditing && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 gap-1 text-xs opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity border-purple-300 text-purple-700 hover:bg-purple-50"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onSendToEditing?.(shoot)
+                    }}
+                    title="Send to Editing"
+                  >
+                    <Send className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Send to Editing</span>
+                  </Button>
+                )}
+                {onViewInvoice && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 gap-1 text-xs opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onViewInvoice(shoot)
+                    }}
+                    title="View Invoice"
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Invoice</span>
+                  </Button>
+                )}
+                {onDownload && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 gap-1 text-xs opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onDownload(shoot, 'full')
+                    }}
+                    title="Download"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Download</span>
+                  </Button>
+                )}
+                {(isSuperAdmin || isAdmin) && onDelete && (
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="h-7 w-7 sm:w-auto sm:px-2 p-0 bg-red-500 hover:bg-red-600 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onDelete(shoot)
+                    }}
+                    title="Delete"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
 
         </div>
       </div>
