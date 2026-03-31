@@ -16,7 +16,7 @@ import { apiClient } from '@/services/api'
 import API_ROUTES from '@/lib/api'
 import type { ShootData } from '@/types/shoots'
 import {
-  buildBrightMlsPublishPayload,
+  buildBrightMlsPublishPayloadWithFallback,
   closePendingBrightMlsWindow,
   navigateBrightMlsWindow,
   openPendingBrightMlsWindow,
@@ -62,8 +62,10 @@ export const ShootHistoryMlsQueueView: React.FC = () => {
       const shootResponse = await apiClient.get(`/shoots/${shootId}`)
       const shoot = shootResponse.data.data
 
-      const payload = buildBrightMlsPublishPayload(
-        shoot as unknown as Partial<ShootData> & Record<string, unknown>
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token')
+      const payload = await buildBrightMlsPublishPayloadWithFallback(
+        shoot as unknown as Partial<ShootData> & Record<string, unknown>,
+        token,
       )
       if (payload.photos.length === 0) {
         throw new Error('No images found to send. Please ensure the shoot has completed images.')

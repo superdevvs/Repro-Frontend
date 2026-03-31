@@ -29,11 +29,9 @@ import {
   CheckCircle,
   XCircle,
   Clock,
-  Send,
   Plus,
   Trash2,
   AlertTriangle,
-  DollarSign,
   Calendar,
   Loader2,
 } from 'lucide-react';
@@ -50,9 +48,9 @@ import {
 
 const approvalStatusConfig: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
   pending: { label: 'Pending Review', color: 'bg-yellow-100 text-yellow-800', icon: <Clock className="w-3 h-3" /> },
-  pending_approval: { label: 'Submitted for Approval', color: 'bg-blue-100 text-blue-800', icon: <Send className="w-3 h-3" /> },
+  pending_approval: { label: 'Accepted', color: 'bg-green-100 text-green-800', icon: <CheckCircle className="w-3 h-3" /> },
   approved: { label: 'Approved', color: 'bg-green-100 text-green-800', icon: <CheckCircle className="w-3 h-3" /> },
-  rejected: { label: 'Rejected', color: 'bg-red-100 text-red-800', icon: <XCircle className="w-3 h-3" /> },
+  rejected: { label: 'Requested Modification', color: 'bg-amber-100 text-amber-800', icon: <AlertTriangle className="w-3 h-3" /> },
 };
 
 const formatCurrency = (amount: number | string) => {
@@ -72,11 +70,9 @@ export const WeeklyInvoiceReview: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [selectedInvoice, setSelectedInvoice] = useState<WeeklyInvoice | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
-  const [rejectOpen, setRejectOpen] = useState(false);
-  const [submitOpen, setSubmitOpen] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
   const [expenseOpen, setExpenseOpen] = useState(false);
-  const [rejectReason, setRejectReason] = useState('');
-  const [submitNotes, setSubmitNotes] = useState('');
+  const [reviewNotes, setReviewNotes] = useState('');
   const [expenseDesc, setExpenseDesc] = useState('');
   const [expenseAmount, setExpenseAmount] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
@@ -104,33 +100,67 @@ export const WeeklyInvoiceReview: React.FC = () => {
   const canModify = (invoice: WeeklyInvoice) =>
     ['pending', 'rejected'].includes(invoice.approval_status) && invoice.status === 'draft';
 
-  const handleReject = async () => {
+  const handleRequestModification = async () => {
     if (!selectedInvoice) return;
     try {
       setActionLoading(true);
-      await rejectWeeklyInvoice(selectedInvoice.id, invoiceRole, rejectReason);
-      toast({ title: 'Invoice rejected', description: 'The accounting department has been notified.' });
-      setRejectOpen(false);
-      setRejectReason('');
+      await rejectWeeklyInvoice(selectedInvoice.id, invoiceRole, reviewNotes.trim() || undefined);
+      toast({
+        title: 'Modification requested',
+        description: 'Invoice status has been updated to requested modification.',
+      });
+      setReviewOpen(false);
+      setReviewNotes('');
       await loadInvoices();
-    } catch (error: any) {
-      toast({ title: 'Failed to reject invoice', description: error.message, variant: 'destructive' });
+    } catch (error: unknown) {
+      toast({
+        title: 'Failed to request modification',
+        description: error instanceof Error ? error.message : 'Unable to update invoice status',
+        variant: 'destructive',
+      });
     } finally {
       setActionLoading(false);
     }
   };
 
-  const handleSubmitForApproval = async () => {
+  const handleAcceptReview = async () => {
     if (!selectedInvoice) return;
     try {
       setActionLoading(true);
-      await submitWeeklyInvoiceForApproval(selectedInvoice.id, invoiceRole, submitNotes);
-      toast({ title: 'Invoice submitted for approval', description: 'Accounting will review your changes.' });
-      setSubmitOpen(false);
-      setSubmitNotes('');
+      await submitWeeklyInvoiceForApproval(selectedInvoice.id, invoiceRole, reviewNotes.trim() || undefined);
+      toast({
+        title: 'Invoice accepted',
+        description: 'Invoice status has been updated to accepted.',
+      });
+      setReviewOpen(false);
+      setReviewNotes('');
       await loadInvoices();
-    } catch (error: any) {
-      toast({ title: 'Failed to submit', description: error.message, variant: 'destructive' });
+    } catch (error: unknown) {
+      toast({
+        title: 'Failed to accept invoice',
+        description: error instanceof Error ? error.message : 'Unable to update invoice status',
+        variant: 'destructive',
+      });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleResubmit = async (invoice: WeeklyInvoice) => {
+    try {
+      setActionLoading(true);
+      await submitWeeklyInvoiceForApproval(invoice.id, invoiceRole, invoice.modification_notes || undefined);
+      toast({
+        title: 'Invoice resubmitted',
+        description: 'Invoice status has been updated to accepted.',
+      });
+      await loadInvoices();
+    } catch (error: unknown) {
+      toast({
+        title: 'Failed to resubmit invoice',
+        description: error instanceof Error ? error.message : 'Unable to update invoice status',
+        variant: 'destructive',
+      });
     } finally {
       setActionLoading(false);
     }
@@ -149,8 +179,12 @@ export const WeeklyInvoiceReview: React.FC = () => {
       setExpenseDesc('');
       setExpenseAmount('');
       await loadInvoices();
-    } catch (error: any) {
-      toast({ title: 'Failed to add expense', description: error.message, variant: 'destructive' });
+    } catch (error: unknown) {
+      toast({
+        title: 'Failed to add expense',
+        description: error instanceof Error ? error.message : 'Unable to add expense',
+        variant: 'destructive',
+      });
     } finally {
       setActionLoading(false);
     }
@@ -162,8 +196,12 @@ export const WeeklyInvoiceReview: React.FC = () => {
       await removeWeeklyInvoiceExpense(invoice.id, item.id, invoiceRole);
       toast({ title: 'Expense removed' });
       await loadInvoices();
-    } catch (error: any) {
-      toast({ title: 'Failed to remove expense', description: error.message, variant: 'destructive' });
+    } catch (error: unknown) {
+      toast({
+        title: 'Failed to remove expense',
+        description: error instanceof Error ? error.message : 'Unable to remove expense',
+        variant: 'destructive',
+      });
     } finally {
       setActionLoading(false);
     }
@@ -172,6 +210,12 @@ export const WeeklyInvoiceReview: React.FC = () => {
   const openDetail = (invoice: WeeklyInvoice) => {
     setSelectedInvoice(invoice);
     setDetailOpen(true);
+  };
+
+  const openReviewDialog = (invoice: WeeklyInvoice) => {
+    setSelectedInvoice(invoice);
+    setReviewNotes(invoice.modification_notes || '');
+    setReviewOpen(true);
   };
 
   if (loading) {
@@ -222,22 +266,35 @@ export const WeeklyInvoiceReview: React.FC = () => {
                     <Calendar className="w-4 h-4" />
                     {formatDate(invoice.billing_period_start)} – {formatDate(invoice.billing_period_end)}
                   </CardTitle>
-                  <Badge className={`${statusCfg.color} flex items-center gap-1`}>
-                    {statusCfg.icon}
-                    {statusCfg.label}
-                  </Badge>
+                  {invoice.approval_status === 'pending' && canModify(invoice) ? (
+                    <button
+                      type="button"
+                      onClick={() => openReviewDialog(invoice)}
+                      className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    >
+                      <Badge className={`${statusCfg.color} flex items-center gap-1 cursor-pointer hover:opacity-90 transition-opacity`}>
+                        {statusCfg.icon}
+                        {statusCfg.label}
+                      </Badge>
+                    </button>
+                  ) : (
+                    <Badge className={`${statusCfg.color} flex items-center gap-1`}>
+                      {statusCfg.icon}
+                      {statusCfg.label}
+                    </Badge>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-lg font-bold">{formatCurrency(invoice.total_amount)}</span>
                 </div>
               </div>
               {invoice.rejection_reason && invoice.approval_status === 'rejected' && (
-                <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-                  <div className="flex items-center gap-2 text-red-700 text-sm font-medium">
+                <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                  <div className="flex items-center gap-2 text-amber-700 text-sm font-medium">
                     <AlertTriangle className="w-4 h-4" />
-                    Rejection Reason:
+                    Modification Request:
                   </div>
-                  <p className="text-red-600 text-sm mt-1">{invoice.rejection_reason}</p>
+                  <p className="text-amber-700 text-sm mt-1">{invoice.rejection_reason}</p>
                 </div>
               )}
             </CardHeader>
@@ -304,28 +361,24 @@ export const WeeklyInvoiceReview: React.FC = () => {
                         <Plus className="w-3 h-3 mr-1" />
                         Add Expense
                       </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-red-600 border-red-200 hover:bg-red-50"
-                        onClick={() => {
-                          setSelectedInvoice(invoice);
-                          setRejectOpen(true);
-                        }}
-                      >
-                        <XCircle className="w-3 h-3 mr-1" />
-                        Reject
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          setSelectedInvoice(invoice);
-                          setSubmitOpen(true);
-                        }}
-                      >
-                        <Send className="w-3 h-3 mr-1" />
-                        Submit for Approval
-                      </Button>
+                      {invoice.approval_status === 'pending' && (
+                        <Button
+                          size="sm"
+                          onClick={() => openReviewDialog(invoice)}
+                        >
+                          Review Invoice
+                        </Button>
+                      )}
+                      {invoice.approval_status === 'rejected' && (
+                        <Button
+                          size="sm"
+                          onClick={() => handleResubmit(invoice)}
+                          disabled={actionLoading}
+                        >
+                          {actionLoading && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
+                          Accept & Resubmit
+                        </Button>
+                      )}
                     </>
                   )}
                   {invoice.approval_status === 'approved' && (
@@ -341,61 +394,35 @@ export const WeeklyInvoiceReview: React.FC = () => {
         );
       })}
 
-      {/* Reject Dialog */}
-      <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
+      {/* Review Dialog */}
+      <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Reject Invoice</DialogTitle>
+            <DialogTitle>Review Invoice</DialogTitle>
             <DialogDescription>
-              Please provide a reason why you are rejecting this invoice. The accounting department will review your feedback.
+              Choose how you want to review this invoice. You can accept it or request a modification with notes.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Reason for Rejection</Label>
+              <Label>Notes</Label>
               <Textarea
-                placeholder="Describe the issue with this invoice..."
-                value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="Add an optional note for this review..."
+                value={reviewNotes}
+                onChange={(e) => setReviewNotes(e.target.value)}
                 rows={4}
               />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRejectOpen(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleReject} disabled={actionLoading}>
+            <Button variant="outline" onClick={() => setReviewOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={handleRequestModification} disabled={actionLoading}>
               {actionLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Reject Invoice
+              Request Modification
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Submit for Approval Dialog */}
-      <Dialog open={submitOpen} onOpenChange={setSubmitOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Submit for Approval</DialogTitle>
-            <DialogDescription>
-              Submit this invoice with your changes to the accounting department for approval.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Notes (optional)</Label>
-              <Textarea
-                placeholder="Any notes about the changes you made..."
-                value={submitNotes}
-                onChange={(e) => setSubmitNotes(e.target.value)}
-                rows={3}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSubmitOpen(false)}>Cancel</Button>
-            <Button onClick={handleSubmitForApproval} disabled={actionLoading}>
+            <Button onClick={handleAcceptReview} disabled={actionLoading}>
               {actionLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Submit for Approval
+              Accept
             </Button>
           </DialogFooter>
         </DialogContent>

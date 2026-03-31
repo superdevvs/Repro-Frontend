@@ -54,6 +54,7 @@ export const UPLOADED_STATUS_KEYWORDS = [
   "completed",
   "editing_complete",
 ];
+export const READY_TO_DELIVER_STATUS_KEYWORDS = ["ready"];
 export const PENDING_REVIEW_KEYWORDS = [
   "pending_review",
   "pending review",
@@ -512,7 +513,16 @@ export const filterUploadedShoots = (shoots: DashboardShootSummary[]) =>
     .sort(sortByStartDesc);
 
 export const filterReadyToDeliverShoots = (shoots: DashboardShootSummary[]) =>
-  filterUploadedShoots(shoots);
+  shoots
+    .filter((shoot) => {
+      if (matchesStatus(shoot, [...CANCELED_STATUS_KEYWORDS, ...DECLINED_STATUS_KEYWORDS, ...REQUESTED_STATUS_KEYWORDS])) {
+        return false;
+      }
+
+      const statusKey = getStatusKey(shoot);
+      return READY_TO_DELIVER_STATUS_KEYWORDS.includes(statusKey);
+    })
+    .sort(sortByStartDesc);
 
 export const filterEditingManagerUpcomingShoots = (shoots: DashboardShootSummary[]) =>
   shoots

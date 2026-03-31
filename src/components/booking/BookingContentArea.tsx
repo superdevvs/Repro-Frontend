@@ -107,6 +107,7 @@ export function BookingContentArea({
     <div className="space-y-6">
       {step === 1 && clientPropertyFormData && (
         <ClientPropertyForm
+          key={clientPropertyFormData.formKey ?? 'default'}
           initialData={clientPropertyFormData.initialData}
           onComplete={clientPropertyFormData.onComplete}
           packages={packages}

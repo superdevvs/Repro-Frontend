@@ -5,11 +5,37 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/components/auth';
 import { useNavigate } from 'react-router-dom';
 
+const LOGIN_SLIDES = [
+  '/login-slides/slide (1).jpg',
+  '/login-slides/slide (2).jpg',
+  '/login-slides/slide (3).jpg',
+  '/login-slides/slide (4).jpg',
+  '/login-slides/slide (5).jpg',
+  '/login-slides/slide (6).jpg',
+  '/login-slides/slide (7).jpg',
+  '/login-slides/slide (8).jpg',
+  '/login-slides/slide (9).jpg',
+  '/login-slides/slide (10).jpg',
+  '/login-slides/slide (11).jpg',
+  '/login-slides/slide (12).jpg',
+  '/login-slides/slide (13).jpg',
+  '/login-slides/slide (14).jpg',
+  '/login-slides/slide (15).jpg',
+  '/login-slides/slide (16).jpg',
+] as const;
+
+const LOGIN_PANEL_GRADIENT =
+  'linear-gradient(to bottom, rgba(6,10,14,0) 0%, rgba(6,10,14,0.14) 24%, rgba(6,10,14,0.48) 52%, rgba(6,10,14,0.84) 76%, rgba(6,10,14,0.98) 100%)';
+
 const Index = () => {
   const isMobile = useIsMobile();
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<string>('login');
+  const [loadedImages, setLoadedImages] = useState<Record<string, boolean>>({});
+  const [displayIndex, setDisplayIndex] = useState(0);
+  const [pendingIndex, setPendingIndex] = useState<number | null>(null);
+  const [desktopGradientVisible, setDesktopGradientVisible] = useState(false);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -49,34 +75,80 @@ const Index = () => {
     setActiveTab(tab);
   };
 
+  useEffect(() => {
+    let cancelled = false;
 
-  const images = [
-    '/login-slides/slide (1).jpg',
-    '/login-slides/slide (2).jpg',
-    '/login-slides/slide (3).jpg',
-    '/login-slides/slide (4).jpg',
-    '/login-slides/slide (5).jpg',
-    '/login-slides/slide (6).jpg',
-    '/login-slides/slide (7).jpg',
-    '/login-slides/slide (8).jpg',
-    '/login-slides/slide (9).jpg',
-    '/login-slides/slide (10).jpg',
-    '/login-slides/slide (11).jpg',
-    '/login-slides/slide (12).jpg',
-    '/login-slides/slide (13).jpg',
-    '/login-slides/slide (14).jpg',
-    '/login-slides/slide (15).jpg',
-    '/login-slides/slide (16).jpg',
-  ];
+    const markLoaded = (src: string) => {
+      if (cancelled) return;
+      setLoadedImages((prev) => (prev[src] ? prev : { ...prev, [src]: true }));
+    };
 
-  const [index, setIndex] = useState(0);
+    LOGIN_SLIDES.forEach((src) => {
+      const image = new Image();
+      image.decoding = 'async';
+      image.src = src;
+
+      if (image.complete) {
+        markLoaded(src);
+        return;
+      }
+
+      image.onload = () => markLoaded(src);
+      image.onerror = () => markLoaded(src);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const iv = setInterval(() => {
-      setIndex((prev) => (prev + 1) % images.length);
+      const nextIndex = (displayIndex + 1) % LOGIN_SLIDES.length;
+      const nextImage = LOGIN_SLIDES[nextIndex];
+
+      if (loadedImages[nextImage]) {
+        setDisplayIndex(nextIndex);
+        setPendingIndex(null);
+        return;
+      }
+
+      setPendingIndex(nextIndex);
     }, 5000); // autoplay every 5 seconds
     return () => clearInterval(iv);
-  }, [images.length]);
+  }, [displayIndex, loadedImages]);
+
+  useEffect(() => {
+    if (pendingIndex === null) return;
+    const nextImage = LOGIN_SLIDES[pendingIndex];
+    if (!loadedImages[nextImage]) return;
+
+    setDisplayIndex(pendingIndex);
+    setPendingIndex(null);
+  }, [loadedImages, pendingIndex]);
+
+  useEffect(() => {
+    let fadeTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const scheduleDesktopGradient = () => {
+      fadeTimer = setTimeout(() => {
+        setDesktopGradientVisible(true);
+      }, 2000);
+    };
+
+    if (document.readyState === 'complete') {
+      scheduleDesktopGradient();
+    } else {
+      window.addEventListener('load', scheduleDesktopGradient, { once: true });
+    }
+
+    return () => {
+      if (fadeTimer) clearTimeout(fadeTimer);
+      window.removeEventListener('load', scheduleDesktopGradient);
+    };
+  }, []);
+
+  const activeSlide = LOGIN_SLIDES[displayIndex];
 
   // Mobile layout: Login = no scroll, responsive height; Register = scrollable
   if (isMobile) {
@@ -116,14 +188,16 @@ const Index = () => {
           >
             <AnimatePresence mode="sync">
               <motion.img
-                key={images[index]}
-                src={images[index]}
+                key={activeSlide}
+                src={activeSlide}
                 alt=""
-                initial={{ opacity: 0, scale: 1.03 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.98 }}
-                transition={{ duration: 1.6, ease: 'easeInOut' }}
+                initial={{ opacity: 0, scale: 1.018, filter: 'blur(6px)' }}
+                animate={{ opacity: loadedImages[activeSlide] ? 1 : 0, scale: 1, filter: 'blur(0px)' }}
+                exit={{ opacity: 0, scale: 0.99, filter: 'blur(2px)' }}
+                transition={{ duration: 1.15, ease: [0.22, 1, 0.36, 1] }}
                 className="absolute inset-0 w-full h-full object-cover"
+                loading="eager"
+                decoding="async"
               />
             </AnimatePresence>
           </div>
@@ -144,7 +218,7 @@ const Index = () => {
             style={{
               height: isLogin ? '35px' : '25px',
               marginTop: isLogin ? '-35px' : '-25px',
-              background: 'linear-gradient(to bottom, transparent 0%, rgba(6,10,14,0.45) 30%, rgba(6,10,14,0.78) 65%, #060a0e 100%)',
+              background: LOGIN_PANEL_GRADIENT,
             }}
           />
           <div style={{ background: '#060a0e' }}>
@@ -172,19 +246,29 @@ const Index = () => {
     >
       {/* Left Side - Slideshow */}
       <div className="w-1/2 relative p-4 flex items-center justify-center">
-        <div className="relative w-full h-full overflow-hidden rounded-3xl">
+        <div className="relative w-full h-full overflow-hidden rounded-3xl bg-[#05080d]">
           <AnimatePresence mode="sync">
             <motion.img
-              key={images[index]}
-              src={images[index]}
+              key={activeSlide}
+              src={activeSlide}
               alt=""
-              initial={{ opacity: 0, scale: 1.03 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.98 }}
-              transition={{ duration: 1.6, ease: 'easeInOut' }}
+              initial={{ opacity: 0, scale: 1.018, filter: 'blur(8px)' }}
+              animate={{ opacity: loadedImages[activeSlide] ? 1 : 0, scale: 1, filter: 'blur(0px)' }}
+              exit={{ opacity: 0, scale: 0.992, filter: 'blur(2px)' }}
+              transition={{ duration: 1.15, ease: [0.22, 1, 0.36, 1] }}
               className="absolute inset-0 w-full h-full object-cover"
+              loading="eager"
+              decoding="async"
             />
           </AnimatePresence>
+
+          <motion.div
+            className="pointer-events-none absolute inset-0"
+            initial={false}
+            animate={{ opacity: desktopGradientVisible ? 1 : 0 }}
+            transition={{ duration: 1.35, ease: [0.22, 1, 0.36, 1] }}
+            style={{ background: LOGIN_PANEL_GRADIENT }}
+          />
 
           {/* Text content */}
           <div className="absolute text-white drop-shadow-lg z-10 pointer-events-none bottom-10 left-10 right-10 text-left">

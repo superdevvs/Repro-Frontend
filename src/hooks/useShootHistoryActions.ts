@@ -7,7 +7,7 @@ import { registerShootHistoryRefresh } from '@/realtime/realtimeRefreshBus'
 import { deriveFilterOptionsFromShoots, mapShootApiToShootData } from '@/components/shoots/history/shootHistoryTransforms'
 import { downloadShootMediaArchive } from '@/utils/shootMediaDownload'
 import {
-  buildBrightMlsPublishPayload,
+  buildBrightMlsPublishPayloadWithFallback,
   closePendingBrightMlsWindow,
   navigateBrightMlsWindow,
   openPendingBrightMlsWindow,
@@ -392,7 +392,11 @@ export function useShootHistoryActions(args: UseShootHistoryActionsArgs) {
       const shoot = await loadShootById(record.id, { quiet: true })
       if (!shoot) throw new Error('Shoot not found')
       setBrightMlsRedirectUrl(null)
-      const payload = buildBrightMlsPublishPayload(shoot as ShootData & Record<string, unknown>)
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token')
+      const payload = await buildBrightMlsPublishPayloadWithFallback(
+        shoot as ShootData & Record<string, unknown>,
+        token,
+      )
       if (payload.photos.length === 0) {
         throw new Error('No images found to send. Please ensure the shoot has completed images.')
       }

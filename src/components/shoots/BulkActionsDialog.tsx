@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/components/auth';
 import type { ShootData } from '@/types/shoots';
 import { formatWorkflowStatus } from '@/utils/status';
 import { apiClient } from '@/services/api';
@@ -92,11 +93,13 @@ export function BulkActionsDialog({
   onComplete,
   isLoading = false,
 }: BulkActionsDialogProps) {
+  const { role } = useAuth();
   const { toast } = useToast();
+  const canBulkPay = role !== 'editing_manager';
   const [selectedShoots, setSelectedShoots] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
   const [filterMode, setFilterMode] = useState<FilterMode>('eligible');
-  const [activeAction, setActiveAction] = useState<BulkAction>('pay');
+  const [activeAction, setActiveAction] = useState<BulkAction>(canBulkPay ? 'pay' : 'editing');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('stripe');
   const [processing, setProcessing] = useState(false);
   const [detailShootId, setDetailShootId] = useState<string | number | null>(null);
@@ -114,10 +117,16 @@ export function BulkActionsDialog({
     setSelectedShoots(new Set());
     setSearchTerm('');
     setFilterMode('eligible');
-    setActiveAction('pay');
+    setActiveAction(canBulkPay ? 'pay' : 'editing');
     setPaymentMethod('stripe');
     setIsMarkPaidDialogOpen(false);
-  }, [isOpen]);
+  }, [canBulkPay, isOpen]);
+
+  useEffect(() => {
+    if (!canBulkPay && activeAction === 'pay') {
+      setActiveAction('editing');
+    }
+  }, [activeAction, canBulkPay]);
 
   const filteredShoots = useMemo(() => {
     const lowered = searchTerm.trim().toLowerCase();
@@ -512,14 +521,16 @@ export function BulkActionsDialog({
                 <Sparkles className="h-4 w-4" />
                 Finalize Shoots
               </Button>
-              <Button
-                variant={activeAction === 'pay' ? 'default' : 'outline'}
-                className="justify-start gap-2"
-                onClick={() => setActiveAction('pay')}
-              >
-                <CreditCard className="h-4 w-4" />
-                Pay Multiple
-              </Button>
+              {canBulkPay && (
+                <Button
+                  variant={activeAction === 'pay' ? 'default' : 'outline'}
+                  className="justify-start gap-2"
+                  onClick={() => setActiveAction('pay')}
+                >
+                  <CreditCard className="h-4 w-4" />
+                  Pay Multiple
+                </Button>
+              )}
             </div>
 
             <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
@@ -541,7 +552,7 @@ export function BulkActionsDialog({
               </div>
             </div>
 
-            {activeAction === 'pay' && (
+            {canBulkPay && activeAction === 'pay' && (
               <div className="space-y-3">
                 <p className="text-sm font-medium">Payment method</p>
                 <div className="grid gap-2">

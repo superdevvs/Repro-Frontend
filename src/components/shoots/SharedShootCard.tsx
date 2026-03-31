@@ -247,30 +247,38 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
       )}
 
       {/* Card Content */}
-      <div className="p-6 space-y-5 flex flex-col">
+      <div className="p-5 xl:p-6 space-y-5 flex flex-col">
         {/* Address & Date Header */}
         <div className="space-y-2">
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-col gap-3 min-[1180px]:flex-row min-[1180px]:items-start min-[1180px]:justify-between min-[1180px]:gap-4">
             <div className="flex-1 min-w-0">
-              <h3 className="text-2xl font-bold leading-tight mb-1.5 truncate">{shoot.location.address}</h3>
-              <p className="text-base text-muted-foreground mb-2 truncate">
+              <h3
+                className="mb-1 text-[1.45rem] font-bold leading-tight break-words text-balance min-[1180px]:text-[1.6rem]"
+                title={shoot.location.address}
+              >
+                {shoot.location.address}
+              </h3>
+              <p
+                className="text-sm leading-snug text-muted-foreground break-words min-[1180px]:text-[0.95rem]"
+                title={`${shoot.location.city}, ${getStateFullName(shoot.location.state)} ${shoot.location.zip}`}
+              >
                 {shoot.location.city}, {getStateFullName(shoot.location.state)} {shoot.location.zip}
               </p>
             </div>
             {/* Date and Time stacked vertically on the right */}
-            <div className="flex flex-col items-end gap-1.5 text-sm text-muted-foreground flex-shrink-0">
+            <div className="flex flex-col items-start gap-1 text-xs text-muted-foreground flex-shrink-0 min-[1180px]:items-end min-[1180px]:text-sm">
               <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4" />
+                <Calendar className="h-3.5 w-3.5 min-[1180px]:h-4 min-[1180px]:w-4" />
                 <span className="font-medium">{formattedDate}</span>
               </div>
               {shoot.time && shoot.time !== 'TBD' && (
                 <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
+                  <Clock className="h-3.5 w-3.5 min-[1180px]:h-4 min-[1180px]:w-4" />
                   <span className="font-medium">{formatTime(shoot.time)}</span>
                 </div>
               )}
               {shoot.payment?.totalQuote && (isSuperAdmin || isClient) && (
-                <span className="font-semibold text-sm text-foreground">${shoot.payment.totalQuote.toLocaleString()}</span>
+                <span className="text-sm font-semibold text-foreground">${shoot.payment.totalQuote.toLocaleString()}</span>
               )}
             </div>
           </div>

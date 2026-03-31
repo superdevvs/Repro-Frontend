@@ -8,7 +8,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Download, LayoutGrid, LayoutList, Printer, Copy, FileDown, MoreVertical, Check, ChevronRight, ChevronLeft } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Download, Upload, LayoutGrid, LayoutList, Printer, Copy, FileDown, MoreVertical, Check, ChevronRight, ChevronLeft } from "lucide-react";
 import { Role } from "@/components/auth/AuthProvider";
 
 interface AccountsHeaderProps {
@@ -23,6 +24,7 @@ interface AccountsHeaderProps {
   repFilter: string;
   onRepFilterChange: (value: string) => void;
   repOptions: { value: string; label: string }[];
+  currentUserRole?: Role | string | null;
 }
 
 export function AccountsHeader({
@@ -37,9 +39,11 @@ export function AccountsHeader({
   repFilter,
   onRepFilterChange,
   repOptions,
+  currentUserRole,
 }: AccountsHeaderProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [mobileRepMenuOpen, setMobileRepMenuOpen] = useState(false);
+  const isEditingManager = currentUserRole === "editing_manager";
   const repFilterLabel =
     repFilter === "all"
       ? "All reps"
@@ -86,35 +90,92 @@ export function AccountsHeader({
           </SelectContent>
         </Select>
 
-        {/* Import */}
-        <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} className="h-9">
-          <Download className="mr-1.5 h-4 w-4" />
-          Import
-        </Button>
+        {isEditingManager ? (
+          <TooltipProvider delayDuration={120}>
+            <div className="flex items-center rounded-xl border border-border bg-background p-1 shadow-sm">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground"
+                    aria-label="Import accounts"
+                  >
+                    <Upload className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Import</TooltipContent>
+              </Tooltip>
 
-        {/* Export */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="h-9">
-              <FileDown className="mr-1.5 h-4 w-4" />
-              Export
+              <DropdownMenu>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        type="button"
+                        className="h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground"
+                        aria-label="Export accounts"
+                      >
+                        <Download className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>Export</TooltipContent>
+                </Tooltip>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => onExport('csv')}>
+                    <Download className="mr-2 h-4 w-4" />
+                    Export as CSV
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onExport('print')}>
+                    <Printer className="mr-2 h-4 w-4" />
+                    Print
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onExport('copy')}>
+                    <Copy className="mr-2 h-4 w-4" />
+                    Copy to Clipboard
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </TooltipProvider>
+        ) : (
+          <>
+            {/* Import */}
+            <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} className="h-9">
+              <Upload className="mr-1.5 h-4 w-4" />
+              Import
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => onExport('csv')}>
-              <Download className="mr-2 h-4 w-4" />
-              Export as CSV
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onExport('print')}>
-              <Printer className="mr-2 h-4 w-4" />
-              Print
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onExport('copy')}>
-              <Copy className="mr-2 h-4 w-4" />
-              Copy to Clipboard
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+
+            {/* Export */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-9">
+                  <FileDown className="mr-1.5 h-4 w-4" />
+                  Export
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => onExport('csv')}>
+                  <Download className="mr-2 h-4 w-4" />
+                  Export as CSV
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onExport('print')}>
+                  <Printer className="mr-2 h-4 w-4" />
+                  Print
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onExport('copy')}>
+                  <Copy className="mr-2 h-4 w-4" />
+                  Copy to Clipboard
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </>
+        )}
       </div>
 
       {/* Mobile overflow */}

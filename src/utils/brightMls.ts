@@ -1,4 +1,6 @@
+import { API_BASE_URL } from '@/config/env'
 import type { ShootData, ShootFileData } from '@/types/shoots'
+import { getImageUrl, normalizeImageUrl } from '@/utils/imageUrl'
 import { getPreferredIguideUrl, getRawTourLinks, normalizeIguideFloorplans } from '@/utils/shootTourData'
 
 type LooseRecord = Record<string, unknown>
@@ -31,6 +33,10 @@ export type BrightMlsPublishPayload = {
   documents: BrightMlsDocumentPayload[]
 }
 
+type BrightMlsBuildOptions = {
+  selectedPhotoIds?: Iterable<string | number> | null
+}
+
 const asRecord = (value: unknown): LooseRecord =>
   value && typeof value === 'object' ? (value as LooseRecord) : {}
 
@@ -38,8 +44,8 @@ const normalizeString = (value: unknown): string => String(value ?? '').trim()
 
 const firstUrl = (...values: unknown[]): string | null => {
   for (const value of values) {
-    const candidate = normalizeString(value)
-    if (/^https?:\/\//i.test(candidate)) {
+    const candidate = normalizeImageUrl(normalizeString(value))
+    if (candidate) {
       return candidate
     }
   }
@@ -49,6 +55,9 @@ const firstUrl = (...values: unknown[]): string | null => {
 
 const getFileUrl = (file: Partial<ShootFileData> & LooseRecord): string =>
   firstUrl(
+    getImageUrl(file, 'original'),
+    getImageUrl(file, 'large'),
+    getImageUrl(file, 'medium'),
     file.url,
     file.path,
     file.original_url,
@@ -92,16 +101,26 @@ const getLatestCommentText = (file: Partial<ShootFileData> & LooseRecord): strin
 
 const isImageFile = (file: Partial<ShootFileData> & LooseRecord): boolean => {
   const fileType = normalizeString(file.fileType || file.file_type || file.media_type).toLowerCase()
+  const typeLabel = normalizeString(file.type).toLowerCase()
   const workflowStage = normalizeString(file.workflowStage || file.workflow_stage).toLowerCase()
   const filename = normalizeString(file.filename)
+  const storagePath = normalizeString(file.path || file.url || file.original || file.original_url)
 
   return (
     fileType === 'image' ||
     fileType === 'edited' ||
     fileType === 'photo' ||
+    fileType.startsWith('image/') ||
+    typeLabel === 'image' ||
+    typeLabel === 'photo' ||
+    typeLabel.startsWith('image/') ||
     workflowStage === 'completed' ||
     workflowStage === 'verified' ||
-    /\.(jpg|jpeg|png|gif|webp)$/i.test(filename)
+    workflowStage === 'review' ||
+    workflowStage === 'ready' ||
+    workflowStage === 'delivered' ||
+    /\.(jpg|jpeg|png|gif|webp|heic|heif|tif|tiff)$/i.test(filename) ||
+    /\.(jpg|jpeg|png|gif|webp|heic|heif|tif|tiff)$/i.test(storagePath)
   )
 }
 
@@ -127,12 +146,16 @@ const getSortOrder = (file: Partial<ShootFileData> & LooseRecord, index: number)
 
 export const buildBrightMlsPublishPayload = (
   shoot: Partial<ShootData> & LooseRecord,
-  options?: { selectedPhotoIds?: Iterable<string | number> | null },
+  options?: BrightMlsBuildOptions,
 ): BrightMlsPublishPayload => {
   const selectedPhotoIds = options?.selectedPhotoIds ? new Set(Array.from(options.selectedPhotoIds, (value) => String(value))) : null
+  const mediaRecord = asRecord(shoot.media)
   const files = Array.isArray(shoot.files) ? shoot.files : []
+  const mediaFiles = Array.isArray(mediaRecord.files) ? mediaRecord.files : []
+  const mediaImages = Array.isArray(mediaRecord.images) ? (mediaRecord.images as LooseRecord[]) : []
 
-  const filePhotos = files
+  const candidateFiles = [...files, ...mediaFiles]
+  const filePhotos = candidateFiles
     .map((file, index) => ({ file: (file || {}) as Partial<ShootFileData> & LooseRecord, index }))
     .filter(({ file }) => isImageFile(file) && !!getFileUrl(file))
     .filter(({ file }) => {
@@ -153,13 +176,21 @@ export const buildBrightMlsPublishPayload = (
       sortOrder: getSortOrder(file, index),
     }))
 
-  const mediaImages = Array.isArray(asRecord(shoot.media).images)
-    ? (asRecord(shoot.media).images as LooseRecord[])
-    : []
-
   const fallbackPhotos = mediaImages
     .map((image, index) => ({ image, index }))
-    .filter(({ image }) => !!firstUrl(image.url, image.original_url, image.original, image.large_url, image.large))
+    .filter(({ image }) => isImageFile(image) && !!firstUrl(
+      getImageUrl(image, 'original'),
+      getImageUrl(image, 'large'),
+      getImageUrl(image, 'medium'),
+      image.url,
+      image.original_url,
+      image.original,
+      image.large_url,
+      image.large,
+      image.path,
+      image.thumbnail_path,
+      image.web_path,
+    ))
     .filter(({ image }) => {
       if (!selectedPhotoIds) {
         return true
@@ -170,15 +201,33 @@ export const buildBrightMlsPublishPayload = (
     .sort((left, right) => getSortOrder(left.image as Partial<ShootFileData> & LooseRecord, left.index) - getSortOrder(right.image as Partial<ShootFileData> & LooseRecord, right.index))
     .map(({ image, index }) => ({
       id: typeof image.id === 'string' || typeof image.id === 'number' ? image.id : undefined,
-      url: firstUrl(image.url, image.original_url, image.original, image.large_url, image.large) || '',
-      filename: normalizeString(image.filename) || `photo-${index + 1}`,
+      url: firstUrl(
+        getImageUrl(image, 'original'),
+        getImageUrl(image, 'large'),
+        getImageUrl(image, 'medium'),
+        image.url,
+        image.original_url,
+        image.original,
+        image.large_url,
+        image.large,
+        image.path,
+        image.thumbnail_path,
+        image.web_path,
+      ) || '',
+      filename: normalizeString(image.filename || image.name) || `photo-${index + 1}`,
       description: getLatestCommentText(image as Partial<ShootFileData> & LooseRecord),
       roomType: '',
       selected: true,
       sortOrder: getSortOrder(image as Partial<ShootFileData> & LooseRecord, index),
     }))
 
-  const photos = filePhotos.length > 0 ? filePhotos : fallbackPhotos
+  const photos = Array.from(
+    new Map(
+      [...filePhotos, ...fallbackPhotos]
+        .filter((photo) => photo.url)
+        .map((photo) => [String(photo.id ?? photo.url), photo]),
+    ).values(),
+  )
 
   const rawTourLinks = getRawTourLinks(shoot)
   const documents = normalizeIguideFloorplans(shoot).map((floorplan) => ({
@@ -235,6 +284,72 @@ export const buildBrightMlsPublishPayload = (
   }
 }
 
+const getBrightMlsFetchHeaders = (authToken?: string | null): HeadersInit => {
+  if (!authToken) {
+    return { Accept: 'application/json' }
+  }
+
+  return {
+    Accept: 'application/json',
+    Authorization: `Bearer ${authToken}`,
+  }
+}
+
+const fetchShootFilesForBrightMls = async (
+  shootId: string | number,
+  authToken?: string | null,
+): Promise<LooseRecord[]> => {
+  const headers = getBrightMlsFetchHeaders(authToken)
+
+  const fetchFiles = async (type: 'edited' | 'all') => {
+    const response = await fetch(`${API_BASE_URL}/api/shoots/${shootId}/files?type=${type}`, { headers })
+    if (!response.ok) {
+      return []
+    }
+
+    const payload = await response.json().catch(() => ({ data: [] }))
+    return Array.isArray(payload?.data) ? (payload.data as LooseRecord[]) : Array.isArray(payload) ? (payload as LooseRecord[]) : []
+  }
+
+  const editedFiles = await fetchFiles('edited')
+  if (editedFiles.length > 0) {
+    return editedFiles
+  }
+
+  return fetchFiles('all')
+}
+
+export const buildBrightMlsPublishPayloadWithFallback = async (
+  shoot: Partial<ShootData> & LooseRecord,
+  authToken?: string | null,
+  options?: BrightMlsBuildOptions,
+): Promise<BrightMlsPublishPayload> => {
+  const initialPayload = buildBrightMlsPublishPayload(shoot, options)
+  if (initialPayload.photos.length > 0 || !shoot.id) {
+    return initialPayload
+  }
+
+  const fetchedFiles = await fetchShootFilesForBrightMls(shoot.id, authToken)
+  if (fetchedFiles.length === 0) {
+    return initialPayload
+  }
+
+  const currentMedia = asRecord(shoot.media)
+  return buildBrightMlsPublishPayload(
+    {
+      ...shoot,
+      files: fetchedFiles as unknown as ShootFileData[],
+      media: {
+        ...currentMedia,
+        files: Array.isArray(currentMedia.files) && currentMedia.files.length > 0
+          ? currentMedia.files
+          : (fetchedFiles as unknown as ShootData['media']['files']),
+      },
+    },
+    options,
+  )
+}
+
 export const openPendingBrightMlsWindow = (): Window | null => {
   if (typeof window === 'undefined') {
     return null
@@ -249,6 +364,7 @@ export const openPendingBrightMlsWindow = (): Window | null => {
     popup.document.title = 'Bright MLS Import'
     popup.document.body.innerHTML = '<div style="font-family:system-ui,-apple-system,BlinkMacSystemFont,\'Segoe UI\',sans-serif;padding:24px;line-height:1.5;color:#0f172a"><h2 style="margin:0 0 12px">Preparing Bright MLS import…</h2><p style="margin:0;color:#475569">Your media manifest is being published. This tab will redirect to Bright MLS automatically.</p></div>'
   } catch {
+    // ignore popup document access issues
   }
 
   return popup
@@ -266,6 +382,7 @@ export const navigateBrightMlsWindow = (popup: Window | null, redirectUrl: strin
       return true
     }
   } catch {
+    // ignore popup navigation issues and fall back to window.open
   }
 
   if (typeof window === 'undefined') {
@@ -281,5 +398,6 @@ export const closePendingBrightMlsWindow = (popup: Window | null) => {
       popup.close()
     }
   } catch {
+    // ignore popup close issues
   }
 }

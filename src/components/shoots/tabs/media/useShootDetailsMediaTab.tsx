@@ -484,6 +484,9 @@ export function useShootDetailsMediaTab({
         manualOrder.length > 0 ? manualOrder : getSortedMediaIds(sortableFiles, baselineSort),
         sortableFiles,
       );
+      // Entering manual mode should not immediately persist and refresh the parent list.
+      // We only want to save after the user actually reorders files.
+      isRestoringOrder.current = true;
       setManualOrder(nextManualOrder);
       lastSortFingerprint.current = nextManualOrder.join(',');
       hasPendingManualOrder.current = false;

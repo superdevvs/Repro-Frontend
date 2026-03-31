@@ -248,10 +248,12 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const { openModal } = useIssueManager();
+  const { openModal, removeRequest, registerShootOpenHandler } = useIssueManager();
   const { data, loading, error, refresh } = useDashboardOverview();
   const [selectedShoot, setSelectedShoot] = useState<DashboardShootSummary | null>(null);
   const [selectedShootWeather, setSelectedShootWeather] = useState<WeatherInfo | null>(null);
+  const [shootModalInitialTab, setShootModalInitialTab] =
+    useState<'overview' | 'notes' | 'issues' | 'tours' | 'settings'>('overview');
   const [openDownloadOnSelect, setOpenDownloadOnSelect] = useState(false);
   const [selectedPhotographer, setSelectedPhotographer] =
     useState<DashboardPhotographerSummary | null>(null);
@@ -270,8 +272,16 @@ const Dashboard = () => {
 
   // Handler for selecting a shoot with optional weather data - memoized to prevent child re-renders
   const handleSelectShoot = useCallback((shoot: DashboardShootSummary, weather?: WeatherInfo | null) => {
+    setShootModalInitialTab('overview');
     setSelectedShoot(shoot);
     setSelectedShootWeather(weather || null);
+  }, []);
+
+  const handleCloseShootModal = useCallback(() => {
+    setSelectedShoot(null);
+    setSelectedShootWeather(null);
+    setOpenDownloadOnSelect(false);
+    setShootModalInitialTab('overview');
   }, []);
 
   useEffect(() => {
@@ -415,10 +425,11 @@ const Dashboard = () => {
       <Suspense fallback={null}>
         <LazyShootDetailsModal 
           shoot={selectedShoot} 
-          onClose={() => { setSelectedShoot(null); setSelectedShootWeather(null); setOpenDownloadOnSelect(false); }} 
+          onClose={handleCloseShootModal} 
           weather={selectedShootWeather}
           onShootUpdate={handleShootUpdate}
           onViewInvoice={handleViewInvoice}
+          initialTab={shootModalInitialTab}
           openDownloadDialog={openDownloadOnSelect}
         />
       </Suspense>
@@ -483,6 +494,7 @@ const Dashboard = () => {
   }, [availabilityWindow, canLoadAvailability, session?.accessToken]);
 
   const {
+    summaryMap,
     allSummaries,
     editorUpcoming,
     editorPendingReviews,
@@ -574,6 +586,119 @@ const Dashboard = () => {
     
     fetchClientRequests();
   }, [canViewAdminDashboard]);
+
+  const removeDeletedClientRequest = useCallback((requestId: string | number) => {
+    const normalizedRequestId = String(requestId);
+    removeRequest(normalizedRequestId);
+    setClientRequests((prev) =>
+      prev.filter((request) => String(request.id) !== normalizedRequestId),
+    );
+  }, [removeRequest]);
+
+  const openShootRequestsFromIssueManager = useCallback(
+    async (request: DashboardClientRequest) => {
+      const requestId = String(request.id);
+      const requestShootId = request.shootId ?? request.shoot?.id;
+
+      if (!requestShootId) {
+        removeDeletedClientRequest(requestId);
+        return 'missing' as const;
+      }
+
+      const normalizedShootId = String(requestShootId);
+      const existingSummary = summaryMap.get(normalizedShootId);
+      if (existingSummary) {
+        setShootModalInitialTab('issues');
+        setSelectedShoot(existingSummary);
+        setSelectedShootWeather(null);
+        return 'opened' as const;
+      }
+
+      const sourceShoot = shoots.find((shoot) => String(shoot.id) === normalizedShootId);
+      if (sourceShoot) {
+        setShootModalInitialTab('issues');
+        setSelectedShoot(shootDataToSummary(sourceShoot));
+        setSelectedShootWeather(null);
+        return 'opened' as const;
+      }
+
+      const token =
+        session?.accessToken ||
+        localStorage.getItem('authToken') ||
+        localStorage.getItem('token');
+
+      if (!token) {
+        return 'unhandled' as const;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/shoots/${normalizedShootId}`, {
+          headers: {
+            Accept: 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (response.status === 404) {
+          removeDeletedClientRequest(requestId);
+          return 'missing' as const;
+        }
+
+        const json = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(json?.message || 'Failed to load shoot details');
+        }
+
+        const shootData = json?.data as ShootData | undefined;
+        if (!shootData) {
+          removeDeletedClientRequest(requestId);
+          return 'missing' as const;
+        }
+
+        setShootModalInitialTab('issues');
+        setSelectedShoot(shootDataToSummary(shootData));
+        setSelectedShootWeather(null);
+        return 'opened' as const;
+      } catch (openShootError) {
+        toast({
+          title: 'Unable to open shoot',
+          description:
+            openShootError instanceof Error
+              ? openShootError.message
+              : 'We could not load this shoot right now.',
+          variant: 'destructive',
+        });
+        return 'unhandled' as const;
+      }
+    },
+    [removeDeletedClientRequest, session?.accessToken, shoots, summaryMap, toast],
+  );
+
+  useEffect(() => {
+    if (!canViewAdminDashboard || !clientRequests.length || shoots.length === 0) return;
+
+    const activeShootIds = new Set(shoots.map((shoot) => String(shoot.id)));
+    const staleRequestIds = new Set(
+      clientRequests
+        .filter((request) => {
+          const requestShootId = request.shootId ?? request.shoot?.id;
+          return !requestShootId || !activeShootIds.has(String(requestShootId));
+        })
+        .map((request) => String(request.id)),
+    );
+
+    if (staleRequestIds.size === 0) return;
+
+    setClientRequests((prev) =>
+      prev.filter((request) => !staleRequestIds.has(String(request.id))),
+    );
+    staleRequestIds.forEach((requestId) => removeRequest(requestId));
+  }, [canViewAdminDashboard, clientRequests, removeRequest, shoots]);
+
+  useEffect(() => {
+    registerShootOpenHandler(openShootRequestsFromIssueManager);
+    return () => registerShootOpenHandler(null);
+  }, [openShootRequestsFromIssueManager, registerShootOpenHandler]);
 
   // Cancellation shoots come from the dashboard overview response (already fetched)
   const cancellationShoots: DashboardCancellationItem[] = useMemo(() => {
@@ -1050,8 +1175,8 @@ const Dashboard = () => {
       <LazyCompletedShootsCard
         shoots={editingManagerReadyToDeliverShoots}
         title="Ready to deliver"
-        subtitle="Uploaded shoots"
-        emptyStateText="No uploaded shoots ready to deliver."
+        subtitle="Shoots with ready status"
+        emptyStateText="No ready shoots waiting for delivery."
         ctaLabel="View all shoots"
         onSelect={handleSelectShoot}
         onViewInvoice={handleViewInvoice}

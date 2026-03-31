@@ -12,7 +12,7 @@ import { type ShootData } from '@/types/shoots';
 import { type MediaFile } from '@/hooks/useShootFiles';
 import { isRawFile } from '@/services/rawPreviewService';
 import { blurActiveElement } from '../../dialogFocusUtils';
-import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Download, Eye, EyeOff, FileIcon, Heart, MessageSquare, Play, X } from 'lucide-react';
+import { AlertCircle, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Download, Eye, EyeOff, FileIcon, Heart, Play, X } from 'lucide-react';
 // Media Viewer Component
 interface MediaViewerProps {
   isOpen: boolean;
@@ -143,6 +143,7 @@ export function MediaViewer({
   const [flagReason, setFlagReason] = useState('');
   const [flagging, setFlagging] = useState(false);
   const [commentDraft, setCommentDraft] = useState('');
+  const [showFileDetails, setShowFileDetails] = useState(false);
   const [viewerRequests, setViewerRequests] = useState<MediaIssueRequest[]>([]);
   const [requestsLoading, setRequestsLoading] = useState(false);
   const [requestRefreshKey, setRequestRefreshKey] = useState(0);
@@ -162,7 +163,6 @@ export function MediaViewer({
     },
     [currentFile],
   );
-  const latestComment = fileComments.length > 0 ? fileComments[fileComments.length - 1]?.comment ?? '' : '';
   const relatedRequests = useMemo(
     () => {
       const currentFileId = String(currentFile?.id ?? '');
@@ -192,6 +192,7 @@ export function MediaViewer({
 
   useEffect(() => {
     setCommentDraft('');
+    setShowFileDetails(false);
   }, [currentFile?.id]);
 
   useEffect(() => {
@@ -262,23 +263,9 @@ export function MediaViewer({
 
       if (!res.ok) throw new Error('Failed to create issue');
 
-      // Also flag the file if endpoint exists
-      try {
-        await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/files/${currentFile.id}/flag`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            reason: flagReason.trim(),
-            file_id: currentFile.id,
-          }),
-        });
-      } catch (flagError) {
-        console.warn('File flagging endpoint not available, issue created only');
-      }
-
       toast({
         title: 'Success',
-        description: 'Issue created and image flagged successfully',
+        description: 'Request created successfully. It will appear in the Requests tab.',
       });
       setShowFlagDialog(false);
       setFlagReason('');
@@ -287,7 +274,7 @@ export function MediaViewer({
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'Failed to flag image and create issue',
+        description: 'Failed to create request for this image',
         variant: 'destructive',
       });
     } finally {
@@ -451,40 +438,18 @@ export function MediaViewer({
         {/* Glass blur overlay background */}
         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
         
-        <div className="relative z-10 flex h-full w-full items-center justify-center">
+        <div className="relative z-10 flex h-full w-full items-stretch justify-stretch">
           <Button
             variant="ghost"
             size="icon"
-            className="absolute top-2 right-2 sm:top-4 sm:right-4 z-20 text-white hover:bg-white/20 rounded-full h-9 w-9 sm:h-10 sm:w-10"
+            className="absolute right-2 top-2 z-20 h-9 w-9 rounded-full text-white hover:bg-white/20 sm:right-4 sm:top-3 sm:h-10 sm:w-10"
             onClick={onClose}
           >
             <X className="h-5 w-5 sm:h-6 sm:w-6" />
           </Button>
 
-          {currentIndex > 0 && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute left-2 top-1/2 z-20 h-10 w-10 -translate-y-1/2 text-white hover:bg-white/20 sm:left-4 sm:h-12 sm:w-12"
-              onClick={handlePrevious}
-            >
-              <ChevronLeft className="h-6 w-6 sm:h-8 sm:w-8" />
-            </Button>
-          )}
-
-          {currentIndex < files.length - 1 && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute right-2 top-1/2 z-20 h-10 w-10 -translate-y-1/2 text-white hover:bg-white/20 sm:right-4 sm:h-12 sm:w-12"
-              onClick={handleNext}
-            >
-              <ChevronRight className="h-6 w-6 sm:h-8 sm:w-8" />
-            </Button>
-          )}
-
-          <div className="flex h-full w-full min-h-0 flex-col px-3 pb-3 pt-14 sm:px-4 sm:pb-4 sm:pt-16 lg:px-6 lg:pb-6">
-            <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-[minmax(0,65fr)_minmax(320px,35fr)] lg:gap-4">
+          <div className="flex h-full w-full min-h-0 flex-col px-2 pb-2 pt-2 sm:px-4 sm:pb-4 sm:pt-3 lg:px-6 lg:pb-6 lg:pt-4">
+            <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-[minmax(0,68fr)_minmax(340px,32fr)] lg:gap-4">
               <div className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md">
                 {/* Top Metadata Bar */}
                 <div className="flex flex-wrap items-start justify-between gap-3 border-b border-white/10 px-3 py-3 sm:px-4">
@@ -536,8 +501,29 @@ export function MediaViewer({
                 </div>
 
                 <div className="flex min-h-0 flex-1 flex-col">
-                  <div className="flex min-h-0 flex-1 items-center justify-center p-3 sm:p-4">
-                    <div className="flex h-full min-h-[260px] w-full items-center justify-center overflow-auto rounded-xl bg-black/45 p-3 sm:p-4">
+                  <div className="flex min-h-0 flex-1 items-stretch justify-center px-2 pb-2 pt-2 sm:px-3 sm:pb-3 sm:pt-2">
+                    <div className="relative flex h-full min-h-[420px] w-full items-center justify-center overflow-auto rounded-xl bg-black/55 p-2 sm:min-h-[520px] sm:p-3">
+                      {currentIndex > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="absolute left-2 top-1/2 z-10 h-10 w-10 -translate-y-1/2 rounded-full border border-white/10 bg-black/45 text-white hover:bg-white/15"
+                          onClick={handlePrevious}
+                        >
+                          <ChevronLeft className="h-6 w-6" />
+                        </Button>
+                      )}
+
+                      {currentIndex < files.length - 1 && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="absolute right-2 top-1/2 z-10 h-10 w-10 -translate-y-1/2 rounded-full border border-white/10 bg-black/45 text-white hover:bg-white/15"
+                          onClick={handleNext}
+                        >
+                          <ChevronRight className="h-6 w-6" />
+                        </Button>
+                      )}
                       {isImg ? (
                         <img
                           src={imageUrl}
@@ -567,59 +553,6 @@ export function MediaViewer({
                     </div>
                   </div>
 
-                  {(latestComment || canInteractSingleMedia) && (
-                    <div className="border-t border-white/10 px-3 py-3 sm:px-4">
-                      <div className="rounded-xl border border-white/10 bg-black/25 p-3">
-                        <div className="flex flex-wrap items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2 text-sm font-medium text-white">
-                              <MessageSquare className="h-4 w-4" />
-                              Comment on this image
-                            </div>
-                            <p className="mt-1 line-clamp-1 text-[11px] text-white/55">
-                              {latestComment ? `Latest: ${latestComment}` : 'Add feedback without covering the preview.'}
-                            </p>
-                          </div>
-                          <Badge className="border-white/10 bg-white/10 text-white/80 hover:bg-white/10">
-                            {Number(currentFile.comment_count ?? fileComments.length)} comment{Number(currentFile.comment_count ?? fileComments.length) === 1 ? '' : 's'}
-                          </Badge>
-                        </div>
-                        {canInteractSingleMedia && onAddComment && (
-                          <div className="mt-3 flex flex-col gap-2">
-                            <Textarea
-                              value={commentDraft}
-                              onChange={(event) => setCommentDraft(event.target.value)}
-                              placeholder="Add a comment for this image..."
-                              className="min-h-[72px] resize-none border-white/10 bg-black/30 text-white placeholder:text-white/45"
-                            />
-                            <div className="flex items-center justify-end gap-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="text-white hover:bg-white/10 hover:text-white"
-                                onClick={() => setCommentDraft('')}
-                                disabled={!commentDraft.trim()}
-                              >
-                                Clear
-                              </Button>
-                              <Button
-                                size="sm"
-                                className="bg-blue-600 text-white hover:bg-blue-700"
-                                onClick={() => {
-                                  if (!commentDraft.trim()) return;
-                                  onAddComment(currentFile.id, commentDraft);
-                                  setCommentDraft('');
-                                }}
-                                disabled={!commentDraft.trim()}
-                              >
-                                Save comment
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
                   {/* Bottom Filmstrip */}
                   <div className="border-t border-white/10 px-3 py-3 sm:px-4">
                     <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
@@ -767,21 +700,34 @@ export function MediaViewer({
                           }}
                         >
                           <AlertCircle className="mr-2 h-4 w-4" />
-                          Flag issue
+                          Request modification
                         </Button>
                       )}
                     </div>
 
                     <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-                      <p className="text-sm font-medium">File details</p>
-                      <div className="mt-3 space-y-3">
-                        {detailRows.map((row) => (
-                          <div key={row.label} className="flex items-start justify-between gap-3 text-sm">
-                            <span className="text-white/55">{row.label}</span>
-                            <span className="text-right text-white/90">{row.value}</span>
-                          </div>
-                        ))}
-                      </div>
+                      <button
+                        type="button"
+                        className="flex w-full items-center justify-between gap-3 text-left"
+                        onClick={() => setShowFileDetails((current) => !current)}
+                      >
+                        <p className="text-sm font-medium">File details</p>
+                        {showFileDetails ? (
+                          <ChevronUp className="h-4 w-4 text-white/60" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4 text-white/60" />
+                        )}
+                      </button>
+                      {showFileDetails && (
+                        <div className="mt-3 space-y-3">
+                          {detailRows.map((row) => (
+                            <div key={row.label} className="flex items-start justify-between gap-3 text-sm">
+                              <span className="text-white/55">{row.label}</span>
+                              <span className="text-right text-white/90">{row.value}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     <div className="rounded-xl border border-white/10 bg-black/20 p-3">
@@ -791,6 +737,39 @@ export function MediaViewer({
                           {Number(currentFile.comment_count ?? fileComments.length)}
                         </Badge>
                       </div>
+                      {canInteractSingleMedia && onAddComment && (
+                        <div className="mt-3 flex flex-col gap-2">
+                          <Textarea
+                            value={commentDraft}
+                            onChange={(event) => setCommentDraft(event.target.value)}
+                            placeholder="Add a comment for this image..."
+                            className="min-h-[88px] resize-none border-white/10 bg-black/30 text-white placeholder:text-white/45"
+                          />
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-white hover:bg-white/10 hover:text-white"
+                              onClick={() => setCommentDraft('')}
+                              disabled={!commentDraft.trim()}
+                            >
+                              Clear
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="bg-blue-600 text-white hover:bg-blue-700"
+                              onClick={() => {
+                                if (!commentDraft.trim()) return;
+                                onAddComment(currentFile.id, commentDraft);
+                                setCommentDraft('');
+                              }}
+                              disabled={!commentDraft.trim()}
+                            >
+                              Save comment
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                       {fileComments.length > 0 ? (
                         <div className="mt-3 space-y-3">
                           {fileComments.slice().reverse().map((comment, index) => (
@@ -805,7 +784,7 @@ export function MediaViewer({
                         </div>
                       ) : (
                         <p className="mt-3 text-sm text-white/55">
-                          {canInteractSingleMedia && onAddComment ? 'No comments yet. Use the composer on the left to add one.' : 'No comments on this image yet.'}
+                          {canInteractSingleMedia && onAddComment ? 'No comments yet. Use the composer above to add one.' : 'No comments on this image yet.'}
                         </p>
                       )}
                     </div>
@@ -869,14 +848,14 @@ export function MediaViewer({
           <Dialog open={showFlagDialog} onOpenChange={setShowFlagDialog}>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Flag Image Issue</DialogTitle>
+                <DialogTitle>Request Image Modification</DialogTitle>
                 <DialogDescription>
-                  Flag this image for correction or re-editing. This will create an issue visible to the editor.
+                  Create a request for this image. It will appear in the Requests tab for this shoot and be available for the editor to handle.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label>Issue Description</Label>
+                  <Label>Request Description</Label>
                   <Textarea
                     value={flagReason}
                     onChange={(e) => setFlagReason(e.target.value)}
@@ -896,7 +875,7 @@ export function MediaViewer({
                     disabled={!flagReason.trim() || flagging}
                     variant="destructive"
                   >
-                    {flagging ? 'Flagging...' : 'Flag Image'}
+                    {flagging ? 'Creating request...' : 'Create request'}
                   </Button>
                 </div>
               </div>

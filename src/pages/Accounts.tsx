@@ -1238,6 +1238,7 @@ export default function Accounts() {
                     repFilter={repFilter}
                     onRepFilterChange={setRepFilter}
                     repOptions={repOptions}
+                    currentUserRole={currentUserRole}
                   />
                 </div>
               )}
@@ -1282,6 +1283,7 @@ export default function Accounts() {
                   repFilter={repFilter}
                   onRepFilterChange={setRepFilter}
                   repOptions={repOptions}
+                  currentUserRole={currentUserRole}
                 />
               </div>
             )}

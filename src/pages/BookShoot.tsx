@@ -22,7 +22,7 @@ import axios from 'axios';
 import API_ROUTES from '@/lib/api';
 import { API_BASE_URL } from '@/config/env';
 import { normalizeState, isValidState } from '@/utils/stateUtils';
-import { calculatePricingBreakdown, getTaxRateForState } from '@/utils/pricing';
+import { calculatePricingBreakdown, getTaxRateForState, type PricingBreakdown } from '@/utils/pricing';
 
 type SqftRange = {
   id?: number;
@@ -160,9 +160,11 @@ const BookShoot = () => {
   const [sendNotification, setSendNotification] = useState(true);
   const [step, setStep] = useState(1);
   const [isComplete, setIsComplete] = useState(false);
+  const [completedBooking, setCompletedBooking] = useState<CompletedBookingSnapshot | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createdShootId, setCreatedShootId] = useState<string | number | undefined>(undefined);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [clientPropertyFormKey, setClientPropertyFormKey] = useState(0);
   const { toast } = useToast();
   const { addShoot } = useShoots();
   const navigate = useNavigate();
@@ -211,6 +213,33 @@ const BookShoot = () => {
   const hasRestoredRef = useRef(false);
   const isInitialMountRef = useRef(true);
   const [hasCachedData, setHasCachedData] = useState(false);
+
+  const clearBookingDraftState = React.useCallback(() => {
+    if (!isClientAccount) {
+      setClient('');
+    }
+    setAddress('');
+    setCity('');
+    setState('');
+    setZip('');
+    setDate(undefined);
+    setTime('');
+    setPhotographer('');
+    setServicePhotographers({});
+    setSelectedServices([]);
+    setNotes('');
+    setCompanyNotes('');
+    setPhotographerNotes('');
+    setEditorNotes('');
+    setBypassPayment(false);
+    setSendNotification(true);
+    setStep(1);
+    setPropertyDetails(null);
+    setPropertySqft(null);
+    setFormErrors({});
+    setHasCachedData(false);
+    setClientPropertyFormKey((prev) => prev + 1);
+  }, [isClientAccount]);
 
   // Check if cached data exists
   useEffect(() => {
@@ -324,8 +353,36 @@ const BookShoot = () => {
         propertyDetails,
         propertySqft,
       };
+
+      const isDraftEmpty =
+        (!client || isClientAccount) &&
+        !address &&
+        !city &&
+        !state &&
+        !zip &&
+        !date &&
+        !time &&
+        !photographer &&
+        Object.keys(servicePhotographers).length === 0 &&
+        selectedServices.length === 0 &&
+        !notes &&
+        !companyNotes &&
+        !photographerNotes &&
+        !editorNotes &&
+        !bypassPayment &&
+        sendNotification &&
+        step === 1 &&
+        !propertyDetails &&
+        (propertySqft === null || propertySqft === undefined);
+
+      if (isDraftEmpty) {
+        localStorage.removeItem(CACHE_KEY);
+        setHasCachedData(false);
+        return;
+      }
+
       localStorage.setItem(CACHE_KEY, JSON.stringify(formData));
-      // Form data saved to cache
+      setHasCachedData(true);
     } catch (error) {
       console.error('Error saving form data to cache:', error);
     }
@@ -1134,12 +1191,24 @@ const BookShoot = () => {
           variant: "default"
         });
 
-        // Store created shoot ID for payment
         const shootData = response.data?.data || response.data;
+        const completedSnapshot: CompletedBookingSnapshot = {
+          date,
+          time,
+          shootId: shootData?.id,
+          totalAmount: getTotal(),
+          pricing: pricingBreakdown,
+          shootAddress: buildNormalizedAddress({ address, city, state, zip }),
+          shootServices: selectedServices.map((service) => service.name),
+          clientName: user?.name,
+          clientEmail: user?.email,
+        };
+
         if (shootData?.id) {
           setCreatedShootId(shootData.id);
         }
-        
+        setCompletedBooking(completedSnapshot);
+        clearBookingDraftState();
         setIsComplete(true);
         // Refresh shoots list in the background — don't block the UI transition
         fetchShoots().catch(() => {});
@@ -1199,23 +1268,10 @@ const BookShoot = () => {
   };
 
   const resetForm = () => {
-    if (!isClientAccount) {
-      setClient('');
-    }
-    setAddress('');
-    setCity('');
-    setState('');
-    setZip('');
-    setDate(undefined);
-    setTime('');
-    setPhotographer('');
-    setServicePhotographers({});
-    setSelectedServices([]);
-    setNotes('');
-    setBypassPayment(false);
-    setSendNotification(true);
-    setStep(1);
+    clearBookingDraftState();
     setIsComplete(false);
+    setCompletedBooking(null);
+    setCreatedShootId(undefined);
     
     // Clear form cache when resetting
     if (shouldCacheForm) {
@@ -1282,30 +1338,7 @@ const BookShoot = () => {
   const handleClearCache = () => {
     if (shouldCacheForm) {
       localStorage.removeItem(CACHE_KEY);
-      setHasCachedData(false);
-      
-      // Reset form fields
-      if (!isClientAccount) {
-        setClient('');
-      }
-      setAddress('');
-      setCity('');
-      setState('');
-      setZip('');
-      setDate(undefined);
-      setTime('');
-      setPhotographer('');
-      setServicePhotographers({});
-      setSelectedServices([]);
-      setNotes('');
-      setCompanyNotes('');
-      setPhotographerNotes('');
-      setEditorNotes('');
-      setBypassPayment(false);
-      setSendNotification(true);
-      setStep(1);
-      setPropertyDetails(null);
-      setPropertySqft(null);
+      clearBookingDraftState();
       
       toast({
         title: 'Form cleared',
@@ -1315,6 +1348,7 @@ const BookShoot = () => {
   };
 
   const clientPropertyFormData = React.useMemo(() => ({
+    formKey: clientPropertyFormKey,
     initialData: {
       clientId: client,
       clientName: isClientAccount ? user?.name || '' : clients.find(c => c.id === client)?.name || '',
@@ -1375,7 +1409,7 @@ const BookShoot = () => {
     selectedServices,
     onSelectedServicesChange: handleSelectedServicesChange,
     packagesLoading,
-  }), [client, clients, address, city, state, zip, notes, companyNotes, photographerNotes, editorNotes, propertyDetails, selectedServices, isClientAccount, user, packagesLoading, propertySqft]);
+  }), [clientPropertyFormKey, client, clients, address, city, state, zip, notes, companyNotes, photographerNotes, editorNotes, propertyDetails, selectedServices, isClientAccount, user, packagesLoading, propertySqft]);
 
 
   const getSummaryInfo = () => {
@@ -1423,8 +1457,20 @@ const BookShoot = () => {
       sqft: 0,
       date: date ? formatDate(date) : '',
       time: time || '',
-    };
   };
+};
+
+type CompletedBookingSnapshot = {
+  date?: Date;
+  time: string;
+  shootId?: string | number;
+  totalAmount: number;
+  pricing: PricingBreakdown;
+  shootAddress: string;
+  shootServices: string[];
+  clientName?: string;
+  clientEmail?: string;
+};
 
   const { temperature, condition } = useWeatherData({ date, time, city, state, zip, address });
   const parsedTemperature =
@@ -1462,17 +1508,17 @@ const BookShoot = () => {
           <AnimatePresence mode="wait">
             {isComplete ? (
               <BookingComplete 
-                date={date} 
-                time={time} 
+                date={completedBooking?.date ?? date} 
+                time={completedBooking?.time ?? time} 
                 resetForm={resetForm} 
                 isClientRequest={isClientAccount}
-                shootId={createdShootId}
-                totalAmount={getTotal()}
-                pricing={pricingBreakdown}
-                shootAddress={buildNormalizedAddress({ address, city, state, zip })}
-                shootServices={selectedServices.map(s => s.name)}
-                clientName={user?.name}
-                clientEmail={user?.email}
+                shootId={completedBooking?.shootId ?? createdShootId}
+                totalAmount={completedBooking?.totalAmount ?? getTotal()}
+                pricing={completedBooking?.pricing ?? pricingBreakdown}
+                shootAddress={completedBooking?.shootAddress ?? buildNormalizedAddress({ address, city, state, zip })}
+                shootServices={completedBooking?.shootServices ?? selectedServices.map(s => s.name)}
+                clientName={completedBooking?.clientName ?? user?.name}
+                clientEmail={completedBooking?.clientEmail ?? user?.email}
               />
             ) : (
               <div className="space-y-4">
@@ -1566,4 +1612,3 @@ const BookShoot = () => {
 };
 
 export default BookShoot;
-

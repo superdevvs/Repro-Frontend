@@ -8,7 +8,7 @@ import type { ShootData } from '@/types/shoots';
 import { apiClient } from '@/services/api';
 import API_ROUTES from '@/lib/api';
 import {
-  buildBrightMlsPublishPayload,
+  buildBrightMlsPublishPayloadWithFallback,
   closePendingBrightMlsWindow,
   navigateBrightMlsWindow,
   openPendingBrightMlsWindow,
@@ -117,8 +117,10 @@ export function ShootIntegrationsSection({ shoot, onRefresh }: ShootIntegrations
     setPublishingBrightMls(true);
     try {
       setBrightMlsRedirectUrl(null);
-      const payload = buildBrightMlsPublishPayload(
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const payload = await buildBrightMlsPublishPayloadWithFallback(
         shoot as unknown as Partial<ShootData> & Record<string, unknown>,
+        token,
         { selectedPhotoIds: selectedPhotos.size > 0 ? selectedPhotos : allPhotoIds },
       );
 

@@ -52,7 +52,14 @@ const statusToSeverity = (status?: string | null): Severity => {
 };
 
 export const IssueManagerModal: React.FC = () => {
-  const { isOpen, requests, selectedRequestId, closeModal, selectRequest } = useIssueManager();
+  const {
+    isOpen,
+    requests,
+    selectedRequestId,
+    closeModal,
+    selectRequest,
+    openRequestShoot,
+  } = useIssueManager();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
@@ -81,7 +88,10 @@ export const IssueManagerModal: React.FC = () => {
   };
 
   const filteredAndSortedRequests = useMemo(() => {
-    let filtered = requests.filter(request => !resolvedRequests.has(String(request.id)));
+    let filtered = requests.filter((request) => {
+      const shootId = request.shootId || request.shoot?.id;
+      return Boolean(shootId) && !resolvedRequests.has(String(request.id));
+    });
 
     // Apply search filter
     if (searchQuery.trim()) {
@@ -106,9 +116,10 @@ export const IssueManagerModal: React.FC = () => {
           return new Date(b.updatedAt || b.createdAt || 0).getTime() - new Date(a.updatedAt || a.createdAt || 0).getTime();
         case 'oldest':
           return new Date(a.updatedAt || a.createdAt || 0).getTime() - new Date(b.updatedAt || b.createdAt || 0).getTime();
-        case 'severity':
+        case 'severity': {
           const severityOrder = { high: 3, medium: 2, low: 1 };
           return severityOrder[statusToSeverity(b.status)] - severityOrder[statusToSeverity(a.status)];
+        }
         case 'client':
           return (a.shoot?.client?.name || '').localeCompare(b.shoot?.client?.name || '');
         default:
@@ -118,6 +129,35 @@ export const IssueManagerModal: React.FC = () => {
 
     return filtered;
   }, [requests, resolvedRequests, searchQuery, severityFilter, sortOption]);
+
+  const handleViewShoot = async (request: DashboardClientRequest) => {
+    const result = await openRequestShoot(request);
+    if (result === 'opened') {
+      closeModal();
+      return;
+    }
+
+    if (result === 'missing') {
+      toast({
+        title: 'Shoot no longer exists',
+        description: 'This request was removed because its shoot has already been deleted.',
+      });
+      return;
+    }
+
+    const shootId = request.shootId || request.shoot?.id;
+    if (!shootId) {
+      toast({
+        title: 'Shoot unavailable',
+        description: 'This request is no longer linked to an active shoot.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    closeModal();
+    navigate(`/shoots/${shootId}#requests`);
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={closeModal}>
@@ -264,11 +304,9 @@ export const IssueManagerModal: React.FC = () => {
                           size="sm"
                           variant="ghost"
                           className="h-7 text-xs px-2 hover:bg-primary/10 hover:text-primary flex-shrink-0"
-                          onClick={(e) => {
+                          onClick={async (e) => {
                             e.stopPropagation();
-                            const shootId = request.shootId || request.shoot?.id;
-                            closeModal();
-                            navigate(`/shoots/${shootId}#requests`);
+                            await handleViewShoot(request);
                           }}
                         >
                           <ExternalLink className="h-3 w-3 mr-1" />

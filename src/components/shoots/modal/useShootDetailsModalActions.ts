@@ -4,7 +4,7 @@ import { API_BASE_URL } from '@/config/env';
 import { getApiHeaders } from '@/services/api';
 import { downloadShootMediaArchive } from '@/utils/shootMediaDownload';
 import {
-  buildBrightMlsPublishPayload,
+  buildBrightMlsPublishPayloadWithFallback,
   closePendingBrightMlsWindow,
   navigateBrightMlsWindow,
   openPendingBrightMlsWindow,
@@ -49,7 +49,10 @@ export function useShootDetailsModalActions({
       setBrightMlsRedirectUrl(null);
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
 
-      const payload = buildBrightMlsPublishPayload(shoot as ShootData & Record<string, unknown>);
+      const payload = await buildBrightMlsPublishPayloadWithFallback(
+        shoot as ShootData & Record<string, unknown>,
+        token,
+      );
       if (payload.photos.length === 0) {
         throw new Error('No images found to send. Please ensure the shoot has completed images.');
       }

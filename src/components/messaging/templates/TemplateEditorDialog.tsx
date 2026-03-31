@@ -720,7 +720,7 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
               <div className="preview-hero">
                 <div className="preview-brand">
                   <div className="preview-brand-logo">
-                    <img src="https://api.reprodashboard.com/images/Repro%20HQ%20dark.png" alt="R/E Pro Photos" />
+                    <img src="https://api.reprodashboard.com/images/Repro%20HQ%20dark.png" alt="" />
                   </div>
                 </div>
                 <h1 className="preview-title">

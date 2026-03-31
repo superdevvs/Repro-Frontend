@@ -654,13 +654,14 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       // For others, use 'scheduled' tab (default)
       const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
       const isEditor = user?.role === 'editor';
+      const isEditingManager = user?.role === 'editing_manager';
       const isPhotographer = user?.role === 'photographer';
       
       let allShoots: ShootData[] = [];
       
-      if (isAdmin || isPhotographer || isEditor) {
+      if (isAdmin || isPhotographer || isEditor || isEditingManager) {
         const headers = buildFetchHeaders(token);
-        if (isEditor || isPhotographer) {
+        if (isEditor || isPhotographer || isEditingManager) {
           const [scheduledResponse, completedResponse, deliveredResponse] = await Promise.all([
             fetch(`${API_BASE_URL}/api/shoots?tab=scheduled&page=${page}&per_page=${perPage}&include_files=${includeFiles ? 'true' : 'false'}`, {
               headers,

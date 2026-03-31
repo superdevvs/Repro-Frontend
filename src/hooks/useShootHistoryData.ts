@@ -6,7 +6,7 @@ import { registerShootHistoryRefresh } from '@/realtime/realtimeRefreshBus'
 import API_ROUTES from '@/lib/api'
 import { downloadShootMediaArchive } from '@/utils/shootMediaDownload'
 import {
-  buildBrightMlsPublishPayload,
+  buildBrightMlsPublishPayloadWithFallback,
   closePendingBrightMlsWindow,
   navigateBrightMlsWindow,
   openPendingBrightMlsWindow,
@@ -717,8 +717,6 @@ export function useShootHistoryData({
     }
   }, [activeTab, fetchHistoryData, fetchOperationalData])
 
-  useEffect(() => registerShootHistoryRefresh(refreshActiveTabData), [refreshActiveTabData])
-
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       if (loading) {
@@ -982,7 +980,11 @@ export function useShootHistoryData({
         }
 
         setBrightMlsRedirectUrl(null)
-        const payload = buildBrightMlsPublishPayload(shoot as Partial<ShootData> & Record<string, unknown>)
+        const token = localStorage.getItem('authToken') || localStorage.getItem('token')
+        const payload = await buildBrightMlsPublishPayloadWithFallback(
+          shoot as Partial<ShootData> & Record<string, unknown>,
+          token,
+        )
         if (payload.photos.length === 0) {
           throw new Error('No images found to send. Please ensure the shoot has completed images.')
         }
@@ -1023,10 +1025,7 @@ export function useShootHistoryData({
     [fetchHistoryData, loadShootById, toast],
   )
 
-  useEffect(() => {
-    if (!canViewHistory) return
-    return registerShootHistoryRefresh(refreshActiveTabData)
-  }, [refreshActiveTabData, canViewHistory])
+  useEffect(() => registerShootHistoryRefresh(refreshActiveTabData), [refreshActiveTabData])
 
   const mapAddresses = useMemo(() => {
     if (activeTab === 'history') {

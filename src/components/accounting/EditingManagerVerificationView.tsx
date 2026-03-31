@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { endOfMonth, format, parseISO, startOfMonth, subMonths } from 'date-fns';
 import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, ExternalLink, FileText } from 'lucide-react';
 
-import { ShootDetailsModal as DashboardShootDetailsModal } from '@/components/dashboard/v2/ShootDetailsModal';
+import { ShootDetailsModalWrapper } from '@/components/dashboard/v2/ShootDetailsModalWrapper';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -945,7 +945,7 @@ export function EditingManagerVerificationView({
       </Card>
       </div>
 
-      <DashboardShootDetailsModal
+      <ShootDetailsModalWrapper
         shoot={selectedShoot}
         onClose={() => setSelectedShoot(null)}
       />
