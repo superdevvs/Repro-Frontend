@@ -63,7 +63,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { isRawFile } from '@/services/rawPreviewService';
 import { useShootFiles, type MediaFile } from '@/hooks/useShootFiles';
 import { useQueryClient } from '@tanstack/react-query';
-import { ShootIssueManager } from '../ShootIssueManager';
 import { UploadDropzone, UploadProgressCard } from './MediaUploadPanels';
 import { MediaGrid } from './MediaGrid';
 import { MediaViewer } from './MediaViewer';

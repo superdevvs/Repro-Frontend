@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { DashboardIssueItem, DashboardShootSummary, DashboardClientRequest, DashboardCancellationItem } from '@/types/dashboard';
 import { Card } from './SharedComponents';
 import { cn } from '@/lib/utils';
-import { useIssueManager } from '@/context/IssueManagerContext';
+import { useRequestManager } from '@/context/RequestManagerContext';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EditingRequest } from '@/services/editingRequestService';
@@ -57,6 +57,11 @@ const severityFromStatus = (status?: string | null): DashboardIssueItem['severit
   return 'high';
 };
 
+const isActiveClientRequest = (status?: string | null) => {
+  const normalized = (status || '').toLowerCase();
+  return normalized !== 'resolved' && normalized !== 'completed';
+};
+
 const PRIORITY_STYLES: Record<string, string> = {
   low: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800',
   normal: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/30 dark:text-sky-400 dark:border-sky-800',
@@ -96,7 +101,7 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
   onApproveCancellation,
   onRejectCancellation,
 }) => {
-  const { openModal } = useIssueManager();
+  const { openModal } = useRequestManager();
   const [resolvedIssues, setResolvedIssues] = useState<Set<number>>(new Set());
   const [activeTab, setActiveTab] = useState<RequestsTab>('client');
   const [cancellationActionLoading, setCancellationActionLoading] = useState<number | null>(null);
@@ -104,6 +109,7 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
   const safeIssues = Array.isArray(issues) ? issues : [];
   const visibleIssues = safeIssues.filter(issue => issue && !resolvedIssues.has(issue.id));
   const safeClientRequests = Array.isArray(clientRequests) ? clientRequests : [];
+  const activeClientRequests = safeClientRequests.filter((request) => isActiveClientRequest(request.status));
   const displayClientRequests = showClientTab;
 
   const activeEditingRequests = Array.isArray(editingRequests) 
@@ -114,7 +120,7 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
     {
       id: 'client',
       label: displayClientRequests ? 'Client' : 'Issues',
-      count: displayClientRequests ? safeClientRequests.length : visibleIssues.length,
+      count: displayClientRequests ? activeClientRequests.length : visibleIssues.length,
     },
   ];
   
@@ -161,14 +167,14 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
         {activeTab === 'client' && (
           <div className="flex-1 flex flex-col min-h-0">
             {displayClientRequests ? (
-              safeClientRequests.length === 0 ? (
+              activeClientRequests.length === 0 ? (
                 <div className="flex-1 flex items-center justify-center text-center text-sm text-muted-foreground pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:pb-3">
                   {clientRequestsLoading ? 'Loading requests...' : emptyRequestsText}
                 </div>
               ) : (
                 <div className="flex-1 min-h-0 overflow-y-auto pb-[calc(env(safe-area-inset-bottom,0px)+4.25rem)] sm:pb-0" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                   <div className="space-y-1.5" style={{ WebkitOverflowScrolling: 'touch' }}>
-                    {safeClientRequests.slice(0, 7).map((request) => (
+                    {activeClientRequests.slice(0, 7).map((request) => (
                       <button
                         key={request.id}
                         onClick={() => openModal(safeClientRequests, String(request.id))}
@@ -359,4 +365,3 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
     </Card>
   );
 });
-

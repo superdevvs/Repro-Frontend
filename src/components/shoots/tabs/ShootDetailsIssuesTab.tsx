@@ -21,7 +21,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ShootData } from '@/types/shoots';
 import { API_BASE_URL } from '@/config/env';
 import { format } from 'date-fns';
-import { ShootIssueManager } from './ShootIssueManager';
+import { ShootRequestManager } from './ShootRequestManager';
 import { useShootFiles, type MediaFile } from '@/hooks/useShootFiles';
 import { MediaViewer } from './media/MediaViewer';
 import { getMediaImageUrl, getMediaSrcSet } from './media/mediaPreviewUtils';
@@ -459,7 +459,7 @@ export function ShootDetailsIssuesTab({
       )}
 
       {/* Request Manager Modal */}
-      <ShootIssueManager
+      <ShootRequestManager
         isOpen={requestManagerOpen}
         onClose={() => setRequestManagerOpen(false)}
         shootId={shoot.id}

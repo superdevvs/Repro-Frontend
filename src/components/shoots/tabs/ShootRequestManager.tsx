@@ -96,7 +96,7 @@ const severityBadge = (severity: 'high' | 'medium' | 'low') => {
   }
 };
 
-export function ShootIssueManager({
+export function ShootRequestManager({
   isOpen,
   onClose,
   shootId,
@@ -116,7 +116,6 @@ export function ShootIssueManager({
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('all');
   const [sortOption, setSortOption] = useState<SortOption>('newest');
-  const [resolvedRequests, setResolvedRequests] = useState<Set<string>>(new Set());
 
   // Create request form state
   const [selectedMediaId, setSelectedMediaId] = useState<string>('none');
@@ -246,9 +245,6 @@ export function ShootIssueManager({
   // Filter requests based on role
   const visibleRequests = useMemo(() => {
     let filtered = requests.filter(request => {
-      // Filter out resolved requests if they're in the resolved set
-      if (resolvedRequests.has(request.id)) return false;
-      
       if (isAdmin) return true;
       if (isClient) {
         const currentUserId = localStorage.getItem('userId') || '';
@@ -293,16 +289,17 @@ export function ShootIssueManager({
           return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
         case 'oldest':
           return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-        case 'status':
+        case 'status': {
           const statusOrder = { 'open': 3, 'in-progress': 2, 'resolved': 1 };
           return statusOrder[b.status] - statusOrder[a.status];
+        }
         default:
           return 0;
       }
     });
 
     return filtered;
-  }, [requests, searchQuery, statusFilter, severityFilter, sortOption, resolvedRequests, isAdmin, isClient, isEditor, isPhotographer]);
+  }, [requests, searchQuery, statusFilter, severityFilter, sortOption, isAdmin, isClient, isEditor, isPhotographer]);
 
   // Create request - send all selected photos in one request using mediaIds array
   const handleCreateRequest = async () => {
@@ -365,6 +362,9 @@ export function ShootIssueManager({
           ? `Request created with ${mediaIdsArray.length} photo${mediaIdsArray.length !== 1 ? 's' : ''}`
           : 'Request created successfully',
       });
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('shoot-request-created'));
+      }
       
       // Reset form and close dialog
       resetCreateForm();
@@ -384,9 +384,7 @@ export function ShootIssueManager({
 
   // Mark request as resolved
   const handleMarkResolved = (requestId: string) => {
-    setResolvedRequests(prev => new Set(prev).add(requestId));
-    // Also update status on backend
-    handleUpdateStatus(requestId, 'resolved');
+    void handleUpdateStatus(requestId, 'resolved');
   };
 
   // Update request status
@@ -404,6 +402,16 @@ export function ShootIssueManager({
       });
       
       if (!res.ok) throw new Error('Failed to update request');
+      const json = await res.json();
+      if (json.data) {
+        setRequests((prev) =>
+          prev.map((request) =>
+            request.id === requestId
+              ? { ...request, ...json.data, status: json.data.status ?? newStatus }
+              : request,
+          ),
+        );
+      }
       
       if (newStatus === 'resolved') {
         toast({
@@ -416,6 +424,9 @@ export function ShootIssueManager({
           title: 'Success',
           description: 'Request status updated',
         });
+      }
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('shoot-request-updated'));
       }
       
       onIssueUpdate();
@@ -455,11 +466,28 @@ export function ShootIssueManager({
       });
       
       if (!res.ok) throw new Error('Failed to assign request');
+      const json = await res.json();
+      if (json.data) {
+        setRequests((prev) =>
+          prev.map((request) =>
+            request.id === requestId
+              ? {
+                  ...request,
+                  ...json.data,
+                  assignedToRole: json.data.assignedToRole ?? role,
+                }
+              : request,
+          ),
+        );
+      }
       
       toast({
         title: 'Success',
         description: 'Request assigned successfully',
       });
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('shoot-request-updated'));
+      }
       
       onIssueUpdate();
     } catch (error) {
@@ -558,17 +586,7 @@ export function ShootIssueManager({
                 <span>
                   Showing {visibleRequests.length} of {requests.length} requests
                 </span>
-                {resolvedRequests.size > 0 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 text-xs"
-                    onClick={() => setResolvedRequests(new Set())}
-                  >
-                    Show resolved ({resolvedRequests.size})
-                  </Button>
-                )}
-              </div>
+            </div>
             </div>
 
             {/* Requests List */}

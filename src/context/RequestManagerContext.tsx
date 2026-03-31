@@ -1,13 +1,13 @@
 import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
 import { DashboardClientRequest } from '@/types/dashboard';
 
-type IssueManagerShootOpenResult = 'opened' | 'missing' | 'unhandled';
+type RequestManagerShootOpenResult = 'opened' | 'missing' | 'unhandled';
 
-type IssueManagerShootOpenHandler = (
+type RequestManagerShootOpenHandler = (
   request: DashboardClientRequest,
-) => Promise<IssueManagerShootOpenResult> | IssueManagerShootOpenResult;
+) => Promise<RequestManagerShootOpenResult> | RequestManagerShootOpenResult;
 
-interface IssueManagerContextType {
+interface RequestManagerContextType {
   isOpen: boolean;
   requests: DashboardClientRequest[];
   selectedRequestId: string | null;
@@ -15,17 +15,18 @@ interface IssueManagerContextType {
   closeModal: () => void;
   selectRequest: (requestId: string | null) => void;
   removeRequest: (requestId: string) => void;
-  registerShootOpenHandler: (handler: IssueManagerShootOpenHandler | null) => void;
-  openRequestShoot: (request: DashboardClientRequest) => Promise<IssueManagerShootOpenResult>;
+  updateRequest: (requestId: string, updates: Partial<DashboardClientRequest>) => void;
+  registerShootOpenHandler: (handler: RequestManagerShootOpenHandler | null) => void;
+  openRequestShoot: (request: DashboardClientRequest) => Promise<RequestManagerShootOpenResult>;
 }
 
-const IssueManagerContext = createContext<IssueManagerContextType | undefined>(undefined);
+const RequestManagerContext = createContext<RequestManagerContextType | undefined>(undefined);
 
-export const IssueManagerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const RequestManagerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [requests, setRequests] = useState<DashboardClientRequest[]>([]);
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
-  const shootOpenHandlerRef = useRef<IssueManagerShootOpenHandler | null>(null);
+  const shootOpenHandlerRef = useRef<RequestManagerShootOpenHandler | null>(null);
 
   const openModal = useCallback((newRequests: DashboardClientRequest[], selectedId?: string | null) => {
     setRequests(newRequests);
@@ -47,7 +48,17 @@ export const IssueManagerProvider: React.FC<{ children: React.ReactNode }> = ({ 
     setSelectedRequestId((prev) => (prev === String(requestId) ? null : prev));
   }, []);
 
-  const registerShootOpenHandler = useCallback((handler: IssueManagerShootOpenHandler | null) => {
+  const updateRequest = useCallback((requestId: string, updates: Partial<DashboardClientRequest>) => {
+    setRequests((prev) =>
+      prev.map((request) =>
+        String(request.id) === String(requestId)
+          ? { ...request, ...updates }
+          : request,
+      ),
+    );
+  }, []);
+
+  const registerShootOpenHandler = useCallback((handler: RequestManagerShootOpenHandler | null) => {
     shootOpenHandlerRef.current = handler;
   }, []);
 
@@ -58,7 +69,7 @@ export const IssueManagerProvider: React.FC<{ children: React.ReactNode }> = ({ 
   }, []);
 
   return (
-    <IssueManagerContext.Provider
+    <RequestManagerContext.Provider
       value={{
         isOpen,
         requests,
@@ -67,19 +78,20 @@ export const IssueManagerProvider: React.FC<{ children: React.ReactNode }> = ({ 
         closeModal,
         selectRequest,
         removeRequest,
+        updateRequest,
         registerShootOpenHandler,
         openRequestShoot,
       }}
     >
       {children}
-    </IssueManagerContext.Provider>
+    </RequestManagerContext.Provider>
   );
 };
 
-export const useIssueManager = () => {
-  const context = useContext(IssueManagerContext);
+export const useRequestManager = () => {
+  const context = useContext(RequestManagerContext);
   if (context === undefined) {
-    throw new Error('useIssueManager must be used within an IssueManagerProvider');
+    throw new Error('useRequestManager must be used within a RequestManagerProvider');
   }
   return context;
 };

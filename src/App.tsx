@@ -10,7 +10,7 @@ import { AuthProvider, useAuth } from "./components/auth";
 import { PermissionsProvider } from './context/PermissionsContext';
 import { usePermission } from './hooks/usePermission';
 import { UserPreferencesProvider } from './contexts/UserPreferencesContext';
-import { IssueManagerProvider, useIssueManager } from './context/IssueManagerContext';
+import { RequestManagerProvider, useRequestManager } from './context/RequestManagerContext';
 import { PhotographerAssignmentProvider, usePhotographerAssignment } from './context/PhotographerAssignmentContext';
 import { PageTransition } from '@/components/layout/PageTransition';
 import Index from "./pages/Index";
@@ -80,7 +80,7 @@ const SmsCenter = lazy(() => import('./pages/messaging/SmsCenter'));
 const MessagingSettings = lazy(() => import('./pages/messaging/MessagingSettings'));
 
 // Lazy-load modals
-const IssueManagerModal = lazy(() => import('./components/issues/IssueManagerModal').then(module => ({ default: module.IssueManagerModal })));
+const RequestManagerModal = lazy(() => import('./components/requests/RequestManagerModal').then(module => ({ default: module.RequestManagerModal })));
 const PhotographerAssignmentModal = lazy(() => import('./components/photographers/PhotographerAssignmentModal').then(module => ({ default: module.PhotographerAssignmentModal })));
 
 // Create a new QueryClient instance with optimized defaults for caching
@@ -179,16 +179,16 @@ const PermissionRoute = ({
   return children;
 };
 
-// Wrapper for Dashboard route with IssueManager and PhotographerAssignment contexts
+// Wrapper for Dashboard route with RequestManager and PhotographerAssignment contexts
 const DashboardWrapper = ({ children }: { children: React.ReactNode }) => {
-  const { isOpen: isIssueModalOpen } = useIssueManager();
+  const { isOpen: isRequestManagerOpen } = useRequestManager();
   const { isOpen: isPhotoModalOpen } = usePhotographerAssignment();
 
   return (
     <>
-      {isIssueModalOpen && (
+      {isRequestManagerOpen && (
         <Suspense fallback={null}>
-          <IssueManagerModal />
+          <RequestManagerModal />
         </Suspense>
       )}
       {isPhotoModalOpen && (
@@ -371,13 +371,13 @@ const AppRoutes = () => {
       <Route path="/dashboard" element={
         <PermissionRoute resource="dashboard" fallbackTo="/">
           <ShootRoutesWrapper>
-            <IssueManagerProvider>
+            <RequestManagerProvider>
               <PhotographerAssignmentProvider>
                 <DashboardWrapper>
                   <Dashboard />
                 </DashboardWrapper>
               </PhotographerAssignmentProvider>
-            </IssueManagerProvider>
+            </RequestManagerProvider>
           </ShootRoutesWrapper>
         </PermissionRoute>
       } />

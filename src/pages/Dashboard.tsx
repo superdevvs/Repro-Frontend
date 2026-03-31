@@ -91,7 +91,7 @@ import {
   normalizeQuickActions,
 } from "@/components/dashboard/v2/QuickActionsEditor";
 import { useEditingRequests } from "@/hooks/useEditingRequests";
-import { useIssueManager } from "@/context/IssueManagerContext";
+import { useRequestManager } from "@/context/RequestManagerContext";
 import { UpcomingShootsCardSkeleton } from "@/components/dashboard/v2/UpcomingShootsCardSkeleton";
 import { PendingReviewsCardSkeleton } from "@/components/dashboard/v2/PendingReviewsCardSkeleton";
 import { CompletedShootsCardSkeleton } from "@/components/dashboard/v2/CompletedShootsCardSkeleton";
@@ -249,7 +249,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const { openModal, removeRequest, registerShootOpenHandler } = useIssueManager();
+  const { openModal, removeRequest, registerShootOpenHandler } = useRequestManager();
   const { data, loading, error, refresh } = useDashboardOverview();
   const [selectedShoot, setSelectedShoot] = useState<DashboardShootSummary | null>(null);
   const [selectedShootWeather, setSelectedShootWeather] = useState<WeatherInfo | null>(null);
@@ -591,13 +591,15 @@ const Dashboard = () => {
   useEffect(() => {
     if (!canViewAdminDashboard || typeof window === 'undefined') return;
 
-    const handleShootRequestCreated = () => {
+    const handleShootRequestSync = () => {
       void fetchClientRequests();
     };
 
-    window.addEventListener('shoot-request-created', handleShootRequestCreated);
+    window.addEventListener('shoot-request-created', handleShootRequestSync);
+    window.addEventListener('shoot-request-updated', handleShootRequestSync);
     return () => {
-      window.removeEventListener('shoot-request-created', handleShootRequestCreated);
+      window.removeEventListener('shoot-request-created', handleShootRequestSync);
+      window.removeEventListener('shoot-request-updated', handleShootRequestSync);
     };
   }, [canViewAdminDashboard, fetchClientRequests]);
 
@@ -609,7 +611,7 @@ const Dashboard = () => {
     );
   }, [removeRequest]);
 
-  const openShootRequestsFromIssueManager = useCallback(
+  const openShootRequestsFromRequestManager = useCallback(
     async (request: DashboardClientRequest) => {
       const requestId = String(request.id);
       const requestShootId = request.shootId ?? request.shoot?.id;
@@ -802,9 +804,9 @@ const Dashboard = () => {
   }, [canViewAdminDashboard, clientRequests, removeRequest, shoots]);
 
   useEffect(() => {
-    registerShootOpenHandler(openShootRequestsFromIssueManager);
+    registerShootOpenHandler(openShootRequestsFromRequestManager);
     return () => registerShootOpenHandler(null);
-  }, [openShootRequestsFromIssueManager, registerShootOpenHandler]);
+  }, [openShootRequestsFromRequestManager, registerShootOpenHandler]);
 
   // Cancellation shoots come from the dashboard overview response (already fetched)
   const cancellationShoots: DashboardCancellationItem[] = useMemo(() => {

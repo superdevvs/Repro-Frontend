@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
-import { useIssueManager } from '@/context/IssueManagerContext';
+import { useRequestManager } from '@/context/RequestManagerContext';
 
 interface IssuesListCardProps {
   issues: DashboardIssueItem[];
@@ -45,7 +45,7 @@ export const IssuesListCard: React.FC<IssuesListCardProps> = ({
   maxItems = 4,
 }) => {
   const { toast } = useToast();
-  const { openModal } = useIssueManager();
+  const { openModal } = useRequestManager();
   const [resolvedIssues, setResolvedIssues] = useState<Set<number>>(new Set());
 
   const handleMarkResolved = (issueId: number) => {

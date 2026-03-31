@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -21,10 +21,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { API_BASE_URL } from '@/config/env';
 import { Check, Bell, MoreVertical, Search, Filter, X, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardClientRequest } from '@/types/dashboard';
-import { useIssueManager } from '@/context/IssueManagerContext';
+import { useRequestManager } from '@/context/RequestManagerContext';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -43,6 +44,9 @@ const severityBadge = (severity: Severity) => {
 
 type SeverityFilter = 'all' | 'high' | 'medium' | 'low';
 type SortOption = 'newest' | 'oldest' | 'severity' | 'client';
+type RequestSection = 'active' | 'history';
+
+const HISTORY_PAGE_SIZE = 8;
 
 const statusToSeverity = (status?: string | null): Severity => {
   const normalized = (status || '').toLowerCase();
@@ -51,29 +55,104 @@ const statusToSeverity = (status?: string | null): Severity => {
   return 'high';
 };
 
-export const IssueManagerModal: React.FC = () => {
+const normalizeStatus = (status?: string | null) => {
+  const normalized = (status || '').toLowerCase();
+  if (normalized === 'in_progress') return 'in-progress';
+  if (normalized === 'resolved' || normalized === 'in-progress' || normalized === 'open') {
+    return normalized;
+  }
+  return 'open';
+};
+
+export const RequestManagerModal: React.FC = () => {
   const {
     isOpen,
     requests,
     selectedRequestId,
     closeModal,
     selectRequest,
+    updateRequest,
     openRequestShoot,
-  } = useIssueManager();
+  } = useRequestManager();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('all');
   const [sortOption, setSortOption] = useState<SortOption>('newest');
-  const [resolvedRequests, setResolvedRequests] = useState<Set<string>>(new Set());
+  const [activeSection, setActiveSection] = useState<RequestSection>('active');
+  const [historyPage, setHistoryPage] = useState(1);
+  const [updatingRequestId, setUpdatingRequestId] = useState<string | null>(null);
 
-  const handleMarkResolved = (requestId: string) => {
-    setResolvedRequests(prev => new Set(prev).add(requestId));
-    toast({
-      title: "Request Resolved",
-      description: "The request has been marked as resolved.",
-      variant: "default",
-    });
+  useEffect(() => {
+    if (!isOpen) {
+      setActiveSection('active');
+      setHistoryPage(1);
+      return;
+    }
+
+    const selectedRequest = requests.find(
+      (request) => String(request.id) === String(selectedRequestId),
+    );
+    if (selectedRequest && normalizeStatus(selectedRequest.status) === 'resolved') {
+      setActiveSection('history');
+    }
+  }, [isOpen, requests, selectedRequestId]);
+
+  useEffect(() => {
+    setHistoryPage(1);
+  }, [searchQuery, severityFilter, sortOption]);
+
+  const handleMarkResolved = async (request: DashboardClientRequest) => {
+    const shootId = request.shootId || request.shoot?.id;
+    if (!shootId) {
+      toast({
+        title: 'Shoot unavailable',
+        description: 'This request is no longer linked to an active shoot.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const requestId = String(request.id);
+    setUpdatingRequestId(requestId);
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/api/shoots/${shootId}/issues/${requestId}`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({ status: 'resolved' }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to mark request as resolved');
+      }
+
+      const json = await response.json();
+      updateRequest(requestId, {
+        status: normalizeStatus(json.data?.status || 'resolved'),
+        updatedAt: json.data?.updatedAt || new Date().toISOString(),
+      });
+      setActiveSection('history');
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('shoot-request-updated'));
+      }
+      toast({
+        title: 'Request Resolved',
+        description: 'The request has been moved to history.',
+      });
+    } catch (error) {
+      toast({
+        title: 'Unable to resolve request',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setUpdatingRequestId(null);
+    }
   };
 
   const handleNotifyConcerned = (recipient: 'photographer' | 'editor' | 'management') => {
@@ -90,7 +169,7 @@ export const IssueManagerModal: React.FC = () => {
   const filteredAndSortedRequests = useMemo(() => {
     let filtered = requests.filter((request) => {
       const shootId = request.shootId || request.shoot?.id;
-      return Boolean(shootId) && !resolvedRequests.has(String(request.id));
+      return Boolean(shootId);
     });
 
     // Apply search filter
@@ -128,7 +207,24 @@ export const IssueManagerModal: React.FC = () => {
     });
 
     return filtered;
-  }, [requests, resolvedRequests, searchQuery, severityFilter, sortOption]);
+  }, [requests, searchQuery, severityFilter, sortOption]);
+
+  const activeRequests = useMemo(
+    () => filteredAndSortedRequests.filter((request) => normalizeStatus(request.status) !== 'resolved'),
+    [filteredAndSortedRequests],
+  );
+
+  const historyRequests = filteredAndSortedRequests;
+  const totalHistoryPages = Math.max(1, Math.ceil(historyRequests.length / HISTORY_PAGE_SIZE));
+  const paginatedHistoryRequests = useMemo(() => {
+    const safePage = Math.min(historyPage, totalHistoryPages);
+    const startIndex = (safePage - 1) * HISTORY_PAGE_SIZE;
+    return historyRequests.slice(startIndex, startIndex + HISTORY_PAGE_SIZE);
+  }, [historyPage, historyRequests, totalHistoryPages]);
+
+  useEffect(() => {
+    setHistoryPage((prev) => Math.min(prev, totalHistoryPages));
+  }, [totalHistoryPages]);
 
   const handleViewShoot = async (request: DashboardClientRequest) => {
     const result = await openRequestShoot(request);
@@ -159,6 +255,8 @@ export const IssueManagerModal: React.FC = () => {
     navigate(`/shoots/${shootId}#requests`);
   };
 
+  const visibleRequests = activeSection === 'active' ? activeRequests : paginatedHistoryRequests;
+
   return (
     <Dialog open={isOpen} onOpenChange={closeModal}>
       <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0">
@@ -172,6 +270,26 @@ export const IssueManagerModal: React.FC = () => {
         <div className="flex-1 flex flex-col min-h-0">
           {/* Filters and Search */}
           <div className="px-6 py-4 border-b space-y-3">
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant={activeSection === 'active' ? 'default' : 'outline'}
+                className="rounded-full"
+                onClick={() => setActiveSection('active')}
+              >
+                Active ({activeRequests.length})
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={activeSection === 'history' ? 'default' : 'outline'}
+                className="rounded-full"
+                onClick={() => setActiveSection('history')}
+              >
+                History ({historyRequests.length})
+              </Button>
+            </div>
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -218,44 +336,44 @@ export const IssueManagerModal: React.FC = () => {
             </div>
             <div className="flex items-center justify-between text-sm text-muted-foreground">
               <span>
-                Showing {filteredAndSortedRequests.length} of {requests.length} requests
+                {activeSection === 'active'
+                  ? `Showing ${activeRequests.length} active of ${historyRequests.length} total requests`
+                  : `Showing ${visibleRequests.length} of ${historyRequests.length} total requests`}
               </span>
-              {resolvedRequests.size > 0 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-xs"
-                  onClick={() => setResolvedRequests(new Set())}
-                >
-                  Show resolved ({resolvedRequests.size})
-                </Button>
-              )}
             </div>
           </div>
 
           {/* Issues List */}
           <div className="flex-1 overflow-y-auto px-6 py-4">
-            {filteredAndSortedRequests.length === 0 ? (
+            {visibleRequests.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <div className="text-muted-foreground mb-2">
-                  {requests.length === 0 ? (
+                  {historyRequests.length === 0 ? (
                     <>
                       <p className="text-lg font-medium mb-1">No requests found</p>
                       <p className="text-sm">All clear! No requests to manage.</p>
                     </>
                   ) : (
                     <>
-                      <p className="text-lg font-medium mb-1">No matching requests</p>
-                      <p className="text-sm">Try adjusting your filters or search query.</p>
+                      <p className="text-lg font-medium mb-1">
+                        {activeSection === 'active' ? 'No active requests' : 'No matching requests'}
+                      </p>
+                      <p className="text-sm">
+                        {activeSection === 'active'
+                          ? 'Everything active has been cleared.'
+                          : 'Try adjusting your filters or search query.'}
+                      </p>
                     </>
                   )}
                 </div>
               </div>
             ) : (
               <div className="space-y-3">
-                {filteredAndSortedRequests.map((request) => {
+                {visibleRequests.map((request) => {
                   const requestId = String(request.id);
                   const severity = statusToSeverity(request.status);
+                  const statusLabel = normalizeStatus(request.status);
+                  const isResolved = statusLabel === 'resolved';
                   return (
                   <div
                     key={requestId}
@@ -290,7 +408,7 @@ export const IssueManagerModal: React.FC = () => {
                       <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
                         <span className="truncate">
                           {request.raisedBy?.name ? `${request.raisedBy.name} • ` : ''}
-                          {request.status || 'Needs review'}
+                          {statusLabel || 'Needs review'}
                         </span>
                         {request.updatedAt && (
                           <span className="text-[10px] text-muted-foreground/70 flex-shrink-0">
@@ -312,18 +430,21 @@ export const IssueManagerModal: React.FC = () => {
                           <ExternalLink className="h-3 w-3 mr-1" />
                           View Shoot
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 text-xs px-2 hover:bg-primary/10 hover:text-primary flex-shrink-0"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleMarkResolved(requestId);
-                          }}
-                        >
-                          <Check className="h-3 w-3 mr-1" />
-                          Mark Resolved
-                        </Button>
+                        {!isResolved && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 text-xs px-2 hover:bg-primary/10 hover:text-primary flex-shrink-0"
+                            disabled={updatingRequestId === requestId}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleMarkResolved(request);
+                            }}
+                          >
+                            <Check className="h-3 w-3 mr-1" />
+                            {updatingRequestId === requestId ? 'Resolving...' : 'Mark Resolved'}
+                          </Button>
+                        )}
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button
@@ -357,6 +478,33 @@ export const IssueManagerModal: React.FC = () => {
                   </div>
                   );
                 })}
+              </div>
+            )}
+            {activeSection === 'history' && historyRequests.length > HISTORY_PAGE_SIZE && (
+              <div className="mt-4 flex items-center justify-between border-t pt-4">
+                <p className="text-sm text-muted-foreground">
+                  Page {Math.min(historyPage, totalHistoryPages)} of {totalHistoryPages}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={historyPage <= 1}
+                    onClick={() => setHistoryPage((prev) => Math.max(1, prev - 1))}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={historyPage >= totalHistoryPages}
+                    onClick={() => setHistoryPage((prev) => Math.min(totalHistoryPages, prev + 1))}
+                  >
+                    Next
+                  </Button>
+                </div>
               </div>
             )}
           </div>

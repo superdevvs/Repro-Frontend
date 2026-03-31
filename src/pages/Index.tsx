@@ -265,11 +265,11 @@ const Index = () => {
   // Desktop layout
   return (
     <div
-      className="dark min-h-dvh w-full flex flex-row gap-4 p-4 md:overflow-hidden relative pb-[env(safe-area-inset-bottom)]"
+      className="dark h-[calc(100dvh-2rem)] w-full flex flex-row gap-4 p-4 md:overflow-hidden relative"
       style={{ background: '#060a0e' }}
     >
       {/* Left Side - Slideshow */}
-      <div className="w-1/2 relative flex items-center justify-center">
+      <div className="relative flex h-full w-1/2 items-center justify-center">
         <div className="relative w-full h-full overflow-hidden rounded-3xl bg-[#05080d]">
           <AnimatePresence mode="sync">
             <motion.img
@@ -299,12 +299,12 @@ const Index = () => {
 
       {/* Right Side - Login Section */}
       <motion.div
-        className="flex w-1/2"
+        className="flex h-full w-1/2"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.05 }}
       >
-        <div className="relative flex min-h-full w-full items-center justify-center overflow-hidden rounded-3xl bg-[#05080d] px-8 py-10 xl:px-12">
+        <div className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-3xl bg-[#05080d] px-8 py-10 xl:px-12">
           <motion.div
             className="pointer-events-none absolute inset-0"
             initial={false}
