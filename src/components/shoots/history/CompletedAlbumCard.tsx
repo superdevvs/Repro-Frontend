@@ -40,6 +40,17 @@ import {
   XCircle,
 } from 'lucide-react'
 import { ShootData } from '@/types/shoots'
+
+const getServiceLabel = (service: unknown): string => {
+  if (typeof service === 'string') return service
+  if (service && typeof service === 'object') {
+    const candidate = service as { name?: unknown; label?: unknown }
+    if (typeof candidate.name === 'string' && candidate.name.trim()) return candidate.name
+    if (typeof candidate.label === 'string' && candidate.label.trim()) return candidate.label
+  }
+  return String(service ?? '')
+}
+
 // Payment Button Component for Super Admin
 const PaymentButton = ({ shoot, onViewInvoice }: { shoot: ShootData; onViewInvoice?: (shoot: ShootData) => void }) => {
   const { toast } = useToast()
@@ -73,10 +84,13 @@ const PaymentButton = ({ shoot, onViewInvoice }: { shoot: ShootData; onViewInvoi
           description: 'Complete payment in the new window.',
         })
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = axios.isAxiosError(error)
+        ? error.response?.data?.error || 'Failed to create payment link'
+        : 'Failed to create payment link'
       toast({
         title: 'Error',
-        description: error.response?.data?.error || 'Failed to create payment link',
+        description: message,
         variant: 'destructive',
       })
     } finally {
@@ -329,50 +343,105 @@ export const CompletedAlbumCard = ({
       </div>
 
       {/* Card Content */}
-      <div className="p-5 space-y-4">
-        <div>
-          <p className="text-xs text-muted-foreground mb-1.5 uppercase tracking-wide font-semibold">
-            {formatDisplayDateLocal(shoot.completedDate || shoot.scheduledDate)}
-            {shoot.time && shoot.time !== 'TBD' && ` · ${formatTime(shoot.time)}`}
-          </p>
-          <h3 className="font-bold text-lg leading-tight truncate mb-3 text-primary">{shoot.location.fullAddress}</h3>
+      <div className="p-5 xl:p-6 space-y-5">
+        <div className="flex flex-col gap-3 min-[1180px]:flex-row min-[1180px]:items-start min-[1180px]:justify-between min-[1180px]:gap-4">
+          <div className="flex-1 min-w-0">
+            <h3
+              className="mb-1 text-[0.95rem] font-bold leading-[1.1] break-words text-balance min-[1180px]:text-[1rem]"
+              title={shoot.location.address}
+            >
+              {shoot.location.address}
+            </h3>
+            <p
+              className="text-[0.72rem] leading-[1.2] text-muted-foreground break-words min-[1180px]:text-[0.78rem]"
+              title={`${shoot.location.city}, ${getStateFullName(shoot.location.state)} ${shoot.location.zip}`}
+            >
+              {shoot.location.city}, {getStateFullName(shoot.location.state)} {shoot.location.zip}
+            </p>
+          </div>
+          <div className="flex flex-col items-start gap-1 text-xs text-muted-foreground flex-shrink-0 min-[1180px]:items-end min-[1180px]:text-sm">
+            <div className="flex items-center gap-2">
+              <CalendarIcon className="h-3.5 w-3.5 min-[1180px]:h-4 min-[1180px]:w-4" />
+              <span className="font-medium">{formatDisplayDateLocal(shoot.completedDate || shoot.scheduledDate)}</span>
+            </div>
+            {shoot.time && shoot.time !== 'TBD' && (
+              <div className="flex items-center gap-2">
+                <Clock className="h-3.5 w-3.5 min-[1180px]:h-4 min-[1180px]:w-4" />
+                <span className="font-medium">{formatTime(shoot.time)}</span>
+              </div>
+            )}
+            {shoot.payment?.totalQuote && (isSuperAdmin || isAdmin) && (
+              <span className="text-sm font-semibold text-foreground">{formatCurrency(shoot.payment.totalQuote)}</span>
+            )}
+          </div>
         </div>
 
-        {/* Services - Prominent */}
-        {shoot.services && shoot.services.length > 0 && (
-          <div className="space-y-2 pb-3 border-b border-border/50">
-            <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              <Layers className="h-3.5 w-3.5" />
-              <span>Services</span>
-            </div>
-            <div className="flex flex-wrap gap-2">
+        <div className="space-y-2 pb-3 border-b border-border/50">
+          <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+            <Layers className="h-3.5 w-3.5" />
+            <span>Services</span>
+          </div>
+          {shoot.services && shoot.services.length > 0 ? (
+            <div className="flex flex-wrap gap-1.5">
               {shoot.services.map((service, idx) => (
-                <Badge 
-                  key={idx} 
-                  variant="secondary" 
-                  className="bg-gray-100 text-gray-600 hover:bg-gray-200 border-gray-200 dark:bg-primary/10 dark:text-primary dark:hover:bg-primary/20 dark:border-primary/20 font-medium px-3 py-1 text-sm rounded-md border"
+                <Badge
+                  key={idx}
+                  variant="secondary"
+                  className="bg-primary/10 text-primary hover:bg-primary/20 font-medium px-2 py-0.5 text-xs rounded-md border border-primary/20"
                 >
-                  {typeof service === 'string' ? service : (service as any).name || String(service)}
+                  {getServiceLabel(service)}
                 </Badge>
               ))}
             </div>
-          </div>
-        )}
+          ) : (
+            <p className="text-xs text-muted-foreground/70 italic">No services assigned</p>
+          )}
+        </div>
 
-        <div className="flex items-center justify-between text-sm">
-          <div className="flex items-center gap-4">
+        <div
+          className={cn(
+            'grid gap-4 pt-2 border-t border-border/50',
+            shouldHideClientDetails ? 'grid-cols-1' : 'grid-cols-2'
+          )}
+        >
           {!shouldHideClientDetails && (
-            <div className="flex items-center gap-1.5">
-              <User className="h-4 w-4 text-muted-foreground" />
-              <span className="font-medium truncate max-w-[120px]">{shoot.client.name}</span>
+            <div className="space-y-1 min-w-0">
+              <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                <User className="h-3.5 w-3.5" />
+                <span>Client</span>
+              </div>
+              <p className="text-sm font-semibold truncate">{shoot.client.name}</p>
+              {shoot.client.email && (
+                <p className="text-xs text-muted-foreground truncate">{shoot.client.email}</p>
+              )}
             </div>
           )}
-          <div className="flex items-center gap-1.5">
-            <Camera className="h-4 w-4 text-muted-foreground" />
-            <span className="font-medium truncate max-w-[120px]">{shoot.photographer?.name ?? 'Unassigned'}</span>
+          <div className="space-y-1 min-w-0">
+            <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              <Camera className="h-3.5 w-3.5" />
+              <span>Photographer</span>
+            </div>
+            <p className="text-sm font-semibold truncate">{shoot.photographer?.name ?? 'Unassigned'}</p>
           </div>
         </div>
-        </div>
+
+        {onViewInvoice && (
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border/50">
+            <Button
+              onClick={(e) => {
+                e.stopPropagation()
+                onViewInvoice(shoot)
+              }}
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1.5"
+              title="View Invoice"
+            >
+              <FileText className="h-3.5 w-3.5" />
+              Invoice
+            </Button>
+          </div>
+        )}
 
       </div>
       {/* Editing Notes - full-width bottom banner */}
