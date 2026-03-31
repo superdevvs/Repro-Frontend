@@ -47,7 +47,11 @@ type VerificationInvoiceReference = {
   id: string;
   number: string;
   status: string;
-  amount: number;
+  subtotal: number;
+  tax: number;
+  total: number;
+  allocatedSubtotal: number;
+  allocatedTax: number;
   allocatedAmount: number;
   shootCount: number;
   services: string[];
@@ -65,6 +69,8 @@ export type EditingAccountingVerificationRow = {
   expectedCount: number | null;
   services: VerificationServiceBreakdown[];
   calculatedEditorPay: number;
+  invoiceSubtotal: number;
+  invoiceTax: number;
   invoiceAmount: number;
   invoiceDisplayNumber: string;
   invoiceId: string | null;
@@ -270,6 +276,25 @@ const getInvoiceServiceLabels = (invoice: InvoiceData): string[] => {
   return Array.isArray(invoice.services) ? invoice.services.filter(Boolean) : [];
 };
 
+const getInvoiceTotals = (invoice: InvoiceData) => {
+  const total = Number(
+    (toNumber(invoice.total ?? invoice.amount) ?? 0).toFixed(2),
+  );
+  const tax = Number((toNumber(invoice.tax) ?? 0).toFixed(2));
+  const subtotal = Number(
+    (
+      toNumber(invoice.subtotal) ??
+      Math.max(total - tax, 0)
+    ).toFixed(2),
+  );
+
+  return {
+    subtotal,
+    tax,
+    total: total || Number((subtotal + tax).toFixed(2)),
+  };
+};
+
 const buildServiceBreakdown = (shoot: ShootData): VerificationServiceBreakdown[] => {
   const serviceObjects = Array.isArray(shoot.serviceObjects) ? shoot.serviceObjects : [];
   if (serviceObjects.length > 0) {
@@ -355,23 +380,33 @@ const buildVerificationRow = (
   const calculatedEditorPay = getCalculatedTotal(shoot, services);
   const verificationInvoices = linkedInvoices.map((invoice) => {
     const shootCount = getInvoiceShootCount(invoice);
-    const amount = Number((toNumber(invoice.amount) ?? 0).toFixed(2));
+    const totals = getInvoiceTotals(invoice);
     return {
       id: String(invoice.id),
       number: invoice.number || invoice.invoiceNumber || String(invoice.id),
       status: (invoice.status || 'pending').toLowerCase(),
-      amount,
-      allocatedAmount: Number((amount / Math.max(shootCount, 1)).toFixed(2)),
+      subtotal: totals.subtotal,
+      tax: totals.tax,
+      total: totals.total,
+      allocatedSubtotal: Number((totals.subtotal / Math.max(shootCount, 1)).toFixed(2)),
+      allocatedTax: Number((totals.tax / Math.max(shootCount, 1)).toFixed(2)),
+      allocatedAmount: Number((totals.total / Math.max(shootCount, 1)).toFixed(2)),
       shootCount,
       services: getInvoiceServiceLabels(invoice),
       source: invoice,
     };
   });
 
+  const invoiceSubtotal = Number(
+    verificationInvoices.reduce((sum, invoice) => sum + invoice.allocatedSubtotal, 0).toFixed(2),
+  );
+  const invoiceTax = Number(
+    verificationInvoices.reduce((sum, invoice) => sum + invoice.allocatedTax, 0).toFixed(2),
+  );
   const invoiceAmount = Number(
     verificationInvoices.reduce((sum, invoice) => sum + invoice.allocatedAmount, 0).toFixed(2),
   );
-  const differenceAmount = Number((invoiceAmount - calculatedEditorPay).toFixed(2));
+  const differenceAmount = Number((invoiceSubtotal - calculatedEditorPay).toFixed(2));
 
   const discrepancyFlags: string[] = [];
   const uploadedCount = getUploadedCount(shoot);
@@ -422,6 +457,8 @@ const buildVerificationRow = (
     expectedCount,
     services,
     calculatedEditorPay,
+    invoiceSubtotal,
+    invoiceTax,
     invoiceAmount,
     invoiceDisplayNumber,
     invoiceId: verificationInvoices[0]?.id ?? null,
@@ -449,6 +486,7 @@ export function EditingManagerVerificationView({
   const [toDate, setToDate] = useState(formatInputDate(defaultRange.to));
   const [editorFilter, setEditorFilter] = useState('all_editors');
   const [statusFilter, setStatusFilter] = useState<VerificationStatusFilter>('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedShoot, setSelectedShoot] = useState<DashboardShootSummary | null>(null);
 
   const shootLookup = useMemo(() => {
@@ -498,6 +536,7 @@ export function EditingManagerVerificationView({
   const filteredRows = useMemo(() => {
     const from = parseDateValue(fromDate);
     const to = parseDateValue(toDate);
+    const search = normalizeText(searchQuery);
 
     return allRows.filter((row) => {
       if (from && row.verificationDate && row.verificationDate < from) {
@@ -536,28 +575,46 @@ export function EditingManagerVerificationView({
         return false;
       }
 
+      if (search) {
+        const haystack = [
+          row.shootId,
+          row.address,
+          row.editorName,
+          row.invoiceDisplayNumber,
+          row.services.map((service) => service.name).join(' '),
+        ]
+          .map((value) => normalizeText(value))
+          .join(' ');
+
+        if (!haystack.includes(search)) {
+          return false;
+        }
+      }
+
       return true;
     });
-  }, [allRows, editorFilter, fromDate, statusFilter, toDate]);
+  }, [allRows, editorFilter, fromDate, searchQuery, statusFilter, toDate]);
 
   const summary = useMemo(() => {
     const totalShoots = filteredRows.length;
-    const totalImagesEdited = filteredRows.reduce((sum, row) => sum + (row.editedCount ?? 0), 0);
     const calculatedTotal = Number(
       filteredRows.reduce((sum, row) => sum + row.calculatedEditorPay, 0).toFixed(2),
+    );
+    const invoiceTax = Number(
+      filteredRows.reduce((sum, row) => sum + row.invoiceTax, 0).toFixed(2),
     );
     const linkedInvoiceTotal = Number(
       filteredRows.reduce((sum, row) => sum + row.invoiceAmount, 0).toFixed(2),
     );
-    const difference = Number((linkedInvoiceTotal - calculatedTotal).toFixed(2));
+    const mismatches = filteredRows.filter((row) => row.discrepancyFlags.length > 0).length;
 
     return {
       totalShoots,
-      totalImagesEdited,
       calculatedTotal,
+      invoiceTax,
       linkedInvoiceTotal,
-      difference,
-      mismatches: filteredRows.filter((row) => row.discrepancyFlags.length > 0).length,
+      mismatches,
+      matched: Math.max(totalShoots - mismatches, 0),
     };
   }, [filteredRows]);
 
@@ -590,12 +647,22 @@ export function EditingManagerVerificationView({
       <div className="space-y-4 sm:space-y-6">
       <Card>
         <CardHeader className="pb-4">
-          <CardTitle className="text-lg sm:text-xl">Verification filters</CardTitle>
+          <CardTitle className="text-lg sm:text-xl">Verification workspace</CardTitle>
           <CardDescription>
-            Review editor output, linked invoices, and mismatches for the selected window.
+            Filter the review queue and open receipts with full subtotal, tax, and total details.
           </CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+          <div className="space-y-2 xl:col-span-2">
+            <p className="text-sm font-medium">Search</p>
+            <Input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search by shoot, address, editor, invoice, or service"
+              aria-label="Search verification rows"
+            />
+          </div>
+
           <div className="space-y-2">
             <p className="text-sm font-medium">Date range</p>
             <Select value={datePreset} onValueChange={(value) => handlePresetChange(value as DatePreset)}>
@@ -678,14 +745,25 @@ export function EditingManagerVerificationView({
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Total Images Edited</CardDescription>
-            <CardTitle>{summary.totalImagesEdited}</CardTitle>
+            <CardDescription>Needs Review</CardDescription>
+            <CardTitle className={summary.mismatches > 0 ? 'text-amber-600' : 'text-emerald-600'}>
+              {summary.mismatches}
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              {summary.matched} row{summary.matched === 1 ? '' : 's'} already aligned
+            </p>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Calculated Total</CardDescription>
+            <CardDescription>Service Subtotal</CardDescription>
             <CardTitle>{currencyFormatter.format(summary.calculatedTotal)}</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Invoice Tax</CardDescription>
+            <CardTitle>{currencyFormatter.format(summary.invoiceTax)}</CardTitle>
           </CardHeader>
         </Card>
         <Card>
@@ -694,24 +772,13 @@ export function EditingManagerVerificationView({
             <CardTitle>{currencyFormatter.format(summary.linkedInvoiceTotal)}</CardTitle>
           </CardHeader>
         </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Difference</CardDescription>
-            <CardTitle className={summaryCardTone(summary.difference)}>
-              {currencyFormatter.format(summary.difference)}
-            </CardTitle>
-            <p className="text-xs text-muted-foreground">
-              {summary.mismatches} row{summary.mismatches === 1 ? '' : 's'} need review
-            </p>
-          </CardHeader>
-        </Card>
       </div>
 
       <Card>
         <CardHeader className="pb-4">
           <CardTitle className="text-lg sm:text-xl">Shoot verification</CardTitle>
           <CardDescription>
-            One row per shoot with invoice coverage and count validation.
+            Compare editor service subtotal against linked invoice subtotal, with tax shown separately.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -725,6 +792,9 @@ export function EditingManagerVerificationView({
             </div>
           ) : (
             <Table>
+              <caption className="sr-only">
+                Shoot verification rows with invoice subtotal, tax, total, and review status.
+              </caption>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-12" />
@@ -733,9 +803,9 @@ export function EditingManagerVerificationView({
                   <TableHead>Uploaded</TableHead>
                   <TableHead>Edited</TableHead>
                   <TableHead>Services</TableHead>
-                  <TableHead>Calculated total</TableHead>
+                  <TableHead>Service subtotal</TableHead>
                   <TableHead>Linked invoice</TableHead>
-                  <TableHead>Invoice amount</TableHead>
+                  <TableHead>Invoice total</TableHead>
                   <TableHead>Difference</TableHead>
                   <TableHead>Status</TableHead>
                 </TableRow>
@@ -754,6 +824,8 @@ export function EditingManagerVerificationView({
                             size="icon"
                             className="h-8 w-8"
                             onClick={() => toggleRow(row.shootId)}
+                            aria-expanded={isExpanded}
+                            aria-label={`${isExpanded ? 'Collapse' : 'Expand'} verification details for shoot #${row.shootId}`}
                           >
                             {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                           </Button>
@@ -765,6 +837,7 @@ export function EditingManagerVerificationView({
                               variant="link"
                               className="h-auto p-0 text-left font-semibold"
                               onClick={() => handleOpenShootOverview(row.shootId)}
+                              aria-label={`Open shoot #${row.shootId} overview`}
                             >
                               #{row.shootId}
                             </Button>
@@ -803,6 +876,7 @@ export function EditingManagerVerificationView({
                               variant="link"
                               className="h-auto p-0 text-left"
                               onClick={() => onViewInvoice(row.invoices[0].source)}
+                              aria-label={`Open receipt ${row.invoiceDisplayNumber}`}
                             >
                               <span>{row.invoiceDisplayNumber}</span>
                               <ExternalLink className="ml-1 h-3.5 w-3.5" />
@@ -812,7 +886,12 @@ export function EditingManagerVerificationView({
                           )}
                         </TableCell>
                         <TableCell className="align-top">
-                          {currencyFormatter.format(row.invoiceAmount)}
+                          <div className="space-y-1">
+                            <p className="font-medium">{currencyFormatter.format(row.invoiceAmount)}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Tax {currencyFormatter.format(row.invoiceTax)}
+                            </p>
+                          </div>
                         </TableCell>
                         <TableCell className={cn('align-top font-medium', summaryCardTone(row.differenceAmount))}>
                           {currencyFormatter.format(row.differenceAmount)}
@@ -908,6 +987,7 @@ export function EditingManagerVerificationView({
                                             variant="link"
                                             className="h-auto p-0 font-medium"
                                             onClick={() => onViewInvoice(invoice.source)}
+                                            aria-label={`Open receipt ${invoice.number}`}
                                           >
                                             {invoice.number}
                                           </Button>
@@ -922,9 +1002,11 @@ export function EditingManagerVerificationView({
                                         </div>
                                         <div className="text-right">
                                           <p className="font-semibold">{currencyFormatter.format(invoice.allocatedAmount)}</p>
-                                          <p className="text-xs text-muted-foreground">
-                                            From {currencyFormatter.format(invoice.amount)}
-                                          </p>
+                                          <div className="space-y-0.5 text-xs text-muted-foreground">
+                                            <p>Subtotal {currencyFormatter.format(invoice.allocatedSubtotal)}</p>
+                                            <p>Tax {currencyFormatter.format(invoice.allocatedTax)}</p>
+                                            <p>Total {currencyFormatter.format(invoice.total)}</p>
+                                          </div>
                                         </div>
                                       </div>
                                     ))

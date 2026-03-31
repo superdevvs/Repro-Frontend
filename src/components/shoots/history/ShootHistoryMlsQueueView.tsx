@@ -12,14 +12,12 @@ import {
 import { Card, CardContent } from '@/components/ui/card'
 import { HorizontalLoader } from '@/components/ui/horizontal-loader'
 import { useToast } from '@/hooks/use-toast'
+import { BrightMlsImportDialog } from '@/components/integrations/BrightMlsImportDialog'
 import { apiClient } from '@/services/api'
 import API_ROUTES from '@/lib/api'
 import type { ShootData } from '@/types/shoots'
 import {
   buildBrightMlsPublishPayloadWithFallback,
-  closePendingBrightMlsWindow,
-  navigateBrightMlsWindow,
-  openPendingBrightMlsWindow,
 } from '@/utils/brightMls'
 
 export const ShootHistoryMlsQueueView: React.FC = () => {
@@ -29,6 +27,7 @@ export const ShootHistoryMlsQueueView: React.FC = () => {
   const [selectedItem, setSelectedItem] = useState<any | null>(null)
   const [manifestDialogOpen, setManifestDialogOpen] = useState(false)
   const [retryingId, setRetryingId] = useState<number | null>(null)
+  const [brightMlsRedirectUrl, setBrightMlsRedirectUrl] = useState<string | null>(null)
 
   useEffect(() => {
     loadQueue()
@@ -57,7 +56,6 @@ export const ShootHistoryMlsQueueView: React.FC = () => {
 
   const handleRetry = async (shootId: number) => {
     setRetryingId(shootId)
-    let pendingWindow: Window | null = null
     try {
       const shootResponse = await apiClient.get(`/shoots/${shootId}`)
       const shoot = shootResponse.data.data
@@ -71,8 +69,6 @@ export const ShootHistoryMlsQueueView: React.FC = () => {
         throw new Error('No images found to send. Please ensure the shoot has completed images.')
       }
 
-      pendingWindow = openPendingBrightMlsWindow()
-
       const publishResponse = await apiClient.post(
         API_ROUTES.integrations.brightMls.publish(shootId),
         payload
@@ -80,22 +76,16 @@ export const ShootHistoryMlsQueueView: React.FC = () => {
 
       if (publishResponse.data.success) {
         const redirectUrl = publishResponse.data.data?.redirect_url || publishResponse.data.redirect_url
-        const openedInBrowser = navigateBrightMlsWindow(pendingWindow, redirectUrl)
-        if (!openedInBrowser) {
-          closePendingBrightMlsWindow(pendingWindow)
-        }
+        setBrightMlsRedirectUrl(redirectUrl || null)
         toast({
           title: 'Republished',
-          description: openedInBrowser
-            ? 'Bright MLS opened in a new tab. Complete the import there.'
-            : 'Media manifest has been republished successfully.',
+          description: 'Bright MLS opened in the in-app popup. Complete the import there.',
         })
         loadQueue()
       } else {
         throw new Error(publishResponse.data.message || 'Failed to republish.')
       }
     } catch (error: any) {
-      closePendingBrightMlsWindow(pendingWindow)
       toast({
         title: 'Error',
         description: error.response?.data?.message || error.message || 'Failed to republish.',
@@ -258,6 +248,11 @@ export const ShootHistoryMlsQueueView: React.FC = () => {
           </DialogContent>
         </Dialog>
       )}
+
+      <BrightMlsImportDialog
+        redirectUrl={brightMlsRedirectUrl}
+        onRedirectUrlChange={setBrightMlsRedirectUrl}
+      />
     </div>
   )
 }

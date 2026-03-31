@@ -25,6 +25,11 @@ type InvoiceApiRecord = {
   created_at?: string;
   due_date?: string;
   billing_period_end?: string;
+  subtotal?: number | string;
+  subtotal_amount?: number | string;
+  tax?: number | string;
+  tax_amount?: number | string;
+  sales_tax?: number | string;
   total_amount?: number | string;
   total?: number | string;
   amount?: number | string;
@@ -95,7 +100,9 @@ const mapInvoiceResponse = (invoice: InvoiceApiRecord, fallbackId?: string | num
   const fallbackDate = new Date().toISOString().split('T')[0];
   const issueDate = invoice.issue_date || invoice.billing_period_start || invoice.created_at || fallbackDate;
   const dueDate = invoice.due_date || invoice.billing_period_end || issueDate;
-  const baseAmount = toNumber(invoice.total_amount ?? invoice.total ?? invoice.amount);
+  const subtotal = toNumber(invoice.subtotal ?? invoice.subtotal_amount, 0);
+  const tax = toNumber(invoice.tax ?? invoice.tax_amount ?? invoice.sales_tax, 0);
+  const baseAmount = toNumber(invoice.total_amount ?? invoice.total ?? invoice.amount ?? subtotal + tax);
   const amountPaid = toNumber(invoice.amount_paid ?? invoice.paid_amount);
   const balance = toNumber(invoice.balance_due, baseAmount - amountPaid);
   const invoiceNumber = String(invoice.invoice_number ?? invoice.invoiceNumber ?? invoice.id ?? fallbackId ?? '');
@@ -141,6 +148,9 @@ const mapInvoiceResponse = (invoice: InvoiceApiRecord, fallbackId?: string | num
     amount: baseAmount,
     amountPaid,
     balance,
+    subtotal,
+    tax,
+    total: baseAmount,
     status: (normalizedStatus as InvoiceData['status']) || 'pending',
     date: issueDate,
     dueDate,

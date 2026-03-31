@@ -52,8 +52,8 @@ export function AccountsHeader({
         : repOptions.find((rep) => rep.value === repFilter)?.label || "Rep filter";
 
   return (
-    <div className="flex items-center gap-2">
-      <div className="hidden sm:flex flex-wrap items-center gap-2">
+    <div className="flex items-center gap-2 whitespace-nowrap">
+      <div className="hidden sm:flex shrink-0 items-center gap-2 whitespace-nowrap">
         {/* View Toggle */}
         <div className="flex items-center border rounded-lg p-0.5">
           <Button
@@ -76,7 +76,7 @@ export function AccountsHeader({
 
         {/* Rep Filter */}
         <Select value={repFilter} onValueChange={onRepFilterChange}>
-          <SelectTrigger className="w-[130px] h-9">
+          <SelectTrigger className="h-9 w-[118px] lg:w-[130px]">
             <SelectValue placeholder="All reps" />
           </SelectTrigger>
           <SelectContent>

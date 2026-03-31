@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -132,9 +132,9 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
   };
   const propertyAddress = getPropertyAddress();
   
-  const subtotal = invoiceData.subtotal ?? 0;
-  const tax = invoiceData.tax ?? 0;
-  const total = invoiceData.total ?? invoiceData.amount ?? 0;
+  const total = Number(invoiceData.total ?? invoiceData.amount ?? 0);
+  const tax = Number(invoiceData.tax ?? 0);
+  const subtotal = Number(invoiceData.subtotal ?? Math.max(total - tax, 0));
   const status = invoiceData.status || 'pending';
   const isPaid = status.toLowerCase() === 'paid';
   const paymentDetails = invoiceData.paymentDetails ?? invoiceData.payment_details ?? null;
@@ -142,7 +142,7 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
   const paymentMethodValue = invoiceData.paymentMethod || invoiceData.payment_method;
   const paymentMethodLabel = formatPaymentMethod(paymentMethodValue, paymentDetails);
 
-  const items: InvoiceItem[] = invoiceData.items || [];
+  const items: InvoiceItem[] = useMemo(() => invoiceData.items || [], [invoiceData.items]);
   
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -151,25 +151,25 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
     }).format(value);
   };
 
-  const formatDate = (dateString?: string | null) => {
+  const formatDate = useCallback((dateString?: string | null) => {
     if (!dateString) return 'N/A';
     try {
       return format(new Date(dateString), 'MM/dd/yyyy');
     } catch {
       return dateString;
     }
-  };
+  }, []);
 
-  const formatDateTime = (dateString?: string | null) => {
+  const formatDateTime = useCallback((dateString?: string | null) => {
     if (!dateString) return 'N/A';
     try {
       return format(new Date(dateString), 'MM/dd/yyyy h:mm a');
     } catch {
       return dateString;
     }
-  };
+  }, []);
 
-  const resolvePhotographerName = (item?: InvoiceItem) => {
+  const resolvePhotographerName = useCallback((item?: InvoiceItem) => {
     const itemShootId = item?.shoot_id ? String(item.shoot_id) : null;
     const relatedShoot = itemShootId && Array.isArray(invoiceData.shoots)
       ? invoiceData.shoots.find((shoot) => String(shoot?.id) === itemShootId)
@@ -182,7 +182,7 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
       || invoiceData.shoot?.photographer?.name
       || fromInvoice
       || '';
-  };
+  }, [invoiceData.photographer, invoiceData.shoot?.photographer?.name, invoiceData.shoots]);
 
   const isAdminMiscItem = (item?: InvoiceItem) =>
     item?.type === 'expense' && item?.meta?.source === 'admin_misc';

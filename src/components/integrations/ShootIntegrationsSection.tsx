@@ -9,10 +9,8 @@ import { apiClient } from '@/services/api';
 import API_ROUTES from '@/lib/api';
 import {
   buildBrightMlsPublishPayloadWithFallback,
-  closePendingBrightMlsWindow,
-  navigateBrightMlsWindow,
-  openPendingBrightMlsWindow,
 } from '@/utils/brightMls';
+import { BrightMlsImportDialog } from '@/components/integrations/BrightMlsImportDialog';
 import { 
   Home, 
   ExternalLink, 
@@ -113,7 +111,6 @@ export function ShootIntegrationsSection({ shoot, onRefresh }: ShootIntegrations
   };
 
   const handlePublishToBrightMls = async () => {
-    let pendingWindow: Window | null = null;
     setPublishingBrightMls(true);
     try {
       setBrightMlsRedirectUrl(null);
@@ -128,8 +125,6 @@ export function ShootIntegrationsSection({ shoot, onRefresh }: ShootIntegrations
         throw new Error('No images found to send. Please ensure the shoot has completed images.');
       }
 
-      pendingWindow = openPendingBrightMlsWindow();
-
       const response = await apiClient.post(
         API_ROUTES.integrations.brightMls.publish(shoot.id),
         payload
@@ -137,17 +132,11 @@ export function ShootIntegrationsSection({ shoot, onRefresh }: ShootIntegrations
 
       if (response.data.success) {
         const redirectUrl = response.data.data?.redirect_url || response.data.redirect_url;
-        const openedInBrowser = navigateBrightMlsWindow(pendingWindow, redirectUrl);
-        if (!openedInBrowser) {
-          closePendingBrightMlsWindow(pendingWindow);
-          setBrightMlsRedirectUrl(redirectUrl || null);
-        }
+        setBrightMlsRedirectUrl(redirectUrl || null);
 
         toast({
           title: "Manifest Sent",
-          description: openedInBrowser
-            ? "Bright MLS opened in a popup window. Complete the import there."
-            : "Complete the import by opening Bright MLS from the dialog.",
+          description: "Bright MLS opened in the in-app popup. Complete the import there.",
         });
         setBrightMlsDialogOpen(false);
         setSelectedPhotos(new Set());
@@ -156,7 +145,6 @@ export function ShootIntegrationsSection({ shoot, onRefresh }: ShootIntegrations
         throw new Error(response.data.message || 'Publishing failed');
       }
     } catch (error: any) {
-      closePendingBrightMlsWindow(pendingWindow);
       const errorData = error.response?.data;
       let description = errorData?.message || "Failed to publish to Bright MLS.";
       // Show detailed validation errors if available
@@ -497,37 +485,10 @@ export function ShootIntegrationsSection({ shoot, onRefresh }: ShootIntegrations
       </Card>
     </div>
 
-    {/* BrightMLS SSO Redirect Modal */}
-    <Dialog open={!!brightMlsRedirectUrl} onOpenChange={(open) => { if (!open) setBrightMlsRedirectUrl(null); }}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="text-base">Bright MLS Import</DialogTitle>
-          <DialogDescription>
-            Bright MLS needs to finish the import in a separate popup window.
-          </DialogDescription>
-        </DialogHeader>
-        {brightMlsRedirectUrl && (
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Use the button below to reopen the Bright MLS popup and complete the login/import flow.
-            </p>
-            <div className="flex justify-end">
-              <Button
-                onClick={() =>
-                  window.open(
-                    brightMlsRedirectUrl,
-                    'bright-mls-import',
-                    'popup=yes,width=1280,height=900,left=120,top=80,resizable=yes,scrollbars=yes,toolbar=no,menubar=no,location=yes,status=no',
-                  )
-                }
-              >
-                <ExternalLink className="h-4 w-4 mr-2" /> Open Bright MLS
-              </Button>
-            </div>
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
+    <BrightMlsImportDialog
+      redirectUrl={brightMlsRedirectUrl}
+      onRedirectUrlChange={setBrightMlsRedirectUrl}
+    />
     </>
   );
 }

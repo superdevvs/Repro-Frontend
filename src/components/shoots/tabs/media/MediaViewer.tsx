@@ -649,24 +649,6 @@ export function MediaViewer({
               <div className="min-h-0 overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md">
                 <ScrollArea className="h-full">
                   <div className="space-y-4 p-3 text-white sm:p-4">
-                    <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-xs uppercase tracking-[0.18em] text-white/45">Current file</p>
-                          <p className="mt-1 text-lg font-semibold leading-tight">{currentFile.filename}</p>
-                          <p className="mt-1 text-xs text-white/55">
-                            {fileExt ? `${fileExt} file` : 'Preview item'}{currentFile.isExtra ? ' • Extra delivery' : ''}
-                          </p>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {currentFile.is_cover && <Badge className="border-blue-500/30 bg-blue-500/15 text-blue-100 hover:bg-blue-500/15">Hero</Badge>}
-                          {currentFile.is_favorite && <Badge className="border-rose-500/30 bg-rose-500/15 text-rose-100 hover:bg-rose-500/15">Liked</Badge>}
-                          {currentFile.is_hidden && <Badge className="border-amber-500/30 bg-amber-500/15 text-amber-100 hover:bg-amber-500/15">Hidden</Badge>}
-                          {currentFile.isExtra && <Badge className="border-orange-500/30 bg-orange-500/15 text-orange-100 hover:bg-orange-500/15">Extra</Badge>}
-                        </div>
-                      </div>
-                    </div>
-
                     <div className="grid gap-2 sm:grid-cols-2">
                       {canSetHero && (
                         <Button
@@ -726,12 +708,12 @@ export function MediaViewer({
                             <div className="rounded-xl border border-rose-500/25 bg-rose-500/10 p-3">
                               <p className="text-sm font-medium text-white">Create request</p>
                               <p className="mt-1 text-xs text-white/65">
-                                Add the correction note here. It will appear in this shoot&apos;s Requests tab and in request dashboards for the relevant roles.
+                                Request any changes for this image.
                               </p>
                               <Textarea
                                 value={flagReason}
                                 onChange={(event) => setFlagReason(event.target.value)}
-                                placeholder="Describe what needs to be corrected..."
+                                placeholder="Request any changes in this image..."
                                 className="mt-3 min-h-[96px] resize-none border-white/10 bg-black/30 text-white placeholder:text-white/45"
                               />
                               <div className="mt-3 flex items-center justify-end gap-2">

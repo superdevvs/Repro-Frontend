@@ -253,13 +253,13 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
           <div className="flex flex-col gap-3 min-[1180px]:flex-row min-[1180px]:items-start min-[1180px]:justify-between min-[1180px]:gap-4">
             <div className="flex-1 min-w-0">
               <h3
-                className="mb-1 text-[1.45rem] font-bold leading-tight break-words text-balance min-[1180px]:text-[1.6rem]"
+                className="mb-1 text-[0.95rem] font-bold leading-[1.1] break-words text-balance min-[1180px]:text-[1rem]"
                 title={shoot.location.address}
               >
                 {shoot.location.address}
               </h3>
               <p
-                className="text-sm leading-snug text-muted-foreground break-words min-[1180px]:text-[0.95rem]"
+                className="text-[0.72rem] leading-[1.2] text-muted-foreground break-words min-[1180px]:text-[0.78rem]"
                 title={`${shoot.location.city}, ${getStateFullName(shoot.location.state)} ${shoot.location.zip}`}
               >
                 {shoot.location.city}, {getStateFullName(shoot.location.state)} {shoot.location.zip}

@@ -5,9 +5,6 @@ import { getApiHeaders } from '@/services/api';
 import { downloadShootMediaArchive } from '@/utils/shootMediaDownload';
 import {
   buildBrightMlsPublishPayloadWithFallback,
-  closePendingBrightMlsWindow,
-  navigateBrightMlsWindow,
-  openPendingBrightMlsWindow,
 } from '@/utils/brightMls';
 
 interface ToastApi {
@@ -42,8 +39,6 @@ export function useShootDetailsModalActions({
   const handleSendToBrightMls = async () => {
     if (!shoot) return;
 
-    let pendingWindow: Window | null = null;
-
     try {
       setIsPublishingToBrightMls(true);
       setBrightMlsRedirectUrl(null);
@@ -56,8 +51,6 @@ export function useShootDetailsModalActions({
       if (payload.photos.length === 0) {
         throw new Error('No images found to send. Please ensure the shoot has completed images.');
       }
-
-      pendingWindow = openPendingBrightMlsWindow();
 
       const response = await fetch(
         `${API_BASE_URL}/api/integrations/shoots/${shoot.id}/bright-mls/publish`,
@@ -83,22 +76,15 @@ export function useShootDetailsModalActions({
 
       const result = await response.json();
       const redirectUrl = result.data?.redirect_url || result.redirect_url;
-      const openedInBrowser = navigateBrightMlsWindow(pendingWindow, redirectUrl);
-      if (!openedInBrowser) {
-        closePendingBrightMlsWindow(pendingWindow);
-        setBrightMlsRedirectUrl(redirectUrl || null);
-      }
+      setBrightMlsRedirectUrl(redirectUrl || null);
 
       toast({
         title: 'Manifest Sent',
-        description: openedInBrowser
-          ? 'Bright MLS opened in a popup window. Complete the import there.'
-          : 'Complete the import by opening Bright MLS from the dialog.',
+        description: 'Bright MLS opened in the in-app popup. Complete the import there.',
       });
 
       await refreshShoot();
     } catch (error) {
-      closePendingBrightMlsWindow(pendingWindow);
       console.error('Error sending images to Bright MLS:', error);
       toast({
         title: 'Error',

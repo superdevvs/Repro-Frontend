@@ -1248,8 +1248,9 @@ export default function Accounts() {
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           {/* Tabs row with inline controls */}
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-3">
+          <div className="mb-3 flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-3">
             {/* Show top-level tabs for admin/superadmin, role pills for editing_manager */}
+            <div className="min-w-0 overflow-hidden">
             {isAdminOrSuperAdmin ? (
               <TabsList className={`grid w-fit ${gridCols}`}>
                 <TabsTrigger value="accounts">Accounts</TabsTrigger>
@@ -1267,10 +1268,11 @@ export default function Accounts() {
                 onRoleSelect={(role) => setFilterRole(role as Role | 'all' ?? 'all')}
               />
             )}
+            </div>
 
             {/* Inline controls - only show on accounts tab */}
             {activeTab === 'accounts' && (
-              <div className="hidden sm:block">
+              <div className="hidden sm:flex sm:justify-end lg:min-w-fit">
                 <AccountsHeader
                   onExport={handleExport}
                   onImport={handleImportAccounts}

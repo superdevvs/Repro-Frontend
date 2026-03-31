@@ -1,12 +1,5 @@
-import { ExternalLink, Loader2, Trash2 } from 'lucide-react';
+import { Loader2, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,6 +16,7 @@ import { ShootApprovalModal } from '@/components/shoots/ShootApprovalModal';
 import { ShootDeclineModal } from '@/components/shoots/ShootDeclineModal';
 import { ShootDetailsModal } from '@/components/shoots/ShootDetailsModal';
 import { ShootEditModal } from '@/components/shoots/ShootEditModal';
+import { BrightMlsImportDialog } from '@/components/integrations/BrightMlsImportDialog';
 import { ShootData } from '@/types/shoots';
 
 interface ShootHistoryModalHostProps {
@@ -188,35 +182,10 @@ export function ShootHistoryModalHost({
         />
       )}
 
-      <Dialog
-        open={!!brightMlsRedirectUrl}
-        onOpenChange={(open) => {
-          if (!open) {
-            onBrightMlsRedirectUrlChange(null);
-          }
-        }}
-      >
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="text-base">Bright MLS Import</DialogTitle>
-            <DialogDescription>
-              Bright MLS needs to finish the import in a separate browser tab.
-            </DialogDescription>
-          </DialogHeader>
-          {brightMlsRedirectUrl && (
-            <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Use the button below to open Bright MLS and complete the login/import flow.
-              </p>
-              <div className="flex justify-end">
-                <Button onClick={() => window.open(brightMlsRedirectUrl, '_blank')}>
-                  <ExternalLink className="h-4 w-4 mr-2" /> Open Bright MLS
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      <BrightMlsImportDialog
+        redirectUrl={brightMlsRedirectUrl}
+        onRedirectUrlChange={onBrightMlsRedirectUrlChange}
+      />
     </>
   );
 }

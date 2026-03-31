@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { BrightMlsImportDialog } from '@/components/integrations/BrightMlsImportDialog';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { Navigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
@@ -12,9 +13,6 @@ import API_ROUTES from '@/lib/api';
 import type { ShootData } from '@/types/shoots';
 import {
   buildBrightMlsPublishPayloadWithFallback,
-  closePendingBrightMlsWindow,
-  navigateBrightMlsWindow,
-  openPendingBrightMlsWindow,
 } from '@/utils/brightMls';
 import { HorizontalLoader } from '@/components/ui/horizontal-loader';
 import { 
@@ -68,6 +66,7 @@ const MlsPublishingQueue = () => {
   const [selectedItem, setSelectedItem] = useState<MlsQueueItem | null>(null);
   const [manifestDialogOpen, setManifestDialogOpen] = useState(false);
   const [retryingId, setRetryingId] = useState<number | null>(null);
+  const [brightMlsRedirectUrl, setBrightMlsRedirectUrl] = useState<string | null>(null);
 
   // Only allow admin and superadmin to access this page
   if (!['admin', 'superadmin', 'editing_manager'].includes(role)) {
@@ -101,7 +100,6 @@ const MlsPublishingQueue = () => {
 
   const handleRetry = async (shootId: number) => {
     setRetryingId(shootId);
-    let pendingWindow: Window | null = null;
     try {
       // Get shoot details first
       const shootResponse = await apiClient.get(`/shoots/${shootId}`);
@@ -116,8 +114,6 @@ const MlsPublishingQueue = () => {
         throw new Error('No images found to send. Please ensure the shoot has completed images.');
       }
 
-      pendingWindow = openPendingBrightMlsWindow();
-
       // Publish again
       const publishResponse = await apiClient.post(
         API_ROUTES.integrations.brightMls.publish(shootId),
@@ -126,20 +122,14 @@ const MlsPublishingQueue = () => {
 
       if (publishResponse.data.success) {
         const redirectUrl = publishResponse.data.data?.redirect_url || publishResponse.data.redirect_url;
-        const openedInBrowser = navigateBrightMlsWindow(pendingWindow, redirectUrl);
-        if (!openedInBrowser) {
-          closePendingBrightMlsWindow(pendingWindow);
-        }
+        setBrightMlsRedirectUrl(redirectUrl || null);
         toast({
           title: "Republished",
-          description: openedInBrowser
-            ? "Bright MLS opened in a popup window. Complete the import there."
-            : "Media manifest has been republished successfully.",
+          description: "Bright MLS opened in the in-app popup. Complete the import there.",
         });
         loadQueue();
       }
     } catch (error: any) {
-      closePendingBrightMlsWindow(pendingWindow);
       toast({
         title: "Error",
         description: error.response?.data?.message || error.message || "Failed to republish.",
@@ -341,6 +331,10 @@ const MlsPublishingQueue = () => {
               Refresh
             </Button>
           </div>
+          <BrightMlsImportDialog
+            redirectUrl={brightMlsRedirectUrl}
+            onRedirectUrlChange={setBrightMlsRedirectUrl}
+          />
       </div>
     </DashboardLayout>
   );

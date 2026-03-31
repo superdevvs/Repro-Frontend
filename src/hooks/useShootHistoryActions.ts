@@ -8,9 +8,6 @@ import { deriveFilterOptionsFromShoots, mapShootApiToShootData } from '@/compone
 import { downloadShootMediaArchive } from '@/utils/shootMediaDownload'
 import {
   buildBrightMlsPublishPayloadWithFallback,
-  closePendingBrightMlsWindow,
-  navigateBrightMlsWindow,
-  openPendingBrightMlsWindow,
 } from '@/utils/brightMls'
 import {
   FilterCollections,
@@ -387,7 +384,6 @@ export function useShootHistoryActions(args: UseShootHistoryActionsArgs) {
       toast({ title: 'Cannot publish', description: 'This shoot does not have an MLS ID.', variant: 'destructive' })
       return
     }
-    let pendingWindow: Window | null = null
     try {
       const shoot = await loadShootById(record.id, { quiet: true })
       if (!shoot) throw new Error('Shoot not found')
@@ -401,28 +397,19 @@ export function useShootHistoryActions(args: UseShootHistoryActionsArgs) {
         throw new Error('No images found to send. Please ensure the shoot has completed images.')
       }
 
-      pendingWindow = openPendingBrightMlsWindow()
-
       const response = await apiClient.post(API_ROUTES.integrations.brightMls.publish(record.id), payload)
       if (response.data.success) {
         const redirectUrl = response.data.data?.redirect_url || response.data.redirect_url
-        const openedInBrowser = navigateBrightMlsWindow(pendingWindow, redirectUrl)
-        if (!openedInBrowser) {
-          closePendingBrightMlsWindow(pendingWindow)
-          setBrightMlsRedirectUrl(redirectUrl || null)
-        }
+        setBrightMlsRedirectUrl(redirectUrl || null)
         toast({
           title: 'Manifest Sent',
-          description: openedInBrowser
-            ? 'Bright MLS opened in a new tab. Complete the import there.'
-            : 'Complete the import by opening Bright MLS from the dialog.',
+          description: 'Bright MLS opened in the in-app popup. Complete the import there.',
         })
         await fetchHistoryData()
       } else {
         throw new Error(response.data.message || 'Publishing failed')
       }
     } catch (error) {
-      closePendingBrightMlsWindow(pendingWindow)
       toast({ title: 'Publish failed', description: getErrorMessage(error, 'Failed to publish to Bright MLS.'), variant: 'destructive' })
     }
   }, [loadShootById, toast, fetchHistoryData, setBrightMlsRedirectUrl])

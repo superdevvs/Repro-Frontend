@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -22,6 +22,9 @@ import { ShootData } from '@/types/shoots';
 import { API_BASE_URL } from '@/config/env';
 import { format } from 'date-fns';
 import { ShootIssueManager } from './ShootIssueManager';
+import { useShootFiles, type MediaFile } from '@/hooks/useShootFiles';
+import { MediaViewer } from './media/MediaViewer';
+import { getMediaImageUrl, getMediaSrcSet } from './media/mediaPreviewUtils';
 
 interface ShootDetailsIssuesTabProps {
   shoot: ShootData;
@@ -74,6 +77,12 @@ export function ShootDetailsIssuesTab({
   const [requests, setRequests] = useState<Request[]>([]);
   const [requestManagerOpen, setRequestManagerOpen] = useState(false);
   const [markingResolved, setMarkingResolved] = useState(false);
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerIndex, setViewerIndex] = useState(0);
+  const [viewerFiles, setViewerFiles] = useState<MediaFile[]>([]);
+  const { data: shootFiles = [] } = useShootFiles(shoot.id, 'all', {
+    enabled: Boolean(shoot.id),
+  });
   
   // Check if shoot has requests that can be marked as resolved
   const shootHasRequests = shoot.isFlagged || 
@@ -106,10 +115,10 @@ export function ShootDetailsIssuesTab({
         description: 'Requests marked as resolved. Shoot resubmitted for review.',
       });
       onShootUpdate();
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: 'Error',
-        description: error.message || 'Failed to mark requests as resolved',
+        description: error instanceof Error ? error.message : 'Failed to mark requests as resolved',
         variant: 'destructive',
       });
     } finally {
@@ -199,6 +208,11 @@ export function ShootDetailsIssuesTab({
 
   const hasOpenRequests = visibleRequests.some(request => request.status === 'open' || request.status === 'in-progress');
 
+  const shootFilesById = useMemo(
+    () => new Map(shootFiles.map((file) => [String(file.id), file])),
+    [shootFiles],
+  );
+
   // Assign request to photographer or editor
   const handleAssignRequest = async (requestId: string, assignTo: 'photographer' | 'editor') => {
     try {
@@ -213,23 +227,67 @@ export function ShootDetailsIssuesTab({
         body: JSON.stringify({ assignedToRole: assignTo }),
       });
 
+      const json = await res.json().catch(() => ({}));
+
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to assign request');
+        throw new Error(json.message || 'Failed to assign request');
       }
+
+      const updatedRequest = (json.data || json) as Partial<Request> | undefined;
+      setRequests((prev) =>
+        prev.map((request) =>
+          request.id === requestId
+            ? {
+                ...request,
+                assignedToRole: updatedRequest?.assignedToRole ?? assignTo,
+                assignedToUser: updatedRequest?.assignedToUser ?? request.assignedToUser,
+                updatedAt: updatedRequest?.updatedAt ?? request.updatedAt,
+              }
+            : request,
+        ),
+      );
 
       toast({
         title: 'Request assigned',
         description: `Request has been assigned to ${assignTo}.`,
       });
-      handleRequestUpdate();
-    } catch (error: any) {
+      onShootUpdate();
+    } catch (error) {
       toast({
         title: 'Error',
-        description: error.message || 'Failed to assign request',
+        description: error instanceof Error ? error.message : 'Failed to assign request',
         variant: 'destructive',
       });
     }
+  };
+
+  const openTaggedMediaViewer = (request: Request, mediaFileId: string) => {
+    const taggedIds = [
+      ...(Array.isArray(request.mediaIds) ? request.mediaIds : []),
+      ...(request.mediaId ? [request.mediaId] : []),
+      ...(Array.isArray(request.mediaFiles) ? request.mediaFiles.map((file) => file.id) : []),
+    ]
+      .filter(Boolean)
+      .map((id) => String(id));
+
+    const uniqueTaggedIds = Array.from(new Set(taggedIds));
+    const matchedFiles = uniqueTaggedIds
+      .map((id) => shootFilesById.get(id))
+      .filter((file): file is MediaFile => Boolean(file));
+
+    if (matchedFiles.length === 0) {
+      toast({
+        title: 'Preview unavailable',
+        description: 'We could not load this tagged photo in the media viewer.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const nextIndex = matchedFiles.findIndex((file) => file.id === String(mediaFileId));
+    setViewerFiles(matchedFiles);
+    setViewerIndex(nextIndex >= 0 ? nextIndex : 0);
+    setViewerOpen(true);
   };
 
   return (
@@ -305,24 +363,31 @@ export function ShootDetailsIssuesTab({
                   </div>
                   {/* Admin: Assign to photographer or editor */}
                   {isAdmin && request.status !== 'resolved' && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="sm" className="gap-1.5">
-                          <UserCog className="h-3.5 w-3.5" />
-                          Assign
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleAssignRequest(request.id, 'photographer')}>
-                          <Camera className="h-4 w-4 mr-2" />
-                          Assign to Photographer
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleAssignRequest(request.id, 'editor')}>
-                          <Paintbrush className="h-4 w-4 mr-2" />
-                          Assign to Editor
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    request.assignedToRole ? (
+                      <Button variant="outline" size="sm" className="gap-1.5" disabled>
+                        <UserCog className="h-3.5 w-3.5" />
+                        Assigned
+                      </Button>
+                    ) : (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="sm" className="gap-1.5">
+                            <UserCog className="h-3.5 w-3.5" />
+                            Assign
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleAssignRequest(request.id, 'photographer')}>
+                            <Camera className="h-4 w-4 mr-2" />
+                            Assign to Photographer
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleAssignRequest(request.id, 'editor')}>
+                            <Paintbrush className="h-4 w-4 mr-2" />
+                            Assign to Editor
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )
                   )}
                 </div>
               </CardHeader>
@@ -342,10 +407,7 @@ export function ShootDetailsIssuesTab({
                           className="relative aspect-square rounded-lg overflow-hidden border border-border bg-muted group cursor-pointer hover:border-primary transition-colors"
                           title={mediaFile.filename}
                           onClick={() => {
-                            // Open image in new tab if URL is available
-                            if (mediaFile.url) {
-                              window.open(mediaFile.url, '_blank');
-                            }
+                            openTaggedMediaViewer(request, mediaFile.id);
                           }}
                         >
                           {mediaFile.thumbnail || mediaFile.url ? (
@@ -406,6 +468,21 @@ export function ShootDetailsIssuesTab({
         isEditor={isEditor}
         isClient={isClient}
         onIssueUpdate={handleRequestUpdate}
+      />
+
+      <MediaViewer
+        isOpen={viewerOpen}
+        onClose={() => setViewerOpen(false)}
+        files={viewerFiles}
+        currentIndex={viewerIndex}
+        onIndexChange={setViewerIndex}
+        getImageUrl={getMediaImageUrl}
+        getSrcSet={getMediaSrcSet}
+        shoot={shoot}
+        isAdmin={isAdmin}
+        isClient={isClient}
+        canInteractSingleMedia={false}
+        onShootUpdate={onShootUpdate}
       />
     </div>
   );

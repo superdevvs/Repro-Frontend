@@ -7,9 +7,6 @@ import API_ROUTES from '@/lib/api'
 import { downloadShootMediaArchive } from '@/utils/shootMediaDownload'
 import {
   buildBrightMlsPublishPayloadWithFallback,
-  closePendingBrightMlsWindow,
-  navigateBrightMlsWindow,
-  openPendingBrightMlsWindow,
 } from '@/utils/brightMls'
 import {
   deriveFilterOptionsFromShoots,
@@ -971,8 +968,6 @@ export function useShootHistoryData({
         return
       }
 
-      let pendingWindow: Window | null = null
-
       try {
         const shoot = await loadShootById(record.id, { quiet: true })
         if (!shoot) {
@@ -989,23 +984,15 @@ export function useShootHistoryData({
           throw new Error('No images found to send. Please ensure the shoot has completed images.')
         }
 
-        pendingWindow = openPendingBrightMlsWindow()
-
         const response = await apiClient.post(API_ROUTES.integrations.brightMls.publish(record.id), payload)
 
         if (response.data.success) {
           const redirectUrl = response.data.data?.redirect_url || response.data.redirect_url
-          const openedInBrowser = navigateBrightMlsWindow(pendingWindow, redirectUrl)
-          if (!openedInBrowser) {
-            closePendingBrightMlsWindow(pendingWindow)
-            setBrightMlsRedirectUrl(redirectUrl || null)
-          }
+          setBrightMlsRedirectUrl(redirectUrl || null)
 
           toast({
             title: 'Manifest Sent',
-            description: openedInBrowser
-              ? 'Bright MLS opened in a new tab. Complete the import there.'
-              : 'Complete the import by opening Bright MLS from the dialog.',
+            description: 'Bright MLS opened in the in-app popup. Complete the import there.',
           })
 
           await fetchHistoryData()
@@ -1013,7 +1000,6 @@ export function useShootHistoryData({
           throw new Error(response.data.message || 'Publishing failed')
         }
       } catch (error: any) {
-        closePendingBrightMlsWindow(pendingWindow)
         toast({
           title: 'Publish failed',
           description:

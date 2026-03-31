@@ -259,6 +259,8 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
                           <Input
                             placeholder="Email"
                             {...field}
+                            type="email"
+                            autoComplete="username"
                             className={inputClass}
                           />
                         </FormControl>
@@ -279,6 +281,7 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
                               type={loginShowPassword ? 'text' : 'password'}
                               placeholder="Password"
                               {...field}
+                              autoComplete="current-password"
                               className={`${inputClass} pr-10`}
                             />
                           </FormControl>
@@ -459,4 +462,3 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
 
   );
 }
-
