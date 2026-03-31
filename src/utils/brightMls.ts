@@ -130,6 +130,25 @@ const formatTourLabel = (key: string): string =>
     .trim()
     .replace(/\b\w/g, (match) => match.toUpperCase())
 
+const getEmbedTourUrls = (rawTourLinks: LooseRecord): Record<string, string> => {
+  const rawEmbeds = Array.isArray(rawTourLinks.embeds) ? rawTourLinks.embeds : []
+
+  return rawEmbeds.reduce<Record<string, string>>((acc, entry, index) => {
+    const embed = asRecord(entry)
+    const candidate = normalizeString(
+      embed.mls || embed.mls_embed || embed.url || embed.branded || embed.branded_embed,
+    )
+
+    if (!/^https?:\/\//i.test(candidate)) {
+      return acc
+    }
+
+    const title = normalizeString(embed.title) || `Embed ${index + 1}`
+    acc[title] = candidate
+    return acc
+  }, {})
+}
+
 const getSortOrder = (file: Partial<ShootFileData> & LooseRecord, index: number): number => {
   const sortOrder = Number(file.sort_order)
   if (Number.isFinite(sortOrder)) {
@@ -250,6 +269,9 @@ export const buildBrightMlsPublishPayload = (
         'matterport_mls',
         'matterport_branded',
         'matterport',
+        'mls',
+        'generic_mls',
+        'genericMls',
         'slideshow',
         'slideshow_url',
         'neo_tour',
@@ -257,7 +279,10 @@ export const buildBrightMlsPublishPayload = (
         'video_mls',
         'video_generic',
         'video_link',
+        'video_branded',
         'embeds',
+        'featured_embed_id',
+        'featured_embed',
         'tour_style',
       ].includes(key)
     ) {
@@ -271,12 +296,25 @@ export const buildBrightMlsPublishPayload = (
 
     acc[formatTourLabel(key)] = candidate
     return acc
-  }, {})
+  }, getEmbedTourUrls(rawTourLinks))
 
   return {
     photos,
     iguide_tour_url: firstUrl(shoot.iguide_tour_url, shoot.iguideTourUrl, getPreferredIguideUrl(shoot)),
-    slideshow_url: firstUrl(rawTourLinks.slideshow, rawTourLinks.slideshow_url, rawTourLinks.neo_tour, rawTourLinks.neotour, rawTourLinks.video_mls, rawTourLinks.video_generic, rawTourLinks.video_link),
+    slideshow_url: firstUrl(
+      rawTourLinks.slideshow,
+      rawTourLinks.slideshow_url,
+      rawTourLinks.neo_tour,
+      rawTourLinks.neotour,
+      rawTourLinks.video_mls,
+      rawTourLinks.video_generic,
+      rawTourLinks.video_link,
+      rawTourLinks.video_branded,
+      rawTourLinks.mls,
+      rawTourLinks.generic_mls,
+      rawTourLinks.genericMls,
+      shoot.mls_compliant_link,
+    ),
     matterport_url: firstUrl(rawTourLinks.matterport_mls, rawTourLinks.matterport_branded, rawTourLinks.matterport),
     cubicasa_url: firstUrl(rawTourLinks.cubicasa, rawTourLinks.cubicasa_url),
     additional_tour_urls,
@@ -350,12 +388,35 @@ export const buildBrightMlsPublishPayloadWithFallback = async (
   )
 }
 
+const BRIGHT_MLS_POPUP_NAME = 'bright-mls-import'
+const BRIGHT_MLS_POPUP_FEATURES = [
+  'popup=yes',
+  'width=1280',
+  'height=900',
+  'left=120',
+  'top=80',
+  'resizable=yes',
+  'scrollbars=yes',
+  'toolbar=no',
+  'menubar=no',
+  'location=yes',
+  'status=no',
+].join(',')
+
+const openBrightMlsPopup = (url: string): Window | null => {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  return window.open(url, BRIGHT_MLS_POPUP_NAME, BRIGHT_MLS_POPUP_FEATURES)
+}
+
 export const openPendingBrightMlsWindow = (): Window | null => {
   if (typeof window === 'undefined') {
     return null
   }
 
-  const popup = window.open('', '_blank')
+  const popup = openBrightMlsPopup('about:blank')
   if (!popup) {
     return null
   }
@@ -389,7 +450,7 @@ export const navigateBrightMlsWindow = (popup: Window | null, redirectUrl: strin
     return false
   }
 
-  return Boolean(window.open(targetUrl, '_blank'))
+  return Boolean(openBrightMlsPopup(targetUrl))
 }
 
 export const closePendingBrightMlsWindow = (popup: Window | null) => {

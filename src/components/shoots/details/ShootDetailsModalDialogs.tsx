@@ -502,16 +502,24 @@ export function ShootDetailsModalDialogs({
           <DialogHeader>
             <DialogTitle className="text-base">Bright MLS Import</DialogTitle>
             <DialogDescription>
-              Bright MLS needs to finish the import in a separate browser tab.
+              Bright MLS needs to finish the import in a separate popup window.
             </DialogDescription>
           </DialogHeader>
           {brightMlsRedirectUrl && (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Use the button below to open Bright MLS and complete the login/import flow.
+                Use the button below to reopen the Bright MLS popup and complete the login/import flow.
               </p>
               <div className="flex justify-end">
-                <Button onClick={() => window.open(brightMlsRedirectUrl, '_blank')}>
+                <Button
+                  onClick={() =>
+                    window.open(
+                      brightMlsRedirectUrl,
+                      'bright-mls-import',
+                      'popup=yes,width=1280,height=900,left=120,top=80,resizable=yes,scrollbars=yes,toolbar=no,menubar=no,location=yes,status=no',
+                    )
+                  }
+                >
                   Open Bright MLS
                 </Button>
               </div>

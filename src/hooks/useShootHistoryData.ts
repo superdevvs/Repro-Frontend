@@ -1025,8 +1025,6 @@ export function useShootHistoryData({
     [fetchHistoryData, loadShootById, toast],
   )
 
-  useEffect(() => registerShootHistoryRefresh(refreshActiveTabData), [refreshActiveTabData])
-
   const mapAddresses = useMemo(() => {
     if (activeTab === 'history') {
       if (historyFilters.viewAs !== 'map' || historyFilters.groupBy === 'services') return []

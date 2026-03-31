@@ -133,7 +133,7 @@ const MlsPublishingQueue = () => {
         toast({
           title: "Republished",
           description: openedInBrowser
-            ? "Bright MLS opened in a new tab. Complete the import there."
+            ? "Bright MLS opened in a popup window. Complete the import there."
             : "Media manifest has been republished successfully.",
         });
         loadQueue();

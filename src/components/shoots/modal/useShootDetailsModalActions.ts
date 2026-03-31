@@ -92,7 +92,7 @@ export function useShootDetailsModalActions({
       toast({
         title: 'Manifest Sent',
         description: openedInBrowser
-          ? 'Bright MLS opened in a new tab. Complete the import there.'
+          ? 'Bright MLS opened in a popup window. Complete the import there.'
           : 'Complete the import by opening Bright MLS from the dialog.',
       });
 

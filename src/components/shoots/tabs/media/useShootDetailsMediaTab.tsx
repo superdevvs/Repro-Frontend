@@ -427,6 +427,11 @@ export function useShootDetailsMediaTab({
       return;
     }
 
+    const currentFingerprint = manualOrder.join(',');
+    if (!hasPendingManualOrder.current && currentFingerprint === lastSortFingerprint.current) {
+      return;
+    }
+
     if (isRestoringOrder.current) {
       isRestoringOrder.current = false;
       return;

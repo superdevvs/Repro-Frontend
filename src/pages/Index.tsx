@@ -26,6 +26,8 @@ const LOGIN_SLIDES = [
 
 const LOGIN_PANEL_GRADIENT =
   'linear-gradient(to bottom, rgba(6,10,14,0) 0%, rgba(6,10,14,0.14) 24%, rgba(6,10,14,0.48) 52%, rgba(6,10,14,0.84) 76%, rgba(6,10,14,0.98) 100%)';
+const DESKTOP_LOGIN_CARD_GRADIENT =
+  'linear-gradient(to top, rgba(27,149,255,0.26) 0%, rgba(20,109,255,0.17) 18%, rgba(8,26,48,0.06) 38%, rgba(6,10,14,0) 58%)';
 
 const Index = () => {
   const isMobile = useIsMobile();
@@ -262,14 +264,6 @@ const Index = () => {
             />
           </AnimatePresence>
 
-          <motion.div
-            className="pointer-events-none absolute inset-0"
-            initial={false}
-            animate={{ opacity: desktopGradientVisible ? 1 : 0 }}
-            transition={{ duration: 1.35, ease: [0.22, 1, 0.36, 1] }}
-            style={{ background: LOGIN_PANEL_GRADIENT }}
-          />
-
           {/* Text content */}
           <div className="absolute text-white drop-shadow-lg z-10 pointer-events-none bottom-10 left-10 right-10 text-left">
             <p className="text-3xl md:text-4xl font-semibold leading-tight whitespace-normal">
@@ -283,13 +277,22 @@ const Index = () => {
 
       {/* Right Side - Login Section */}
       <motion.div
-        className="w-1/2 flex items-center justify-center p-8 relative"
+        className="w-1/2 p-4"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.05 }}
       >
-        <div className="w-full max-w-md">
-          <LoginForm />
+        <div className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-3xl bg-[#05080d] px-8 py-10 xl:px-12">
+          <motion.div
+            className="pointer-events-none absolute inset-0"
+            initial={false}
+            animate={{ opacity: desktopGradientVisible ? 1 : 0 }}
+            transition={{ duration: 1.35, ease: [0.22, 1, 0.36, 1] }}
+            style={{ background: DESKTOP_LOGIN_CARD_GRADIENT }}
+          />
+          <div className="relative z-10 w-full max-w-md">
+            <LoginForm />
+          </div>
         </div>
       </motion.div>
     </div>

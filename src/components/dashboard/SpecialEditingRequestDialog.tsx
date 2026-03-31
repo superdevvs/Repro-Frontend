@@ -22,6 +22,7 @@ interface SpecialEditingRequestDialogProps {
   selectedRequestId?: number | null;
   onUpdate?: (id: number, payload: EditingRequestUpdatePayload) => Promise<void>;
   onDelete?: (id: number) => Promise<void>;
+  onOpenShoot?: (request: EditingRequest) => void | Promise<void>;
 }
 
 const DEFAULT_FORM = {
@@ -59,6 +60,7 @@ export const SpecialEditingRequestDialog: React.FC<SpecialEditingRequestDialogPr
   selectedRequestId,
   onUpdate,
   onDelete,
+  onOpenShoot,
 }) => {
   const { toast } = useToast();
   const [form, setForm] = useState(DEFAULT_FORM);
@@ -317,11 +319,13 @@ export const SpecialEditingRequestDialog: React.FC<SpecialEditingRequestDialogPr
                         </div>
                         {request.shoot_id && (
                           <Button
-                            variant="ghost"
+                            variant="outline"
                             size="sm"
-                            onClick={() => window.open(`/shoots/${request.shoot_id}`, '_blank')}
+                            className="gap-2"
+                            onClick={() => void onOpenShoot?.(request)}
                           >
                             <ExternalLink className="h-4 w-4" />
+                            <span>Open shoot</span>
                           </Button>
                         )}
                       </div>

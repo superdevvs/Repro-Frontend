@@ -78,6 +78,7 @@ import {
   DashboardCancellationItem,
 } from "@/types/dashboard";
 import { useToast } from "@/hooks/use-toast";
+import { EditingRequest } from "@/services/editingRequestService";
 import type { ShootData } from "@/types/shoots";
 import { fetchAvailablePhotographers } from "@/services/dashboardService";
 import { API_BASE_URL } from "@/config/env";
@@ -554,38 +555,51 @@ const Dashboard = () => {
   // Fetch client requests for admin dashboard
   const [clientRequests, setClientRequests] = useState<DashboardClientRequest[]>([]);
   const [clientRequestsLoading, setClientRequestsLoading] = useState(false);
-  
-  useEffect(() => {
+
+  const fetchClientRequests = useCallback(async () => {
     if (!canViewAdminDashboard) return;
-    
-    const fetchClientRequests = async () => {
-      setClientRequestsLoading(true);
-      try {
-        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-        const res = await fetch(`${API_BASE_URL}/api/client-requests`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json',
-          },
-        });
-        
-        if (res.ok) {
-          const json = await res.json();
-          const data = Array.isArray(json.data) ? json.data : [];
-          setClientRequests(data as DashboardClientRequest[]);
-        } else {
-          setClientRequests([]);
-        }
-      } catch (error) {
-        console.error('Error fetching client requests:', error);
+
+    setClientRequestsLoading(true);
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/api/client-requests`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+        },
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        const data = Array.isArray(json.data) ? json.data : [];
+        setClientRequests(data as DashboardClientRequest[]);
+      } else {
         setClientRequests([]);
-      } finally {
-        setClientRequestsLoading(false);
       }
-    };
-    
-    fetchClientRequests();
+    } catch (error) {
+      console.error('Error fetching client requests:', error);
+      setClientRequests([]);
+    } finally {
+      setClientRequestsLoading(false);
+    }
   }, [canViewAdminDashboard]);
+
+  useEffect(() => {
+    void fetchClientRequests();
+  }, [fetchClientRequests]);
+
+  useEffect(() => {
+    if (!canViewAdminDashboard || typeof window === 'undefined') return;
+
+    const handleShootRequestCreated = () => {
+      void fetchClientRequests();
+    };
+
+    window.addEventListener('shoot-request-created', handleShootRequestCreated);
+    return () => {
+      window.removeEventListener('shoot-request-created', handleShootRequestCreated);
+    };
+  }, [canViewAdminDashboard, fetchClientRequests]);
 
   const removeDeletedClientRequest = useCallback((requestId: string | number) => {
     const normalizedRequestId = String(requestId);
@@ -672,6 +686,98 @@ const Dashboard = () => {
       }
     },
     [removeDeletedClientRequest, session?.accessToken, shoots, summaryMap, toast],
+  );
+
+  const openShootOverviewFromEditingRequest = useCallback(
+    async (request: EditingRequest) => {
+      const requestShootId = request.shoot_id ?? request.shoot?.id;
+      if (!requestShootId) {
+        toast({
+          title: 'Shoot unavailable',
+          description: 'This request is not linked to a shoot.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const normalizedShootId = String(requestShootId);
+      const existingSummary = summaryMap.get(normalizedShootId);
+      if (existingSummary) {
+        setShootModalInitialTab('overview');
+        setSelectedShoot(existingSummary);
+        setSelectedShootWeather(null);
+        return;
+      }
+
+      const sourceShoot = shoots.find((shoot) => String(shoot.id) === normalizedShootId);
+      if (sourceShoot) {
+        setShootModalInitialTab('overview');
+        setSelectedShoot(shootDataToSummary(sourceShoot));
+        setSelectedShootWeather(null);
+        return;
+      }
+
+      const token =
+        session?.accessToken ||
+        localStorage.getItem('authToken') ||
+        localStorage.getItem('token');
+
+      if (!token) {
+        toast({
+          title: 'Unable to open shoot',
+          description: 'Missing auth session. Please refresh and try again.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/shoots/${normalizedShootId}`, {
+          headers: {
+            Accept: 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (response.status === 404) {
+          toast({
+            title: 'Shoot unavailable',
+            description: 'This shoot no longer exists.',
+            variant: 'destructive',
+          });
+          return;
+        }
+
+        const json = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(json?.message || 'Failed to load shoot details');
+        }
+
+        const shootData = json?.data as ShootData | undefined;
+        if (!shootData) {
+          toast({
+            title: 'Shoot unavailable',
+            description: 'We could not load this shoot right now.',
+            variant: 'destructive',
+          });
+          return;
+        }
+
+        setShootModalInitialTab('overview');
+        setSelectedShoot(shootDataToSummary(shootData));
+        setSelectedShootWeather(null);
+      } catch (openShootError) {
+        toast({
+          title: 'Unable to open shoot',
+          description:
+            openShootError instanceof Error
+              ? openShootError.message
+              : 'We could not load this shoot right now.',
+          variant: 'destructive',
+        });
+      }
+    },
+    [session?.accessToken, shoots, summaryMap, toast],
   );
 
   useEffect(() => {
@@ -2326,6 +2432,7 @@ const Dashboard = () => {
           selectedRequestId={selectedRequestId}
           onUpdate={updateEditingRequest}
           onDelete={isAdminExperience ? removeEditingRequest : undefined}
+          onOpenShoot={openShootOverviewFromEditingRequest}
         />
       </Suspense>
 

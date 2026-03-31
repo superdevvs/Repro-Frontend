@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { API_BASE_URL } from '@/config/env';
@@ -11,6 +10,11 @@ import { useToast } from '@/hooks/use-toast';
 import { type ShootData } from '@/types/shoots';
 import { type MediaFile } from '@/hooks/useShootFiles';
 import { isRawFile } from '@/services/rawPreviewService';
+import {
+  triggerDashboardOverviewRefresh,
+  triggerEditingRequestsRefresh,
+  triggerShootDetailRefresh,
+} from '@/realtime/realtimeRefreshBus';
 import { blurActiveElement } from '../../dialogFocusUtils';
 import { AlertCircle, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Download, Eye, EyeOff, FileIcon, Heart, Play, X } from 'lucide-react';
 // Media Viewer Component
@@ -139,7 +143,7 @@ export function MediaViewer({
     return /\.(mp4|mov|avi|mkv|wmv|webm)$/.test(name);
   };
   const [zoom, setZoom] = useState(1);
-  const [showFlagDialog, setShowFlagDialog] = useState(false);
+  const [showRequestComposer, setShowRequestComposer] = useState(false);
   const [flagReason, setFlagReason] = useState('');
   const [flagging, setFlagging] = useState(false);
   const [commentDraft, setCommentDraft] = useState('');
@@ -193,6 +197,8 @@ export function MediaViewer({
   useEffect(() => {
     setCommentDraft('');
     setShowFileDetails(false);
+    setShowRequestComposer(false);
+    setFlagReason('');
   }, [currentFile?.id]);
 
   useEffect(() => {
@@ -267,10 +273,23 @@ export function MediaViewer({
         title: 'Success',
         description: 'Request created successfully. It will appear in the Requests tab.',
       });
-      setShowFlagDialog(false);
+      setShowRequestComposer(false);
       setFlagReason('');
       setRequestRefreshKey((current) => current + 1);
       onShootUpdate?.();
+      triggerEditingRequestsRefresh();
+      triggerDashboardOverviewRefresh();
+      triggerShootDetailRefresh(shoot.id);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('shoot-request-created', {
+            detail: {
+              shootId: String(shoot.id),
+              mediaId: String(currentFile.id),
+            },
+          }),
+        );
+      }
     } catch (error) {
       toast({
         title: 'Error',
@@ -689,19 +708,57 @@ export function MediaViewer({
                           {currentFile.is_hidden ? 'Unhide image' : 'Hide image'}
                         </Button>
                       )}
-                      {/* Flag Image Button (Admin only) */}
+                      {/* Inline modification request composer */}
                       {isAdmin && isImg && shoot && (
-                        <Button
-                          variant="destructive"
-                          className="justify-start"
-                          onClick={() => {
-                            blurActiveElement();
-                            setShowFlagDialog(true);
-                          }}
-                        >
-                          <AlertCircle className="mr-2 h-4 w-4" />
-                          Request modification
-                        </Button>
+                        <div className="sm:col-span-2 space-y-2">
+                          <Button
+                            variant="destructive"
+                            className="justify-start"
+                            onClick={() => {
+                              blurActiveElement();
+                              setShowRequestComposer((current) => !current);
+                            }}
+                          >
+                            <AlertCircle className="mr-2 h-4 w-4" />
+                            Request modification
+                          </Button>
+                          {showRequestComposer && (
+                            <div className="rounded-xl border border-rose-500/25 bg-rose-500/10 p-3">
+                              <p className="text-sm font-medium text-white">Create request</p>
+                              <p className="mt-1 text-xs text-white/65">
+                                Add the correction note here. It will appear in this shoot&apos;s Requests tab and in request dashboards for the relevant roles.
+                              </p>
+                              <Textarea
+                                value={flagReason}
+                                onChange={(event) => setFlagReason(event.target.value)}
+                                placeholder="Describe what needs to be corrected..."
+                                className="mt-3 min-h-[96px] resize-none border-white/10 bg-black/30 text-white placeholder:text-white/45"
+                              />
+                              <div className="mt-3 flex items-center justify-end gap-2">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  className="text-white hover:bg-white/10 hover:text-white"
+                                  onClick={() => {
+                                    setShowRequestComposer(false);
+                                    setFlagReason('');
+                                  }}
+                                  disabled={flagging}
+                                >
+                                  Cancel
+                                </Button>
+                                <Button
+                                  type="button"
+                                  onClick={handleFlagImage}
+                                  disabled={!flagReason.trim() || flagging}
+                                  variant="destructive"
+                                >
+                                  {flagging ? 'Creating request...' : 'Create request'}
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
 
@@ -842,46 +899,6 @@ export function MediaViewer({
             </div>
           </div>
         </div>
-
-        {/* Flag Image Dialog */}
-        {isAdmin && shoot && (
-          <Dialog open={showFlagDialog} onOpenChange={setShowFlagDialog}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Request Image Modification</DialogTitle>
-                <DialogDescription>
-                  Create a request for this image. It will appear in the Requests tab for this shoot and be available for the editor to handle.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label>Request Description</Label>
-                  <Textarea
-                    value={flagReason}
-                    onChange={(e) => setFlagReason(e.target.value)}
-                    placeholder="Describe what needs to be corrected..."
-                    className="min-h-[100px]"
-                  />
-                </div>
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => {
-                    setShowFlagDialog(false);
-                    setFlagReason('');
-                  }}>
-                    Cancel
-                  </Button>
-                  <Button 
-                    onClick={handleFlagImage} 
-                    disabled={!flagReason.trim() || flagging}
-                    variant="destructive"
-                  >
-                    {flagging ? 'Creating request...' : 'Create request'}
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
-        )}
       </DialogContent>
     </Dialog>
   );
