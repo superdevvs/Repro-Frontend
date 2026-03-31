@@ -234,7 +234,7 @@ export const CompletedShootListRow = ({
                 {shoot.location.city}, {getStateFullName(shoot.location.state)} {shoot.location.zip}
               </p>
             </div>
-            <div className="flex flex-col items-start gap-1 text-xs text-muted-foreground flex-shrink-0 min-[1180px]:items-end min-[1180px]:text-sm">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground flex-shrink-0 min-[1180px]:justify-end min-[1180px]:gap-3 min-[1180px]:text-sm">
               <div className="flex items-center gap-2">
                 <CalendarIcon className="h-3.5 w-3.5 min-[1180px]:h-4 min-[1180px]:w-4" />
                 <span className="font-medium">{formatDisplayDateLocal(shoot.completedDate || shoot.scheduledDate)}</span>
@@ -246,9 +246,14 @@ export const CompletedShootListRow = ({
                 </div>
               )}
               {isSuperAdmin && (
-                <Badge variant={isPaid ? 'secondary' : 'destructive'} className="text-xs mt-1">
+                <Badge variant={isPaid ? 'secondary' : 'destructive'} className="text-xs">
                   {isPaid ? 'Paid' : 'Unpaid'}
                 </Badge>
+              )}
+              {isSuperAdmin && !isPaid && (
+                <div onClick={(e) => e.stopPropagation()}>
+                  <PaymentButton shoot={shoot} onViewInvoice={onViewInvoice} />
+                </div>
               )}
             </div>
             </div>
@@ -314,11 +319,6 @@ export const CompletedShootListRow = ({
                 )}
               </div>
               <div className="flex flex-wrap items-center gap-1.5 min-[1180px]:justify-end">
-                {isSuperAdmin && !isPaid && (
-                  <div onClick={(e) => e.stopPropagation()}>
-                    <PaymentButton shoot={shoot} onViewInvoice={onViewInvoice} />
-                  </div>
-                )}
                 {canSendToEditing && (
                   <Button
                     size="sm"
