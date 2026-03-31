@@ -7,6 +7,9 @@ import API_ROUTES from '@/lib/api'
 import { downloadShootMediaArchive } from '@/utils/shootMediaDownload'
 import {
   buildBrightMlsPublishPayloadWithFallback,
+  closePendingBrightMlsWindow,
+  navigateBrightMlsWindow,
+  openPendingBrightMlsWindow,
 } from '@/utils/brightMls'
 import {
   deriveFilterOptionsFromShoots,
@@ -967,6 +970,7 @@ export function useShootHistoryData({
         })
         return
       }
+      let brightMlsPopup: Window | null = null
 
       try {
         const shoot = await loadShootById(record.id, { quiet: true })
@@ -975,6 +979,7 @@ export function useShootHistoryData({
         }
 
         setBrightMlsRedirectUrl(null)
+        brightMlsPopup = openPendingBrightMlsWindow()
         const token = localStorage.getItem('authToken') || localStorage.getItem('token')
         const payload = await buildBrightMlsPublishPayloadWithFallback(
           shoot as Partial<ShootData> & Record<string, unknown>,
@@ -988,11 +993,16 @@ export function useShootHistoryData({
 
         if (response.data.success) {
           const redirectUrl = response.data.data?.redirect_url || response.data.redirect_url
-          setBrightMlsRedirectUrl(redirectUrl || null)
+          const popupOpened = navigateBrightMlsWindow(brightMlsPopup, redirectUrl || null)
+          if (!popupOpened) {
+            throw new Error('Failed to open Bright MLS popup. Please allow popups and try again.')
+          }
+
+          setBrightMlsRedirectUrl(null)
 
           toast({
             title: 'Manifest Sent',
-            description: 'Bright MLS opened in the in-app popup. Complete the import there.',
+            description: 'Bright MLS opened in a popup window. Complete the import there.',
           })
 
           await fetchHistoryData()
@@ -1000,6 +1010,7 @@ export function useShootHistoryData({
           throw new Error(response.data.message || 'Publishing failed')
         }
       } catch (error: any) {
+        closePendingBrightMlsWindow(brightMlsPopup)
         toast({
           title: 'Publish failed',
           description:

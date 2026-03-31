@@ -9,6 +9,9 @@ import { apiClient } from '@/services/api';
 import API_ROUTES from '@/lib/api';
 import {
   buildBrightMlsPublishPayloadWithFallback,
+  closePendingBrightMlsWindow,
+  navigateBrightMlsWindow,
+  openPendingBrightMlsWindow,
 } from '@/utils/brightMls';
 import { BrightMlsImportDialog } from '@/components/integrations/BrightMlsImportDialog';
 import { 
@@ -112,8 +115,10 @@ export function ShootIntegrationsSection({ shoot, onRefresh }: ShootIntegrations
 
   const handlePublishToBrightMls = async () => {
     setPublishingBrightMls(true);
+    let brightMlsPopup: Window | null = null;
     try {
       setBrightMlsRedirectUrl(null);
+      brightMlsPopup = openPendingBrightMlsWindow();
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       const payload = await buildBrightMlsPublishPayloadWithFallback(
         shoot as unknown as Partial<ShootData> & Record<string, unknown>,
@@ -132,11 +137,16 @@ export function ShootIntegrationsSection({ shoot, onRefresh }: ShootIntegrations
 
       if (response.data.success) {
         const redirectUrl = response.data.data?.redirect_url || response.data.redirect_url;
-        setBrightMlsRedirectUrl(redirectUrl || null);
+        const popupOpened = navigateBrightMlsWindow(brightMlsPopup, redirectUrl || null);
+        if (!popupOpened) {
+          throw new Error('Failed to open Bright MLS popup. Please allow popups and try again.');
+        }
+
+        setBrightMlsRedirectUrl(null);
 
         toast({
           title: "Manifest Sent",
-          description: "Bright MLS opened in the in-app popup. Complete the import there.",
+          description: "Bright MLS opened in a popup window. Complete the import there.",
         });
         setBrightMlsDialogOpen(false);
         setSelectedPhotos(new Set());
@@ -145,6 +155,7 @@ export function ShootIntegrationsSection({ shoot, onRefresh }: ShootIntegrations
         throw new Error(response.data.message || 'Publishing failed');
       }
     } catch (error: any) {
+      closePendingBrightMlsWindow(brightMlsPopup);
       const errorData = error.response?.data;
       let description = errorData?.message || "Failed to publish to Bright MLS.";
       // Show detailed validation errors if available

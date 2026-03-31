@@ -70,7 +70,6 @@ import { useUserPreferences } from "@/contexts/UserPreferencesContext";
 import { useShoots } from "@/context/ShootsContext";
 import type { ShootData } from "@/types/shoots";
 
-import { PhotographerList } from "@/components/availability/PhotographerList";
 import { ShootDetailsModal } from "@/components/shoots/ShootDetailsModal";
 
 type Photographer = { id: string; name: string; avatar?: string };
@@ -1438,7 +1437,6 @@ export default function Availability() {
   const dayViewEndHour = 20;
   const dayViewHourCount = dayViewEndHour - dayViewStartHour;
   const dayViewTotalMinutes = (dayViewEndHour - dayViewStartHour) * 60;
-  const [hasInitializedMobileSelection, setHasInitializedMobileSelection] = useState(false);
 
   const renderViewModeButtons = (variant: "header" | "compact") => (
     <div
@@ -1469,28 +1467,6 @@ export default function Availability() {
       ))}
     </div>
   );
-
-  useEffect(() => {
-    if (
-      isMobile &&
-      selectedPhotographer === "all" &&
-      photographers.length > 0 &&
-      !hasInitializedMobileSelection
-    ) {
-      setSelectedPhotographer(photographers[0].id);
-      setHasInitializedMobileSelection(true);
-    }
-
-    if (!isMobile && hasInitializedMobileSelection) {
-      setHasInitializedMobileSelection(false);
-    }
-  }, [
-    isMobile,
-    selectedPhotographer,
-    photographers,
-    hasInitializedMobileSelection,
-    setSelectedPhotographer
-  ]);
 
   useEffect(() => {
     if (isMobile) {
@@ -1525,8 +1501,8 @@ export default function Availability() {
 
   return (
     <DashboardLayout className={cn("!min-h-0", !isMobile && "!overflow-hidden")}>
-      <div className={cn("flex-1 flex flex-col", isMobile ? "overflow-y-auto pb-6" : "min-h-0 overflow-hidden")}>
-        <div className={cn("flex-1 flex flex-col", isMobile ? "p-3 sm:p-4" : "h-full min-h-0 p-6 overflow-hidden")}>
+      <div className={cn("flex-1 flex flex-col min-h-0", isMobile ? "overflow-y-auto overscroll-y-contain pb-6 [touch-action:pan-y]" : "overflow-hidden")}>
+        <div className={cn("flex-1 flex flex-col min-h-0", isMobile ? "min-h-full p-3 sm:p-4" : "h-full p-6 overflow-hidden")}>
           {isMobile ? (
             <div className="flex items-center justify-between gap-2">
               <h1 className="text-lg font-bold truncate">
@@ -1822,7 +1798,7 @@ export default function Availability() {
             <Tabs
               value={mobileTab}
               onValueChange={(v) => setMobileTab(v as "calendar" | "details")}
-              className="flex flex-col gap-2"
+              className="flex min-h-0 flex-col gap-2"
             >
               <TabsList className="grid w-full grid-cols-2 rounded-xl bg-muted p-1 mb-1 flex-shrink-0">
                 <TabsTrigger value="calendar" className="rounded-lg text-xs data-[state=active]:bg-background data-[state=active]:shadow">
@@ -1833,7 +1809,7 @@ export default function Availability() {
                 </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="calendar" className="flex flex-col gap-2">
+              <TabsContent value="calendar" className="mt-0 flex flex-col gap-2 pb-4">
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <Select
@@ -1953,6 +1929,18 @@ export default function Availability() {
                     )}
                   </div>
                   <div className="flex items-center gap-1.5 overflow-x-auto [&::-webkit-scrollbar]:hidden -mx-1 px-1 py-0.5">
+                    <button
+                      onClick={() => {
+                        setSelectedPhotographer("all");
+                        setEditingWeeklySchedule(false);
+                      }}
+                      className={cn(
+                        "flex-shrink-0 rounded-full border border-border bg-muted/40 px-3 py-2 text-[11px] font-semibold transition-all",
+                        selectedPhotographer === "all" && "border-primary bg-primary/10 text-primary"
+                      )}
+                    >
+                      All
+                    </button>
                     {photographers.map((photographer) => {
                       const isActive = selectedPhotographer === photographer.id;
                       return (
@@ -1974,7 +1962,7 @@ export default function Availability() {
                   </div>
                 </div>
 
-                <Card className="p-2 flex flex-col border shadow-sm rounded-md">
+                <Card className="p-2 flex min-h-0 flex-col border shadow-sm rounded-md">
                   <div className="flex items-start justify-between mb-2 flex-shrink-0 gap-2">
                     <div className="min-w-0 flex-1">
                       <h2 className="text-xs sm:text-sm font-semibold mb-0.5 truncate">
@@ -2054,19 +2042,6 @@ export default function Availability() {
                   {/* Calendar content - shared between mobile and desktop */}
                   {(() => {
                     // Render calendar based on viewMode - this is the same content as desktop
-                    if (selectedPhotographer === "all" && viewMode !== "month") {
-                      return (
-                        <div className="flex flex-col">
-                          <div className="flex items-center justify-center py-8">
-                            <PhotographerList
-                              photographers={photographers}
-                              onSelect={(id) => setSelectedPhotographer(id)}
-                            />
-                          </div>
-                        </div>
-                      );
-                    }
-
                     return (
                       <div className="flex flex-col overflow-x-auto">
                         {viewMode === "month" ? (

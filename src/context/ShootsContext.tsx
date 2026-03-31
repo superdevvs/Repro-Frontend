@@ -771,8 +771,7 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       } else if (clientRole === 'client') {
         // For clients: fetch from multiple tabs to get all their shoots (scheduled, completed, delivered)
         const headers = buildFetchHeaders(token);
-        const deliveredPerPage = Math.max(perPage, 100);
-        const deliveredSince = format(addDays(new Date(), -30), 'yyyy-MM-dd');
+        const deliveredPerPage = Math.max(perPage, 250);
         const [scheduledResponse, completedResponse, deliveredResponse] = await Promise.all([
           fetch(`${API_BASE_URL}/api/shoots?tab=scheduled&page=${page}&per_page=${perPage}&include_files=${includeFiles ? 'true' : 'false'}`, {
             headers,
@@ -782,7 +781,7 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             headers,
             signal,
           }),
-          fetch(`${API_BASE_URL}/api/shoots?tab=delivered&page=1&per_page=${deliveredPerPage}&include_files=${includeFiles ? 'true' : 'false'}&date_from=${deliveredSince}`, {
+          fetch(`${API_BASE_URL}/api/shoots?tab=delivered&page=1&per_page=${deliveredPerPage}&include_files=${includeFiles ? 'true' : 'false'}`, {
             headers,
             signal,
           }),
