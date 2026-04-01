@@ -19,7 +19,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { usePermission } from '@/hooks/usePermission';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { createAccountLinks, fetchAccountLinks, fetchAvailableLinkingAccounts, unlinkAccountLink, updateAccountLink, type LinkingAccountOption } from '@/services/accountLinkingService';
+import { createAccountLinks, deleteAccountLink, fetchAccountLinks, fetchAvailableLinkingAccounts, unlinkAccountLink, updateAccountLink, type LinkingAccountOption } from '@/services/accountLinkingService';
 import type { AccountLinkRecord, SharedDetails } from '@/types/auth';
 
 const DEFAULT_SHARED_DETAILS: SharedDetails = {
@@ -71,6 +71,7 @@ export function AccountLinkingManager() {
   const [editNotes, setEditNotes] = useState('');
   const [editStatus, setEditStatus] = useState<AccountLinkRecord['status']>('active');
   const [unlinkTarget, setUnlinkTarget] = useState<AccountLinkRecord | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AccountLinkRecord | null>(null);
   const [saving, setSaving] = useState(false);
   const [loadingDirectory, setLoadingDirectory] = useState(false);
   const [directoryError, setDirectoryError] = useState<string | null>(null);
@@ -276,9 +277,30 @@ export function AccountLinkingManager() {
       const response = await unlinkAccountLink(unlinkTarget.id);
       await loadLinks(true);
       setUnlinkTarget(null);
+      if (editLink?.id === unlinkTarget.id) {
+        setEditLink(null);
+      }
       toast({ title: 'Relationship removed', description: response.message });
     } catch (err) {
       toast({ title: 'Unable to unlink account', description: err instanceof Error ? err.message : 'Please try again.', variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setSaving(true);
+    try {
+      const response = await deleteAccountLink(deleteTarget.id);
+      await loadLinks(true);
+      if (editLink?.id === deleteTarget.id) {
+        setEditLink(null);
+      }
+      setDeleteTarget(null);
+      toast({ title: 'Relationship deleted', description: response.message });
+    } catch (err) {
+      toast({ title: 'Unable to delete relationship', description: err instanceof Error ? err.message : 'Please try again.', variant: 'destructive' });
     } finally {
       setSaving(false);
     }
@@ -326,7 +348,15 @@ export function AccountLinkingManager() {
           {loading ? <div className="space-y-4"><Skeleton className="h-10 w-64" /><div className="grid gap-3 lg:grid-cols-3"><Skeleton className="h-24 rounded-2xl" /><Skeleton className="h-24 rounded-2xl" /><Skeleton className="h-24 rounded-2xl" /></div><Skeleton className="h-12 rounded-2xl" /><Skeleton className="h-32 rounded-3xl" /></div> : !selectedGroup ? <div className="flex min-h-[420px] flex-col items-center justify-center rounded-3xl border border-dashed text-center"><Link2 className="h-12 w-12 text-muted-foreground" /><h3 className="mt-4 text-lg font-semibold">Select an owner group</h3><p className="mt-2 max-w-md text-sm text-muted-foreground">Choose an owner from the list to inspect linked clients, update shared access, or reactivate relationships.</p></div> : <div className="space-y-6">
             <div className="border-b border-slate-200/80 pb-6 dark:border-slate-800">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                <div><p className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-slate-600 dark:bg-slate-900 dark:text-slate-300"><Building2 className="h-3.5 w-3.5" />Owner account</p><h3 className="mt-4 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">{selectedGroup.name}</h3><div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-muted-foreground"><span className="inline-flex items-center gap-1.5"><Mail className="h-4 w-4" />{selectedGroup.email}</span>{selectedGroup.role && <Badge variant="outline" className="rounded-full px-2.5 py-1 text-[11px] uppercase tracking-[0.18em]">{selectedGroup.role}</Badge>}</div></div>
+                <div>
+                  <h3 className="text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">{selectedGroup.name}</h3>
+                  <div className="mt-3 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Mail className="h-4 w-4" />
+                      {selectedGroup.email}
+                    </span>
+                  </div>
+                </div>
                 <Button onClick={() => openCreate({ ownerId: selectedGroup.id })} disabled={!canUpdate}><Plus className="mr-2 h-4 w-4" />Add clients</Button>
               </div>
               <div className="mt-5 grid gap-3 lg:grid-cols-3">{[['Relationships', selectedGroup.links.length, 'Total linked clients for this owner'], ['Active', selectedGroup.active, 'Clients currently sharing live data'], ['Attention', selectedGroup.attention, 'Inactive or suspended links']].map(([label, value, note], index) => <div key={String(label)} className={cn('rounded-2xl border p-4', index === 1 ? 'border-emerald-200/80 bg-emerald-50/70 dark:border-emerald-900/60 dark:bg-emerald-950/20' : index === 2 ? 'border-amber-200/80 bg-amber-50/70 dark:border-amber-900/60 dark:bg-amber-950/20' : 'border-slate-200/80 bg-slate-50/80 dark:border-slate-800 dark:bg-slate-900/60')}><p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">{label}</p><p className="mt-3 text-2xl font-semibold text-slate-900 dark:text-white">{value}</p><p className="mt-1 text-sm text-muted-foreground">{note}</p></div>)}</div>
@@ -335,7 +365,7 @@ export function AccountLinkingManager() {
             <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_300px]">
               <div className="space-y-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h4 className="text-base font-semibold">Linked clients</h4><p className="text-sm text-muted-foreground">Review status, notes, and shared access for each relationship.</p></div><div className="relative w-full sm:w-72"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input value={clientSearch} onChange={(e) => setClientSearch(e.target.value)} placeholder="Search linked clients" className="pl-9" /></div></div>
-                {visibleLinks.length === 0 ? <div className="rounded-3xl border border-dashed px-5 py-10 text-center"><Search className="mx-auto h-10 w-10 text-muted-foreground" /><p className="mt-4 text-sm font-medium">No client relationships match this search.</p></div> : <div className="space-y-3">{visibleLinks.map((link) => <div key={link.id} className={cn('rounded-3xl border p-4', link.status === 'active' ? 'border-slate-200/70 bg-slate-50/60 dark:border-slate-800 dark:bg-slate-900/50' : 'border-amber-200/70 bg-amber-50/60 dark:border-amber-900/60 dark:bg-amber-950/20')}><div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"><div><div className="flex flex-wrap items-center gap-3"><p className="text-lg font-semibold text-slate-900 dark:text-white">{link.accountName}</p><Badge className={cn('rounded-full border px-2.5 py-1 text-xs font-semibold', statusTone(link.status))}>{link.status}</Badge></div><div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-muted-foreground"><span className="inline-flex items-center gap-1.5"><Mail className="h-4 w-4" />{link.accountEmail}</span><span>Linked {relativeTime(link.linkedAt)}</span></div>{link.notes && <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">{link.notes}</p>}<div className="mt-3 flex flex-wrap gap-2">{SHARE_OPTIONS.filter((option) => link.sharedDetails[option.key]).map((option) => <Badge key={option.key} variant="outline" className="rounded-full px-3 py-1">{option.label}</Badge>)}</div></div><div className="flex flex-wrap gap-2">{link.status !== 'active' && <Button variant="outline" size="sm" onClick={() => openCreate({ ownerId: selectedGroup.id, clientIds: [link.accountId], sharedDetails: { ...link.sharedDetails }, notes: link.notes || '' })} disabled={!canUpdate}><RefreshCw className="mr-2 h-4 w-4" />Relink</Button>}<Button variant="outline" size="sm" onClick={() => handleEditOpen(link)} disabled={!canUpdate}><Settings2 className="mr-2 h-4 w-4" />Edit</Button>{link.status === 'active' && <Button variant="outline" size="sm" className="border-red-200 text-red-700 hover:bg-red-50 dark:border-red-900/60 dark:text-red-300 dark:hover:bg-red-950/30" onClick={() => setUnlinkTarget(link)} disabled={!canUpdate}><Trash2 className="mr-2 h-4 w-4" />Unlink</Button>}</div></div></div>)}</div>}
+                {visibleLinks.length === 0 ? <div className="rounded-3xl border border-dashed px-5 py-10 text-center"><Search className="mx-auto h-10 w-10 text-muted-foreground" /><p className="mt-4 text-sm font-medium">No client relationships match this search.</p></div> : <div className="space-y-3">{visibleLinks.map((link) => <div key={link.id} className={cn('rounded-3xl border p-4', link.status === 'active' ? 'border-slate-200/70 bg-slate-50/60 dark:border-slate-800 dark:bg-slate-900/50' : 'border-amber-200/70 bg-amber-50/60 dark:border-amber-900/60 dark:bg-amber-950/20')}><div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"><div><div className="flex flex-wrap items-center gap-3"><p className="text-lg font-semibold text-slate-900 dark:text-white">{link.accountName}</p><Badge className={cn('rounded-full border px-2.5 py-1 text-xs font-semibold', statusTone(link.status))}>{link.status}</Badge></div><div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-muted-foreground"><span className="inline-flex items-center gap-1.5"><Mail className="h-4 w-4" />{link.accountEmail}</span><span>Linked {relativeTime(link.linkedAt)}</span></div>{link.notes && <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">{link.notes}</p>}<div className="mt-3 flex flex-wrap gap-2">{SHARE_OPTIONS.filter((option) => link.sharedDetails[option.key]).map((option) => <Badge key={option.key} variant="outline" className="rounded-full px-3 py-1">{option.label}</Badge>)}</div></div><div className="flex flex-wrap gap-2">{link.status !== 'active' && <Button variant="outline" size="sm" onClick={() => openCreate({ ownerId: selectedGroup.id, clientIds: [link.accountId], sharedDetails: { ...link.sharedDetails }, notes: link.notes || '' })} disabled={!canUpdate}><RefreshCw className="mr-2 h-4 w-4" />Relink</Button>}<Button variant="outline" size="sm" onClick={() => handleEditOpen(link)} disabled={!canUpdate}><Settings2 className="mr-2 h-4 w-4" />Edit</Button><Button variant="outline" size="sm" className="border-amber-200 text-amber-700 hover:bg-amber-50 dark:border-amber-900/60 dark:text-amber-300 dark:hover:bg-amber-950/30" onClick={() => setUnlinkTarget(link)} disabled={!canUpdate}><Link2 className="mr-2 h-4 w-4" />Unlink</Button><Button variant="outline" size="sm" className="border-red-200 text-red-700 hover:bg-red-50 dark:border-red-900/60 dark:text-red-300 dark:hover:bg-red-950/30" onClick={() => setDeleteTarget(link)} disabled={!canUpdate}><Trash2 className="mr-2 h-4 w-4" />Delete</Button></div></div></div>)}</div>}
               </div>
 
               <div className="rounded-3xl border border-slate-200/70 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-900/50"><p className="text-sm font-semibold">Share coverage</p><p className="mt-1 text-sm text-muted-foreground">How many active clients receive each data category for this owner.</p><div className="mt-4 space-y-3">{shareCoverage.map((item) => { const Icon = item.icon; return <div key={item.key} className="flex items-center justify-between gap-3 rounded-2xl bg-white px-3 py-3 shadow-sm dark:bg-slate-950/70"><div className="flex items-center gap-3"><div className="rounded-xl bg-slate-100 p-2 text-slate-700 dark:bg-slate-900 dark:text-slate-300"><Icon className="h-4 w-4" /></div><div><p className="text-sm font-medium text-slate-900 dark:text-white">{item.label}</p><p className="text-xs text-muted-foreground">{item.description}</p></div></div><span className="text-sm font-semibold text-slate-900 dark:text-white">{item.count}</span></div>; })}</div></div>
@@ -838,6 +868,26 @@ export function AccountLinkingManager() {
                     </div>
 
                     <DialogFooter className="flex-col gap-2 space-x-0 rounded-3xl border border-slate-200/70 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950/80">
+                      <div className="grid w-full gap-2 sm:grid-cols-2">
+                        <Button
+                          variant="outline"
+                          className="w-full border-amber-200 text-amber-700 hover:bg-amber-50 dark:border-amber-900/60 dark:text-amber-300 dark:hover:bg-amber-950/30"
+                          onClick={() => setUnlinkTarget(editLink)}
+                          disabled={saving || !canUpdate}
+                        >
+                          <Link2 className="mr-2 h-4 w-4" />
+                          Unlink
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="w-full border-red-200 text-red-700 hover:bg-red-50 dark:border-red-900/60 dark:text-red-300 dark:hover:bg-red-950/30"
+                          onClick={() => setDeleteTarget(editLink)}
+                          disabled={saving || !canUpdate}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete
+                        </Button>
+                      </div>
                       <Button variant="outline" className="w-full" onClick={() => setEditLink(null)} disabled={saving}>
                         Cancel
                       </Button>
@@ -855,7 +905,11 @@ export function AccountLinkingManager() {
       </Dialog>
 
       <AlertDialog open={Boolean(unlinkTarget)} onOpenChange={(open) => !open && setUnlinkTarget(null)}>
-        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Unlink this client?</AlertDialogTitle><AlertDialogDescription>{unlinkTarget ? `${unlinkTarget.accountName} will move to inactive and stop sharing access with ${unlinkTarget.mainAccountName}.` : 'This relationship will be marked inactive.'}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={saving}>Cancel</AlertDialogCancel><AlertDialogAction className="bg-red-600 text-white hover:bg-red-700 focus:ring-red-600" onClick={(e) => { e.preventDefault(); void handleUnlink(); }} disabled={saving || !canUpdate}>{saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}Unlink account</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Unlink this client?</AlertDialogTitle><AlertDialogDescription>{unlinkTarget ? unlinkTarget.status === 'active' ? `${unlinkTarget.accountName} will move to inactive and stop sharing access with ${unlinkTarget.mainAccountName}, but the relationship history will stay available.` : `${unlinkTarget.accountName} is already ${unlinkTarget.status}. Unlinking will keep the relationship record but leave it inactive so it can still be reviewed or relinked later.` : 'This relationship will be marked inactive.'}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={saving}>Cancel</AlertDialogCancel><AlertDialogAction className="bg-amber-600 text-white hover:bg-amber-700 focus:ring-amber-600" onClick={(e) => { e.preventDefault(); void handleUnlink(); }} disabled={saving || !canUpdate}>{saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Link2 className="mr-2 h-4 w-4" />}Unlink account</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete this relationship permanently?</AlertDialogTitle><AlertDialogDescription>{deleteTarget ? `${deleteTarget.accountName} will be removed completely from ${deleteTarget.mainAccountName}'s linked clients. This cannot be undone.` : 'This relationship will be deleted permanently.'}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={saving}>Cancel</AlertDialogCancel><AlertDialogAction className="bg-red-600 text-white hover:bg-red-700 focus:ring-red-600" onClick={(e) => { e.preventDefault(); void handleDelete(); }} disabled={saving || !canUpdate}>{saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}Delete permanently</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
       </AlertDialog>
 
       <AlertDialog open={Boolean(crossOwnerConfirmation)} onOpenChange={(open) => !open && setCrossOwnerConfirmation(null)}>

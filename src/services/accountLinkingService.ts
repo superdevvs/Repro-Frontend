@@ -188,6 +188,15 @@ export async function unlinkAccountLink(linkId: string): Promise<{ link: Account
   return parseJson<{ link: AccountLinkRecord; message: string }>(response);
 }
 
+export async function deleteAccountLink(linkId: string): Promise<{ link: AccountLinkRecord; message: string }> {
+  const response = await fetch(`${API_BASE_URL}/api/admin/account-links/${linkId}/permanent`, {
+    method: 'DELETE',
+    headers: createHeaders(),
+  });
+
+  return parseJson<{ link: AccountLinkRecord; message: string }>(response);
+}
+
 export async function fetchLinkedSharedVisibility(signal?: AbortSignal): Promise<LinkedSharedVisibilityResponse> {
   const response = await fetch(`${API_BASE_URL}/api/account-links/has-linked`, {
     headers: createHeaders(),
