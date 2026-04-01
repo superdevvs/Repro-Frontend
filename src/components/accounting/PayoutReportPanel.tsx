@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { format, isValid, parseISO } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 import { useToast } from '@/hooks/use-toast';
@@ -78,6 +78,7 @@ export const PayoutReportPanel: React.FC<PayoutReportPanelProps> = ({ hideHeader
   const [downloading, setDownloading] = useState(false);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const currentYear = useMemo(() => new Date().getFullYear(), []);
 
   const loadReport = useCallback(async (start?: string, end?: string) => {
     try {
@@ -152,11 +153,11 @@ export const PayoutReportPanel: React.FC<PayoutReportPanelProps> = ({ hideHeader
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       {/* Header with Date Filters - Combined */}
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
         <div className="space-y-1">
-          <h2 className="text-lg font-semibold flex items-center gap-2">
+          <h2 className="text-base font-semibold sm:text-lg flex items-center gap-2">
             <DollarSign className="w-5 h-5" />
             Payout Report
           </h2>
@@ -167,7 +168,7 @@ export const PayoutReportPanel: React.FC<PayoutReportPanelProps> = ({ hideHeader
           )}
         </div>
         <div className="flex w-full flex-col gap-2 xl:w-auto">
-          <div className="grid grid-cols-1 gap-2 min-[520px]:grid-cols-[minmax(0,1fr)_auto] xl:min-w-[32rem]">
+          <div className="grid grid-cols-1 gap-2 min-[520px]:grid-cols-[minmax(0,1fr)_auto_auto] xl:min-w-[32rem]">
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" className="h-10 justify-start text-left font-normal">
@@ -179,11 +180,15 @@ export const PayoutReportPanel: React.FC<PayoutReportPanelProps> = ({ hideHeader
                 <Calendar
                   mode="range"
                   numberOfMonths={1}
+                  captionLayout="dropdown-buttons"
+                  fromYear={currentYear - 5}
+                  toYear={currentYear + 3}
                   selected={selectedRange}
                   onSelect={(range) => {
                     setStartDate(toFilterValue(range?.from));
                     setEndDate(toFilterValue(range?.to ?? range?.from));
                   }}
+                  className="p-2"
                   initialFocus
                 />
               </PopoverContent>
@@ -193,27 +198,24 @@ export const PayoutReportPanel: React.FC<PayoutReportPanelProps> = ({ hideHeader
               <CalendarIcon className="h-4 w-4" />
               Filter
             </Button>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 xl:justify-end">
             {(startDate || endDate) && (
-              <Button variant="ghost" size="sm" onClick={clearFilters} className="px-2">
+              <Button variant="ghost" className="h-10 px-3 justify-center" onClick={clearFilters}>
                 Clear
               </Button>
             )}
-            {!hideHeaderButtons && (
-              <>
-                <Button variant="outline" size="sm" onClick={() => loadReport()} disabled={loading}>
-                  <RefreshCw className="w-3 h-3 mr-1" />
-                  Refresh
-                </Button>
-                <Button size="sm" onClick={handleDownload} disabled={downloading}>
-                  {downloading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Download className="w-3 h-3 mr-1" />}
-                  Download CSV
-                </Button>
-              </>
-            )}
           </div>
+          {!hideHeaderButtons && (
+            <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+              <Button variant="outline" size="sm" onClick={() => loadReport()} disabled={loading}>
+                <RefreshCw className="w-3 h-3 mr-1" />
+                Refresh
+              </Button>
+              <Button size="sm" onClick={handleDownload} disabled={downloading}>
+                {downloading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Download className="w-3 h-3 mr-1" />}
+                Download CSV
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
