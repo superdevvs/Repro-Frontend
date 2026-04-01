@@ -31,11 +31,14 @@ const SHORTCODES: Shortcode[] = [
   { code: '{{shoot_notes}}', description: 'Internal notes or reminders', category: 'Shoot' },
   { code: '{{shoot_completed_date}}', description: 'Completion date', category: 'Shoot' },
   { code: '{{shoot_change_summary}}', description: 'Summary of modifications', category: 'Shoot' },
+  { code: '{{photographer_change_summary}}', description: 'Photographer reassignment summary', category: 'Shoot' },
   
   // Photographer
   { code: '{{photographer_first_name}}', description: 'Photographer first name', category: 'Photographer' },
   { code: '{{photographer_last_name}}', description: 'Photographer last name', category: 'Photographer' },
   { code: '{{photographer_name}}', description: 'Full photographer name', category: 'Photographer' },
+  { code: '{{previous_photographer_name}}', description: 'Previously assigned photographer', category: 'Photographer' },
+  { code: '{{new_photographer_name}}', description: 'Newly assigned photographer', category: 'Photographer' },
   
   // Payments & Billing
   { code: '{{payment_link}}', description: 'Hosted payment URL', category: 'Billing' },

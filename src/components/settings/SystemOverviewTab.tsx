@@ -91,14 +91,14 @@ const ICONS = {
   settings: Settings2,
 };
 
-const STORAGE_KEY = 'system-overview.flow.positions.v4';
+const STORAGE_KEY = 'system-overview.flow.positions.v5';
 const PAGE_NODE_WIDTH = 268;
 const CHILD_NODE_WIDTH = 220;
 const PAGE_GROUP_WIDTH = CHILD_NODE_WIDTH * 2 + 28;
 const PAGE_COLUMN_GAP = 56;
-const PAGE_DETAIL_GAP = 148;
-const PAGE_SECTION_GAP = 26;
-const STACK_STEP = 126;
+const PAGE_DETAIL_GAP = 164;
+const PAGE_SECTION_GAP = 38;
+const STACK_STEP = 138;
 const DOMAIN_ROW_GAP = 140;
 const DOMAIN_COLUMN_GAP = 140;
 const DOMAIN_COLUMNS = 2;

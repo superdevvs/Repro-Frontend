@@ -67,6 +67,13 @@ const variableHints: Record<string, string[]> = {
   ],
   SHOOT_BOOKED: ['{{shoot_address}}', '{{shoot_datetime}}', '{{client.name}}', '{{services}}'],
   SHOOT_UPDATED: ['{{shoot_address}}', '{{shoot_datetime}}', '{{changes.summary}}', '{{client.name}}'],
+  PHOTOGRAPHER_CHANGED: [
+    '{{shoot_address}}',
+    '{{shoot_datetime}}',
+    '{{previous_photographer_name}}',
+    '{{new_photographer_name}}',
+    '{{shoot_change_summary}}',
+  ],
   PAYMENT_FAILED: ['{{client.name}}', '{{invoice.total}}', '{{invoice.id}}'],
   WEEKLY_AUTOMATED_INVOICING: ['{{period_start}}', '{{period_end}}', '{{invoice_count}}'],
   WEEKLY_SALES_REPORT: ['{{period_start}}', '{{period_end}}', '{{sales_total}}'],

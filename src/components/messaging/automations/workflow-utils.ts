@@ -72,6 +72,7 @@ export const triggerLabels: Record<string, string> = {
   PHOTO_UPLOADED: 'Photo Uploaded',
   MEDIA_UPLOAD_COMPLETE: 'Media Upload Complete',
   PHOTOGRAPHER_ASSIGNED: 'Photographer Assigned',
+  PHOTOGRAPHER_CHANGED: 'Photographer Changed',
   EDITING_COMPLETE: 'Editing Complete',
   PROPERTY_CONTACT_REMINDER: 'Property Contact Reminder',
 };
@@ -95,7 +96,7 @@ export const triggerGroups = [
   },
   {
     label: 'Media & Operations',
-    triggers: ['PHOTO_UPLOADED', 'MEDIA_UPLOAD_COMPLETE', 'PHOTOGRAPHER_ASSIGNED', 'EDITING_COMPLETE', 'PROPERTY_CONTACT_REMINDER'],
+    triggers: ['PHOTO_UPLOADED', 'MEDIA_UPLOAD_COMPLETE', 'PHOTOGRAPHER_ASSIGNED', 'PHOTOGRAPHER_CHANGED', 'EDITING_COMPLETE', 'PROPERTY_CONTACT_REMINDER'],
   },
 ];
 
@@ -147,6 +148,7 @@ export const shootBasedTriggers = new Set<AutomationTriggerType>([
   'SHOOT_REMINDER',
   'SHOOT_COMPLETED',
   'PHOTOGRAPHER_ASSIGNED',
+  'PHOTOGRAPHER_CHANGED',
   'PROPERTY_CONTACT_REMINDER',
 ]);
 

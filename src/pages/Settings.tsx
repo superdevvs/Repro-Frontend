@@ -52,7 +52,6 @@ const Settings = () => {
   const canCreateCoupons = couponsPermission.canCreate();
   const canViewWatermark = permission.can('watermark-settings', 'view');
   const canViewRobbieSettings = permission.can('robbie-settings', 'view');
-  const canViewSystemOverview = role === 'superadmin' || permission.can('system-overview', 'view');
   const [systemOverviewUnlocked, setSystemOverviewUnlocked] = React.useState<boolean>(() => {
     if (typeof window === 'undefined') {
       return false;
@@ -60,7 +59,7 @@ const Settings = () => {
 
     return window.sessionStorage.getItem(SYSTEM_OVERVIEW_UNLOCK_STORAGE_KEY) === 'true';
   });
-  const [, setAccountTabTapCount] = React.useState(0);
+  const [accountTabTapCount, setAccountTabTapCount] = React.useState(0);
   const [searchParams, setSearchParams] = useSearchParams();
   // Use clientId from URL if present (for admin editing), otherwise use logged-in user's id
   const clientIdFromUrl = searchParams.get('clientId');
@@ -84,7 +83,7 @@ const Settings = () => {
   const [name, setName] = useState(user?.name || '');
   const [isSaving, setIsSaving] = useState(false);
   const [avatarDrawerOpen, setAvatarDrawerOpen] = useState(false);
-  const showSystemOverviewTab = canViewSystemOverview && systemOverviewUnlocked;
+  const showSystemOverviewTab = systemOverviewUnlocked;
 
   const availableTabs = React.useMemo<TabValue[]>(() => {
     // Hide branding tab for photographer, editor, and editing_manager roles
@@ -166,21 +165,37 @@ const Settings = () => {
     setSearchParams(nextParams, { replace: true });
   }, [availableTabs, searchParams, setSearchParams]);
 
-  React.useEffect(() => {
-    if (canViewSystemOverview) {
+  const unlockSystemOverview = React.useCallback(() => {
+    if (systemOverviewUnlocked) {
       return;
     }
 
-    setSystemOverviewUnlocked(false);
-    setAccountTabTapCount(0);
+    setSystemOverviewUnlocked(true);
 
     if (typeof window !== 'undefined') {
-      window.sessionStorage.removeItem(SYSTEM_OVERVIEW_UNLOCK_STORAGE_KEY);
+      window.sessionStorage.setItem(SYSTEM_OVERVIEW_UNLOCK_STORAGE_KEY, 'true');
     }
-  }, [canViewSystemOverview]);
+
+    toast({
+      title: 'System Overview unlocked',
+      description: 'The overview tab is now available in Settings for this session.',
+    });
+  }, [systemOverviewUnlocked, toast]);
+
+  React.useEffect(() => {
+    if (accountTabTapCount < SYSTEM_OVERVIEW_UNLOCK_CLICKS) {
+      return;
+    }
+
+    unlockSystemOverview();
+    setAccountTabTapCount(0);
+  }, [accountTabTapCount, unlockSystemOverview]);
 
   const handleTabChange = (value: string) => {
     const nextTab = getValidTab(value);
+    if (nextTab !== 'account') {
+      setAccountTabTapCount(0);
+    }
     setActiveTab(nextTab);
 
     const nextParams = new URLSearchParams(searchParams);
@@ -194,7 +209,7 @@ const Settings = () => {
   };
 
   const handleTabInteraction = React.useCallback((value: string) => {
-    if (!canViewSystemOverview || systemOverviewUnlocked) {
+    if (systemOverviewUnlocked) {
       return;
     }
 
@@ -204,26 +219,9 @@ const Settings = () => {
     }
 
     setAccountTabTapCount((current) => {
-      const nextCount = current + 1;
-
-      if (nextCount < SYSTEM_OVERVIEW_UNLOCK_CLICKS) {
-        return nextCount;
-      }
-
-      setSystemOverviewUnlocked(true);
-
-      if (typeof window !== 'undefined') {
-        window.sessionStorage.setItem(SYSTEM_OVERVIEW_UNLOCK_STORAGE_KEY, 'true');
-      }
-
-      toast({
-        title: 'System Overview unlocked',
-        description: 'The overview tab is now available in Settings for this session.',
-      });
-
-      return 0;
+      return current + 1;
     });
-  }, [canViewSystemOverview, systemOverviewUnlocked, toast]);
+  }, [systemOverviewUnlocked]);
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
