@@ -22,7 +22,9 @@ import {
   ChevronUp,
   Clock3,
   LayoutDashboard,
+  Maximize2,
   MessageSquareText,
+  Minimize2,
   Network,
   Plug,
   Route,
@@ -521,6 +523,7 @@ export function SystemOverviewTab() {
   const [expandedDomains, setExpandedDomains] = useState<string[]>([]);
   const [showEverything, setShowEverything] = useState(false);
   const [liveUsersCollapsed, setLiveUsersCollapsed] = useState(false);
+  const [isCanvasExpanded, setIsCanvasExpanded] = useState(false);
   const [timeMode, setTimeMode] = useState<'live' | 'history'>('live');
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null);
@@ -607,7 +610,13 @@ export function SystemOverviewTab() {
   const hasError = snapshotQuery.isError || historyQuery.isError || routesQuery.isError;
 
   useEffect(() => {
-    setNodes(flow.nodes);
+    setNodes((currentNodes) => {
+      const positionLookup = new Map(currentNodes.map((node) => [node.id, node.position]));
+      return flow.nodes.map((node) => {
+        const preservedPosition = positionLookup.get(node.id);
+        return preservedPosition ? { ...node, position: preservedPosition } : node;
+      });
+    });
     setEdges(flow.edges);
   }, [flow.edges, flow.nodes, setEdges, setNodes]);
 
@@ -668,6 +677,59 @@ export function SystemOverviewTab() {
       activeChannel?.unsubscribe?.();
     };
   }, [queryClient]);
+
+  const renderSystemMap = (heightClass: string, expandedView = false) => (
+    <div className={`overflow-hidden rounded-3xl border shadow-sm ${isDark ? 'border-white/10 bg-slate-950' : 'border-slate-200/80 bg-white'}`}>
+      <div className={`flex items-center justify-between border-b px-4 py-3 ${isDark ? 'border-slate-800 text-slate-200' : 'border-slate-200 text-slate-700'}`}>
+        <div>
+          <div className="text-sm font-semibold">System map</div>
+          <div className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+            Drag nodes or the canvas, then use the inspector for details instead of scanning everything at once.
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary" className={isDark ? 'bg-sky-500/15 text-sky-100' : 'bg-sky-100 text-sky-700'}>
+            {nodes.length} nodes
+          </Badge>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 rounded-full px-3 text-xs"
+            onClick={() => setIsCanvasExpanded((current) => !current)}
+          >
+            {expandedView ? <Minimize2 className="mr-1.5 h-3.5 w-3.5" /> : <Maximize2 className="mr-1.5 h-3.5 w-3.5" />}
+            {expandedView ? 'Exit full view' : 'Full view'}
+          </Button>
+        </div>
+      </div>
+      <div
+        className={`${heightClass} w-full ${
+          isDark
+            ? 'bg-[radial-gradient(circle_at_top_left,_rgba(56,189,248,0.10),_transparent_32%),radial-gradient(circle_at_bottom_right,_rgba(59,130,246,0.14),_transparent_28%),#020617]'
+            : 'bg-[radial-gradient(circle_at_top_left,_rgba(56,189,248,0.10),_transparent_32%),radial-gradient(circle_at_bottom_right,_rgba(148,163,184,0.18),_transparent_28%),#f8fafc]'
+        }`}
+      >
+        <ReactFlow
+          className="system-overview-flow"
+          nodes={nodes}
+          edges={edges}
+          nodeTypes={nodeTypes}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          fitView
+          fitViewOptions={{ padding: expandedView ? 0.08 : 0.14, maxZoom: expandedView ? 1.2 : 0.98 }}
+          proOptions={{ hideAttribution: true }}
+          nodesDraggable
+          onNodeClick={(_, node) => setSelectedNodeId(node.id)}
+          onNodeDragStop={(_, __, nextNodes) => saveNodePositions(nextNodes)}
+          defaultEdgeOptions={{ animated: false }}
+        >
+          <Background color={isDark ? '#1e293b' : '#cbd5e1'} gap={24} />
+          <Controls position="top-left" showInteractive={false} style={{}} />
+        </ReactFlow>
+      </div>
+    </div>
+  );
 
   if (isLoading) {
     return (
@@ -750,7 +812,7 @@ export function SystemOverviewTab() {
               : 'bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.12),_transparent_38%),linear-gradient(135deg,_rgba(248,250,252,0.98),_rgba(226,232,240,0.92))] text-slate-950'
           }`}
         >
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
             <div className="space-y-2">
               <div className={`flex items-center gap-2 ${isDark ? 'text-sky-200' : 'text-sky-700'}`}>
                 <Network className="h-4 w-4" />
@@ -761,7 +823,7 @@ export function SystemOverviewTab() {
                 A focused observability workspace for route health, live user presence, blockers, and recent traces without the previous control overload.
               </CardDescription>
             </div>
-            <div className="flex flex-wrap items-center gap-2 xl:flex-nowrap">
+            <div className="flex flex-wrap items-center justify-start gap-2 lg:justify-end lg:self-start xl:flex-nowrap">
               <Tabs value={timeMode} onValueChange={(value) => setTimeMode(value as 'live' | 'history')}>
                 <TabsList className={`h-12 ${isDark ? 'bg-white/10' : 'bg-slate-950/5'}`}>
                   <TabsTrigger value="live" className="px-4 text-sm whitespace-nowrap">
@@ -780,31 +842,33 @@ export function SystemOverviewTab() {
                 <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse" />
                 {snapshot?.stats.activeSessions ?? 0} live sessions
               </div>
-              <div
+              <button
+                type="button"
+                onClick={() => setIsCanvasExpanded(true)}
                 className={`flex items-center gap-2 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm ${
                   isDark ? 'border-white/20 bg-white/5 text-white' : 'border-slate-300 bg-white/70 text-slate-700'
                 }`}
               >
                 <ZoomIn className="h-3.5 w-3.5" />
                 <span>Canvas workspace</span>
-              </div>
+              </button>
             </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-6 p-4 sm:p-6">
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
             {[
               { label: 'Active Sessions', value: snapshot?.stats.activeSessions ?? 0, icon: Users },
               { label: 'Requests / min', value: snapshot?.stats.requestsPerMinute ?? 0, icon: Activity },
               { label: 'Errors 24h', value: snapshot?.stats.errorCount24h ?? 0, icon: AlertTriangle },
               { label: 'Slow Routes', value: snapshot?.stats.slowRouteCount ?? 0, icon: Clock3 },
-              { label: 'Integration Failures', value: snapshot?.stats.integrationFailures24h ?? 0, icon: Plug, emphasis: true },
+              { label: 'Integration Failures', value: snapshot?.stats.integrationFailures24h ?? 0, icon: Plug },
             ].map((stat) => (
               <motion.div
                 key={stat.label}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className={`rounded-3xl border p-4 shadow-sm ${stat.emphasis ? 'sm:col-span-2 xl:col-span-1' : ''} ${
+                className={`rounded-3xl border p-4 shadow-sm ${
                   isDark ? 'border-white/10 bg-slate-950/50' : 'border-slate-200/80 bg-white'
                 }`}
               >
@@ -907,52 +971,10 @@ export function SystemOverviewTab() {
           </Card>
 
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
-            <div className={`overflow-hidden rounded-3xl border shadow-sm ${isDark ? 'border-white/10 bg-slate-950' : 'border-slate-200/80 bg-white'}`}>
-              <div className={`flex items-center justify-between border-b px-4 py-3 ${isDark ? 'border-slate-800 text-slate-200' : 'border-slate-200 text-slate-700'}`}>
-                <div>
-                  <div className="text-sm font-semibold">System map</div>
-                  <div className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                    Drag nodes or the canvas, then use the inspector for details instead of scanning everything at once.
-                  </div>
-                </div>
-                <Badge variant="secondary" className={isDark ? 'bg-sky-500/15 text-sky-100' : 'bg-sky-100 text-sky-700'}>
-                  {nodes.length} nodes
-                </Badge>
-              </div>
-              <div
-                className={`h-[680px] w-full ${
-                  isDark
-                    ? 'bg-[radial-gradient(circle_at_top_left,_rgba(56,189,248,0.10),_transparent_32%),radial-gradient(circle_at_bottom_right,_rgba(59,130,246,0.14),_transparent_28%),#020617]'
-                    : 'bg-[radial-gradient(circle_at_top_left,_rgba(56,189,248,0.10),_transparent_32%),radial-gradient(circle_at_bottom_right,_rgba(148,163,184,0.18),_transparent_28%),#f8fafc]'
-                }`}
-              >
-                <ReactFlow
-                  className="system-overview-flow"
-                  nodes={nodes}
-                  edges={edges}
-                  nodeTypes={nodeTypes}
-                  onNodesChange={onNodesChange}
-                  onEdgesChange={onEdgesChange}
-                  fitView
-                  fitViewOptions={{ padding: 0.16, maxZoom: 0.92 }}
-                  proOptions={{ hideAttribution: true }}
-                  nodesDraggable
-                  onNodeClick={(_, node) => setSelectedNodeId(node.id)}
-                  onNodeDragStop={(_, __, nextNodes) => saveNodePositions(nextNodes)}
-                  defaultEdgeOptions={{ animated: false }}
-                >
-                  <Background color={isDark ? '#1e293b' : '#cbd5e1'} gap={24} />
-                  <Controls
-                    position="top-left"
-                    showInteractive={false}
-                    style={{}}
-                  />
-                </ReactFlow>
-              </div>
-            </div>
+            {renderSystemMap('h-[700px]')}
 
-            <div className="grid gap-4">
-              <Card className="rounded-3xl border-border/70 shadow-sm">
+            <div className="grid min-h-0 gap-4">
+              <Card className="rounded-3xl border-border/70 shadow-sm min-h-0">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -967,9 +989,9 @@ export function SystemOverviewTab() {
                   </div>
                 </CardHeader>
                 {!liveUsersCollapsed && (
-                <CardContent className="space-y-3">
-                  <ScrollArea className="h-[220px] pr-3">
-                    <div className="space-y-3">
+                <CardContent className="space-y-3 pb-4">
+                  <ScrollArea className="h-[360px] xl:h-[420px] pr-3">
+                    <div className="space-y-3 pb-4">
                       {liveUsers.map((user) => (
                         <div key={user.sessionKey} className="rounded-2xl border border-border/70 p-3">
                           <div className="flex items-start justify-between gap-3">
@@ -1165,6 +1187,15 @@ export function SystemOverviewTab() {
           </div>
         </CardContent>
       </Card>
+
+      {isCanvasExpanded && (
+        <div className="fixed inset-4 z-50">
+          <div className="absolute inset-0 rounded-[2rem] bg-slate-950/70 backdrop-blur-sm" onClick={() => setIsCanvasExpanded(false)} />
+          <div className="relative flex h-full flex-col">
+            {renderSystemMap('h-[calc(100vh-8rem)]', true)}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
