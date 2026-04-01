@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { InvoiceData } from '@/utils/invoiceUtils';
-import { ArrowUpRight, CreditCard } from 'lucide-react';
+import { ArrowUpRight, ChevronDown, ChevronUp, CreditCard } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatPaymentMethod, getPaymentMethodLabel } from '@/utils/paymentUtils';
 
@@ -10,7 +10,95 @@ interface PaymentsSummaryProps {
   invoices: InvoiceData[];
 }
 
+const getInvoicePaymentInfo = (invoice: InvoiceData) => {
+  const legacyInvoice = invoice as InvoiceData & Record<string, unknown>;
+  const method =
+    invoice.paymentMethod ||
+    (typeof legacyInvoice.payment_method === 'string' ? legacyInvoice.payment_method : undefined) ||
+    (typeof legacyInvoice.paymentType === 'string' ? legacyInvoice.paymentType : undefined) ||
+    (typeof legacyInvoice.payment_type === 'string' ? legacyInvoice.payment_type : undefined) ||
+    undefined;
+  const details =
+    invoice.paymentDetails ||
+    (legacyInvoice.payment_details as Record<string, unknown> | undefined) ||
+    undefined;
+  const paidAt =
+    invoice.paidAt ||
+    (typeof legacyInvoice.paid_at === 'string' ? legacyInvoice.paid_at : undefined) ||
+    invoice.date ||
+    undefined;
+
+  return { method, details, paidAt };
+};
+
+const formatTransactionDate = (value?: string) => {
+  if (!value) return 'Unknown date';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(parsed);
+};
+
+const formatTransactionTime = (value?: string) => {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+
+  return new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(parsed);
+};
+
+const getInvoiceMetaValue = (invoice: InvoiceData, keys: string[]) => {
+  const legacyInvoice = invoice as InvoiceData & Record<string, unknown>;
+
+  for (const key of keys) {
+    const rootValue = legacyInvoice[key];
+    if (rootValue != null && rootValue !== '') {
+      return String(rootValue);
+    }
+
+    const details = getInvoicePaymentInfo(invoice).details;
+    if (details && typeof details === 'object' && key in details) {
+      const detailValue = details[key];
+      if (detailValue != null && detailValue !== '') {
+        return String(detailValue);
+      }
+    }
+  }
+
+  return null;
+};
+
+const getTransactionDetailRows = (invoice: InvoiceData) => {
+  const { method, details, paidAt } = getInvoicePaymentInfo(invoice);
+  const methodLabel = formatPaymentMethod(method, details);
+  const property = invoice.property || getInvoiceMetaValue(invoice, ['property_address', 'address']);
+  const invoiceNumber = invoice.number || invoice.invoiceNumber || String(invoice.id);
+  const transactionId = getInvoiceMetaValue(invoice, ['transaction_id', 'transactionId', 'payment_intent', 'paymentIntent']);
+  const ipAddress = getInvoiceMetaValue(invoice, ['ip', 'ip_address', 'customer_ip', 'customerIp']);
+  const checkNumber = getInvoiceMetaValue(invoice, ['check_number']);
+  const paidTime = formatTransactionTime(paidAt);
+
+  return [
+    { label: 'Invoice', value: invoiceNumber ? `#${invoiceNumber}` : null },
+    { label: 'Property', value: property || null },
+    { label: 'Paid on', value: formatTransactionDate(paidAt) },
+    { label: 'Time', value: paidTime },
+    { label: 'Method', value: methodLabel !== 'N/A' ? methodLabel : 'Unavailable' },
+    { label: 'Transaction ID', value: transactionId },
+    { label: 'IP', value: ipAddress },
+    { label: 'Check #', value: checkNumber },
+  ].filter((item): item is { label: string; value: string } => Boolean(item.value));
+};
+
 export function PaymentsSummary({ invoices }: PaymentsSummaryProps) {
+  const [expandedInvoiceId, setExpandedInvoiceId] = useState<string | null>(null);
   const totalInvoiced = invoices.reduce((sum, i) => sum + i.amount, 0);
   const totalPaid = invoices.filter(i => i.status === 'paid').reduce((sum, i) => sum + i.amount, 0);
   const paymentPercentage = totalInvoiced > 0 ? Math.round((totalPaid / totalInvoiced) * 100) : 0;
@@ -19,11 +107,12 @@ export function PaymentsSummary({ invoices }: PaymentsSummaryProps) {
   const totalOverdue = invoices.filter(i => i.status === 'overdue').reduce((sum, i) => sum + i.amount, 0);
 
   const paymentMethods = invoices
-    .filter(i => i.status === 'paid' && i.paymentMethod)
+    .filter(i => i.status === 'paid' && Boolean(getInvoicePaymentInfo(i).method))
     .reduce((acc, i) => {
-      const label = getPaymentMethodLabel(i.paymentMethod);
-      const method = label === 'N/A' ? 'Unknown' : label;
-      acc[method] = (acc[method] || 0) + i.amount;
+      const { method } = getInvoicePaymentInfo(i);
+      const label = getPaymentMethodLabel(method);
+      const methodName = label === 'N/A' ? 'Unknown' : label;
+      acc[methodName] = (acc[methodName] || 0) + i.amount;
       return acc;
     }, {} as Record<string, number>);
 
@@ -38,9 +127,18 @@ export function PaymentsSummary({ invoices }: PaymentsSummaryProps) {
     return 'text-rose-500';
   };
 
-  const latestTransactions = invoices
-    .filter(i => i.status === 'paid')
-    .slice(0, 15);
+  const latestTransactions = useMemo(
+    () =>
+      invoices
+        .filter(i => i.status === 'paid')
+        .sort((a, b) => {
+          const aDate = getInvoicePaymentInfo(a).paidAt;
+          const bDate = getInvoicePaymentInfo(b).paidAt;
+          return new Date(String(bDate || '')).getTime() - new Date(String(aDate || '')).getTime();
+        })
+        .slice(0, 15),
+    [invoices],
+  );
 
   return (
     <div className="flex flex-col gap-3 h-full">
@@ -134,23 +232,48 @@ export function PaymentsSummary({ invoices }: PaymentsSummaryProps) {
       {latestTransactions.length > 0 ? (
         <div className="flex-1 overflow-y-auto space-y-2 pr-2">
           {latestTransactions.map((invoice) => {
-            const methodLabel = formatPaymentMethod(invoice.paymentMethod, invoice.paymentDetails);
+            const { method, details, paidAt } = getInvoicePaymentInfo(invoice);
+            const methodLabel = formatPaymentMethod(method, details);
+            const isExpanded = expandedInvoiceId === String(invoice.id);
+            const detailRows = getTransactionDetailRows(invoice);
             return (
-              <div
+              <button
                 key={invoice.id}
-                className="flex justify-between items-center p-2 rounded-md bg-muted/50"
+                type="button"
+                onClick={() => setExpandedInvoiceId(isExpanded ? null : String(invoice.id))}
+                className="w-full rounded-md bg-muted/50 p-3 text-left transition-colors hover:bg-muted/70"
               >
-                <div>
-                  <p className="text-sm font-medium">{invoice.client}</p>
-                  <p className="text-xs text-slate-600 dark:text-slate-400">{invoice.date}</p>
-                  {methodLabel !== 'N/A' && (
-                    <p className="text-xs text-slate-500">Paid via {methodLabel}</p>
-                  )}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">{invoice.client}</p>
+                    <p className="text-xs text-slate-600 dark:text-slate-400">{formatTransactionDate(paidAt)}</p>
+                    <p className="text-xs text-slate-500">
+                      {methodLabel !== 'N/A' ? `Paid via ${methodLabel}` : 'Payment method unavailable'}
+                    </p>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <p className="text-sm font-medium">
+                      ${invoice.amount.toLocaleString()}
+                    </p>
+                    {isExpanded ? (
+                      <ChevronUp className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <ChevronDown className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                    )}
+                  </div>
                 </div>
-                <p className="text-sm font-medium">
-                  ${invoice.amount.toLocaleString()}
-                </p>
-              </div>
+
+                {isExpanded && (
+                  <div className="mt-3 grid gap-2 border-t border-border/60 pt-3 text-xs text-muted-foreground sm:grid-cols-2">
+                    {detailRows.map((row) => (
+                      <div key={row.label}>
+                        <span className="font-medium text-foreground/80">{row.label}: </span>
+                        <span>{row.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </button>
             );
           })}
         </div>

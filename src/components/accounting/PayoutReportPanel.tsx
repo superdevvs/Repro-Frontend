@@ -176,7 +176,12 @@ export const PayoutReportPanel: React.FC<PayoutReportPanelProps> = ({ hideHeader
                   <span className="truncate">{formatDateRangeLabel(startDate, endDate)}</span>
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="z-[90] w-auto p-0" align="start">
+              <PopoverContent
+                className="z-[100] w-[min(92vw,26rem)] max-w-none p-3 [&_select]:h-9 [&_select]:rounded-md [&_select]:border [&_select]:border-border [&_select]:bg-background [&_select]:px-3 [&_select]:text-sm [&_select]:text-foreground [&_select]:outline-none [&_select]:ring-0"
+                align="center"
+                side="bottom"
+                sideOffset={10}
+              >
                 <Calendar
                   mode="range"
                   numberOfMonths={1}
@@ -188,7 +193,18 @@ export const PayoutReportPanel: React.FC<PayoutReportPanelProps> = ({ hideHeader
                     setStartDate(toFilterValue(range?.from));
                     setEndDate(toFilterValue(range?.to ?? range?.from));
                   }}
-                  className="p-2"
+                  className="w-full p-0"
+                  classNames={{
+                    months: 'w-full',
+                    month: 'w-full space-y-3',
+                    caption: 'flex items-center justify-between gap-2 pt-1',
+                    caption_dropdowns: 'flex items-center gap-2',
+                    dropdown: 'bg-transparent',
+                    nav: 'flex items-center gap-1',
+                    table: 'w-full border-collapse',
+                    head_row: 'flex w-full justify-between',
+                    row: 'flex w-full mt-2 justify-between',
+                  }}
                   initialFocus
                 />
               </PopoverContent>

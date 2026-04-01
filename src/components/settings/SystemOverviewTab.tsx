@@ -49,6 +49,7 @@ import {
   fetchSystemOverviewSnapshot,
   fetchSystemOverviewTrace,
 } from '@/services/systemOverviewService';
+import { useTheme } from '@/hooks/useTheme';
 import type {
   LiveUserActivity,
   SystemHistory,
@@ -90,18 +91,30 @@ const ICONS = {
 const STORAGE_KEY = 'system-overview.flow.positions';
 
 function SystemOverviewNode({ data, selected }: NodeProps<FlowNode>) {
-  const kindStyles: Record<FlowNodeData['kind'], string> = {
-    domain: 'border-sky-400/60 bg-slate-950 text-slate-50',
-    page: 'border-sky-300/50 bg-slate-900/90 text-slate-50',
-    component: 'border-slate-300/60 bg-white text-slate-900',
-    api: 'border-emerald-300/70 bg-emerald-50 text-emerald-950',
-    service: 'border-amber-300/70 bg-amber-50 text-amber-950',
-    external: 'border-fuchsia-300/70 bg-fuchsia-50 text-fuchsia-950',
-  };
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
+  const kindStyles: Record<FlowNodeData['kind'], string> = isDark
+    ? {
+        domain: 'border-sky-400/30 bg-slate-950/95 text-slate-50',
+        page: 'border-sky-300/25 bg-slate-900/95 text-slate-50',
+        component: 'border-slate-700/80 bg-slate-900/80 text-slate-100',
+        api: 'border-emerald-400/25 bg-emerald-950/60 text-emerald-50',
+        service: 'border-amber-400/25 bg-amber-950/60 text-amber-50',
+        external: 'border-fuchsia-400/25 bg-fuchsia-950/60 text-fuchsia-50',
+      }
+    : {
+        domain: 'border-slate-300 bg-white/95 text-slate-950',
+        page: 'border-sky-200 bg-sky-50/90 text-slate-950',
+        component: 'border-slate-200 bg-white text-slate-900',
+        api: 'border-emerald-200 bg-emerald-50/90 text-emerald-950',
+        service: 'border-amber-200 bg-amber-50/90 text-amber-950',
+        external: 'border-fuchsia-200 bg-fuchsia-50/90 text-fuchsia-950',
+      };
+  const metricTone = isDark ? 'bg-white/5' : 'bg-slate-950/5';
 
   return (
     <div
-      className={`min-w-[210px] rounded-2xl border p-3 shadow-lg transition-all ${kindStyles[data.kind]} ${
+      className={`min-w-[220px] rounded-3xl border p-3 shadow-lg transition-all backdrop-blur-sm ${kindStyles[data.kind]} ${
         selected ? 'ring-2 ring-sky-400 ring-offset-2 ring-offset-background' : ''
       }`}
     >
@@ -120,15 +133,15 @@ function SystemOverviewNode({ data, selected }: NodeProps<FlowNode>) {
         )}
       </div>
       <div className="mt-3 grid grid-cols-3 gap-2 text-[11px]">
-        <div className="rounded-xl bg-black/5 px-2 py-2">
+        <div className={`rounded-2xl px-2 py-2 ${metricTone}`}>
           <div className="opacity-60">Req</div>
           <div className="font-semibold">{data.requests ?? 0}</div>
         </div>
-        <div className="rounded-xl bg-black/5 px-2 py-2">
+        <div className={`rounded-2xl px-2 py-2 ${metricTone}`}>
           <div className="opacity-60">Err</div>
           <div className="font-semibold">{data.errors ?? 0}</div>
         </div>
-        <div className="rounded-xl bg-black/5 px-2 py-2">
+        <div className={`rounded-2xl px-2 py-2 ${metricTone}`}>
           <div className="opacity-60">Avg</div>
           <div className="font-semibold">{data.avgDurationMs ?? 0}ms</div>
         </div>
@@ -439,6 +452,8 @@ const buildFlow = (
 };
 
 export function SystemOverviewTab() {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
   const queryClient = useQueryClient();
   const [expandedDomains, setExpandedDomains] = useState<string[]>([]);
   const [showEverything, setShowEverything] = useState(false);
@@ -518,6 +533,11 @@ export function SystemOverviewTab() {
 
   const topRoutes = snapshot?.routeMetrics.slice(0, 5) ?? [];
   const liveUsers = snapshot?.liveUsers ?? [];
+  const domainSummaries = systemOverviewCatalog.map((domain) => ({
+    ...domain,
+    stats: snapshot?.domainStats?.[domain.id],
+    isExpanded: expandedDomains.includes(domain.id),
+  }));
 
   const isLoading = snapshotQuery.isLoading || historyQuery.isLoading || routesQuery.isLoading;
   const hasError = snapshotQuery.isError || historyQuery.isError || routesQuery.isError;
@@ -526,6 +546,33 @@ export function SystemOverviewTab() {
     setNodes(flow.nodes);
     setEdges(flow.edges);
   }, [flow.edges, flow.nodes, setEdges, setNodes]);
+
+  useEffect(() => {
+    if (expandedDomains.length > 0 || !snapshot?.domainStats) {
+      return;
+    }
+
+    const suggestedDomains = systemOverviewCatalog
+      .filter((domain) => {
+        const stats = snapshot.domainStats?.[domain.id];
+        return (stats?.requests ?? 0) > 0 || (stats?.activeUsers ?? 0) > 0;
+      })
+      .slice(0, 3)
+      .map((domain) => domain.id);
+
+    setExpandedDomains(suggestedDomains.length > 0 ? suggestedDomains : systemOverviewCatalog.slice(0, 3).map((domain) => domain.id));
+  }, [expandedDomains.length, snapshot]);
+
+  useEffect(() => {
+    if (!selectedNodeId) {
+      return;
+    }
+
+    if (!flow.nodes.some((node) => node.id === selectedNodeId)) {
+      setSelectedNodeId(null);
+      setSelectedTraceId(null);
+    }
+  }, [flow.nodes, selectedNodeId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -591,8 +638,8 @@ export function SystemOverviewTab() {
 
   if (!telemetryAvailable) {
     return (
-      <Card className="overflow-hidden border-slate-200/70">
-        <CardHeader className="border-b border-slate-200/70 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.10),_transparent_42%),linear-gradient(135deg,_rgba(15,23,42,0.98),_rgba(30,41,59,0.94))] text-white">
+      <Card className="overflow-hidden rounded-3xl border-border/70 shadow-sm">
+        <CardHeader className="border-b border-border/70 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.10),_transparent_42%),linear-gradient(135deg,_rgba(15,23,42,0.98),_rgba(30,41,59,0.94))] text-white">
           <div className="flex items-center gap-3">
             <Network className="h-5 w-5 text-sky-300" />
             <div>
@@ -631,56 +678,72 @@ export function SystemOverviewTab() {
 
   return (
     <div className="space-y-6">
-      <Card className="overflow-hidden border-slate-200/70">
-        <CardHeader className="border-b border-slate-200/70 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.12),_transparent_42%),linear-gradient(135deg,_rgba(15,23,42,0.98),_rgba(30,41,59,0.92))] text-white">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <Card className="overflow-hidden rounded-3xl border-border/70 shadow-sm">
+        <CardHeader
+          className={`border-b border-border/70 ${
+            isDark
+              ? 'bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.18),_transparent_42%),linear-gradient(135deg,_rgba(15,23,42,0.98),_rgba(30,41,59,0.92))] text-white'
+              : 'bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.12),_transparent_38%),linear-gradient(135deg,_rgba(248,250,252,0.98),_rgba(226,232,240,0.92))] text-slate-950'
+          }`}
+        >
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
             <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sky-200">
+              <div className={`flex items-center gap-2 ${isDark ? 'text-sky-200' : 'text-sky-700'}`}>
                 <Network className="h-4 w-4" />
                 Superadmin Observability
               </div>
               <CardTitle className="text-2xl">System Overview</CardTitle>
-              <CardDescription className="max-w-2xl text-slate-200">
-                Live route and component map with user presence, request load, redacted payload summaries, blockers, and a rolling 24-hour trace window.
+              <CardDescription className={`max-w-2xl ${isDark ? 'text-slate-200' : 'text-slate-600'}`}>
+                A focused observability workspace for route health, live user presence, blockers, and recent traces without the previous control overload.
               </CardDescription>
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <Tabs value={timeMode} onValueChange={(value) => setTimeMode(value as 'live' | 'history')}>
-                <TabsList className="bg-white/10">
+                <TabsList className={isDark ? 'bg-white/10' : 'bg-slate-950/5'}>
                   <TabsTrigger value="live">Live</TabsTrigger>
                   <TabsTrigger value="history">Last 24h</TabsTrigger>
                 </TabsList>
               </Tabs>
-              <div className="flex items-center gap-2 rounded-full border border-white/20 px-3 py-2 text-sm">
-                <ZoomIn className="h-4 w-4" />
-                <span>Draggable canvas</span>
-              </div>
-              <div className="flex items-center gap-2 rounded-full border border-white/20 px-3 py-2 text-sm">
+              <div
+                className={`flex items-center gap-2 rounded-full border px-3 py-2 text-sm ${
+                  isDark ? 'border-white/20 bg-white/5 text-white' : 'border-slate-300 bg-white/70 text-slate-700'
+                }`}
+              >
                 <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse" />
                 {snapshot?.stats.activeSessions ?? 0} live sessions
+              </div>
+              <div
+                className={`flex items-center gap-2 rounded-full border px-3 py-2 text-sm ${
+                  isDark ? 'border-white/20 bg-white/5 text-white' : 'border-slate-300 bg-white/70 text-slate-700'
+                }`}
+              >
+                <ZoomIn className="h-4 w-4" />
+                <span>Canvas workspace</span>
               </div>
             </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-6 p-4 sm:p-6">
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {[
               { label: 'Active Sessions', value: snapshot?.stats.activeSessions ?? 0, icon: Users },
               { label: 'Requests / min', value: snapshot?.stats.requestsPerMinute ?? 0, icon: Activity },
               { label: 'Errors 24h', value: snapshot?.stats.errorCount24h ?? 0, icon: AlertTriangle },
               { label: 'Slow Routes', value: snapshot?.stats.slowRouteCount ?? 0, icon: Clock3 },
-              { label: 'Integration Failures', value: snapshot?.stats.integrationFailures24h ?? 0, icon: Plug },
+              { label: 'Integration Failures', value: snapshot?.stats.integrationFailures24h ?? 0, icon: Plug, emphasis: true },
             ].map((stat) => (
               <motion.div
                 key={stat.label}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="rounded-2xl border border-slate-200/70 bg-white p-4 shadow-sm"
+                className={`rounded-3xl border p-4 shadow-sm ${stat.emphasis ? 'sm:col-span-2 xl:col-span-1' : ''} ${
+                  isDark ? 'border-white/10 bg-slate-950/50' : 'border-slate-200/80 bg-white'
+                }`}
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-xs uppercase tracking-[0.24em] text-slate-500">{stat.label}</div>
-                    <div className="mt-2 text-2xl font-semibold text-slate-950">{stat.value}</div>
+                    <div className="text-xs uppercase tracking-[0.24em] text-muted-foreground">{stat.label}</div>
+                    <div className="mt-2 text-2xl font-semibold text-foreground">{stat.value}</div>
                   </div>
                   <stat.icon className="h-5 w-5 text-sky-600" />
                 </div>
@@ -688,58 +751,95 @@ export function SystemOverviewTab() {
             ))}
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200/70 bg-slate-50/80 px-4 py-3">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                setExpandedDomains((current) =>
-                  current.length === systemOverviewCatalog.length ? [] : systemOverviewCatalog.map((domain) => domain.id),
-                )
-              }
-            >
-              <Workflow className="mr-2 h-4 w-4" />
-              {expandedDomains.length === systemOverviewCatalog.length ? 'Collapse All' : 'Expand All'}
-            </Button>
-            <div className="flex items-center gap-2 text-sm">
-              <span>Show everything</span>
-              <Switch checked={showEverything} onCheckedChange={setShowEverything} />
-            </div>
-            {systemOverviewCatalog.map((domain) => {
-              const Icon = ICONS[domain.icon as keyof typeof ICONS] || Network;
-              const active = expandedDomains.includes(domain.id);
-              return (
-                <Button
-                  key={domain.id}
-                  variant={active ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() =>
-                    setExpandedDomains((current) =>
-                      current.includes(domain.id)
-                        ? current.filter((value) => value !== domain.id)
-                        : [...current, domain.id],
-                    )
-                  }
-                >
-                  <Icon className="mr-2 h-4 w-4" />
-                  {domain.label}
-                </Button>
-              );
-            })}
-          </div>
+          <div className="grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)_360px]">
+            <Card className={`rounded-3xl border shadow-sm ${isDark ? 'border-white/10 bg-slate-950/55' : 'border-slate-200/80 bg-white'}`}>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Map scope</CardTitle>
+                <CardDescription>Pick the domains worth expanding instead of opening every panel at once.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      setExpandedDomains((current) =>
+                        current.length === systemOverviewCatalog.length ? [] : systemOverviewCatalog.map((domain) => domain.id),
+                      )
+                    }
+                  >
+                    <Workflow className="mr-2 h-4 w-4" />
+                    {expandedDomains.length === systemOverviewCatalog.length ? 'Collapse all' : 'Expand all'}
+                  </Button>
+                  <div className="ml-auto flex items-center gap-2 text-sm text-muted-foreground">
+                    <span>Deep links</span>
+                    <Switch checked={showEverything} onCheckedChange={setShowEverything} />
+                  </div>
+                </div>
 
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_360px]">
-            <div className="overflow-hidden rounded-3xl border border-slate-200/70 bg-slate-950">
-              <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3 text-slate-200">
+                <div className="space-y-2">
+                  {domainSummaries.map((domain) => {
+                    const Icon = ICONS[domain.icon as keyof typeof ICONS] || Network;
+                    const active = domain.isExpanded;
+                    return (
+                      <button
+                        key={domain.id}
+                        type="button"
+                        onClick={() =>
+                          setExpandedDomains((current) =>
+                            current.includes(domain.id)
+                              ? current.filter((value) => value !== domain.id)
+                              : [...current, domain.id],
+                          )
+                        }
+                        className={`w-full rounded-2xl border p-3 text-left transition-colors ${
+                          active
+                            ? 'border-sky-300 bg-sky-50 text-slate-950 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-50'
+                            : 'border-border/70 bg-background hover:border-sky-200 hover:bg-muted/40'
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className={`flex h-9 w-9 items-center justify-center rounded-2xl ${active ? 'bg-sky-500 text-white' : 'bg-muted text-muted-foreground'}`}>
+                            <Icon className="h-4 w-4" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="font-medium">{domain.label}</div>
+                              <Badge variant="outline">{domain.stats?.requests ?? 0} req</Badge>
+                            </div>
+                            <div className="mt-1 text-xs leading-5 text-muted-foreground">{domain.description}</div>
+                            <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
+                              <span>{domain.stats?.activeUsers ?? 0} live users</span>
+                              <span>{domain.stats?.errors ?? 0} errors</span>
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className={`overflow-hidden rounded-3xl border shadow-sm ${isDark ? 'border-white/10 bg-slate-950' : 'border-slate-200/80 bg-white'}`}>
+              <div className={`flex items-center justify-between border-b px-4 py-3 ${isDark ? 'border-slate-800 text-slate-200' : 'border-slate-200 text-slate-700'}`}>
                 <div>
                   <div className="text-sm font-semibold">System map</div>
-                  <div className="text-xs text-slate-400">Drag nodes or the canvas. Click a node to inspect traces and blockers.</div>
+                  <div className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Drag nodes or the canvas, then use the inspector for details instead of scanning everything at once.
+                  </div>
                 </div>
-                <Badge variant="secondary" className="bg-sky-500/15 text-sky-100">
+                <Badge variant="secondary" className={isDark ? 'bg-sky-500/15 text-sky-100' : 'bg-sky-100 text-sky-700'}>
                   {nodes.length} nodes
                 </Badge>
               </div>
-              <div className="h-[680px] w-full bg-[radial-gradient(circle_at_top_left,_rgba(56,189,248,0.10),_transparent_32%),radial-gradient(circle_at_bottom_right,_rgba(59,130,246,0.14),_transparent_28%),#020617]">
+              <div
+                className={`h-[680px] w-full ${
+                  isDark
+                    ? 'bg-[radial-gradient(circle_at_top_left,_rgba(56,189,248,0.10),_transparent_32%),radial-gradient(circle_at_bottom_right,_rgba(59,130,246,0.14),_transparent_28%),#020617]'
+                    : 'bg-[radial-gradient(circle_at_top_left,_rgba(56,189,248,0.10),_transparent_32%),radial-gradient(circle_at_bottom_right,_rgba(148,163,184,0.18),_transparent_28%),#f8fafc]'
+                }`}
+              >
                 <ReactFlow
                   nodes={nodes}
                   edges={edges}
@@ -752,32 +852,32 @@ export function SystemOverviewTab() {
                   onNodeDragStop={(_, __, nextNodes) => saveNodePositions(nextNodes)}
                   defaultEdgeOptions={{ animated: false }}
                 >
-                  <Background color="#1e293b" gap={24} />
-                  <MiniMap pannable zoomable style={{ background: '#0f172a' }} />
+                  <Background color={isDark ? '#1e293b' : '#cbd5e1'} gap={24} />
+                  <MiniMap pannable zoomable style={{ background: isDark ? '#0f172a' : '#e2e8f0' }} />
                   <Controls />
                 </ReactFlow>
               </div>
             </div>
 
             <div className="grid gap-4">
-              <Card className="border-slate-200/70">
+              <Card className="rounded-3xl border-border/70 shadow-sm">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base">Live users</CardTitle>
-                  <CardDescription>Named superadmin-visible sessions with current route and action.</CardDescription>
+                  <CardDescription>See who is active now and which route or blocker needs attention.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <ScrollArea className="h-[220px] pr-3">
                     <div className="space-y-3">
                       {liveUsers.map((user) => (
-                        <div key={user.sessionKey} className="rounded-2xl border border-slate-200/70 p-3">
+                        <div key={user.sessionKey} className="rounded-2xl border border-border/70 p-3">
                           <div className="flex items-start justify-between gap-3">
                             <div>
-                              <div className="font-medium text-slate-950">{user.userName || 'Unknown user'}</div>
-                              <div className="text-xs text-slate-500">{user.userRole || 'unknown role'}</div>
+                              <div className="font-medium text-foreground">{user.userName || 'Unknown user'}</div>
+                              <div className="text-xs text-muted-foreground">{user.userRole || 'unknown role'}</div>
                             </div>
                             <span className="mt-1 h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
                           </div>
-                          <div className="mt-3 space-y-1 text-xs text-slate-600">
+                          <div className="mt-3 space-y-1 text-xs text-muted-foreground">
                             <div>{user.currentRoute || 'No route captured yet'}</div>
                             <div>{user.currentAction || 'Browsing'}</div>
                             {user.blockerMessage && <div className="text-amber-700">{user.blockerMessage}</div>}
@@ -790,62 +890,66 @@ export function SystemOverviewTab() {
                 </CardContent>
               </Card>
 
-              <Card className="border-slate-200/70">
+              <Card className="rounded-3xl border-border/70 shadow-sm">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base">Inspector</CardTitle>
-                  <CardDescription>Route chains, trace detail, blockers, and recent activity for the selected node.</CardDescription>
+                  <CardDescription>Route chains, trace detail, blockers, and recent activity for the currently selected node.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {selectedNode?.data ? (
                     <>
-                      <div className="rounded-2xl border border-slate-200/70 bg-slate-50 p-4">
+                      <div className={`rounded-2xl border p-4 ${isDark ? 'border-white/10 bg-slate-950/50' : 'border-slate-200/70 bg-slate-50'}`}>
                         <div className="flex items-center justify-between gap-3">
                           <div>
-                            <div className="text-xs uppercase tracking-[0.24em] text-slate-500">{selectedNode.data.kind}</div>
-                            <div className="mt-1 text-lg font-semibold text-slate-950">{selectedNode.data.label}</div>
-                            <div className="mt-1 text-sm text-slate-600">{selectedNode.data.description}</div>
+                            <div className="text-xs uppercase tracking-[0.24em] text-muted-foreground">{selectedNode.data.kind}</div>
+                            <div className="mt-1 text-lg font-semibold text-foreground">{selectedNode.data.label}</div>
+                            <div className="mt-1 text-sm text-muted-foreground">{selectedNode.data.description}</div>
                           </div>
                           <Badge>{selectedNode.data.domain}</Badge>
                         </div>
                         <div className="mt-4 grid grid-cols-3 gap-3 text-sm">
-                          <div className="rounded-xl bg-white p-3">
-                            <div className="text-xs text-slate-500">Users</div>
+                          <div className={`rounded-2xl p-3 ${isDark ? 'bg-slate-900/80' : 'bg-white'}`}>
+                            <div className="text-xs text-muted-foreground">Users</div>
                             <div className="font-semibold">{selectedNode.data.activeUsers ?? 0}</div>
                           </div>
-                          <div className="rounded-xl bg-white p-3">
-                            <div className="text-xs text-slate-500">Requests</div>
+                          <div className={`rounded-2xl p-3 ${isDark ? 'bg-slate-900/80' : 'bg-white'}`}>
+                            <div className="text-xs text-muted-foreground">Requests</div>
                             <div className="font-semibold">{selectedNode.data.requests ?? 0}</div>
                           </div>
-                          <div className="rounded-xl bg-white p-3">
-                            <div className="text-xs text-slate-500">Errors</div>
+                          <div className={`rounded-2xl p-3 ${isDark ? 'bg-slate-900/80' : 'bg-white'}`}>
+                            <div className="text-xs text-muted-foreground">Errors</div>
                             <div className="font-semibold">{selectedNode.data.errors ?? 0}</div>
                           </div>
                         </div>
                       </div>
 
                       <div className="space-y-2">
-                        <div className="text-sm font-medium text-slate-900">Recent traces</div>
+                        <div className="text-sm font-medium text-foreground">Recent traces</div>
                         <div className="space-y-2">
                           {relatedTraces.slice(0, 5).map((trace) => (
                             <button
                               key={trace.traceId}
                               type="button"
                               onClick={() => setSelectedTraceId(trace.traceId)}
-                              className="w-full rounded-2xl border border-slate-200/70 p-3 text-left transition hover:border-sky-300 hover:bg-sky-50/60"
+                              className={`w-full rounded-2xl border p-3 text-left transition ${
+                                isDark
+                                  ? 'border-white/10 hover:border-sky-500/40 hover:bg-sky-500/10'
+                                  : 'border-slate-200/70 hover:border-sky-300 hover:bg-sky-50/60'
+                              }`}
                             >
                               <div className="flex items-center justify-between gap-3">
-                                <div className="text-sm font-medium text-slate-900">{trace.method} {trace.path}</div>
+                                <div className="text-sm font-medium text-foreground">{trace.method} {trace.path}</div>
                                 <Badge variant="outline">{trace.statusCode ?? 'n/a'}</Badge>
                               </div>
-                              <div className="mt-1 text-xs text-slate-500">{trace.durationMs}ms • {trace.occurredAt || 'recent'}</div>
+                              <div className="mt-1 text-xs text-muted-foreground">{trace.durationMs}ms • {trace.occurredAt || 'recent'}</div>
                             </button>
                           ))}
-                          {relatedTraces.length === 0 && <div className="text-sm text-slate-500">No matching traces yet.</div>}
+                          {relatedTraces.length === 0 && <div className="text-sm text-muted-foreground">No matching traces yet.</div>}
                         </div>
                       </div>
 
                       <div className="space-y-2">
-                        <div className="text-sm font-medium text-slate-900">Blockers & errors</div>
+                        <div className="text-sm font-medium text-foreground">Blockers & errors</div>
                         <div className="space-y-2">
                           {relatedErrors.slice(0, 4).map((error, index) => (
                             <div key={`${error.traceId || index}-${error.message}`} className="rounded-2xl border border-amber-200 bg-amber-50 p-3">
@@ -856,7 +960,7 @@ export function SystemOverviewTab() {
                               <div className="mt-1 text-xs text-amber-800/80">{error.routePath || error.componentName || error.errorClass}</div>
                             </div>
                           ))}
-                          {relatedErrors.length === 0 && <div className="text-sm text-slate-500">No blockers currently linked to this node.</div>}
+                          {relatedErrors.length === 0 && <div className="text-sm text-muted-foreground">No blockers currently linked to this node.</div>}
                         </div>
                       </div>
 
@@ -864,17 +968,17 @@ export function SystemOverviewTab() {
                         <>
                           <Separator />
                           <div className="space-y-2">
-                            <div className="text-sm font-medium text-slate-900">Trace detail</div>
-                            <div className="rounded-2xl border border-slate-200/70 bg-slate-50 p-4 text-sm">
-                              <div className="font-medium text-slate-950">{traceQuery.data.trace.method} {traceQuery.data.trace.path}</div>
-                              <div className="mt-1 text-slate-600">{traceQuery.data.trace.controllerAction || 'Controller not resolved'}</div>
-                              <div className="mt-3 grid grid-cols-2 gap-3 text-xs text-slate-600">
+                            <div className="text-sm font-medium text-foreground">Trace detail</div>
+                            <div className={`rounded-2xl border p-4 text-sm ${isDark ? 'border-white/10 bg-slate-950/50' : 'border-slate-200/70 bg-slate-50'}`}>
+                              <div className="font-medium text-foreground">{traceQuery.data.trace.method} {traceQuery.data.trace.path}</div>
+                              <div className="mt-1 text-muted-foreground">{traceQuery.data.trace.controllerAction || 'Controller not resolved'}</div>
+                              <div className="mt-3 grid grid-cols-2 gap-3 text-xs text-muted-foreground">
                                 <div>Status: {traceQuery.data.trace.statusCode ?? 'n/a'}</div>
                                 <div>Duration: {traceQuery.data.trace.durationMs}ms</div>
                                 <div>Request bytes: {traceQuery.data.trace.requestBytes ?? 0}</div>
                                 <div>Response bytes: {traceQuery.data.trace.responseBytes ?? 0}</div>
                               </div>
-                              <div className="mt-3 text-xs text-slate-500">
+                              <div className="mt-3 text-xs text-muted-foreground">
                                 Payload preview: {traceQuery.data.trace.requestPayloadSummary?.preview || 'No payload'}
                               </div>
                             </div>
@@ -883,7 +987,7 @@ export function SystemOverviewTab() {
                       )}
                     </>
                   ) : (
-                    <div className="rounded-2xl border border-dashed border-slate-300 p-6 text-sm text-slate-500">
+                    <div className="rounded-2xl border border-dashed border-border p-6 text-sm text-muted-foreground">
                       Select a node in the flowchart to inspect traces, payload summaries, blockers, and live user activity.
                     </div>
                   )}
@@ -892,8 +996,8 @@ export function SystemOverviewTab() {
             </div>
           </div>
 
-          <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-            <Card className="border-slate-200/70">
+          <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+            <Card className="rounded-3xl border-border/70 shadow-sm">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">{timeMode === 'live' ? 'Busiest routes right now' : '24h timeline'}</CardTitle>
                 <CardDescription>
@@ -906,12 +1010,12 @@ export function SystemOverviewTab() {
                 {timeMode === 'live' ? (
                   <div className="space-y-3">
                     {topRoutes.map((route) => (
-                      <div key={route.path} className="rounded-2xl border border-slate-200/70 p-4">
+                      <div key={route.path} className="rounded-2xl border border-border/70 p-4">
                         <div className="flex items-center justify-between gap-3">
-                          <div className="font-medium text-slate-950">{route.path}</div>
+                          <div className="font-medium text-foreground">{route.path}</div>
                           <Badge variant="outline">{route.requestCount} req</Badge>
                         </div>
-                        <div className="mt-2 grid grid-cols-3 gap-3 text-xs text-slate-500">
+                        <div className="mt-2 grid grid-cols-3 gap-3 text-xs text-muted-foreground">
                           <div>Errors: {route.errorCount}</div>
                           <div>Avg: {route.avgDurationMs}ms</div>
                           <div>Max: {route.maxDurationMs}ms</div>
@@ -923,14 +1027,14 @@ export function SystemOverviewTab() {
                   <div className="space-y-3">
                     {(history?.timeline ?? []).slice(-8).map((point) => (
                       <div key={point.bucketStart} className="grid grid-cols-[110px_1fr_56px] items-center gap-3 text-sm">
-                        <div className="text-slate-500">{new Date(point.bucketStart).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                        <div className="h-3 overflow-hidden rounded-full bg-slate-100">
+                        <div className="text-muted-foreground">{new Date(point.bucketStart).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                        <div className={`h-3 overflow-hidden rounded-full ${isDark ? 'bg-slate-900/80' : 'bg-slate-100'}`}>
                           <div
                             className="h-full rounded-full bg-gradient-to-r from-sky-500 to-indigo-500"
                             style={{ width: `${Math.min(100, point.requests * 6)}%` }}
                           />
                         </div>
-                        <div className="text-right text-slate-600">{point.requests}</div>
+                        <div className="text-right text-muted-foreground">{point.requests}</div>
                       </div>
                     ))}
                   </div>
@@ -938,19 +1042,19 @@ export function SystemOverviewTab() {
               </CardContent>
             </Card>
 
-            <Card className="border-slate-200/70">
+            <Card className="rounded-3xl border-border/70 shadow-sm">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">Latest blockers</CardTitle>
                 <CardDescription>Recent frontend and backend errors across the monitored system.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
                 {(snapshot?.recentErrors ?? []).slice(0, 6).map((error) => (
-                  <div key={`${error.traceId || error.message}-${error.occurredAt}`} className="rounded-2xl border border-slate-200/70 p-3">
+                  <div key={`${error.traceId || error.message}-${error.occurredAt}`} className="rounded-2xl border border-border/70 p-3">
                     <div className="flex items-center justify-between gap-3">
-                      <div className="font-medium text-slate-950">{error.message}</div>
+                      <div className="font-medium text-foreground">{error.message}</div>
                       <Badge variant="outline">{error.source}</Badge>
                     </div>
-                    <div className="mt-1 text-xs text-slate-500">{error.routePath || error.componentName || error.errorClass}</div>
+                    <div className="mt-1 text-xs text-muted-foreground">{error.routePath || error.componentName || error.errorClass}</div>
                   </div>
                 ))}
               </CardContent>
