@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { format, isValid, parseISO } from 'date-fns';
+import type { DateRange } from 'react-day-picker';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -51,6 +52,16 @@ const toFilterValue = (date?: Date) => (date ? format(date, 'yyyy-MM-dd') : '');
 const formatFilterDate = (value: string) => {
   const parsed = toFilterDate(value);
   return parsed ? format(parsed, 'dd-MM-yyyy') : 'dd-mm-yyyy';
+};
+
+const formatDateRangeLabel = (start: string, end: string) => {
+  if (start && end) {
+    return `${formatFilterDate(start)} - ${formatFilterDate(end)}`;
+  }
+  if (start) {
+    return `${formatFilterDate(start)} - End date`;
+  }
+  return 'Choose date range';
 };
 
 interface PayoutReportPanelProps {
@@ -124,6 +135,13 @@ export const PayoutReportPanel: React.FC<PayoutReportPanelProps> = ({ hideHeader
     loadReport();
   };
 
+  const selectedRange: DateRange | undefined = startDate
+    ? {
+        from: toFilterDate(startDate),
+        to: toFilterDate(endDate) ?? toFilterDate(startDate),
+      }
+    : undefined;
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -149,36 +167,23 @@ export const PayoutReportPanel: React.FC<PayoutReportPanelProps> = ({ hideHeader
           )}
         </div>
         <div className="flex w-full flex-col gap-2 xl:w-auto">
-          <div className="grid grid-cols-1 gap-2 min-[520px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] xl:min-w-[32rem]">
+          <div className="grid grid-cols-1 gap-2 min-[520px]:grid-cols-[minmax(0,1fr)_auto] xl:min-w-[32rem]">
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" className="h-10 justify-start text-left font-normal">
                   <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
-                  {formatFilterDate(startDate)}
+                  <span className="truncate">{formatDateRangeLabel(startDate, endDate)}</span>
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="z-[90] w-auto p-0" align="start">
                 <Calendar
-                  mode="single"
-                  selected={toFilterDate(startDate)}
-                  onSelect={(date) => setStartDate(toFilterValue(date))}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="h-10 justify-start text-left font-normal">
-                  <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
-                  {formatFilterDate(endDate)}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="z-[90] w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={toFilterDate(endDate)}
-                  onSelect={(date) => setEndDate(toFilterValue(date))}
+                  mode="range"
+                  numberOfMonths={1}
+                  selected={selectedRange}
+                  onSelect={(range) => {
+                    setStartDate(toFilterValue(range?.from));
+                    setEndDate(toFilterValue(range?.to ?? range?.from));
+                  }}
                   initialFocus
                 />
               </PopoverContent>
