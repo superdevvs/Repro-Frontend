@@ -89,18 +89,26 @@ const ICONS = {
   settings: Settings2,
 };
 
-const STORAGE_KEY = 'system-overview.flow.positions.v3';
-const PAGE_COLUMN_WIDTH = 320;
-const PAGE_COLUMN_GAP = 42;
+const STORAGE_KEY = 'system-overview.flow.positions.v4';
+const PAGE_NODE_WIDTH = 268;
+const CHILD_NODE_WIDTH = 220;
+const PAGE_GROUP_WIDTH = CHILD_NODE_WIDTH * 2 + 28;
+const PAGE_COLUMN_GAP = 56;
+const PAGE_DETAIL_GAP = 148;
+const PAGE_SECTION_GAP = 26;
+const STACK_STEP = 126;
 const DOMAIN_ROW_GAP = 140;
 const DOMAIN_COLUMN_GAP = 140;
 const DOMAIN_COLUMNS = 2;
 
-const getStackHeight = (count: number) => (count > 0 ? count * 138 + 28 : 0);
+const getStackHeight = (count: number) => (count > 0 ? count * STACK_STEP : 0);
 
 function SystemOverviewNode({ data, selected }: NodeProps<FlowNode>) {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
+  const sizeClass = data.kind === 'domain' ? 'w-[300px]' : data.kind === 'page' ? 'w-[268px]' : 'w-[220px]';
+  const metricGridClass = data.kind === 'domain' ? 'gap-2 text-[11px]' : 'gap-1.5 text-[10px]';
+  const metricPadClass = data.kind === 'domain' ? 'px-2 py-2' : 'px-2 py-1.5';
   const kindStyles: Record<FlowNodeData['kind'], string> = isDark
     ? {
         domain: 'border-sky-400/30 bg-slate-950/95 text-slate-50',
@@ -122,7 +130,7 @@ function SystemOverviewNode({ data, selected }: NodeProps<FlowNode>) {
 
   return (
     <div
-      className={`w-[290px] rounded-3xl border p-3 shadow-lg transition-all backdrop-blur-sm ${kindStyles[data.kind]} ${
+      className={`${sizeClass} rounded-3xl border p-3 shadow-lg transition-all backdrop-blur-sm ${kindStyles[data.kind]} ${
         selected ? 'ring-2 ring-sky-400 ring-offset-2 ring-offset-background' : ''
       }`}
     >
@@ -140,16 +148,16 @@ function SystemOverviewNode({ data, selected }: NodeProps<FlowNode>) {
           </div>
         )}
       </div>
-      <div className="mt-3 grid grid-cols-3 gap-2 text-[11px]">
-        <div className={`rounded-2xl px-2 py-2 ${metricTone}`}>
+      <div className={`mt-3 grid grid-cols-3 ${metricGridClass}`}>
+        <div className={`rounded-2xl ${metricPadClass} ${metricTone}`}>
           <div className="opacity-60">Req</div>
           <div className="font-semibold">{data.requests ?? 0}</div>
         </div>
-        <div className={`rounded-2xl px-2 py-2 ${metricTone}`}>
+        <div className={`rounded-2xl ${metricPadClass} ${metricTone}`}>
           <div className="opacity-60">Err</div>
           <div className="font-semibold">{data.errors ?? 0}</div>
         </div>
-        <div className={`rounded-2xl px-2 py-2 ${metricTone}`}>
+        <div className={`rounded-2xl ${metricPadClass} ${metricTone}`}>
           <div className="opacity-60">Avg</div>
           <div className="font-semibold">{data.avgDurationMs ?? 0}ms</div>
         </div>
@@ -227,17 +235,24 @@ const buildFlow = (
     const extraRoutes = showEverything
       ? (routes ?? []).filter((route) => route.domain === domain.id && !domain.pages.some((page) => page.apis.includes(route.path)))
       : [];
-    const pageHeights = domain.pages.map((page) => {
-      let height = 190;
-      height += getStackHeight(page.components.length);
-      height += getStackHeight(page.apis.length);
-      height += getStackHeight(page.services.length);
-      height += getStackHeight((page.externals ?? []).length);
-      return height;
+    const pageLayouts = domain.pages.map((page) => {
+      const topRowHeight = Math.max(getStackHeight(page.components.length), getStackHeight(page.apis.length));
+      const bottomRowHeight = Math.max(getStackHeight(page.services.length), getStackHeight((page.externals ?? []).length));
+      const totalHeight =
+        PAGE_DETAIL_GAP +
+        topRowHeight +
+        (bottomRowHeight > 0 ? PAGE_SECTION_GAP + bottomRowHeight : 0);
+
+      return {
+        page,
+        topRowHeight,
+        bottomRowHeight,
+        totalHeight,
+      };
     });
-    const tallestPageStack = Math.max(0, ...pageHeights);
+    const tallestPageStack = Math.max(0, ...pageLayouts.map((layout) => layout.totalHeight));
     const clusterWidth = domainIsExpanded
-      ? Math.max(360, domain.pages.length * PAGE_COLUMN_WIDTH + Math.max(0, domain.pages.length - 1) * PAGE_COLUMN_GAP)
+      ? Math.max(360, domain.pages.length * PAGE_GROUP_WIDTH + Math.max(0, domain.pages.length - 1) * PAGE_COLUMN_GAP)
       : 320;
     const clusterHeight = domainIsExpanded
       ? 260 + tallestPageStack + (extraRoutes.length > 0 ? 140 + Math.ceil(extraRoutes.length / 2) * 148 : 0)
@@ -286,10 +301,11 @@ const buildFlow = (
     const childStartX = domainPosition.x;
     const childStartY = domainPosition.y + 220;
 
-    domain.pages.forEach((page, pageIndex) => {
+    pageLayouts.forEach(({ page, topRowHeight }, pageIndex) => {
+      const pageGroupX = childStartX + pageIndex * (PAGE_GROUP_WIDTH + PAGE_COLUMN_GAP);
       const pageId = `page:${page.id}`;
       const pagePosition = savedPositions[pageId] ?? {
-        x: childStartX + pageIndex * (PAGE_COLUMN_WIDTH + PAGE_COLUMN_GAP),
+        x: pageGroupX + Math.round((PAGE_GROUP_WIDTH - PAGE_NODE_WIDTH) / 2),
         y: childStartY,
       };
       const pageMetrics = aggregateRouteMetrics(page.apis, snapshot, routes);
@@ -321,13 +337,14 @@ const buildFlow = (
         style: { stroke: '#38bdf8', strokeWidth: 1.6 },
       });
 
-      let laneY = pagePosition.y + 160;
+      const firstRowY = pagePosition.y + PAGE_DETAIL_GAP;
+      const secondRowY = firstRowY + (topRowHeight > 0 ? topRowHeight + PAGE_SECTION_GAP : 0);
 
       page.components.forEach((component, componentIndex) => {
         const componentId = `component:${page.id}:${component}`;
         const componentPosition = savedPositions[componentId] ?? {
-          x: pagePosition.x,
-          y: laneY + componentIndex * 138,
+          x: pageGroupX,
+          y: firstRowY + componentIndex * STACK_STEP,
         };
         const activeUsers = (snapshot?.liveUsers ?? []).filter((user) => user.componentStack?.includes(component)).length;
 
@@ -356,13 +373,12 @@ const buildFlow = (
           style: { stroke: '#94a3b8', strokeWidth: 1.1 },
         });
       });
-      laneY += getStackHeight(page.components.length);
 
       page.apis.forEach((apiPath, apiIndex) => {
         const apiId = `api:${page.id}:${apiPath}`;
         const apiPosition = savedPositions[apiId] ?? {
-          x: pagePosition.x,
-          y: laneY + apiIndex * 138,
+          x: pageGroupX + CHILD_NODE_WIDTH + 28,
+          y: firstRowY + apiIndex * STACK_STEP,
         };
         const routeMetric = aggregateRouteMetrics([apiPath], snapshot, routes);
 
@@ -391,13 +407,12 @@ const buildFlow = (
           style: { stroke: '#10b981', strokeWidth: 1.4 },
         });
       });
-      laneY += getStackHeight(page.apis.length);
 
       page.services.forEach((service, serviceIndex) => {
         const serviceId = `service:${page.id}:${service}`;
         const servicePosition = savedPositions[serviceId] ?? {
-          x: pagePosition.x,
-          y: laneY + serviceIndex * 138,
+          x: pageGroupX,
+          y: secondRowY + serviceIndex * STACK_STEP,
         };
 
         nodes.push({
@@ -424,13 +439,12 @@ const buildFlow = (
           style: { stroke: '#f59e0b', strokeWidth: 1.3 },
         });
       });
-      laneY += getStackHeight(page.services.length);
 
       (page.externals ?? []).forEach((external, externalIndex) => {
         const externalId = `external:${page.id}:${external}`;
         const externalPosition = savedPositions[externalId] ?? {
-          x: pagePosition.x,
-          y: laneY + externalIndex * 138,
+          x: pageGroupX + CHILD_NODE_WIDTH + 28,
+          y: secondRowY + externalIndex * STACK_STEP,
         };
 
         nodes.push({
@@ -465,7 +479,7 @@ const buildFlow = (
       const extraColumn = routeIndex % 2;
       const extraRow = Math.floor(routeIndex / 2);
       const apiPosition = savedPositions[apiId] ?? {
-        x: childStartX + extraColumn * (PAGE_COLUMN_WIDTH + PAGE_COLUMN_GAP),
+        x: childStartX + extraColumn * (PAGE_GROUP_WIDTH + PAGE_COLUMN_GAP),
         y: childStartY + tallestPageStack + 100 + extraRow * 148,
       };
       const metric = route.metrics;
@@ -747,15 +761,19 @@ export function SystemOverviewTab() {
                 A focused observability workspace for route health, live user presence, blockers, and recent traces without the previous control overload.
               </CardDescription>
             </div>
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2 xl:flex-nowrap">
               <Tabs value={timeMode} onValueChange={(value) => setTimeMode(value as 'live' | 'history')}>
-                <TabsList className={isDark ? 'bg-white/10' : 'bg-slate-950/5'}>
-                  <TabsTrigger value="live">Live</TabsTrigger>
-                  <TabsTrigger value="history">Last 24h</TabsTrigger>
+                <TabsList className={`h-12 ${isDark ? 'bg-white/10' : 'bg-slate-950/5'}`}>
+                  <TabsTrigger value="live" className="px-4 text-sm whitespace-nowrap">
+                    Live
+                  </TabsTrigger>
+                  <TabsTrigger value="history" className="px-4 text-sm whitespace-nowrap">
+                    Last 24h
+                  </TabsTrigger>
                 </TabsList>
               </Tabs>
               <div
-                className={`flex items-center gap-2 rounded-full border px-3 py-2 text-sm ${
+                className={`flex items-center gap-2 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm ${
                   isDark ? 'border-white/20 bg-white/5 text-white' : 'border-slate-300 bg-white/70 text-slate-700'
                 }`}
               >
@@ -763,11 +781,11 @@ export function SystemOverviewTab() {
                 {snapshot?.stats.activeSessions ?? 0} live sessions
               </div>
               <div
-                className={`flex items-center gap-2 rounded-full border px-3 py-2 text-sm ${
+                className={`flex items-center gap-2 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm ${
                   isDark ? 'border-white/20 bg-white/5 text-white' : 'border-slate-300 bg-white/70 text-slate-700'
                 }`}
               >
-                <ZoomIn className="h-4 w-4" />
+                <ZoomIn className="h-3.5 w-3.5" />
                 <span>Canvas workspace</span>
               </div>
             </div>
@@ -802,8 +820,8 @@ export function SystemOverviewTab() {
           </div>
 
           <Card className={`rounded-3xl border shadow-sm ${isDark ? 'border-white/10 bg-slate-950/55' : 'border-slate-200/80 bg-white'}`}>
-            <CardContent className="space-y-4 p-4">
-              <div className="flex flex-wrap items-center gap-3">
+            <CardContent className="space-y-3 p-4">
+              <div className="flex flex-wrap items-center gap-2">
                 <div className="min-w-[120px]">
                   <div className="text-sm font-semibold text-foreground">Map scope</div>
                   <div className="text-xs text-muted-foreground">Pick which domains expand on the canvas.</div>
@@ -811,18 +829,20 @@ export function SystemOverviewTab() {
                 <Button
                   variant="outline"
                   size="sm"
+                  className="h-11 px-4 text-sm"
                   onClick={() =>
                     setExpandedDomains((current) =>
                       current.length === systemOverviewCatalog.length ? [] : systemOverviewCatalog.map((domain) => domain.id),
                     )
                   }
                 >
-                  <Workflow className="mr-2 h-4 w-4" />
+                  <Workflow className="mr-2 h-3.5 w-3.5" />
                   {expandedDomains.length === systemOverviewCatalog.length ? 'Collapse all' : 'Expand all'}
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
+                  className="h-11 px-4 text-sm"
                   onClick={() => {
                     localStorage.removeItem(STORAGE_KEY);
                     const nextFlow = buildFlow(snapshot, routes, expandedDomains, showEverything);
@@ -840,7 +860,7 @@ export function SystemOverviewTab() {
                 </div>
               </div>
 
-              <div className="flex gap-3 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+              <div className="flex gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                 {domainSummaries.map((domain) => {
                   const Icon = ICONS[domain.icon as keyof typeof ICONS] || Network;
                   const active = domain.isExpanded;
@@ -855,23 +875,25 @@ export function SystemOverviewTab() {
                             : [...current, domain.id],
                         )
                       }
-                      className={`min-w-[250px] rounded-2xl border p-4 text-left transition-colors ${
+                      className={`min-w-[220px] rounded-2xl border p-3 text-left transition-colors ${
                         active
                           ? 'border-sky-300 bg-sky-50 text-slate-950 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-50'
                           : 'border-border/70 bg-background hover:border-sky-200 hover:bg-muted/40'
                       }`}
                     >
                       <div className="flex items-start gap-3">
-                        <div className={`flex h-11 w-11 items-center justify-center rounded-2xl ${active ? 'bg-sky-500 text-white' : 'bg-muted text-muted-foreground'}`}>
-                          <Icon className="h-5 w-5" />
+                        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${active ? 'bg-sky-500 text-white' : 'bg-muted text-muted-foreground'}`}>
+                          <Icon className="h-4.5 w-4.5" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="font-medium">{domain.label}</div>
-                            <Badge variant="outline">{domain.stats?.requests ?? 0} req</Badge>
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="text-sm font-medium">{domain.label}</div>
+                            <Badge variant="outline" className="h-7 px-2 text-[11px]">
+                              {domain.stats?.requests ?? 0} req
+                            </Badge>
                           </div>
-                          <div className="mt-1 text-sm leading-6 text-muted-foreground">{domain.description}</div>
-                          <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
+                          <div className="mt-1 text-[13px] leading-6 text-muted-foreground">{domain.description}</div>
+                          <div className="mt-2 flex items-center gap-3 text-[11px] text-muted-foreground">
                             <span>{domain.stats?.activeUsers ?? 0} live users</span>
                             <span>{domain.stats?.errors ?? 0} errors</span>
                           </div>
