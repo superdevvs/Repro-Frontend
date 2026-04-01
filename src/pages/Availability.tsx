@@ -1445,7 +1445,7 @@ export default function Availability() {
     "dark:border-white/10 dark:bg-slate-950 dark:text-white dark:hover:bg-slate-900"
   );
   const availabilityDatePopoverClass =
-    "w-auto p-0 rounded-lg border border-border bg-popover text-popover-foreground shadow-xl dark:border-white/10 dark:bg-slate-950";
+    "z-[90] w-auto p-0 rounded-lg border border-border bg-popover text-popover-foreground shadow-xl dark:border-white/10 dark:bg-slate-950";
 
   const renderViewModeButtons = (variant: "header" | "compact") => (
     <div
