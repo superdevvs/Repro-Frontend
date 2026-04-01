@@ -68,9 +68,6 @@ const ShootHistory: React.FC = () => {
   const canViewHistory = HISTORY_ALLOWED_ROLES.has((role as string) ?? '')
   const canViewInvoice = !isPhotographer && !isEditingManager // Hide invoice for photographers and editing managers
   
-  // Linked accounts should only be available for non-super admin users
-  const canViewLinkedAccounts = !isSuperAdmin && !isAdmin && !isEditingManager && !isPhotographer // Only clients can have linked accounts
-  
   const {
     tabList,
     activeTab,
@@ -99,7 +96,6 @@ const ShootHistory: React.FC = () => {
     role,
     isEditor,
     canViewHistory,
-    canViewLinkedAccounts,
   })
 
   const togglePinTab = (tab: (typeof tabList)[number]) => {
@@ -174,11 +170,6 @@ const ShootHistory: React.FC = () => {
     selectedInvoice,
     invoiceLoading,
     brightMlsRedirectUrl,
-    linkedAccounts,
-    sharedData,
-    linkedLoading,
-    linkedAccountsLoaded,
-    hasLinkedAccounts,
     gridContainerRef,
     handleDetailDialogToggle,
     handleUploadDialogToggle,
@@ -221,7 +212,6 @@ const ShootHistory: React.FC = () => {
     viewMode,
     canViewAllShoots,
     canViewHistory,
-    canViewLinkedAccounts,
     canViewInvoice,
     shouldHideClientDetails,
     isSuperAdmin,
@@ -959,12 +949,6 @@ const ShootHistory: React.FC = () => {
           historyMeta={historyMeta}
           handleHistoryPageChange={handleHistoryPageChange}
           historyContent={historyContent}
-          canViewLinkedAccounts={canViewLinkedAccounts}
-          linkedAccounts={linkedAccounts}
-          sharedData={sharedData}
-          linkedLoading={linkedLoading}
-          linkedAccountsLoaded={linkedAccountsLoaded}
-          user={user}
         />
       </DashboardLayout>
       <ShootHistoryModalHost

@@ -129,6 +129,20 @@ export interface LinkedAccountSummary {
   linkId?: string | number;
 }
 
+export interface LinkedOwnerSummary {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  avatar?: string | null;
+  accountStatus?: string | null;
+  status?: AccountLinkStatus;
+  sharedDetails: SharedDetails;
+  linkedAt?: string | null;
+  linkId?: string | number;
+  linkDirection?: 'incoming' | 'outgoing';
+}
+
 export type LinkedAccount = AccountLinkRecord;
 
 export interface SharedData {
@@ -162,6 +176,36 @@ export interface PaymentData {
     id: string;
     address: string;
   };
+}
+
+export interface ClientSharedShoot {
+  id: string;
+  address: string;
+  city?: string | null;
+  state?: string | null;
+  scheduledDate?: string | null;
+  status?: string | null;
+  heroImage?: string | null;
+}
+
+export interface ClientSharedOwnerData {
+  totalShoots: number;
+  totalSpent: number;
+  properties: PropertyData[];
+  paymentHistory: PaymentData[];
+  lastActivity: string | null;
+  sharedShoots: ClientSharedShoot[];
+}
+
+export interface LinkedSharedVisibilityResponse {
+  hasLinkedAccounts: boolean;
+  linkedAccounts: LinkedOwnerSummary[];
+}
+
+export interface ClientSharedDataResponse {
+  owner: LinkedOwnerSummary;
+  link: AccountLinkRecord;
+  sharedData: ClientSharedOwnerData;
 }
 
 export interface AuthSession {

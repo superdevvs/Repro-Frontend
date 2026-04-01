@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { NavLink } from './NavLink';
 import { ExpandableNavLink } from './ExpandableNavLink';
 import { usePermission } from '@/hooks/usePermission';
+import { useLinkedSharedVisibility } from '@/hooks/useLinkedSharedVisibility';
 import { cn } from '@/lib/utils';
 import { ReproAiIcon } from '@/components/icons/ReproAiIcon';
 import { Link } from 'react-router-dom';
@@ -20,6 +21,7 @@ import {
   TestTubeIcon,
   Mail,
   MessageSquare,
+  Link2,
   Upload,
   Crown,
   Sparkles,
@@ -33,7 +35,9 @@ interface SidebarLinksProps {
 export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
   const { pathname } = useLocation();
   const permission = usePermission();
+  const linkedSharedVisibility = useLinkedSharedVisibility();
   const isEditingManager = role === 'editing_manager';
+  const canViewShared = role === 'client' && linkedSharedVisibility.data.hasLinkedAccounts;
   
   // Define permissions for each section
   const dashboardPermission = permission.forResource('dashboard');
@@ -85,6 +89,15 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
           label="Shoot History"
           isCollapsed={isCollapsed}
           isActive={pathname === '/shoot-history' || pathname.startsWith('/shoots')}
+        />
+      )}
+      {canViewShared && (
+        <NavLink
+          to="/shared"
+          icon={<Link2 className="h-5 w-5" />}
+          label="Shared"
+          isCollapsed={isCollapsed}
+          isActive={pathname === '/shared'}
         />
       )}
       

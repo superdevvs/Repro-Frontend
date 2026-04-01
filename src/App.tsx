@@ -41,6 +41,7 @@ const Availability = lazy(() => import('./pages/Availability'));
 const Reports = lazy(() => import('./pages/Reports'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 const ShootHistory = lazy(() => import('./pages/ShootHistory'));
+const Shared = lazy(() => import('./pages/Shared'));
 const PhotographerShootHistory = lazy(() => import('./pages/PhotographerShootHistory'));
 const PhotographerAccount = lazy(() => import('./pages/PhotographerAccount'));
 const PhotographerAvailability = lazy(() => import('./pages/PhotographerAvailability'));
@@ -401,6 +402,13 @@ const AppRoutes = () => {
             <ShootHistory />
           </ShootRoutesWrapper>
         </PermissionRoute>
+      } />
+      <Route path="/shared" element={
+        <ProtectedRoute>
+          <ShootRoutesWrapper>
+            <Shared />
+          </ShootRoutesWrapper>
+        </ProtectedRoute>
       } />
       <Route path="/invoices" element={
         <PermissionRoute resource="invoices">

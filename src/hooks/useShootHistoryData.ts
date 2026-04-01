@@ -42,7 +42,6 @@ export interface UseShootHistoryDataArgs {
   viewMode: 'grid' | 'list' | 'map'
   canViewAllShoots: boolean
   canViewHistory: boolean
-  canViewLinkedAccounts: boolean
   canViewInvoice: boolean
   shouldHideClientDetails: boolean
   isSuperAdmin: boolean
@@ -121,7 +120,6 @@ export function useShootHistoryData({
   viewMode,
   canViewAllShoots,
   canViewHistory,
-  canViewLinkedAccounts,
   canViewInvoice,
   shouldHideClientDetails,
   isSuperAdmin,
@@ -162,12 +160,6 @@ export function useShootHistoryData({
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null)
   const [invoiceLoading, setInvoiceLoading] = useState(false)
   const [brightMlsRedirectUrl, setBrightMlsRedirectUrl] = useState<string | null>(null)
-  const [linkedAccounts, setLinkedAccounts] = useState<any[]>([])
-  const [sharedData, setSharedData] = useState<any>(null)
-  const [linkedLoading, setLinkedLoading] = useState(false)
-  const [linkedAccountsLoaded, setLinkedAccountsLoaded] = useState(false)
-
-  const hasLinkedAccounts = linkedAccounts.length > 0
   const gridContainerRef = useRef<HTMLDivElement>(null)
   const operationalFetchAbortRef = useRef<AbortController | null>(null)
   const historyFetchAbortRef = useRef<AbortController | null>(null)
@@ -223,12 +215,6 @@ export function useShootHistoryData({
   }, [geoCache])
 
   useEffect(() => {
-    setLinkedAccountsLoaded(false)
-    setLinkedAccounts([])
-    setSharedData(null)
-  }, [user?.id])
-
-  useEffect(() => {
     if (!(isAdmin || isSuperAdmin)) return
     if (!approvalModalShoot) return
     if (photographers.length) return
@@ -248,48 +234,6 @@ export function useShootHistoryData({
 
     fetchPhotographers()
   }, [approvalModalShoot, isAdmin, isSuperAdmin, photographers.length])
-
-  useEffect(() => {
-    if (!canViewLinkedAccounts) return
-    if (activeTab !== 'linked') return
-    if (linkedAccountsLoaded) return
-
-    const fetchLinkedAccounts = async () => {
-      try {
-        const token = localStorage.getItem('authToken')
-        if (!token) return
-
-        setLinkedLoading(true)
-
-        const linksResponse = await fetch(`${API_BASE_URL}/api/admin/account-links`, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-
-        if (linksResponse.ok) {
-          const linksData = await linksResponse.json()
-          setLinkedAccounts(linksData.links || [])
-
-          if (user?.id) {
-            const sharedResponse = await fetch(`${API_BASE_URL}/api/admin/account-links/shared-data/${user.id}`, {
-              headers: { Authorization: `Bearer ${token}` },
-            })
-
-            if (sharedResponse.ok) {
-              const sharedDataResponse = await sharedResponse.json()
-              setSharedData(sharedDataResponse)
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Failed to fetch linked accounts:', error)
-      } finally {
-        setLinkedLoading(false)
-        setLinkedAccountsLoaded(true)
-      }
-    }
-
-    fetchLinkedAccounts()
-  }, [activeTab, canViewLinkedAccounts, linkedAccountsLoaded, user?.id])
 
   const handleDetailDialogToggle = useCallback((open: boolean) => {
     setIsDetailOpen(open)
@@ -1124,11 +1068,6 @@ export function useShootHistoryData({
     setInvoiceLoading,
     brightMlsRedirectUrl,
     setBrightMlsRedirectUrl,
-    linkedAccounts,
-    sharedData,
-    linkedLoading,
-    linkedAccountsLoaded,
-    hasLinkedAccounts,
     handleDetailDialogToggle,
     handleUploadDialogToggle,
     handleShootSelect,

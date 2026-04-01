@@ -4,12 +4,15 @@ import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { getAccountingMode, accountingConfigs } from '@/config/accountingConfig';
 import { usePermission } from '@/hooks/usePermission';
+import { useLinkedSharedVisibility } from '@/hooks/useLinkedSharedVisibility';
 
 export const useMobileMenu = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { pathname } = useLocation();
   const { role, logout } = useAuth();
   const permission = usePermission();
+  const linkedSharedVisibility = useLinkedSharedVisibility();
+  const canViewShared = role === 'client' && linkedSharedVisibility.data.hasLinkedAccounts;
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -52,6 +55,13 @@ export const useMobileMenu = () => {
       label: "Shoots",
       isActive: pathname === '/shoot-history' || pathname.startsWith('/shoots'),
       visible: permission.can('shoots', 'view'),
+    },
+    {
+      to: "/shared",
+      icon: "Link2",
+      label: "Shared",
+      isActive: pathname === '/shared',
+      visible: canViewShared,
     },
     {
       to: "/availability",

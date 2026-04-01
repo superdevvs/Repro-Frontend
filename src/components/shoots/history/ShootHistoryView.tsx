@@ -139,15 +139,6 @@ export type ShootHistoryViewProps = {
   historyMeta: HistoryMeta | null
   handleHistoryPageChange: (direction: 'prev' | 'next') => void
   historyContent: React.ReactNode
-  canViewLinkedAccounts: boolean
-  linkedAccounts: LinkedAccount[]
-  sharedData: SharedData | null
-  linkedLoading: boolean
-  linkedAccountsLoaded: boolean
-  user: {
-    name: string
-    email: string
-  }
 }
 
 function SubTabButton({
@@ -417,12 +408,6 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
     historyMeta,
     handleHistoryPageChange,
     historyContent,
-    canViewLinkedAccounts,
-    linkedAccounts,
-    sharedData,
-    linkedLoading,
-    linkedAccountsLoaded,
-    user,
   } = props
 
   const activeView = activeTab === 'history' ? historyFilters.viewAs : viewMode
@@ -800,15 +785,6 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
           </TabsContent>
         )}
 
-        {canViewLinkedAccounts && (
-          <ShootHistoryLinkedAccountsTab
-            linkedAccounts={linkedAccounts}
-            sharedData={sharedData}
-            linkedLoading={linkedLoading}
-            linkedAccountsLoaded={linkedAccountsLoaded}
-            user={user}
-          />
-        )}
       </Tabs>
     </div>
   )

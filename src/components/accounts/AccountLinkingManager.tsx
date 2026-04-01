@@ -76,6 +76,7 @@ export function AccountLinkingManager() {
   const [directoryError, setDirectoryError] = useState<string | null>(null);
   const [owners, setOwners] = useState<LinkingAccountOption[]>([]);
   const [clients, setClients] = useState<LinkingAccountOption[]>([]);
+  const [crossOwnerConfirmation, setCrossOwnerConfirmation] = useState<LinkingAccountOption[] | null>(null);
 
   const deferredOwnerSearch = useDeferredValue(ownerSearch);
   const deferredClientSearch = useDeferredValue(clientSearch);
@@ -148,6 +149,34 @@ export function AccountLinkingManager() {
     return clients.filter((client) => (`${client.name} ${client.email} ${client.company || ''}`).toLowerCase().includes(query));
   }, [clients, pickerSearch]);
 
+  const selectedOwnerOption = useMemo(
+    () => owners.find((owner) => owner.id === draft.ownerId) || null,
+    [draft.ownerId, owners],
+  );
+
+  const selectedDraftClients = useMemo(
+    () => draft.clientIds.map((id) => clients.find((item) => item.id === id)).filter(Boolean) as LinkingAccountOption[],
+    [clients, draft.clientIds],
+  );
+
+  const enabledDraftShares = useMemo(
+    () => SHARE_OPTIONS.filter((option) => draft.sharedDetails[option.key]),
+    [draft.sharedDetails],
+  );
+
+  const enabledEditShares = useMemo(
+    () => SHARE_OPTIONS.filter((option) => editSharedDetails[option.key]),
+    [editSharedDetails],
+  );
+
+  const conflictedDraftClients = useMemo(
+    () =>
+      selectedDraftClients.filter(
+        (client) => client.isLinkedToOtherOwners && (client.activeOwnerLinks?.length ?? 0) > 0,
+      ),
+    [selectedDraftClients],
+  );
+
   const loadDirectory = useCallback(async (ownerId: string) => {
     setLoadingDirectory(true);
     setDirectoryError(null);
@@ -182,7 +211,7 @@ export function AccountLinkingManager() {
     setEditStatus(link.status);
   };
 
-  const handleCreate = async () => {
+  const submitCreate = async () => {
     if (!draft.ownerId || draft.clientIds.length === 0) {
       toast({ title: 'Select an owner and at least one client', variant: 'destructive' });
       return;
@@ -205,6 +234,20 @@ export function AccountLinkingManager() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleCreate = async () => {
+    if (!draft.ownerId || draft.clientIds.length === 0) {
+      toast({ title: 'Select an owner and at least one client', variant: 'destructive' });
+      return;
+    }
+
+    if (conflictedDraftClients.length > 0) {
+      setCrossOwnerConfirmation(conflictedDraftClients);
+      return;
+    }
+
+    await submitCreate();
   };
 
   const handleEditSave = async () => {
@@ -247,24 +290,23 @@ export function AccountLinkingManager() {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-[28px] border border-slate-200/70 bg-[radial-gradient(circle_at_top_left,_rgba(79,168,255,0.18),_transparent_38%),linear-gradient(180deg,_rgba(255,255,255,0.94),_rgba(248,250,252,0.96))] p-5 shadow-sm shadow-slate-950/5 dark:border-slate-800 dark:bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.18),_transparent_34%),linear-gradient(180deg,_rgba(2,6,23,0.92),_rgba(15,23,42,0.96))] sm:p-7">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+      <section className="rounded-[28px] border border-slate-200/70 bg-[radial-gradient(circle_at_top_left,_rgba(79,168,255,0.18),_transparent_38%),linear-gradient(180deg,_rgba(255,255,255,0.94),_rgba(248,250,252,0.96))] p-4 shadow-sm shadow-slate-950/5 dark:border-slate-800 dark:bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.18),_transparent_34%),linear-gradient(180deg,_rgba(2,6,23,0.92),_rgba(15,23,42,0.96))] sm:p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="max-w-3xl">
             <div className="inline-flex items-center gap-2 rounded-full border border-slate-200/80 bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-slate-600 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-300"><Link2 className="h-3.5 w-3.5" /> Linking Workspace</div>
-            <h2 className="mt-4 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-3xl">Manage owner-to-client relationships from one focused surface.</h2>
-            <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">Review active groups, reactivate broken relationships, and update shared access without the old batch-only flow.</p>
+            <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">Review active groups, reactivate broken relationships, and update shared access without the old batch-only flow.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={() => void loadLinks(true)} disabled={loading || refreshing}>{refreshing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}Refresh</Button>
             <Button onClick={() => openCreate()} disabled={!canUpdate}><Plus className="mr-2 h-4 w-4" />Link Clients</Button>
           </div>
         </div>
-        <div className="mt-6 grid gap-3 lg:grid-cols-3">
+        <div className="mt-4 grid gap-3 lg:grid-cols-3">
           {[
             ['Owners', summary.owners, 'Grouped accounts'],
             ['Active clients', summary.active, 'Live relationships'],
             ['Needs attention', summary.attention, 'Inactive or suspended'],
-          ].map(([label, value, note], index) => <div key={String(label)} className="rounded-2xl border border-white/60 bg-white/90 p-4 shadow-sm dark:border-slate-800/70 dark:bg-slate-950/70"><p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">{label}</p><p className={cn('mt-3 text-3xl font-semibold tracking-tight', index === 2 ? 'text-amber-600 dark:text-amber-300' : 'text-slate-900 dark:text-white')}>{value}</p><p className="mt-1 text-sm text-muted-foreground">{note}</p></div>)}
+          ].map(([label, value, note], index) => <div key={String(label)} className="rounded-2xl border border-white/60 bg-white/90 p-3.5 shadow-sm dark:border-slate-800/70 dark:bg-slate-950/70"><p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">{label}</p><p className={cn('mt-2 text-2xl font-semibold tracking-tight', index === 2 ? 'text-amber-600 dark:text-amber-300' : 'text-slate-900 dark:text-white')}>{value}</p><p className="mt-1 text-sm text-muted-foreground">{note}</p></div>)}
         </div>
       </section>
 
@@ -302,29 +344,554 @@ export function AccountLinkingManager() {
         </section>
       </div>
 
-      <Dialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (!open) { setDraft(emptyDraft(selectedGroup?.id || '')); setPickerSearch(''); } }}>
-        <DialogContent className="max-w-[980px] rounded-[28px] border-0 p-0 shadow-2xl shadow-slate-950/20">
-          <div className="grid max-h-[88vh] gap-0 lg:grid-cols-[minmax(0,1.15fr)_320px]">
-            <div className="bg-white px-5 py-5 dark:bg-slate-950 sm:px-6 sm:py-6">
-              <DialogHeader className="space-y-2 text-left"><DialogTitle className="text-left text-2xl">Link client accounts</DialogTitle><DialogDescription className="text-left">Choose an owner, pick one or more client accounts, and apply one shared-access profile.</DialogDescription></DialogHeader>
-              <div className="mt-6 grid gap-5 lg:grid-cols-2">
-                <div className="space-y-4"><div className="space-y-2"><Label>Owner account</Label><Select value={draft.ownerId || undefined} onValueChange={(value) => setDraft((current) => ({ ...current, ownerId: value, clientIds: [] }))}><SelectTrigger><SelectValue placeholder="Select the owner account" /></SelectTrigger><SelectContent>{owners.map((owner) => <SelectItem key={owner.id} value={owner.id}>{owner.name} · {owner.email}</SelectItem>)}</SelectContent></Select></div><div className="space-y-2"><div className="flex items-center justify-between"><Label>Client accounts</Label><Badge variant="outline" className="rounded-full px-2.5 py-1 text-xs">{draft.clientIds.length} selected</Badge></div><Input value={pickerSearch} onChange={(e) => setPickerSearch(e.target.value)} placeholder="Search available clients" /><div className="rounded-3xl border border-slate-200/70 dark:border-slate-800"><ScrollArea className="h-[360px]"><div className="space-y-2 p-3">{loadingDirectory ? Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-2xl" />) : directoryError ? <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-6 text-sm text-red-700 dark:border-red-950/60 dark:bg-red-950/20 dark:text-red-300">{directoryError}</div> : filteredPickerClients.length === 0 ? <div className="rounded-2xl border border-dashed px-4 py-10 text-center"><p className="text-sm font-medium">{clients.length === 0 ? 'No clients available' : 'No clients match this search'}</p><p className="mt-1 text-xs text-muted-foreground">{clients.length === 0 ? 'Every eligible client is already active for this owner.' : 'Try a different name or email.'}</p></div> : filteredPickerClients.map((client) => { const checked = draft.clientIds.includes(client.id); return <button key={client.id} type="button" onClick={() => setDraft((current) => ({ ...current, clientIds: checked ? current.clientIds.filter((id) => id !== client.id) : [...current.clientIds, client.id] }))} className={cn('flex w-full items-start gap-3 rounded-2xl border px-3 py-3 text-left transition-colors', checked ? 'border-blue-300 bg-blue-50 dark:border-blue-900/60 dark:bg-blue-950/30' : 'border-slate-200/70 bg-white hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:hover:bg-slate-900/80')}><Checkbox checked={checked} className="mt-0.5" /><div><p className="text-sm font-medium text-slate-900 dark:text-white">{client.name}</p><p className="mt-1 text-xs text-muted-foreground">{client.email}</p></div></button>; })}</div></ScrollArea></div></div></div>
-                <div className="space-y-4"><div className="space-y-2"><Label>Relationship note</Label><Textarea value={draft.notes} onChange={(e) => setDraft((current) => ({ ...current, notes: e.target.value }))} rows={4} placeholder="Add context for why these clients are linked to this owner." /></div><div className="space-y-3"><Label>Shared access</Label><div className="space-y-3">{SHARE_OPTIONS.map((option) => { const Icon = option.icon; return <div key={option.key} className="rounded-2xl border border-slate-200/70 bg-white px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-950/70"><div className="flex items-start justify-between gap-4"><div className="flex items-start gap-3"><div className="rounded-xl bg-slate-100 p-2 text-slate-700 dark:bg-slate-900 dark:text-slate-300"><Icon className="h-4 w-4" /></div><div><p className="text-sm font-medium text-slate-900 dark:text-white">{option.label}</p><p className="mt-1 text-xs text-muted-foreground">{option.description}</p></div></div><Switch checked={draft.sharedDetails[option.key]} onCheckedChange={(checked) => setDraft((current) => ({ ...current, sharedDetails: { ...current.sharedDetails, [option.key]: checked } }))} /></div></div>; })}</div></div></div>
+      <Dialog
+        open={createOpen}
+        onOpenChange={(open) => {
+          setCreateOpen(open);
+          if (!open) {
+            setDraft(emptyDraft(selectedGroup?.id || ''));
+            setPickerSearch('');
+          }
+        }}
+      >
+        <DialogContent className="w-[calc(100vw-1rem)] max-w-[1240px] overflow-hidden rounded-[28px] border-0 p-0 shadow-2xl shadow-slate-950/20 sm:w-[calc(100vw-2rem)]">
+          <div className="grid h-[min(92vh,860px)] gap-0 xl:grid-cols-[minmax(0,1.55fr)_360px]">
+            <div className="flex min-h-0 flex-col bg-white dark:bg-slate-950">
+              <DialogHeader className="border-b border-slate-200/80 px-4 pb-5 pt-6 text-left dark:border-slate-800 sm:px-6">
+                <DialogTitle className="text-left text-2xl sm:text-[2rem]">Link client accounts</DialogTitle>
+                <DialogDescription className="max-w-2xl text-left text-sm sm:text-base">
+                  Build the relationship in one pass: choose the owner, select clients, then tune a shared-access profile without scrolling through a long stacked form.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 pt-4 sm:px-6 sm:pb-6">
+                <div className="space-y-4">
+                  <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(260px,0.85fr)]">
+                    <div className="rounded-3xl border border-slate-200/70 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/40">
+                      <div className="space-y-2">
+                        <Label>Owner account</Label>
+                        <Select
+                          value={draft.ownerId || undefined}
+                          onValueChange={(value) =>
+                            setDraft((current) => ({ ...current, ownerId: value, clientIds: [] }))
+                          }
+                        >
+                          <SelectTrigger className="h-12 rounded-2xl bg-white dark:bg-slate-950">
+                            <SelectValue placeholder="Select the owner account" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {owners.map((owner) => (
+                              <SelectItem key={owner.id} value={owner.id}>
+                                {owner.name} · {owner.email}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="rounded-3xl border border-slate-200/70 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/40">
+                      <div className="space-y-2">
+                        <Label>Relationship note</Label>
+                        <Textarea
+                          value={draft.notes}
+                          onChange={(e) => setDraft((current) => ({ ...current, notes: e.target.value }))}
+                          rows={3}
+                          placeholder="Add context for why these clients are linked to this owner."
+                          className="min-h-[112px] rounded-2xl bg-white dark:bg-slate-950"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 xl:grid-cols-[minmax(0,1.08fr)_minmax(340px,0.92fr)]">
+                    <section className="rounded-3xl border border-slate-200/70 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-900/30">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <Label className="text-base font-semibold text-slate-900 dark:text-white">
+                            Client accounts
+                          </Label>
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            Pick one or more eligible clients for this owner.
+                          </p>
+                        </div>
+                        <Badge variant="outline" className="w-fit rounded-full px-3 py-1 text-xs">
+                          {draft.clientIds.length} selected
+                        </Badge>
+                      </div>
+
+                      <div className="relative mt-4">
+                        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                          value={pickerSearch}
+                          onChange={(e) => setPickerSearch(e.target.value)}
+                          placeholder="Search available clients"
+                          className="h-11 rounded-2xl border-slate-200/80 bg-white pl-9 dark:border-slate-800 dark:bg-slate-950"
+                        />
+                      </div>
+
+                      <div className="mt-4 rounded-3xl border border-slate-200/70 bg-white dark:border-slate-800 dark:bg-slate-950">
+                        <ScrollArea className="h-[280px] sm:h-[320px] xl:h-[460px]">
+                          <div className="grid gap-2 p-3 lg:grid-cols-2">
+                            {loadingDirectory ? (
+                              Array.from({ length: 6 }).map((_, i) => (
+                                <Skeleton key={i} className="h-24 rounded-2xl" />
+                              ))
+                            ) : directoryError ? (
+                              <div className="lg:col-span-2 rounded-2xl border border-red-200 bg-red-50 px-4 py-6 text-sm text-red-700 dark:border-red-950/60 dark:bg-red-950/20 dark:text-red-300">
+                                {directoryError}
+                              </div>
+                            ) : filteredPickerClients.length === 0 ? (
+                              <div className="lg:col-span-2 rounded-2xl border border-dashed px-4 py-10 text-center">
+                                <p className="text-sm font-medium">
+                                  {clients.length === 0 ? 'No clients available' : 'No clients match this search'}
+                                </p>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                  {clients.length === 0
+                                    ? 'Every eligible client is already active for this owner.'
+                                    : 'Try a different name or email.'}
+                                </p>
+                              </div>
+                            ) : (
+                              filteredPickerClients.map((client) => {
+                                const checked = draft.clientIds.includes(client.id);
+
+                                return (
+                                  <button
+                                    key={client.id}
+                                    type="button"
+                                    onClick={() =>
+                                      setDraft((current) => ({
+                                        ...current,
+                                        clientIds: checked
+                                          ? current.clientIds.filter((id) => id !== client.id)
+                                          : [...current.clientIds, client.id],
+                                      }))
+                                    }
+                                    className={cn(
+                                      'flex min-h-[92px] w-full items-start gap-3 rounded-2xl border px-3 py-3 text-left transition-colors',
+                                      checked
+                                        ? 'border-blue-300 bg-blue-50 dark:border-blue-900/60 dark:bg-blue-950/30'
+                                        : 'border-slate-200/70 bg-white hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:hover:bg-slate-900/80',
+                                    )}
+                                  >
+                                    <Checkbox checked={checked} className="mt-0.5" />
+                                    <div className="min-w-0">
+                                      <p className="truncate text-sm font-medium text-slate-900 dark:text-white">
+                                        {client.name}
+                                      </p>
+                                      <p className="mt-1 truncate text-xs text-muted-foreground">
+                                        {client.email}
+                                      </p>
+                                      {client.isLinkedToOtherOwners && (client.activeOwnerLinks?.length ?? 0) > 0 && (
+                                        <div className="mt-2 flex flex-wrap gap-1.5">
+                                          <Badge className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300">
+                                            Linked with {client.activeOwnerLinks?.map((owner) => owner.name).join(', ')}
+                                          </Badge>
+                                        </div>
+                                      )}
+                                      {client.company && (
+                                        <p className="mt-2 text-[11px] uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                                          {client.company}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </button>
+                                );
+                              })
+                            )}
+                          </div>
+                        </ScrollArea>
+                      </div>
+                    </section>
+
+                    <section className="rounded-3xl border border-slate-200/70 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-900/30">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <Label className="text-base font-semibold text-slate-900 dark:text-white">
+                            Shared access
+                          </Label>
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            Set the profile once for all selected clients.
+                          </p>
+                        </div>
+                        <Badge variant="outline" className="rounded-full px-3 py-1 text-xs">
+                          {enabledDraftShares.length} enabled
+                        </Badge>
+                      </div>
+
+                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                        {SHARE_OPTIONS.map((option) => {
+                          const Icon = option.icon;
+
+                          return (
+                            <div
+                              key={option.key}
+                              className={cn(
+                                'rounded-2xl border px-4 py-3 transition-colors',
+                                draft.sharedDetails[option.key]
+                                  ? 'border-blue-200 bg-blue-50/80 dark:border-blue-900/40 dark:bg-blue-950/20'
+                                  : 'border-slate-200/70 bg-white dark:border-slate-800 dark:bg-slate-950/70',
+                              )}
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="flex min-w-0 items-start gap-3">
+                                  <div className="rounded-xl bg-slate-100 p-2 text-slate-700 dark:bg-slate-900 dark:text-slate-300">
+                                    <Icon className="h-4 w-4" />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-medium text-slate-900 dark:text-white">
+                                      {option.label}
+                                    </p>
+                                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                                      {option.description}
+                                    </p>
+                                  </div>
+                                </div>
+                                <Switch
+                                  checked={draft.sharedDetails[option.key]}
+                                  onCheckedChange={(checked) =>
+                                    setDraft((current) => ({
+                                      ...current,
+                                      sharedDetails: { ...current.sharedDetails, [option.key]: checked },
+                                    }))
+                                  }
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  </div>
+                </div>
               </div>
             </div>
-            <div className="border-l border-slate-200/70 bg-slate-50/90 px-5 py-5 dark:border-slate-800 dark:bg-slate-900/80 sm:px-6 sm:py-6"><div className="rounded-3xl border border-white/70 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-950/80"><p className="text-sm font-semibold">Review before saving</p><div className="mt-4 space-y-4 text-sm"><div><p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">Owner</p><p className="mt-2 font-medium text-slate-900 dark:text-white">{owners.find((owner) => owner.id === draft.ownerId)?.name || 'No owner selected'}</p><p className="text-muted-foreground">{owners.find((owner) => owner.id === draft.ownerId)?.email || 'Choose an owner account.'}</p></div><Separator /><div><p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">Clients</p><div className="mt-3 space-y-2">{draft.clientIds.length === 0 ? <p className="text-muted-foreground">No clients selected yet.</p> : draft.clientIds.map((id) => { const client = clients.find((item) => item.id === id); return <div key={id} className="rounded-2xl bg-slate-50 px-3 py-3 dark:bg-slate-900"><p className="font-medium text-slate-900 dark:text-white">{client?.name || id}</p><p className="text-xs text-muted-foreground">{client?.email || 'Pending selection sync'}</p></div>; })}</div></div></div></div><DialogFooter className="mt-5 gap-2 sm:flex-col sm:space-x-0"><Button variant="outline" className="w-full" onClick={() => setCreateOpen(false)} disabled={saving}>Cancel</Button><Button className="w-full" onClick={handleCreate} disabled={saving || !canUpdate}>{saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}Save relationships</Button></DialogFooter></div>
+
+            <aside className="border-t border-slate-200/70 bg-slate-50/90 dark:border-slate-800 dark:bg-slate-900/80 xl:border-l xl:border-t-0">
+              <div className="h-full overflow-y-auto px-4 py-4 sm:px-6 sm:py-6">
+                <div className="space-y-4 xl:sticky xl:top-0">
+                  <div className="rounded-3xl border border-white/70 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-950/80">
+                    <p className="text-sm font-semibold">Review before saving</p>
+
+                    <div className="mt-5 space-y-4 text-sm">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                          Owner
+                        </p>
+                        <p className="mt-2 font-medium text-slate-900 dark:text-white">
+                          {selectedOwnerOption?.name || 'No owner selected'}
+                        </p>
+                        <p className="text-muted-foreground">
+                          {selectedOwnerOption?.email || 'Choose an owner account.'}
+                        </p>
+                      </div>
+
+                      <Separator />
+
+                      <div>
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                            Clients
+                          </p>
+                          <Badge variant="outline" className="rounded-full px-2.5 py-1 text-[11px]">
+                            {draft.clientIds.length}
+                          </Badge>
+                        </div>
+
+                        {selectedDraftClients.length === 0 ? (
+                          <p className="mt-3 text-muted-foreground">No clients selected yet.</p>
+                        ) : (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {selectedDraftClients.map((client) => (
+                              <Badge key={client.id} variant="secondary" className="rounded-full px-3 py-1.5">
+                                {client.name}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <Separator />
+
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                          Shared access
+                        </p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {enabledDraftShares.length === 0 ? (
+                            <p className="text-muted-foreground">No data categories enabled.</p>
+                          ) : (
+                            enabledDraftShares.map((option) => (
+                              <Badge key={option.key} variant="outline" className="rounded-full px-3 py-1">
+                                {option.label}
+                              </Badge>
+                            ))
+                          )}
+                        </div>
+                      </div>
+
+                      {draft.notes.trim() && (
+                        <>
+                          <Separator />
+                          <div>
+                            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                              Note
+                            </p>
+                            <p className="mt-2 leading-6 text-muted-foreground">{draft.notes}</p>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  <DialogFooter className="flex-col gap-2 space-x-0 rounded-3xl border border-slate-200/70 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950/80">
+                    <Button variant="outline" className="w-full" onClick={() => setCreateOpen(false)} disabled={saving}>
+                      Cancel
+                    </Button>
+                    <Button className="w-full" onClick={handleCreate} disabled={saving || !canUpdate}>
+                      {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+                      Save relationships
+                    </Button>
+                  </DialogFooter>
+                </div>
+              </div>
+            </aside>
           </div>
         </DialogContent>
       </Dialog>
 
       <Dialog open={Boolean(editLink)} onOpenChange={(open) => !open && setEditLink(null)}>
-        <DialogContent className="max-w-[760px] rounded-[28px] border-0 p-0 shadow-2xl shadow-slate-950/20">
-          {editLink && <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_280px]"><div className="bg-white px-5 py-5 dark:bg-slate-950 sm:px-6 sm:py-6"><DialogHeader className="space-y-2 text-left"><DialogTitle className="text-left text-2xl">Edit relationship</DialogTitle><DialogDescription className="text-left">Adjust shared access and status for {editLink.accountName}.</DialogDescription></DialogHeader><div className="mt-6 space-y-5"><div className="grid gap-4 sm:grid-cols-2"><div className="rounded-2xl border bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/60"><p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">Owner</p><p className="mt-2 font-medium text-slate-900 dark:text-white">{editLink.mainAccountName}</p><p className="text-sm text-muted-foreground">{editLink.mainAccountEmail}</p></div><div className="rounded-2xl border bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/60"><p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">Client</p><p className="mt-2 font-medium text-slate-900 dark:text-white">{editLink.accountName}</p><p className="text-sm text-muted-foreground">{editLink.accountEmail}</p></div></div><div className="space-y-2"><Label>Status</Label><Select value={editStatus} onValueChange={(value) => setEditStatus(value as AccountLinkRecord['status'])}><SelectTrigger><SelectValue placeholder="Select relationship status" /></SelectTrigger><SelectContent><SelectItem value="active">Active</SelectItem><SelectItem value="inactive">Inactive</SelectItem><SelectItem value="suspended">Suspended</SelectItem></SelectContent></Select></div><div className="space-y-2"><Label>Relationship note</Label><Textarea value={editNotes} onChange={(e) => setEditNotes(e.target.value)} rows={4} /></div><div className="space-y-3"><Label>Shared access</Label><div className="space-y-3">{SHARE_OPTIONS.map((option) => { const Icon = option.icon; return <div key={option.key} className="rounded-2xl border border-slate-200/70 bg-white px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-950/70"><div className="flex items-start justify-between gap-4"><div className="flex items-start gap-3"><div className="rounded-xl bg-slate-100 p-2 text-slate-700 dark:bg-slate-900 dark:text-slate-300"><Icon className="h-4 w-4" /></div><div><p className="text-sm font-medium text-slate-900 dark:text-white">{option.label}</p><p className="mt-1 text-xs text-muted-foreground">{option.description}</p></div></div><Switch checked={editSharedDetails[option.key]} disabled={!canUpdate} onCheckedChange={(checked) => setEditSharedDetails((current) => ({ ...current, [option.key]: checked }))} /></div></div>; })}</div></div></div></div><div className="border-l border-slate-200/70 bg-slate-50/90 px-5 py-5 dark:border-slate-800 dark:bg-slate-900/80 sm:px-6 sm:py-6"><div className="rounded-3xl border border-white/70 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-950/80"><p className="text-sm font-semibold">Current state</p><p className="mt-4 text-sm text-muted-foreground">Linked {relativeTime(editLink.linkedAt)}</p><div className="mt-4 flex flex-wrap gap-2">{SHARE_OPTIONS.filter((option) => editSharedDetails[option.key]).map((option) => <Badge key={option.key} variant="outline" className="rounded-full px-3 py-1">{option.label}</Badge>)}</div></div><DialogFooter className="mt-5 gap-2 sm:flex-col sm:space-x-0"><Button variant="outline" className="w-full" onClick={() => setEditLink(null)} disabled={saving}>Cancel</Button><Button className="w-full" onClick={handleEditSave} disabled={saving || !canUpdate}>{saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Settings2 className="mr-2 h-4 w-4" />}Save changes</Button></DialogFooter></div></div>}
+        <DialogContent className="w-[calc(100vw-1rem)] max-w-[1120px] overflow-hidden rounded-[28px] border-0 p-0 shadow-2xl shadow-slate-950/20 sm:w-[calc(100vw-2rem)]">
+          {editLink && (
+            <div className="grid h-[min(92vh,820px)] gap-0 xl:grid-cols-[minmax(0,1.45fr)_340px]">
+              <div className="flex min-h-0 flex-col bg-white dark:bg-slate-950">
+                <DialogHeader className="border-b border-slate-200/80 px-4 pb-5 pt-6 text-left dark:border-slate-800 sm:px-6">
+                  <DialogTitle className="text-left text-2xl sm:text-[2rem]">Edit relationship</DialogTitle>
+                  <DialogDescription className="max-w-2xl text-left text-sm sm:text-base">
+                    Adjust status, notes, and access for {editLink.accountName} without dropping into a long single-column editor.
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 pt-4 sm:px-6 sm:pb-6">
+                  <div className="space-y-4">
+                    <div className="grid gap-4 lg:grid-cols-3">
+                      <div className="rounded-3xl border border-slate-200/70 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/40">
+                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">Owner</p>
+                        <p className="mt-3 text-lg font-semibold text-slate-900 dark:text-white">
+                          {editLink.mainAccountName}
+                        </p>
+                        <p className="mt-1 text-sm text-muted-foreground">{editLink.mainAccountEmail}</p>
+                      </div>
+
+                      <div className="rounded-3xl border border-slate-200/70 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/40">
+                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">Client</p>
+                        <p className="mt-3 text-lg font-semibold text-slate-900 dark:text-white">
+                          {editLink.accountName}
+                        </p>
+                        <p className="mt-1 text-sm text-muted-foreground">{editLink.accountEmail}</p>
+                      </div>
+
+                      <div className="rounded-3xl border border-slate-200/70 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/40">
+                        <Label className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                          Status
+                        </Label>
+                        <Select value={editStatus} onValueChange={(value) => setEditStatus(value as AccountLinkRecord['status'])}>
+                          <SelectTrigger className="mt-3 h-12 rounded-2xl bg-white dark:bg-slate-950">
+                            <SelectValue placeholder="Select relationship status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="active">Active</SelectItem>
+                            <SelectItem value="inactive">Inactive</SelectItem>
+                            <SelectItem value="suspended">Suspended</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-4 xl:grid-cols-[minmax(280px,0.72fr)_minmax(0,1fr)]">
+                      <section className="rounded-3xl border border-slate-200/70 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-900/30">
+                        <div className="space-y-2">
+                          <Label>Relationship note</Label>
+                          <Textarea
+                            value={editNotes}
+                            onChange={(e) => setEditNotes(e.target.value)}
+                            rows={6}
+                            placeholder="Capture why this relationship exists or what changed."
+                            className="min-h-[180px] rounded-2xl bg-white dark:bg-slate-950"
+                          />
+                        </div>
+                      </section>
+
+                      <section className="rounded-3xl border border-slate-200/70 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-900/30">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <Label className="text-base font-semibold text-slate-900 dark:text-white">
+                              Shared access
+                            </Label>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                              Toggle exactly which data categories stay available to this client.
+                            </p>
+                          </div>
+                          <Badge variant="outline" className="rounded-full px-3 py-1 text-xs">
+                            {enabledEditShares.length} enabled
+                          </Badge>
+                        </div>
+
+                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                          {SHARE_OPTIONS.map((option) => {
+                            const Icon = option.icon;
+
+                            return (
+                              <div
+                                key={option.key}
+                                className={cn(
+                                  'rounded-2xl border px-4 py-3 transition-colors',
+                                  editSharedDetails[option.key]
+                                    ? 'border-blue-200 bg-blue-50/80 dark:border-blue-900/40 dark:bg-blue-950/20'
+                                    : 'border-slate-200/70 bg-white dark:border-slate-800 dark:bg-slate-950/70',
+                                )}
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="flex min-w-0 items-start gap-3">
+                                    <div className="rounded-xl bg-slate-100 p-2 text-slate-700 dark:bg-slate-900 dark:text-slate-300">
+                                      <Icon className="h-4 w-4" />
+                                    </div>
+                                    <div className="min-w-0">
+                                      <p className="text-sm font-medium text-slate-900 dark:text-white">
+                                        {option.label}
+                                      </p>
+                                      <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                                        {option.description}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <Switch
+                                    checked={editSharedDetails[option.key]}
+                                    disabled={!canUpdate}
+                                    onCheckedChange={(checked) =>
+                                      setEditSharedDetails((current) => ({ ...current, [option.key]: checked }))
+                                    }
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </section>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <aside className="border-t border-slate-200/70 bg-slate-50/90 dark:border-slate-800 dark:bg-slate-900/80 xl:border-l xl:border-t-0">
+                <div className="h-full overflow-y-auto px-4 py-4 sm:px-6 sm:py-6">
+                  <div className="space-y-4 xl:sticky xl:top-0">
+                    <div className="rounded-3xl border border-white/70 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-950/80">
+                      <p className="text-sm font-semibold">Current state</p>
+                      <p className="mt-3 text-sm text-muted-foreground">Linked {relativeTime(editLink.linkedAt)}</p>
+
+                      <div className="mt-5 space-y-4">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                            Status
+                          </p>
+                          <Badge className={cn('mt-3 rounded-full border px-3 py-1.5', statusTone(editStatus))}>
+                            {editStatus}
+                          </Badge>
+                        </div>
+
+                        <Separator />
+
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                            Shared access
+                          </p>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {enabledEditShares.length === 0 ? (
+                              <p className="text-sm text-muted-foreground">No categories enabled.</p>
+                            ) : (
+                              enabledEditShares.map((option) => (
+                                <Badge key={option.key} variant="outline" className="rounded-full px-3 py-1">
+                                  {option.label}
+                                </Badge>
+                              ))
+                            )}
+                          </div>
+                        </div>
+
+                        {editNotes.trim() && (
+                          <>
+                            <Separator />
+                            <div>
+                              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                                Note preview
+                              </p>
+                              <p className="mt-3 text-sm leading-6 text-muted-foreground">{editNotes}</p>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    <DialogFooter className="flex-col gap-2 space-x-0 rounded-3xl border border-slate-200/70 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950/80">
+                      <Button variant="outline" className="w-full" onClick={() => setEditLink(null)} disabled={saving}>
+                        Cancel
+                      </Button>
+                      <Button className="w-full" onClick={handleEditSave} disabled={saving || !canUpdate}>
+                        {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Settings2 className="mr-2 h-4 w-4" />}
+                        Save changes
+                      </Button>
+                    </DialogFooter>
+                  </div>
+                </div>
+              </aside>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
       <AlertDialog open={Boolean(unlinkTarget)} onOpenChange={(open) => !open && setUnlinkTarget(null)}>
         <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Unlink this client?</AlertDialogTitle><AlertDialogDescription>{unlinkTarget ? `${unlinkTarget.accountName} will move to inactive and stop sharing access with ${unlinkTarget.mainAccountName}.` : 'This relationship will be marked inactive.'}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={saving}>Cancel</AlertDialogCancel><AlertDialogAction className="bg-red-600 text-white hover:bg-red-700 focus:ring-red-600" onClick={(e) => { e.preventDefault(); void handleUnlink(); }} disabled={saving || !canUpdate}>{saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}Unlink account</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={Boolean(crossOwnerConfirmation)} onOpenChange={(open) => !open && setCrossOwnerConfirmation(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Link clients that already belong to another owner?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {crossOwnerConfirmation?.length === 1
+                ? `${crossOwnerConfirmation[0].name} is already linked with ${crossOwnerConfirmation[0].activeOwnerLinks?.map((owner) => owner.name).join(', ')}. Do you want to link this client with ${selectedOwnerOption?.name || 'this owner'} as well?`
+                : 'Some selected clients are already linked with other active owners. Confirm if you want to add this owner to those relationships as well.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className="space-y-3">
+            {crossOwnerConfirmation?.map((client) => (
+              <div key={client.id} className="rounded-2xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm dark:border-amber-900/60 dark:bg-amber-950/20">
+                <p className="font-medium text-slate-900 dark:text-white">{client.name}</p>
+                <p className="mt-1 text-muted-foreground">
+                  Already linked with {client.activeOwnerLinks?.map((owner) => owner.name).join(', ')}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={saving}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                setCrossOwnerConfirmation(null);
+                void submitCreate();
+              }}
+              disabled={saving || !canUpdate}
+            >
+              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+              Link anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
       </AlertDialog>
     </div>
   );

@@ -12,14 +12,12 @@ type UseShootHistoryFiltersArgs = {
   role: string | null | undefined
   isEditor: boolean
   canViewHistory: boolean
-  canViewLinkedAccounts: boolean
 }
 
 export const useShootHistoryFilters = ({
   role,
   isEditor,
   canViewHistory,
-  canViewLinkedAccounts,
 }: UseShootHistoryFiltersArgs) => {
   const [searchParams, setSearchParams] = useSearchParams()
 
@@ -30,8 +28,8 @@ export const useShootHistoryFilters = ({
     const tabs: AvailableTab[] = canViewHistory
       ? ['scheduled', 'completed', 'delivered', 'hold', 'history']
       : ['scheduled', 'completed', 'delivered', 'hold']
-    return canViewLinkedAccounts ? [...tabs, 'linked'] : tabs
-  }, [canViewHistory, canViewLinkedAccounts, isEditor])
+    return tabs
+  }, [canViewHistory, isEditor])
 
   const [activeTab, setActiveTab] = useState<AvailableTab>(() => {
     const urlTab = searchParams.get('tab') as AvailableTab | null

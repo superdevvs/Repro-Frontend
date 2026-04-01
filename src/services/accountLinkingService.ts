@@ -1,5 +1,20 @@
 import { API_BASE_URL } from '@/config/env';
-import type { AccountLinkRecord, SharedDetails } from '@/types/auth';
+import type {
+  AccountLinkRecord,
+  ClientSharedDataResponse,
+  LinkedOwnerSummary,
+  LinkedSharedVisibilityResponse,
+  SharedDetails,
+} from '@/types/auth';
+
+export interface LinkingOwnerConflict {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  avatar?: string | null;
+  accountStatus?: string | null;
+}
 
 export interface LinkingAccountOption {
   id: string;
@@ -9,6 +24,9 @@ export interface LinkingAccountOption {
   avatar?: string | null;
   accountStatus?: string | null;
   company?: string | null;
+  isLinkedToOtherOwners?: boolean;
+  activeOwnerLinkCount?: number;
+  activeOwnerLinks?: LinkingOwnerConflict[];
 }
 
 export interface AccountLinksResponse {
@@ -168,4 +186,35 @@ export async function unlinkAccountLink(linkId: string): Promise<{ link: Account
   });
 
   return parseJson<{ link: AccountLinkRecord; message: string }>(response);
+}
+
+export async function fetchLinkedSharedVisibility(signal?: AbortSignal): Promise<LinkedSharedVisibilityResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/account-links/has-linked`, {
+    headers: createHeaders(),
+    signal,
+  });
+
+  return parseJson<LinkedSharedVisibilityResponse>(response);
+}
+
+export async function fetchMyLinkedOwners(signal?: AbortSignal): Promise<{ linkedAccounts: LinkedOwnerSummary[]; total: number }> {
+  const response = await fetch(`${API_BASE_URL}/api/account-links/my-linked-accounts`, {
+    headers: createHeaders(),
+    signal,
+  });
+
+  return parseJson<{ linkedAccounts: LinkedOwnerSummary[]; total: number }>(response);
+}
+
+export async function fetchMySharedData(
+  ownerId: string,
+  signal?: AbortSignal,
+): Promise<ClientSharedDataResponse> {
+  const query = new URLSearchParams({ ownerId });
+  const response = await fetch(`${API_BASE_URL}/api/account-links/my-shared-data?${query}`, {
+    headers: createHeaders(),
+    signal,
+  });
+
+  return parseJson<ClientSharedDataResponse>(response);
 }

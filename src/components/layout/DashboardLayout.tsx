@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Link, Outlet } from 'react-router-dom';
+import { Link, Outlet, useNavigate } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Navbar } from './Navbar';
 import { PageTransition } from './PageTransition';
@@ -19,11 +19,17 @@ interface DashboardLayoutProps {
 
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, className, hideNavbar = false }) => {
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
   const { isImpersonating, user, stopImpersonating, role } = useAuth();
   const contentPadding = isMobile ? 'p-3 pb-20' : 'p-3';
   
   // Photographers and editors get a simplified layout without sidebar
   const isSimplifiedLayout = role === 'photographer' || role === 'editor';
+
+  const handleStopImpersonating = React.useCallback(() => {
+    stopImpersonating();
+    navigate('/accounts', { replace: true });
+  }, [navigate, stopImpersonating]);
 
   return (
     <div className="h-screen flex overflow-hidden">
@@ -38,7 +44,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
             <Button 
               size="sm" 
               variant="outline" 
-              onClick={stopImpersonating}
+              onClick={handleStopImpersonating}
               className="h-7 text-xs bg-white dark:bg-slate-950 border-amber-200 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-900/50 text-amber-800 dark:text-amber-200"
             >
               <LogOut className="mr-2 h-3 w-3" />

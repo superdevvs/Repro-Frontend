@@ -15,6 +15,7 @@ import {
   SettingsIcon,
   TicketIcon,
   MessageSquare,
+  Link2,
   MoreHorizontal
 } from 'lucide-react';
 import { ReproAiIcon } from '@/components/icons/ReproAiIcon';
@@ -57,6 +58,8 @@ export const MobileBottomNav = ({ toggleMenu }: MobileBottomNavProps) => {
         return <TicketIcon className={iconClass} />;
       case 'MessageSquare':
         return <MessageSquare className={iconClass} />;
+      case 'Link2':
+        return <Link2 className={iconClass} />;
       case 'Robbie':
         return <ReproAiIcon className={iconClass} useSolid />;
       default:

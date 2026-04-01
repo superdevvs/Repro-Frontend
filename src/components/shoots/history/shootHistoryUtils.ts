@@ -14,7 +14,7 @@ export const DARK_SHOOT_PLACEHOLDER = '/no-image-placeholder-dark.svg'
 export type ShootThumbnailPreference = 'thumb' | 'default'
 
 export type ActiveOperationalTab = 'scheduled' | 'completed' | 'delivered' | 'hold' | 'editing' | 'edited'
-export type AvailableTab = ActiveOperationalTab | 'history' | 'linked'
+export type AvailableTab = ActiveOperationalTab | 'history'
 
 export type OperationalFiltersState = {
   search: string
