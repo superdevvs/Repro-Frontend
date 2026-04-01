@@ -5,9 +5,6 @@ import { getApiHeaders } from '@/services/api';
 import { downloadShootMediaArchive } from '@/utils/shootMediaDownload';
 import {
   buildBrightMlsPublishPayloadWithFallback,
-  closePendingBrightMlsWindow,
-  navigateBrightMlsWindow,
-  openPendingBrightMlsWindow,
 } from '@/utils/brightMls';
 
 interface ToastApi {
@@ -42,11 +39,9 @@ export function useShootDetailsModalActions({
   const handleSendToBrightMls = async () => {
     if (!shoot) return;
 
-    let brightMlsPopup: Window | null = null;
     try {
       setIsPublishingToBrightMls(true);
       setBrightMlsRedirectUrl(null);
-      brightMlsPopup = openPendingBrightMlsWindow();
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
 
       const payload = await buildBrightMlsPublishPayloadWithFallback(
@@ -81,21 +76,15 @@ export function useShootDetailsModalActions({
 
       const result = await response.json();
       const redirectUrl = result.data?.redirect_url || result.redirect_url;
-      const popupOpened = navigateBrightMlsWindow(brightMlsPopup, redirectUrl || null);
-      if (!popupOpened) {
-        throw new Error('Failed to open Bright MLS popup. Please allow popups and try again.');
-      }
-
-      setBrightMlsRedirectUrl(null);
+      setBrightMlsRedirectUrl(redirectUrl || null);
 
       toast({
         title: 'Manifest Sent',
-        description: 'Bright MLS opened in a popup window. Complete the import there.',
+        description: 'Bright MLS opened in the internal popup. Complete the import there.',
       });
 
       await refreshShoot();
     } catch (error) {
-      closePendingBrightMlsWindow(brightMlsPopup);
       console.error('Error sending images to Bright MLS:', error);
       toast({
         title: 'Error',

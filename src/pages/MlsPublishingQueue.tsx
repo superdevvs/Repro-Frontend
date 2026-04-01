@@ -13,9 +13,6 @@ import API_ROUTES from '@/lib/api';
 import type { ShootData } from '@/types/shoots';
 import {
   buildBrightMlsPublishPayloadWithFallback,
-  closePendingBrightMlsWindow,
-  navigateBrightMlsWindow,
-  openPendingBrightMlsWindow,
 } from '@/utils/brightMls';
 import { HorizontalLoader } from '@/components/ui/horizontal-loader';
 import { 
@@ -103,13 +100,11 @@ const MlsPublishingQueue = () => {
 
   const handleRetry = async (shootId: number) => {
     setRetryingId(shootId);
-    let brightMlsPopup: Window | null = null;
     try {
       // Get shoot details first
       const shootResponse = await apiClient.get(`/shoots/${shootId}`);
       const shoot = shootResponse.data.data;
 
-      brightMlsPopup = openPendingBrightMlsWindow();
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       const payload = await buildBrightMlsPublishPayloadWithFallback(
         shoot as unknown as Partial<ShootData> & Record<string, unknown>,
@@ -127,20 +122,14 @@ const MlsPublishingQueue = () => {
 
       if (publishResponse.data.success) {
         const redirectUrl = publishResponse.data.data?.redirect_url || publishResponse.data.redirect_url;
-        const popupOpened = navigateBrightMlsWindow(brightMlsPopup, redirectUrl || null);
-        if (!popupOpened) {
-          throw new Error('Failed to open Bright MLS popup. Please allow popups and try again.');
-        }
-
-        setBrightMlsRedirectUrl(null);
+        setBrightMlsRedirectUrl(redirectUrl || null);
         toast({
           title: "Republished",
-          description: "Bright MLS opened in a popup window. Complete the import there.",
+          description: "Bright MLS opened in the internal popup. Complete the import there.",
         });
         loadQueue();
       }
     } catch (error: any) {
-      closePendingBrightMlsWindow(brightMlsPopup);
       toast({
         title: "Error",
         description: error.response?.data?.message || error.message || "Failed to republish.",
