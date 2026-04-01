@@ -3,7 +3,6 @@ import {
   Background,
   Controls,
   Handle,
-  MiniMap,
   Position,
   ReactFlow,
   type Edge,
@@ -19,6 +18,8 @@ import {
   Activity,
   AlertTriangle,
   Banknote,
+  ChevronDown,
+  ChevronUp,
   Clock3,
   LayoutDashboard,
   MessageSquareText,
@@ -88,7 +89,14 @@ const ICONS = {
   settings: Settings2,
 };
 
-const STORAGE_KEY = 'system-overview.flow.positions';
+const STORAGE_KEY = 'system-overview.flow.positions.v3';
+const PAGE_COLUMN_WIDTH = 320;
+const PAGE_COLUMN_GAP = 42;
+const DOMAIN_ROW_GAP = 140;
+const DOMAIN_COLUMN_GAP = 140;
+const DOMAIN_COLUMNS = 2;
+
+const getStackHeight = (count: number) => (count > 0 ? count * 138 + 28 : 0);
 
 function SystemOverviewNode({ data, selected }: NodeProps<FlowNode>) {
   const { theme } = useTheme();
@@ -114,7 +122,7 @@ function SystemOverviewNode({ data, selected }: NodeProps<FlowNode>) {
 
   return (
     <div
-      className={`min-w-[220px] rounded-3xl border p-3 shadow-lg transition-all backdrop-blur-sm ${kindStyles[data.kind]} ${
+      className={`w-[290px] rounded-3xl border p-3 shadow-lg transition-all backdrop-blur-sm ${kindStyles[data.kind]} ${
         selected ? 'ring-2 ring-sky-400 ring-offset-2 ring-offset-background' : ''
       }`}
     >
@@ -122,8 +130,8 @@ function SystemOverviewNode({ data, selected }: NodeProps<FlowNode>) {
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-[10px] uppercase tracking-[0.22em] opacity-70">{data.kind}</div>
-          <div className="mt-1 text-sm font-semibold">{data.label}</div>
-          <div className="mt-1 text-xs opacity-75">{data.description || data.domain}</div>
+          <div className="mt-1 text-sm font-semibold break-words">{data.label}</div>
+          <div className="mt-1 text-xs opacity-75 break-words">{data.description || data.domain}</div>
         </div>
         {(data.activeUsers || 0) > 0 && (
           <div className="flex items-center gap-1 rounded-full bg-white/10 px-2 py-1 text-[11px]">
@@ -209,14 +217,49 @@ const buildFlow = (
   const savedPositions = loadSavedPositions();
   const nodes: FlowNode[] = [];
   const edges: Edge[] = [];
-  const domainSpacingX = 320;
-  const domainSpacingY = 240;
+  let currentX = 120;
+  let currentY = 80;
+  let currentColumn = 0;
+  let currentRowHeight = 0;
 
-  systemOverviewCatalog.forEach((domain, domainIndex) => {
-    const column = domainIndex % 3;
-    const row = Math.floor(domainIndex / 3);
+  systemOverviewCatalog.forEach((domain) => {
+    const domainIsExpanded = expandedDomains.includes(domain.id);
+    const extraRoutes = showEverything
+      ? (routes ?? []).filter((route) => route.domain === domain.id && !domain.pages.some((page) => page.apis.includes(route.path)))
+      : [];
+    const pageHeights = domain.pages.map((page) => {
+      let height = 190;
+      height += getStackHeight(page.components.length);
+      height += getStackHeight(page.apis.length);
+      height += getStackHeight(page.services.length);
+      height += getStackHeight((page.externals ?? []).length);
+      return height;
+    });
+    const tallestPageStack = Math.max(0, ...pageHeights);
+    const clusterWidth = domainIsExpanded
+      ? Math.max(360, domain.pages.length * PAGE_COLUMN_WIDTH + Math.max(0, domain.pages.length - 1) * PAGE_COLUMN_GAP)
+      : 320;
+    const clusterHeight = domainIsExpanded
+      ? 260 + tallestPageStack + (extraRoutes.length > 0 ? 140 + Math.ceil(extraRoutes.length / 2) * 148 : 0)
+      : 180;
+
+    const clusterX = currentX;
+    const clusterY = currentY;
+
+    currentColumn += 1;
+    currentRowHeight = Math.max(currentRowHeight, clusterHeight);
+
+    if (currentColumn >= DOMAIN_COLUMNS) {
+      currentY += currentRowHeight + DOMAIN_ROW_GAP;
+      currentX = 120;
+      currentColumn = 0;
+      currentRowHeight = 0;
+    } else {
+      currentX += clusterWidth + DOMAIN_COLUMN_GAP;
+    }
+
     const domainId = `domain:${domain.id}`;
-    const domainPosition = savedPositions[domainId] ?? { x: 80 + column * domainSpacingX, y: 60 + row * domainSpacingY };
+    const domainPosition = savedPositions[domainId] ?? { x: clusterX, y: clusterY };
     const domainStats = snapshot?.domainStats?.[domain.id];
 
     nodes.push({
@@ -236,20 +279,19 @@ const buildFlow = (
       },
     });
 
-    if (!expandedDomains.includes(domain.id)) {
+    if (!domainIsExpanded) {
       return;
     }
 
-    const childStartX = domainPosition.x - 20;
-    const childStartY = domainPosition.y + 170;
-
-    const extraRoutes = showEverything
-      ? (routes ?? []).filter((route) => route.domain === domain.id && !domain.pages.some((page) => page.apis.includes(route.path)))
-      : [];
+    const childStartX = domainPosition.x;
+    const childStartY = domainPosition.y + 220;
 
     domain.pages.forEach((page, pageIndex) => {
       const pageId = `page:${page.id}`;
-      const pagePosition = savedPositions[pageId] ?? { x: childStartX + pageIndex * 260, y: childStartY };
+      const pagePosition = savedPositions[pageId] ?? {
+        x: childStartX + pageIndex * (PAGE_COLUMN_WIDTH + PAGE_COLUMN_GAP),
+        y: childStartY,
+      };
       const pageMetrics = aggregateRouteMetrics(page.apis, snapshot, routes);
       const pageActiveUsers = countLiveUsersForRoute(page.route.replace(/:\w+/g, ''), snapshot?.liveUsers ?? []);
 
@@ -279,11 +321,13 @@ const buildFlow = (
         style: { stroke: '#38bdf8', strokeWidth: 1.6 },
       });
 
+      let laneY = pagePosition.y + 160;
+
       page.components.forEach((component, componentIndex) => {
         const componentId = `component:${page.id}:${component}`;
         const componentPosition = savedPositions[componentId] ?? {
           x: pagePosition.x,
-          y: pagePosition.y + 130 + componentIndex * 120,
+          y: laneY + componentIndex * 138,
         };
         const activeUsers = (snapshot?.liveUsers ?? []).filter((user) => user.componentStack?.includes(component)).length;
 
@@ -312,12 +356,13 @@ const buildFlow = (
           style: { stroke: '#94a3b8', strokeWidth: 1.1 },
         });
       });
+      laneY += getStackHeight(page.components.length);
 
       page.apis.forEach((apiPath, apiIndex) => {
         const apiId = `api:${page.id}:${apiPath}`;
         const apiPosition = savedPositions[apiId] ?? {
-          x: pagePosition.x + 220,
-          y: pagePosition.y + 130 + apiIndex * 120,
+          x: pagePosition.x,
+          y: laneY + apiIndex * 138,
         };
         const routeMetric = aggregateRouteMetrics([apiPath], snapshot, routes);
 
@@ -346,12 +391,13 @@ const buildFlow = (
           style: { stroke: '#10b981', strokeWidth: 1.4 },
         });
       });
+      laneY += getStackHeight(page.apis.length);
 
       page.services.forEach((service, serviceIndex) => {
         const serviceId = `service:${page.id}:${service}`;
         const servicePosition = savedPositions[serviceId] ?? {
-          x: pagePosition.x + 440,
-          y: pagePosition.y + 130 + serviceIndex * 120,
+          x: pagePosition.x,
+          y: laneY + serviceIndex * 138,
         };
 
         nodes.push({
@@ -378,12 +424,13 @@ const buildFlow = (
           style: { stroke: '#f59e0b', strokeWidth: 1.3 },
         });
       });
+      laneY += getStackHeight(page.services.length);
 
       (page.externals ?? []).forEach((external, externalIndex) => {
         const externalId = `external:${page.id}:${external}`;
         const externalPosition = savedPositions[externalId] ?? {
-          x: pagePosition.x + 660,
-          y: pagePosition.y + 130 + externalIndex * 120,
+          x: pagePosition.x,
+          y: laneY + externalIndex * 138,
         };
 
         nodes.push({
@@ -415,9 +462,11 @@ const buildFlow = (
 
     extraRoutes.forEach((route, routeIndex) => {
       const apiId = `api-extra:${domain.id}:${route.path}`;
+      const extraColumn = routeIndex % 2;
+      const extraRow = Math.floor(routeIndex / 2);
       const apiPosition = savedPositions[apiId] ?? {
-        x: childStartX + 240,
-        y: childStartY + 420 + routeIndex * 110,
+        x: childStartX + extraColumn * (PAGE_COLUMN_WIDTH + PAGE_COLUMN_GAP),
+        y: childStartY + tallestPageStack + 100 + extraRow * 148,
       };
       const metric = route.metrics;
 
@@ -457,6 +506,7 @@ export function SystemOverviewTab() {
   const queryClient = useQueryClient();
   const [expandedDomains, setExpandedDomains] = useState<string[]>([]);
   const [showEverything, setShowEverything] = useState(false);
+  const [liveUsersCollapsed, setLiveUsersCollapsed] = useState(false);
   const [timeMode, setTimeMode] = useState<'live' | 'history'>('live');
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null);
@@ -751,76 +801,90 @@ export function SystemOverviewTab() {
             ))}
           </div>
 
-          <div className="grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)_360px]">
-            <Card className={`rounded-3xl border shadow-sm ${isDark ? 'border-white/10 bg-slate-950/55' : 'border-slate-200/80 bg-white'}`}>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Map scope</CardTitle>
-                <CardDescription>Pick the domains worth expanding instead of opening every panel at once.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      setExpandedDomains((current) =>
-                        current.length === systemOverviewCatalog.length ? [] : systemOverviewCatalog.map((domain) => domain.id),
-                      )
-                    }
-                  >
-                    <Workflow className="mr-2 h-4 w-4" />
-                    {expandedDomains.length === systemOverviewCatalog.length ? 'Collapse all' : 'Expand all'}
-                  </Button>
-                  <div className="ml-auto flex items-center gap-2 text-sm text-muted-foreground">
-                    <span>Deep links</span>
-                    <Switch checked={showEverything} onCheckedChange={setShowEverything} />
-                  </div>
+          <Card className={`rounded-3xl border shadow-sm ${isDark ? 'border-white/10 bg-slate-950/55' : 'border-slate-200/80 bg-white'}`}>
+            <CardContent className="space-y-4 p-4">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="min-w-[120px]">
+                  <div className="text-sm font-semibold text-foreground">Map scope</div>
+                  <div className="text-xs text-muted-foreground">Pick which domains expand on the canvas.</div>
                 </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setExpandedDomains((current) =>
+                      current.length === systemOverviewCatalog.length ? [] : systemOverviewCatalog.map((domain) => domain.id),
+                    )
+                  }
+                >
+                  <Workflow className="mr-2 h-4 w-4" />
+                  {expandedDomains.length === systemOverviewCatalog.length ? 'Collapse all' : 'Expand all'}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    localStorage.removeItem(STORAGE_KEY);
+                    const nextFlow = buildFlow(snapshot, routes, expandedDomains, showEverything);
+                    setNodes(nextFlow.nodes);
+                    setEdges(nextFlow.edges);
+                    setSelectedNodeId(null);
+                    setSelectedTraceId(null);
+                  }}
+                >
+                  Reset layout
+                </Button>
+                <div className="ml-auto flex items-center gap-2 text-sm text-muted-foreground">
+                  <span>Deep links</span>
+                  <Switch checked={showEverything} onCheckedChange={setShowEverything} />
+                </div>
+              </div>
 
-                <div className="space-y-2">
-                  {domainSummaries.map((domain) => {
-                    const Icon = ICONS[domain.icon as keyof typeof ICONS] || Network;
-                    const active = domain.isExpanded;
-                    return (
-                      <button
-                        key={domain.id}
-                        type="button"
-                        onClick={() =>
-                          setExpandedDomains((current) =>
-                            current.includes(domain.id)
-                              ? current.filter((value) => value !== domain.id)
-                              : [...current, domain.id],
-                          )
-                        }
-                        className={`w-full rounded-2xl border p-3 text-left transition-colors ${
-                          active
-                            ? 'border-sky-300 bg-sky-50 text-slate-950 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-50'
-                            : 'border-border/70 bg-background hover:border-sky-200 hover:bg-muted/40'
-                        }`}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className={`flex h-9 w-9 items-center justify-center rounded-2xl ${active ? 'bg-sky-500 text-white' : 'bg-muted text-muted-foreground'}`}>
-                            <Icon className="h-4 w-4" />
+              <div className="flex gap-3 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                {domainSummaries.map((domain) => {
+                  const Icon = ICONS[domain.icon as keyof typeof ICONS] || Network;
+                  const active = domain.isExpanded;
+                  return (
+                    <button
+                      key={domain.id}
+                      type="button"
+                      onClick={() =>
+                        setExpandedDomains((current) =>
+                          current.includes(domain.id)
+                            ? current.filter((value) => value !== domain.id)
+                            : [...current, domain.id],
+                        )
+                      }
+                      className={`min-w-[250px] rounded-2xl border p-4 text-left transition-colors ${
+                        active
+                          ? 'border-sky-300 bg-sky-50 text-slate-950 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-50'
+                          : 'border-border/70 bg-background hover:border-sky-200 hover:bg-muted/40'
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className={`flex h-11 w-11 items-center justify-center rounded-2xl ${active ? 'bg-sky-500 text-white' : 'bg-muted text-muted-foreground'}`}>
+                          <Icon className="h-5 w-5" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="font-medium">{domain.label}</div>
+                            <Badge variant="outline">{domain.stats?.requests ?? 0} req</Badge>
                           </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center justify-between gap-3">
-                              <div className="font-medium">{domain.label}</div>
-                              <Badge variant="outline">{domain.stats?.requests ?? 0} req</Badge>
-                            </div>
-                            <div className="mt-1 text-xs leading-5 text-muted-foreground">{domain.description}</div>
-                            <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
-                              <span>{domain.stats?.activeUsers ?? 0} live users</span>
-                              <span>{domain.stats?.errors ?? 0} errors</span>
-                            </div>
+                          <div className="mt-1 text-sm leading-6 text-muted-foreground">{domain.description}</div>
+                          <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
+                            <span>{domain.stats?.activeUsers ?? 0} live users</span>
+                            <span>{domain.stats?.errors ?? 0} errors</span>
                           </div>
                         </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
 
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
             <div className={`overflow-hidden rounded-3xl border shadow-sm ${isDark ? 'border-white/10 bg-slate-950' : 'border-slate-200/80 bg-white'}`}>
               <div className={`flex items-center justify-between border-b px-4 py-3 ${isDark ? 'border-slate-800 text-slate-200' : 'border-slate-200 text-slate-700'}`}>
                 <div>
@@ -841,20 +905,26 @@ export function SystemOverviewTab() {
                 }`}
               >
                 <ReactFlow
+                  className="system-overview-flow"
                   nodes={nodes}
                   edges={edges}
                   nodeTypes={nodeTypes}
                   onNodesChange={onNodesChange}
                   onEdgesChange={onEdgesChange}
                   fitView
+                  fitViewOptions={{ padding: 0.16, maxZoom: 0.92 }}
+                  proOptions={{ hideAttribution: true }}
                   nodesDraggable
                   onNodeClick={(_, node) => setSelectedNodeId(node.id)}
                   onNodeDragStop={(_, __, nextNodes) => saveNodePositions(nextNodes)}
                   defaultEdgeOptions={{ animated: false }}
                 >
                   <Background color={isDark ? '#1e293b' : '#cbd5e1'} gap={24} />
-                  <MiniMap pannable zoomable style={{ background: isDark ? '#0f172a' : '#e2e8f0' }} />
-                  <Controls />
+                  <Controls
+                    position="top-left"
+                    showInteractive={false}
+                    style={{}}
+                  />
                 </ReactFlow>
               </div>
             </div>
@@ -862,9 +932,19 @@ export function SystemOverviewTab() {
             <div className="grid gap-4">
               <Card className="rounded-3xl border-border/70 shadow-sm">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Live users</CardTitle>
-                  <CardDescription>See who is active now and which route or blocker needs attention.</CardDescription>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <CardTitle className="text-base">Live users</CardTitle>
+                      {!liveUsersCollapsed && (
+                        <CardDescription>See who is active now and which route or blocker needs attention.</CardDescription>
+                      )}
+                    </div>
+                    <Button variant="ghost" size="icon" onClick={() => setLiveUsersCollapsed((current) => !current)}>
+                      {liveUsersCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                    </Button>
+                  </div>
                 </CardHeader>
+                {!liveUsersCollapsed && (
                 <CardContent className="space-y-3">
                   <ScrollArea className="h-[220px] pr-3">
                     <div className="space-y-3">
@@ -888,6 +968,7 @@ export function SystemOverviewTab() {
                     </div>
                   </ScrollArea>
                 </CardContent>
+                )}
               </Card>
 
               <Card className="rounded-3xl border-border/70 shadow-sm">
