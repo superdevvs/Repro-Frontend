@@ -1434,9 +1434,18 @@ export default function Availability() {
 
   const isDesktop = !isMobile;
   const dayViewStartHour = 8;
-  const dayViewEndHour = 20;
+  const dayViewEndHour = 21;
   const dayViewHourCount = dayViewEndHour - dayViewStartHour;
   const dayViewTotalMinutes = (dayViewEndHour - dayViewStartHour) * 60;
+  const weekViewLabelHours = [8, 10, 12, 14, 16, 18, 20];
+  const weekViewEndHour = 21;
+  const weekViewEndLabel = "9:00 PM";
+  const availabilityDateButtonClass = cn(
+    "w-full justify-start text-left font-normal rounded-md border-input bg-background",
+    "dark:border-white/10 dark:bg-slate-950 dark:text-white dark:hover:bg-slate-900"
+  );
+  const availabilityDatePopoverClass =
+    "w-auto p-0 rounded-lg border border-border bg-popover text-popover-foreground shadow-xl dark:border-white/10 dark:bg-slate-950";
 
   const renderViewModeButtons = (variant: "header" | "compact") => (
     <div
@@ -1501,14 +1510,11 @@ export default function Availability() {
 
   return (
     <DashboardLayout className={cn("!min-h-0", !isMobile && "!overflow-hidden")}>
-      <div className={cn("flex-1 flex flex-col min-h-0", isMobile ? "overflow-y-auto overscroll-y-contain pb-6 [touch-action:pan-y]" : "overflow-hidden")}>
-        <div className={cn("flex-1 flex flex-col min-h-0", isMobile ? "min-h-full p-3 sm:p-4" : "h-full p-6 overflow-hidden")}>
+      <div className={cn("flex-1 flex flex-col min-h-0", isMobile ? "overflow-y-auto overscroll-y-contain pb-6" : "overflow-hidden")}>
+        <div className={cn("flex-1 flex flex-col min-h-0", isMobile ? "p-3 sm:p-4 pb-6" : "h-full p-6 overflow-hidden")}>
           {isMobile ? (
             <div className="flex items-center justify-between gap-2">
-              <h1 className="text-lg font-bold truncate">
-                <span className="font-light">Photographer</span>{" "}
-                <span className="font-bold">Availability</span>
-              </h1>
+              <h1 className="text-lg font-bold truncate">Availability</h1>
               <div className="flex items-center gap-1.5 flex-shrink-0">
                 <Button
                   variant="outline"
@@ -1633,11 +1639,11 @@ export default function Availability() {
 
             {/* Month Navigation with Gradient Fade */}
             <div className="relative">
-              <div className="absolute left-0 top-0 bottom-0 w-16 sm:w-32 bg-gradient-to-r from-background via-background/90 via-background/70 to-transparent z-10 pointer-events-none" />
-              <div className="absolute right-0 top-0 bottom-0 w-16 sm:w-32 bg-gradient-to-l from-background via-background/90 via-background/70 to-transparent z-10 pointer-events-none" />
+              <div className="absolute left-0 top-0 bottom-0 w-10 sm:w-24 bg-gradient-to-r from-background via-background/85 via-background/60 to-transparent z-10 pointer-events-none" />
+              <div className="absolute right-0 top-0 bottom-0 w-10 sm:w-24 bg-gradient-to-l from-background via-background/85 via-background/60 to-transparent z-10 pointer-events-none" />
               <div
                 ref={monthNavScrollRef}
-                className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1.5 sm:pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] px-4 sm:px-8"
+                className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1.5 sm:pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] px-2 sm:px-6"
               >
                 {months.map((month, idx) => {
                   const monthName = format(month, 'MMMM');
@@ -1683,11 +1689,11 @@ export default function Availability() {
 
             {/* Date Navigation with Gradient Fade */}
             <div className="relative">
-              <div className="absolute left-0 top-0 bottom-0 w-16 sm:w-32 bg-gradient-to-r from-background via-background/90 via-background/70 to-transparent z-10 pointer-events-none" />
-              <div className="absolute right-0 top-0 bottom-0 w-16 sm:w-32 bg-gradient-to-l from-background via-background/90 via-background/70 to-transparent z-10 pointer-events-none" />
+              <div className="absolute left-0 top-0 bottom-0 w-10 sm:w-24 bg-gradient-to-r from-background via-background/85 via-background/60 to-transparent z-10 pointer-events-none" />
+              <div className="absolute right-0 top-0 bottom-0 w-10 sm:w-24 bg-gradient-to-l from-background via-background/85 via-background/60 to-transparent z-10 pointer-events-none" />
               <div
                 ref={dateNavScrollRef}
-                className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1.5 sm:pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] px-4 sm:px-8"
+                className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1.5 sm:pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] px-2 sm:px-6"
               >
                 {monthDates.map((day, idx) => {
                   // Show month indicator when month changes
@@ -1758,7 +1764,7 @@ export default function Availability() {
                                 }
                               }}
                               className={cn(
-                                "flex flex-col items-center justify-center min-w-[44px] sm:min-w-[56px] p-1.5 sm:p-2 rounded-full transition-all flex-shrink-0 border",
+                                "flex h-14 w-14 sm:h-16 sm:w-16 flex-col items-center justify-center rounded-full p-0 transition-all flex-shrink-0 border",
                                 isTodayDate
                                   ? "border-2 border-primary font-semibold bg-primary/10"
                                   : isSelected
@@ -1809,33 +1815,15 @@ export default function Availability() {
                 </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="calendar" className="mt-0 flex flex-col gap-2 pb-4">
+              <TabsContent value="calendar" className="mt-0 flex min-h-0 flex-col gap-2 pb-4">
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <Select
-                      value={selectedPhotographer}
-                      onValueChange={(value) => {
-                        setSelectedPhotographer(value);
-                        setEditingWeeklySchedule(false);
-                      }}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select photographer" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Photographers</SelectItem>
-                        {photographers.map((photographer) => (
-                          <SelectItem key={photographer.id} value={photographer.id}>
-                            {photographer.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
                     {isAdmin && (
                       <Sheet open={isPhotographerSheetOpen} onOpenChange={setIsPhotographerSheetOpen}>
                         <SheetTrigger asChild>
-                          <Button variant="outline" size="icon">
+                          <Button variant="outline" size="sm" className="shrink-0 gap-2 px-3">
                             <Users className="h-4 w-4" />
+                            Team
                           </Button>
                         </SheetTrigger>
                         <SheetContent side="left" className="w-[85vw] sm:w-[400px]">
@@ -1927,38 +1915,25 @@ export default function Availability() {
                         </SheetContent>
                       </Sheet>
                     )}
-                  </div>
-                  <div className="flex items-center gap-1.5 overflow-x-auto [&::-webkit-scrollbar]:hidden -mx-1 px-1 py-0.5">
-                    <button
-                      onClick={() => {
-                        setSelectedPhotographer("all");
+                    <Select
+                      value={selectedPhotographer}
+                      onValueChange={(value) => {
+                        setSelectedPhotographer(value);
                         setEditingWeeklySchedule(false);
                       }}
-                      className={cn(
-                        "flex-shrink-0 rounded-full border border-border bg-muted/40 px-3 py-2 text-[11px] font-semibold transition-all",
-                        selectedPhotographer === "all" && "border-primary bg-primary/10 text-primary"
-                      )}
                     >
-                      All
-                    </button>
-                    {photographers.map((photographer) => {
-                      const isActive = selectedPhotographer === photographer.id;
-                      return (
-                        <button
-                          key={photographer.id}
-                          onClick={() => {
-                            setSelectedPhotographer(photographer.id);
-                            setEditingWeeklySchedule(false);
-                          }}
-                          className={cn(
-                            "flex-shrink-0 w-10 h-10 rounded-full border border-border bg-muted/40 flex items-center justify-center text-[10px] font-semibold transition-all",
-                            isActive && "border-primary bg-primary/10 text-primary"
-                          )}
-                        >
-                          {getInitials(photographer.name)}
-                        </button>
-                      );
-                    })}
+                      <SelectTrigger className="w-full min-w-0 flex-1">
+                        <SelectValue placeholder="Select photographer" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Photographers</SelectItem>
+                        {photographers.map((photographer) => (
+                          <SelectItem key={photographer.id} value={photographer.id}>
+                            {photographer.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 
@@ -2182,9 +2157,8 @@ export default function Availability() {
                             <div className="flex-shrink-0 border-b bg-muted/30">
                               <div className="flex">
                                 <div className="w-14 sm:w-24 flex-shrink-0 border-r p-1.5 sm:p-2 text-[11px] sm:text-xs font-medium text-muted-foreground">Days</div>
-                                <div className={cn("flex-1 flex", !isMobile && "overflow-x-auto")}>
-                                  {Array.from({ length: 7 }, (_, i) => {
-                                    const hour = 8 + (i * 2);
+                                <div className={cn("relative flex-1 flex pr-8", !isMobile && "overflow-x-auto")}>
+                                  {weekViewLabelHours.map((hour) => {
                                     return (
                                       <div
                                         key={hour}
@@ -2197,6 +2171,9 @@ export default function Availability() {
                                       </div>
                                     );
                                   })}
+                                  <div className="absolute right-1 top-1/2 -translate-y-1/2 text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">
+                                    {weekViewEndLabel}
+                                  </div>
                                 </div>
                               </div>
                             </div>
@@ -2235,7 +2212,7 @@ export default function Availability() {
                                       const startMinutes = startH * 60 + startM;
                                       const endMinutes = endH * 60 + endM;
                                       const slotStart = 8 * 60;
-                                      const slotEnd = 20 * 60;
+                                      const slotEnd = weekViewEndHour * 60;
                                       const totalMinutes = slotEnd - slotStart;
                                       const leftPercent = ((startMinutes - slotStart) / totalMinutes) * 100;
                                       const widthPercent = ((endMinutes - startMinutes) / totalMinutes) * 100;
@@ -2251,7 +2228,7 @@ export default function Availability() {
                                     return (
                                       <ContextMenu key={dayIdx}>
                                         <ContextMenuTrigger asChild>
-                                          <div className={cn("flex border-b last:border-b-0 relative cursor-context-menu min-h-[3rem]", isTodayDate && "bg-primary/5")}>
+                                          <div className={cn("flex border-b last:border-b-0 relative cursor-context-menu", selectedPhotographer === "all" ? "min-h-[3.5rem]" : "min-h-[3rem]", isTodayDate && "bg-primary/5")}>
                                             <div className={cn("w-14 sm:w-24 flex-shrink-0 border-r p-1.5 sm:p-2 flex flex-col items-start justify-center", isTodayDate && "bg-primary/10", isSelected && !isTodayDate && "bg-primary/5")}>
                                               <button
                                                 onClick={(e) => { e.stopPropagation(); setDate(day); if (isMobile) setMobileTab("details"); }}
@@ -2262,10 +2239,10 @@ export default function Availability() {
                                               </button>
                                             </div>
                                             <div className={cn("flex-1 relative overflow-hidden", !isMobile && "overflow-x-auto")}>
-                                              {Array.from({ length: 7 }, (_, i) => {
-                                                const hour = 8 + (i * 2);
-                                                return <div key={hour} className="absolute top-0 bottom-0 border-l border-dashed border-muted/30" style={{ left: `${(i / 7) * 100}%` }} />;
+                                              {weekViewLabelHours.map((hour, index) => {
+                                                return <div key={hour} className="absolute top-0 bottom-0 border-l border-dashed border-muted/30" style={{ left: `${(index / weekViewLabelHours.length) * 100}%` }} />;
                                               })}
+                                              <div className="absolute top-0 bottom-0 right-0 border-l border-dashed border-muted/30" />
                                               {daySlots.map((slot, slotIdx) => {
                                                 const style = getSlotStyle(slot.startTime, slot.endTime);
                                                 const overlappingBefore = daySlots.slice(0, slotIdx).filter(s => {
@@ -2279,6 +2256,56 @@ export default function Availability() {
                                                   const slotEnd = slotEndH * 60 + slotEndM;
                                                   return sStart < slotEnd && sEnd > slotStart;
                                                 });
+
+                                                if (selectedPhotographer === 'all') {
+                                                  const photographer = photographers.find(p => String(p.id) === String(slot.photographerId));
+                                                  const initials = photographer ? getInitials(photographer.name) : "??";
+                                                  const horizontalOffset = overlappingBefore.length * 30;
+                                                  const zIndex = 10 + slotIdx;
+
+                                                  return (
+                                                    <TooltipProvider key={slot.id}>
+                                                      <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                          <div
+                                                            onClick={(e) => {
+                                                              e.stopPropagation();
+                                                              setSelectedSlotId(slot.id);
+                                                              setDate(day);
+                                                              if (isMobile) setMobileTab("details");
+                                                            }}
+                                                            className={cn(
+                                                              "absolute rounded-full border-2 cursor-pointer hover:scale-105 transition-transform flex items-center justify-center bg-background",
+                                                              selectedSlotId === slot.id && "ring-2 ring-primary ring-offset-2",
+                                                              slot.status === 'available' && "border-green-500",
+                                                              slot.status === 'booked' && "border-blue-500",
+                                                              slot.status === 'unavailable' && "border-red-500"
+                                                            )}
+                                                            style={{
+                                                              left: `calc(${style.left} + ${horizontalOffset}px)`,
+                                                              top: '50%',
+                                                              transform: 'translateY(-50%)',
+                                                              width: '28px',
+                                                              height: '28px',
+                                                              zIndex
+                                                            }}
+                                                          >
+                                                            <Avatar className="h-full w-full">
+                                                              <AvatarImage src={getAvatarUrl(photographer?.avatar, 'photographer', undefined, photographer?.id)} alt={photographer?.name} className="object-cover" />
+                                                              <AvatarFallback className="text-[9px] bg-muted">{initials}</AvatarFallback>
+                                                            </Avatar>
+                                                          </div>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                          <div className="text-xs font-medium">{photographer?.name}</div>
+                                                          <div className="text-[10px] text-muted-foreground">{formatTimeDisplay(slot.startTime)} - {formatTimeDisplay(slot.endTime)}</div>
+                                                          <div className="text-[10px] capitalize">{slot.status}</div>
+                                                        </TooltipContent>
+                                                      </Tooltip>
+                                                    </TooltipProvider>
+                                                  );
+                                                }
+
                                                 const topOffset = overlappingBefore.length * 18;
                                                 const heightReduction = overlappingBefore.length > 0 ? 2 : 0;
                                                 return (
@@ -3054,9 +3081,8 @@ export default function Availability() {
                               <div className="w-24 flex-shrink-0 border-r p-2 text-xs font-medium text-muted-foreground">
                                 Days
                               </div>
-                              <div className="flex-1 flex">
-                                {Array.from({ length: 7 }, (_, i) => {
-                                  const hour = 8 + (i * 2);
+                              <div className="relative flex-1 flex pr-10">
+                                {weekViewLabelHours.map((hour) => {
                                   const period = hour >= 12 ? 'PM' : 'AM';
                                   const hour12 = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
                                   return (
@@ -3069,6 +3095,9 @@ export default function Availability() {
                                     </div>
                                   );
                                 })}
+                                <div className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground whitespace-nowrap">
+                                  {weekViewEndLabel}
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -3119,10 +3148,10 @@ export default function Availability() {
                                   const startMinutes = startH * 60 + startM;
                                   const endMinutes = endH * 60 + endM;
 
-                                  // Time slots start at 8:00 (480 minutes) and go to 20:00 (1200 minutes)
+                                  // Time slots start at 8:00 (480 minutes) and go to 21:00 (1260 minutes)
                                   const slotStart = 8 * 60; // 8:00 AM
-                                  const slotEnd = 20 * 60; // 8:00 PM
-                                  const totalMinutes = slotEnd - slotStart; // 720 minutes (12 hours)
+                                  const slotEnd = weekViewEndHour * 60; // 9:00 PM
+                                  const totalMinutes = slotEnd - slotStart; // 780 minutes (13 hours)
 
                                   // Calculate left position (percentage from start)
                                   const leftPercent = ((startMinutes - slotStart) / totalMinutes) * 100;
@@ -3175,16 +3204,16 @@ export default function Availability() {
                                         {/* Availability blocks area */}
                                         <div className="flex-1 relative overflow-hidden">
                                           {/* Hour markers - every 2 hours */}
-                                          {Array.from({ length: 7 }, (_, i) => {
-                                            const hour = 8 + (i * 2);
+                                          {weekViewLabelHours.map((hour, index) => {
                                             return (
                                               <div
                                                 key={hour}
                                                 className="absolute top-0 bottom-0 border-l border-dashed border-muted/30"
-                                                style={{ left: `${(i / 7) * 100}%` }}
+                                                style={{ left: `${(index / weekViewLabelHours.length) * 100}%` }}
                                               />
                                             );
                                           })}
+                                          <div className="absolute top-0 bottom-0 right-0 border-l border-dashed border-muted/30" />
 
                                           {/* Availability blocks - show all slots */}
                                           {daySlots.map((slot, slotIdx) => {
@@ -4727,7 +4756,7 @@ export default function Availability() {
                         <Button
                           variant="outline"
                           className={cn(
-                            "w-full justify-start text-left font-normal",
+                            availabilityDateButtonClass,
                             !specificDateFrom && "text-muted-foreground",
                           )}
                         >
@@ -4735,7 +4764,7 @@ export default function Availability() {
                           {specificDateFrom ? format(specificDateFrom, "PPP") : "Pick a start date"}
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
+                      <PopoverContent className={availabilityDatePopoverClass} align="start">
                         <Calendar
                           mode="single"
                           selected={specificDateFrom}
@@ -4758,7 +4787,7 @@ export default function Availability() {
                         <Button
                           variant="outline"
                           className={cn(
-                            "w-full justify-start text-left font-normal",
+                            availabilityDateButtonClass,
                             !specificDateTo && "text-muted-foreground",
                           )}
                         >
@@ -4766,7 +4795,7 @@ export default function Availability() {
                           {specificDateTo ? format(specificDateTo, "PPP") : "Pick an end date"}
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
+                      <PopoverContent className={availabilityDatePopoverClass} align="start">
                         <Calendar
                           mode="single"
                           selected={specificDateTo}
@@ -5070,16 +5099,31 @@ export default function Availability() {
             {/* Date */}
             <div className="space-y-2">
               <Label>Date</Label>
-              <Input
-                type="date"
-                value={blockSchedule.date ? format(blockSchedule.date, 'yyyy-MM-dd') : ''}
-                onChange={(e) => {
-                  if (e.target.value) {
-                    setBlockSchedule({ ...blockSchedule, date: new Date(e.target.value) });
-                  }
-                }}
-                className="rounded-md"
-              />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      availabilityDateButtonClass,
+                      !blockSchedule.date && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+                    {blockSchedule.date ? format(blockSchedule.date, "PPP") : "Choose date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className={availabilityDatePopoverClass} align="start">
+                  <Calendar
+                    mode="single"
+                    selected={blockSchedule.date ?? undefined}
+                    onSelect={(nextDate) => {
+                      if (!nextDate) return;
+                      setBlockSchedule({ ...blockSchedule, date: nextDate });
+                    }}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
 
             {/* Time Range */}

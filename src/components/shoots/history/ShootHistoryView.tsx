@@ -568,8 +568,8 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
           ) : activeTab === 'delivered' && !hideDeliveredSubTabs ? (
             <div className="flex items-center gap-2">
               <SubTabButton active={deliveredSubTab === 'all'} label="All" onClick={() => setDeliveredSubTab('all')} />
-              <SubTabButton active={deliveredSubTab === 'delivered'} label="Delivered" onClick={() => setDeliveredSubTab('delivered')} />
               <SubTabButton active={deliveredSubTab === 'ready'} label="Ready" onClick={() => setDeliveredSubTab('ready')} />
+              <SubTabButton active={deliveredSubTab === 'delivered'} label="Delivered" onClick={() => setDeliveredSubTab('delivered')} />
             </div>
           ) : activeTab === 'hold' ? (
             <div className="flex items-center gap-2">

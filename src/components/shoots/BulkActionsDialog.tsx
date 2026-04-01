@@ -25,6 +25,7 @@ import {
   DollarSign,
   Edit3,
   Eye,
+  ImageIcon,
   Loader2,
   Sparkles,
   Trash2,
@@ -85,6 +86,30 @@ const resolveAddress = (shoot: ShootData) =>
   shoot.location?.address ||
   shoot.location?.city ||
   'Address unavailable';
+
+const getHeroImage = (shoot: ShootData) => {
+  if (shoot.heroImage) return shoot.heroImage;
+
+  const mediaImage = shoot.media?.images?.[0];
+  if (mediaImage?.thumbnail) return mediaImage.thumbnail;
+  if (mediaImage?.url) return mediaImage.url;
+
+  const coverFile =
+    shoot.files?.find((file) => file.is_cover || file.isCover) ?? shoot.files?.[0];
+
+  if (!coverFile) return null;
+
+  return (
+    coverFile.thumbnail_url ||
+    coverFile.thumb_url ||
+    coverFile.web_url ||
+    coverFile.medium_url ||
+    coverFile.large_url ||
+    coverFile.url ||
+    coverFile.path ||
+    null
+  );
+};
 
 export function BulkActionsDialog({
   isOpen,
@@ -431,6 +456,7 @@ export function BulkActionsDialog({
                   const isSelected = selectedShoots.has(shootId);
                   const statusLabel = formatWorkflowStatus(shoot.workflowStatus ?? shoot.status ?? '');
                   const paymentStatus = isUnpaid(shoot) ? 'Unpaid' : 'Paid';
+                  const heroImage = getHeroImage(shoot);
                   const scheduledDate = shoot.scheduledDate
                     ? format(new Date(shoot.scheduledDate), 'MMM d, yyyy')
                     : 'Date TBD';
@@ -453,10 +479,26 @@ export function BulkActionsDialog({
                             onClick={(event) => event.stopPropagation()}
                             className="mt-1"
                           />
+                          <div className="h-16 w-24 shrink-0 overflow-hidden rounded-lg border bg-muted/30">
+                            {heroImage ? (
+                              <img
+                                src={heroImage}
+                                alt={resolveAddress(shoot)}
+                                className="h-full w-full object-cover"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                                <ImageIcon className="h-5 w-5 opacity-60" />
+                              </div>
+                            )}
+                          </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-start justify-between gap-2">
-                              <div className="min-w-0">
-                                <p className="font-medium truncate">{resolveAddress(shoot)}</p>
+                              <div className="min-w-0 pr-2">
+                                <p className="line-clamp-2 text-sm font-medium leading-snug">
+                                  {resolveAddress(shoot)}
+                                </p>
                                 <p className="text-xs text-muted-foreground">
                                   {scheduledDate} · {shoot.client?.name ?? 'Client'}
                                 </p>

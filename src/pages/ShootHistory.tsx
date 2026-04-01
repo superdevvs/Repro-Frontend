@@ -25,6 +25,23 @@ import { apiClient } from '@/services/api'
 import API_ROUTES from '@/lib/api'
 import { registerShootHistoryRefresh } from '@/realtime/realtimeRefreshBus'
 import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary'
+
+const READY_STATUS_KEYS = [
+  'ready',
+  'ready_for_client',
+  'editing_complete',
+  'editing_uploaded',
+]
+
+const DELIVERED_STATUS_KEYS = [
+  'delivered',
+  'admin_verified',
+  'workflow_completed',
+  'client_delivered',
+  'finalised',
+  'finalized',
+]
+
 const ShootHistory: React.FC = () => {
   const navigate = useNavigate()
   const { toast } = useToast()
@@ -266,13 +283,13 @@ const ShootHistory: React.FC = () => {
       if (deliveredSubTab === 'delivered') {
         return operationalData.filter(s => {
           const status = (s.workflowStatus || s.status || '').toLowerCase()
-          return status === 'delivered' || status === 'admin_verified'
+          return DELIVERED_STATUS_KEYS.includes(status)
         })
       }
       if (deliveredSubTab === 'ready') {
         return operationalData.filter(s => {
           const status = (s.workflowStatus || s.status || '').toLowerCase()
-          return status === 'ready_for_client' || status === 'ready'
+          return READY_STATUS_KEYS.includes(status)
         })
       }
       return operationalData
