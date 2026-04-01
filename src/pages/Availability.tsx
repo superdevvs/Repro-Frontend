@@ -2153,25 +2153,26 @@ export default function Availability() {
                             })()}
                           </div>
                         ) : viewMode === "week" ? (
-                          <div className="w-full flex flex-col border rounded-md bg-background">
+                          <div className="w-full overflow-x-auto pb-1">
+                            <div className={cn("flex flex-col border rounded-md bg-background", isMobile && "min-w-[680px]")}>
                             <div className="flex-shrink-0 border-b bg-muted/30">
                               <div className="flex">
                                 <div className="w-14 sm:w-24 flex-shrink-0 border-r p-1.5 sm:p-2 text-[11px] sm:text-xs font-medium text-muted-foreground">Days</div>
-                                <div className={cn("relative flex-1 flex pr-8", !isMobile && "overflow-x-auto")}>
+                                <div className="relative flex-1 flex pr-12">
                                   {weekViewLabelHours.map((hour) => {
                                     return (
                                       <div
                                         key={hour}
                                         className={cn(
                                           "flex-1 border-r last:border-r-0 text-center text-muted-foreground",
-                                          isMobile ? "min-w-0 p-1 text-[10px]" : "min-w-[60px] p-1.5 sm:p-2 text-xs"
+                                          isMobile ? "min-w-[72px] p-1.5 text-[10px]" : "min-w-[60px] p-1.5 sm:p-2 text-xs"
                                         )}
                                       >
                                         {hour.toString().padStart(2, '0')}:00
                                       </div>
                                     );
                                   })}
-                                  <div className="absolute right-1 top-1/2 -translate-y-1/2 text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">
+                                  <div className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">
                                     {weekViewEndLabel}
                                   </div>
                                 </div>
@@ -2356,6 +2357,7 @@ export default function Availability() {
                                   });
                                 })()}
                               </div>
+                            </div>
                             </div>
                         ) : (
                           <div className="w-full flex flex-col">
