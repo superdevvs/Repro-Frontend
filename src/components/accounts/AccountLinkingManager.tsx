@@ -1,936 +1,331 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { formatDistanceToNow } from 'date-fns';
+import { AlertTriangle, Building2, Camera, FileText, Files, Link2, Loader2, Mail, Plus, RefreshCw, Search, Settings2, ShieldCheck, Trash2, UserRound, Users2 } from 'lucide-react';
+
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Badge } from '@/components/ui/badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { useToast } from '@/hooks/use-toast';
-import { X, Link2, Settings, Trash2, Users, Plus, Circle } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { API_BASE_URL } from '@/config/env';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
+import { usePermission } from '@/hooks/usePermission';
+import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
+import { createAccountLinks, fetchAccountLinks, fetchAvailableLinkingAccounts, unlinkAccountLink, updateAccountLink, type LinkingAccountOption } from '@/services/accountLinkingService';
+import type { AccountLinkRecord, SharedDetails } from '@/types/auth';
 
-interface LinkedAccount {
-  id: string;
-  accountId: string;
-  accountName: string;
-  accountEmail: string;
-  mainAccountId: string;
-  mainAccountName: string;
-  mainAccountEmail: string;
-  sharedDetails: {
-    shoots: boolean;
-    invoices: boolean;
-    clients: boolean;
-    availability: boolean;
-    settings: boolean;
-    profile: boolean;
-    documents: boolean;
-  };
-  linkedAt: string;
-  status: 'active' | 'inactive' | 'suspended';
-  notes?: string;
-}
+const DEFAULT_SHARED_DETAILS: SharedDetails = {
+  shoots: true,
+  invoices: true,
+  clients: false,
+  availability: false,
+  settings: false,
+  profile: true,
+  documents: true,
+};
 
-interface Account {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-}
+const SHARE_OPTIONS: Array<{ key: keyof SharedDetails; label: string; description: string; icon: React.ElementType }> = [
+  { key: 'shoots', label: 'Shoots', description: 'Job history and property activity', icon: Camera },
+  { key: 'invoices', label: 'Invoices', description: 'Billing totals and payment context', icon: FileText },
+  { key: 'clients', label: 'Client data', description: 'Contact records and linked context', icon: Users2 },
+  { key: 'availability', label: 'Availability', description: 'Scheduling visibility', icon: Building2 },
+  { key: 'settings', label: 'Settings', description: 'Operational account settings', icon: Settings2 },
+  { key: 'profile', label: 'Profile', description: 'Branding and profile details', icon: UserRound },
+  { key: 'documents', label: 'Documents', description: 'Files and attachments', icon: Files },
+];
 
-interface BatchLinkResponse {
-  created: {
-    id: string;
-    accountId: string;
-    accountName: string;
-    accountEmail: string;
-    mainAccountId: string;
-    mainAccountName: string;
-    mainAccountEmail: string;
-    sharedDetails: LinkedAccount['sharedDetails'];
-    linkedAt: string;
-    status: 'active' | 'inactive' | 'suspended';
-  }[];
-  skipped: string[];
-  failed: string[];
-  message: string;
-  summary: {
-    created: number;
-    skipped: number;
-    failed: number;
-  };
-}
+type OwnerGroup = { id: string; name: string; email: string; role?: string | null; links: AccountLinkRecord[]; active: number; attention: number; latest?: string | null };
+type DraftState = { ownerId: string; clientIds: string[]; sharedDetails: SharedDetails; notes: string };
 
-// ... existing interfaces
+const emptyDraft = (ownerId = ''): DraftState => ({ ownerId, clientIds: [], sharedDetails: { ...DEFAULT_SHARED_DETAILS }, notes: '' });
+const statusTone = (status: AccountLinkRecord['status']) => status === 'active' ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-300' : status === 'suspended' ? 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300' : 'border-slate-200 bg-slate-100 text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300';
+const relativeTime = (value?: string | null) => { if (!value) return 'No recent activity'; try { return formatDistanceToNow(new Date(value), { addSuffix: true }); } catch { return 'Recently'; } };
 
 export function AccountLinkingManager() {
   const { toast } = useToast();
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [linkedAccounts, setLinkedAccounts] = useState<LinkedAccount[]>([]);
-  const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [editingLink, setEditingLink] = useState<LinkedAccount | null>(null);
-  const [selectedMainAccount, setSelectedMainAccount] = useState<string>('');
-  const [selectedClientAccounts, setSelectedClientAccounts] = useState<string[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [sharedDetails, setSharedDetails] = useState({
-    shoots: true,
-    invoices: true,
-    clients: false,
-    availability: false,
-    settings: false,
-    profile: true,
-    documents: true,
-  });
+  const { can } = usePermission();
+  const canView = can('account-linking', 'view');
+  const canUpdate = can('account-linking', 'update');
 
-  const fetchAccounts = useCallback(async () => {
+  const [links, setLinks] = useState<AccountLinkRecord[]>([]);
+  const [summary, setSummary] = useState({ owners: 0, linkedClients: 0, active: 0, inactive: 0, suspended: 0, attention: 0 });
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [ownerSearch, setOwnerSearch] = useState('');
+  const [clientSearch, setClientSearch] = useState('');
+  const [selectedOwnerId, setSelectedOwnerId] = useState('');
+  const [createOpen, setCreateOpen] = useState(false);
+  const [draft, setDraft] = useState<DraftState>(emptyDraft());
+  const [pickerSearch, setPickerSearch] = useState('');
+  const [editLink, setEditLink] = useState<AccountLinkRecord | null>(null);
+  const [editSharedDetails, setEditSharedDetails] = useState<SharedDetails>({ ...DEFAULT_SHARED_DETAILS });
+  const [editNotes, setEditNotes] = useState('');
+  const [editStatus, setEditStatus] = useState<AccountLinkRecord['status']>('active');
+  const [unlinkTarget, setUnlinkTarget] = useState<AccountLinkRecord | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [loadingDirectory, setLoadingDirectory] = useState(false);
+  const [directoryError, setDirectoryError] = useState<string | null>(null);
+  const [owners, setOwners] = useState<LinkingAccountOption[]>([]);
+  const [clients, setClients] = useState<LinkingAccountOption[]>([]);
+
+  const deferredOwnerSearch = useDeferredValue(ownerSearch);
+  const deferredClientSearch = useDeferredValue(clientSearch);
+
+  const loadLinks = useCallback(async (silent = false) => {
+    if (silent) setRefreshing(true); else setLoading(true);
     try {
-      const token = localStorage.getItem('authToken');
-      if (!token) throw new Error('Not authenticated');
-
-      const res = await fetch(`${API_BASE_URL}/api/admin/users`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!res.ok) throw new Error('Failed to fetch accounts');
-      const data = await res.json();
-      setAccounts(data.users || []);
-    } catch (error: unknown) {
-      console.error('Failed to fetch accounts:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load accounts. Please try again.",
-        variant: "destructive",
-      });
+      const response = await fetchAccountLinks();
+      setLinks(response.links || []);
+      setSummary(response.summary || { owners: 0, linkedClients: 0, active: 0, inactive: 0, suspended: 0, attention: 0 });
+      setError(null);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unable to load account linking.';
+      setError(message);
+      if (!silent) toast({ title: 'Failed to load linking workspace', description: message, variant: 'destructive' });
+    } finally {
+      if (silent) setRefreshing(false); else setLoading(false);
     }
   }, [toast]);
 
-  const fetchLinkedAccounts = useCallback(async () => {
-    try {
-      const token = localStorage.getItem('authToken');
-      if (!token) throw new Error('Not authenticated');
+  useEffect(() => { void loadLinks(); }, [loadLinks]);
 
-      const res = await fetch(`${API_BASE_URL}/api/admin/account-links`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+  const groups = useMemo(() => {
+    const map = new Map<string, OwnerGroup>();
+    links.forEach((link) => {
+      const existing = map.get(link.mainAccountId);
+      if (existing) {
+        existing.links.push(link);
+        existing.active += link.status === 'active' ? 1 : 0;
+        existing.attention += link.status === 'active' ? 0 : 1;
+        if (link.linkedAt && (!existing.latest || new Date(link.linkedAt) > new Date(existing.latest))) existing.latest = link.linkedAt;
+        return;
+      }
+      map.set(link.mainAccountId, {
+        id: link.mainAccountId,
+        name: link.mainAccountName,
+        email: link.mainAccountEmail,
+        role: link.mainAccountRole,
+        links: [link],
+        active: link.status === 'active' ? 1 : 0,
+        attention: link.status === 'active' ? 0 : 1,
+        latest: link.linkedAt,
       });
+    });
 
-      if (!res.ok) throw new Error('Failed to fetch linked accounts');
-      const data = await res.json();
-      setLinkedAccounts(data.links || []);
-    } catch (error: unknown) {
-      console.error('Failed to fetch linked accounts:', error);
-      // Don't show error toast on initial load if endpoint doesn't exist yet
-    }
-  }, [toast]);
+    return Array.from(map.values())
+      .filter((group) => (`${group.name} ${group.email}`).toLowerCase().includes(deferredOwnerSearch.toLowerCase()))
+      .sort((a, b) => new Date(b.latest || 0).getTime() - new Date(a.latest || 0).getTime());
+  }, [deferredOwnerSearch, links]);
 
   useEffect(() => {
-    fetchAccounts();
-    fetchLinkedAccounts();
-  }, [fetchAccounts, fetchLinkedAccounts]);
+    if (groups.length === 0) { setSelectedOwnerId(''); return; }
+    if (!selectedOwnerId || !groups.some((group) => group.id === selectedOwnerId)) setSelectedOwnerId(groups[0].id);
+  }, [groups, selectedOwnerId]);
 
-  const handleLinkAccounts = async () => {
-    if (!selectedMainAccount || selectedClientAccounts.length === 0) {
-      toast({
-        title: "Missing Information",
-        description: "Please select a main account and at least one client account.",
-        variant: "destructive",
-      });
+  const selectedGroup = groups.find((group) => group.id === selectedOwnerId) || null;
+  const visibleLinks = useMemo(() => {
+    if (!selectedGroup) return [];
+    return selectedGroup.links.filter((link) => (`${link.accountName} ${link.accountEmail} ${link.status}`).toLowerCase().includes(deferredClientSearch.toLowerCase()));
+  }, [deferredClientSearch, selectedGroup]);
+
+  const shareCoverage = useMemo(() => SHARE_OPTIONS.map((option) => ({
+    ...option,
+    count: selectedGroup?.links.filter((link) => link.status === 'active' && link.sharedDetails[option.key]).length || 0,
+  })), [selectedGroup]);
+
+  const filteredPickerClients = useMemo(() => {
+    const query = pickerSearch.trim().toLowerCase();
+    if (!query) return clients;
+    return clients.filter((client) => (`${client.name} ${client.email} ${client.company || ''}`).toLowerCase().includes(query));
+  }, [clients, pickerSearch]);
+
+  const loadDirectory = useCallback(async (ownerId: string) => {
+    setLoadingDirectory(true);
+    setDirectoryError(null);
+    try {
+      const response = await fetchAvailableLinkingAccounts({ ownerId: ownerId || undefined });
+      setOwners(response.owners || []);
+      setClients(response.clientAccounts || []);
+    } catch (err) {
+      setDirectoryError(err instanceof Error ? err.message : 'Unable to load available accounts.');
+    } finally {
+      setLoadingDirectory(false);
+    }
+  }, []);
+
+  useEffect(() => { if (createOpen) void loadDirectory(draft.ownerId); }, [createOpen, draft.ownerId, loadDirectory]);
+
+  const openCreate = (prefill?: Partial<DraftState>) => {
+    setDraft({
+      ownerId: prefill?.ownerId ?? selectedGroup?.id ?? '',
+      clientIds: prefill?.clientIds ?? [],
+      sharedDetails: prefill?.sharedDetails ? { ...prefill.sharedDetails } : { ...DEFAULT_SHARED_DETAILS },
+      notes: prefill?.notes ?? '',
+    });
+    setPickerSearch('');
+    setCreateOpen(true);
+  };
+
+  const handleEditOpen = (link: AccountLinkRecord) => {
+    setEditLink(link);
+    setEditSharedDetails({ ...link.sharedDetails });
+    setEditNotes(link.notes || '');
+    setEditStatus(link.status);
+  };
+
+  const handleCreate = async () => {
+    if (!draft.ownerId || draft.clientIds.length === 0) {
+      toast({ title: 'Select an owner and at least one client', variant: 'destructive' });
       return;
     }
-
-    if (selectedClientAccounts.includes(selectedMainAccount)) {
-      toast({
-        title: "Invalid Selection",
-        description: "Main account cannot be included in client accounts.",
-        variant: "destructive",
-      });
-      return;
-    }
-
+    setSaving(true);
     try {
-      const token = localStorage.getItem('authToken');
-      if (!token) throw new Error('Not authenticated');
-
-      const mainAccount = accounts.find(a => a.id === selectedMainAccount);
-      const clientAccounts = selectedClientAccounts.map(id => accounts.find(a => a.id === id)).filter(Boolean);
-
-      const res = await fetch(`${API_BASE_URL}/api/admin/account-links/batch`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          mainAccountId: selectedMainAccount,
-          clientAccountIds: selectedClientAccounts,
-          sharedDetails,
-        }),
+      const response = await createAccountLinks({
+        mainAccountId: draft.ownerId,
+        clientAccountIds: draft.clientIds,
+        sharedDetails: draft.sharedDetails,
+        notes: draft.notes.trim() || undefined,
       });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.message || 'Failed to link accounts');
-      }
-
-      const responseData = await res.json();
-
-      // Add new links to the state
-      const newLinks = responseData.created.map((link) => ({
-        id: link.id,
-        accountId: link.accountId,
-        accountName: link.accountName,
-        accountEmail: link.accountEmail,
-        mainAccountId: link.mainAccountId,
-        mainAccountName: link.mainAccountName,
-        sharedDetails: link.sharedDetails,
-        linkedAt: link.linkedAt,
-      }));
-
-      setLinkedAccounts([...linkedAccounts, ...newLinks]);
-      setIsLinkDialogOpen(false);
-      setSelectedMainAccount('');
-      setSelectedClientAccounts([]);
-      setSharedDetails({
-        shoots: true,
-        invoices: true,
-        clients: false,
-        availability: false,
-        settings: false,
-        profile: true,
-        documents: true,
-      });
-
-      // Show detailed success message
-      let message = responseData.message;
-      if (responseData.summary.created > 0) {
-        const createdNames = responseData.created.map((link) => link.accountName).join(', ');
-        message += ` Successfully linked: ${createdNames}`;
-      }
-      if (responseData.summary.skipped > 0) {
-        message += ` ${responseData.summary.skipped} accounts were already linked.`;
-      }
-      if (responseData.summary.failed > 0) {
-        message += ` ${responseData.summary.failed} accounts failed to link.`;
-      }
-
-      toast({
-        title: "Account Linking Complete",
-        description: message,
-      });
-
-    } catch (error: unknown) {
-      console.error('Failed to link accounts:', error);
-      toast({
-        title: "Error",
-        description: (error instanceof Error ? error.message : "Failed to link accounts. Please try again."),
-        variant: "destructive",
-      });
+      await loadLinks(true);
+      setSelectedOwnerId(draft.ownerId);
+      setCreateOpen(false);
+      setDraft(emptyDraft(draft.ownerId));
+      toast({ title: 'Relationships updated', description: response.message });
+    } catch (err) {
+      toast({ title: 'Unable to save links', description: err instanceof Error ? err.message : 'Please try again.', variant: 'destructive' });
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleEditLink = (link: LinkedAccount) => {
-    setEditingLink(link);
-    setSharedDetails(link.sharedDetails);
-    setIsEditDialogOpen(true);
-  };
-
-  const handleUpdateSharedDetails = async (linkId: string, updatedDetails: LinkedAccount['sharedDetails']) => {
+  const handleEditSave = async () => {
+    if (!editLink) return;
+    setSaving(true);
     try {
-      const token = localStorage.getItem('authToken');
-      if (!token) throw new Error('Not authenticated');
-
-      const res = await fetch(`${API_BASE_URL}/api/admin/account-links/${linkId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ sharedDetails: updatedDetails }),
+      const response = await updateAccountLink(editLink.id, {
+        sharedDetails: editSharedDetails,
+        notes: editNotes.trim() || undefined,
+        status: editStatus,
       });
-
-      if (!res.ok) throw new Error('Failed to update shared details');
-
-      setLinkedAccounts(linkedAccounts.map(link =>
-        link.id === linkId ? { ...link, sharedDetails: updatedDetails } : link
-      ));
-
-      toast({
-        title: "Shared Details Updated",
-        description: "The shared details have been updated successfully.",
-      });
-    } catch (error: unknown) {
-      console.error('Failed to update link:', error);
-      toast({
-        title: "Error",
-        description: (error instanceof Error ? error.message : "Failed to update shared details. Please try again."),
-        variant: "destructive",
-      });
+      await loadLinks(true);
+      setEditLink(null);
+      toast({ title: 'Link updated', description: response.message });
+    } catch (err) {
+      toast({ title: 'Unable to update link', description: err instanceof Error ? err.message : 'Please try again.', variant: 'destructive' });
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleUnlinkAccount = async (linkId: string) => {
+  const handleUnlink = async () => {
+    if (!unlinkTarget) return;
+    setSaving(true);
     try {
-      const token = localStorage.getItem('authToken');
-      if (!token) throw new Error('Not authenticated');
-
-      const res = await fetch(`${API_BASE_URL}/api/admin/account-links/${linkId}`, {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!res.ok) throw new Error('Failed to unlink account');
-
-      const link = linkedAccounts.find(l => l.id === linkId);
-      setLinkedAccounts(linkedAccounts.filter(l => l.id !== linkId));
-
-      toast({
-        title: "Account Unlinked",
-        description: `The account link has been removed successfully.`,
-      });
-    } catch (error: unknown) {
-      console.error('Failed to unlink account:', error);
-      toast({
-        title: "Error",
-        description: (error instanceof Error ? error.message : "Failed to unlink account. Please try again."),
-        variant: "destructive",
-      });
+      const response = await unlinkAccountLink(unlinkTarget.id);
+      await loadLinks(true);
+      setUnlinkTarget(null);
+      toast({ title: 'Relationship removed', description: response.message });
+    } catch (err) {
+      toast({ title: 'Unable to unlink account', description: err instanceof Error ? err.message : 'Please try again.', variant: 'destructive' });
+    } finally {
+      setSaving(false);
     }
   };
 
-  const clientAccounts = accounts.filter(a => a.role === 'client');
-  const mainAccounts = accounts.filter(a => ['admin', 'superadmin', 'client'].includes(a.role));
-  const availableClientAccounts = clientAccounts
-    .filter((account) => account.id !== selectedMainAccount)
-    .filter((account) => !linkedAccounts.some((link) => link.accountId === account.id))
-    .filter((account) =>
-      searchTerm === '' ||
-      account.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      account.email.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+  if (!canView) {
+    return <Card className="rounded-3xl"><CardContent className="py-12 text-center"><ShieldCheck className="mx-auto h-10 w-10 text-muted-foreground" /><p className="mt-4 text-lg font-semibold">Account linking is unavailable</p></CardContent></Card>;
+  }
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader className="space-y-4">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="space-y-1">
-              <CardTitle>Account Linking</CardTitle>
-              <CardDescription>
-                Link multiple client accounts to a main account and manage shared details efficiently
-              </CardDescription>
-            </div>
-            {linkedAccounts.length > 0 && (
-              <Button onClick={() => setIsLinkDialogOpen(true)} className="w-full sm:w-auto">
-                <Users className="mr-2 h-4 w-4" />
-                Link Multiple Accounts
-              </Button>
-            )}
+      <section className="rounded-[28px] border border-slate-200/70 bg-[radial-gradient(circle_at_top_left,_rgba(79,168,255,0.18),_transparent_38%),linear-gradient(180deg,_rgba(255,255,255,0.94),_rgba(248,250,252,0.96))] p-5 shadow-sm shadow-slate-950/5 dark:border-slate-800 dark:bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.18),_transparent_34%),linear-gradient(180deg,_rgba(2,6,23,0.92),_rgba(15,23,42,0.96))] sm:p-7">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+          <div className="max-w-3xl">
+            <div className="inline-flex items-center gap-2 rounded-full border border-slate-200/80 bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-slate-600 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-300"><Link2 className="h-3.5 w-3.5" /> Linking Workspace</div>
+            <h2 className="mt-4 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-3xl">Manage owner-to-client relationships from one focused surface.</h2>
+            <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">Review active groups, reactivate broken relationships, and update shared access without the old batch-only flow.</p>
           </div>
-        </CardHeader>
-        <CardContent className="p-4 sm:p-6">
-          {linkedAccounts.length === 0 ? (
-            <div className="text-center py-8 sm:py-12">
-              <Users className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
-              <h3 className="mb-2 text-lg font-semibold">No Linked Accounts</h3>
-              <p className="mb-4 text-muted-foreground sm:mb-5">
-                Start by linking multiple client accounts to a main account. This allows you to manage and share data across connected accounts seamlessly.
-              </p>
-              <Button
-                onClick={() => setIsLinkDialogOpen(true)}
-                className="w-full sm:w-auto"
-              >
-                <Users className="mr-2 h-4 w-4" />
-                Link Multiple Accounts
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="flex flex-col gap-3 p-4 bg-green-50 rounded-lg border border-green-200 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-green-500 rounded-full">
-                    <Link2 className="h-4 w-4 text-white" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-green-800">
-                      {linkedAccounts.length} Active Link{linkedAccounts.length !== 1 ? 's' : ''}
-                    </p>
-                    <p className="text-sm text-green-600">
-                      Accounts are successfully linked and sharing data
-                    </p>
-                  </div>
-                </div>
-                <Button 
-                  onClick={() => setIsLinkDialogOpen(true)}
-                  variant="outline"
-                  className="w-full sm:w-auto border-green-300 text-green-700 hover:bg-green-50"
-                >
-                  <Users className="mr-2 h-4 w-4" />
-                  Link More
-                </Button>
-              </div>
-              
-              <ScrollArea className="h-[60vh] min-h-[420px] rounded-lg border sm:h-[600px]">
-                <div className="p-4 space-y-6">
-                  {(() => {
-                    // Group linked accounts by main account
-                    const groupedLinks = linkedAccounts.reduce((groups, link) => {
-                      const mainAccountId = link.mainAccountId;
-                      if (!groups[mainAccountId]) {
-                        groups[mainAccountId] = {
-                          mainAccount: {
-                            id: link.mainAccountId,
-                            name: link.mainAccountName,
-                            email: link.mainAccountEmail
-                          },
-                          linkedAccounts: []
-                        };
-                      }
-                      groups[mainAccountId].linkedAccounts.push(link);
-                      return groups;
-                    }, {} as Record<string, {
-                      mainAccount: { id: string; name: string; email: string };
-                      linkedAccounts: typeof linkedAccounts;
-                    }>);
-
-                    return Object.values(groupedLinks).map((group, groupIndex) => (
-                      <Card key={group.mainAccount.id} className="overflow-hidden border-border shadow-sm hover:shadow-md transition-shadow duration-200">
-                        <CardHeader className="bg-gradient-to-r from-blue-50/50 to-indigo-50/50 dark:from-blue-950/50 dark:to-indigo-950/50 border-b border-border py-4">
-                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className="w-9 h-9 bg-blue-500 rounded-full flex items-center justify-center">
-                                <span className="text-sm font-bold text-white">
-                                  {group.mainAccount.name?.charAt(0)?.toUpperCase() || 'U'}
-                                </span>
-                              </div>
-                              <div>
-                                <CardTitle className="text-lg font-semibold text-blue-900 dark:text-blue-100 leading-tight">
-                                  {group.mainAccount.name || 'Unknown Account'}
-                                </CardTitle>
-                                <CardDescription className="text-blue-600 dark:text-blue-400 text-xs mt-0.5 leading-relaxed">
-                                  {group.mainAccount.email}
-                                </CardDescription>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2 self-start sm:self-auto">
-                              <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200 text-xs px-2 py-1">
-                                <Users className="w-3 h-3 mr-1" />
-                                {group.linkedAccounts.length}
-                              </Badge>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedMainAccount(group.mainAccount.id);
-                                  setIsLinkDialogOpen(true);
-                                }}
-                                className="border-blue-300 text-blue-700 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-950/50 h-7 px-2 text-xs"
-                              >
-                                <Plus className="w-3 h-3 mr-1" />
-                                Add
-                              </Button>
-                            </div>
-                          </div>
-                        </CardHeader>
-                        <CardContent className="p-4">
-                          <div className="space-y-3">
-                            {group.linkedAccounts.map((link) => (
-                              <div key={link.id} className="flex flex-col gap-3 p-3 bg-muted/30 rounded-lg border hover:bg-muted/50 transition-all duration-200 sm:flex-row sm:items-center sm:justify-between">
-                                <div className="flex items-center gap-3 min-w-0">
-                                  <div className="w-8 h-8 bg-green-500/20 rounded-full flex items-center justify-center">
-                                    <span className="text-xs font-bold text-green-700 dark:text-green-300">
-                                      {link.accountName?.charAt(0)?.toUpperCase() || 'C'}
-                                    </span>
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <p className="font-medium text-foreground text-sm leading-tight">
-                                      {link.accountName || 'Unknown Client'}
-                                    </p>
-                                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                                      {link.accountEmail}
-                                    </p>
-                                  </div>
-                                </div>
-                                
-                                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
-                                  <div className="flex flex-wrap gap-1 max-w-full sm:max-w-[180px]">
-                                    {Object.entries(link.sharedDetails || {}).filter(([_, enabled]) => enabled).map(([detail]) => (
-                                      <Badge key={detail} variant="outline" className="text-xs bg-background px-1.5 py-0.5">
-                                        {detail.charAt(0).toUpperCase() + detail.slice(1)}
-                                      </Badge>
-                                    ))}
-                                  </div>
-                                  
-                                  <div className="flex items-center gap-2 sm:justify-end">
-                                    <Badge 
-                                      variant={link.status === 'active' ? 'default' : 'secondary'}
-                                      className={link.status === 'active' ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-200 text-xs px-1.5 py-0.5' : 'text-xs px-1.5 py-0.5'}
-                                    >
-                                      <Circle className={`w-1.5 h-1.5 mr-1 ${link.status === 'active' ? 'fill-current' : ''}`} />
-                                      {link.status || 'active'}
-                                    </Badge>
-                                    
-                                    <div className="flex gap-1">
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => handleEditLink(link)}
-                                        className="h-7 w-7 p-0 hover:bg-blue-100 dark:hover:bg-blue-900/30"
-                                      >
-                                        <Settings className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-                                      </Button>
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => handleUnlinkAccount(link.id)}
-                                        className="h-7 w-7 p-0 hover:bg-red-100 dark:hover:bg-red-900/30"
-                                      >
-                                        <Trash2 className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
-                                      </Button>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                            
-                            {group.linkedAccounts.length === 0 && (
-                              <div className="text-center py-8 text-muted-foreground bg-muted/20 rounded-lg border border-dashed border-muted-foreground/30">
-                                <Users className="w-12 h-12 mx-auto mb-3 opacity-40" />
-                                <p className="text-sm font-medium mb-1">No client accounts linked yet</p>
-                                <p className="text-xs mb-3">Start by adding client accounts to this main account</p>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {
-                                    setSelectedMainAccount(group.mainAccount.id);
-                                    setIsLinkDialogOpen(true);
-                                  }}
-                                  className="text-xs"
-                                >
-                                  <Plus className="w-3 h-3 mr-1" />
-                                  Link First Client
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ));
-                  })()}
-                  
-                  {linkedAccounts.length === 0 && (
-                    <div className="text-center py-12">
-                      <div className="w-16 h-16 bg-muted/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <Link2 className="w-8 h-8 text-muted-foreground opacity-50" />
-                      </div>
-                      <h3 className="text-lg font-semibold mb-2 text-foreground">No Account Links Yet</h3>
-                      <p className="text-muted-foreground mb-4 max-w-md mx-auto text-sm">
-                        Start by linking client accounts to main accounts to enable data sharing and streamlined management.
-                      </p>
-                      <Button onClick={() => setIsLinkDialogOpen(true)} size="sm" className="px-4">
-                        <Plus className="w-4 h-4 mr-2" />
-                        Create First Link
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </ScrollArea>
-            </div>
-          )}
-
-      {/* Link Accounts Dialog */}
-      <Dialog
-        open={isLinkDialogOpen}
-        onOpenChange={(open) => {
-          setIsLinkDialogOpen(open);
-          if (!open) {
-            setSearchTerm('');
-          }
-        }}
-      >
-        <DialogContent className="flex h-[calc(100dvh-0.75rem)] w-[calc(100vw-0.75rem)] max-w-[1100px] flex-col gap-0 overflow-hidden rounded-2xl p-0 sm:h-auto sm:max-h-[85vh] sm:w-full sm:gap-4 sm:rounded-xl sm:p-6">
-          <DialogHeader className="space-y-1 border-b px-4 py-3 pr-12 text-left sm:border-0 sm:px-0 sm:py-0 sm:pr-0">
-            <DialogTitle className="text-left">Link Multiple Client Accounts</DialogTitle>
-            <DialogDescription className="text-left sm:max-w-[80ch]">
-              Select multiple client accounts to link to a main account and configure shared details
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto px-4 py-4 sm:h-[calc(85vh-170px)] sm:grid-cols-[minmax(0,1fr)_24rem] sm:gap-6 sm:overflow-hidden sm:px-0 sm:py-0">
-            {/* Left Panel - Account Selection */}
-            <div className="flex min-h-0 flex-col gap-4 sm:overflow-hidden">
-              <div className="space-y-2">
-                <Label>Main Account</Label>
-                <Select value={selectedMainAccount} onValueChange={setSelectedMainAccount}>
-                  <SelectTrigger className="h-10">
-                    <SelectValue placeholder="Select main account to link to" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {mainAccounts.map((account) => (
-                      <SelectItem key={account.id} value={account.id}>
-                        <div className="flex flex-col">
-                          <span className="font-medium">{account.name}</span>
-                          <span className="text-sm text-muted-foreground">{account.email}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex min-h-0 flex-1 flex-col space-y-2 sm:overflow-hidden">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <Label className="text-[15px] sm:text-sm">Client Accounts to Link ({selectedClientAccounts.length} selected)</Label>
-                  {selectedClientAccounts.length > 0 && (
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={() => setSelectedClientAccounts([])}
-                      className="h-7 px-2 text-xs text-primary"
-                    >
-                      Clear All
-                    </Button>
-                  )}
-                </div>
-                
-                <Input
-                  placeholder="Search client accounts..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="h-10"
-                />
-                
-                <div className="min-h-[140px] max-h-[30dvh] rounded-lg border p-2.5 overflow-y-auto sm:min-h-[220px] sm:max-h-none sm:flex-1 sm:p-3">
-                  {availableClientAccounts.length === 0 ? (
-                    <div className="text-center py-8 sm:py-10">
-                      <Users className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-                      <p className="text-sm font-medium text-muted-foreground mb-1">
-                        {searchTerm ? 'No accounts found' : 'No available client accounts'}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {searchTerm ? 'Try a different search term' : 'All client accounts are already linked or none exist'}
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {availableClientAccounts.map((account) => (
-                          <div 
-                            key={account.id} 
-                            className={`flex items-start space-x-3 rounded-lg border p-2.5 transition-all cursor-pointer hover:bg-accent sm:items-center sm:p-3 ${
-                              selectedClientAccounts.includes(account.id) 
-                                ? 'bg-accent border-accent-foreground' 
-                                : 'bg-background border-border'
-                            }`}
-                            onClick={() => {
-                              setSelectedClientAccounts((previous) =>
-                                previous.includes(account.id)
-                                  ? previous.filter((id) => id !== account.id)
-                                  : [...previous, account.id]
-                              );
-                            }}
-                          >
-                            <Checkbox
-                              id={account.id}
-                              checked={selectedClientAccounts.includes(account.id)}
-                              className="w-4 h-4"
-                            />
-                            <div className="flex-1">
-                              <Label
-                                htmlFor={account.id}
-                                className="text-sm font-medium cursor-pointer flex-1"
-                              >
-                                {account.name}
-                              </Label>
-                              <p className="text-xs text-muted-foreground">{account.email}</p>
-                            </div>
-                            {selectedClientAccounts.includes(account.id) && (
-                              <Badge variant="default" className="text-[11px] sm:text-xs">
-                                Selected
-                              </Badge>
-                            )}
-                          </div>
-                        ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Right Panel - Shared Details */}
-            <div className="flex min-h-0 flex-col space-y-3 sm:space-y-4 sm:overflow-hidden">
-              <div className="flex min-h-0 flex-1 flex-col space-y-3 sm:overflow-hidden">
-                <Label className="text-[15px] sm:text-sm">Shared Details (Applied to all selected accounts)</Label>
-                <div className="min-h-[170px] max-h-[34dvh] rounded-lg border bg-card p-2.5 overflow-y-auto sm:min-h-[220px] sm:max-h-none sm:flex-1 sm:p-4">
-                  <div className="space-y-2.5 sm:space-y-3">
-                    <div className="flex items-center space-x-3 rounded-lg border bg-accent/50 p-2.5 sm:p-3">
-                      <Checkbox
-                        id="share-shoots"
-                        checked={sharedDetails.shoots}
-                        onCheckedChange={(checked) =>
-                          setSharedDetails({ ...sharedDetails, shoots: !!checked })
-                        }
-                      />
-                      <div className="flex-1">
-                        <Label htmlFor="share-shoots" className="text-sm font-medium cursor-pointer">
-                          📸 Shoots
-                        </Label>
-                        <p className="text-xs text-muted-foreground">Photo sessions</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-3 rounded-lg border bg-accent/50 p-2.5 sm:p-3">
-                      <Checkbox
-                        id="share-invoices"
-                        checked={sharedDetails.invoices}
-                        onCheckedChange={(checked) =>
-                          setSharedDetails({ ...sharedDetails, invoices: !!checked })
-                        }
-                      />
-                      <div className="flex-1">
-                        <Label htmlFor="share-invoices" className="text-sm font-medium cursor-pointer">
-                          💰 Invoices
-                        </Label>
-                        <p className="text-xs text-muted-foreground">Billing info</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-3 rounded-lg border bg-accent/50 p-2.5 sm:p-3">
-                      <Checkbox
-                        id="share-clients"
-                        checked={sharedDetails.clients}
-                        onCheckedChange={(checked) =>
-                          setSharedDetails({ ...sharedDetails, clients: !!checked })
-                        }
-                      />
-                      <div className="flex-1">
-                        <Label htmlFor="share-clients" className="text-sm font-medium cursor-pointer">
-                          👥 Clients
-                        </Label>
-                        <p className="text-xs text-muted-foreground">Client data</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-3 rounded-lg border bg-accent/50 p-2.5 sm:p-3">
-                      <Checkbox
-                        id="share-availability"
-                        checked={sharedDetails.availability}
-                        onCheckedChange={(checked) =>
-                          setSharedDetails({ ...sharedDetails, availability: !!checked })
-                        }
-                      />
-                      <div className="flex-1">
-                        <Label htmlFor="share-availability" className="text-sm font-medium cursor-pointer">
-                          📅 Availability
-                        </Label>
-                        <p className="text-xs text-muted-foreground">Schedule info</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-3 rounded-lg border bg-accent/50 p-2.5 sm:p-3">
-                      <Checkbox
-                        id="share-settings"
-                        checked={sharedDetails.settings}
-                        onCheckedChange={(checked) =>
-                          setSharedDetails({ ...sharedDetails, settings: !!checked })
-                        }
-                      />
-                      <div className="flex-1">
-                        <Label htmlFor="share-settings" className="text-sm font-medium cursor-pointer">
-                          ⚙️ Settings
-                        </Label>
-                        <p className="text-xs text-muted-foreground">Account settings</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-3 rounded-lg border bg-accent/50 p-2.5 sm:p-3">
-                      <Checkbox
-                        id="share-profile"
-                        checked={sharedDetails.profile}
-                        onCheckedChange={(checked) =>
-                          setSharedDetails({ ...sharedDetails, profile: !!checked })
-                        }
-                      />
-                      <div className="flex-1">
-                        <Label htmlFor="share-profile" className="text-sm font-medium cursor-pointer">
-                          👤 Profile
-                        </Label>
-                        <p className="text-xs text-muted-foreground">Profile info</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-3 rounded-lg border bg-accent/50 p-2.5 sm:p-3">
-                      <Checkbox
-                        id="share-documents"
-                        checked={sharedDetails.documents}
-                        onCheckedChange={(checked) =>
-                          setSharedDetails({ ...sharedDetails, documents: !!checked })
-                        }
-                      />
-                      <div className="flex-1">
-                        <Label htmlFor="share-documents" className="text-sm font-medium cursor-pointer">
-                          📁 Documents
-                        </Label>
-                        <p className="text-xs text-muted-foreground">Files & documents</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {selectedClientAccounts.length > 0 && (
-                <div className="rounded-lg border bg-accent p-3">
-                  <p className="text-sm font-medium text-accent-foreground">
-                    📋 {selectedClientAccounts.length} account{selectedClientAccounts.length !== 1 ? 's' : ''} selected
-                  </p>
-                </div>
-              )}
-            </div>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => void loadLinks(true)} disabled={loading || refreshing}>{refreshing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}Refresh</Button>
+            <Button onClick={() => openCreate()} disabled={!canUpdate}><Plus className="mr-2 h-4 w-4" />Link Clients</Button>
           </div>
-          
-          <DialogFooter className="flex-col gap-2 border-t bg-background px-4 py-3 shadow-[0_-1px_0_0_hsl(var(--border))] sm:flex-row sm:justify-end sm:gap-0 sm:space-x-2 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 sm:shadow-none [padding-bottom:calc(0.75rem+env(safe-area-inset-bottom))] sm:[padding-bottom:0]">
-            <Button
-              variant="outline"
-              className="w-full sm:w-auto"
-              onClick={() => {
-                setIsLinkDialogOpen(false);
-                setSearchTerm('');
-              }}
-            >
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleLinkAccounts}
-              disabled={selectedClientAccounts.length === 0}
-              className="w-full sm:w-auto"
-            >
-              <Users className="mr-2 h-4 w-4" />
-              Link {selectedClientAccounts.length} Account{selectedClientAccounts.length !== 1 ? 's' : ''}
-            </Button>
-          </DialogFooter>
+        </div>
+        <div className="mt-6 grid gap-3 lg:grid-cols-3">
+          {[
+            ['Owners', summary.owners, 'Grouped accounts'],
+            ['Active clients', summary.active, 'Live relationships'],
+            ['Needs attention', summary.attention, 'Inactive or suspended'],
+          ].map(([label, value, note], index) => <div key={String(label)} className="rounded-2xl border border-white/60 bg-white/90 p-4 shadow-sm dark:border-slate-800/70 dark:bg-slate-950/70"><p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">{label}</p><p className={cn('mt-3 text-3xl font-semibold tracking-tight', index === 2 ? 'text-amber-600 dark:text-amber-300' : 'text-slate-900 dark:text-white')}>{value}</p><p className="mt-1 text-sm text-muted-foreground">{note}</p></div>)}
+        </div>
+      </section>
+
+      {error && <div className="flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-950/60 dark:bg-red-950/20 dark:text-red-300"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /><div><p className="font-medium">The linking workspace couldn&apos;t finish loading.</p><p className="mt-1">{error}</p></div></div>}
+
+      <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
+        <aside className="rounded-[28px] border border-slate-200/70 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950/70">
+          <p className="text-sm font-semibold">Owner groups</p>
+          <p className="mt-1 text-xs text-muted-foreground">Select an owner to inspect linked clients.</p>
+          <div className="relative mt-4"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input value={ownerSearch} onChange={(e) => setOwnerSearch(e.target.value)} placeholder="Search owners" className="pl-9" /></div>
+          <div className="mt-4">
+            {loading ? <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-2xl" />)}</div> : groups.length === 0 ? <div className="rounded-2xl border border-dashed p-6 text-center"><Users2 className="mx-auto h-10 w-10 text-muted-foreground" /><p className="mt-4 text-sm font-medium">No linked groups yet</p><Button className="mt-4" onClick={() => openCreate()} disabled={!canUpdate}><Plus className="mr-2 h-4 w-4" />Start linking</Button></div> : <ScrollArea className="h-[520px] pr-3"><div className="space-y-3">{groups.map((group) => <button key={group.id} type="button" onClick={() => setSelectedOwnerId(group.id)} className={cn('w-full rounded-2xl border p-4 text-left transition-colors', selectedOwnerId === group.id ? 'border-blue-300 bg-blue-50 dark:border-blue-900/70 dark:bg-blue-950/30' : 'border-slate-200/70 bg-white hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:hover:bg-slate-900/80')}><div className="flex items-start justify-between gap-3"><div><p className="text-sm font-semibold text-slate-900 dark:text-white">{group.name}</p><p className="mt-1 text-xs text-muted-foreground">{group.email}</p></div><Badge className={cn('rounded-full border px-2.5 py-1 text-xs', group.attention > 0 ? 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300' : 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-300')}>{group.attention > 0 ? `${group.attention} attention` : 'Stable'}</Badge></div><div className="mt-4 flex items-center justify-between text-xs text-muted-foreground"><span>{group.active} active clients</span><span>{relativeTime(group.latest)}</span></div></button>)}</div></ScrollArea>}
+          </div>
+        </aside>
+
+        <section className="rounded-[28px] border border-slate-200/70 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-950/70 sm:p-6">
+          {loading ? <div className="space-y-4"><Skeleton className="h-10 w-64" /><div className="grid gap-3 lg:grid-cols-3"><Skeleton className="h-24 rounded-2xl" /><Skeleton className="h-24 rounded-2xl" /><Skeleton className="h-24 rounded-2xl" /></div><Skeleton className="h-12 rounded-2xl" /><Skeleton className="h-32 rounded-3xl" /></div> : !selectedGroup ? <div className="flex min-h-[420px] flex-col items-center justify-center rounded-3xl border border-dashed text-center"><Link2 className="h-12 w-12 text-muted-foreground" /><h3 className="mt-4 text-lg font-semibold">Select an owner group</h3><p className="mt-2 max-w-md text-sm text-muted-foreground">Choose an owner from the list to inspect linked clients, update shared access, or reactivate relationships.</p></div> : <div className="space-y-6">
+            <div className="border-b border-slate-200/80 pb-6 dark:border-slate-800">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div><p className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-slate-600 dark:bg-slate-900 dark:text-slate-300"><Building2 className="h-3.5 w-3.5" />Owner account</p><h3 className="mt-4 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">{selectedGroup.name}</h3><div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-muted-foreground"><span className="inline-flex items-center gap-1.5"><Mail className="h-4 w-4" />{selectedGroup.email}</span>{selectedGroup.role && <Badge variant="outline" className="rounded-full px-2.5 py-1 text-[11px] uppercase tracking-[0.18em]">{selectedGroup.role}</Badge>}</div></div>
+                <Button onClick={() => openCreate({ ownerId: selectedGroup.id })} disabled={!canUpdate}><Plus className="mr-2 h-4 w-4" />Add clients</Button>
+              </div>
+              <div className="mt-5 grid gap-3 lg:grid-cols-3">{[['Relationships', selectedGroup.links.length, 'Total linked clients for this owner'], ['Active', selectedGroup.active, 'Clients currently sharing live data'], ['Attention', selectedGroup.attention, 'Inactive or suspended links']].map(([label, value, note], index) => <div key={String(label)} className={cn('rounded-2xl border p-4', index === 1 ? 'border-emerald-200/80 bg-emerald-50/70 dark:border-emerald-900/60 dark:bg-emerald-950/20' : index === 2 ? 'border-amber-200/80 bg-amber-50/70 dark:border-amber-900/60 dark:bg-amber-950/20' : 'border-slate-200/80 bg-slate-50/80 dark:border-slate-800 dark:bg-slate-900/60')}><p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">{label}</p><p className="mt-3 text-2xl font-semibold text-slate-900 dark:text-white">{value}</p><p className="mt-1 text-sm text-muted-foreground">{note}</p></div>)}</div>
+            </div>
+
+            <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_300px]">
+              <div className="space-y-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h4 className="text-base font-semibold">Linked clients</h4><p className="text-sm text-muted-foreground">Review status, notes, and shared access for each relationship.</p></div><div className="relative w-full sm:w-72"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input value={clientSearch} onChange={(e) => setClientSearch(e.target.value)} placeholder="Search linked clients" className="pl-9" /></div></div>
+                {visibleLinks.length === 0 ? <div className="rounded-3xl border border-dashed px-5 py-10 text-center"><Search className="mx-auto h-10 w-10 text-muted-foreground" /><p className="mt-4 text-sm font-medium">No client relationships match this search.</p></div> : <div className="space-y-3">{visibleLinks.map((link) => <div key={link.id} className={cn('rounded-3xl border p-4', link.status === 'active' ? 'border-slate-200/70 bg-slate-50/60 dark:border-slate-800 dark:bg-slate-900/50' : 'border-amber-200/70 bg-amber-50/60 dark:border-amber-900/60 dark:bg-amber-950/20')}><div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"><div><div className="flex flex-wrap items-center gap-3"><p className="text-lg font-semibold text-slate-900 dark:text-white">{link.accountName}</p><Badge className={cn('rounded-full border px-2.5 py-1 text-xs font-semibold', statusTone(link.status))}>{link.status}</Badge></div><div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-muted-foreground"><span className="inline-flex items-center gap-1.5"><Mail className="h-4 w-4" />{link.accountEmail}</span><span>Linked {relativeTime(link.linkedAt)}</span></div>{link.notes && <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">{link.notes}</p>}<div className="mt-3 flex flex-wrap gap-2">{SHARE_OPTIONS.filter((option) => link.sharedDetails[option.key]).map((option) => <Badge key={option.key} variant="outline" className="rounded-full px-3 py-1">{option.label}</Badge>)}</div></div><div className="flex flex-wrap gap-2">{link.status !== 'active' && <Button variant="outline" size="sm" onClick={() => openCreate({ ownerId: selectedGroup.id, clientIds: [link.accountId], sharedDetails: { ...link.sharedDetails }, notes: link.notes || '' })} disabled={!canUpdate}><RefreshCw className="mr-2 h-4 w-4" />Relink</Button>}<Button variant="outline" size="sm" onClick={() => handleEditOpen(link)} disabled={!canUpdate}><Settings2 className="mr-2 h-4 w-4" />Edit</Button>{link.status === 'active' && <Button variant="outline" size="sm" className="border-red-200 text-red-700 hover:bg-red-50 dark:border-red-900/60 dark:text-red-300 dark:hover:bg-red-950/30" onClick={() => setUnlinkTarget(link)} disabled={!canUpdate}><Trash2 className="mr-2 h-4 w-4" />Unlink</Button>}</div></div></div>)}</div>}
+              </div>
+
+              <div className="rounded-3xl border border-slate-200/70 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-900/50"><p className="text-sm font-semibold">Share coverage</p><p className="mt-1 text-sm text-muted-foreground">How many active clients receive each data category for this owner.</p><div className="mt-4 space-y-3">{shareCoverage.map((item) => { const Icon = item.icon; return <div key={item.key} className="flex items-center justify-between gap-3 rounded-2xl bg-white px-3 py-3 shadow-sm dark:bg-slate-950/70"><div className="flex items-center gap-3"><div className="rounded-xl bg-slate-100 p-2 text-slate-700 dark:bg-slate-900 dark:text-slate-300"><Icon className="h-4 w-4" /></div><div><p className="text-sm font-medium text-slate-900 dark:text-white">{item.label}</p><p className="text-xs text-muted-foreground">{item.description}</p></div></div><span className="text-sm font-semibold text-slate-900 dark:text-white">{item.count}</span></div>; })}</div></div>
+            </div>
+          </div>}
+        </section>
+      </div>
+
+      <Dialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (!open) { setDraft(emptyDraft(selectedGroup?.id || '')); setPickerSearch(''); } }}>
+        <DialogContent className="max-w-[980px] rounded-[28px] border-0 p-0 shadow-2xl shadow-slate-950/20">
+          <div className="grid max-h-[88vh] gap-0 lg:grid-cols-[minmax(0,1.15fr)_320px]">
+            <div className="bg-white px-5 py-5 dark:bg-slate-950 sm:px-6 sm:py-6">
+              <DialogHeader className="space-y-2 text-left"><DialogTitle className="text-left text-2xl">Link client accounts</DialogTitle><DialogDescription className="text-left">Choose an owner, pick one or more client accounts, and apply one shared-access profile.</DialogDescription></DialogHeader>
+              <div className="mt-6 grid gap-5 lg:grid-cols-2">
+                <div className="space-y-4"><div className="space-y-2"><Label>Owner account</Label><Select value={draft.ownerId || undefined} onValueChange={(value) => setDraft((current) => ({ ...current, ownerId: value, clientIds: [] }))}><SelectTrigger><SelectValue placeholder="Select the owner account" /></SelectTrigger><SelectContent>{owners.map((owner) => <SelectItem key={owner.id} value={owner.id}>{owner.name} · {owner.email}</SelectItem>)}</SelectContent></Select></div><div className="space-y-2"><div className="flex items-center justify-between"><Label>Client accounts</Label><Badge variant="outline" className="rounded-full px-2.5 py-1 text-xs">{draft.clientIds.length} selected</Badge></div><Input value={pickerSearch} onChange={(e) => setPickerSearch(e.target.value)} placeholder="Search available clients" /><div className="rounded-3xl border border-slate-200/70 dark:border-slate-800"><ScrollArea className="h-[360px]"><div className="space-y-2 p-3">{loadingDirectory ? Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-2xl" />) : directoryError ? <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-6 text-sm text-red-700 dark:border-red-950/60 dark:bg-red-950/20 dark:text-red-300">{directoryError}</div> : filteredPickerClients.length === 0 ? <div className="rounded-2xl border border-dashed px-4 py-10 text-center"><p className="text-sm font-medium">{clients.length === 0 ? 'No clients available' : 'No clients match this search'}</p><p className="mt-1 text-xs text-muted-foreground">{clients.length === 0 ? 'Every eligible client is already active for this owner.' : 'Try a different name or email.'}</p></div> : filteredPickerClients.map((client) => { const checked = draft.clientIds.includes(client.id); return <button key={client.id} type="button" onClick={() => setDraft((current) => ({ ...current, clientIds: checked ? current.clientIds.filter((id) => id !== client.id) : [...current.clientIds, client.id] }))} className={cn('flex w-full items-start gap-3 rounded-2xl border px-3 py-3 text-left transition-colors', checked ? 'border-blue-300 bg-blue-50 dark:border-blue-900/60 dark:bg-blue-950/30' : 'border-slate-200/70 bg-white hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:hover:bg-slate-900/80')}><Checkbox checked={checked} className="mt-0.5" /><div><p className="text-sm font-medium text-slate-900 dark:text-white">{client.name}</p><p className="mt-1 text-xs text-muted-foreground">{client.email}</p></div></button>; })}</div></ScrollArea></div></div></div>
+                <div className="space-y-4"><div className="space-y-2"><Label>Relationship note</Label><Textarea value={draft.notes} onChange={(e) => setDraft((current) => ({ ...current, notes: e.target.value }))} rows={4} placeholder="Add context for why these clients are linked to this owner." /></div><div className="space-y-3"><Label>Shared access</Label><div className="space-y-3">{SHARE_OPTIONS.map((option) => { const Icon = option.icon; return <div key={option.key} className="rounded-2xl border border-slate-200/70 bg-white px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-950/70"><div className="flex items-start justify-between gap-4"><div className="flex items-start gap-3"><div className="rounded-xl bg-slate-100 p-2 text-slate-700 dark:bg-slate-900 dark:text-slate-300"><Icon className="h-4 w-4" /></div><div><p className="text-sm font-medium text-slate-900 dark:text-white">{option.label}</p><p className="mt-1 text-xs text-muted-foreground">{option.description}</p></div></div><Switch checked={draft.sharedDetails[option.key]} onCheckedChange={(checked) => setDraft((current) => ({ ...current, sharedDetails: { ...current.sharedDetails, [option.key]: checked } }))} /></div></div>; })}</div></div></div>
+              </div>
+            </div>
+            <div className="border-l border-slate-200/70 bg-slate-50/90 px-5 py-5 dark:border-slate-800 dark:bg-slate-900/80 sm:px-6 sm:py-6"><div className="rounded-3xl border border-white/70 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-950/80"><p className="text-sm font-semibold">Review before saving</p><div className="mt-4 space-y-4 text-sm"><div><p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">Owner</p><p className="mt-2 font-medium text-slate-900 dark:text-white">{owners.find((owner) => owner.id === draft.ownerId)?.name || 'No owner selected'}</p><p className="text-muted-foreground">{owners.find((owner) => owner.id === draft.ownerId)?.email || 'Choose an owner account.'}</p></div><Separator /><div><p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">Clients</p><div className="mt-3 space-y-2">{draft.clientIds.length === 0 ? <p className="text-muted-foreground">No clients selected yet.</p> : draft.clientIds.map((id) => { const client = clients.find((item) => item.id === id); return <div key={id} className="rounded-2xl bg-slate-50 px-3 py-3 dark:bg-slate-900"><p className="font-medium text-slate-900 dark:text-white">{client?.name || id}</p><p className="text-xs text-muted-foreground">{client?.email || 'Pending selection sync'}</p></div>; })}</div></div></div></div><DialogFooter className="mt-5 gap-2 sm:flex-col sm:space-x-0"><Button variant="outline" className="w-full" onClick={() => setCreateOpen(false)} disabled={saving}>Cancel</Button><Button className="w-full" onClick={handleCreate} disabled={saving || !canUpdate}>{saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}Save relationships</Button></DialogFooter></div>
+          </div>
         </DialogContent>
       </Dialog>
 
-      {/* Edit Shared Details Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Edit Shared Details</DialogTitle>
-            <DialogDescription>
-              Update what data is shared between linked accounts
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="py-4 space-y-4">
-            <div className="space-y-3">
-              <Label className="text-sm font-medium">Shared Data Types</Label>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="edit-shoots"
-                    checked={sharedDetails.shoots}
-                    onCheckedChange={(checked) => 
-                      setSharedDetails(prev => ({ ...prev, shoots: checked as boolean }))
-                    }
-                  />
-                  <Label htmlFor="edit-shoots" className="text-sm">Shoots</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="edit-invoices"
-                    checked={sharedDetails.invoices}
-                    onCheckedChange={(checked) => 
-                      setSharedDetails(prev => ({ ...prev, invoices: checked as boolean }))
-                    }
-                  />
-                  <Label htmlFor="edit-invoices" className="text-sm">Invoices</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="edit-clients"
-                    checked={sharedDetails.clients}
-                    onCheckedChange={(checked) => 
-                      setSharedDetails(prev => ({ ...prev, clients: checked as boolean }))
-                    }
-                  />
-                  <Label htmlFor="edit-clients" className="text-sm">Clients</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="edit-availability"
-                    checked={sharedDetails.availability}
-                    onCheckedChange={(checked) => 
-                      setSharedDetails(prev => ({ ...prev, availability: checked as boolean }))
-                    }
-                  />
-                  <Label htmlFor="edit-availability" className="text-sm">Availability</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="edit-settings"
-                    checked={sharedDetails.settings}
-                    onCheckedChange={(checked) => 
-                      setSharedDetails(prev => ({ ...prev, settings: checked as boolean }))
-                    }
-                  />
-                  <Label htmlFor="edit-settings" className="text-sm">Settings</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="edit-profile"
-                    checked={sharedDetails.profile}
-                    onCheckedChange={(checked) => 
-                      setSharedDetails(prev => ({ ...prev, profile: checked as boolean }))
-                    }
-                  />
-                  <Label htmlFor="edit-profile" className="text-sm">Profile</Label>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button 
-              onClick={() => {
-                if (editingLink) {
-                  handleUpdateSharedDetails(editingLink.id, sharedDetails);
-                  setIsEditDialogOpen(false);
-                }
-              }}
-            >
-              Update Shared Details
-            </Button>
-          </DialogFooter>
+      <Dialog open={Boolean(editLink)} onOpenChange={(open) => !open && setEditLink(null)}>
+        <DialogContent className="max-w-[760px] rounded-[28px] border-0 p-0 shadow-2xl shadow-slate-950/20">
+          {editLink && <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_280px]"><div className="bg-white px-5 py-5 dark:bg-slate-950 sm:px-6 sm:py-6"><DialogHeader className="space-y-2 text-left"><DialogTitle className="text-left text-2xl">Edit relationship</DialogTitle><DialogDescription className="text-left">Adjust shared access and status for {editLink.accountName}.</DialogDescription></DialogHeader><div className="mt-6 space-y-5"><div className="grid gap-4 sm:grid-cols-2"><div className="rounded-2xl border bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/60"><p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">Owner</p><p className="mt-2 font-medium text-slate-900 dark:text-white">{editLink.mainAccountName}</p><p className="text-sm text-muted-foreground">{editLink.mainAccountEmail}</p></div><div className="rounded-2xl border bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/60"><p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">Client</p><p className="mt-2 font-medium text-slate-900 dark:text-white">{editLink.accountName}</p><p className="text-sm text-muted-foreground">{editLink.accountEmail}</p></div></div><div className="space-y-2"><Label>Status</Label><Select value={editStatus} onValueChange={(value) => setEditStatus(value as AccountLinkRecord['status'])}><SelectTrigger><SelectValue placeholder="Select relationship status" /></SelectTrigger><SelectContent><SelectItem value="active">Active</SelectItem><SelectItem value="inactive">Inactive</SelectItem><SelectItem value="suspended">Suspended</SelectItem></SelectContent></Select></div><div className="space-y-2"><Label>Relationship note</Label><Textarea value={editNotes} onChange={(e) => setEditNotes(e.target.value)} rows={4} /></div><div className="space-y-3"><Label>Shared access</Label><div className="space-y-3">{SHARE_OPTIONS.map((option) => { const Icon = option.icon; return <div key={option.key} className="rounded-2xl border border-slate-200/70 bg-white px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-950/70"><div className="flex items-start justify-between gap-4"><div className="flex items-start gap-3"><div className="rounded-xl bg-slate-100 p-2 text-slate-700 dark:bg-slate-900 dark:text-slate-300"><Icon className="h-4 w-4" /></div><div><p className="text-sm font-medium text-slate-900 dark:text-white">{option.label}</p><p className="mt-1 text-xs text-muted-foreground">{option.description}</p></div></div><Switch checked={editSharedDetails[option.key]} disabled={!canUpdate} onCheckedChange={(checked) => setEditSharedDetails((current) => ({ ...current, [option.key]: checked }))} /></div></div>; })}</div></div></div></div><div className="border-l border-slate-200/70 bg-slate-50/90 px-5 py-5 dark:border-slate-800 dark:bg-slate-900/80 sm:px-6 sm:py-6"><div className="rounded-3xl border border-white/70 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-950/80"><p className="text-sm font-semibold">Current state</p><p className="mt-4 text-sm text-muted-foreground">Linked {relativeTime(editLink.linkedAt)}</p><div className="mt-4 flex flex-wrap gap-2">{SHARE_OPTIONS.filter((option) => editSharedDetails[option.key]).map((option) => <Badge key={option.key} variant="outline" className="rounded-full px-3 py-1">{option.label}</Badge>)}</div></div><DialogFooter className="mt-5 gap-2 sm:flex-col sm:space-x-0"><Button variant="outline" className="w-full" onClick={() => setEditLink(null)} disabled={saving}>Cancel</Button><Button className="w-full" onClick={handleEditSave} disabled={saving || !canUpdate}>{saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Settings2 className="mr-2 h-4 w-4" />}Save changes</Button></DialogFooter></div></div>}
         </DialogContent>
       </Dialog>
-          </CardContent>
-        </Card>
+
+      <AlertDialog open={Boolean(unlinkTarget)} onOpenChange={(open) => !open && setUnlinkTarget(null)}>
+        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Unlink this client?</AlertDialogTitle><AlertDialogDescription>{unlinkTarget ? `${unlinkTarget.accountName} will move to inactive and stop sharing access with ${unlinkTarget.mainAccountName}.` : 'This relationship will be marked inactive.'}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={saving}>Cancel</AlertDialogCancel><AlertDialogAction className="bg-red-600 text-white hover:bg-red-700 focus:ring-red-600" onClick={(e) => { e.preventDefault(); void handleUnlink(); }} disabled={saving || !canUpdate}>{saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}Unlink account</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
-

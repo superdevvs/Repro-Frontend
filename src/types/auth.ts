@@ -12,6 +12,17 @@ export type UserRole =
 
 export type RepPayoutFrequency = 'weekly' | 'biweekly' | 'monthly';
 export type ClientDiscountType = 'fixed' | 'percent' | null;
+export type AccountLinkStatus = 'active' | 'inactive' | 'suspended';
+
+export interface SharedDetails {
+  shoots: boolean;
+  invoices: boolean;
+  clients: boolean;
+  availability: boolean;
+  settings: boolean;
+  profile: boolean;
+  documents: boolean;
+}
 
 export interface AddressInfo {
   line1?: string;
@@ -70,7 +81,7 @@ export interface UserData {
   metadata?: UserMetadata;
   session?: AuthSession;
   // Account linking properties
-  linkedAccounts?: LinkedAccount[];
+  linkedAccounts?: LinkedAccountSummary[];
   sharedData?: SharedData;
   totalShoots?: number;
   totalSpent?: number;
@@ -85,27 +96,40 @@ export interface UserData {
   client_discount_value?: number | null;
 }
 
-export interface LinkedAccount {
+export interface AccountLinkRecord {
   id: string;
   accountId: string;
   accountName: string;
   accountEmail: string;
+  accountRole?: UserRole | null;
+  accountAvatar?: string | null;
+  accountStatus?: string | null;
   mainAccountId: string;
   mainAccountName: string;
   mainAccountEmail: string;
-  sharedDetails: {
-    shoots: boolean;
-    invoices: boolean;
-    clients: boolean;
-    availability: boolean;
-    settings: boolean;
-    profile: boolean;
-    documents: boolean;
-  };
-  linkedAt: string;
-  status: 'active' | 'inactive' | 'suspended';
+  mainAccountRole?: UserRole | null;
+  mainAccountAvatar?: string | null;
+  mainAccountStatus?: string | null;
+  sharedDetails: SharedDetails;
+  linkedAt?: string | null;
+  unlinkedAt?: string | null;
+  status: AccountLinkStatus;
   notes?: string;
 }
+
+export interface LinkedAccountSummary {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  avatar?: string | null;
+  status?: AccountLinkStatus;
+  sharedDetails: SharedDetails;
+  linkedAt?: string | null;
+  linkId?: string | number;
+}
+
+export type LinkedAccount = AccountLinkRecord;
 
 export interface SharedData {
   totalShoots: number;
