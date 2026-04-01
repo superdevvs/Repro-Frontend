@@ -33,12 +33,12 @@ const DEFAULT_SHARED_DETAILS: SharedDetails = {
 };
 
 const SHARE_OPTIONS: Array<{ key: keyof SharedDetails; label: string; description: string; icon: React.ElementType }> = [
-  { key: 'shoots', label: 'Shoots', description: 'Job history and property activity', icon: Camera },
-  { key: 'invoices', label: 'Invoices', description: 'Billing totals and payment context', icon: FileText },
-  { key: 'clients', label: 'Client data', description: 'Contact records and linked context', icon: Users2 },
+  { key: 'shoots', label: 'Shoots', description: 'Jobs and property activity', icon: Camera },
+  { key: 'invoices', label: 'Invoices', description: 'Billing totals and payments', icon: FileText },
+  { key: 'clients', label: 'Client data', description: 'Contacts and linked context', icon: Users2 },
   { key: 'availability', label: 'Availability', description: 'Scheduling visibility', icon: Building2 },
-  { key: 'settings', label: 'Settings', description: 'Operational account settings', icon: Settings2 },
-  { key: 'profile', label: 'Profile', description: 'Branding and profile details', icon: UserRound },
+  { key: 'settings', label: 'Settings', description: 'Operational settings', icon: Settings2 },
+  { key: 'profile', label: 'Profile', description: 'Branding and profile', icon: UserRound },
   { key: 'documents', label: 'Documents', description: 'Files and attachments', icon: Files },
 ];
 
@@ -432,17 +432,17 @@ export function AccountLinkingManager() {
 
                       <div className="mt-4 rounded-3xl border border-slate-200/70 bg-white dark:border-slate-800 dark:bg-slate-950">
                         <ScrollArea className="h-[280px] sm:h-[320px] xl:h-[460px]">
-                          <div className="grid gap-2 p-3 lg:grid-cols-2">
+                          <div className="space-y-2 p-3">
                             {loadingDirectory ? (
                               Array.from({ length: 6 }).map((_, i) => (
                                 <Skeleton key={i} className="h-24 rounded-2xl" />
                               ))
                             ) : directoryError ? (
-                              <div className="lg:col-span-2 rounded-2xl border border-red-200 bg-red-50 px-4 py-6 text-sm text-red-700 dark:border-red-950/60 dark:bg-red-950/20 dark:text-red-300">
+                              <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-6 text-sm text-red-700 dark:border-red-950/60 dark:bg-red-950/20 dark:text-red-300">
                                 {directoryError}
                               </div>
                             ) : filteredPickerClients.length === 0 ? (
-                              <div className="lg:col-span-2 rounded-2xl border border-dashed px-4 py-10 text-center">
+                              <div className="rounded-2xl border border-dashed px-4 py-10 text-center">
                                 <p className="text-sm font-medium">
                                   {clients.length === 0 ? 'No clients available' : 'No clients match this search'}
                                 </p>
@@ -469,32 +469,35 @@ export function AccountLinkingManager() {
                                       }))
                                     }
                                     className={cn(
-                                      'flex min-h-[92px] w-full items-start gap-3 rounded-2xl border px-3 py-3 text-left transition-colors',
+                                      'flex min-h-[88px] w-full items-start gap-3 rounded-2xl border px-3.5 py-3 text-left transition-colors',
                                       checked
                                         ? 'border-blue-300 bg-blue-50 dark:border-blue-900/60 dark:bg-blue-950/30'
                                         : 'border-slate-200/70 bg-white hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:hover:bg-slate-900/80',
                                     )}
                                   >
                                     <Checkbox checked={checked} className="mt-0.5" />
-                                    <div className="min-w-0">
-                                      <p className="truncate text-sm font-medium text-slate-900 dark:text-white">
-                                        {client.name}
-                                      </p>
-                                      <p className="mt-1 truncate text-xs text-muted-foreground">
-                                        {client.email}
-                                      </p>
-                                      {client.isLinkedToOtherOwners && (client.activeOwnerLinks?.length ?? 0) > 0 && (
-                                        <div className="mt-2 flex flex-wrap gap-1.5">
-                                          <Badge className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300">
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+                                        <div className="min-w-0">
+                                          <p className="truncate text-sm font-medium text-slate-900 dark:text-white">
+                                            {client.name}
+                                          </p>
+                                          <p className="mt-1 truncate text-xs text-muted-foreground">
+                                            {client.email}
+                                          </p>
+                                          {client.company && (
+                                            <p className="mt-2 text-[11px] uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                                              {client.company}
+                                            </p>
+                                          )}
+                                        </div>
+
+                                        {client.isLinkedToOtherOwners && (client.activeOwnerLinks?.length ?? 0) > 0 && (
+                                          <Badge className="w-fit rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300">
                                             Linked with {client.activeOwnerLinks?.map((owner) => owner.name).join(', ')}
                                           </Badge>
-                                        </div>
-                                      )}
-                                      {client.company && (
-                                        <p className="mt-2 text-[11px] uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                                          {client.company}
-                                        </p>
-                                      )}
+                                        )}
+                                      </div>
                                     </div>
                                   </button>
                                 );
@@ -512,7 +515,7 @@ export function AccountLinkingManager() {
                             Shared access
                           </Label>
                           <p className="mt-1 text-sm text-muted-foreground">
-                            Set the profile once for all selected clients.
+                            Use one access profile for all selected clients.
                           </p>
                         </div>
                         <Badge variant="outline" className="rounded-full px-3 py-1 text-xs">
@@ -520,7 +523,7 @@ export function AccountLinkingManager() {
                         </Badge>
                       </div>
 
-                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                      <div className="mt-4 space-y-2.5">
                         {SHARE_OPTIONS.map((option) => {
                           const Icon = option.icon;
 
@@ -528,19 +531,19 @@ export function AccountLinkingManager() {
                             <div
                               key={option.key}
                               className={cn(
-                                'rounded-2xl border px-4 py-3 transition-colors',
+                                'rounded-2xl border px-3.5 py-3 transition-colors',
                                 draft.sharedDetails[option.key]
                                   ? 'border-blue-200 bg-blue-50/80 dark:border-blue-900/40 dark:bg-blue-950/20'
                                   : 'border-slate-200/70 bg-white dark:border-slate-800 dark:bg-slate-950/70',
                               )}
                             >
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="flex min-w-0 items-start gap-3">
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="flex min-w-0 items-center gap-3">
                                   <div className="rounded-xl bg-slate-100 p-2 text-slate-700 dark:bg-slate-900 dark:text-slate-300">
                                     <Icon className="h-4 w-4" />
                                   </div>
-                                  <div className="min-w-0">
-                                    <p className="text-sm font-medium text-slate-900 dark:text-white">
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-sm font-medium leading-none text-slate-900 dark:text-white">
                                       {option.label}
                                     </p>
                                     <p className="mt-1 text-xs leading-5 text-muted-foreground">
@@ -738,7 +741,7 @@ export function AccountLinkingManager() {
                           </Badge>
                         </div>
 
-                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                        <div className="mt-4 space-y-2.5">
                           {SHARE_OPTIONS.map((option) => {
                             const Icon = option.icon;
 
@@ -746,19 +749,19 @@ export function AccountLinkingManager() {
                               <div
                                 key={option.key}
                                 className={cn(
-                                  'rounded-2xl border px-4 py-3 transition-colors',
+                                  'rounded-2xl border px-3.5 py-3 transition-colors',
                                   editSharedDetails[option.key]
                                     ? 'border-blue-200 bg-blue-50/80 dark:border-blue-900/40 dark:bg-blue-950/20'
                                     : 'border-slate-200/70 bg-white dark:border-slate-800 dark:bg-slate-950/70',
                                 )}
                               >
-                                <div className="flex items-start justify-between gap-3">
-                                  <div className="flex min-w-0 items-start gap-3">
+                                <div className="flex items-center justify-between gap-3">
+                                  <div className="flex min-w-0 items-center gap-3">
                                     <div className="rounded-xl bg-slate-100 p-2 text-slate-700 dark:bg-slate-900 dark:text-slate-300">
                                       <Icon className="h-4 w-4" />
                                     </div>
-                                    <div className="min-w-0">
-                                      <p className="text-sm font-medium text-slate-900 dark:text-white">
+                                    <div className="min-w-0 flex-1">
+                                      <p className="text-sm font-medium leading-none text-slate-900 dark:text-white">
                                         {option.label}
                                       </p>
                                       <p className="mt-1 text-xs leading-5 text-muted-foreground">

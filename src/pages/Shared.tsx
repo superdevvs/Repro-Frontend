@@ -20,25 +20,21 @@ import {
   CalendarDays,
   Camera,
   FileText,
-  Files,
   Link2,
   Mail,
   MapPin,
   RefreshCw,
-  Settings2,
   ShieldCheck,
-  UserRound,
-  Users2,
 } from 'lucide-react';
 
-const SHARE_OPTIONS: Array<{ key: keyof SharedDetails; label: string; description: string; icon: React.ElementType }> = [
-  { key: 'shoots', label: 'Shoots', description: 'Job history and property activity', icon: Camera },
-  { key: 'invoices', label: 'Invoices', description: 'Billing totals and payment context', icon: FileText },
-  { key: 'clients', label: 'Client data', description: 'Contact records and linked context', icon: Users2 },
-  { key: 'availability', label: 'Availability', description: 'Scheduling visibility', icon: Building2 },
-  { key: 'settings', label: 'Settings', description: 'Operational account settings', icon: Settings2 },
-  { key: 'profile', label: 'Profile', description: 'Branding and profile details', icon: UserRound },
-  { key: 'documents', label: 'Documents', description: 'Files and attachments', icon: Files },
+const SHARE_OPTIONS: Array<{ key: keyof SharedDetails; label: string; description: string }> = [
+  { key: 'shoots', label: 'Shoots', description: 'Job history and property activity' },
+  { key: 'invoices', label: 'Invoices', description: 'Billing totals and payment context' },
+  { key: 'clients', label: 'Client data', description: 'Contact records and linked context' },
+  { key: 'availability', label: 'Availability', description: 'Scheduling visibility' },
+  { key: 'settings', label: 'Settings', description: 'Operational account settings' },
+  { key: 'profile', label: 'Profile', description: 'Branding and profile details' },
+  { key: 'documents', label: 'Documents', description: 'Files and attachments' },
 ];
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {
@@ -414,45 +410,6 @@ export default function Shared() {
                       ))}
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-
-              <Card className="rounded-3xl border-slate-200/70 dark:border-slate-800">
-                <CardHeader className="pb-4">
-                  <CardTitle className="text-lg">Access profile</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {SHARE_OPTIONS.map((option) => {
-                    const Icon = option.icon;
-                    const enabled = ownerData.link.sharedDetails[option.key];
-
-                    return (
-                      <div
-                        key={option.key}
-                        className={cn(
-                          'rounded-2xl border px-4 py-3',
-                          enabled
-                            ? 'border-emerald-200/80 bg-emerald-50/70 dark:border-emerald-900/60 dark:bg-emerald-950/20'
-                            : 'border-slate-200/70 bg-slate-50/70 dark:border-slate-800 dark:bg-slate-900/40',
-                        )}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="rounded-xl bg-white/80 p-2 text-slate-700 shadow-sm dark:bg-slate-950/80 dark:text-slate-300">
-                            <Icon className="h-4 w-4" />
-                          </div>
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <p className="text-sm font-medium text-slate-900 dark:text-white">{option.label}</p>
-                              <Badge variant={enabled ? 'default' : 'outline'} className="rounded-full px-2.5 py-0.5 text-[10px] uppercase">
-                                {enabled ? 'Enabled' : 'Hidden'}
-                              </Badge>
-                            </div>
-                            <p className="mt-1 text-xs leading-5 text-muted-foreground">{option.description}</p>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
                 </CardContent>
               </Card>
             </div>
