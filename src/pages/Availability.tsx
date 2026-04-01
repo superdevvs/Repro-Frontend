@@ -2540,6 +2540,54 @@ export default function Availability() {
                                           const slotEnd = slotEndH * 60 + slotEndM;
                                           return sStart < slotEnd && sEnd > slotStart;
                                         });
+
+                                        if (selectedPhotographer === 'all') {
+                                          const photographer = photographers.find(p => String(p.id) === String(slot.photographerId));
+                                          const initials = photographer ? getInitials(photographer.name) : "??";
+                                          const horizontalOffset = overlappingSlots.length * 30;
+                                          const zIndex = 10 + slotIdx;
+
+                                          return (
+                                            <TooltipProvider key={slot.id}>
+                                              <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                  <div
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      setSelectedSlotId(slot.id);
+                                                      if (isMobile) setMobileTab("details");
+                                                    }}
+                                                    className={cn(
+                                                      "absolute rounded-full border-2 cursor-pointer hover:scale-105 transition-transform flex items-center justify-center bg-background",
+                                                      selectedSlotId === slot.id && "ring-2 ring-primary ring-offset-2",
+                                                      slot.status === 'available' && "border-green-500",
+                                                      slot.status === 'booked' && "border-blue-500",
+                                                      slot.status === 'unavailable' && "border-red-500"
+                                                    )}
+                                                    style={{
+                                                      left: `${4 + horizontalOffset}px`,
+                                                      top,
+                                                      width: '28px',
+                                                      height: '28px',
+                                                      zIndex
+                                                    }}
+                                                  >
+                                                    <Avatar className="h-full w-full">
+                                                      <AvatarImage src={getAvatarUrl(photographer?.avatar, 'photographer', undefined, photographer?.id)} alt={photographer?.name} className="object-cover" />
+                                                      <AvatarFallback className="text-[9px] bg-muted">{initials}</AvatarFallback>
+                                                    </Avatar>
+                                                  </div>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                  <div className="text-xs font-medium">{photographer?.name}</div>
+                                                  <div className="text-[10px] text-muted-foreground">{formatTimeDisplay(slot.startTime)} - {formatTimeDisplay(slot.endTime)}</div>
+                                                  <div className="text-[10px] capitalize">{slot.status}</div>
+                                                </TooltipContent>
+                                              </Tooltip>
+                                            </TooltipProvider>
+                                          );
+                                        }
+
                                         const leftOffset = overlappingSlots.length * 4;
                                         return (
                                           <div key={slot.id} onClick={(e) => { e.stopPropagation(); setSelectedSlotId(slot.id); if (slot.status === 'booked' && slot.shootDetails) { setExpandedBookingDetails(prev => new Set(prev).add(slot.id)); } if (isMobile) setMobileTab("details"); }} className={cn("absolute rounded px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs z-10 cursor-pointer hover:opacity-80 transition-opacity", selectedSlotId === slot.id && "ring-2 ring-primary ring-offset-1", slot.status === 'available' && "bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-700", slot.status === 'booked' && "bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700", slot.status === 'unavailable' && "bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700")} style={{ top, height, minHeight: '18px', left: `${4 + leftOffset}px`, right: `${4 + leftOffset}px` }}>
