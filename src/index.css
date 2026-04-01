@@ -23,33 +23,33 @@ html,
 body {
   margin: 0;
   padding: 0;
+  /* Match Android Chrome/iOS Safari theme-color for seamless chrome + overscroll */
+  background-color: #060a0e;
   min-height: 100%;
-  background-color: hsl(var(--background));
 }
 
 #root {
   min-height: 100vh;
   min-height: 100svh;
-  background-color: hsl(var(--background));
+  background-color: #060a0e;
 }
 
 .app-root {
   min-height: 100vh;
   min-height: 100svh;
   width: 100%;
-  background-color: hsl(var(--background));
+  background-color: #060a0e;
   padding-top: env(safe-area-inset-top, 0px);
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .app-shell {
   min-height: 100%;
-  background-color: hsl(var(--background));
+  background-color: #060a0e;
 }
 
 @layer base {
   :root {
-    color-scheme: light;
     --background: 210 20% 98%;
     --foreground: 210 40% 10%;
 
@@ -91,7 +91,6 @@ body {
   }
 
   .dark {
-    color-scheme: dark;
     --background: 210 40% 4%;
     --foreground: 210 20% 98%;
 

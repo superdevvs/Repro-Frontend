@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { AutoExpandingTabsList, type AutoExpandingTab } from '@/components/ui/auto-expanding-tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -27,7 +28,6 @@ import { API_BASE_URL } from '@/config/env';
 import WatermarkEditor from '@/components/settings/WatermarkEditor';
 import { RobbieSettings } from '@/components/settings/RobbieSettings';
 import SystemOverviewTab from '@/components/settings/SystemOverviewTab';
-import { cn } from '@/lib/utils';
 
 const BASE_TABS = ['profile', 'account', 'branding', 'notifications'] as const;
 const SYSTEM_OVERVIEW_UNLOCK_CLICKS = 5;
@@ -39,14 +39,6 @@ type TabValue =
   | 'watermark'
   | 'robbie'
   | 'overview';
-
-type SettingsTabConfig = {
-  value: TabValue;
-  icon: typeof User;
-  label: string;
-  eyebrow: string;
-  description: string;
-};
 
 const Settings = () => {
   const { user, role, setUser } = useAuth();
@@ -411,191 +403,79 @@ const Settings = () => {
     localStorage.setItem(storageKey('brandBanner'), url);
   };
 
-  const tabsConfig = useMemo<SettingsTabConfig[]>(() => {
-    const tabMeta: Record<TabValue, Omit<SettingsTabConfig, 'value'>> = {
-      profile: {
-        icon: User,
-        label: 'Profile',
-        eyebrow: 'Personal',
-        description: 'Photo, bio, and public-facing identity details.',
-      },
-      account: {
-        icon: SettingsIcon,
-        label: 'Account',
-        eyebrow: 'Access',
-        description: 'Contact info, locale, and password-related settings.',
-      },
-      branding: {
-        icon: Palette,
-        label: 'Branding',
-        eyebrow: 'Portfolio',
-        description: 'Logo, hero copy, portfolio visuals, and social links.',
-      },
-      notifications: {
-        icon: Bell,
-        label: 'Notifications',
-        eyebrow: 'Alerts',
-        description: 'Choose which updates reach you by email or SMS.',
-      },
-      coupons: {
-        icon: Ticket,
-        label: 'Discounts',
-        eyebrow: 'Offers',
-        description: 'Create and manage discount codes without hunting through menus.',
-      },
-      integrations: {
-        icon: Plug,
-        label: 'Integrations',
-        eyebrow: 'Connections',
-        description: 'External providers, sync settings, and messaging configuration.',
-      },
-      watermark: {
-        icon: Droplets,
-        label: 'Watermark',
-        eyebrow: 'Delivery',
-        description: 'Control watermark behavior and review its output quickly.',
-      },
-      robbie: {
-        icon: Bot,
-        label: 'Robbie AI',
-        eyebrow: 'Assistant',
-        description: 'Tune how Robbie behaves without leaving Settings.',
-      },
-      overview: {
-        icon: ExternalLink,
-        label: 'Overview',
-        eyebrow: 'Observability',
-        description: 'Inspect live system health with a calmer workspace and clearer inspector.',
-      },
+  // Auto-expanding tabs configuration
+  const tabsConfig: AutoExpandingTab[] = useMemo(() => {
+    const tabMeta: Record<Exclude<TabValue, 'integrations' | 'watermark' | 'robbie' | 'overview'>, { icon: typeof User; label: string }> = {
+      profile: { icon: User, label: 'Profile' },
+      account: { icon: SettingsIcon, label: 'Account' },
+      branding: { icon: Palette, label: 'Branding' },
+      notifications: { icon: Bell, label: 'Notifications' },
+      coupons: { icon: Ticket, label: 'Discounts' },
     };
 
-    return availableTabs.map((tab) => ({
-      value: tab,
-      ...tabMeta[tab],
-    }));
-  }, [availableTabs]);
+    const mappedTabs: AutoExpandingTab[] = availableTabs
+      .filter((tab) => tab !== 'integrations' && tab !== 'watermark' && tab !== 'robbie' && tab !== 'overview')
+      .map((tab) => ({
+        value: tab,
+        icon: tabMeta[tab as Exclude<TabValue, 'integrations' | 'watermark' | 'robbie' | 'overview'>].icon,
+        label: tabMeta[tab as Exclude<TabValue, 'integrations' | 'watermark' | 'robbie' | 'overview'>].label,
+      }));
 
-  const activeTabMeta = tabsConfig.find((tab) => tab.value === activeTab) ?? tabsConfig[0];
-  const isWideWorkspace = activeTab === 'overview' || activeTab === 'integrations' || activeTab === 'coupons';
+    if (availableTabs.includes('integrations')) {
+      mappedTabs.push({
+        value: 'integrations',
+        icon: Plug,
+        label: 'Integrations',
+      });
+    }
+
+    if (availableTabs.includes('watermark')) {
+      mappedTabs.push({
+        value: 'watermark',
+        icon: Droplets,
+        label: 'Watermark',
+      });
+    }
+
+    if (availableTabs.includes('robbie')) {
+      mappedTabs.push({
+        value: 'robbie',
+        icon: Bot,
+        label: 'Robbie AI',
+      });
+    }
+
+    if (availableTabs.includes('overview')) {
+      mappedTabs.push({
+        value: 'overview',
+        icon: ExternalLink,
+        label: 'Overview',
+      });
+    }
+
+    return mappedTabs;
+  }, [availableTabs]);
 
   return (
     <DashboardLayout>
       <div className="space-y-4 px-2 pt-3 pb-20 sm:space-y-6 sm:p-6 sm:pb-6">
         <PageHeader
           title="Settings"
-          description="A simpler workspace for account details, portfolio setup, integrations, and system controls."
+          description="Manage your account settings and preferences"
         />
 
-          <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-            <div className="flex gap-2 overflow-x-auto pb-2 xl:hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-              {tabsConfig.map((tab) => {
-                const Icon = tab.icon;
-                const isActive = activeTab === tab.value;
-
-                return (
-                  <button
-                    key={tab.value}
-                    type="button"
-                    onClick={() => {
-                      handleTabInteraction(tab.value);
-                      handleTabChange(tab.value);
-                    }}
-                    className={cn(
-                      'flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-colors',
-                      isActive
-                        ? 'border-primary bg-primary text-primary-foreground shadow-sm'
-                        : 'border-border bg-card text-muted-foreground hover:border-primary/30 hover:text-foreground',
-                    )}
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span className="whitespace-nowrap">{tab.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
-              <div className="hidden xl:block">
-                <Card className="sticky top-4 overflow-hidden rounded-3xl border-border/70 bg-card/95 shadow-sm">
-                  <CardHeader className="border-b border-border/60 pb-4">
-                    <div className="text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground">
-                      Settings Workspace
-                    </div>
-                    <CardTitle className="text-xl">Move through one job at a time</CardTitle>
-                    <CardDescription>
-                      Each section is separated so editing, adding, and reviewing details feels less crowded.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-2 p-3">
-                    {tabsConfig.map((tab) => {
-                      const Icon = tab.icon;
-                      const isActive = activeTab === tab.value;
-
-                      return (
-                        <button
-                          key={tab.value}
-                          type="button"
-                          onClick={() => {
-                            handleTabInteraction(tab.value);
-                            handleTabChange(tab.value);
-                          }}
-                          className={cn(
-                            'w-full rounded-2xl border px-4 py-3 text-left transition-all',
-                            isActive
-                              ? 'border-primary/25 bg-primary/8 shadow-sm'
-                              : 'border-transparent bg-muted/35 hover:border-border hover:bg-muted/60',
-                          )}
-                        >
-                          <div className="flex items-start gap-3">
-                            <div
-                              className={cn(
-                                'mt-0.5 flex h-9 w-9 items-center justify-center rounded-2xl border',
-                                isActive
-                                  ? 'border-primary/20 bg-primary text-primary-foreground'
-                                  : 'border-border bg-background text-muted-foreground',
-                              )}
-                            >
-                              <Icon className="h-4 w-4" />
-                            </div>
-                            <div className="min-w-0">
-                              <div className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-                                {tab.eyebrow}
-                              </div>
-                              <div className="mt-1 text-sm font-semibold text-foreground">{tab.label}</div>
-                              <div className="mt-1 text-xs leading-5 text-muted-foreground">{tab.description}</div>
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </CardContent>
-                </Card>
-              </div>
-
-              <div className={cn('min-w-0 space-y-6', !isWideWorkspace && 'mx-auto w-full max-w-5xl')}>
-                {activeTabMeta && (
-                  <Card className="overflow-hidden rounded-3xl border-border/70 bg-card/95 shadow-sm">
-                    <CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-end sm:justify-between">
-                      <div className="space-y-2">
-                        <div className="text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground">
-                          {activeTabMeta.eyebrow}
-                        </div>
-                        <div>
-                          <h2 className="text-2xl font-semibold tracking-tight text-foreground">{activeTabMeta.label}</h2>
-                          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">{activeTabMeta.description}</p>
-                        </div>
-                      </div>
-                      <div className="rounded-2xl border border-border/70 bg-muted/35 px-4 py-3 text-sm text-muted-foreground">
-                        Active section: <span className="font-medium text-foreground">{activeTabMeta.label}</span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
+            <AutoExpandingTabsList 
+              tabs={tabsConfig} 
+              value={activeTab}
+              className="mb-6"
+              onTabInteraction={handleTabInteraction}
+            />
 
             <TabsContent value="profile" className="space-y-4">
               <form onSubmit={handleSaveProfile} className="space-y-4">
                 {/* Avatar + Identity Card */}
-                <Card className="rounded-3xl border-border/70 shadow-sm">
+                <Card>
                   <CardContent className="pt-6">
                     <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
                       <div className="relative group shrink-0">
@@ -636,7 +516,7 @@ const Settings = () => {
                 </Card>
 
                 {/* Details Card */}
-                <Card className="rounded-3xl border-border/70 shadow-sm">
+                <Card>
                   <CardHeader className="pb-4">
                     <CardTitle className="text-base">Personal Information</CardTitle>
                     <CardDescription>
@@ -686,7 +566,7 @@ const Settings = () => {
             </TabsContent>
 
             <TabsContent value="account" className="space-y-4">
-              <Card className="rounded-3xl border-border/70 shadow-sm">
+              <Card>
                 <CardHeader>
                   <CardTitle>Account</CardTitle>
                   <CardDescription>
@@ -772,7 +652,7 @@ const Settings = () => {
             </TabsContent>
 
             <TabsContent value="branding" className="space-y-4">
-              <Card className="rounded-3xl border-border/70 shadow-sm">
+              <Card>
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div>
@@ -1028,7 +908,7 @@ const Settings = () => {
 
 
             <TabsContent value="notifications" className="space-y-4">
-              <Card className="rounded-3xl border-border/70 shadow-sm">
+              <Card>
                 <CardHeader>
                   <CardTitle>Notification Preferences</CardTitle>
                   <CardDescription>
@@ -1105,7 +985,7 @@ const Settings = () => {
             {canViewIntegrations && (
               <TabsContent value="integrations" className="space-y-6">
                 <div className="space-y-8">
-                  <Card className="rounded-3xl border-primary/20 shadow-sm">
+                  <Card className="border-primary/20">
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
                         <Plug className="h-5 w-5 text-primary" />
@@ -1131,7 +1011,7 @@ const Settings = () => {
                   />
 
                   {/* SMS / Twilio Settings Card */}
-                  <Card className="rounded-3xl border-primary/20 shadow-sm">
+                  <Card className="border-primary/20">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                           <MessageSquare className="h-5 w-5 text-primary" />
@@ -1183,8 +1063,6 @@ const Settings = () => {
                 <SystemOverviewTab />
               </TabsContent>
             )}
-              </div>
-            </div>
           </Tabs>
       </div>
     </DashboardLayout>
