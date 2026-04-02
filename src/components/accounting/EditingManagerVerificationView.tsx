@@ -32,7 +32,7 @@ import {
   shootDataToSummary,
 } from '@/utils/dashboardDerivedUtils';
 
-type DatePreset = 'this_month' | 'last_month' | 'custom';
+type DatePreset = 'all_time' | 'this_month' | 'last_month' | 'custom';
 type VerificationStatusFilter = 'all' | 'uploaded' | 'delivered' | 'paid' | 'unpaid';
 
 type VerificationServiceBreakdown = {
@@ -131,6 +131,10 @@ const parseDateValue = (value?: string | null): Date | null => {
 const formatInputDate = (value: Date) => format(value, 'yyyy-MM-dd');
 
 const getPresetDateRange = (preset: DatePreset) => {
+  if (preset === 'all_time') {
+    return null;
+  }
+
   const now = new Date();
   if (preset === 'last_month') {
     const previousMonth = subMonths(now, 1);
@@ -480,10 +484,9 @@ export function EditingManagerVerificationView({
   onViewInvoice,
 }: EditingManagerVerificationViewProps) {
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
-  const [datePreset, setDatePreset] = useState<DatePreset>('this_month');
-  const defaultRange = useMemo(() => getPresetDateRange('this_month'), []);
-  const [fromDate, setFromDate] = useState(formatInputDate(defaultRange.from));
-  const [toDate, setToDate] = useState(formatInputDate(defaultRange.to));
+  const [datePreset, setDatePreset] = useState<DatePreset>('all_time');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
   const [editorFilter, setEditorFilter] = useState('all_editors');
   const [statusFilter, setStatusFilter] = useState<VerificationStatusFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -618,6 +621,17 @@ export function EditingManagerVerificationView({
     };
   }, [filteredRows]);
 
+  const hasActiveFilters = useMemo(
+    () =>
+      datePreset !== 'all_time' ||
+      Boolean(fromDate) ||
+      Boolean(toDate) ||
+      editorFilter !== 'all_editors' ||
+      statusFilter !== 'all' ||
+      Boolean(searchQuery.trim()),
+    [datePreset, editorFilter, fromDate, searchQuery, statusFilter, toDate],
+  );
+
   const toggleRow = (shootId: string) => {
     setExpandedRows((current) => ({
       ...current,
@@ -632,8 +646,17 @@ export function EditingManagerVerificationView({
     }
 
     const range = getPresetDateRange(value);
-    setFromDate(formatInputDate(range.from));
-    setToDate(formatInputDate(range.to));
+    setFromDate(range ? formatInputDate(range.from) : '');
+    setToDate(range ? formatInputDate(range.to) : '');
+  };
+
+  const resetFilters = () => {
+    setDatePreset('all_time');
+    setFromDate('');
+    setToDate('');
+    setEditorFilter('all_editors');
+    setStatusFilter('all');
+    setSearchQuery('');
   };
 
   const handleOpenShootOverview = (shootId: string) => {
@@ -652,8 +675,8 @@ export function EditingManagerVerificationView({
             Filter the review queue and open receipts with full subtotal, tax, and total details.
           </CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-          <div className="space-y-2 xl:col-span-2">
+        <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-12">
+          <div className="space-y-2 xl:col-span-3">
             <p className="text-sm font-medium">Search</p>
             <Input
               value={searchQuery}
@@ -663,13 +686,14 @@ export function EditingManagerVerificationView({
             />
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-2 xl:col-span-2">
             <p className="text-sm font-medium">Date range</p>
             <Select value={datePreset} onValueChange={(value) => handlePresetChange(value as DatePreset)}>
               <SelectTrigger>
                 <SelectValue placeholder="Select range" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="all_time">All time</SelectItem>
                 <SelectItem value="this_month">This month</SelectItem>
                 <SelectItem value="last_month">Last month</SelectItem>
                 <SelectItem value="custom">Custom</SelectItem>
@@ -677,7 +701,7 @@ export function EditingManagerVerificationView({
             </Select>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-2 xl:col-span-2">
             <p className="text-sm font-medium">From</p>
             <Input
               type="date"
@@ -689,7 +713,7 @@ export function EditingManagerVerificationView({
             />
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-2 xl:col-span-2">
             <p className="text-sm font-medium">To</p>
             <Input
               type="date"
@@ -701,7 +725,7 @@ export function EditingManagerVerificationView({
             />
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-2 xl:col-span-2">
             <p className="text-sm font-medium">Editor</p>
             <Select value={editorFilter} onValueChange={setEditorFilter}>
               <SelectTrigger>
@@ -718,7 +742,7 @@ export function EditingManagerVerificationView({
             </Select>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-2 xl:col-span-1">
             <p className="text-sm font-medium">Status</p>
             <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as VerificationStatusFilter)}>
               <SelectTrigger>
@@ -786,9 +810,20 @@ export function EditingManagerVerificationView({
             <div className="rounded-lg border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">
               Loading accounting verification data...
             </div>
+          ) : allRows.length === 0 ? (
+            <div className="rounded-lg border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">
+              No shoots are available for verification yet.
+            </div>
           ) : filteredRows.length === 0 ? (
             <div className="rounded-lg border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">
-              No shoots match the current verification filters.
+              <p>No shoots match the current verification filters.</p>
+              {hasActiveFilters && (
+                <div className="mt-4">
+                  <Button type="button" variant="outline" onClick={resetFilters}>
+                    Reset filters
+                  </Button>
+                </div>
+              )}
             </div>
           ) : (
             <Table>
