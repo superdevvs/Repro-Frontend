@@ -9,6 +9,12 @@ import { EditorJob } from './EditorJobsTable';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { BarChart3, PieChart, LineChart as LineChartIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  getPhotographerPayForShoot,
+  getShootCompletedDate,
+  isCompletedShoot,
+  isShootAssignedToPhotographer,
+} from './photographerEarningsUtils';
 
 interface RoleBasedChartsProps {
   invoices: InvoiceData[];
@@ -70,28 +76,25 @@ export function RoleBasedCharts({
       }
 
       case 'photographer': {
-        // Earnings Overview: earnings, shootCount
-        const myShoots = shoots.filter((s: any) => s.photographer_id === user?.id || s.photographerId === user?.id);
+        const currentYear = new Date().getFullYear();
+        const myShoots = shoots.filter((shoot) => isShootAssignedToPhotographer(shoot, user));
+        const completedShoots = myShoots.filter(isCompletedShoot);
         return months.map((m, index) => {
-          const monthShoots = myShoots.filter((s: any) => {
-            const date = s.scheduledDate || s.scheduled_date || s.completedDate || s.completed_at;
-            if (!date) return false;
-            const d = new Date(date);
-            return d.getMonth() === index;
+          const monthShoots = completedShoots.filter((shoot) => {
+            const completedDate = getShootCompletedDate(shoot);
+            return Boolean(
+              completedDate &&
+                completedDate.getMonth() === index &&
+                completedDate.getFullYear() === currentYear,
+            );
           });
-          const earnings = monthShoots.reduce((sum: number, s: any) => {
-            // Use photographer pay from services (automatically calculated)
-            // Fallback to 40% of total quote if not set
-            const photographerPay = s.photographerPay || s.totalPhotographerPay || s.photographer_fee || s.photographerFee;
-            if (photographerPay) {
-              return sum + Number(photographerPay);
-            }
-            return sum + (Number(s.payment?.totalQuote * 0.4 || 0));
+          const earnings = monthShoots.reduce((sum, shoot) => {
+            return sum + getPhotographerPayForShoot(shoot, user);
           }, 0);
           return { 
             month: m, 
-            earnings: Math.round(earnings) || Math.floor(Math.random() * 5000) + 500,
-            shootCount: monthShoots.length || Math.floor(Math.random() * 10) + 1
+            earnings: Math.round(earnings),
+            shootCount: monthShoots.length,
           };
         });
       }
@@ -111,8 +114,8 @@ export function RoleBasedCharts({
           }, 0);
           return { 
             month: m, 
-            earnings: Math.round(earnings) || Math.floor(Math.random() * 3000) + 300,
-            jobCount: monthJobs.length || Math.floor(Math.random() * 15) + 2
+            earnings: Math.round(earnings),
+            jobCount: monthJobs.length,
           };
         });
       }
@@ -154,8 +157,8 @@ export function RoleBasedCharts({
           const commission = revenue * 0.1; // 10% placeholder
           return { 
             month: m, 
-            revenue: revenue || Math.floor(Math.random() * 8000) + 800,
-            commission: Math.round(commission) || Math.floor(Math.random() * 800) + 80
+            revenue,
+            commission: Math.round(commission),
           };
         });
       }
@@ -230,6 +233,17 @@ export function RoleBasedCharts({
 
   const renderChart = () => {
     const { series, dataKey } = chartConfig;
+    const valueFormatter = (value: number, category?: string) => {
+      if (mode === 'photographer' && category === 'shootCount') {
+        return value.toLocaleString();
+      }
+
+      if (mode === 'editor' && category === 'jobCount') {
+        return value.toLocaleString();
+      }
+
+      return `$${value.toLocaleString()}`;
+    };
     
     if (chartType === 'area') {
       return (
@@ -238,7 +252,7 @@ export function RoleBasedCharts({
           index={dataKey}
           categories={series.map(s => s.dataKey)}
           colors={series.map(s => s.color)}
-          valueFormatter={(value) => `$${value.toLocaleString()}`}
+          valueFormatter={valueFormatter}
         />
       );
     }
@@ -250,7 +264,7 @@ export function RoleBasedCharts({
           index={dataKey}
           categories={series.map(s => s.dataKey)}
           colors={series.map(s => s.color)}
-          valueFormatter={(value) => `$${value.toLocaleString()}`}
+          valueFormatter={valueFormatter}
         />
       );
     }
@@ -261,7 +275,7 @@ export function RoleBasedCharts({
         index={dataKey}
         categories={series.map(s => s.dataKey)}
         colors={series.map(s => s.color)}
-        valueFormatter={(value) => `$${value.toLocaleString()}`}
+        valueFormatter={valueFormatter}
       />
     );
   };

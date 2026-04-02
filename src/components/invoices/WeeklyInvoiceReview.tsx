@@ -50,8 +50,10 @@ const approvalStatusConfig: Record<string, { label: string; color: string; icon:
   pending: { label: 'Pending Review', color: 'bg-yellow-100 text-yellow-800', icon: <Clock className="w-3 h-3" /> },
   pending_approval: { label: 'Accepted', color: 'bg-green-100 text-green-800', icon: <CheckCircle className="w-3 h-3" /> },
   approved: { label: 'Approved', color: 'bg-green-100 text-green-800', icon: <CheckCircle className="w-3 h-3" /> },
-  rejected: { label: 'Requested Modification', color: 'bg-amber-100 text-amber-800', icon: <AlertTriangle className="w-3 h-3" /> },
+  rejected: { label: 'Requested for Modification', color: 'bg-amber-100 text-amber-800', icon: <AlertTriangle className="w-3 h-3" /> },
 };
+
+const ITEMS_PER_PAGE = 6;
 
 const formatCurrency = (amount: number | string) => {
   const num = typeof amount === 'string' ? parseFloat(amount) : amount;
@@ -76,6 +78,9 @@ export const WeeklyInvoiceReview: React.FC = () => {
   const [expenseDesc, setExpenseDesc] = useState('');
   const [expenseAmount, setExpenseAmount] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [lastPage, setLastPage] = useState(1);
+  const [totalInvoices, setTotalInvoices] = useState(0);
 
   const invoiceRole: 'photographer' | 'salesRep' = role === 'salesRep' ? 'salesRep' : 'photographer';
 
@@ -83,15 +88,18 @@ export const WeeklyInvoiceReview: React.FC = () => {
     try {
       setLoading(true);
       const fetchFn = invoiceRole === 'photographer' ? fetchPhotographerInvoices : fetchSalesRepInvoices;
-      const response = await fetchFn({ per_page: 50 });
+      const response = await fetchFn({ page: currentPage, per_page: ITEMS_PER_PAGE });
       setInvoices(response.data || []);
+      setCurrentPage(response.current_page || 1);
+      setLastPage(response.last_page || 1);
+      setTotalInvoices(response.total || 0);
     } catch (error) {
       console.error('Failed to load weekly invoices:', error);
       toast({ title: 'Failed to load invoices', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
-  }, [invoiceRole, toast]);
+  }, [currentPage, invoiceRole, toast]);
 
   useEffect(() => {
     loadInvoices();
@@ -99,6 +107,9 @@ export const WeeklyInvoiceReview: React.FC = () => {
 
   const canModify = (invoice: WeeklyInvoice) =>
     ['pending', 'rejected'].includes(invoice.approval_status) && invoice.status === 'draft';
+
+  const canReview = (invoice: WeeklyInvoice) =>
+    ['pending', 'rejected'].includes(invoice.approval_status);
 
   const handleRequestModification = async () => {
     if (!selectedInvoice) return;
@@ -266,7 +277,7 @@ export const WeeklyInvoiceReview: React.FC = () => {
                     <Calendar className="w-4 h-4" />
                     {formatDate(invoice.billing_period_start)} – {formatDate(invoice.billing_period_end)}
                   </CardTitle>
-                  {invoice.approval_status === 'pending' && canModify(invoice) ? (
+                  {canReview(invoice) ? (
                     <button
                       type="button"
                       onClick={() => openReviewDialog(invoice)}
@@ -361,12 +372,12 @@ export const WeeklyInvoiceReview: React.FC = () => {
                         <Plus className="w-3 h-3 mr-1" />
                         Add Expense
                       </Button>
-                      {invoice.approval_status === 'pending' && (
+                      {canReview(invoice) && (
                         <Button
                           size="sm"
                           onClick={() => openReviewDialog(invoice)}
                         >
-                          Review Invoice
+                          {invoice.approval_status === 'pending' ? 'Review Invoice' : 'Review Response'}
                         </Button>
                       )}
                       {invoice.approval_status === 'rejected' && (
@@ -394,13 +405,39 @@ export const WeeklyInvoiceReview: React.FC = () => {
         );
       })}
 
+      {lastPage > 1 && (
+        <div className="flex items-center justify-between rounded-xl border bg-card p-4 text-sm">
+          <div>
+            Page {currentPage} of {lastPage} · {totalInvoices} invoice{totalInvoices === 1 ? '' : 's'}
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+              disabled={currentPage === 1 || loading}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage((page) => Math.min(lastPage, page + 1))}
+              disabled={currentPage >= lastPage || loading}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Review Dialog */}
       <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Review Invoice</DialogTitle>
             <DialogDescription>
-              Choose how you want to review this invoice. You can accept it or request a modification with notes.
+              Choose how you want to review this invoice. You can accept it or request a modification with notes. The invoice status will update immediately.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">

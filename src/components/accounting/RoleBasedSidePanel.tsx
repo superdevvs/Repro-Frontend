@@ -2,11 +2,19 @@ import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { InvoiceData } from '@/utils/invoiceUtils';
-import { ArrowUpRight, ChevronDown, ChevronUp, CreditCard, Clock, TrendingUp, Calendar, Users } from 'lucide-react';
+import { ArrowUpRight, ChevronDown, ChevronUp, CreditCard, Clock, TrendingUp, Calendar, Users, DollarSign, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AccountingMode } from '@/config/accountingConfig';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { formatPaymentMethod, getPaymentMethodLabel } from '@/utils/paymentUtils';
+import {
+  getPhotographerPayForShoot,
+  getPhotographerPayoutStatus,
+  getShootCompletedDate,
+  getShootScheduledDate,
+  isCompletedShoot,
+  isShootAssignedToPhotographer,
+} from './photographerEarningsUtils';
 
 interface RoleBasedSidePanelProps {
   invoices: InvoiceData[];
@@ -444,33 +452,49 @@ function ClientSidePanel({ invoices, user }: { invoices: InvoiceData[]; user: an
 
 // Photographer Side Panel
 function PhotographerSidePanel({ shoots, user }: { shoots: any[]; user: any }) {
-  const myShoots = shoots.filter((s: any) => s.photographer_id === user?.id || s.photographerId === user?.id);
-  
-  const paidThisMonth = myShoots.filter((s: any) => {
-    const status = s.payout_status || s.payoutStatus || s.payment_status || s.paymentStatus;
-    return status === 'paid';
-  }).length;
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
 
-  const pending = myShoots.filter((s: any) => {
-    const status = s.payout_status || s.payoutStatus || s.payment_status || s.paymentStatus;
-    return status === 'pending' || status === 'unpaid';
-  }).length;
+  const myShoots = shoots.filter((shoot: any) => isShootAssignedToPhotographer(shoot, user));
+  const completedShoots = myShoots.filter(isCompletedShoot);
 
-  const inReview = 0; // Review status removed
-
-  const upcomingShoots = myShoots
-    .filter((s: any) => {
-      const scheduled = s.scheduled_date || s.scheduledDate;
-      if (!scheduled) return false;
-      const d = new Date(scheduled);
-      return d >= new Date() && (!s.completed_at && !s.completedAt);
+  const earningsThisMonth = completedShoots
+    .filter((shoot: any) => {
+      const completedDate = getShootCompletedDate(shoot);
+      return Boolean(
+        completedDate &&
+          completedDate.getMonth() === currentMonth &&
+          completedDate.getFullYear() === currentYear,
+      );
     })
+    .reduce((sum: number, shoot: any) => sum + getPhotographerPayForShoot(shoot, user), 0);
+
+  const paidThisMonth = completedShoots.filter((shoot: any) => {
+    const completedDate = getShootCompletedDate(shoot);
+    return Boolean(
+      completedDate &&
+        completedDate.getMonth() === currentMonth &&
+        completedDate.getFullYear() === currentYear &&
+        getPhotographerPayoutStatus(shoot) === 'paid',
+    );
+  }).length;
+
+  const pendingShoots = completedShoots.filter(
+    (shoot: any) => getPhotographerPayoutStatus(shoot) === 'pending',
+  );
+  const pendingPayoutValue = pendingShoots.reduce(
+    (sum: number, shoot: any) => sum + getPhotographerPayForShoot(shoot, user),
+    0,
+  );
+
+  const recentCompletedShoots = [...completedShoots]
     .sort((a: any, b: any) => {
-      const dateA = new Date(a.scheduled_date || a.scheduledDate || 0);
-      const dateB = new Date(b.scheduled_date || b.scheduledDate || 0);
-      return dateA.getTime() - dateB.getTime();
+      const dateA = getShootCompletedDate(a)?.getTime() ?? 0;
+      const dateB = getShootCompletedDate(b)?.getTime() ?? 0;
+      return dateB - dateA;
     })
-    .slice(0, 5);
+    .slice(0, 6);
 
   return (
     <div className="flex flex-col gap-6 h-full">
@@ -478,22 +502,22 @@ function PhotographerSidePanel({ shoots, user }: { shoots: any[]; user: any }) {
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-primary" />
-            Payout Status Summary
+            Earnings Snapshot
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <div className="p-3 rounded-md bg-emerald-500/10 border border-emerald-500/20">
-              <h4 className="text-xs font-medium text-muted-foreground mb-1">Paid this month</h4>
-              <p className="text-xl font-semibold">{paidThisMonth}</p>
+            <div className="p-3 rounded-md bg-blue-500/10 border border-blue-500/20">
+              <h4 className="text-xs font-medium text-muted-foreground mb-1">Earned this month</h4>
+              <p className="text-xl font-semibold">${earningsThisMonth.toLocaleString()}</p>
             </div>
             <div className="p-3 rounded-md bg-amber-500/10 border border-amber-500/20">
-              <h4 className="text-xs font-medium text-muted-foreground mb-1">Pending</h4>
-              <p className="text-xl font-semibold">{pending}</p>
+              <h4 className="text-xs font-medium text-muted-foreground mb-1">Pending payouts</h4>
+              <p className="text-xl font-semibold">${pendingPayoutValue.toLocaleString()}</p>
             </div>
-            <div className="p-3 rounded-md bg-blue-500/10 border border-blue-500/20">
-              <h4 className="text-xs font-medium text-muted-foreground mb-1">In Review</h4>
-              <p className="text-xl font-semibold">{inReview}</p>
+            <div className="p-3 rounded-md bg-emerald-500/10 border border-emerald-500/20">
+              <h4 className="text-xs font-medium text-muted-foreground mb-1">Paid shoots this month</h4>
+              <p className="text-xl font-semibold">{paidThisMonth}</p>
             </div>
           </div>
         </CardContent>
@@ -501,28 +525,68 @@ function PhotographerSidePanel({ shoots, user }: { shoots: any[]; user: any }) {
 
       <Card className="border overflow-hidden flex-1 flex flex-col">
         <CardHeader className="flex-shrink-0">
-          <CardTitle>Upcoming Shoots Requiring Delivery</CardTitle>
+          <CardTitle>Recent Shoot Earnings</CardTitle>
         </CardHeader>
         <CardContent className="flex-1 flex flex-col min-h-0">
-          {upcomingShoots.length > 0 ? (
+          {recentCompletedShoots.length > 0 ? (
             <div className="flex-1 overflow-y-auto space-y-2 pr-2">
-              {upcomingShoots.map((shoot: any) => (
-                <div
-                  key={shoot.id}
-                  className="flex justify-between items-center p-2 rounded-md bg-muted/50"
-                >
-                  <div>
-                    <p className="text-sm font-medium">{shoot.address || shoot.property || 'Shoot'}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {shoot.scheduled_date || shoot.scheduledDate || 'TBD'}
-                    </p>
+              {recentCompletedShoots.map((shoot: any) => {
+                const completedDate = getShootCompletedDate(shoot);
+                const scheduledDate = getShootScheduledDate(shoot);
+                const payoutStatus = getPhotographerPayoutStatus(shoot);
+                const pay = getPhotographerPayForShoot(shoot, user);
+
+                return (
+                  <div
+                    key={shoot.id}
+                    className="rounded-md bg-muted/50 p-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">
+                          {shoot.location?.address || shoot.location?.fullAddress || 'Shoot'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {completedDate
+                            ? `Completed ${formatTransactionDate(completedDate.toISOString())}`
+                            : scheduledDate
+                            ? `Scheduled ${formatTransactionDate(scheduledDate.toISOString())}`
+                            : 'Date unavailable'}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-semibold">${pay.toLocaleString()}</p>
+                        <div
+                          className={cn(
+                            'mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium',
+                            payoutStatus === 'paid'
+                              ? 'bg-emerald-500/10 text-emerald-500'
+                              : 'bg-amber-500/10 text-amber-500',
+                          )}
+                        >
+                          {payoutStatus === 'paid' ? (
+                            <CheckCircle2 className="h-3 w-3" />
+                          ) : (
+                            <Clock className="h-3 w-3" />
+                          )}
+                          {payoutStatus === 'paid' ? 'Paid' : 'Pending'}
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">No upcoming shoots</p>
+            <div className="flex flex-1 items-center justify-center rounded-md border border-dashed border-border/60 p-4 text-center">
+              <div>
+                <DollarSign className="mx-auto mb-2 h-5 w-5 text-muted-foreground" />
+                <p className="text-sm font-medium">No recent completed shoots yet</p>
+                <p className="text-xs text-muted-foreground">
+                  Completed shoots with photographer pay will appear here.
+                </p>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>

@@ -20,11 +20,11 @@ import {
 } from 'recharts';
 
 type ChartProps = {
-  data: any[];
+  data: Array<Record<string, unknown>>;
   index: string;
   categories: string[];
   colors?: string[];
-  valueFormatter?: (value: number) => string;
+  valueFormatter?: (value: number, category?: string) => string;
   showLegend?: boolean;
   showGrid?: boolean;
   showXAxis?: boolean;
@@ -93,11 +93,11 @@ export function LineChart({
               tick={{ fontSize: 12, fill: palette.axis }}
               tickLine={false}
               axisLine={false}
-              tickFormatter={valueFormatter}
+              tickFormatter={(value: number) => valueFormatter(Number(value))}
             />
           )}
           <Tooltip
-            formatter={(value: number) => [valueFormatter(value)]}
+            formatter={(value: number, name: string) => [valueFormatter(Number(value), name), name]}
             labelFormatter={(value) => `${value}`}
             contentStyle={{
               border: `1px solid ${palette.tooltipBorder}`,
@@ -217,11 +217,11 @@ export function BarChart({
               tick={{ fontSize: 11, fill: palette.axis }}
               tickLine={false}
               axisLine={false}
-              tickFormatter={valueFormatter}
+              tickFormatter={(value: number) => valueFormatter(Number(value))}
             />
           )}
           <Tooltip
-            formatter={(value: number, name: string) => [valueFormatter(value), name]}
+            formatter={(value: number, name: string) => [valueFormatter(Number(value), name), name]}
             labelFormatter={(value) => `${value}`}
             contentStyle={{
               border: 'none',
@@ -296,11 +296,11 @@ export function AreaChart({
               tick={{ fontSize: 12, fill: palette.axis }}
               tickLine={false}
               axisLine={false}
-              tickFormatter={valueFormatter}
+              tickFormatter={(value: number) => valueFormatter(Number(value))}
             />
           )}
           <Tooltip
-            formatter={(value: number) => [valueFormatter(value)]}
+            formatter={(value: number, name: string) => [valueFormatter(Number(value), name), name]}
             labelFormatter={(value) => `${value}`}
             contentStyle={{
               border: `1px solid ${palette.tooltipBorder}`,
@@ -328,7 +328,7 @@ export function AreaChart({
 }
 
 type DonutChartProps = {
-  data: any[];
+  data: Array<Record<string, unknown>>;
   category: string;
   index: string;
   colors?: string[];
@@ -369,7 +369,7 @@ export function DonutChart({
             ))}
           </Pie>
           <Tooltip
-            formatter={(value: number) => [valueFormatter(value)]}
+            formatter={(value: number, name: string) => [valueFormatter(Number(value), name), name]}
             contentStyle={{
               border: `1px solid ${palette.tooltipBorder}`,
               backgroundColor: palette.tooltipBg,

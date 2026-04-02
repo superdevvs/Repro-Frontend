@@ -1,21 +1,26 @@
 import React, { useState } from 'react';
-import { Calendar as CalendarIcon, Eye, ExternalLink } from 'lucide-react';
+import { Calendar as CalendarIcon, Eye } from 'lucide-react';
 import { format } from 'date-fns';
-import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ShootData } from '@/types/shoots';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/components/auth/AuthProvider';
+import {
+  getPhotographerPayForShoot,
+  getPhotographerPayoutDate,
+  isShootAssignedToPhotographer,
+} from './photographerEarningsUtils';
 
 interface PhotographerShootsTableProps {
   shoots: ShootData[];
 }
 
 export function PhotographerShootsTable({ shoots }: PhotographerShootsTableProps) {
-  const { toast } = useToast();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
 
   const getStatusColor = (status: string) => {
@@ -33,20 +38,15 @@ export function PhotographerShootsTable({ shoots }: PhotographerShootsTableProps
   };
 
   const getPhotographerFee = (shoot: ShootData): number => {
-    // Use photographer pay from services (automatically calculated from services)
-    // Fallback to 40% of total quote if not set
-    if ((shoot as any).photographerPay || (shoot as any).totalPhotographerPay) {
-      return Number((shoot as any).photographerPay || (shoot as any).totalPhotographerPay || 0);
-    }
-    return shoot.payment?.totalQuote ? Math.round(shoot.payment.totalQuote * 0.4) : 0;
+    return getPhotographerPayForShoot(shoot, user);
   };
 
   const getPayoutDate = (shoot: ShootData): string | null => {
-    // Use photographerPaidAt from the new invoicing system
-    if ((shoot as any).photographerPaidAt) {
-      return (shoot as any).photographerPaidAt;
+    const explicitPayoutDate = getPhotographerPayoutDate(shoot);
+    if (explicitPayoutDate) {
+      return explicitPayoutDate;
     }
-    // Fallback: check legacy payment status
+
     const status = shoot.status?.toLowerCase() || '';
     if (status.includes('paid') && shoot.payment?.lastPaymentDate) {
       return shoot.payment.lastPaymentDate;
@@ -58,7 +58,7 @@ export function PhotographerShootsTable({ shoots }: PhotographerShootsTableProps
     navigate(`/shoots/${shoot.id}`);
   };
 
-  const filteredShoots = shoots; // Could add filtering by status if needed
+  const filteredShoots = shoots.filter((shoot) => isShootAssignedToPhotographer(shoot, user));
 
   return (
     <div className="w-full">
@@ -105,6 +105,7 @@ export function PhotographerShootsTable({ shoots }: PhotographerShootsTableProps
                   {filteredShoots.map((shoot) => {
                     const fee = getPhotographerFee(shoot);
                     const payoutDate = getPayoutDate(shoot);
+                    const isPaid = Boolean(payoutDate);
                     return (
                       <tr key={shoot.id} className="border-b hover:bg-muted/30 transition">
                         <td className="py-1 px-2 font-medium text-xs">#{shoot.id}</td>
@@ -116,7 +117,7 @@ export function PhotographerShootsTable({ shoots }: PhotographerShootsTableProps
                           <span className={`px-2 py-0.5 rounded text-xs font-semibold ${getStatusColor(shoot.status || '')}`}>
                             {shoot.status || 'Unknown'}
                           </span>
-                          {(shoot as any).photographerPaidAt && (
+                          {isPaid && (
                             <span className="ml-1 px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-200">
                               Paid
                             </span>
@@ -200,6 +201,8 @@ function ShootItem({
   onView, 
   getStatusColor,
 }: ShootItemProps) {
+  const isPaid = Boolean(payoutDate);
+
   return (
     <div className="flex flex-col bg-card rounded-lg shadow-sm">
       <div className="p-3 flex-row justify-between items-center border-b border-border hidden sm:flex">
@@ -218,7 +221,7 @@ function ShootItem({
           <Badge className={getStatusColor(shoot.status || '')}>
             {shoot.status || 'Unknown'}
           </Badge>
-          {(shoot as any).photographerPaidAt && (
+          {isPaid && (
             <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-200">
               Paid
             </Badge>

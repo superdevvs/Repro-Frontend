@@ -14,13 +14,15 @@ interface ShootNotesTabProps {
   isAdmin: boolean;
   isPhotographer: boolean;
   role: string;
+  hideEmptySections?: boolean;
 }
 
 export function ShootNotesTab({ 
   shoot, 
   isAdmin, 
   isPhotographer,
-  role 
+  role,
+  hideEmptySections = false,
 }: ShootNotesTabProps) {
   const { updateShoot } = useShoots();
   const { toast } = useToast();
@@ -361,6 +363,15 @@ export function ShootNotesTab({
     return getNotes(noteType);
   }
 
+  function hasNoteContent(noteType: string): boolean {
+    return getNotes(noteType).trim().length > 0;
+  }
+
+  function shouldRenderNoteSection(noteType: string): boolean {
+    const isEditing = activeEdits[noteType as keyof typeof activeEdits];
+    return canView(noteType) && (!hideEmptySections || isEditing || hasNoteContent(noteType));
+  }
+
   // Helper functions for styled notes with updated colors to match dashboard
   const getNoteBackgroundClass = (noteType: string) => {
     switch (noteType) {
@@ -412,7 +423,7 @@ export function ShootNotesTab({
 
   return (
     <div className="space-y-3 w-full mt-0">
-      {canView('shootNotes') && (
+      {shouldRenderNoteSection('shootNotes') && (
       <div>
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-medium text-green-700 dark:text-green-400">Shoot Notes</h3>
@@ -449,7 +460,7 @@ export function ShootNotesTab({
       </div>
       )}
       
-      {canView('approvalNotes') && (
+      {shouldRenderNoteSection('approvalNotes') && (
       <div>
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300">Approval Notes</h3>
@@ -468,7 +479,7 @@ export function ShootNotesTab({
       </div>
       )}
 
-      {canView('photographerNotes') && (
+      {shouldRenderNoteSection('photographerNotes') && (
       <div>
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-medium text-blue-700 dark:text-blue-400">Photographer Notes</h3>
@@ -505,7 +516,7 @@ export function ShootNotesTab({
       </div>
       )}
       
-      {canView('companyNotes') && (
+      {shouldRenderNoteSection('companyNotes') && (
       <div>
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-medium text-amber-700 dark:text-amber-400">Company Notes</h3>
@@ -542,7 +553,7 @@ export function ShootNotesTab({
       </div>
       )}
       
-      {canView('editingNotes') && (
+      {shouldRenderNoteSection('editingNotes') && (
       <div>
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-medium text-purple-700 dark:text-purple-400">Editing Notes</h3>

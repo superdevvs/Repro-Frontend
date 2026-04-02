@@ -60,6 +60,38 @@ function isHdrShoot(services: string[]): boolean {
   return Array.isArray(services) && services.some((service) => /\bhdr\b/i.test(service));
 }
 
+function toPositiveCount(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) return null;
+  return parsed;
+}
+
+function extractPhotoCountFromLabel(label?: string | null): number | null {
+  if (!label) return null;
+  const match = label.match(/(\d+)\s*photo/i);
+  return match ? Number(match[1]) : null;
+}
+
+function getExpectedPhotoCount(shoot: ShootData): number {
+  const directCandidates = [shoot.expectedFinalCount, shoot.package?.expectedDeliveredCount];
+  for (const candidate of directCandidates) {
+    const parsed = toPositiveCount(candidate);
+    if (parsed !== null && parsed > 0) return parsed;
+  }
+
+  const serviceObjects = Array.isArray(shoot.serviceObjects) ? shoot.serviceObjects : [];
+  const serviceObjectCount = serviceObjects.reduce((sum, service) => {
+    const count = toPositiveCount(service.photo_count);
+    return sum + (count ?? 0);
+  }, 0);
+  if (serviceObjectCount > 0) return serviceObjectCount;
+
+  const services = Array.isArray(shoot.services) ? shoot.services : [];
+  const serviceCount = services.reduce((sum, service) => sum + (extractPhotoCountFromLabel(service) ?? 0), 0);
+  return serviceCount > 0 ? serviceCount : 0;
+}
+
 function extractPhotoServicesFromServiceObjects(shoot: ShootData): Array<{ name: string; count: number }> {
   const photoServices: Array<{ name: string; count: number }> = [];
   const legacyShoot = shoot as ShootWithMediaServiceObjects;
@@ -67,7 +99,7 @@ function extractPhotoServicesFromServiceObjects(shoot: ShootData): Array<{ name:
   if (!Array.isArray(serviceObjects)) return photoServices;
   serviceObjects.forEach((service) => {
     const name = String(service?.name || service?.service_name || service?.title || '').trim();
-    const count = Number(service?.count || service?.quantity || service?.photo_count || 0);
+    const count = toPositiveCount(service?.photo_count ?? service?.count);
     if (name && count > 0 && !/video/i.test(name)) photoServices.push({ name, count });
   });
   return photoServices;
@@ -78,7 +110,11 @@ function extractPhotoServicesFromServices(services: string[]): Array<{ name: str
     .map((service) => String(service || '').trim())
     .filter(Boolean)
     .filter((service) => !/video/i.test(service))
-    .map((service) => ({ name: service, count: 1 }));
+    .map((service) => {
+      const count = extractPhotoCountFromLabel(service);
+      return count ? { name: service, count } : null;
+    })
+    .filter((service): service is { name: string; count: number } => service !== null);
 }
 
 function reindexSelectionSet(set: Set<string>, removedIndex: number) {
@@ -466,8 +502,7 @@ export function RawUploadSection({ shoot, onUploadComplete }: RawUploadSectionPr
   const existingRawCount = shoot.rawPhotoCount || 0;
   const photoServicesFromObjects = extractPhotoServicesFromServiceObjects(shoot);
   const photoServices = photoServicesFromObjects.length > 0 ? photoServicesFromObjects : extractPhotoServicesFromServices(shoot.services || []);
-  const photoServicesExpectedCount = photoServices.reduce((sum, service) => sum + service.count, 0);
-  const expectedPhotos = photoServicesExpectedCount || shoot.package?.expectedDeliveredCount || shoot.expectedFinalCount || 0;
+  const expectedPhotos = getExpectedPhotoCount(shoot);
   const bracketMultiplier = shootRequiresBrackets ? (bracketType === '3-bracket' ? 3 : 5) : 1;
   const expectedRawCount = expectedPhotos * bracketMultiplier;
   const uploadedCount = uploadedFiles.length;
@@ -581,7 +616,7 @@ export function RawUploadSection({ shoot, onUploadComplete }: RawUploadSectionPr
     const apiHeaders = getApiHeaders();
     const authHeader = apiHeaders.Authorization;
     const impersonateHeader = apiHeaders['X-Impersonate-User-Id'];
-    const CONCURRENT = 3;
+    const MAX_ATTEMPTS = 2;
     const filesToUpload = [...uploadedFiles];
     const notesSnapshot = editingNotes.trim();
     const bracketTypeSnapshot = bracketType;
@@ -628,15 +663,40 @@ export function RawUploadSection({ shoot, onUploadComplete }: RawUploadSectionPr
 
           const xhr = new XMLHttpRequest();
           xhr.addEventListener('load', () => {
-            if (xhr.status >= 200 && xhr.status < 300) {
-              resolve({ success: true });
-            } else {
-              let msg = 'Upload failed';
-              try { msg = JSON.parse(xhr.responseText).message || msg; } catch {
-                // Ignore malformed error payloads and keep the fallback message.
-              }
-              resolve({ success: false, error: `${file.name}: ${msg}` });
+            let payload: {
+              message?: string;
+              success_count?: number;
+              error_count?: number;
+              errors?: Array<{ error?: string; filename?: string }>;
+            } | null = null;
+
+            try {
+              payload = JSON.parse(xhr.responseText);
+            } catch {
+              payload = null;
             }
+
+            if (xhr.status >= 200 && xhr.status < 300) {
+              const successCount = Number(payload?.success_count ?? 0);
+              const errorCount = Number(payload?.error_count ?? 0);
+              if (successCount > 0 && errorCount === 0) {
+                resolve({ success: true });
+                return;
+              }
+
+              const backendError =
+                payload?.errors?.map((entry) => entry?.error).find(Boolean) ||
+                payload?.message ||
+                'Upload failed';
+              resolve({ success: false, error: `${file.name}: ${backendError}` });
+              return;
+            }
+
+            const failureMessage =
+              payload?.errors?.map((entry) => entry?.error).find(Boolean) ||
+              payload?.message ||
+              'Upload failed';
+            resolve({ success: false, error: `${file.name}: ${failureMessage}` });
           });
           xhr.addEventListener('error', () => resolve({ success: false, error: `${file.name}: Network error` }));
           xhr.open('POST', `${API_BASE_URL}/api/shoots/${shoot.id}/upload`);
@@ -645,18 +705,21 @@ export function RawUploadSection({ shoot, onUploadComplete }: RawUploadSectionPr
           xhr.send(fd);
         });
 
-        for (let i = 0; i < filesToUpload.length; i += CONCURRENT) {
-          const batch = filesToUpload.slice(i, Math.min(i + CONCURRENT, filesToUpload.length));
-          const results = await Promise.all(batch.map((file, batchIndex) => uploadOne(file, i + batchIndex)));
-          results.forEach((result) => {
-            completed += 1;
-            if (!result.success && result.error) errors.push(result.error);
-          });
-          onProgress(Math.round((completed / filesToUpload.length) * 100));
-        }
+        for (let index = 0; index < filesToUpload.length; index += 1) {
+          const file = filesToUpload[index];
+          let result: { success: boolean; error?: string } = { success: false, error: `${file.name}: Upload failed` };
 
-        if (errors.length === filesToUpload.length) {
-          throw new Error(`All ${filesToUpload.length} files failed to upload`);
+          for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+            result = await uploadOne(file, index);
+            if (result.success) break;
+          }
+
+          completed += 1;
+          if (!result.success && result.error) {
+            errors.push(result.error);
+          }
+
+          onProgress(Math.round((completed / filesToUpload.length) * 100));
         }
       },
       onComplete: () => {

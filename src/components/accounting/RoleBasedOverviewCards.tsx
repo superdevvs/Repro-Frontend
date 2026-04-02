@@ -17,6 +17,14 @@ import { cn } from "@/lib/utils";
 import { AccountingMode } from "@/config/accountingConfig";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { SegmentedDays } from "./OverviewCards";
+import {
+  calculatePercentageTrend,
+  getPhotographerPayForShoot,
+  getPhotographerPayoutStatus,
+  getShootCompletedDate,
+  isCompletedShoot,
+  isShootAssignedToPhotographer,
+} from "./photographerEarningsUtils";
 
 interface RoleBasedOverviewCardsProps {
   invoices: InvoiceData[];
@@ -110,41 +118,75 @@ export function RoleBasedOverviewCards({
       }
 
       case 'photographer': {
-        // Filter shoots for this photographer
-        const myShoots = shoots.filter((s: any) => s.photographer_id === user?.id || s.photographerId === user?.id);
-        const completedThisMonth = myShoots.filter((s: any) => {
-          const completed = s.completed_at || s.completedAt;
-          if (!completed) return false;
-          const d = new Date(completed);
-          return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-        });
+        const previousMonthDate = new Date(currentYear, currentMonth - 1, 1);
+        const previousMonth = previousMonthDate.getMonth();
+        const previousMonthYear = previousMonthDate.getFullYear();
 
-        const totalEarnings = completedThisMonth.reduce((sum: number, s: any) => {
-          // Use photographer pay from services (automatically calculated)
-          const photographerPay = s.photographerPay || s.totalPhotographerPay || s.photographer_fee || s.photographerFee || 0;
-          return sum + Number(photographerPay);
-        }, 0);
+        const myShoots = shoots.filter((shoot) => isShootAssignedToPhotographer(shoot, user));
+        const completedShoots = myShoots.filter(isCompletedShoot);
 
-        const pendingPayouts = myShoots
-          .filter((s: any) => {
-            const status = s.payout_status || s.payoutStatus || s.payment_status || s.paymentStatus;
-            return (s.completed_at || s.completedAt) && (status === 'pending' || status === 'unpaid');
-          })
-          .reduce((sum: number, s: any) => {
-            // Use photographer pay from services (automatically calculated)
-            const photographerPay = s.photographerPay || s.totalPhotographerPay || s.photographer_fee || s.photographerFee || 0;
-            return sum + Number(photographerPay);
-          }, 0);
+        const filterShootsByMonth = (items: typeof completedShoots, month: number, year: number) =>
+          items.filter((shoot) => {
+            const completedDate = getShootCompletedDate(shoot);
+            return Boolean(
+              completedDate &&
+                completedDate.getMonth() === month &&
+                completedDate.getFullYear() === year,
+            );
+          });
 
-        const avgShootValue = completedThisMonth.length > 0 
-          ? totalEarnings / completedThisMonth.length 
-          : 0;
+        const completedThisMonth = filterShootsByMonth(completedShoots, currentMonth, currentYear);
+        const completedPreviousMonth = filterShootsByMonth(
+          completedShoots,
+          previousMonth,
+          previousMonthYear,
+        );
+
+        const sumPhotographerPay = (items: typeof completedShoots) =>
+          items.reduce((sum, shoot) => sum + getPhotographerPayForShoot(shoot, user), 0);
+
+        const totalEarnings = sumPhotographerPay(completedThisMonth);
+        const previousTotalEarnings = sumPhotographerPay(completedPreviousMonth);
+
+        const pendingPayoutShoots = completedShoots.filter(
+          (shoot) => getPhotographerPayoutStatus(shoot) === 'pending',
+        );
+        const previousPendingPayoutShoots = completedPreviousMonth.filter(
+          (shoot) => getPhotographerPayoutStatus(shoot) === 'pending',
+        );
+        const pendingPayouts = sumPhotographerPay(pendingPayoutShoots);
+        const previousPendingPayouts = sumPhotographerPay(previousPendingPayoutShoots);
+
+        const avgShootValue = completedThisMonth.length > 0 ? totalEarnings / completedThisMonth.length : 0;
+        const previousAvgShootValue =
+          completedPreviousMonth.length > 0
+            ? previousTotalEarnings / completedPreviousMonth.length
+            : 0;
 
         return {
-          totalEarnings: { value: totalEarnings, count: completedThisMonth.length },
-          pendingPayouts: { value: pendingPayouts, count: 0 },
-          shootsCompleted: { value: completedThisMonth.length, count: 0 },
-          avgShootValue: { value: avgShootValue, count: 0 },
+          totalEarnings: {
+            value: totalEarnings,
+            count: completedThisMonth.length,
+            trend: calculatePercentageTrend(totalEarnings, previousTotalEarnings),
+          },
+          pendingPayouts: {
+            value: pendingPayouts,
+            count: pendingPayoutShoots.length,
+            trend: calculatePercentageTrend(pendingPayouts, previousPendingPayouts),
+          },
+          shootsCompleted: {
+            value: completedThisMonth.length,
+            count: completedThisMonth.length,
+            trend: calculatePercentageTrend(
+              completedThisMonth.length,
+              completedPreviousMonth.length,
+            ),
+          },
+          avgShootValue: {
+            value: avgShootValue,
+            count: completedThisMonth.length,
+            trend: calculatePercentageTrend(avgShootValue, previousAvgShootValue),
+          },
         };
       }
 
@@ -308,18 +350,18 @@ export function RoleBasedOverviewCards({
             <OverviewCard
               title="Total Earnings (This Month)"
               value={`$${metrics.totalEarnings?.value.toLocaleString() || 0}`}
-              description="Completed shoots"
+              description={`${metrics.totalEarnings?.count || 0} completed shoot${(metrics.totalEarnings?.count || 0) === 1 ? '' : 's'}`}
               icon={<DollarSign className="h-4 w-4" />}
-              trend={trends.revenue}
+              trend={metrics.totalEarnings?.trend}
               color="blue"
               animated={true}
             />
             <OverviewCard
               title="Pending Payouts"
               value={`$${metrics.pendingPayouts?.value.toLocaleString() || 0}`}
-              description="Awaiting payment"
+              description={`${metrics.pendingPayouts?.count || 0} shoot${(metrics.pendingPayouts?.count || 0) === 1 ? '' : 's'} awaiting payment`}
               icon={<Clock className="h-4 w-4" />}
-              trend={trends.pending}
+              trend={metrics.pendingPayouts?.trend}
               color="amber"
               animated={true}
             />
@@ -328,16 +370,16 @@ export function RoleBasedOverviewCards({
               value={`${metrics.shootsCompleted?.value || 0}`}
               description="Total completed"
               icon={<Camera className="h-4 w-4" />}
-              trend={trends.paid}
+              trend={metrics.shootsCompleted?.trend}
               color="emerald"
               animated={true}
             />
             <OverviewCard
               title="Average Shoot Value"
               value={`$${Math.round(metrics.avgShootValue?.value || 0).toLocaleString()}`}
-              description="Per shoot"
+              description={`Across ${metrics.avgShootValue?.count || 0} shoot${(metrics.avgShootValue?.count || 0) === 1 ? '' : 's'}`}
               icon={<TrendingUp className="h-4 w-4" />}
-              trend={trends.revenue}
+              trend={metrics.avgShootValue?.trend}
               color="blue"
               animated={true}
             />
