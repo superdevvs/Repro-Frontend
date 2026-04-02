@@ -8,10 +8,14 @@ import { AccountingMode } from '@/config/accountingConfig';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { formatPaymentMethod, getPaymentMethodLabel } from '@/utils/paymentUtils';
 import {
+  EarningsTimeFilter,
+  getEarningsDateRange,
+  getEarningsPeriodLabel,
   getPhotographerPayForShoot,
   getPhotographerPayoutStatus,
   getShootCompletedDate,
   getShootScheduledDate,
+  isDateInRange,
   isCompletedShoot,
   isShootAssignedToPhotographer,
 } from './photographerEarningsUtils';
@@ -21,6 +25,7 @@ interface RoleBasedSidePanelProps {
   mode: AccountingMode;
   shoots?: any[];
   editingJobs?: any[];
+  timeFilter?: EarningsTimeFilter;
 }
 
 const getInvoicePaymentInfo = (invoice: InvoiceData) => {
@@ -115,6 +120,7 @@ export function RoleBasedSidePanel({
   mode,
   shoots = [],
   editingJobs = [],
+  timeFilter = 'month',
 }: RoleBasedSidePanelProps) {
   const { user } = useAuth();
 
@@ -130,7 +136,7 @@ export function RoleBasedSidePanel({
 
   // For photographer mode, show payout status and upcoming shoots
   if (mode === 'photographer') {
-    return <PhotographerSidePanel shoots={shoots} user={user} />;
+    return <PhotographerSidePanel shoots={shoots} user={user} timeFilter={timeFilter} />;
   }
 
   // For editor mode, show jobs in progress and turnaround performance
@@ -451,44 +457,42 @@ function ClientSidePanel({ invoices, user }: { invoices: InvoiceData[]; user: an
 }
 
 // Photographer Side Panel
-function PhotographerSidePanel({ shoots, user }: { shoots: any[]; user: any }) {
-  const now = new Date();
-  const currentMonth = now.getMonth();
-  const currentYear = now.getFullYear();
-
+function PhotographerSidePanel({
+  shoots,
+  user,
+  timeFilter,
+}: {
+  shoots: any[];
+  user: any;
+  timeFilter: EarningsTimeFilter;
+}) {
   const myShoots = shoots.filter((shoot: any) => isShootAssignedToPhotographer(shoot, user));
   const completedShoots = myShoots.filter(isCompletedShoot);
+  const currentRange = getEarningsDateRange(timeFilter);
+  const periodLabel = getEarningsPeriodLabel(timeFilter);
 
-  const earningsThisMonth = completedShoots
-    .filter((shoot: any) => {
-      const completedDate = getShootCompletedDate(shoot);
-      return Boolean(
-        completedDate &&
-          completedDate.getMonth() === currentMonth &&
-          completedDate.getFullYear() === currentYear,
-      );
-    })
+  const earningsThisPeriod = completedShoots
+    .filter((shoot: any) => isDateInRange(getShootCompletedDate(shoot), currentRange))
     .reduce((sum: number, shoot: any) => sum + getPhotographerPayForShoot(shoot, user), 0);
 
-  const paidThisMonth = completedShoots.filter((shoot: any) => {
-    const completedDate = getShootCompletedDate(shoot);
-    return Boolean(
-      completedDate &&
-        completedDate.getMonth() === currentMonth &&
-        completedDate.getFullYear() === currentYear &&
-        getPhotographerPayoutStatus(shoot) === 'paid',
-    );
-  }).length;
+  const paidThisPeriod = completedShoots.filter(
+    (shoot: any) =>
+      getPhotographerPayoutStatus(shoot) === 'paid' &&
+      isDateInRange(getShootCompletedDate(shoot), currentRange),
+  ).length;
 
   const pendingShoots = completedShoots.filter(
-    (shoot: any) => getPhotographerPayoutStatus(shoot) === 'pending',
+    (shoot: any) =>
+      getPhotographerPayoutStatus(shoot) === 'pending' &&
+      isDateInRange(getShootCompletedDate(shoot), currentRange),
   );
   const pendingPayoutValue = pendingShoots.reduce(
     (sum: number, shoot: any) => sum + getPhotographerPayForShoot(shoot, user),
     0,
   );
 
-  const recentCompletedShoots = [...completedShoots]
+  const recentCompletedShoots = completedShoots
+    .filter((shoot: any) => isDateInRange(getShootCompletedDate(shoot), currentRange))
     .sort((a: any, b: any) => {
       const dateA = getShootCompletedDate(a)?.getTime() ?? 0;
       const dateB = getShootCompletedDate(b)?.getTime() ?? 0;
@@ -508,16 +512,16 @@ function PhotographerSidePanel({ shoots, user }: { shoots: any[]; user: any }) {
         <CardContent>
           <div className="space-y-4">
             <div className="p-3 rounded-md bg-blue-500/10 border border-blue-500/20">
-              <h4 className="text-xs font-medium text-muted-foreground mb-1">Earned this month</h4>
-              <p className="text-xl font-semibold">${earningsThisMonth.toLocaleString()}</p>
+              <h4 className="text-xs font-medium text-muted-foreground mb-1">Earned {periodLabel.toLowerCase()}</h4>
+              <p className="text-xl font-semibold">${earningsThisPeriod.toLocaleString()}</p>
             </div>
             <div className="p-3 rounded-md bg-amber-500/10 border border-amber-500/20">
               <h4 className="text-xs font-medium text-muted-foreground mb-1">Pending payouts</h4>
               <p className="text-xl font-semibold">${pendingPayoutValue.toLocaleString()}</p>
             </div>
             <div className="p-3 rounded-md bg-emerald-500/10 border border-emerald-500/20">
-              <h4 className="text-xs font-medium text-muted-foreground mb-1">Paid shoots this month</h4>
-              <p className="text-xl font-semibold">{paidThisMonth}</p>
+              <h4 className="text-xs font-medium text-muted-foreground mb-1">Paid shoots {periodLabel.toLowerCase()}</h4>
+              <p className="text-xl font-semibold">{paidThisPeriod}</p>
             </div>
           </div>
         </CardContent>
@@ -581,9 +585,9 @@ function PhotographerSidePanel({ shoots, user }: { shoots: any[]; user: any }) {
             <div className="flex flex-1 items-center justify-center rounded-md border border-dashed border-border/60 p-4 text-center">
               <div>
                 <DollarSign className="mx-auto mb-2 h-5 w-5 text-muted-foreground" />
-                <p className="text-sm font-medium">No recent completed shoots yet</p>
+                <p className="text-sm font-medium">No recent completed shoots in this period</p>
                 <p className="text-xs text-muted-foreground">
-                  Completed shoots with photographer pay will appear here.
+                  Completed shoots with photographer pay will appear here for the selected range.
                 </p>
               </div>
             </div>

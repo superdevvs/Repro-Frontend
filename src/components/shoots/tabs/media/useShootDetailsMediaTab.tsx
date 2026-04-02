@@ -93,7 +93,16 @@ interface ShootDetailsMediaTabProps {
   onShowHiddenChange?: (val: boolean) => void;
 }
 
-type MediaSubTab = 'photos' | 'videos' | 'iguide' | 'floorplans' | 'virtualStaging' | 'extras';
+type MediaSubTab =
+  | 'photos'
+  | 'videos'
+  | 'iguide'
+  | 'floorplans'
+  | 'virtualStaging'
+  | 'greenGrass'
+  | 'twilight'
+  | 'drone'
+  | 'extras';
 
 type ShootMediaTabSource = ShootData & {
   editor_notes?: string;
@@ -157,6 +166,12 @@ export function useShootDetailsMediaTab({
     editedFloorplans,
     uploadedVirtualStaging,
     editedVirtualStaging,
+    uploadedGreenGrass,
+    editedGreenGrass,
+    uploadedTwilight,
+    editedTwilight,
+    uploadedDrone,
+    editedDrone,
     uploadedExtras,
     editedExtras,
     iguideUrl,
@@ -823,7 +838,12 @@ export function useShootDetailsMediaTab({
           <div className="text-sm text-muted-foreground mb-4">
             Upload final, edited files ready for client delivery. Supported formats: JPG, PNG (photos){shootHasVideoService ? ', MP4 (videos)' : ''}.
           </div>
-          <EditedUploadSection shoot={shoot} onUploadComplete={onEditedUploadComplete} isEditor={isEditor} />
+          <EditedUploadSection
+            shoot={shoot}
+            onUploadComplete={onEditedUploadComplete}
+            isEditor={isEditor}
+            editedFiles={editedFiles}
+          />
         </div>
       );
     }
@@ -956,6 +976,9 @@ export function useShootDetailsMediaTab({
         iguideFloorplans={iguideFloorplans}
         uploadedFloorplans={uploadedFloorplans}
         uploadedVirtualStaging={uploadedVirtualStaging}
+        uploadedGreenGrass={uploadedGreenGrass}
+        uploadedTwilight={uploadedTwilight}
+        uploadedDrone={uploadedDrone}
         uploadedExtras={uploadedExtras}
         renderMediaGridPane={renderMediaGridPane}
         AdminUploadSection={AdminUploadSection}
@@ -969,6 +992,9 @@ export function useShootDetailsMediaTab({
         editedVideos={editedVideos}
         editedFloorplans={editedFloorplans}
         editedVirtualStaging={editedVirtualStaging}
+        editedGreenGrass={editedGreenGrass}
+        editedTwilight={editedTwilight}
+        editedDrone={editedDrone}
         editedExtras={editedExtras}
         openViewer={openViewer}
         toggleSelection={toggleSelection}

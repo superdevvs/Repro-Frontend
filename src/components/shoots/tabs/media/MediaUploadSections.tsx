@@ -1,15 +1,9 @@
-import React, { useMemo, useRef, useState } from 'react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Progress } from '@/components/ui/progress';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
-import { AlertCircle, Check, Loader2, Upload, X } from 'lucide-react';
+import { Loader2, Upload, X } from 'lucide-react';
 import { ShootData } from '@/types/shoots';
+import type { MediaFile } from '@/hooks/useShootFiles';
 import { useToast } from '@/hooks/use-toast';
 import { API_BASE_URL } from '@/config/env';
 import { getApiHeaders } from '@/services/api';
@@ -36,9 +30,99 @@ type ShootWithMediaServiceObjects = ShootData & {
   service_objects?: ShootMediaServiceObject[];
   editor_notes?: string;
   editorNotes?: string;
+  expectedRawCount?: number | string;
+  expectedFinalCount?: number | string;
+  expected_raw_count?: number | string;
+  expected_final_count?: number | string;
+};
+
+type UploadQueueMediaType =
+  | 'floorplan'
+  | 'extra'
+  | 'virtual_staging'
+  | 'green_grass'
+  | 'twilight'
+  | 'drone';
+
+type QueueClassificationMap = Record<string, UploadQueueMediaType | undefined>;
+
+type UploadClassificationOption = {
+  type: UploadQueueMediaType;
+  label: string;
+  title: string;
+  activeClassName: string;
+  inactiveClassName: string;
+  photoOnly?: boolean;
 };
 
 const FULL_UPLOAD_ACCEPT = 'image/*,video/*,application/pdf,.pdf,.raw,.cr2,.cr3,.nef,.nrw,.arw,.srf,.sr2,.dng,.raf,.orf,.pef,.rw2,.srw,.3fr,.fff,.iiq,.rwl,.x3f,.erf,.kdc,.mef,.mos,.mrw,.bay,.bmq,.cap,.cine,.dc2,.dcr,.drf,.eip,.gpr,.mdc,.mdf,.mrw,.obm,.ptx,.pxn,.r3d,.rdc,.rmf';
+
+const TRACKED_MEDIA_TYPES: UploadQueueMediaType[] = [
+  'extra',
+  'virtual_staging',
+  'green_grass',
+  'twilight',
+  'drone',
+  'floorplan',
+];
+
+const UPLOAD_CLASSIFICATION_OPTIONS: UploadClassificationOption[] = [
+  {
+    type: 'floorplan',
+    label: 'FP',
+    title: 'Floorplan',
+    activeClassName: 'bg-blue-600 text-white',
+    inactiveClassName: 'bg-muted text-muted-foreground hover:bg-muted/80',
+    photoOnly: true,
+  },
+  {
+    type: 'virtual_staging',
+    label: 'VS',
+    title: 'Virtual Staging',
+    activeClassName: 'bg-violet-600 text-white',
+    inactiveClassName: 'bg-muted text-muted-foreground hover:bg-muted/80',
+    photoOnly: true,
+  },
+  {
+    type: 'green_grass',
+    label: 'GG',
+    title: 'Green Grass',
+    activeClassName: 'bg-emerald-600 text-white',
+    inactiveClassName: 'bg-muted text-muted-foreground hover:bg-muted/80',
+    photoOnly: true,
+  },
+  {
+    type: 'twilight',
+    label: 'TW',
+    title: 'Twilight',
+    activeClassName: 'bg-indigo-600 text-white',
+    inactiveClassName: 'bg-muted text-muted-foreground hover:bg-muted/80',
+    photoOnly: true,
+  },
+  {
+    type: 'drone',
+    label: 'DR',
+    title: 'Drone',
+    activeClassName: 'bg-sky-600 text-white',
+    inactiveClassName: 'bg-muted text-muted-foreground hover:bg-muted/80',
+  },
+  {
+    type: 'extra',
+    label: 'EX',
+    title: 'Extra',
+    activeClassName: 'bg-amber-500 text-white',
+    inactiveClassName: 'bg-muted text-muted-foreground hover:bg-muted/80',
+  },
+];
+
+const MEDIA_TYPE_CARD_LABELS: Record<UploadQueueMediaType, string> = {
+  extra: 'EX',
+  virtual_staging: 'VS',
+  green_grass: 'GG',
+  twilight: 'TW',
+  drone: 'DR',
+  floorplan: 'FP',
+};
 
 const triggerUploadRefreshes = (shootId: string | number) => {
   triggerShootDetailRefresh(shootId);
@@ -73,16 +157,29 @@ function extractPhotoCountFromLabel(label?: string | null): number | null {
   return match ? Number(match[1]) : null;
 }
 
-function getExpectedPhotoCount(shoot: ShootData): number {
-  const directCandidates = [shoot.expectedFinalCount, shoot.package?.expectedDeliveredCount];
+function getServiceObjects(shoot: ShootData): ShootMediaServiceObject[] {
+  const legacyShoot = shoot as ShootWithMediaServiceObjects;
+  if (Array.isArray(legacyShoot.serviceObjects)) return legacyShoot.serviceObjects;
+  if (Array.isArray(legacyShoot.service_objects)) return legacyShoot.service_objects;
+  return [];
+}
+
+function resolveExpectedFinalCount(shoot: ShootData): number {
+  const legacyShoot = shoot as ShootWithMediaServiceObjects;
+  const directCandidates = [
+    legacyShoot.expectedFinalCount,
+    legacyShoot.expected_final_count,
+    shoot.package?.expectedDeliveredCount,
+  ];
+
   for (const candidate of directCandidates) {
     const parsed = toPositiveCount(candidate);
     if (parsed !== null && parsed > 0) return parsed;
   }
 
-  const serviceObjects = Array.isArray(shoot.serviceObjects) ? shoot.serviceObjects : [];
+  const serviceObjects = getServiceObjects(shoot);
   const serviceObjectCount = serviceObjects.reduce((sum, service) => {
-    const count = toPositiveCount(service.photo_count);
+    const count = toPositiveCount(service.photo_count ?? service.count ?? service.quantity);
     return sum + (count ?? 0);
   }, 0);
   if (serviceObjectCount > 0) return serviceObjectCount;
@@ -92,16 +189,31 @@ function getExpectedPhotoCount(shoot: ShootData): number {
   return serviceCount > 0 ? serviceCount : 0;
 }
 
+function resolveExpectedRawCount(shoot: ShootData, bracketMultiplier: number): number {
+  const legacyShoot = shoot as ShootWithMediaServiceObjects;
+  const directCandidates = [legacyShoot.expectedRawCount, legacyShoot.expected_raw_count];
+
+  for (const candidate of directCandidates) {
+    const parsed = toPositiveCount(candidate);
+    if (parsed !== null && parsed > 0) return parsed;
+  }
+
+  return resolveExpectedFinalCount(shoot) * bracketMultiplier;
+}
+
 function extractPhotoServicesFromServiceObjects(shoot: ShootData): Array<{ name: string; count: number }> {
   const photoServices: Array<{ name: string; count: number }> = [];
-  const legacyShoot = shoot as ShootWithMediaServiceObjects;
-  const serviceObjects = legacyShoot.serviceObjects || legacyShoot.service_objects || [];
+  const serviceObjects = getServiceObjects(shoot);
   if (!Array.isArray(serviceObjects)) return photoServices;
+
   serviceObjects.forEach((service) => {
     const name = String(service?.name || service?.service_name || service?.title || '').trim();
-    const count = toPositiveCount(service?.photo_count ?? service?.count);
-    if (name && count > 0 && !/video/i.test(name)) photoServices.push({ name, count });
+    const count = toPositiveCount(service?.photo_count ?? service?.count ?? service?.quantity);
+    if (name && count && count > 0 && !/video/i.test(name)) {
+      photoServices.push({ name, count });
+    }
   });
+
   return photoServices;
 }
 
@@ -117,768 +229,853 @@ function extractPhotoServicesFromServices(services: string[]): Array<{ name: str
     .filter((service): service is { name: string; count: number } => service !== null);
 }
 
-function reindexSelectionSet(set: Set<string>, removedIndex: number) {
-  const next = new Set<string>();
-  set.forEach((value) => {
-    const numeric = Number(value);
-    if (Number.isNaN(numeric) || numeric === removedIndex) return;
-    next.add(String(numeric > removedIndex ? numeric - 1 : numeric));
-  });
-  return next;
+function isTrackedMediaType(value: string | null | undefined): value is UploadQueueMediaType {
+  return TRACKED_MEDIA_TYPES.includes(String(value || '').toLowerCase() as UploadQueueMediaType);
 }
 
-function CircularProgress({ progress, size = 16 }: { progress: number; size?: number }) {
-  const strokeWidth = 2;
-  const radius = (size - strokeWidth) / 2;
-  const circumference = radius * 2 * Math.PI;
-  const offset = circumference - (progress / 100) * circumference;
-  if (progress >= 100) {
-    return (
-      <div className="flex items-center justify-center" style={{ width: size, height: size }}>
-        <Check className="h-3 w-3 text-green-500" />
-      </div>
-    );
+function createEmptyMediaTypeCounts(): Record<UploadQueueMediaType, number> {
+  return {
+    extra: 0,
+    virtual_staging: 0,
+    green_grass: 0,
+    twilight: 0,
+    drone: 0,
+    floorplan: 0,
+  };
+}
+
+function getQueueFileKey(file: File, _index: number): string {
+  return `${file.name}::${file.size}::${file.lastModified}`;
+}
+
+function getExistingMediaTypeCounts(files: MediaFile[]): Record<UploadQueueMediaType, number> {
+  return files.reduce((counts, file) => {
+    const mediaType = String(file.media_type || '').toLowerCase();
+    if (isTrackedMediaType(mediaType)) {
+      counts[mediaType] += 1;
+      return counts;
+    }
+
+    if (file.isExtra) {
+      counts.extra += 1;
+    }
+
+    return counts;
+  }, createEmptyMediaTypeCounts());
+}
+
+function getQueueMediaTypeCounts(
+  files: File[],
+  classifications: QueueClassificationMap,
+): Record<UploadQueueMediaType, number> {
+  return files.reduce((counts, file, index) => {
+    const classification = classifications[getQueueFileKey(file, index)];
+    if (classification) {
+      counts[classification] += 1;
+    }
+    return counts;
+  }, createEmptyMediaTypeCounts());
+}
+
+function getQueueClassification(
+  file: File,
+  index: number,
+  classifications: QueueClassificationMap,
+): UploadQueueMediaType | undefined {
+  return classifications[getQueueFileKey(file, index)];
+}
+
+function reindexClassificationMap(files: File[], classifications: QueueClassificationMap): QueueClassificationMap {
+  const nextMap: QueueClassificationMap = {};
+  files.forEach((file, index) => {
+    const key = getQueueFileKey(file, index);
+    const existingValue = classifications[key];
+    if (existingValue) {
+      nextMap[key] = existingValue;
+    }
+  });
+  return nextMap;
+}
+
+function addFilesToClassificationMap(
+  currentFiles: File[],
+  nextFiles: File[],
+  classifications: QueueClassificationMap,
+  defaultResolver?: (file: File) => UploadQueueMediaType | undefined,
+): QueueClassificationMap {
+  const preservedMap = reindexClassificationMap(currentFiles, classifications);
+  const nextMap: QueueClassificationMap = { ...preservedMap };
+
+  nextFiles.forEach((file, index) => {
+    const key = getQueueFileKey(file, index);
+    if (nextMap[key]) {
+      return;
+    }
+
+    const defaultType = defaultResolver?.(file);
+    if (defaultType) {
+      nextMap[key] = defaultType;
+    }
+  });
+
+  return nextMap;
+}
+
+function setQueueClassification(
+  file: File,
+  index: number,
+  mediaType: UploadQueueMediaType,
+  classifications: QueueClassificationMap,
+): QueueClassificationMap {
+  const nextMap = { ...classifications };
+  const key = getQueueFileKey(file, index);
+  if (nextMap[key] === mediaType) {
+    delete nextMap[key];
+  } else {
+    nextMap[key] = mediaType;
   }
+  return nextMap;
+}
+
+function getMediaTypeCards(counts: Record<UploadQueueMediaType, number>) {
+  return TRACKED_MEDIA_TYPES
+    .filter((mediaType) => counts[mediaType] > 0)
+    .map((mediaType) => ({
+      type: mediaType,
+      label: MEDIA_TYPE_CARD_LABELS[mediaType],
+      count: counts[mediaType],
+    }));
+}
+
+function CircularProgress({ progress }: { progress: number }) {
+  const safeProgress = Math.max(0, Math.min(100, progress));
+  const radius = 16;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (safeProgress / 100) * circumference;
+
   return (
-    <svg width={size} height={size} className="-rotate-90">
-      <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="currentColor" strokeWidth={strokeWidth} className="text-muted-foreground/20" />
-      <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round" className="text-primary transition-all duration-300" />
+    <svg width="40" height="40" viewBox="0 0 40 40" className="shrink-0">
+      <circle cx="20" cy="20" r={radius} stroke="currentColor" strokeWidth="3" className="text-muted/30" fill="none" />
+      <circle
+        cx="20"
+        cy="20"
+        r={radius}
+        stroke="currentColor"
+        strokeWidth="3"
+        className="text-primary"
+        fill="none"
+        strokeDasharray={circumference}
+        strokeDashoffset={strokeDashoffset}
+        strokeLinecap="round"
+        transform="rotate(-90 20 20)"
+      />
+      <text x="20" y="24" textAnchor="middle" className="fill-current text-[10px] font-semibold text-foreground">
+        {safeProgress}%
+      </text>
     </svg>
   );
 }
 
-interface EditedUploadSectionProps {
-  shoot: ShootData;
-  onUploadComplete: () => void;
-  isEditor?: boolean;
-}
-
-export function EditedUploadSection({ shoot, onUploadComplete, isEditor = false }: EditedUploadSectionProps) {
-  const { toast } = useToast();
-  const { trackUpload, uploads } = useUpload();
-  const legacyShoot = shoot as ShootWithMediaServiceObjects;
-  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
-  const [uploading, setUploading] = useState(false);
-  const [editingNotes, setEditingNotes] = useState('');
-  const [showChecklistDialog, setShowChecklistDialog] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [fileProgress, setFileProgress] = useState<Record<number, number>>({});
-  const [checklistItems, setChecklistItems] = useState<Record<string, boolean>>({
-    interior_exposure: false,
-    interior_white_balance: false,
-    window_pulling: false,
-    straight_lines: false,
-    exterior_exposure: false,
-    exterior_clarity: false,
-    sky_replacement: false,
-    natural_shadows: false,
-  });
-
-  const shootHasVideoService = useMemo(() => (shoot.services || []).some((service) => /video/i.test(String(service))), [shoot]);
-  const allChecked = Object.values(checklistItems).every(Boolean);
-  const uploadAccept = FULL_UPLOAD_ACCEPT;
-  const activeUploads = uploads.filter((u) => u.shootId === String(shoot.id) && u.uploadType === 'edited' && u.status === 'uploading');
-  const existingEditedCount = shoot.editedPhotoCount || 0;
-  const expectedFinalCount = shoot.expectedFinalCount || shoot.package?.expectedDeliveredCount || 0;
-  const editedMissingCount = Math.max(0, expectedFinalCount - existingEditedCount - uploadedFiles.length);
-  const photographerNotes = String(legacyShoot.editor_notes || legacyShoot.editorNotes || (typeof shoot.notes === 'object' && shoot.notes?.editingNotes) || '').trim();
-
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || []);
-    if (files.length === 0) return;
-    setUploadedFiles((prev) => [...prev, ...files]);
-    event.target.value = '';
-  };
-
-  const handleConfirmSubmit = async () => {
-    setUploading(true);
-    setUploadProgress(0);
-    const initialProgress: Record<number, number> = {};
-    uploadedFiles.forEach((_, index) => { initialProgress[index] = 0; });
-    setFileProgress(initialProgress);
-
-    try {
-      const apiHeaders = getApiHeaders();
-      const authorizationHeader = apiHeaders.Authorization;
-      const impersonationHeader = apiHeaders['X-Impersonate-User-Id'];
-      const CONCURRENT_UPLOADS = 3;
-      const filesToUpload = [...uploadedFiles];
-      const notesSnapshot = editingNotes.trim();
-      const checklistSnapshot = { ...checklistItems };
-      const totalFiles = filesToUpload.length;
-      const errors: string[] = [];
-
-      trackUpload({
-        shootId: shoot.id,
-        shootAddress: shoot.location?.fullAddress || shoot.location?.address || `Shoot #${shoot.id}`,
-        fileCount: totalFiles,
-        fileNames: filesToUpload.map((file) => file.name),
-        uploadType: 'edited',
-        uploadFn: async (onProgress) => {
-          let completedFiles = 0;
-
-          const uploadSingleEditedFile = (file: File, fileIndex: number, isFirstFile: boolean): Promise<{ success: boolean; error?: string }> => {
-            return new Promise((resolve) => {
-              const formData = new FormData();
-              const isVideo = isVideoUpload(file);
-              formData.append('files[]', file);
-              formData.append('upload_type', 'edited');
-              if (isVideo) formData.append('service_category', 'video');
-              if (!isVideo && isEditedFloorplanByName(file.name)) formData.append('media_type', 'floorplan');
-              if (isFirstFile) {
-                if (notesSnapshot) formData.append('editing_notes', notesSnapshot);
-                formData.append('checklist', JSON.stringify(checklistSnapshot));
-              }
-
-              const xhr = new XMLHttpRequest();
-              xhr.upload.addEventListener('progress', (event) => {
-                if (event.lengthComputable) {
-                  const filePercent = Math.round((event.loaded / event.total) * 100);
-                  setFileProgress((prev) => ({ ...prev, [fileIndex]: filePercent }));
-                }
-              });
-              xhr.addEventListener('load', () => {
-                if (xhr.status >= 200 && xhr.status < 300) {
-                  setFileProgress((prev) => ({ ...prev, [fileIndex]: 100 }));
-                  resolve({ success: true });
-                } else {
-                  let errorMsg = 'Upload failed';
-                  try {
-                    const errorData = JSON.parse(xhr.responseText);
-                    errorMsg = errorData.message || errorMsg;
-                  } catch {
-                    // Ignore malformed error payloads and keep the fallback message.
-                  }
-                  resolve({ success: false, error: `${file.name}: ${errorMsg}` });
-                }
-              });
-              xhr.addEventListener('error', () => resolve({ success: false, error: `${file.name}: Network error` }));
-              xhr.open('POST', `${API_BASE_URL}/api/shoots/${shoot.id}/upload`);
-              if (authorizationHeader) xhr.setRequestHeader('Authorization', authorizationHeader);
-              if (impersonationHeader) xhr.setRequestHeader('X-Impersonate-User-Id', impersonationHeader);
-              xhr.send(formData);
-            });
-          };
-
-          for (let i = 0; i < totalFiles; i += CONCURRENT_UPLOADS) {
-            const batch = filesToUpload.slice(i, Math.min(i + CONCURRENT_UPLOADS, totalFiles));
-            const results = await Promise.all(batch.map((file, batchIndex) => uploadSingleEditedFile(file, i + batchIndex, i + batchIndex === 0)));
-            results.forEach((result) => {
-              completedFiles += 1;
-              if (!result.success && result.error) errors.push(result.error);
-            });
-            const progress = Math.round((completedFiles / totalFiles) * 100);
-            setUploadProgress(progress);
-            onProgress(progress);
-          }
-
-          const completeProgress: Record<number, number> = {};
-          filesToUpload.forEach((_, index) => { completeProgress[index] = 100; });
-          setFileProgress(completeProgress);
-          setUploadProgress(100);
-        },
-        onComplete: () => {
-          if (errors.length > 0) {
-            toast({
-              title: 'Partial Success',
-              description: `${totalFiles - errors.length}/${totalFiles} files uploaded. ${errors.length} failed.`,
-              variant: 'destructive',
-            });
-          } else {
-            toast({ title: 'Success', description: `All ${totalFiles} edited files uploaded successfully` });
-          }
-          setUploading(false);
-          setUploadedFiles([]);
-          setEditingNotes('');
-          triggerUploadRefreshes(shoot.id);
-          onUploadComplete();
-        },
-        onError: (errorMessage) => {
-          setUploading(false);
-          toast({
-            title: 'Error',
-            description: errorMessage,
-            variant: 'destructive',
-          });
-        },
-      });
-    } catch (error) {
-      setUploading(false);
-      toast({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to upload edited files',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleSubmitEdits = async () => {
-    if (uploadedFiles.length === 0) {
-      toast({ title: 'No files', description: 'Please select files to upload', variant: 'destructive' });
-      return;
-    }
-    if (isEditor) {
-      setShowChecklistDialog(true);
-    } else {
-      await handleConfirmSubmit();
-    }
-  };
-
-  const handleChecklistComplete = () => {
-    if (!allChecked) {
-      toast({ title: 'Checklist incomplete', description: 'Please complete all checklist items before submitting', variant: 'destructive' });
-      return;
-    }
-    setShowChecklistDialog(false);
-    void handleConfirmSubmit();
-  };
+function SummaryCard({
+  label,
+  value,
+  tone = 'default',
+}: {
+  label: string;
+  value: React.ReactNode;
+  tone?: 'default' | 'success' | 'info';
+}) {
+  const toneClassName =
+    tone === 'success'
+      ? 'border-emerald-500/30 bg-emerald-500/10'
+      : tone === 'info'
+        ? 'border-primary/30 bg-primary/10'
+        : 'border-border bg-card';
 
   return (
-    <div className="space-y-3 flex flex-col">
-      {photographerNotes && (
-        <Alert className="bg-blue-500/10 border-blue-500/30">
-          <AlertCircle className="h-4 w-4 text-blue-600" />
-          <AlertDescription>
-            <div className="font-medium text-blue-700 mb-1">Photographer Notes:</div>
-            <p className="text-blue-600 text-sm whitespace-pre-wrap">{photographerNotes}</p>
-          </AlertDescription>
-        </Alert>
-      )}
-
-      <div className="grid grid-cols-3 gap-2 text-xs">
-        <div className="p-2 border rounded bg-muted/50">
-          <div className="text-muted-foreground">Expected</div>
-          <div className="font-semibold text-base">{expectedFinalCount}</div>
-        </div>
-        <div className="p-2 border rounded bg-muted/50">
-          <div className="text-muted-foreground">Uploaded</div>
-          <div className="font-semibold text-base">{existingEditedCount + uploadedFiles.length}</div>
-        </div>
-        <div className={`p-2 border rounded ${editedMissingCount > 0 ? 'bg-orange-500/10 border-orange-500/30' : 'bg-green-500/10 border-green-500/30'}`}>
-          <div className="text-muted-foreground">{editedMissingCount > 0 ? 'Missing' : 'Complete'}</div>
-          <div className={`font-semibold text-base ${editedMissingCount > 0 ? 'text-orange-600' : 'text-green-600'}`}>
-            {editedMissingCount > 0 ? editedMissingCount : '✓'}
-          </div>
-        </div>
-      </div>
-
-      {activeUploads.map((activeUpload) => (
-        <UploadProgressCard
-          key={activeUpload.id}
-          fileCount={activeUpload.fileCount}
-          fileNames={activeUpload.fileNames}
-          progress={activeUpload.progress}
-          note="Your upload is running in the background. You can close this dialog and come back anytime."
-        />
-      ))}
-
-      <UploadDropzone
-        empty={uploadedFiles.length === 0}
-        accept={uploadAccept}
-        inputId="edited-file-upload"
-        title="No uploaded files yet"
-        description={`${shootHasVideoService ? 'Upload photos and videos to get started.' : 'Upload photos to get started.'} You can drag and drop files or use the upload button.`}
-        buttonLabel="Upload Files"
-        browseLabel="Drag and drop more edited files here or click to browse"
-        onBrowse={() => document.getElementById('edited-file-upload')?.click()}
-        onDrop={(e) => {
-          e.preventDefault();
-          setUploadedFiles((prev) => [...prev, ...Array.from(e.dataTransfer.files || [])]);
-        }}
-        onDragOver={(e) => e.preventDefault()}
-        onFileSelect={handleFileSelect}
-      />
-
-      {uploadedFiles.length > 0 && (
-        <div className="space-y-2">
-          <div className="text-sm font-medium">
-            {uploading ? `Uploading Files (${uploadProgress}%)` : `Selected Files (${uploadedFiles.length})`}
-          </div>
-          <div className="max-h-48 overflow-y-auto space-y-1 border rounded p-2">
-            {uploadedFiles.map((file, index) => (
-              <div key={index} className="flex items-center justify-between p-2 hover:bg-muted rounded">
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  {uploading && <CircularProgress progress={fileProgress[index] || 0} size={18} />}
-                  <span className="text-xs truncate flex-1">{file.name}</span>
-                  {uploading && <span className="text-[10px] text-muted-foreground flex-shrink-0 w-8 text-right">{fileProgress[index] || 0}%</span>}
-                </div>
-                {!uploading && (
-                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setUploadedFiles((prev) => prev.filter((_, i) => i !== index))}>
-                    <X className="h-3 w-3" />
-                  </Button>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {uploadedFiles.length > 0 && !uploading && (
-        <div className="space-y-2">
-          <Label>Notes (Optional)</Label>
-          <Textarea value={editingNotes} onChange={(e) => setEditingNotes(e.target.value)} placeholder="Add any notes about the editing..." className="min-h-[80px]" />
-        </div>
-      )}
-
-      <div className="space-y-2 pb-4">
-        {uploading && (
-          <div className="space-y-1">
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>Uploading {uploadedFiles.length} file(s)...</span>
-              <span>{uploadProgress}%</span>
-            </div>
-            <Progress value={uploadProgress} className="h-2" />
-          </div>
-        )}
-        <Button onClick={handleSubmitEdits} disabled={uploading || uploadedFiles.length === 0} className="w-full relative overflow-hidden">
-          {uploading ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Uploading... {uploadProgress}%
-            </>
-          ) : (
-            <>
-              <Upload className="h-4 w-4 mr-2" />
-              Upload Edited Files
-            </>
-          )}
-        </Button>
-      </div>
-
-      <Dialog open={showChecklistDialog} onOpenChange={setShowChecklistDialog}>
-        <DialogContent className="max-w-3xl max-h-[90vh]">
-          <DialogHeader>
-            <DialogTitle>Pre-Upload Checklist & Guidelines</DialogTitle>
-            <DialogDescription>Review and confirm all checklist items before submitting edited files.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <span className="text-base font-semibold">Checklist Items</span>
-                <Badge variant="default" className="text-xs">
-                  {Object.values(checklistItems).filter(Boolean).length} / {Object.keys(checklistItems).length} completed
-                </Badge>
-              </div>
-              {(['interior_exposure', 'interior_white_balance', 'window_pulling', 'straight_lines', 'exterior_exposure', 'exterior_clarity', 'sky_replacement', 'natural_shadows'] as const).map((key) => (
-                <div key={key} className="flex items-start space-x-3 p-2.5 hover:bg-muted/50 rounded border border-transparent hover:border-border transition-colors">
-                  <Checkbox checked={checklistItems[key]} onCheckedChange={(checked) => setChecklistItems((prev) => ({ ...prev, [key]: checked as boolean }))} id={`checklist-${key}`} className="mt-0.5" />
-                  <label htmlFor={`checklist-${key}`} className="text-sm cursor-pointer flex-1 leading-relaxed">
-                    {key.replace(/_/g, ' ')}
-                  </label>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="flex justify-end gap-2 pt-4 border-t">
-            <Button variant="outline" onClick={() => setShowChecklistDialog(false)}>Cancel</Button>
-            <Button onClick={handleChecklistComplete} disabled={!allChecked}>Continue</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+    <div className={`rounded-lg border p-3 ${toneClassName}`}>
+      <div className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">{label}</div>
+      <div className="mt-1 text-2xl font-semibold text-foreground">{value}</div>
     </div>
   );
 }
 
-interface RawUploadSectionProps {
-  shoot: ShootData;
-  onUploadComplete: () => void;
+function UploadClassificationButtons({
+  file,
+  index,
+  classifications,
+  onToggle,
+}: {
+  file: File;
+  index: number;
+  classifications: QueueClassificationMap;
+  onToggle: (file: File, index: number, mediaType: UploadQueueMediaType) => void;
+}) {
+  const isVideo = isVideoUpload(file);
+
+  return (
+    <div className="flex flex-wrap items-center justify-end gap-1">
+      {UPLOAD_CLASSIFICATION_OPTIONS.map((option) => {
+        const isActive = getQueueClassification(file, index, classifications) === option.type;
+        const isDisabled = Boolean(isVideo && option.photoOnly);
+
+        return (
+          <button
+            key={option.type}
+            type="button"
+            className={`rounded px-2 py-1 text-[10px] font-semibold transition-colors ${
+              isActive ? option.activeClassName : option.inactiveClassName
+            } ${isDisabled ? 'cursor-not-allowed opacity-40' : ''}`}
+            onClick={() => {
+              if (isDisabled) return;
+              onToggle(file, index, option.type);
+            }}
+            disabled={isDisabled}
+            title={isDisabled ? `${option.title} is only available for photo uploads` : option.title}
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
-export function RawUploadSection({ shoot, onUploadComplete }: RawUploadSectionProps) {
+export function EditedUploadSection({
+  shoot,
+  onUploadComplete,
+  isEditor,
+  editedFiles = [],
+}: {
+  shoot: ShootData;
+  onUploadComplete: () => void;
+  isEditor?: boolean;
+  editedFiles?: MediaFile[];
+}) {
   const { toast } = useToast();
-  const { trackUpload, uploads } = useUpload();
-  const [bracketType, setBracketType] = useState<'3-bracket' | '5-bracket'>(shoot.bracketMode === 3 ? '3-bracket' : '5-bracket');
-  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
-  const [extraFiles, setExtraFiles] = useState<Set<string>>(new Set());
-  const [floorplanFiles, setFloorplanFiles] = useState<Set<string>>(new Set());
-  const [virtualStagingFiles, setVirtualStagingFiles] = useState<Set<string>>(new Set());
-  const [editingNotes, setEditingNotes] = useState('');
-  const dragCounterRef = useRef(0);
+  const { trackUpload } = useUpload();
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [queueClassifications, setQueueClassifications] = useState<QueueClassificationMap>({});
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
+  const [notes, setNotes] = useState('');
+  const inputId = `edited-upload-input-${shoot.id}`;
 
-  const activeUploads = uploads.filter((u) => u.shootId === String(shoot.id) && u.uploadType === 'raw' && u.status === 'uploading');
-  const uploading = activeUploads.length > 0;
-  const shootHasVideoService = useMemo(() => (shoot.services || []).some((service) => /video/i.test(String(service))), [shoot]);
-  const shootRequiresBrackets = isHdrShoot(shoot.services || []);
-  const existingRawCount = shoot.rawPhotoCount || 0;
-  const photoServicesFromObjects = extractPhotoServicesFromServiceObjects(shoot);
-  const photoServices = photoServicesFromObjects.length > 0 ? photoServicesFromObjects : extractPhotoServicesFromServices(shoot.services || []);
-  const expectedPhotos = getExpectedPhotoCount(shoot);
-  const bracketMultiplier = shootRequiresBrackets ? (bracketType === '3-bracket' ? 3 : 5) : 1;
-  const expectedRawCount = expectedPhotos * bracketMultiplier;
-  const uploadedCount = uploadedFiles.length;
-  const totalRawCount = existingRawCount + uploadedCount;
-  const missingCount = Math.max(0, expectedRawCount - totalRawCount);
-  const uploadAccept = FULL_UPLOAD_ACCEPT;
+  const expectedCount = useMemo(() => resolveExpectedFinalCount(shoot), [shoot]);
+  const existingCounts = useMemo(() => getExistingMediaTypeCounts(editedFiles), [editedFiles]);
+  const queueCounts = useMemo(
+    () => getQueueMediaTypeCounts(selectedFiles, queueClassifications),
+    [queueClassifications, selectedFiles],
+  );
 
-  const getFileClassification = (index: number): 'extra' | 'floorplan' | 'virtual_staging' | null => {
-    const fileId = String(index);
-    if (extraFiles.has(fileId)) return 'extra';
-    if (floorplanFiles.has(fileId)) return 'floorplan';
-    if (virtualStagingFiles.has(fileId)) return 'virtual_staging';
-    return null;
-  };
+  useEffect(() => {
+    setSelectedFiles([]);
+    setQueueClassifications({});
+    setUploadProgress(0);
+    setIsUploading(false);
+    setNotes('');
+  }, [shoot.id]);
 
-  const setFileClassification = (index: number, classification: 'extra' | 'floorplan' | 'virtual_staging' | null) => {
-    const fileId = String(index);
-    setExtraFiles((prev) => {
-      const next = new Set(prev);
-      next.delete(fileId);
-      if (classification === 'extra') next.add(fileId);
-      return next;
+  const combinedCounts = useMemo(() => {
+    const nextCounts = createEmptyMediaTypeCounts();
+    TRACKED_MEDIA_TYPES.forEach((mediaType) => {
+      nextCounts[mediaType] = existingCounts[mediaType] + queueCounts[mediaType];
     });
-    setFloorplanFiles((prev) => {
-      const next = new Set(prev);
-      next.delete(fileId);
-      if (classification === 'floorplan') next.add(fileId);
-      return next;
-    });
-    setVirtualStagingFiles((prev) => {
-      const next = new Set(prev);
-      next.delete(fileId);
-      if (classification === 'virtual_staging') next.add(fileId);
-      return next;
+    return nextCounts;
+  }, [existingCounts, queueCounts]);
+
+  const uploadedCount = editedFiles.length + selectedFiles.length;
+  const specialCountCards = useMemo(() => getMediaTypeCards(combinedCounts), [combinedCounts]);
+
+  const mergeSelectedFiles = (incomingFiles: File[]) => {
+    if (incomingFiles.length === 0) return;
+
+    setSelectedFiles((currentFiles) => {
+      const nextFiles = [...currentFiles, ...incomingFiles];
+      setQueueClassifications((currentMap) =>
+        addFilesToClassificationMap(currentFiles, nextFiles, currentMap, (file) =>
+          !isVideoUpload(file) && isEditedFloorplanByName(file.name) ? 'floorplan' : undefined,
+        ),
+      );
+      return nextFiles;
     });
   };
 
-  const toggleFileClassification = (index: number, classification: 'extra' | 'floorplan' | 'virtual_staging') => {
-    const current = getFileClassification(index);
-    setFileClassification(index, current === classification ? null : classification);
+  const removeSelectedFile = (indexToRemove: number) => {
+    setSelectedFiles((currentFiles) => {
+      const nextFiles = currentFiles.filter((_, index) => index !== indexToRemove);
+      setQueueClassifications((currentMap) => reindexClassificationMap(nextFiles, currentMap));
+      return nextFiles;
+    });
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    const validFiles: File[] = [];
-    const oversizedFiles: string[] = [];
-    files.forEach((file) => {
-      if (file.size > 500 * 1024 * 1024) {
-        oversizedFiles.push(`${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB)`);
-      } else {
-        validFiles.push(file);
-      }
-    });
-    if (oversizedFiles.length > 0) {
-      toast({
-        title: 'Some files are too large',
-        description: `Max 50MB per file. Skipped: ${oversizedFiles.slice(0, 3).join(', ')}${oversizedFiles.length > 3 ? ` and ${oversizedFiles.length - 3} more` : ''}`,
-        variant: 'destructive',
-      });
+  const handleUpload = () => {
+    if (selectedFiles.length === 0 || isUploading) {
+      return;
     }
-    if (validFiles.length > 0) {
-      const startIdx = uploadedFiles.length;
-      setUploadedFiles((prev) => [...prev, ...validFiles]);
-      setFloorplanFiles((prev) => {
-        const next = new Set(prev);
-        validFiles.forEach((file, index) => {
-          if (isEditedFloorplanByName(file.name)) next.add(String(startIdx + index));
-        });
-        return next;
-      });
-    }
-  };
 
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    const files = Array.from(e.dataTransfer.files || []);
-    const validFiles: File[] = [];
-    const oversizedFiles: string[] = [];
-    files.forEach((file) => {
-      if (file.size > 500 * 1024 * 1024) {
-        oversizedFiles.push(`${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB)`);
-      } else {
-        validFiles.push(file);
-      }
-    });
-    if (oversizedFiles.length > 0) {
-      toast({
-        title: 'Some files are too large',
-        description: `Max 50MB per file. Skipped: ${oversizedFiles.slice(0, 3).join(', ')}${oversizedFiles.length > 3 ? ` and ${oversizedFiles.length - 3} more` : ''}`,
-        variant: 'destructive',
-      });
-    }
-    if (validFiles.length > 0) {
-      const startIdx = uploadedFiles.length;
-      setUploadedFiles((prev) => [...prev, ...validFiles]);
-      setFloorplanFiles((prev) => {
-        const next = new Set(prev);
-        validFiles.forEach((file, index) => {
-          if (isEditedFloorplanByName(file.name)) next.add(String(startIdx + index));
-        });
-        return next;
-      });
-    }
-  };
-
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-  };
-
-  const handleConfirmSubmit = async () => {
     const apiHeaders = getApiHeaders();
     const authHeader = apiHeaders.Authorization;
     const impersonateHeader = apiHeaders['X-Impersonate-User-Id'];
-    const MAX_ATTEMPTS = 2;
-    const filesToUpload = [...uploadedFiles];
-    const notesSnapshot = editingNotes.trim();
-    const bracketTypeSnapshot = bracketType;
-    const extraFilesSnapshot = new Set(extraFiles);
-    const floorplanFilesSnapshot = new Set(floorplanFiles);
-    const virtualStagingFilesSnapshot = new Set(virtualStagingFiles);
-    const errors: string[] = [];
 
-    const getUploadMediaTypeFromSnapshot = (fileIndex: number, isVideo: boolean): 'floorplan' | 'extra' | 'virtual_staging' | null => {
-      const fileId = String(fileIndex);
-      let classification: 'extra' | 'floorplan' | 'virtual_staging' | null = null;
-      if (extraFilesSnapshot.has(fileId)) classification = 'extra';
-      if (floorplanFilesSnapshot.has(fileId)) classification = 'floorplan';
-      if (virtualStagingFilesSnapshot.has(fileId)) classification = 'virtual_staging';
-      if (!classification) return null;
-      if (classification === 'floorplan' && isVideo) return null;
-      if (classification === 'virtual_staging' && isVideo) return null;
-      return classification;
-    };
+    toast({
+      title: 'Edited upload started',
+      description: `${selectedFiles.length} file${selectedFiles.length !== 1 ? 's are' : ' is'} uploading in background.`,
+    });
+
+    setIsUploading(true);
+    setUploadProgress(0);
+
+    const filesForUpload = [...selectedFiles];
+    const classificationsForUpload = { ...queueClassifications };
+    const uploadNote = notes.trim();
 
     trackUpload({
-      shootId: shoot.id,
+      shootId: String(shoot.id),
       shootAddress: shoot.location?.fullAddress || shoot.location?.address || `Shoot #${shoot.id}`,
-      fileCount: filesToUpload.length,
-      fileNames: filesToUpload.map((f) => f.name),
-      uploadType: 'raw',
+      fileCount: filesForUpload.length,
+      fileNames: filesForUpload.map((file) => file.name),
+      uploadType: 'edited',
       uploadFn: async (onProgress) => {
-        let completed = 0;
-        const uploadOne = (file: File, fileIndex: number): Promise<{ success: boolean; error?: string }> => new Promise((resolve) => {
-          const fd = new FormData();
-          const isVideo = isVideoUpload(file);
-          fd.append('files[]', file);
-          fd.append('upload_type', 'raw');
-          if (isVideo) fd.append('service_category', 'video');
-          const uploadMediaType = getUploadMediaTypeFromSnapshot(fileIndex, isVideo);
-          if (uploadMediaType) {
-            fd.append('media_type', uploadMediaType);
-            if (uploadMediaType === 'extra') fd.append('is_extra', 'true');
-          }
-          if (shootRequiresBrackets) {
-            fd.append('bracket_mode', bracketTypeSnapshot === '3-bracket' ? '3' : '5');
-          }
-          if (notesSnapshot) fd.append('photographer_notes', notesSnapshot);
-
-          const xhr = new XMLHttpRequest();
-          xhr.addEventListener('load', () => {
-            let payload: {
-              message?: string;
-              success_count?: number;
-              error_count?: number;
-              errors?: Array<{ error?: string; filename?: string }>;
-            } | null = null;
-
-            try {
-              payload = JSON.parse(xhr.responseText);
-            } catch {
-              payload = null;
-            }
-
-            if (xhr.status >= 200 && xhr.status < 300) {
-              const successCount = Number(payload?.success_count ?? 0);
-              const errorCount = Number(payload?.error_count ?? 0);
-              if (successCount > 0 && errorCount === 0) {
-                resolve({ success: true });
-                return;
+        try {
+          const uploadOne = (file: File, index: number): Promise<{ success: boolean; error?: string }> =>
+            new Promise((resolve) => {
+              const formData = new FormData();
+              const mediaType = getQueueClassification(file, index, classificationsForUpload);
+              formData.append('files[]', file);
+              formData.append('upload_type', 'edited');
+              if (uploadNote) {
+                formData.append('editor_notes', uploadNote);
+              }
+              if (isVideoUpload(file)) {
+                formData.append('service_category', 'video');
+              }
+              if (mediaType) {
+                formData.append('media_type', mediaType);
+                if (mediaType === 'extra') {
+                  formData.append('is_extra', '1');
+                }
               }
 
-              const backendError =
-                payload?.errors?.map((entry) => entry?.error).find(Boolean) ||
-                payload?.message ||
-                'Upload failed';
-              resolve({ success: false, error: `${file.name}: ${backendError}` });
-              return;
-            }
+              const xhr = new XMLHttpRequest();
+              xhr.addEventListener('load', () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                  resolve({ success: true });
+                  return;
+                }
 
-            const failureMessage =
-              payload?.errors?.map((entry) => entry?.error).find(Boolean) ||
-              payload?.message ||
-              'Upload failed';
-            resolve({ success: false, error: `${file.name}: ${failureMessage}` });
-          });
-          xhr.addEventListener('error', () => resolve({ success: false, error: `${file.name}: Network error` }));
-          xhr.open('POST', `${API_BASE_URL}/api/shoots/${shoot.id}/upload`);
-          if (authHeader) xhr.setRequestHeader('Authorization', authHeader);
-          if (impersonateHeader) xhr.setRequestHeader('X-Impersonate-User-Id', impersonateHeader);
-          xhr.send(fd);
-        });
+                let message = 'Upload failed';
+                try {
+                  message = JSON.parse(xhr.responseText).message || message;
+                } catch {
+                  // Keep generic message when server response is not JSON.
+                }
+                resolve({ success: false, error: `${file.name}: ${message}` });
+              });
+              xhr.addEventListener('error', () => resolve({ success: false, error: `${file.name}: Network error` }));
+              xhr.open('POST', `${API_BASE_URL}/api/shoots/${shoot.id}/upload`);
+              if (authHeader) xhr.setRequestHeader('Authorization', authHeader);
+              if (impersonateHeader) xhr.setRequestHeader('X-Impersonate-User-Id', impersonateHeader);
+              xhr.send(formData);
+            });
 
-        for (let index = 0; index < filesToUpload.length; index += 1) {
-          const file = filesToUpload[index];
-          let result: { success: boolean; error?: string } = { success: false, error: `${file.name}: Upload failed` };
+          const concurrentUploads = 3;
+          let completed = 0;
+          const errors: string[] = [];
 
-          for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
-            result = await uploadOne(file, index);
-            if (result.success) break;
+          for (let index = 0; index < filesForUpload.length; index += concurrentUploads) {
+            const batch = filesForUpload.slice(index, index + concurrentUploads);
+            const results = await Promise.all(batch.map((file, batchIndex) => uploadOne(file, index + batchIndex)));
+            results.forEach((result) => {
+              completed += 1;
+              if (!result.success && result.error) {
+                errors.push(result.error);
+              }
+            });
+
+            const progressValue = Math.round((completed / filesForUpload.length) * 100);
+            setUploadProgress(progressValue);
+            onProgress(progressValue);
           }
 
-          completed += 1;
-          if (!result.success && result.error) {
-            errors.push(result.error);
+          if (errors.length === filesForUpload.length) {
+            throw new Error(errors[0] || 'All files failed to upload');
           }
 
-          onProgress(Math.round((completed / filesToUpload.length) * 100));
+          triggerUploadRefreshes(shoot.id);
+          setSelectedFiles([]);
+          setQueueClassifications({});
+          setNotes('');
+          onUploadComplete();
+        } finally {
+          setIsUploading(false);
         }
-      },
-      onComplete: () => {
-        if (errors.length > 0) {
-          toast({ title: 'Partial Success', description: `${filesToUpload.length - errors.length}/${filesToUpload.length} files uploaded. ${errors.length} failed.`, variant: 'destructive' });
-        } else {
-          toast({ title: 'Success', description: `All ${filesToUpload.length} raw files uploaded successfully` });
-        }
-        setUploadedFiles([]);
-        setExtraFiles(new Set());
-        setFloorplanFiles(new Set());
-        setVirtualStagingFiles(new Set());
-        setEditingNotes('');
-        triggerUploadRefreshes(shoot.id);
-        onUploadComplete();
-      },
-      onError: (errorMessage) => {
-        toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
       },
     });
   };
 
-  const handleSubmitRAW = () => {
-    if (uploadedFiles.length === 0) {
-      toast({ title: 'No files', description: 'Please select files to upload', variant: 'destructive' });
-      return;
-    }
-    void handleConfirmSubmit();
-  };
+  const progressValue = expectedCount > 0 ? Math.min(100, Math.round((uploadedCount / expectedCount) * 100)) : 0;
 
   return (
-    <div className="space-y-3 flex flex-col flex-1">
-      {shootRequiresBrackets && (
-        <div className="space-y-2">
-          <Label>Bracket Type</Label>
-          <RadioGroup value={bracketType} onValueChange={(v) => setBracketType(v as '3-bracket' | '5-bracket')}>
-            <div className="flex gap-4">
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="3-bracket" id="3-bracket" />
-                <label htmlFor="3-bracket" className="text-sm cursor-pointer">3-Bracket</label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="5-bracket" id="5-bracket" />
-                <label htmlFor="5-bracket" className="text-sm cursor-pointer">5-Bracket</label>
+    <div className="space-y-4">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <SummaryCard label="Expected" value={expectedCount} />
+        <SummaryCard label="Uploaded" value={uploadedCount} tone="info" />
+        {specialCountCards.map((card) => (
+          <SummaryCard key={card.type} label={card.label} value={card.count} tone="success" />
+        ))}
+      </div>
+
+      <div className="rounded-lg border bg-card p-4">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-3">
+            <CircularProgress progress={progressValue} />
+            <div>
+              <div className="text-sm font-medium text-foreground">Edited delivery progress</div>
+              <div className="text-xs text-muted-foreground">
+                {expectedCount > 0
+                  ? `${uploadedCount} of ${expectedCount} expected edited files ready`
+                  : `${uploadedCount} edited file${uploadedCount !== 1 ? 's' : ''} queued or uploaded`}
               </div>
             </div>
-          </RadioGroup>
-        </div>
-      )}
-
-      <div className="grid grid-cols-4 gap-2 text-xs">
-        <div className="p-2 border rounded bg-muted/50">
-          <div className="text-muted-foreground">Expected</div>
-          <div className="font-semibold text-base">{expectedPhotos * bracketMultiplier}</div>
-          {photoServices.length > 0 && (
-            <div className="text-[10px] text-muted-foreground mt-1 space-y-0.5">
-              {photoServices.map((service, index) => <div key={index}>{service.name}: {shootRequiresBrackets ? service.count * bracketMultiplier : service.count}</div>)}
+          </div>
+          {isEditor && (
+            <div className="text-xs text-muted-foreground">
+              Editors can mark deliverables here before uploading, and those tags remain editable afterward.
             </div>
           )}
         </div>
-        <div className="p-2 border rounded bg-muted/50">
-          <div className="text-muted-foreground">Existing</div>
-          <div className="font-semibold text-base">{existingRawCount + uploadedFiles.length}</div>
-        </div>
-        <div className="p-2 border rounded bg-muted/50">
-          <div className="text-muted-foreground">Extras</div>
-          <div className="font-semibold text-base">{extraFiles.size}</div>
-        </div>
-        <div className="p-2 border rounded bg-muted/50">
-          <div className="text-muted-foreground">VS</div>
-          <div className="font-semibold text-base">{virtualStagingFiles.size}</div>
-        </div>
       </div>
 
-      {missingCount > 0 && totalRawCount > 0 && (
-        <Alert className="bg-orange-500/10 border-orange-500/30">
-          <AlertCircle className="h-4 w-4 text-orange-600" />
-          <AlertDescription className="text-orange-700">
-            {missingCount} photo(s) missing. Expected {expectedRawCount} photos{shootRequiresBrackets ? ` (${expectedPhotos} final × ${bracketMultiplier} brackets)` : ''}, but only {totalRawCount} uploaded.
-          </AlertDescription>
-        </Alert>
+      {isUploading && selectedFiles.length > 0 && (
+        <UploadProgressCard
+          fileCount={selectedFiles.length}
+          fileNames={selectedFiles.map((file) => file.name)}
+          progress={uploadProgress}
+          note="Edited files are uploading in the background. You can switch shoots and continue working."
+        />
       )}
 
-      {activeUploads.map((activeUpload) => (
-        <UploadProgressCard
-          key={activeUpload.id}
-          fileCount={activeUpload.fileCount}
-          fileNames={activeUpload.fileNames}
-          progress={activeUpload.progress}
-          note="You can close this dialog while upload continues in the background."
-        />
-      ))}
-
       <UploadDropzone
-        empty={uploadedFiles.length === 0}
-        accept={uploadAccept}
-        inputId="file-upload"
-        title="No uploaded files yet"
-        description={`${shootHasVideoService ? 'Upload photos and videos to get started.' : 'Upload photos to get started.'} You can drag and drop files or use the upload button.`}
-        buttonLabel="Upload Files"
-        browseLabel="Drag and drop more files here or click to browse"
-        onBrowse={() => document.getElementById('file-upload')?.click()}
-        onDrop={handleDrop}
-        onDragOver={handleDragOver}
-        onFileSelect={handleFileSelect}
+        empty={selectedFiles.length === 0}
+        accept={FULL_UPLOAD_ACCEPT}
+        inputId={inputId}
+        title="Upload Edited Media"
+        description="Drag and drop edited deliverables here. Use the quick markers below to tag VS, GG, TW, DR, FP, or EX before sending."
+        buttonLabel="Choose Edited Files"
+        browseLabel="Drag and drop more edited files here or click to browse"
+        onBrowse={() => document.getElementById(inputId)?.click()}
+        onDrop={(event) => {
+          event.preventDefault();
+          mergeSelectedFiles(Array.from(event.dataTransfer.files || []));
+        }}
+        onDragOver={(event) => event.preventDefault()}
+        onFileSelect={(event) => {
+          mergeSelectedFiles(Array.from(event.target.files || []));
+          event.target.value = '';
+        }}
       />
 
-      {uploadedFiles.length > 0 && (
-        <div className="space-y-2">
-          <div className="text-sm font-medium flex items-center gap-2">
-            Selected Files ({uploadedFiles.length})
-            <span className="text-xs text-muted-foreground font-normal">(EX = extra, FP = floorplan, VS = virtual staging)</span>
-          </div>
-          <div className="max-h-48 overflow-y-auto space-y-1 border rounded p-2">
-            {uploadedFiles.map((file, index) => (
-              <div key={index} className="flex items-center justify-between p-2 hover:bg-muted rounded">
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <span className="text-xs flex-1 truncate">{file.name}</span>
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    {!isVideoUpload(file) && (
-                      <>
-                        <button type="button" className={`text-[9px] px-1.5 py-0.5 rounded font-medium transition-colors ${floorplanFiles.has(String(index)) ? 'bg-blue-600 text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`} onClick={() => toggleFileClassification(index, 'floorplan')} title={floorplanFiles.has(String(index)) ? 'Unmark as floorplan' : 'Move to Floorplans tab'}>FP</button>
-                        <button type="button" className={`text-[9px] px-1.5 py-0.5 rounded font-medium transition-colors ${virtualStagingFiles.has(String(index)) ? 'bg-violet-600 text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`} onClick={() => toggleFileClassification(index, 'virtual_staging')} title={virtualStagingFiles.has(String(index)) ? 'Unmark as virtual staging' : 'Move to Virtual Staging tab'}>VS</button>
-                      </>
-                    )}
-                    <button type="button" className={`text-[9px] px-1.5 py-0.5 rounded font-medium transition-colors ${extraFiles.has(String(index)) ? 'bg-amber-500 text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`} onClick={() => toggleFileClassification(index, 'extra')} title={extraFiles.has(String(index)) ? 'Unmark as extra' : 'Move to Extras tab'}>EX</button>
+      {selectedFiles.length > 0 && (
+        <div className="space-y-4 rounded-lg border bg-card p-4">
+          <div className="text-sm font-medium">Selected Files ({selectedFiles.length})</div>
+          <div className="max-h-72 space-y-2 overflow-y-auto">
+            {selectedFiles.map((file, index) => (
+              <div key={getQueueFileKey(file, index)} className="rounded-lg border bg-background px-3 py-2">
+                <div className="flex items-start gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium">{file.name}</div>
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      {isVideoUpload(file) ? 'Video file' : 'Photo / image file'}
+                    </div>
                   </div>
+                  <UploadClassificationButtons
+                    file={file}
+                    index={index}
+                    classifications={queueClassifications}
+                    onToggle={(targetFile, targetIndex, mediaType) =>
+                      setQueueClassifications((currentMap) =>
+                        setQueueClassification(targetFile, targetIndex, mediaType, currentMap),
+                      )
+                    }
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 shrink-0"
+                    onClick={() => removeSelectedFile(index)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
                 </div>
-                <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => {
-                  setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
-                  setExtraFiles((prev) => reindexSelectionSet(prev, index));
-                  setFloorplanFiles((prev) => reindexSelectionSet(prev, index));
-                  setVirtualStagingFiles((prev) => reindexSelectionSet(prev, index));
-                }}>
-                  <X className="h-3 w-3" />
-                </Button>
               </div>
             ))}
           </div>
+
+          <div className="space-y-2">
+            <div className="text-sm font-medium">Notes (Optional)</div>
+            <Textarea
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+              placeholder="Add any notes about this edited upload..."
+              className="min-h-[96px]"
+            />
+          </div>
+
+          <Button type="button" className="w-full" onClick={handleUpload} disabled={isUploading || selectedFiles.length === 0}>
+            {isUploading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Uploading Edited Files
+              </>
+            ) : (
+              <>
+                <Upload className="mr-2 h-4 w-4" />
+                Upload Edited Files
+              </>
+            )}
+          </Button>
         </div>
       )}
+    </div>
+  );
+}
 
-      {uploadedFiles.length > 0 && (
-        <div className="space-y-1.5">
-          <Label>Notes for Editor (Optional)</Label>
-          <Textarea
-            value={editingNotes}
-            onChange={(e) => setEditingNotes(e.target.value)}
-            placeholder="Add any notes for the editor..."
-            className="min-h-[60px] max-h-[80px] resize-none"
-          />
+export function RawUploadSection({
+  shoot,
+  onUploadComplete,
+}: {
+  shoot: ShootData;
+  onUploadComplete: () => void;
+}) {
+  const { toast } = useToast();
+  const { trackUpload } = useUpload();
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [queueClassifications, setQueueClassifications] = useState<QueueClassificationMap>({});
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
+  const [notes, setNotes] = useState('');
+  const inputId = `raw-upload-input-${shoot.id}`;
+
+  const serviceObjects = useMemo(() => extractPhotoServicesFromServiceObjects(shoot), [shoot]);
+  const photoServices = useMemo(() => {
+    if (serviceObjects.length > 0) {
+      return serviceObjects;
+    }
+
+    return extractPhotoServicesFromServices(Array.isArray(shoot.services) ? shoot.services : []);
+  }, [serviceObjects, shoot.services]);
+
+  const defaultBracketMultiplier =
+    toPositiveCount(shoot.bracketMode ?? shoot.package?.bracketMode) ??
+    (isHdrShoot(Array.isArray(shoot.services) ? shoot.services : []) ? 5 : 1);
+  const [bracketMultiplier, setBracketMultiplier] = useState<number>(Math.max(1, defaultBracketMultiplier));
+
+  const existingCounts = useMemo(() => createEmptyMediaTypeCounts(), []);
+  const queueCounts = useMemo(
+    () => getQueueMediaTypeCounts(selectedFiles, queueClassifications),
+    [queueClassifications, selectedFiles],
+  );
+  const expectedCount = useMemo(
+    () => resolveExpectedRawCount(shoot, bracketMultiplier),
+    [bracketMultiplier, shoot],
+  );
+  const uploadedCount = selectedFiles.length;
+  const combinedCounts = useMemo(() => {
+    const nextCounts = createEmptyMediaTypeCounts();
+    TRACKED_MEDIA_TYPES.forEach((mediaType) => {
+      nextCounts[mediaType] = existingCounts[mediaType] + queueCounts[mediaType];
+    });
+    return nextCounts;
+  }, [existingCounts, queueCounts]);
+  const specialCountCards = useMemo(() => getMediaTypeCards(combinedCounts), [combinedCounts]);
+
+  useEffect(() => {
+    setSelectedFiles([]);
+    setQueueClassifications({});
+    setUploadProgress(0);
+    setIsUploading(false);
+    setNotes('');
+    setBracketMultiplier(Math.max(1, defaultBracketMultiplier));
+  }, [defaultBracketMultiplier, shoot.id]);
+
+  const mergeSelectedFiles = (incomingFiles: File[]) => {
+    if (incomingFiles.length === 0) return;
+
+    setSelectedFiles((currentFiles) => {
+      const nextFiles = [...currentFiles, ...incomingFiles];
+      setQueueClassifications((currentMap) =>
+        addFilesToClassificationMap(currentFiles, nextFiles, currentMap, (file) =>
+          !isVideoUpload(file) && isEditedFloorplanByName(file.name) ? 'floorplan' : undefined,
+        ),
+      );
+      return nextFiles;
+    });
+  };
+
+  const removeSelectedFile = (indexToRemove: number) => {
+    setSelectedFiles((currentFiles) => {
+      const nextFiles = currentFiles.filter((_, index) => index !== indexToRemove);
+      setQueueClassifications((currentMap) => reindexClassificationMap(nextFiles, currentMap));
+      return nextFiles;
+    });
+  };
+
+  const handleUpload = () => {
+    if (selectedFiles.length === 0 || isUploading) {
+      return;
+    }
+
+    const apiHeaders = getApiHeaders();
+    const authHeader = apiHeaders.Authorization;
+    const impersonateHeader = apiHeaders['X-Impersonate-User-Id'];
+    const filesForUpload = [...selectedFiles];
+    const classificationsForUpload = { ...queueClassifications };
+    const noteValue = notes.trim();
+
+    toast({
+      title: 'Raw upload started',
+      description: `${selectedFiles.length} file${selectedFiles.length !== 1 ? 's are' : ' is'} uploading in background.`,
+    });
+
+    setIsUploading(true);
+    setUploadProgress(0);
+
+    trackUpload({
+      shootId: String(shoot.id),
+      shootAddress: shoot.location?.fullAddress || shoot.location?.address || `Shoot #${shoot.id}`,
+      fileCount: filesForUpload.length,
+      fileNames: filesForUpload.map((file) => file.name),
+      uploadType: 'raw',
+      uploadFn: async (onProgress) => {
+        try {
+          const uploadOne = (file: File, index: number): Promise<{ success: boolean; error?: string }> =>
+            new Promise((resolve) => {
+              const formData = new FormData();
+              const mediaType = getQueueClassification(file, index, classificationsForUpload);
+              formData.append('files[]', file);
+              formData.append('upload_type', 'raw');
+              formData.append('bracket_mode', String(bracketMultiplier));
+              if (noteValue) {
+                formData.append('photographer_notes', noteValue);
+              }
+              if (isVideoUpload(file)) {
+                formData.append('service_category', 'video');
+              }
+              if (mediaType) {
+                formData.append('media_type', mediaType);
+                if (mediaType === 'extra') {
+                  formData.append('is_extra', '1');
+                }
+              }
+
+              const xhr = new XMLHttpRequest();
+              xhr.addEventListener('load', () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                  resolve({ success: true });
+                  return;
+                }
+
+                let message = 'Upload failed';
+                try {
+                  message = JSON.parse(xhr.responseText).message || message;
+                } catch {
+                  // Keep the generic message when the upload response is not JSON.
+                }
+                resolve({ success: false, error: `${file.name}: ${message}` });
+              });
+              xhr.addEventListener('error', () => resolve({ success: false, error: `${file.name}: Network error` }));
+              xhr.open('POST', `${API_BASE_URL}/api/shoots/${shoot.id}/upload`);
+              if (authHeader) xhr.setRequestHeader('Authorization', authHeader);
+              if (impersonateHeader) xhr.setRequestHeader('X-Impersonate-User-Id', impersonateHeader);
+              xhr.send(formData);
+            });
+
+          const concurrentUploads = 3;
+          let completed = 0;
+          const errors: string[] = [];
+
+          for (let index = 0; index < filesForUpload.length; index += concurrentUploads) {
+            const batch = filesForUpload.slice(index, index + concurrentUploads);
+            const results = await Promise.all(batch.map((file, batchIndex) => uploadOne(file, index + batchIndex)));
+            results.forEach((result) => {
+              completed += 1;
+              if (!result.success && result.error) {
+                errors.push(result.error);
+              }
+            });
+
+            const progressValue = Math.round((completed / filesForUpload.length) * 100);
+            setUploadProgress(progressValue);
+            onProgress(progressValue);
+          }
+
+          if (errors.length === filesForUpload.length) {
+            throw new Error(errors[0] || 'All files failed to upload');
+          }
+
+          triggerUploadRefreshes(shoot.id);
+          setSelectedFiles([]);
+          setQueueClassifications({});
+          setNotes('');
+          onUploadComplete();
+        } finally {
+          setIsUploading(false);
+        }
+      },
+    });
+  };
+
+  const progressValue = expectedCount > 0 ? Math.min(100, Math.round((uploadedCount / expectedCount) * 100)) : 0;
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <SummaryCard label="Expected" value={expectedCount} />
+        <SummaryCard label="Uploaded" value={uploadedCount} tone="info" />
+        {specialCountCards.map((card) => (
+          <SummaryCard key={card.type} label={card.label} value={card.count} tone="success" />
+        ))}
+      </div>
+
+      <div className="rounded-lg border bg-card p-4">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex items-center gap-3">
+            <CircularProgress progress={progressValue} />
+            <div>
+              <div className="text-sm font-medium text-foreground">Raw upload progress</div>
+              <div className="text-xs text-muted-foreground">
+                {expectedCount > 0
+                  ? `${uploadedCount} of ${expectedCount} expected raw files selected or uploaded`
+                  : `${uploadedCount} raw file${uploadedCount !== 1 ? 's' : ''} selected`}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2 text-xs text-muted-foreground">
+            <div>
+              Expected count follows `expected_raw_count` first, then falls back to edited expected count x bracket multiplier.
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-medium text-foreground">Bracket Multiplier</span>
+              {[1, 3, 5].map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={`rounded-md border px-2.5 py-1 text-xs transition-colors ${
+                    bracketMultiplier === value
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-border bg-background text-muted-foreground hover:text-foreground'
+                  }`}
+                  onClick={() => setBracketMultiplier(value)}
+                >
+                  {value}x
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
+
+        {photoServices.length > 0 && (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {photoServices.map((service) => (
+              <div key={`${service.name}-${service.count}`} className="rounded-full border bg-background px-3 py-1 text-xs">
+                {service.name} · {service.count}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {isUploading && selectedFiles.length > 0 && (
+        <UploadProgressCard
+          fileCount={selectedFiles.length}
+          fileNames={selectedFiles.map((file) => file.name)}
+          progress={uploadProgress}
+          note="Raw uploads continue in the background. You can leave this shoot and keep working elsewhere."
+        />
       )}
 
-      {uploadedFiles.length > 0 && (
-        <div className="flex gap-2">
-          <Button onClick={handleSubmitRAW} disabled={uploading || uploadedFiles.length === 0} className="flex-1 relative overflow-hidden">
-            <Upload className="h-4 w-4 mr-2" />
-            {uploading ? `Upload ${uploadedFiles.length} More Files` : 'Upload RAW Photos'}
+      <UploadDropzone
+        empty={selectedFiles.length === 0}
+        accept={FULL_UPLOAD_ACCEPT}
+        inputId={inputId}
+        title="Upload Raw Media"
+        description="Drag and drop raw captures here. Mark floorplans, extras, VS, GG, TW, or DR before upload so the dashboard files land in the right buckets."
+        buttonLabel="Choose Raw Files"
+        browseLabel="Drag and drop more raw files here or click to browse"
+        onBrowse={() => document.getElementById(inputId)?.click()}
+        onDrop={(event) => {
+          event.preventDefault();
+          mergeSelectedFiles(Array.from(event.dataTransfer.files || []));
+        }}
+        onDragOver={(event) => event.preventDefault()}
+        onFileSelect={(event) => {
+          mergeSelectedFiles(Array.from(event.target.files || []));
+          event.target.value = '';
+        }}
+      />
+
+      {selectedFiles.length > 0 && (
+        <div className="space-y-4 rounded-lg border bg-card p-4">
+          <div className="text-sm font-medium">Selected Files ({selectedFiles.length})</div>
+          <div className="max-h-72 space-y-2 overflow-y-auto">
+            {selectedFiles.map((file, index) => (
+              <div key={getQueueFileKey(file, index)} className="rounded-lg border bg-background px-3 py-2">
+                <div className="flex items-start gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium">{file.name}</div>
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      {isVideoUpload(file) ? 'Video file' : 'Photo / image file'}
+                    </div>
+                  </div>
+                  <UploadClassificationButtons
+                    file={file}
+                    index={index}
+                    classifications={queueClassifications}
+                    onToggle={(targetFile, targetIndex, mediaType) =>
+                      setQueueClassifications((currentMap) =>
+                        setQueueClassification(targetFile, targetIndex, mediaType, currentMap),
+                      )
+                    }
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 shrink-0"
+                    onClick={() => removeSelectedFile(index)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="space-y-2">
+            <div className="text-sm font-medium">Notes (Optional)</div>
+            <Textarea
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+              placeholder="Add any notes about this raw upload..."
+              className="min-h-[96px]"
+            />
+          </div>
+
+          <Button type="button" className="w-full" onClick={handleUpload} disabled={isUploading || selectedFiles.length === 0}>
+            {isUploading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Uploading Raw Files
+              </>
+            ) : (
+              <>
+                <Upload className="mr-2 h-4 w-4" />
+                Upload Raw Files
+              </>
+            )}
           </Button>
         </div>
       )}

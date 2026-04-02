@@ -45,13 +45,29 @@ const isVideoFile = (file: MediaFile): boolean => {
 const getNormalizedMediaType = (f: MediaFile): string => (f.media_type || '').toLowerCase();
 const isFloorplanFile = (f: MediaFile): boolean => getNormalizedMediaType(f) === 'floorplan';
 const isVirtualStagingFile = (f: MediaFile): boolean => getNormalizedMediaType(f) === 'virtual_staging';
+const isGreenGrassFile = (f: MediaFile): boolean => getNormalizedMediaType(f) === 'green_grass';
+const isTwilightFile = (f: MediaFile): boolean => getNormalizedMediaType(f) === 'twilight';
+const isDroneFile = (f: MediaFile): boolean => getNormalizedMediaType(f) === 'drone';
 const isExtraMediaFile = (f: MediaFile): boolean => Boolean(f.isExtra) || getNormalizedMediaType(f) === 'extra';
 
 const filterPhotoFiles = (files: MediaFile[]): MediaFile[] =>
-  files.filter((f) => !isVideoFile(f) && !isFloorplanFile(f) && !isVirtualStagingFile(f) && !isExtraMediaFile(f));
-const filterVideoFiles = (files: MediaFile[]): MediaFile[] => files.filter((f) => isVideoFile(f));
+  files.filter(
+    (f) =>
+      !isVideoFile(f) &&
+      !isFloorplanFile(f) &&
+      !isVirtualStagingFile(f) &&
+      !isGreenGrassFile(f) &&
+      !isTwilightFile(f) &&
+      !isDroneFile(f) &&
+      !isExtraMediaFile(f),
+  );
+const filterVideoFiles = (files: MediaFile[]): MediaFile[] =>
+  files.filter((f) => isVideoFile(f) && !isDroneFile(f) && !isExtraMediaFile(f));
 const filterFloorplanFiles = (files: MediaFile[]): MediaFile[] => files.filter((f) => isFloorplanFile(f));
 const filterVirtualStagingFiles = (files: MediaFile[]): MediaFile[] => files.filter((f) => isVirtualStagingFile(f));
+const filterGreenGrassFiles = (files: MediaFile[]): MediaFile[] => files.filter((f) => isGreenGrassFile(f));
+const filterTwilightFiles = (files: MediaFile[]): MediaFile[] => files.filter((f) => isTwilightFile(f));
+const filterDroneFiles = (files: MediaFile[]): MediaFile[] => files.filter((f) => isDroneFile(f));
 const filterExtraFiles = (files: MediaFile[]): MediaFile[] => files.filter((f) => isExtraMediaFile(f));
 
 interface UseShootMediaDerivedDataParams {
@@ -59,8 +75,26 @@ interface UseShootMediaDerivedDataParams {
   rawFiles: MediaFile[];
   editedFiles: MediaFile[];
   displayTab: 'uploaded' | 'edited';
-  uploadedMediaTab: 'photos' | 'videos' | 'iguide' | 'floorplans' | 'virtualStaging' | 'extras';
-  editedMediaTab: 'photos' | 'videos' | 'iguide' | 'floorplans' | 'virtualStaging' | 'extras';
+  uploadedMediaTab:
+    | 'photos'
+    | 'videos'
+    | 'iguide'
+    | 'floorplans'
+    | 'virtualStaging'
+    | 'greenGrass'
+    | 'twilight'
+    | 'drone'
+    | 'extras';
+  editedMediaTab:
+    | 'photos'
+    | 'videos'
+    | 'iguide'
+    | 'floorplans'
+    | 'virtualStaging'
+    | 'greenGrass'
+    | 'twilight'
+    | 'drone'
+    | 'extras';
   isAdmin: boolean;
   isPhotographer: boolean;
   isEditor: boolean;
@@ -87,6 +121,12 @@ export function useShootMediaDerivedData({
   const editedFloorplans = useMemo(() => filterFloorplanFiles(editedFiles), [editedFiles]);
   const uploadedVirtualStaging = useMemo(() => filterVirtualStagingFiles(rawFiles), [rawFiles]);
   const editedVirtualStaging = useMemo(() => filterVirtualStagingFiles(editedFiles), [editedFiles]);
+  const uploadedGreenGrass = useMemo(() => filterGreenGrassFiles(rawFiles), [rawFiles]);
+  const editedGreenGrass = useMemo(() => filterGreenGrassFiles(editedFiles), [editedFiles]);
+  const uploadedTwilight = useMemo(() => filterTwilightFiles(rawFiles), [rawFiles]);
+  const editedTwilight = useMemo(() => filterTwilightFiles(editedFiles), [editedFiles]);
+  const uploadedDrone = useMemo(() => filterDroneFiles(rawFiles), [rawFiles]);
+  const editedDrone = useMemo(() => filterDroneFiles(editedFiles), [editedFiles]);
   const uploadedExtras = useMemo(() => filterExtraFiles(rawFiles), [rawFiles]);
   const editedExtras = useMemo(() => filterExtraFiles(editedFiles), [editedFiles]);
 
@@ -110,6 +150,9 @@ export function useShootMediaDerivedData({
       if (uploadedMediaTab === 'videos') return uploadedVideos;
       if (uploadedMediaTab === 'floorplans') return uploadedFloorplans;
       if (uploadedMediaTab === 'virtualStaging') return uploadedVirtualStaging;
+      if (uploadedMediaTab === 'greenGrass') return uploadedGreenGrass;
+      if (uploadedMediaTab === 'twilight') return uploadedTwilight;
+      if (uploadedMediaTab === 'drone') return uploadedDrone;
       if (uploadedMediaTab === 'extras') return uploadedExtras;
       return rawFiles;
     }
@@ -118,6 +161,9 @@ export function useShootMediaDerivedData({
     if (editedMediaTab === 'videos') return editedVideos;
     if (editedMediaTab === 'floorplans') return editedFloorplans;
     if (editedMediaTab === 'virtualStaging') return editedVirtualStaging;
+    if (editedMediaTab === 'greenGrass') return editedGreenGrass;
+    if (editedMediaTab === 'twilight') return editedTwilight;
+    if (editedMediaTab === 'drone') return editedDrone;
     if (editedMediaTab === 'extras') return editedExtras;
     return editedFiles;
   }, [
@@ -128,11 +174,17 @@ export function useShootMediaDerivedData({
     uploadedVideos,
     uploadedFloorplans,
     uploadedVirtualStaging,
+    uploadedGreenGrass,
+    uploadedTwilight,
+    uploadedDrone,
     uploadedExtras,
     editedPhotos,
     editedVideos,
     editedFloorplans,
     editedVirtualStaging,
+    editedGreenGrass,
+    editedTwilight,
+    editedDrone,
     editedExtras,
     rawFiles,
     editedFiles,
@@ -147,6 +199,12 @@ export function useShootMediaDerivedData({
     editedFloorplans,
     uploadedVirtualStaging,
     editedVirtualStaging,
+    uploadedGreenGrass,
+    editedGreenGrass,
+    uploadedTwilight,
+    editedTwilight,
+    uploadedDrone,
+    editedDrone,
     uploadedExtras,
     editedExtras,
     iguideUrl,

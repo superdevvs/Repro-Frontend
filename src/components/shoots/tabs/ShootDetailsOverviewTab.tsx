@@ -526,14 +526,15 @@ export function ShootDetailsOverviewTab({
 
   const services = getServices();
 
-  const getServiceDisplayPrice = (service: ServiceOption) => {
+  const getServiceDisplayPrice = (service: ServiceOption | Record<string, unknown>) => {
     const serviceWithPrice = { ...service, price: service.price ?? 0 };
     const pricingInfo = effectiveSqft && service.pricing_type === 'variable' && service.sqft_ranges?.length
       ? getServicePricingForSqft(serviceWithPrice, effectiveSqft)
       : null;
-    return pricingInfo
-      ? serviceCurrencyFormatter.format(pricingInfo.price)
-      : serviceCurrencyFormatter.format(Number(service.price ?? 0));
+    const amount = isPhotographer
+      ? pricingInfo?.photographerPay ?? Number(service.photographer_pay ?? 0)
+      : pricingInfo?.price ?? Number(service.price ?? 0);
+    return serviceCurrencyFormatter.format(Number.isFinite(amount) ? amount : 0);
   };
 
   const getServiceCategoryBadgeName = (service: ServiceOption) => {
@@ -663,6 +664,7 @@ export function ShootDetailsOverviewTab({
         formatServiceLabel={formatServiceLabel}
         getServiceCountBadge={getServiceCountBadge}
         getServiceDisplayPrice={getServiceDisplayPrice}
+        getReadonlyServiceDisplayPrice={getServiceDisplayPrice}
         getServiceCategoryBadgeName={getServiceCategoryBadgeName}
         effectiveSqft={effectiveSqft}
       />

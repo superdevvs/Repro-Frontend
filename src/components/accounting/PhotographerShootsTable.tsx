@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ShootData } from '@/types/shoots';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/components/auth/AuthProvider';
 import {
   getPhotographerPayForShoot,
@@ -16,10 +15,10 @@ import {
 
 interface PhotographerShootsTableProps {
   shoots: ShootData[];
+  onViewShoot?: (shoot: ShootData) => void;
 }
 
-export function PhotographerShootsTable({ shoots }: PhotographerShootsTableProps) {
-  const navigate = useNavigate();
+export function PhotographerShootsTable({ shoots, onViewShoot }: PhotographerShootsTableProps) {
   const { user } = useAuth();
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
 
@@ -55,7 +54,7 @@ export function PhotographerShootsTable({ shoots }: PhotographerShootsTableProps
   };
 
   const handleViewShoot = (shoot: ShootData) => {
-    navigate(`/shoots/${shoot.id}`);
+    onViewShoot?.(shoot);
   };
 
   const filteredShoots = shoots.filter((shoot) => isShootAssignedToPhotographer(shoot, user));
@@ -137,6 +136,7 @@ export function PhotographerShootsTable({ shoots }: PhotographerShootsTableProps
                             onClick={() => handleViewShoot(shoot)} 
                             aria-label="View Shoot" 
                             className="px-3 py-1 text-xs"
+                            disabled={!onViewShoot}
                           >
                             <Eye className="h-3 w-3 mr-1" />
                             View Shoot
@@ -268,6 +268,7 @@ function ShootItem({
             size="sm" 
             onClick={() => onView(shoot)}
             className="px-3 py-1"
+            disabled={!onView}
           >
             <Eye className="h-3 w-3 mr-1" />
             View Shoot

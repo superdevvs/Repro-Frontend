@@ -19,9 +19,13 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { SegmentedDays } from "./OverviewCards";
 import {
   calculatePercentageTrend,
+  getEarningsDateRange,
+  getEarningsPeriodLabel,
   getPhotographerPayForShoot,
   getPhotographerPayoutStatus,
+  getPreviousEarningsDateRange,
   getShootCompletedDate,
+  isDateInRange,
   isCompletedShoot,
   isShootAssignedToPhotographer,
 } from "./photographerEarningsUtils";
@@ -118,55 +122,45 @@ export function RoleBasedOverviewCards({
       }
 
       case 'photographer': {
-        const previousMonthDate = new Date(currentYear, currentMonth - 1, 1);
-        const previousMonth = previousMonthDate.getMonth();
-        const previousMonthYear = previousMonthDate.getFullYear();
-
         const myShoots = shoots.filter((shoot) => isShootAssignedToPhotographer(shoot, user));
         const completedShoots = myShoots.filter(isCompletedShoot);
+        const currentRange = getEarningsDateRange(timeFilter ?? 'month', now);
+        const previousRange = getPreviousEarningsDateRange(timeFilter ?? 'month', now);
 
-        const filterShootsByMonth = (items: typeof completedShoots, month: number, year: number) =>
-          items.filter((shoot) => {
-            const completedDate = getShootCompletedDate(shoot);
-            return Boolean(
-              completedDate &&
-                completedDate.getMonth() === month &&
-                completedDate.getFullYear() === year,
-            );
-          });
-
-        const completedThisMonth = filterShootsByMonth(completedShoots, currentMonth, currentYear);
-        const completedPreviousMonth = filterShootsByMonth(
-          completedShoots,
-          previousMonth,
-          previousMonthYear,
+        const completedThisPeriod = completedShoots.filter((shoot) =>
+          isDateInRange(getShootCompletedDate(shoot), currentRange),
+        );
+        const completedPreviousPeriod = completedShoots.filter((shoot) =>
+          isDateInRange(getShootCompletedDate(shoot), previousRange),
         );
 
         const sumPhotographerPay = (items: typeof completedShoots) =>
           items.reduce((sum, shoot) => sum + getPhotographerPayForShoot(shoot, user), 0);
 
-        const totalEarnings = sumPhotographerPay(completedThisMonth);
-        const previousTotalEarnings = sumPhotographerPay(completedPreviousMonth);
+        const totalEarnings = sumPhotographerPay(completedThisPeriod);
+        const previousTotalEarnings = sumPhotographerPay(completedPreviousPeriod);
 
         const pendingPayoutShoots = completedShoots.filter(
-          (shoot) => getPhotographerPayoutStatus(shoot) === 'pending',
+          (shoot) =>
+            getPhotographerPayoutStatus(shoot) === 'pending' &&
+            isDateInRange(getShootCompletedDate(shoot), currentRange),
         );
-        const previousPendingPayoutShoots = completedPreviousMonth.filter(
+        const previousPendingPayoutShoots = completedPreviousPeriod.filter(
           (shoot) => getPhotographerPayoutStatus(shoot) === 'pending',
         );
         const pendingPayouts = sumPhotographerPay(pendingPayoutShoots);
         const previousPendingPayouts = sumPhotographerPay(previousPendingPayoutShoots);
 
-        const avgShootValue = completedThisMonth.length > 0 ? totalEarnings / completedThisMonth.length : 0;
+        const avgShootValue = completedThisPeriod.length > 0 ? totalEarnings / completedThisPeriod.length : 0;
         const previousAvgShootValue =
-          completedPreviousMonth.length > 0
-            ? previousTotalEarnings / completedPreviousMonth.length
+          completedPreviousPeriod.length > 0
+            ? previousTotalEarnings / completedPreviousPeriod.length
             : 0;
 
         return {
           totalEarnings: {
             value: totalEarnings,
-            count: completedThisMonth.length,
+            count: completedThisPeriod.length,
             trend: calculatePercentageTrend(totalEarnings, previousTotalEarnings),
           },
           pendingPayouts: {
@@ -175,16 +169,16 @@ export function RoleBasedOverviewCards({
             trend: calculatePercentageTrend(pendingPayouts, previousPendingPayouts),
           },
           shootsCompleted: {
-            value: completedThisMonth.length,
-            count: completedThisMonth.length,
+            value: completedThisPeriod.length,
+            count: completedThisPeriod.length,
             trend: calculatePercentageTrend(
-              completedThisMonth.length,
-              completedPreviousMonth.length,
+              completedThisPeriod.length,
+              completedPreviousPeriod.length,
             ),
           },
           avgShootValue: {
             value: avgShootValue,
-            count: completedThisMonth.length,
+            count: completedThisPeriod.length,
             trend: calculatePercentageTrend(avgShootValue, previousAvgShootValue),
           },
         };
@@ -344,11 +338,12 @@ export function RoleBasedOverviewCards({
           </>
         );
 
-      case 'photographer':
+      case 'photographer': {
+        const photographerPeriodLabel = getEarningsPeriodLabel(timeFilter ?? 'month');
         return (
           <>
             <OverviewCard
-              title="Total Earnings (This Month)"
+              title={`Total Earnings (${photographerPeriodLabel})`}
               value={`$${metrics.totalEarnings?.value.toLocaleString() || 0}`}
               description={`${metrics.totalEarnings?.count || 0} completed shoot${(metrics.totalEarnings?.count || 0) === 1 ? '' : 's'}`}
               icon={<DollarSign className="h-4 w-4" />}
@@ -366,7 +361,7 @@ export function RoleBasedOverviewCards({
               animated={true}
             />
             <OverviewCard
-              title="Shoots Completed (This Month)"
+              title={`Shoots Completed (${photographerPeriodLabel})`}
               value={`${metrics.shootsCompleted?.value || 0}`}
               description="Total completed"
               icon={<Camera className="h-4 w-4" />}
@@ -385,6 +380,7 @@ export function RoleBasedOverviewCards({
             />
           </>
         );
+      }
 
       case 'editor':
         return (

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
+import { useShoots } from '@/context/ShootsContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -45,6 +46,11 @@ import {
   rejectWeeklyInvoice,
   submitWeeklyInvoiceForApproval,
 } from '@/services/invoiceService';
+import {
+  getMatchingShootServiceForInvoiceItem,
+  getPhotographerPayForService,
+  getPhotographerPayForShoot,
+} from '@/components/accounting/photographerEarningsUtils';
 
 const approvalStatusConfig: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
   pending: { label: 'Pending Review', color: 'bg-yellow-100 text-yellow-800', icon: <Clock className="w-3 h-3" /> },
@@ -66,8 +72,9 @@ const formatDate = (dateStr: string) => {
 };
 
 export const WeeklyInvoiceReview: React.FC = () => {
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const { toast } = useToast();
+  const { shoots } = useShoots();
   const [invoices, setInvoices] = useState<WeeklyInvoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedInvoice, setSelectedInvoice] = useState<WeeklyInvoice | null>(null);
@@ -83,6 +90,52 @@ export const WeeklyInvoiceReview: React.FC = () => {
   const [totalInvoices, setTotalInvoices] = useState(0);
 
   const invoiceRole: 'photographer' | 'salesRep' = role === 'salesRep' ? 'salesRep' : 'photographer';
+
+  const shootLookup = React.useMemo(() => {
+    const map = new Map<string, (typeof shoots)[number]>();
+    shoots.forEach((shoot) => {
+      map.set(String(shoot.id), shoot);
+    });
+    return map;
+  }, [shoots]);
+
+  const getChargeDisplayAmount = useCallback(
+    (invoice: WeeklyInvoice, item: WeeklyInvoiceItem) => {
+      const rawAmount = typeof item.total_amount === 'string' ? parseFloat(item.total_amount) : item.total_amount;
+      if (invoiceRole !== 'photographer') {
+        return Number(rawAmount || 0);
+      }
+
+      const shoot =
+        item.shoot_id != null
+          ? shootLookup.get(String(item.shoot_id))
+          : null;
+
+      if (!shoot) {
+        return Number(rawAmount || 0);
+      }
+
+      const matchedService = getMatchingShootServiceForInvoiceItem(shoot, item.description);
+      if (matchedService) {
+        return getPhotographerPayForService(shoot, matchedService);
+      }
+
+      const sameShootCharges = (invoice.items || []).filter(
+        (invoiceItem) =>
+          invoiceItem.type === 'charge' &&
+          invoiceItem.shoot_id != null &&
+          item.shoot_id != null &&
+          String(invoiceItem.shoot_id) === String(item.shoot_id),
+      );
+
+      if (sameShootCharges.length === 1) {
+        return getPhotographerPayForShoot(shoot, user);
+      }
+
+      return Number(rawAmount || 0);
+    },
+    [invoiceRole, shootLookup, user],
+  );
 
   const loadInvoices = useCallback(async () => {
     try {
@@ -265,8 +318,9 @@ export const WeeklyInvoiceReview: React.FC = () => {
         const statusCfg = approvalStatusConfig[invoice.approval_status] || approvalStatusConfig.pending;
         const charges = (invoice.items || []).filter((i) => i.type === 'charge');
         const expenses = (invoice.items || []).filter((i) => i.type === 'expense');
-        const totalCharges = charges.reduce((s, i) => s + parseFloat(String(i.total_amount || 0)), 0);
+        const totalCharges = charges.reduce((sum, item) => sum + getChargeDisplayAmount(invoice, item), 0);
         const totalExpenses = expenses.reduce((s, i) => s + parseFloat(String(i.total_amount || 0)), 0);
+        const invoiceDisplayTotal = totalCharges + totalExpenses;
 
         return (
           <Card key={invoice.id} className="overflow-hidden">
@@ -296,7 +350,7 @@ export const WeeklyInvoiceReview: React.FC = () => {
                   )}
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-lg font-bold">{formatCurrency(invoice.total_amount)}</span>
+                  <span className="text-lg font-bold">{formatCurrency(invoiceDisplayTotal)}</span>
                 </div>
               </div>
               {invoice.rejection_reason && invoice.approval_status === 'rejected' && (
@@ -322,7 +376,9 @@ export const WeeklyInvoiceReview: React.FC = () => {
                   {charges.map((item) => (
                     <TableRow key={item.id}>
                       <TableCell className="text-sm">{item.description}</TableCell>
-                      <TableCell className="text-right font-medium">{formatCurrency(item.total_amount)}</TableCell>
+                      <TableCell className="text-right font-medium">
+                        {formatCurrency(getChargeDisplayAmount(invoice, item))}
+                      </TableCell>
                       <TableCell></TableCell>
                     </TableRow>
                   ))}

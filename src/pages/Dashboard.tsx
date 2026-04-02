@@ -2153,7 +2153,7 @@ const Dashboard = () => {
           description: "Open top priority",
           icon: <Sparkles size={16} />,
           accent: "from-indigo-50 to-white text-indigo-600 dark:from-indigo-900/80 dark:to-indigo-800/80 dark:text-indigo-200",
-          onClick: () => openFirstPendingShoot(editorPendingReviews, "editing queue"),
+          onClick: () => openFirstPendingShoot(editorUpcoming, "editing queue"),
         },
         {
           id: "upload-edits",
@@ -2227,7 +2227,6 @@ const Dashboard = () => {
             upcomingTitle="Editing queue"
             upcomingSubtitle="Uploads & active edits"
             upcomingEmptyStateText="No edits in progress yet."
-            upcomingDefaultShowPastDays
             pendingReviews={editorPendingReviews}
             pendingCard={
               <PendingReviewsCard

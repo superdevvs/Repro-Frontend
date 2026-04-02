@@ -35,6 +35,7 @@ type OverviewServicesSectionProps = {
   formatServiceLabel: (service: any) => string;
   getServiceCountBadge: (service: any) => string | null;
   getServiceDisplayPrice: (service: ServiceOption) => string;
+  getReadonlyServiceDisplayPrice: (service: any) => string;
   getServiceCategoryBadgeName: (service: ServiceOption) => string | null;
   effectiveSqft: number | null;
 };
@@ -57,6 +58,7 @@ export function OverviewServicesSection({
   formatServiceLabel,
   getServiceCountBadge,
   getServiceDisplayPrice,
+  getReadonlyServiceDisplayPrice,
   getServiceCategoryBadgeName,
   effectiveSqft,
 }: OverviewServicesSectionProps) {
@@ -218,7 +220,7 @@ export function OverviewServicesSection({
                 )}
               </div>
               <span className="font-medium text-muted-foreground whitespace-nowrap">
-                ${Number(serviceObject.price).toFixed(2)}
+                {getReadonlyServiceDisplayPrice(serviceObject)}
               </span>
             </div>
           ))}

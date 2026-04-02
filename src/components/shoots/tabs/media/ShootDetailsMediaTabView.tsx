@@ -63,6 +63,9 @@ export function ShootDetailsMediaTabView(props: any) {
     iguideFloorplans,
     uploadedFloorplans,
     uploadedVirtualStaging,
+    uploadedGreenGrass,
+    uploadedTwilight,
+    uploadedDrone,
     uploadedExtras,
     renderMediaGridPane,
     AdminUploadSection,
@@ -76,6 +79,9 @@ export function ShootDetailsMediaTabView(props: any) {
     editedVideos,
     editedFloorplans,
     editedVirtualStaging,
+    editedGreenGrass,
+    editedTwilight,
+    editedDrone,
     editedExtras,
     openViewer,
     toggleSelection,
@@ -92,6 +98,7 @@ export function ShootDetailsMediaTabView(props: any) {
     toggleFileHidden,
   } = props;
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
+  const canMarkSelectedFiles = !isClient && (!isEditor || displayTab === 'edited');
   return (
     <div className="flex flex-col h-full min-h-0 bg-background px-1 sm:px-4 lg:px-6" style={{ height: '100%', minHeight: '100%' }}>
       {/* Download progress popup */}
@@ -356,7 +363,7 @@ export function ShootDetailsMediaTabView(props: any) {
             {canDownload && selectedFiles.size > 0 && (
               <>
                 {/* Mark selected files - admin only */}
-                {!isClient && !isEditor && (
+                {canMarkSelectedFiles && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
@@ -459,7 +466,7 @@ export function ShootDetailsMediaTabView(props: any) {
         <div className="mb-1.5 pb-1 border-b flex-shrink-0 sm:hidden">
           <div className="flex items-center justify-end gap-1.5">
             {/* Mark selected files - mobile */}
-            {!isClient && !isEditor && (
+            {canMarkSelectedFiles && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -687,6 +694,30 @@ export function ShootDetailsMediaTabView(props: any) {
                           Virtual Staging ({uploadedVirtualStaging.length})
                         </button>
                       )}
+                      {uploadedGreenGrass.length > 0 && (
+                        <button
+                          onClick={() => setUploadedMediaTab('greenGrass')}
+                          className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${uploadedMediaTab === 'greenGrass' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
+                        >
+                          Green Grass ({uploadedGreenGrass.length})
+                        </button>
+                      )}
+                      {uploadedTwilight.length > 0 && (
+                        <button
+                          onClick={() => setUploadedMediaTab('twilight')}
+                          className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${uploadedMediaTab === 'twilight' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
+                        >
+                          Twilight ({uploadedTwilight.length})
+                        </button>
+                      )}
+                      {uploadedDrone.length > 0 && (
+                        <button
+                          onClick={() => setUploadedMediaTab('drone')}
+                          className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${uploadedMediaTab === 'drone' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
+                        >
+                          Drone ({uploadedDrone.length})
+                        </button>
+                      )}
                       {uploadedExtras.length > 0 && (
                         <button
                           onClick={() => setUploadedMediaTab('extras')}
@@ -808,6 +839,27 @@ export function ShootDetailsMediaTabView(props: any) {
                       'Upload files marked as VS to keep virtual staging assets grouped separately from standard photos.',
                     )}
 
+                  {uploadedMediaTab === 'greenGrass' &&
+                    renderMediaGridPane(
+                      uploadedGreenGrass,
+                      'No green grass files yet',
+                      'Upload files marked as GG to keep green grass edits grouped separately from standard photos.',
+                    )}
+
+                  {uploadedMediaTab === 'twilight' &&
+                    renderMediaGridPane(
+                      uploadedTwilight,
+                      'No twilight files yet',
+                      'Upload files marked as TW to keep twilight edits grouped separately from standard photos.',
+                    )}
+
+                  {uploadedMediaTab === 'drone' &&
+                    renderMediaGridPane(
+                      uploadedDrone,
+                      'No drone files yet',
+                      'Upload files marked as DR to keep drone deliverables grouped separately from the main gallery.',
+                    )}
+
                   {uploadedMediaTab === 'extras' &&
                     renderMediaGridPane(
                       uploadedExtras,
@@ -889,6 +941,30 @@ export function ShootDetailsMediaTabView(props: any) {
                           className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'virtualStaging' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
                         >
                           Virtual Staging ({editedVirtualStaging.length})
+                        </button>
+                      )}
+                      {editedGreenGrass.length > 0 && (
+                        <button
+                          onClick={() => setEditedMediaTab('greenGrass')}
+                          className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'greenGrass' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
+                        >
+                          Green Grass ({editedGreenGrass.length})
+                        </button>
+                      )}
+                      {editedTwilight.length > 0 && (
+                        <button
+                          onClick={() => setEditedMediaTab('twilight')}
+                          className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'twilight' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
+                        >
+                          Twilight ({editedTwilight.length})
+                        </button>
+                      )}
+                      {editedDrone.length > 0 && (
+                        <button
+                          onClick={() => setEditedMediaTab('drone')}
+                          className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'drone' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
+                        >
+                          Drone ({editedDrone.length})
                         </button>
                       )}
                       {editedExtras.length > 0 && (
@@ -1010,6 +1086,27 @@ export function ShootDetailsMediaTabView(props: any) {
                       editedVirtualStaging,
                       'No virtual staging files yet',
                       'Files marked as VS will appear here so virtual staging deliverables stay separated from the main gallery.',
+                    )}
+
+                  {editedMediaTab === 'greenGrass' &&
+                    renderMediaGridPane(
+                      editedGreenGrass,
+                      'No green grass files yet',
+                      'Files marked as GG will appear here so green grass edits stay separated from the main gallery.',
+                    )}
+
+                  {editedMediaTab === 'twilight' &&
+                    renderMediaGridPane(
+                      editedTwilight,
+                      'No twilight files yet',
+                      'Files marked as TW will appear here so twilight deliverables stay separated from the main gallery.',
+                    )}
+
+                  {editedMediaTab === 'drone' &&
+                    renderMediaGridPane(
+                      editedDrone,
+                      'No drone files yet',
+                      'Files marked as DR will appear here so drone deliverables stay separated from the main gallery.',
                     )}
 
                   {editedMediaTab === 'extras' &&

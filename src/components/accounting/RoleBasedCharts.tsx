@@ -10,7 +10,9 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import { BarChart3, PieChart, LineChart as LineChartIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
+  getEarningsPeriodLabel,
   getPhotographerPayForShoot,
+  getPhotographerChartBuckets,
   getShootCompletedDate,
   isCompletedShoot,
   isShootAssignedToPhotographer,
@@ -76,25 +78,25 @@ export function RoleBasedCharts({
       }
 
       case 'photographer': {
-        const currentYear = new Date().getFullYear();
+        const buckets = getPhotographerChartBuckets(timeFilter);
         const myShoots = shoots.filter((shoot) => isShootAssignedToPhotographer(shoot, user));
         const completedShoots = myShoots.filter(isCompletedShoot);
-        return months.map((m, index) => {
-          const monthShoots = completedShoots.filter((shoot) => {
+        return buckets.map((bucket) => {
+          const bucketShoots = completedShoots.filter((shoot) => {
             const completedDate = getShootCompletedDate(shoot);
             return Boolean(
               completedDate &&
-                completedDate.getMonth() === index &&
-                completedDate.getFullYear() === currentYear,
+                completedDate >= bucket.start &&
+                completedDate <= bucket.end,
             );
           });
-          const earnings = monthShoots.reduce((sum, shoot) => {
+          const earnings = bucketShoots.reduce((sum, shoot) => {
             return sum + getPhotographerPayForShoot(shoot, user);
           }, 0);
           return { 
-            month: m, 
+            month: bucket.label, 
             earnings: Math.round(earnings),
-            shootCount: monthShoots.length,
+            shootCount: bucketShoots.length,
           };
         });
       }
@@ -183,8 +185,8 @@ export function RoleBasedCharts({
         };
       case 'photographer':
         return {
-          title: 'Earnings Overview',
-          description: 'Track your earnings and shoot count over time',
+          title: `Earnings Overview (${getEarningsPeriodLabel(timeFilter)})`,
+          description: 'Track your earnings and shoot count over the selected period',
           dataKey: 'month',
           series: [
             { dataKey: 'earnings', name: 'Earnings', color: '#3b82f6' },
@@ -229,7 +231,7 @@ export function RoleBasedCharts({
           series: [],
         };
     }
-  }, [mode]);
+  }, [mode, timeFilter]);
 
   const renderChart = () => {
     const { series, dataKey } = chartConfig;
@@ -293,7 +295,7 @@ export function RoleBasedCharts({
               {chartConfig.description}
             </CardDescription>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 justify-end">
             <ToggleGroup
               type="single"
               value={chartType}
@@ -308,6 +310,32 @@ export function RoleBasedCharts({
               </ToggleGroupItem>
               <ToggleGroupItem value="line" aria-label="Line chart" className="px-3 py-1">
                 <LineChartIcon className="h-4 w-4" />
+              </ToggleGroupItem>
+            </ToggleGroup>
+            <ToggleGroup
+              type="single"
+              value={timeFilter}
+              onValueChange={(value) =>
+                value && onTimeFilterChange(value as 'day' | 'week' | 'month' | 'quarter' | 'year')
+              }
+              className="border rounded-md"
+            >
+              <ToggleGroupItem value="day" aria-label="Day filter" className="px-3 py-1 text-xs">
+                Day
+              </ToggleGroupItem>
+              <ToggleGroupItem value="week" aria-label="Week filter" className="px-3 py-1 text-xs">
+                Week
+              </ToggleGroupItem>
+              <ToggleGroupItem value="month" aria-label="Month filter" className="px-3 py-1 text-xs">
+                Month
+              </ToggleGroupItem>
+              {mode !== 'photographer' && (
+                <ToggleGroupItem value="quarter" aria-label="Quarter filter" className="px-3 py-1 text-xs">
+                  Quarter
+                </ToggleGroupItem>
+              )}
+              <ToggleGroupItem value="year" aria-label="Year filter" className="px-3 py-1 text-xs">
+                Year
               </ToggleGroupItem>
             </ToggleGroup>
           </div>

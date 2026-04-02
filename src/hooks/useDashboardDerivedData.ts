@@ -13,6 +13,7 @@ import {
   filterCompletedShoots,
   filterDeliveredShoots,
   filterPendingReviews,
+  filterReadyToDeliverShoots,
   filterRequestedShoots,
   filterUpcomingShoots,
   isAssignmentMatch,
@@ -138,7 +139,26 @@ export const useDashboardDerivedData = ({
     () => toSummaryList(editorSourceShoots),
     [editorSourceShoots, toSummaryList],
   );
-  const editorUpcoming = useMemo(() => filterUpcomingShoots(editorSummaries, role), [editorSummaries, role]);
+  const editorReadyToDeliver = useMemo(
+    () => filterReadyToDeliverShoots(editorSummaries),
+    [editorSummaries],
+  );
+  const editorUpcoming = useMemo(() => {
+    const baseQueue = filterUpcomingShoots(editorSummaries, role);
+    if (!editorReadyToDeliver.length) {
+      return baseQueue;
+    }
+
+    const queueById = new Map<number, DashboardShootSummary>();
+    baseQueue.forEach((shoot) => {
+      queueById.set(shoot.id, shoot);
+    });
+    editorReadyToDeliver.forEach((shoot) => {
+      queueById.set(shoot.id, shoot);
+    });
+
+    return Array.from(queueById.values()).sort(sortByStartAsc);
+  }, [editorReadyToDeliver, editorSummaries, role]);
 
   const photographerUpcoming = useMemo(
     () => filterUpcomingShoots(photographerSummaries, role),
@@ -175,7 +195,14 @@ export const useDashboardDerivedData = ({
     return filtered;
   }, [allSummaries, role]);
 
-  const editorDelivered = useMemo(() => filterDeliveredShoots(editorSummaries), [editorSummaries]);
+  const editorDelivered = useMemo(() => {
+    if (!editorReadyToDeliver.length) {
+      return filterDeliveredShoots(editorSummaries);
+    }
+
+    const readyIds = new Set(editorReadyToDeliver.map((shoot) => shoot.id));
+    return filterDeliveredShoots(editorSummaries).filter((shoot) => !readyIds.has(shoot.id));
+  }, [editorReadyToDeliver, editorSummaries]);
 
   // Optimize client shoots filtering
   const clientShoots = useMemo(() => {

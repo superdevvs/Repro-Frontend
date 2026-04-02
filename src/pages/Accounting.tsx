@@ -42,6 +42,9 @@ import { WeeklyInvoiceReview } from '@/components/invoices/WeeklyInvoiceReview';
 import { PayoutReportPanel } from '@/components/accounting/PayoutReportPanel';
 import { PendingInvoiceApprovals } from '@/components/accounting/PendingInvoiceApprovals';
 import { EditingManagerVerificationView } from '@/components/accounting/EditingManagerVerificationView';
+import { ShootDetailsModalWrapper } from '@/components/dashboard/v2/ShootDetailsModalWrapper';
+import type { DashboardShootSummary } from '@/types/dashboard';
+import { shootDataToSummary } from '@/utils/dashboardDerivedUtils';
 
 const toNumber = (value: unknown) => {
   const num = Number(value);
@@ -174,6 +177,7 @@ const AccountingPage = () => {
   const [invoices, setInvoices] = useState<InvoiceData[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedInvoice, setSelectedInvoice] = useState<ViewableInvoice | null>(null);
+  const [selectedPhotographerShoot, setSelectedPhotographerShoot] = useState<DashboardShootSummary | null>(null);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -441,6 +445,10 @@ const AccountingPage = () => {
     setViewDialogOpen(true);
   };
 
+  const handleViewPhotographerShoot = (shoot: ShootData) => {
+    setSelectedPhotographerShoot(shootDataToSummary(shoot));
+  };
+
   const handlePayInvoice = (invoice: InvoiceData) => {
     if (!canMarkAsPaid) return; // Use permission check
     setSelectedInvoice(invoice);
@@ -639,7 +647,7 @@ const AccountingPage = () => {
                       />
                     )}
                   </div>
-                  {(config.showPaymentsSummary || config.showLatestTransactions || accountingMode === 'editor') && (
+                  {(config.showPaymentsSummary || config.showLatestTransactions || accountingMode === 'editor' || accountingMode === 'photographer' || accountingMode === 'rep') && (
                     <div className="lg:col-span-1 flex flex-col gap-3 h-full">
                       {accountingMode === 'admin' ? (
                         <PaymentsSummary invoices={adminWindowInvoices} />
@@ -656,6 +664,7 @@ const AccountingPage = () => {
                             mode={accountingMode}
                             shoots={shoots}
                             editingJobs={editingJobs}
+                            timeFilter={timeFilter}
                           />
                         </>
                       ) : (
@@ -664,6 +673,7 @@ const AccountingPage = () => {
                           mode={accountingMode}
                           shoots={shoots}
                           editingJobs={editingJobs}
+                          timeFilter={timeFilter}
                         />
                       )}
                     </div>
@@ -680,7 +690,10 @@ const AccountingPage = () => {
               {accountingMode !== 'client' && config.showInvoiceTable && (
                 <>
                   {accountingMode === 'photographer' ? (
-                    <PhotographerShootsTable shoots={shoots} />
+                    <PhotographerShootsTable
+                      shoots={shoots}
+                      onViewShoot={handleViewPhotographerShoot}
+                    />
                   ) : accountingMode === 'editor' ? (
                     <EditorJobsTable jobs={editingJobs} />
                   ) : (
@@ -754,6 +767,13 @@ const AccountingPage = () => {
           onClose={() => setEditDialogOpen(false)}
           invoice={selectedInvoice as InvoiceData}
           onInvoiceEdit={handleInvoiceEdit}
+        />
+      )}
+
+      {selectedPhotographerShoot && (
+        <ShootDetailsModalWrapper
+          shoot={selectedPhotographerShoot}
+          onClose={() => setSelectedPhotographerShoot(null)}
         />
       )}
     </DashboardLayout>

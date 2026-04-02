@@ -7,6 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { ImageUpload } from "@/components/profile/ImageUpload";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { toast } from "sonner";
@@ -21,8 +29,13 @@ import axios from 'axios';
 export function PhotographerProfile() {
   const { user, setUser } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [taxDialogOpen, setTaxDialogOpen] = useState(false);
+  const [selectedTaxDocument, setSelectedTaxDocument] = useState<File | null>(null);
+  const [taxNotes, setTaxNotes] = useState("");
+  const [isTaxSubmitting, setIsTaxSubmitting] = useState(false);
   const navigate = useNavigate();
   const { preferences, setTemperatureUnit, setTimeFormat } = useUserPreferences();
+  const userMetadata = (user?.metadata as Record<string, unknown> | undefined) ?? {};
   
   const [formData, setFormData] = useState({
     name: user?.name || "",
@@ -35,9 +48,11 @@ export function PhotographerProfile() {
     avatar: user?.avatar || "",
     portfolioWebsite: "",
     weeklyInvoice: true,
-    taxInfoSubmitted: false,
-    travelRange: (user as any)?.metadata?.travel_range ?? 25,
-    travelRangeUnit: (user as any)?.metadata?.travel_range_unit ?? "miles",
+    taxInfoSubmitted: Boolean(userMetadata.tax_document_submitted_at || userMetadata.tax_document_url),
+    taxDocumentName: String(userMetadata.tax_document_name ?? ""),
+    taxSubmittedAt: String(userMetadata.tax_document_submitted_at ?? ""),
+    travelRange: userMetadata.travel_range ?? 25,
+    travelRangeUnit: String(userMetadata.travel_range_unit ?? "miles"),
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -129,6 +144,66 @@ export function PhotographerProfile() {
       toast.error(error instanceof Error ? error.message : "Failed to update profile");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleTaxDocumentSubmit = async () => {
+    if (!selectedTaxDocument) {
+      toast.error("Please choose a tax document to upload.");
+      return;
+    }
+
+    setIsTaxSubmitting(true);
+
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      if (!token) {
+        throw new Error("Not authenticated");
+      }
+
+      const payload = new FormData();
+      payload.append('document', selectedTaxDocument);
+      if (taxNotes.trim()) {
+        payload.append('notes', taxNotes.trim());
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/profile/tax-document`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/json',
+        },
+        body: payload,
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to submit tax document');
+      }
+
+      if (data.user && user) {
+        setUser({ ...user, ...data.user });
+      }
+
+      const submittedAt = data.user?.metadata?.tax_document_submitted_at || new Date().toISOString();
+      const documentName = data.user?.metadata?.tax_document_name || selectedTaxDocument.name;
+
+      setFormData((prev) => ({
+        ...prev,
+        taxInfoSubmitted: true,
+        taxDocumentName: documentName,
+        taxSubmittedAt: submittedAt,
+      }));
+
+      setSelectedTaxDocument(null);
+      setTaxNotes('');
+      setTaxDialogOpen(false);
+      toast.success("Tax document submitted successfully.");
+    } catch (error) {
+      console.error('Error submitting tax document:', error);
+      toast.error(error instanceof Error ? error.message : "Failed to submit tax document");
+    } finally {
+      setIsTaxSubmitting(false);
     }
   };
 
@@ -350,12 +425,23 @@ export function PhotographerProfile() {
                     <div className="space-y-0.5">
                       <Label htmlFor="taxInfo">Tax Information</Label>
                       <p className="text-sm text-muted-foreground">W9 or equivalent tax documentation</p>
+                      {formData.taxDocumentName && (
+                        <p className="text-xs text-muted-foreground">
+                          {formData.taxDocumentName}
+                          {formData.taxSubmittedAt ? ` • Submitted ${new Date(formData.taxSubmittedAt).toLocaleDateString()}` : ''}
+                        </p>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium">
                         {formData.taxInfoSubmitted ? 'Submitted' : 'Required'}
                       </span>
-                      <Button size="sm" variant={formData.taxInfoSubmitted ? "outline" : "default"}>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={formData.taxInfoSubmitted ? "outline" : "default"}
+                        onClick={() => setTaxDialogOpen(true)}
+                      >
                         {formData.taxInfoSubmitted ? 'Update' : 'Submit'}
                       </Button>
                     </div>
@@ -451,6 +537,69 @@ export function PhotographerProfile() {
           </Card>
         </div>
       </div>
+
+      <Dialog open={taxDialogOpen} onOpenChange={setTaxDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{formData.taxInfoSubmitted ? 'Update Tax Document' : 'Submit Tax Document'}</DialogTitle>
+            <DialogDescription>
+              Upload your W9 or equivalent tax documentation so the team can verify your payout setup.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="tax-document-file">Document</Label>
+              <Input
+                id="tax-document-file"
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                onChange={(event) => setSelectedTaxDocument(event.target.files?.[0] ?? null)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Accepted: PDF, JPG, PNG, DOC, DOCX up to 10 MB.
+              </p>
+              {selectedTaxDocument && (
+                <p className="text-sm text-foreground">{selectedTaxDocument.name}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="tax-document-notes">Notes (Optional)</Label>
+              <Textarea
+                id="tax-document-notes"
+                value={taxNotes}
+                onChange={(event) => setTaxNotes(event.target.value)}
+                placeholder="Add any context for admin or accounting..."
+                className="min-h-[100px]"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setTaxDialogOpen(false);
+                setSelectedTaxDocument(null);
+                setTaxNotes('');
+              }}
+              disabled={isTaxSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleTaxDocumentSubmit}
+              disabled={isTaxSubmitting || !selectedTaxDocument}
+            >
+              {isTaxSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {formData.taxInfoSubmitted ? 'Update Document' : 'Submit Document'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

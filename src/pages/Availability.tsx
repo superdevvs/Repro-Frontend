@@ -308,6 +308,7 @@ export default function Availability() {
 
   const isAdmin = role === 'admin' || role === 'superadmin';
   const isPhotographer = role === 'photographer';
+  const photographerScopedBlockId = isPhotographer && user?.id ? String(user.id) : "";
 
   const authHeaders = () => {
     const token = localStorage.getItem("authToken") || localStorage.getItem("token");
@@ -688,6 +689,32 @@ export default function Availability() {
       setSelectedPhotographer(String(user.id));
     }
   }, [isPhotographer, user, selectedPhotographer]);
+
+  useEffect(() => {
+    if (!isBlockDialogOpen) return;
+
+    setBlockPhotographer((currentPhotographer) => {
+      if (photographerScopedBlockId) {
+        return photographerScopedBlockId;
+      }
+
+      if (currentPhotographer) {
+        return currentPhotographer;
+      }
+
+      return selectedPhotographer === "all" ? "" : selectedPhotographer;
+    });
+
+    if (isPhotographer) {
+      setBlockPhotographerOpen(false);
+      setBlockPhotographerSearch("");
+    }
+  }, [
+    isBlockDialogOpen,
+    isPhotographer,
+    photographerScopedBlockId,
+    selectedPhotographer,
+  ]);
 
   // Load slots when photographer or date changes — abort stale requests on dep change
   useEffect(() => {
@@ -5069,7 +5096,18 @@ export default function Availability() {
       </Dialog>
 
       {/* Block Time Dialog */}
-      <Dialog open={isBlockDialogOpen} onOpenChange={(open) => { setIsBlockDialogOpen(open); if (!open) { setBlockPhotographerOpen(false); } }}>
+      <Dialog
+        open={isBlockDialogOpen}
+        onOpenChange={(open) => {
+          setIsBlockDialogOpen(open);
+          if (!open) {
+            setBlockPhotographerOpen(false);
+            setBlockPhotographerSearch("");
+            setBlockPhotographer(photographerScopedBlockId);
+            setBlockSchedule({ date: null, startTime: "09:00", endTime: "17:00" });
+          }
+        }}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Block Time</DialogTitle>
@@ -5079,72 +5117,80 @@ export default function Availability() {
           </DialogHeader>
 
           <div className="space-y-4 py-4">
-            {/* Photographer Selector */}
-            <div className="space-y-2">
-              <Label>Photographer</Label>
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setBlockPhotographerOpen(!blockPhotographerOpen)}
-                  className={cn(
-                    "flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background",
-                    !blockPhotographer && "text-muted-foreground"
-                  )}
-                >
-                  <span className="truncate">{blockPhotographer ? getPhotographerName(blockPhotographer) : "Choose Photographer"}</span>
-                  <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
-                </button>
-                {blockPhotographerOpen && (
-                  <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-popover shadow-md">
-                    <div className="p-2">
-                      <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-muted/50">
-                        <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                        <input
-                          type="text"
-                          placeholder="Search photographers..."
-                          value={blockPhotographerSearch}
-                          onChange={(e) => setBlockPhotographerSearch(e.target.value)}
-                          className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-                          autoFocus
-                        />
+            {!isPhotographer ? (
+              <div className="space-y-2">
+                <Label>Photographer</Label>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setBlockPhotographerOpen(!blockPhotographerOpen)}
+                    className={cn(
+                      "flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background",
+                      !blockPhotographer && "text-muted-foreground"
+                    )}
+                  >
+                    <span className="truncate">{blockPhotographer ? getPhotographerName(blockPhotographer) : "Choose Photographer"}</span>
+                    <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
+                  </button>
+                  {blockPhotographerOpen && (
+                    <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-popover shadow-md">
+                      <div className="p-2">
+                        <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-muted/50">
+                          <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <input
+                            type="text"
+                            placeholder="Search photographers..."
+                            value={blockPhotographerSearch}
+                            onChange={(e) => setBlockPhotographerSearch(e.target.value)}
+                            className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                            autoFocus
+                          />
+                        </div>
+                      </div>
+                      <div className="max-h-48 overflow-y-auto px-1 pb-1">
+                        {photographers
+                          .filter((p) =>
+                            p.name.toLowerCase().includes(blockPhotographerSearch.toLowerCase())
+                          )
+                          .map((p) => (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onClick={() => {
+                                setBlockPhotographer(p.id);
+                                setBlockPhotographerOpen(false);
+                                setBlockPhotographerSearch("");
+                              }}
+                              className={cn(
+                                "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground transition-colors",
+                                blockPhotographer === p.id && "bg-accent text-accent-foreground"
+                              )}
+                            >
+                              <Avatar className="h-6 w-6">
+                                <AvatarImage src={getAvatarUrl(p.avatar)} />
+                                <AvatarFallback className="text-xs">{p.name.charAt(0)}</AvatarFallback>
+                              </Avatar>
+                              <span className="truncate">{p.name}</span>
+                            </button>
+                          ))}
+                        {photographers.filter((p) =>
+                          p.name.toLowerCase().includes(blockPhotographerSearch.toLowerCase())
+                        ).length === 0 && (
+                          <div className="px-2 py-3 text-sm text-muted-foreground text-center">No photographers found</div>
+                        )}
                       </div>
                     </div>
-                    <div className="max-h-48 overflow-y-auto px-1 pb-1">
-                      {photographers
-                        .filter((p) =>
-                          p.name.toLowerCase().includes(blockPhotographerSearch.toLowerCase())
-                        )
-                        .map((p) => (
-                          <button
-                            key={p.id}
-                            type="button"
-                            onClick={() => {
-                              setBlockPhotographer(p.id);
-                              setBlockPhotographerOpen(false);
-                              setBlockPhotographerSearch("");
-                            }}
-                            className={cn(
-                              "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground transition-colors",
-                              blockPhotographer === p.id && "bg-accent text-accent-foreground"
-                            )}
-                          >
-                            <Avatar className="h-6 w-6">
-                              <AvatarImage src={getAvatarUrl(p.avatar)} />
-                              <AvatarFallback className="text-xs">{p.name.charAt(0)}</AvatarFallback>
-                            </Avatar>
-                            <span className="truncate">{p.name}</span>
-                          </button>
-                        ))}
-                      {photographers.filter((p) =>
-                        p.name.toLowerCase().includes(blockPhotographerSearch.toLowerCase())
-                      ).length === 0 && (
-                        <div className="px-2 py-3 text-sm text-muted-foreground text-center">No photographers found</div>
-                      )}
-                    </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="space-y-2">
+                <Label>Photographer</Label>
+                <div className="flex h-10 w-full items-center rounded-md border border-input bg-muted/40 px-3 py-2 text-sm">
+                  {user?.name || getPhotographerName(photographerScopedBlockId)}
+                </div>
+              </div>
+            )}
 
             {/* Date */}
             <div className="space-y-2">
@@ -5210,8 +5256,9 @@ export default function Availability() {
             <Button variant="outline" onClick={() => {
               setIsBlockDialogOpen(false);
               setBlockSchedule({ date: null, startTime: "09:00", endTime: "17:00" });
-              setBlockPhotographer("");
+              setBlockPhotographer(photographerScopedBlockId);
               setBlockPhotographerSearch("");
+              setBlockPhotographerOpen(false);
             }}>Cancel</Button>
             <Button
               variant="destructive"
@@ -5269,8 +5316,9 @@ export default function Availability() {
                     await refreshPhotographerSlots();
                     setIsBlockDialogOpen(false);
                     setBlockSchedule({ date: null, startTime: "09:00", endTime: "17:00" });
-                    setBlockPhotographer("");
+                    setBlockPhotographer(photographerScopedBlockId);
                     setBlockPhotographerSearch("");
+                    setBlockPhotographerOpen(false);
                     toast({
                       title: "Time blocked",
                       description: `Blocked ${startTime} - ${endTime} on ${format(blockSchedule.date, "MMMM d, yyyy")}`,
