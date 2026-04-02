@@ -3,13 +3,15 @@ import { Mail, FileText, Zap, Settings, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/components/auth/AuthProvider';
+import { canSendExternalEmail } from '@/utils/messagingRoles';
 
 export function EmailNavigation() {
   const { pathname } = useLocation();
   const { role } = useAuth();
   const isClient = role === 'client';
   const isAdmin = role === 'admin' || role === 'superadmin';
-  const canManageMessaging = isAdmin || role === 'salesRep';
+  const canManageMessaging = canSendExternalEmail(role);
+  const showComposeButton = pathname !== '/messaging/email/compose';
 
   const allTabs = [
     {
@@ -75,19 +77,20 @@ export function EmailNavigation() {
             );
           })}
         </div>
-        <Button
-          variant="default"
-          size="sm"
-          asChild
-          className="shrink-0 hidden sm:inline-flex"
-        >
-          <Link to="/messaging/email/compose">
-            <Pencil className="h-4 w-4 mr-2" />
-            {composeLabel}
-          </Link>
-        </Button>
+        {showComposeButton && (
+          <Button
+            variant="default"
+            size="sm"
+            asChild
+            className="shrink-0 hidden sm:inline-flex"
+          >
+            <Link to="/messaging/email/compose">
+              <Pencil className="h-4 w-4 mr-2" />
+              {composeLabel}
+            </Link>
+          </Button>
+        )}
       </div>
     </div>
   );
 }
-

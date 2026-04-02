@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { endOfMonth, format, parseISO, startOfMonth, subMonths } from 'date-fns';
 import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, ExternalLink, FileText } from 'lucide-react';
 
@@ -7,6 +7,15 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
 import {
   Select,
   SelectContent,
@@ -477,6 +486,24 @@ const buildVerificationRow = (
 const summaryCardTone = (value: number) =>
   Math.abs(value) > 0.01 ? 'text-amber-600' : 'text-emerald-600';
 
+const rowsPerPageOptions = [10, 20, 50, 100] as const;
+
+const buildPaginationItems = (currentPage: number, totalPages: number) => {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  if (currentPage <= 4) {
+    return [1, 2, 3, 4, 5, 'ellipsis', totalPages] as const;
+  }
+
+  if (currentPage >= totalPages - 3) {
+    return [1, 'ellipsis', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages] as const;
+  }
+
+  return [1, 'ellipsis', currentPage - 1, currentPage, currentPage + 1, 'ellipsis', totalPages] as const;
+};
+
 export function EditingManagerVerificationView({
   shoots,
   invoices,
@@ -491,6 +518,8 @@ export function EditingManagerVerificationView({
   const [statusFilter, setStatusFilter] = useState<VerificationStatusFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedShoot, setSelectedShoot] = useState<DashboardShootSummary | null>(null);
+  const [rowsPerPage, setRowsPerPage] = useState(20);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const shootLookup = useMemo(() => {
     const map = new Map<string, ShootData>();
@@ -631,6 +660,29 @@ export function EditingManagerVerificationView({
       Boolean(searchQuery.trim()),
     [datePreset, editorFilter, fromDate, searchQuery, statusFilter, toDate],
   );
+
+  const totalPages = Math.max(Math.ceil(filteredRows.length / rowsPerPage), 1);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [editorFilter, fromDate, rowsPerPage, searchQuery, statusFilter, toDate]);
+
+  useEffect(() => {
+    setCurrentPage((page) => Math.min(page, totalPages));
+  }, [totalPages]);
+
+  const paginatedRows = useMemo(() => {
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    return filteredRows.slice(startIndex, startIndex + rowsPerPage);
+  }, [currentPage, filteredRows, rowsPerPage]);
+
+  const paginationItems = useMemo(
+    () => buildPaginationItems(currentPage, totalPages),
+    [currentPage, totalPages],
+  );
+
+  const pageStart = filteredRows.length === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
+  const pageEnd = filteredRows.length === 0 ? 0 : Math.min(currentPage * rowsPerPage, filteredRows.length);
 
   const toggleRow = (shootId: string) => {
     setExpandedRows((current) => ({
@@ -826,7 +878,29 @@ export function EditingManagerVerificationView({
               )}
             </div>
           ) : (
-            <Table>
+            <div className="space-y-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-muted-foreground">
+                  Showing {pageStart}-{pageEnd} of {filteredRows.length} verification row{filteredRows.length === 1 ? '' : 's'}
+                </p>
+                <div className="flex items-center gap-2 self-start sm:self-auto">
+                  <span className="text-sm text-muted-foreground">Rows per page</span>
+                  <Select value={String(rowsPerPage)} onValueChange={(value) => setRowsPerPage(Number(value))}>
+                    <SelectTrigger className="w-[90px]">
+                      <SelectValue placeholder="20" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {rowsPerPageOptions.map((option) => (
+                        <SelectItem key={option} value={String(option)}>
+                          {option}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <Table>
               <caption className="sr-only">
                 Shoot verification rows with invoice subtotal, tax, total, and review status.
               </caption>
@@ -846,7 +920,7 @@ export function EditingManagerVerificationView({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredRows.map((row) => {
+                {paginatedRows.map((row) => {
                   const isExpanded = Boolean(expandedRows[row.shootId]);
                   const hasIssues = row.discrepancyFlags.length > 0;
                   return (
@@ -1056,7 +1130,62 @@ export function EditingManagerVerificationView({
                   );
                 })}
               </TableBody>
-            </Table>
+              </Table>
+
+              {totalPages > 1 && (
+                <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm text-muted-foreground">
+                    Page {currentPage} of {totalPages}
+                  </p>
+                  <Pagination className="justify-start sm:justify-end">
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          href="#"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            if (currentPage > 1) {
+                              setCurrentPage(currentPage - 1);
+                            }
+                          }}
+                          className={currentPage === 1 ? 'pointer-events-none opacity-50' : ''}
+                        />
+                      </PaginationItem>
+                      {paginationItems.map((item, index) => (
+                        <PaginationItem key={`${item}-${index}`}>
+                          {item === 'ellipsis' ? (
+                            <PaginationEllipsis />
+                          ) : (
+                            <PaginationLink
+                              href="#"
+                              isActive={item === currentPage}
+                              onClick={(event) => {
+                                event.preventDefault();
+                                setCurrentPage(item);
+                              }}
+                            >
+                              {item}
+                            </PaginationLink>
+                          )}
+                        </PaginationItem>
+                      ))}
+                      <PaginationItem>
+                        <PaginationNext
+                          href="#"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            if (currentPage < totalPages) {
+                              setCurrentPage(currentPage + 1);
+                            }
+                          }}
+                          className={currentPage === totalPages ? 'pointer-events-none opacity-50' : ''}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                </div>
+              )}
+            </div>
           )}
         </CardContent>
       </Card>

@@ -1,22 +1,46 @@
-import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import {
+  AlertCircle,
+  ArrowLeft,
+  CalendarClock,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  Hash,
+  Info,
+  Mail,
+  Paperclip,
+  Send,
+  Sparkles,
+  Trash2,
+  Users,
+  X,
+} from 'lucide-react';
+import { toast } from 'sonner';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { EmailNavigation } from '@/components/messaging/email/EmailNavigation';
-import { Card } from '@/components/ui/card';
+import { useAuth } from '@/components/auth/AuthProvider';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { toast } from 'sonner';
-import { 
-  Send, Clock, FileText, Paperclip, Users, X, 
-  Pencil, Reply, Forward, ChevronDown, Check, 
-  Bold, Italic, List, Link2, Smile, Hash,
-  AlertCircle, Zap, Lightbulb, Info
-} from 'lucide-react';
-import { getEmailSettings, getTemplates, composeEmail, scheduleEmail, getEmailRecipients, getEmailMessages } from '@/services/messaging';
-import { useAuth } from '@/components/auth/AuthProvider';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import {
   Select,
   SelectContent,
@@ -25,46 +49,132 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import {
   Command,
   CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
   CommandList,
+  CommandSeparator,
 } from '@/components/ui/command';
-import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
-import type { ComposeEmailPayload, Message, MessagingJsonObject, MessagingJsonValue } from '@/types/messaging';
+import {
+  composeEmail,
+  getEmailComposeRecipients,
+  getEmailMessages,
+  getEmailSettings,
+  getTemplates,
+  previewTemplate,
+  scheduleEmail,
+} from '@/services/messaging';
+import { canSendExternalEmail } from '@/utils/messagingRoles';
+import type {
+  ComposeEmailPayload,
+  EmailComposeRecipient,
+  Message,
+  MessagingJsonObject,
+  MessagingJsonValue,
+} from '@/types/messaging';
 
 type Priority = 'normal' | 'high' | 'urgent';
-
 type EmailComposeMode = 'compose' | 'reply' | 'forward';
+type RecipientField = 'to' | 'cc' | 'bcc';
 
 type EmailComposeLocationState = {
   mode?: EmailComposeMode;
   message?: Message;
 };
 
-const isMessagingJsonValue = (value: unknown): value is MessagingJsonValue => {
-  if (value == null) {
-    return true;
-  }
+type ComposeRecipients = Record<RecipientField, string[]>;
+type RecipientInputs = Record<RecipientField, string>;
+type RecipientErrors = Partial<Record<RecipientField, string>>;
 
-  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+type DraftAttachmentPlaceholder = {
+  name: string;
+  size: number;
+  type: string;
+  needsReattach: boolean;
+};
+
+type ComposeDraft = {
+  version: 1;
+  form: ComposeFormState;
+  recipients: ComposeRecipients;
+  showCcBcc: boolean;
+  priority: Priority;
+  previewMode: boolean;
+  attachments: DraftAttachmentPlaceholder[];
+};
+
+type ComposeFormState = {
+  channel_id: string;
+  subject: string;
+  body_text: string;
+  body_html: string;
+  template_id: string;
+  related_shoot_id: string;
+  related_account_id: string;
+  related_invoice_id: string;
+  variables: string;
+  reply_to: string;
+  scheduled_at: string;
+};
+
+const EMPTY_RECIPIENTS: ComposeRecipients = {
+  to: [],
+  cc: [],
+  bcc: [],
+};
+
+const EMPTY_INPUTS: RecipientInputs = {
+  to: '',
+  cc: '',
+  bcc: '',
+};
+
+const EMPTY_FORM: ComposeFormState = {
+  channel_id: '',
+  subject: '',
+  body_text: '',
+  body_html: '',
+  template_id: '',
+  related_shoot_id: '',
+  related_account_id: '',
+  related_invoice_id: '',
+  variables: '',
+  reply_to: '',
+  scheduled_at: '',
+};
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const variableLibrary = [
+  { name: 'client_name', label: 'Client Name', source: 'contact' },
+  { name: 'shoot_date', label: 'Shoot Date', source: 'shoot' },
+  { name: 'shoot_time', label: 'Shoot Time', source: 'shoot' },
+  { name: 'shoot_address', label: 'Shoot Address', source: 'shoot' },
+  { name: 'company_name', label: 'Company Name', source: 'account' },
+  { name: 'invoice_total', label: 'Invoice Total', source: 'invoice' },
+];
+
+const bodyTextToHtml = (text: string) =>
+  text.trim()
+    ? text
+      .split('\n')
+      .map((line) => `<p>${line || '&nbsp;'}</p>`)
+      .join('')
+    : '';
+
+const normalizeEmail = (email: string) => email.trim().toLowerCase();
+
+const splitRecipientCandidates = (value: string) =>
+  value
+    .split(/[,\n;]+/)
+    .map((candidate) => normalizeEmail(candidate))
+    .filter(Boolean);
+
+const isMessagingJsonValue = (value: unknown): value is MessagingJsonValue => {
+  if (value == null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
     return true;
   }
 
@@ -79,14 +189,19 @@ const isMessagingJsonValue = (value: unknown): value is MessagingJsonValue => {
   return false;
 };
 
-const isMessagingJsonObject = (value: unknown): value is MessagingJsonObject => {
-  return Boolean(value)
-    && typeof value === 'object'
-    && !Array.isArray(value)
-    && Object.values(value as Record<string, unknown>).every(isMessagingJsonValue);
+const isMessagingJsonObject = (value: unknown): value is MessagingJsonObject =>
+  Boolean(value)
+  && typeof value === 'object'
+  && !Array.isArray(value)
+  && Object.values(value as Record<string, unknown>).every(isMessagingJsonValue);
+
+const formatFileSize = (size: number) => {
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 };
 
-const getEmailComposeErrorMessage = (error: unknown, fallback: string) => {
+const getComposeErrorMessage = (error: unknown, fallback: string) => {
   if (error && typeof error === 'object') {
     const response = 'response' in error
       ? (error as { response?: { data?: { error?: unknown; message?: unknown } } }).response
@@ -113,801 +228,1289 @@ const getEmailComposeErrorMessage = (error: unknown, fallback: string) => {
 export default function EmailCompose() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { role } = useAuth();
-  const isAdmin = role === 'admin' || role === 'superadmin';
-  const canUseTemplates = isAdmin || role === 'salesRep';
+  const { role, user } = useAuth();
+  const canSendExternal = canSendExternalEmail(role);
   const composeState = (location.state as EmailComposeLocationState | null) ?? {};
   const composeMode: EmailComposeMode =
     composeState.mode === 'reply' || composeState.mode === 'forward' || composeState.mode === 'compose'
       ? composeState.mode
       : 'compose';
   const originalMessage = composeState.message;
-  const composeLabel =
-    composeMode === 'reply' ? 'Send Reply' : composeMode === 'forward' ? 'Forward Message' : isAdmin ? 'Compose Email' : 'Compose Message';
-  const sendLabel = composeMode === 'reply' ? 'Send Reply' : composeMode === 'forward' ? 'Forward' : isAdmin ? 'Send Now' : 'Send Message';
-  const inboxRecipientLabel = 'To';
-  const [formData, setFormData] = useState({
-    channel_id: '',
-    to: '',
-    cc: '',
-    bcc: '',
-    reply_to: '',
-    subject: '',
-    body_html: '',
-    body_text: '',
-    template_id: '',
-    related_shoot_id: '',
-    related_account_id: '',
-    related_invoice_id: '',
-    variables: '',
-  });
+
+  const [form, setForm] = useState<ComposeFormState>(EMPTY_FORM);
+  const [recipients, setRecipients] = useState<ComposeRecipients>(EMPTY_RECIPIENTS);
+  const [recipientInputs, setRecipientInputs] = useState<RecipientInputs>(EMPTY_INPUTS);
+  const [recipientErrors, setRecipientErrors] = useState<RecipientErrors>({});
   const [showCcBcc, setShowCcBcc] = useState(false);
   const [attachments, setAttachments] = useState<File[]>([]);
-  const [scheduledAt, setScheduledAt] = useState('');
-  const [showScheduleDialog, setShowScheduleDialog] = useState(false);
-  const [recipientSearch, setRecipientSearch] = useState('');
+  const [draftAttachments, setDraftAttachments] = useState<DraftAttachmentPlaceholder[]>([]);
   const [priority, setPriority] = useState<Priority>('normal');
+  const [previewMode, setPreviewMode] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [directoryField, setDirectoryField] = useState<RecipientField | null>(null);
+  const [directorySearch, setDirectorySearch] = useState('');
+  const [debouncedDirectorySearch, setDebouncedDirectorySearch] = useState('');
+  const [showScheduleDialog, setShowScheduleDialog] = useState(false);
+  const [draftHydrated, setDraftHydrated] = useState(false);
+  const [draftWasRestored, setDraftWasRestored] = useState(false);
+  const [templateCustomized, setTemplateCustomized] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Mode-aware styling
-  const modeConfig = {
-    compose: { 
-      icon: Pencil, 
-      color: 'bg-muted', 
-      accent: 'text-foreground',
-      buttonClass: '',
-      title: 'Compose Message',
-      subtitle: 'NEW OUTBOUND COMMUNICATION'
-    },
-    reply: { 
-      icon: Reply, 
-      color: 'bg-blue-500/10', 
-      accent: 'text-blue-600',
-      buttonClass: 'bg-blue-600 hover:bg-blue-700',
-      title: 'Reply',
-      subtitle: 'REPLYING TO MESSAGE'
-    },
-    forward: { 
-      icon: Forward, 
-      color: 'bg-orange-500/10', 
-      accent: 'text-orange-600',
-      buttonClass: 'bg-orange-600 hover:bg-orange-700',
-      title: 'Forward',
-      subtitle: 'FORWARDING MESSAGE'
-    },
-  };
-  const currentMode = modeConfig[composeMode];
-  const ModeIcon = currentMode.icon;
+  const draftKey = `email-compose-draft:${user?.id ?? 'anonymous'}:${composeMode}:${originalMessage?.id ?? 'new'}`;
 
-  // Priority colors
-  const priorityConfig = {
-    normal: { label: 'Normal', class: 'bg-muted hover:bg-muted/80' },
-    high: { label: 'High', class: 'bg-yellow-500/20 text-yellow-700 hover:bg-yellow-500/30' },
-    urgent: { label: 'Urgent', class: 'bg-red-500/20 text-red-700 hover:bg-red-500/30' },
-  };
+  const currentMode = useMemo(() => {
+    if (composeMode === 'reply') {
+      return {
+        title: 'Reply',
+        subtitle: 'Respond with context and clear next steps',
+        sendLabel: 'Send Reply',
+      };
+    }
 
-  // Autosave simulation
+    if (composeMode === 'forward') {
+      return {
+        title: 'Forward',
+        subtitle: 'Pass along the message with supporting context',
+        sendLabel: 'Forward Email',
+      };
+    }
+
+    return {
+      title: canSendExternal ? 'Compose Email' : 'Message Internal Team',
+      subtitle: canSendExternal ? 'Transactional outbound workspace' : 'This message goes straight to the internal inbox',
+      sendLabel: canSendExternal ? 'Send Email' : 'Send Message',
+    };
+  }, [canSendExternal, composeMode]);
+
   useEffect(() => {
-    if (formData.body_text || formData.subject) {
-      const timer = setTimeout(() => setLastSaved(new Date()), 2000);
-      return () => clearTimeout(timer);
-    }
-  }, [formData.body_text, formData.subject]);
+    const timer = window.setTimeout(() => setDebouncedDirectorySearch(directorySearch.trim()), 250);
+    return () => window.clearTimeout(timer);
+  }, [directorySearch]);
 
-  // Character/word count
-  const charCount = formData.body_text.length;
-  const wordCount = formData.body_text.trim() ? formData.body_text.trim().split(/\s+/).length : 0;
-  const recipientCount = formData.to ? formData.to.split(',').filter(Boolean).length : 0;
-
-  // Insert variable helper
-  const insertVariable = useCallback((variable: string) => {
-    setFormData(prev => ({
-      ...prev,
-      body_text: prev.body_text + `{{${variable}}}`,
-      body_html: prev.body_html + `{{${variable}}}`,
-    }));
-  }, []);
-
-  const parsedVariables = useMemo(() => {
-    if (!formData.variables) {
-      return undefined;
-    }
-
+  useEffect(() => {
     try {
-      const parsed = JSON.parse(formData.variables) as unknown;
-      return isMessagingJsonObject(parsed) ? parsed : undefined;
-    } catch (error) {
-      return undefined;
+      const rawDraft = window.localStorage.getItem(draftKey);
+      if (!rawDraft) {
+        setDraftHydrated(true);
+        return;
+      }
+
+      const parsedDraft = JSON.parse(rawDraft) as ComposeDraft;
+      if (parsedDraft.version !== 1) {
+        setDraftHydrated(true);
+        return;
+      }
+
+      setForm((prev) => ({ ...prev, ...parsedDraft.form }));
+      setRecipients(parsedDraft.recipients ?? EMPTY_RECIPIENTS);
+      setShowCcBcc(Boolean(parsedDraft.showCcBcc));
+      setPriority(parsedDraft.priority ?? 'normal');
+      setPreviewMode(Boolean(parsedDraft.previewMode));
+      setDraftAttachments(parsedDraft.attachments ?? []);
+      setDraftWasRestored(true);
+      setTemplateCustomized(Boolean(parsedDraft.form?.template_id));
+    } catch {
+      window.localStorage.removeItem(draftKey);
+    } finally {
+      setDraftHydrated(true);
     }
-  }, [formData.variables]) as ComposeEmailPayload['variables'];
-
-  // Fetch channels
-  const { data: settingsData } = useQuery({
-    queryKey: ['email-settings'],
-    queryFn: getEmailSettings,
-    enabled: isAdmin,
-  });
-
-  // Fetch templates
-  const { data: templates } = useQuery({
-    queryKey: ['templates', 'EMAIL'],
-    queryFn: () => getTemplates({ channel: 'EMAIL', is_active: true }),
-    enabled: canUseTemplates,
-  });
-
-  // Fetch recipients (admins only)
-  const { data: recipientsData = [] } = useQuery({
-    queryKey: ['email-recipients'],
-    queryFn: getEmailRecipients,
-    enabled: isAdmin,
-  });
-
-  const { data: recentMessagesData } = useQuery({
-    queryKey: ['email-recent-messages'],
-    queryFn: () => getEmailMessages({ per_page: 50 }),
-    enabled: !isAdmin,
-  });
-
-  const channels = useMemo(() => (isAdmin ? settingsData?.channels ?? [] : []), [isAdmin, settingsData?.channels]);
-  const recipients = recipientsData;
-  const recentRecipients = useMemo(() => {
-    const messages = recentMessagesData?.data ?? [];
-    const emails = new Map<string, { name?: string; email: string }>();
-    messages
-      .filter((message) => message.direction === 'OUTBOUND' && message.to_address)
-      .forEach((message) => {
-        if (!emails.has(message.to_address)) {
-          emails.set(message.to_address, {
-            name: message.sender_display_name,
-            email: message.to_address,
-          });
-        }
-      });
-    return Array.from(emails.values()).map((entry, index) => ({
-      id: index + 1,
-      name: entry.name,
-      email: entry.email,
-    }));
-  }, [recentMessagesData]);
+  }, [draftKey]);
 
   useEffect(() => {
-    if (!isAdmin || channels.length === 0 || formData.channel_id) return;
-    const defaultChannel = channels.find((channel) => channel.is_default) ?? channels[0];
-    if (defaultChannel?.id) {
-      setFormData((prev) => ({ ...prev, channel_id: defaultChannel.id.toString() }));
+    if (!originalMessage || draftWasRestored) {
+      return;
     }
-  }, [channels, formData.channel_id, isAdmin]);
 
-  const recipientOptions = isAdmin ? recipients : recentRecipients;
-  const recipientLabel = isAdmin ? 'Select' : 'Recent Recipients';
-  const recipientPlaceholder = isAdmin ? 'Search contacts...' : 'Search recent recipients...';
-  const recipientEmptyLabel = isAdmin
-    ? 'No contacts found.'
-    : 'No recent recipients. Type an email in the To field.';
-  const recipientHeading = isAdmin
-    ? `Contacts (${recipientOptions.length})`
-    : `Recent Recipients (${recipientOptions.length})`;
-
-  // Prefill when replying/forwarding
-  useEffect(() => {
-    if (!originalMessage) return;
     const baseSubject = originalMessage.subject || '';
-    const newSubject = composeMode === 'reply' ? `Re: ${baseSubject}` : composeMode === 'forward' ? `Fwd: ${baseSubject}` : baseSubject;
+    const prefix = composeMode === 'reply' ? 'Re: ' : composeMode === 'forward' ? 'Fwd: ' : '';
     const quotedBody = originalMessage.body_text
       ? `\n\n---- Original message ----\n${originalMessage.body_text}`
       : '';
 
-    setFormData((prev) => ({
+    setForm((prev) => ({
       ...prev,
-      subject: newSubject,
-      to: composeMode === 'reply' ? originalMessage.from_address || prev.to : prev.to,
-      body_text: composeMode === 'forward' ? quotedBody : prev.body_text,
-      body_html: composeMode === 'forward' && quotedBody ? `<p>${quotedBody.replace(/\n/g, '</p><p>')}</p>` : prev.body_html,
-      related_shoot_id: originalMessage.related_shoot_id?.toString() || prev.related_shoot_id,
-      related_account_id: originalMessage.related_account_id?.toString() || prev.related_account_id,
-      related_invoice_id: originalMessage.related_invoice_id?.toString() || prev.related_invoice_id,
+      subject: prev.subject || `${prefix}${baseSubject}`,
+      body_text: composeMode === 'forward' && !prev.body_text ? quotedBody.trimStart() : prev.body_text,
+      body_html: composeMode === 'forward' && !prev.body_html ? bodyTextToHtml(quotedBody.trimStart()) : prev.body_html,
+      related_shoot_id: prev.related_shoot_id || (originalMessage.related_shoot_id ? String(originalMessage.related_shoot_id) : ''),
+      related_account_id: prev.related_account_id || (originalMessage.related_account_id ? String(originalMessage.related_account_id) : ''),
+      related_invoice_id: prev.related_invoice_id || (originalMessage.related_invoice_id ? String(originalMessage.related_invoice_id) : ''),
     }));
-  }, [composeMode, originalMessage]);
 
-  // Send email mutation
+    if (canSendExternal && originalMessage.from_address) {
+      setRecipients((prev) => ({ ...prev, to: [normalizeEmail(originalMessage.from_address!)] }));
+    }
+  }, [canSendExternal, composeMode, draftWasRestored, originalMessage]);
+
+  useEffect(() => {
+    if (!draftHydrated) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      const attachmentPlaceholders = [
+        ...draftAttachments,
+        ...attachments.map((file) => ({
+          name: file.name,
+          size: file.size,
+          type: file.type || 'application/octet-stream',
+          needsReattach: true,
+        })),
+      ];
+
+      const hasContent = Boolean(
+        recipients.to.length
+        || recipients.cc.length
+        || recipients.bcc.length
+        || form.subject.trim()
+        || form.body_text.trim()
+        || form.template_id
+        || form.related_shoot_id
+        || form.related_account_id
+        || form.related_invoice_id
+        || form.variables.trim()
+        || attachments.length
+        || draftAttachments.length,
+      );
+
+      if (!hasContent) {
+        window.localStorage.removeItem(draftKey);
+        return;
+      }
+
+      const draft: ComposeDraft = {
+        version: 1,
+        form,
+        recipients,
+        showCcBcc,
+        priority,
+        previewMode,
+        attachments: attachmentPlaceholders,
+      };
+
+      window.localStorage.setItem(draftKey, JSON.stringify(draft));
+      setLastSaved(new Date());
+    }, 700);
+
+    return () => window.clearTimeout(timer);
+  }, [attachments, draftAttachments, draftHydrated, draftKey, form, previewMode, priority, recipients, showCcBcc]);
+
+  const { data: settingsData } = useQuery({
+    queryKey: ['email-settings', canSendExternal],
+    queryFn: getEmailSettings,
+    enabled: canSendExternal,
+  });
+
+  const { data: templates = [] } = useQuery({
+    queryKey: ['email-templates'],
+    queryFn: () => getTemplates({ channel: 'EMAIL', is_active: true }),
+    enabled: canSendExternal,
+  });
+
+  const { data: recentMessagesData } = useQuery({
+    queryKey: ['email-compose-recent-messages', canSendExternal],
+    queryFn: () => getEmailMessages({ per_page: 50 }),
+    enabled: canSendExternal,
+  });
+
+  const { data: directoryMatches = [] } = useQuery({
+    queryKey: ['email-compose-recipients', debouncedDirectorySearch],
+    queryFn: () => getEmailComposeRecipients({
+      search: debouncedDirectorySearch || undefined,
+      limit: 20,
+    }),
+    enabled: canSendExternal && directoryField !== null,
+  });
+
+  const parsedVariables = useMemo(() => {
+    if (!form.variables.trim()) {
+      return undefined;
+    }
+
+    try {
+      const parsed = JSON.parse(form.variables) as unknown;
+      return isMessagingJsonObject(parsed) ? parsed : undefined;
+    } catch {
+      return undefined;
+    }
+  }, [form.variables]);
+
+  const variableJsonError = useMemo(() => {
+    if (!form.variables.trim()) {
+      return undefined;
+    }
+
+    try {
+      const parsed = JSON.parse(form.variables) as unknown;
+      return isMessagingJsonObject(parsed) ? undefined : 'Variables must be a JSON object.';
+    } catch {
+      return 'Variables must be valid JSON.';
+    }
+  }, [form.variables]);
+
+  const previewVariables = useMemo(() => {
+    const merged: Record<string, MessagingJsonValue> = {
+      ...(parsedVariables ?? {}),
+    };
+
+    if (form.related_shoot_id) merged.shoot_id = Number(form.related_shoot_id);
+    if (form.related_account_id) merged.account_id = Number(form.related_account_id);
+    if (form.related_invoice_id) merged.invoice_id = Number(form.related_invoice_id);
+
+    return merged as MessagingJsonObject;
+  }, [form.related_account_id, form.related_invoice_id, form.related_shoot_id, parsedVariables]);
+
+  const { data: templatePreviewData } = useQuery({
+    queryKey: ['email-template-preview', form.template_id, previewVariables],
+    queryFn: () => previewTemplate(Number(form.template_id), previewVariables),
+    enabled: canSendExternal && Boolean(form.template_id) && !variableJsonError,
+  });
+
+  const channels = settingsData?.channels ?? [];
+
+  useEffect(() => {
+    if (!canSendExternal || form.channel_id || channels.length === 0) {
+      return;
+    }
+
+    const defaultChannel = channels.find((channel) => channel.is_default) ?? channels[0];
+    if (defaultChannel?.id) {
+      setForm((prev) => ({ ...prev, channel_id: String(defaultChannel.id) }));
+    }
+  }, [canSendExternal, channels, form.channel_id]);
+
+  const selectedTemplate = useMemo(
+    () => templates.find((template) => template.id === Number(form.template_id)),
+    [form.template_id, templates],
+  );
+
+  const recentRecipients = useMemo(() => {
+    const recentList = recentMessagesData?.data ?? [];
+    const uniqueRecipients = new Map<string, EmailComposeRecipient>();
+
+    recentList
+      .filter((message) => message.direction === 'OUTBOUND' && message.to_address)
+      .forEach((message) => {
+        const email = normalizeEmail(message.to_address);
+        if (uniqueRecipients.has(email)) {
+          return;
+        }
+
+        uniqueRecipients.set(email, {
+          id: `local-recent-${message.id}`,
+          email,
+          name: message.thread?.contact?.name || message.to_address,
+          kind: 'recent',
+          subtitle: 'Recent recipient',
+          related_user_id: message.thread?.contact?.id ? Number(message.thread?.contact?.id) : null,
+          related_account_id: null,
+        });
+      });
+
+    return Array.from(uniqueRecipients.values()).slice(0, 8);
+  }, [recentMessagesData]);
+
+  const filteredDirectoryMatches = useMemo(
+    () => directoryMatches.filter((recipient) => recipient.kind !== 'recent'),
+    [directoryMatches],
+  );
+
+  const groupedDirectoryMatches = useMemo(() => ({
+    contacts: filteredDirectoryMatches.filter((recipient) => recipient.kind === 'contact'),
+    clients: filteredDirectoryMatches.filter((recipient) => recipient.kind === 'client'),
+    users: filteredDirectoryMatches.filter((recipient) => recipient.kind === 'user'),
+  }), [filteredDirectoryMatches]);
+
+  const templateSuggestions = useMemo(() => {
+    const templateVars = (selectedTemplate?.variables_json ?? []).map((name) => ({
+      name,
+      label: name.replace(/_/g, ' '),
+      source: 'template',
+    }));
+
+    const seen = new Set<string>();
+    return [...variableLibrary, ...templateVars].filter((entry) => {
+      if (seen.has(entry.name)) return false;
+      seen.add(entry.name);
+      return true;
+    });
+  }, [selectedTemplate?.variables_json]);
+
+  const messageInfo = useMemo(() => {
+    const totalRecipients = recipients.to.length + recipients.cc.length + recipients.bcc.length;
+    const previewText = form.body_text.trim() || templatePreviewData?.body_text?.trim() || '';
+
+    return {
+      recipients: totalRecipients,
+      words: previewText ? previewText.split(/\s+/).filter(Boolean).length : 0,
+      characters: previewText.length,
+      attachments: attachments.length,
+    };
+  }, [attachments.length, form.body_text, recipients.bcc.length, recipients.cc.length, recipients.to.length, templatePreviewData?.body_text]);
+
+  const previewSubject = !templateCustomized && templatePreviewData?.subject
+    ? templatePreviewData.subject
+    : form.subject;
+  const previewBodyHtml = !templateCustomized && templatePreviewData?.body_html
+    ? templatePreviewData.body_html
+    : form.body_html || bodyTextToHtml(form.body_text);
+
   const sendMutation = useMutation({
     mutationFn: composeEmail,
     onSuccess: () => {
-      toast.success(isAdmin ? 'Email sent successfully' : 'Message sent to admin inbox');
+      window.localStorage.removeItem(draftKey);
+      toast.success(canSendExternal ? 'Email sent successfully.' : 'Internal message sent successfully.');
       navigate('/messaging/email/inbox');
     },
-    onError: (error: unknown) => {
-      toast.error(getEmailComposeErrorMessage(error, 'Failed to send email'));
+    onError: (error) => {
+      toast.error(getComposeErrorMessage(error, 'Failed to send email.'));
     },
   });
 
-  // Schedule email mutation
   const scheduleMutation = useMutation({
     mutationFn: scheduleEmail,
     onSuccess: () => {
-      toast.success('Email scheduled successfully');
+      window.localStorage.removeItem(draftKey);
+      toast.success('Email scheduled successfully.');
       navigate('/messaging/email/inbox');
     },
-    onError: (error: unknown) => {
-      toast.error(getEmailComposeErrorMessage(error, 'Failed to schedule email'));
+    onError: (error) => {
+      toast.error(getComposeErrorMessage(error, 'Failed to schedule email.'));
     },
   });
 
-  const handleSendNow = () => {
-    if (isAdmin && !formData.to) {
-      toast.error('Recipient email is required');
+  const setFormValue = <K extends keyof ComposeFormState>(key: K, value: ComposeFormState[K]) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const setRecipientInput = (field: RecipientField, value: string) => {
+    setRecipientInputs((prev) => ({ ...prev, [field]: value }));
+    setRecipientErrors((prev) => ({ ...prev, [field]: undefined }));
+  };
+
+  const addRecipient = (field: RecipientField, email: string) => {
+    const normalized = normalizeEmail(email);
+    if (!EMAIL_REGEX.test(normalized)) {
+      setRecipientErrors((prev) => ({ ...prev, [field]: 'Enter a valid email address.' }));
       return;
     }
 
-    if (!formData.body_html && !formData.body_text && !formData.template_id) {
-      toast.error('Message body is required');
+    setRecipients((prev) => {
+      const cleared = {
+        to: prev.to.filter((item) => item !== normalized),
+        cc: prev.cc.filter((item) => item !== normalized),
+        bcc: prev.bcc.filter((item) => item !== normalized),
+      };
+
+      if (field === 'to') {
+        return { ...cleared, to: [normalized] };
+      }
+
+      return {
+        ...cleared,
+        [field]: [...cleared[field], normalized],
+      };
+    });
+
+    setRecipientInputs((prev) => ({ ...prev, [field]: '' }));
+    setRecipientErrors((prev) => ({ ...prev, [field]: undefined }));
+  };
+
+  const commitRecipientInput = (field: RecipientField) => {
+    const rawValue = recipientInputs[field];
+    if (!rawValue.trim()) {
       return;
     }
 
-    sendMutation.mutate({
-      channel_id: isAdmin && formData.channel_id ? parseInt(formData.channel_id) : undefined,
-      to: isAdmin ? formData.to : undefined,
-      subject: formData.subject,
-      body_html: formData.body_html,
-      body_text: formData.body_text,
-      reply_to: isAdmin ? formData.reply_to || undefined : undefined,
-      template_id: formData.template_id ? parseInt(formData.template_id) : undefined,
-      related_shoot_id: formData.related_shoot_id ? parseInt(formData.related_shoot_id) : undefined,
-      related_account_id: formData.related_account_id ? parseInt(formData.related_account_id) : undefined,
-      related_invoice_id: formData.related_invoice_id ? parseInt(formData.related_invoice_id) : undefined,
-      variables: parsedVariables,
-      cc: formData.cc ? formData.cc.split(',').map((v) => v.trim()).filter(Boolean) : undefined,
-      bcc: formData.bcc ? formData.bcc.split(',').map((v) => v.trim()).filter(Boolean) : undefined,
-      attachments: attachments.length > 0 ? attachments : undefined,
+    const candidates = splitRecipientCandidates(rawValue);
+    if (candidates.length === 0) {
+      setRecipientInputs((prev) => ({ ...prev, [field]: '' }));
+      return;
+    }
+
+    const valid = candidates.filter((candidate) => EMAIL_REGEX.test(candidate));
+    const invalid = candidates.filter((candidate) => !EMAIL_REGEX.test(candidate));
+
+    if (valid.length === 0) {
+      setRecipientErrors((prev) => ({ ...prev, [field]: 'Enter a valid email address.' }));
+      return;
+    }
+
+    if (field === 'to' && valid.length > 1) {
+      setRecipientErrors((prev) => ({
+        ...prev,
+        [field]: 'The To field uses one primary recipient. Move extras to Cc or Bcc.',
+      }));
+    } else if (invalid.length > 0) {
+      setRecipientErrors((prev) => ({
+        ...prev,
+        [field]: `Ignored invalid address${invalid.length > 1 ? 'es' : ''}: ${invalid.join(', ')}`,
+      }));
+    }
+
+    if (field === 'to') {
+      addRecipient(field, valid[0]);
+      return;
+    }
+
+    valid.forEach((candidate) => addRecipient(field, candidate));
+  };
+
+  const removeRecipient = (field: RecipientField, email: string) => {
+    setRecipients((prev) => ({
+      ...prev,
+      [field]: prev[field].filter((entry) => entry !== email),
+    }));
+  };
+
+  const attachFiles = (files: FileList | null) => {
+    const nextFiles = Array.from(files ?? []);
+    if (nextFiles.length === 0) {
+      return;
+    }
+
+    setAttachments((prev) => {
+      const seen = new Set(prev.map((file) => `${file.name}-${file.size}`));
+      return [
+        ...prev,
+        ...nextFiles.filter((file) => !seen.has(`${file.name}-${file.size}`)),
+      ];
     });
   };
 
+  const resetCompose = () => {
+    setForm(EMPTY_FORM);
+    setRecipients(EMPTY_RECIPIENTS);
+    setRecipientInputs(EMPTY_INPUTS);
+    setRecipientErrors({});
+    setShowCcBcc(false);
+    setAttachments([]);
+    setDraftAttachments([]);
+    setPriority('normal');
+    setPreviewMode(false);
+    setDirectoryField(null);
+    setDirectorySearch('');
+    setTemplateCustomized(false);
+    window.localStorage.removeItem(draftKey);
+    setLastSaved(null);
+  };
+
+  const ensureReadyToSend = (mode: 'send' | 'schedule') => {
+    if (variableJsonError) {
+      toast.error(variableJsonError);
+      return false;
+    }
+
+    if (canSendExternal && recipients.to.length === 0) {
+      setRecipientErrors((prev) => ({ ...prev, to: 'Select or enter a recipient email.' }));
+      toast.error('A primary recipient is required.');
+      return false;
+    }
+
+    if (!form.body_text.trim() && !form.template_id) {
+      toast.error('Add a message body or choose a template.');
+      return false;
+    }
+
+    if (mode === 'schedule' && !form.scheduled_at) {
+      toast.error('Choose a date and time for the scheduled send.');
+      return false;
+    }
+
+    return true;
+  };
+
+  const buildPayload = (): ComposeEmailPayload => ({
+    channel_id: canSendExternal && form.channel_id ? Number(form.channel_id) : undefined,
+    to: canSendExternal ? recipients.to[0] : undefined,
+    cc: canSendExternal && recipients.cc.length > 0 ? recipients.cc : undefined,
+    bcc: canSendExternal && recipients.bcc.length > 0 ? recipients.bcc : undefined,
+    reply_to: canSendExternal && form.reply_to ? form.reply_to : undefined,
+    subject: form.subject || undefined,
+    body_text: form.body_text || undefined,
+    body_html: form.body_html || bodyTextToHtml(form.body_text) || undefined,
+    template_id: form.template_id ? Number(form.template_id) : undefined,
+    related_shoot_id: form.related_shoot_id ? Number(form.related_shoot_id) : undefined,
+    related_account_id: form.related_account_id ? Number(form.related_account_id) : undefined,
+    related_invoice_id: form.related_invoice_id ? Number(form.related_invoice_id) : undefined,
+    variables: previewVariables,
+    attachments: attachments.length > 0 ? attachments : undefined,
+  });
+
+  const handleSendNow = () => {
+    if (!ensureReadyToSend('send')) {
+      return;
+    }
+
+    if (draftAttachments.length > 0 && attachments.length === 0) {
+      toast.warning('Draft attachments need to be reattached before they will be included.');
+    }
+
+    sendMutation.mutate(buildPayload());
+  };
+
   const handleSchedule = () => {
-    if (!formData.to || !scheduledAt) {
-      toast.error('Recipient and schedule time are required');
+    if (!ensureReadyToSend('schedule')) {
       return;
     }
 
     scheduleMutation.mutate({
-      channel_id: formData.channel_id ? parseInt(formData.channel_id) : undefined,
-      to: formData.to,
-      subject: formData.subject,
-      body_html: formData.body_html,
-      body_text: formData.body_text,
-      reply_to: formData.reply_to || undefined,
-      template_id: formData.template_id ? parseInt(formData.template_id) : undefined,
-      related_shoot_id: formData.related_shoot_id ? parseInt(formData.related_shoot_id) : undefined,
-      related_account_id: formData.related_account_id ? parseInt(formData.related_account_id) : undefined,
-      related_invoice_id: formData.related_invoice_id ? parseInt(formData.related_invoice_id) : undefined,
-      variables: parsedVariables,
-      scheduled_at: scheduledAt,
-      attachments: attachments.length > 0 ? attachments : undefined,
+      ...buildPayload(),
+      scheduled_at: form.scheduled_at,
     });
   };
 
-  const handleTemplateSelect = (templateId: string) => {
-    const template = templates?.find((t) => t.id === parseInt(templateId));
-    if (template) {
-      setFormData({
-        ...formData,
-        template_id: templateId,
-        subject: template.subject || formData.subject,
-        body_html: template.body_html || formData.body_html,
-        body_text: template.body_text || formData.body_text,
-      });
+  const applyTemplate = (templateId: string) => {
+    const template = templates.find((entry) => entry.id === Number(templateId));
+    if (!template) {
+      return;
     }
+
+    setForm((prev) => ({
+      ...prev,
+      template_id: templateId,
+      subject: template.subject ?? prev.subject,
+      body_text: template.body_text ?? prev.body_text,
+      body_html: template.body_html ?? bodyTextToHtml(template.body_text ?? prev.body_text),
+    }));
+    setTemplateCustomized(false);
+  };
+
+  const openDirectory = (field: RecipientField) => {
+    setDirectoryField(field);
+    setDirectorySearch('');
+  };
+
+  const closeDirectory = () => {
+    setDirectoryField(null);
+    setDirectorySearch('');
+  };
+
+  const renderDirectoryContent = (field: RecipientField) => {
+    const selectedEmails = new Set([
+      ...recipients.to,
+      ...recipients.cc,
+      ...recipients.bcc,
+    ]);
+
+    return (
+      <Popover open={directoryField === field} onOpenChange={(open) => (open ? openDirectory(field) : closeDirectory())}>
+        <PopoverTrigger asChild>
+          <Button type="button" variant="outline" size="sm" className="h-9 px-3" disabled={!canSendExternal}>
+            <Users className="mr-2 h-4 w-4" />
+            Browse
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[360px] p-0" align="end">
+          <Command>
+            <CommandInput
+              placeholder="Search contacts, clients, and users..."
+              value={directorySearch}
+              onValueChange={setDirectorySearch}
+            />
+            <CommandList>
+              <CommandEmpty>No matching recipients found.</CommandEmpty>
+              {recentRecipients.length > 0 && (
+                <CommandGroup heading="Recent recipients">
+                  {recentRecipients.map((recipient) => (
+                    <CommandItem
+                      key={recipient.id}
+                      value={`${recipient.name ?? ''} ${recipient.email}`}
+                      onSelect={() => {
+                        addRecipient(field, recipient.email);
+                        if (field === 'to') closeDirectory();
+                      }}
+                    >
+                      <div className="flex min-w-0 flex-col">
+                        <span className="truncate font-medium">{recipient.name || recipient.email}</span>
+                        <span className="truncate text-xs text-muted-foreground">{recipient.email}</span>
+                      </div>
+                      {selectedEmails.has(recipient.email) && <CheckCircle2 className="ml-auto h-4 w-4 text-primary" />}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )}
+              {recentRecipients.length > 0 && filteredDirectoryMatches.length > 0 && <CommandSeparator />}
+              {groupedDirectoryMatches.contacts.length > 0 && (
+                <CommandGroup heading="Contacts">
+                  {groupedDirectoryMatches.contacts.map((recipient) => (
+                    <CommandItem
+                      key={recipient.id}
+                      value={`${recipient.name ?? ''} ${recipient.email} ${recipient.subtitle ?? ''}`}
+                      onSelect={() => {
+                        addRecipient(field, recipient.email);
+                        if (field === 'to') closeDirectory();
+                      }}
+                    >
+                      <div className="flex min-w-0 flex-col">
+                        <span className="truncate font-medium">{recipient.name || recipient.email}</span>
+                        <span className="truncate text-xs text-muted-foreground">{recipient.subtitle || recipient.email}</span>
+                      </div>
+                      {selectedEmails.has(recipient.email) && <CheckCircle2 className="ml-auto h-4 w-4 text-primary" />}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )}
+              {groupedDirectoryMatches.clients.length > 0 && (
+                <CommandGroup heading="Clients">
+                  {groupedDirectoryMatches.clients.map((recipient) => (
+                    <CommandItem
+                      key={recipient.id}
+                      value={`${recipient.name ?? ''} ${recipient.email} ${recipient.subtitle ?? ''}`}
+                      onSelect={() => {
+                        addRecipient(field, recipient.email);
+                        if (field === 'to') closeDirectory();
+                      }}
+                    >
+                      <div className="flex min-w-0 flex-col">
+                        <span className="truncate font-medium">{recipient.name || recipient.email}</span>
+                        <span className="truncate text-xs text-muted-foreground">{recipient.subtitle || recipient.email}</span>
+                      </div>
+                      {selectedEmails.has(recipient.email) && <CheckCircle2 className="ml-auto h-4 w-4 text-primary" />}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )}
+              {groupedDirectoryMatches.users.length > 0 && (
+                <CommandGroup heading="Users">
+                  {groupedDirectoryMatches.users.map((recipient) => (
+                    <CommandItem
+                      key={recipient.id}
+                      value={`${recipient.name ?? ''} ${recipient.email} ${recipient.subtitle ?? ''}`}
+                      onSelect={() => {
+                        addRecipient(field, recipient.email);
+                        if (field === 'to') closeDirectory();
+                      }}
+                    >
+                      <div className="flex min-w-0 flex-col">
+                        <span className="truncate font-medium">{recipient.name || recipient.email}</span>
+                        <span className="truncate text-xs text-muted-foreground">{recipient.subtitle || recipient.email}</span>
+                      </div>
+                      {selectedEmails.has(recipient.email) && <CheckCircle2 className="ml-auto h-4 w-4 text-primary" />}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )}
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    );
+  };
+
+  const renderRecipientField = (
+    field: RecipientField,
+    label: string,
+    description: string,
+    singleRecipient = false,
+  ) => {
+    const selected = recipients[field];
+    const canType = !singleRecipient || selected.length === 0;
+
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <Label className="text-sm font-medium">{label}</Label>
+            <p className="text-xs text-muted-foreground">{description}</p>
+          </div>
+          {canSendExternal && renderDirectoryContent(field)}
+        </div>
+
+        <div className="rounded-xl border border-border/70 bg-background p-3">
+          <div className="flex flex-wrap gap-2">
+            {selected.map((email) => (
+              <Badge key={email} variant="secondary" className="gap-1 rounded-full px-3 py-1 text-xs">
+                {email}
+                <button type="button" onClick={() => removeRecipient(field, email)} aria-label={`Remove ${email}`}>
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            ))}
+            {canType && (
+              <Input
+                value={recipientInputs[field]}
+                onChange={(event) => setRecipientInput(field, event.target.value)}
+                onBlur={() => commitRecipientInput(field)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ',' || event.key === ';') {
+                    event.preventDefault();
+                    commitRecipientInput(field);
+                  }
+                }}
+                placeholder={singleRecipient ? 'recipient@example.com' : 'Add addresses and press Enter'}
+                className="h-9 min-w-[220px] flex-1 border-none bg-transparent px-0 shadow-none focus-visible:ring-0"
+              />
+            )}
+          </div>
+          {recipientErrors[field] && (
+            <div className="mt-2 flex items-center gap-2 text-xs text-amber-600">
+              <AlertCircle className="h-3.5 w-3.5" />
+              <span>{recipientErrors[field]}</span>
+            </div>
+          )}
+        </div>
+      </div>
+    );
   };
 
   return (
     <DashboardLayout>
-      <EmailNavigation />
-      <div className="flex flex-col h-[calc(100vh-120px-4.25rem)] sm:h-[calc(100vh-120px)]">
-        {/* Mode-aware Header */}
-        <div className={cn("px-3 py-2.5 sm:px-6 sm:py-4 border-b flex items-center justify-between", currentMode.color)}>
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <div className={cn("p-1.5 sm:p-2 rounded-lg shrink-0", currentMode.color)}>
-              <ModeIcon className={cn("h-4 w-4 sm:h-5 sm:w-5", currentMode.accent)} />
-            </div>
-            <div className="min-w-0">
-              <h1 className={cn("text-base sm:text-xl font-semibold truncate", currentMode.accent)}>{currentMode.title}</h1>
-              <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wide truncate">{currentMode.subtitle}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            {lastSaved && (
-              <div className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground">
-                <div className="w-2 h-2 rounded-full bg-green-500" />
-                Saved {Math.round((Date.now() - lastSaved.getTime()) / 1000)}s ago
+      <div className="flex h-[calc(100vh-4rem)] flex-col bg-background">
+        <EmailNavigation />
+        <ScrollArea className="flex-1">
+          <div className="mx-auto flex w-full max-w-[1680px] flex-col gap-6 px-4 py-5 sm:px-6 lg:px-8">
+            <div className="flex flex-col gap-4 rounded-[28px] border border-border/60 bg-gradient-to-br from-background via-background to-muted/20 p-5 shadow-[0_24px_60px_-40px_rgba(15,23,42,0.8)] lg:flex-row lg:items-start lg:justify-between lg:p-6">
+              <div className="space-y-3">
+                <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+                  <Mail className="h-3.5 w-3.5" />
+                  {canSendExternal ? 'Outbound workspace' : 'Internal delivery'}
+                </div>
+                <div className="space-y-1">
+                  <h1 className="text-2xl font-semibold tracking-tight">{currentMode.title}</h1>
+                  <p className="max-w-2xl text-sm text-muted-foreground">{currentMode.subtitle}</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <span className="rounded-full border border-border/70 px-2.5 py-1">
+                    Draft {lastSaved ? `saved ${lastSaved.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : 'not saved yet'}
+                  </span>
+                  {draftAttachments.length > 0 && (
+                    <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-amber-600 dark:text-amber-300">
+                      Reattach {draftAttachments.length} saved file{draftAttachments.length > 1 ? 's' : ''}
+                    </span>
+                  )}
+                  {templatePreviewData?.missing_variables?.length ? (
+                    <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-amber-600 dark:text-amber-300">
+                      {templatePreviewData.missing_variables.length} variable{templatePreviewData.missing_variables.length > 1 ? 's' : ''} still missing
+                    </span>
+                  ) : null}
+                </div>
               </div>
-            )}
-            <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="h-8 w-8 p-0 sm:h-auto sm:w-auto sm:p-2">
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
 
-        {/* Main Content with Sidebars */}
-        <div className="flex flex-1 overflow-hidden">
-          {/* Left Sidebar - Desktop only */}
-          <div className="hidden md:block w-72 border-r bg-muted/30 p-4 space-y-6 overflow-y-auto">
-            {/* Priority */}
-            <div className="space-y-2">
-              <Label className="text-xs uppercase tracking-wide text-muted-foreground">Priority</Label>
-              <div className="flex gap-1">
-                {(['normal', 'high', 'urgent'] as Priority[]).map((p) => (
-                  <Button
-                    key={p}
-                    size="sm"
-                    variant="ghost"
-                    className={cn("flex-1 text-xs", priority === p ? priorityConfig[p].class : 'bg-background')}
-                    onClick={() => setPriority(p)}
-                  >
-                    {priority === p && <Check className="h-3 w-3 mr-1" />}
-                    {priorityConfig[p].label}
+              <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                <Button type="button" variant="ghost" onClick={() => navigate('/messaging/email/inbox')}>
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Back
+                </Button>
+                <Button type="button" variant="outline" onClick={() => setPreviewMode((prev) => !prev)}>
+                  {previewMode ? (
+                    <>
+                      <EyeOff className="mr-2 h-4 w-4" />
+                      Edit
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="mr-2 h-4 w-4" />
+                      Preview
+                    </>
+                  )}
+                </Button>
+                {canSendExternal && (
+                  <Button type="button" variant="outline" onClick={() => setShowScheduleDialog(true)}>
+                    <CalendarClock className="mr-2 h-4 w-4" />
+                    Schedule
                   </Button>
-                ))}
-              </div>
-            </div>
-
-            {/* Link Shoot */}
-            <div className="space-y-2">
-              <Label className="text-xs uppercase tracking-wide text-muted-foreground">Link Shoot ID</Label>
-              <div className="relative">
-                <Hash className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Enter shoot ID"
-                  className="pl-8 h-9"
-                  value={formData.related_shoot_id}
-                  onChange={(e) => setFormData({ ...formData, related_shoot_id: e.target.value })}
-                />
-              </div>
-            </div>
-
-            {/* Quick Contacts */}
-            <div className="space-y-2">
-              <Label className="text-xs uppercase tracking-wide text-muted-foreground">Quick Contacts</Label>
-              <div className="space-y-1 max-h-40 overflow-y-auto">
-                {recipientOptions.slice(0, 5).map((contact) => (
-                  <button
-                    key={contact.id}
-                    className="w-full flex items-center gap-2 p-2 rounded-md hover:bg-muted text-left text-sm"
-                    onClick={() => {
-                      const current = formData.to ? formData.to.split(',').map((v) => v.trim()).filter(Boolean) : [];
-                      if (!current.includes(contact.email)) {
-                        setFormData({ ...formData, to: [...current, contact.email].join(', ') });
-                      }
-                    }}
-                  >
-                    <Avatar className="h-6 w-6">
-                      <AvatarFallback className="text-xs">{(contact.name || contact.email).charAt(0).toUpperCase()}</AvatarFallback>
-                    </Avatar>
-                    <div className="truncate">
-                      <p className="font-medium text-xs truncate">{contact.name || contact.email}</p>
-                    </div>
-                  </button>
-                ))}
-                {recipientOptions.length === 0 && (
-                  <p className="text-xs text-muted-foreground p-2">No contacts available</p>
                 )}
+                <Button type="button" variant="outline" onClick={resetCompose}>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Discard
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleSendNow}
+                  disabled={sendMutation.isPending || scheduleMutation.isPending}
+                  className="min-w-[140px]"
+                >
+                  <Send className="mr-2 h-4 w-4" />
+                  {sendMutation.isPending ? 'Sending...' : currentMode.sendLabel}
+                </Button>
               </div>
             </div>
 
-            {/* Attachments */}
-            <div className="space-y-2">
-              <Label className="text-xs uppercase tracking-wide text-muted-foreground">Attachments</Label>
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full justify-start"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <Paperclip className="h-4 w-4 mr-2" />
-                Add Files
-              </Button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                accept="image/*,.pdf,.doc,.docx"
-                className="hidden"
-                onChange={(e) => {
-                  const files = Array.from(e.target.files || []);
-                  if (files.length) setAttachments((prev) => [...prev, ...files]);
-                }}
-              />
-              {attachments.length > 0 && (
-                <div className="space-y-1">
-                  {attachments.map((file, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-2 bg-background rounded text-xs">
-                      <span className="truncate">{file.name}</span>
-                      <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => setAttachments((prev) => prev.filter((_, i) => i !== idx))}>
-                        <X className="h-3 w-3" />
-                      </Button>
+            <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+              <div className="space-y-6">
+                {!canSendExternal && (
+                  <div className="rounded-[24px] border border-primary/15 bg-primary/5 p-4">
+                    <div className="flex items-start gap-3">
+                      <Info className="mt-0.5 h-4 w-4 text-primary" />
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium">This message goes straight to the internal team inbox.</p>
+                        <p className="text-sm text-muted-foreground">
+                          You can include context, files, and linked IDs. Recipient selection stays locked for internal-only roles.
+                        </p>
+                      </div>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                  </div>
+                )}
 
-            {/* Templates */}
-            {canUseTemplates && templates && templates.length > 0 && (
-              <div className="space-y-2">
-                <Label className="text-xs uppercase tracking-wide text-muted-foreground">Templates</Label>
-                <div className="space-y-1">
-                  {templates.slice(0, 5).map((template) => (
-                    <button
-                      key={template.id}
-                      className={cn(
-                        "w-full text-left p-2 rounded-md text-xs hover:bg-muted border",
-                        formData.template_id === template.id.toString() ? 'border-primary bg-primary/5' : 'border-transparent'
-                      )}
-                      onClick={() => handleTemplateSelect(template.id.toString())}
-                    >
-                      <div className="flex items-center gap-2">
-                        <FileText className="h-3 w-3 shrink-0" />
-                        <span className="truncate font-medium">{template.name}</span>
+                <div className="rounded-[28px] border border-border/60 bg-card shadow-[0_30px_80px_-55px_rgba(15,23,42,0.95)]">
+                  <div className="border-b border-border/60 px-5 py-4 sm:px-6">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <h2 className="text-lg font-semibold">Compose</h2>
+                        <p className="text-sm text-muted-foreground">
+                          Build the message, lock the right context, and send with confidence.
+                        </p>
                       </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Center - Compose Area */}
-          <div className="flex-1 flex flex-col overflow-hidden">
-            <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-3 sm:space-y-4 pb-[calc(env(safe-area-inset-bottom,0px)+4.5rem)] sm:pb-4">
-
-              {/* Mobile-only: Collapsible options (Priority, Shoot ID, Contacts, Attachments, Templates) */}
-              <div className="md:hidden">
-                <Accordion type="single" collapsible className="w-full">
-                  <AccordionItem value="options" className="border rounded-lg">
-                    <AccordionTrigger className="px-3 py-2 text-xs font-medium text-muted-foreground hover:no-underline">
-                      <div className="flex items-center gap-2">
-                        <ChevronDown className="h-3 w-3" />
-                        Options
-                        {priority !== 'normal' && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{priority}</Badge>}
-                        {attachments.length > 0 && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{attachments.length} file{attachments.length > 1 ? 's' : ''}</Badge>}
-                        {formData.related_shoot_id && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">#{formData.related_shoot_id}</Badge>}
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="px-3 pb-3 space-y-4">
-                      {/* Priority */}
-                      <div className="space-y-1.5">
-                        <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Priority</Label>
-                        <div className="flex gap-1">
-                          {(['normal', 'high', 'urgent'] as Priority[]).map((p) => (
-                            <Button
-                              key={p}
-                              size="sm"
-                              variant="ghost"
-                              className={cn("flex-1 text-xs h-8", priority === p ? priorityConfig[p].class : 'bg-background')}
-                              onClick={() => setPriority(p)}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="inline-flex rounded-full border border-border/60 bg-muted/40 p-1">
+                          {(['normal', 'high', 'urgent'] as const).map((level) => (
+                            <button
+                              key={level}
+                              type="button"
+                              onClick={() => setPriority(level)}
+                              className={cn(
+                                'rounded-full px-3 py-1.5 text-xs font-medium capitalize transition-colors',
+                                priority === level
+                                  ? 'bg-primary text-primary-foreground shadow-sm'
+                                  : 'text-muted-foreground hover:text-foreground',
+                              )}
                             >
-                              {priority === p && <Check className="h-3 w-3 mr-1" />}
-                              {priorityConfig[p].label}
-                            </Button>
+                              {level}
+                            </button>
                           ))}
                         </div>
+                        {(showCcBcc || recipients.cc.length > 0 || recipients.bcc.length > 0) ? (
+                          <Button type="button" variant="ghost" size="sm" onClick={() => setShowCcBcc(false)}>
+                            Hide Cc/Bcc
+                          </Button>
+                        ) : canSendExternal ? (
+                          <Button type="button" variant="ghost" size="sm" onClick={() => setShowCcBcc(true)}>
+                            Add Cc / Bcc
+                          </Button>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-6 px-5 py-5 sm:px-6 sm:py-6">
+                    {canSendExternal && (
+                      <div className="space-y-4">
+                        {renderRecipientField('to', 'To', 'Choose one primary recipient or enter an email.', true)}
+                        {(showCcBcc || recipients.cc.length > 0) && renderRecipientField('cc', 'Cc', 'Add visible copy recipients.')}
+                        {(showCcBcc || recipients.bcc.length > 0) && renderRecipientField('bcc', 'Bcc', 'Keep these recipients hidden from others.')}
+                      </div>
+                    )}
+
+                    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+                      <div className="space-y-2">
+                        <Label htmlFor="compose-subject">Subject</Label>
+                        <Input
+                          id="compose-subject"
+                          value={form.subject}
+                          onChange={(event) => {
+                            setFormValue('subject', event.target.value);
+                            setTemplateCustomized(true);
+                          }}
+                          placeholder={canSendExternal ? 'Email subject' : 'Short internal summary'}
+                          className="h-11 rounded-xl"
+                        />
                       </div>
 
-                      {/* Link Shoot */}
-                      <div className="space-y-1.5">
-                        <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Link Shoot ID</Label>
-                        <div className="relative">
-                          <Hash className="absolute left-2 top-2 h-4 w-4 text-muted-foreground" />
+                      {canSendExternal && (
+                        <div className="space-y-2">
+                          <Label>Template</Label>
+                          <Select
+                            value={form.template_id || '__none__'}
+                            onValueChange={(value) => {
+                              if (value === '__none__') {
+                                setForm((prev) => ({ ...prev, template_id: '' }));
+                                return;
+                              }
+
+                              applyTemplate(value);
+                            }}
+                          >
+                            <SelectTrigger className="h-11 rounded-xl">
+                              <SelectValue placeholder="Choose a template" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none__">No template</SelectItem>
+                              {templates.map((template) => (
+                                <SelectItem key={template.id} value={String(template.id)}>
+                                  {template.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                    </div>
+
+                    {canSendExternal && (
+                      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(220px,280px)]">
+                        <div className="space-y-2">
+                          <Label>Sender channel</Label>
+                          <Select value={form.channel_id} onValueChange={(value) => setFormValue('channel_id', value)}>
+                            <SelectTrigger className="h-11 rounded-xl">
+                              <SelectValue placeholder="Select sender channel" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {channels.map((channel) => (
+                                <SelectItem key={channel.id} value={String(channel.id)}>
+                                  {channel.display_name}
+                                  {channel.from_email ? ` • ${channel.from_email}` : ''}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="compose-reply-to">Reply-To</Label>
                           <Input
-                            placeholder="Enter shoot ID"
-                            className="pl-8 h-8 text-sm"
-                            value={formData.related_shoot_id}
-                            onChange={(e) => setFormData({ ...formData, related_shoot_id: e.target.value })}
+                            id="compose-reply-to"
+                            value={form.reply_to}
+                            onChange={(event) => setFormValue('reply_to', event.target.value)}
+                            placeholder="reply@company.com"
+                            className="h-11 rounded-xl"
                           />
                         </div>
                       </div>
+                    )}
 
-                      {/* Quick Contacts */}
-                      {recipientOptions.length > 0 && (
-                        <div className="space-y-1.5">
-                          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Quick Contacts</Label>
-                          <div className="flex flex-wrap gap-1.5">
-                            {recipientOptions.slice(0, 5).map((contact) => (
-                              <Button
-                                key={contact.id}
-                                variant="outline"
-                                size="sm"
-                                className="h-7 text-xs"
-                                onClick={() => {
-                                  const current = formData.to ? formData.to.split(',').map((v) => v.trim()).filter(Boolean) : [];
-                                  if (!current.includes(contact.email)) {
-                                    setFormData({ ...formData, to: [...current, contact.email].join(', ') });
-                                  }
-                                }}
-                              >
-                                {(contact.name || contact.email).split(' ')[0]}
-                              </Button>
-                            ))}
+                    {selectedTemplate && (
+                      <div className="rounded-2xl border border-border/60 bg-muted/30 p-4">
+                        <div className="flex items-start gap-3">
+                          <Sparkles className="mt-0.5 h-4 w-4 text-primary" />
+                          <div className="space-y-1">
+                            <p className="text-sm font-medium">{selectedTemplate.name}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {selectedTemplate.description || 'Template copy is loaded and ready for personalization.'}
+                            </p>
                           </div>
                         </div>
-                      )}
-
-                      {/* Attachments */}
-                      <div className="space-y-1.5">
-                        <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Attachments</Label>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="w-full justify-start h-8 text-xs"
-                          onClick={() => fileInputRef.current?.click()}
-                        >
-                          <Paperclip className="h-3.5 w-3.5 mr-2" />
-                          Add Files
-                        </Button>
-                        {attachments.length > 0 && (
-                          <div className="space-y-1">
-                            {attachments.map((file, idx) => (
-                              <div key={idx} className="flex items-center justify-between p-1.5 bg-background rounded text-xs">
-                                <span className="truncate">{file.name}</span>
-                                <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => setAttachments((prev) => prev.filter((_, i) => i !== idx))}>
-                                  <X className="h-3 w-3" />
-                                </Button>
-                              </div>
+                        {templatePreviewData?.missing_variables?.length ? (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {templatePreviewData.missing_variables.map((item) => (
+                              <Badge key={item} variant="outline" className="rounded-full border-amber-500/40 text-amber-600 dark:text-amber-300">
+                                Missing: {item}
+                              </Badge>
                             ))}
                           </div>
+                        ) : (
+                          <p className="mt-3 text-xs text-muted-foreground">
+                            Variable coverage looks good for this template preview.
+                          </p>
                         )}
                       </div>
+                    )}
 
-                      {/* Templates */}
-                      {canUseTemplates && templates && templates.length > 0 && (
-                        <div className="space-y-1.5">
-                          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Templates</Label>
-                          <div className="space-y-1">
-                            {templates.slice(0, 5).map((template) => (
-                              <button
-                                key={template.id}
-                                className={cn(
-                                  "w-full text-left p-2 rounded-md text-xs hover:bg-muted border",
-                                  formData.template_id === template.id.toString() ? 'border-primary bg-primary/5' : 'border-transparent'
-                                )}
-                                onClick={() => handleTemplateSelect(template.id.toString())}
-                              >
-                                <div className="flex items-center gap-2">
-                                  <FileText className="h-3 w-3 shrink-0" />
-                                  <span className="truncate font-medium">{template.name}</span>
-                                </div>
-                              </button>
-                            ))}
+                    <div className="space-y-2">
+                      <Label htmlFor="compose-body">{previewMode ? 'Preview' : 'Message body'}</Label>
+                      {previewMode ? (
+                        <div className="min-h-[360px] rounded-[24px] border border-border/60 bg-background px-5 py-4">
+                          {previewSubject ? <p className="mb-4 text-sm font-medium text-foreground/80">Subject: {previewSubject}</p> : null}
+                          {previewBodyHtml ? (
+                            <div
+                              className="prose prose-sm max-w-none dark:prose-invert"
+                              dangerouslySetInnerHTML={{ __html: previewBodyHtml }}
+                            />
+                          ) : (
+                            <p className="text-sm text-muted-foreground">Start typing to preview the rendered message.</p>
+                          )}
+                        </div>
+                      ) : (
+                        <Textarea
+                          id="compose-body"
+                          value={form.body_text}
+                          onChange={(event) => {
+                            const value = event.target.value;
+                            setForm((prev) => ({
+                              ...prev,
+                              body_text: value,
+                              body_html: bodyTextToHtml(value),
+                            }));
+                            setTemplateCustomized(true);
+                          }}
+                          placeholder={canSendExternal ? 'Write your message here...' : 'Tell the internal team what you need help with...'}
+                          className="min-h-[360px] rounded-[24px] border-border/70 bg-background px-4 py-3"
+                        />
+                      )}
+                    </div>
+
+                    {originalMessage && (
+                      <>
+                        <Separator />
+                        <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+                          <p className="text-sm font-medium">Original message context</p>
+                          <div className="mt-3 grid gap-3 text-sm text-muted-foreground md:grid-cols-3">
+                            <div>
+                              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground/70">From</p>
+                              <p className="mt-1 text-foreground">{originalMessage.from_address || 'Unknown sender'}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground/70">Subject</p>
+                              <p className="mt-1 text-foreground">{originalMessage.subject || 'No subject'}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground/70">Received</p>
+                              <p className="mt-1 text-foreground">{new Date(originalMessage.created_at).toLocaleString()}</p>
+                            </div>
                           </div>
                         </div>
-                      )}
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
-              </div>
-
-              {/* From */}
-              {isAdmin && (
-                <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2">
-                  <Label className="text-xs sm:text-sm text-muted-foreground sm:w-16 shrink-0">From</Label>
-                  <Select value={formData.channel_id} onValueChange={(value) => setFormData({ ...formData, channel_id: value })}>
-                    <SelectTrigger className="flex-1 h-9 sm:h-10">
-                      <SelectValue placeholder="Select email account" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {channels.map((channel) => (
-                        <SelectItem key={channel.id} value={channel.id.toString()}>
-                          {channel.display_name} ({channel.from_email})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              {/* To */}
-              <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2">
-                <Label className="text-xs sm:text-sm text-muted-foreground sm:w-16 shrink-0">To</Label>
-                <div className="flex-1 flex items-center gap-1.5 sm:gap-2">
-                  <Input
-                    type="text"
-                    placeholder="recipient@example.com"
-                    value={formData.to}
-                    onChange={(e) => setFormData({ ...formData, to: e.target.value })}
-                    className="flex-1 h-9 sm:h-10 text-sm"
-                  />
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" size="sm" className="shrink-0 h-9 sm:h-10 px-2 sm:px-3">
-                        <Users className="h-4 w-4 sm:mr-1" />
-                        <span className="hidden sm:inline">{recipientLabel}</span>
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-72 p-0">
-                      <Command>
-                        <CommandInput placeholder={recipientPlaceholder} value={recipientSearch} onValueChange={setRecipientSearch} />
-                        <CommandList>
-                          <CommandEmpty>{recipientEmptyLabel}</CommandEmpty>
-                          <CommandGroup heading={recipientHeading}>
-                            {recipientOptions.map((contact) => (
-                              <CommandItem
-                                key={contact.id}
-                                value={contact.email}
-                                onSelect={(val) => {
-                                  const current = formData.to ? formData.to.split(',').map((v) => v.trim()).filter(Boolean) : [];
-                                  if (!current.includes(val)) setFormData({ ...formData, to: [...current, val].join(', ') });
-                                }}
-                              >
-                                <div className="flex flex-col">
-                                  <span className="font-medium">{contact.name || contact.email}</span>
-                                  <span className="text-xs text-muted-foreground">{contact.email}</span>
-                                </div>
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-                  <Button variant="ghost" size="sm" onClick={() => setShowCcBcc((v) => !v)} className="shrink-0 h-9 sm:h-10 px-2 text-xs">
-                    {showCcBcc ? 'Hide' : '+Cc/Bcc'}
-                  </Button>
-                </div>
-              </div>
-
-              {/* Recipient badges */}
-              {formData.to && (
-                <div className="flex flex-wrap gap-1 sm:ml-16">
-                  {formData.to.split(',').map((addr) => addr.trim()).filter(Boolean).map((addr) => (
-                    <Badge key={addr} variant="secondary" className="flex items-center gap-1 text-xs">
-                      {addr}
-                      <button type="button" onClick={() => {
-                        const remaining = formData.to.split(',').map((v) => v.trim()).filter(Boolean).filter((v) => v !== addr);
-                        setFormData({ ...formData, to: remaining.join(', ') });
-                      }}>
-                        <X className="h-3 w-3" />
-                      </button>
-                    </Badge>
-                  ))}
-                </div>
-              )}
-
-              {/* CC / BCC */}
-              {showCcBcc && (
-                <div className="space-y-2 sm:ml-16">
-                  <div className="flex items-center gap-2">
-                    <Label className="w-8 text-xs sm:text-sm text-muted-foreground shrink-0">Cc</Label>
-                    <Input placeholder="cc@example.com" value={formData.cc} onChange={(e) => setFormData({ ...formData, cc: e.target.value })} className="h-9 sm:h-10 text-sm" />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Label className="w-8 text-xs sm:text-sm text-muted-foreground shrink-0">Bcc</Label>
-                    <Input placeholder="bcc@example.com" value={formData.bcc} onChange={(e) => setFormData({ ...formData, bcc: e.target.value })} className="h-9 sm:h-10 text-sm" />
+                      </>
+                    )}
                   </div>
                 </div>
-              )}
-
-              {/* Subject */}
-              <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2">
-                <Label className="text-xs sm:text-sm text-muted-foreground sm:w-16 shrink-0">Subject</Label>
-                <Input placeholder="Email subject" value={formData.subject} onChange={(e) => setFormData({ ...formData, subject: e.target.value })} className="flex-1 h-9 sm:h-10 text-sm" />
               </div>
 
-              {/* Body */}
-              <div className="flex-1 flex flex-col">
-                <Textarea
-                  placeholder={composeMode === 'reply' ? 'Type your reply...' : composeMode === 'forward' ? 'Add a message (optional)...' : 'Write your message here...'}
-                  className="flex-1 min-h-[150px] sm:min-h-[200px] resize-none text-sm"
-                  value={formData.body_text}
-                  onChange={(e) => setFormData({ ...formData, body_text: e.target.value, body_html: `<p>${e.target.value.replace(/\n/g, '</p><p>')}</p>` })}
-                />
-              </div>
-
-              {/* Original message context */}
-              {originalMessage && (
-                <Card className="p-3 sm:p-4 bg-muted/50 border-dashed">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="min-w-0">
-                      <p className="text-[10px] sm:text-xs text-muted-foreground uppercase">Original Message</p>
-                      <p className="font-medium text-xs sm:text-sm truncate">{originalMessage.subject || '(No Subject)'}</p>
+              <div className="space-y-6">
+                <div className="rounded-[28px] border border-border/60 bg-card p-5 shadow-[0_24px_60px_-50px_rgba(15,23,42,0.95)]">
+                  <div className="flex items-start gap-3">
+                    <Hash className="mt-1 h-4 w-4 text-primary" />
+                    <div>
+                      <h3 className="text-base font-semibold">Linked context</h3>
+                      <p className="text-sm text-muted-foreground">Tie this message to the exact records that should travel with it.</p>
                     </div>
-                    <Badge variant="outline" className={cn("shrink-0 text-[10px] sm:text-xs", composeMode === 'reply' ? 'bg-blue-500/10' : 'bg-orange-500/10')}>
-                      {composeMode === 'reply' ? 'Reply' : 'Forward'}
-                    </Badge>
                   </div>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground">From: {originalMessage.from_address}</p>
-                  {originalMessage.body_text && (
-                    <pre className="mt-2 text-[10px] sm:text-xs whitespace-pre-wrap text-muted-foreground max-h-24 sm:max-h-32 overflow-y-auto">
-                      {originalMessage.body_text.substring(0, 500)}...
-                    </pre>
-                  )}
-                </Card>
-              )}
-            </div>
 
-            {/* Footer with formatting toolbar */}
-            <div className="border-t p-2 sm:p-4 flex items-center justify-between bg-muted/30 shrink-0">
-              <div className="hidden sm:flex items-center gap-1">
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0"><Bold className="h-4 w-4" /></Button>
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0"><Italic className="h-4 w-4" /></Button>
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0"><List className="h-4 w-4" /></Button>
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0"><Link2 className="h-4 w-4" /></Button>
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0"><Smile className="h-4 w-4" /></Button>
-              </div>
-              {/* Mobile: attachment shortcut + send */}
-              <div className="flex sm:hidden items-center gap-1">
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => fileInputRef.current?.click()}>
-                  <Paperclip className="h-4 w-4" />
-                </Button>
-              </div>
-              <div className="flex items-center gap-2">
-                {isAdmin && (
-                  <Dialog open={showScheduleDialog} onOpenChange={setShowScheduleDialog}>
-                    <DialogTrigger asChild>
-                      <Button variant="outline" size="sm" className="h-8 sm:h-9 text-xs sm:text-sm">
-                        <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-1" />
-                        <span className="hidden sm:inline">Schedule</span>
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader><DialogTitle>Schedule Email</DialogTitle></DialogHeader>
-                      <div className="space-y-4">
-                        <div><Label>Date & Time</Label><Input type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} /></div>
-                        <Button onClick={() => { handleSchedule(); setShowScheduleDialog(false); }} disabled={scheduleMutation.isPending} className="w-full">Schedule Send</Button>
+                  <div className="mt-5 space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="compose-shoot-id">Shoot ID</Label>
+                      <Input
+                        id="compose-shoot-id"
+                        value={form.related_shoot_id}
+                        onChange={(event) => setFormValue('related_shoot_id', event.target.value)}
+                        placeholder="Enter shoot ID"
+                        className="h-11 rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="compose-account-id">Account ID</Label>
+                      <Input
+                        id="compose-account-id"
+                        value={form.related_account_id}
+                        onChange={(event) => setFormValue('related_account_id', event.target.value)}
+                        placeholder="Enter account ID"
+                        className="h-11 rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="compose-invoice-id">Invoice ID</Label>
+                      <Input
+                        id="compose-invoice-id"
+                        value={form.related_invoice_id}
+                        onChange={(event) => setFormValue('related_invoice_id', event.target.value)}
+                        placeholder="Enter invoice ID"
+                        className="h-11 rounded-xl"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-[28px] border border-border/60 bg-card p-5 shadow-[0_24px_60px_-50px_rgba(15,23,42,0.95)]">
+                  <div className="flex items-start gap-3">
+                    <Paperclip className="mt-1 h-4 w-4 text-primary" />
+                    <div>
+                      <h3 className="text-base font-semibold">Attachments</h3>
+                      <p className="text-sm text-muted-foreground">Add files now, and reattach any files restored from drafts.</p>
+                    </div>
+                  </div>
+
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    className="hidden"
+                    onChange={(event) => {
+                      attachFiles(event.target.files);
+                      event.target.value = '';
+                    }}
+                  />
+
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
+                      <Paperclip className="mr-2 h-4 w-4" />
+                      Add files
+                    </Button>
+                    {draftAttachments.length > 0 && (
+                      <Badge variant="outline" className="rounded-full border-amber-500/40 text-amber-600 dark:text-amber-300">
+                        {draftAttachments.length} draft attachment{draftAttachments.length > 1 ? 's' : ''} need reattach
+                      </Badge>
+                    )}
+                  </div>
+
+                  <div className="mt-4 space-y-3">
+                    {attachments.length === 0 && draftAttachments.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No files attached yet.</p>
+                    ) : null}
+
+                    {attachments.map((file) => (
+                      <div key={`${file.name}-${file.size}`} className="flex items-center justify-between gap-3 rounded-2xl border border-border/60 bg-muted/20 px-3 py-2">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">{file.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {file.type || 'Unknown type'} • {formatFileSize(file.size)}
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setAttachments((prev) => prev.filter((item) => item !== file))}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
                       </div>
-                    </DialogContent>
-                  </Dialog>
-                )}
-                <Button onClick={handleSendNow} disabled={sendMutation.isPending} className={cn("h-8 sm:h-9 text-xs sm:text-sm", currentMode.buttonClass)}>
-                  <Send className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1" />
-                  {sendLabel}
-                </Button>
+                    ))}
+
+                    {draftAttachments.map((file) => (
+                      <div key={`draft-${file.name}-${file.size}`} className="flex items-center justify-between gap-3 rounded-2xl border border-dashed border-amber-500/35 bg-amber-500/5 px-3 py-2">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">{file.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {file.type || 'Unknown type'} • {formatFileSize(file.size)} • reattach required
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setDraftAttachments((prev) => prev.filter((item) => item !== file))}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-[28px] border border-border/60 bg-card p-5 shadow-[0_24px_60px_-50px_rgba(15,23,42,0.95)]">
+                  <div className="flex items-start gap-3">
+                    <Sparkles className="mt-1 h-4 w-4 text-primary" />
+                    <div>
+                      <h3 className="text-base font-semibold">Variables</h3>
+                      <p className="text-sm text-muted-foreground">Blend template variables with live context before you send.</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    {templateSuggestions.map((entry) => (
+                      <button
+                        key={entry.name}
+                        type="button"
+                        className="rounded-full border border-border/70 px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+                        onClick={() => {
+                          const current = parsedVariables ?? {};
+                          const next = {
+                            ...current,
+                            [entry.name]: current[entry.name] ?? '',
+                          } as MessagingJsonObject;
+                          setFormValue('variables', JSON.stringify(next, null, 2));
+                        }}
+                      >
+                        {`{{${entry.name}}}`}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="mt-4 space-y-2">
+                    <Label htmlFor="compose-variables">Variables JSON</Label>
+                    <Textarea
+                      id="compose-variables"
+                      value={form.variables}
+                      onChange={(event) => setFormValue('variables', event.target.value)}
+                      placeholder={`{\n  "client_name": "Jamie",\n  "shoot_date": "2026-04-05"\n}`}
+                      className="min-h-[180px] rounded-2xl"
+                    />
+                    {variableJsonError ? (
+                      <div className="flex items-center gap-2 text-xs text-amber-600">
+                        <AlertCircle className="h-3.5 w-3.5" />
+                        <span>{variableJsonError}</span>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        JSON keys merge with linked IDs and template variables during preview/send.
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="rounded-[28px] border border-border/60 bg-card p-5 shadow-[0_24px_60px_-50px_rgba(15,23,42,0.95)]">
+                  <div className="flex items-start gap-3">
+                    <Info className="mt-1 h-4 w-4 text-primary" />
+                    <div>
+                      <h3 className="text-base font-semibold">Send summary</h3>
+                      <p className="text-sm text-muted-foreground">Quick confidence check before you send or schedule.</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 grid grid-cols-2 gap-3">
+                    <Card className="rounded-2xl border-border/60 bg-muted/20 p-4">
+                      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Recipients</p>
+                      <p className="mt-2 text-2xl font-semibold">{messageInfo.recipients}</p>
+                    </Card>
+                    <Card className="rounded-2xl border-border/60 bg-muted/20 p-4">
+                      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Attachments</p>
+                      <p className="mt-2 text-2xl font-semibold">{messageInfo.attachments}</p>
+                    </Card>
+                    <Card className="rounded-2xl border-border/60 bg-muted/20 p-4">
+                      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Words</p>
+                      <p className="mt-2 text-2xl font-semibold">{messageInfo.words}</p>
+                    </Card>
+                    <Card className="rounded-2xl border-border/60 bg-muted/20 p-4">
+                      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Characters</p>
+                      <p className="mt-2 text-2xl font-semibold">{messageInfo.characters}</p>
+                    </Card>
+                  </div>
+
+                  <div className="mt-4 rounded-2xl border border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground">
+                    {canSendExternal ? (
+                      <p>
+                        From {channels.find((channel) => String(channel.id) === form.channel_id)?.from_email || 'your default channel'}
+                        {recipients.to[0] ? ` to ${recipients.to[0]}` : ' to a primary recipient'}.
+                      </p>
+                    ) : (
+                      <p>This note will be routed to the internal inbox for follow-up.</p>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-
-          {/* Right Sidebar - Desktop only */}
-          <div className="w-64 border-l bg-muted/30 p-4 space-y-6 overflow-y-auto hidden lg:block">
-            {/* Insert Variables */}
-            <div className="space-y-2">
-              <Label className="text-xs uppercase tracking-wide text-muted-foreground flex items-center gap-1">
-                <Zap className="h-3 w-3" /> Insert Variables
-              </Label>
-              <div className="flex flex-wrap gap-1">
-                {['client_name', 'shoot_date', 'shoot_time', 'shoot_address', 'company_name'].map((v) => (
-                  <Button key={v} variant="outline" size="sm" className="text-xs h-7" onClick={() => insertVariable(v)}>
-                    {`{{${v}}}`}
-                  </Button>
-                ))}
-              </div>
-            </div>
-
-            {/* Tips */}
-            <div className="space-y-2">
-              <Label className="text-xs uppercase tracking-wide text-muted-foreground flex items-center gap-1">
-                <Lightbulb className="h-3 w-3" /> Tips
-              </Label>
-              <div className="text-xs text-muted-foreground space-y-2">
-                <p>• Use variables for personalization</p>
-                <p>• Keep subject lines under 50 chars</p>
-                <p>• Preview before sending</p>
-              </div>
-            </div>
-
-            {/* Message Info */}
-            <div className="space-y-2">
-              <Label className="text-xs uppercase tracking-wide text-muted-foreground flex items-center gap-1">
-                <Info className="h-3 w-3" /> Message Info
-              </Label>
-              <div className="text-xs space-y-1">
-                <div className="flex justify-between"><span className="text-muted-foreground">Characters</span><span>{charCount}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Words</span><span>{wordCount}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Recipients</span><span>{recipientCount}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Attachments</span><span>{attachments.length}</span></div>
-              </div>
-            </div>
-          </div>
-        </div>
+        </ScrollArea>
       </div>
+
+      <Dialog open={showScheduleDialog} onOpenChange={setShowScheduleDialog}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Schedule this message</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-5">
+            <div className="space-y-2">
+              <Label htmlFor="compose-scheduled-at">Send at</Label>
+              <Input
+                id="compose-scheduled-at"
+                type="datetime-local"
+                value={form.scheduled_at}
+                onChange={(event) => setFormValue('scheduled_at', event.target.value)}
+                min={new Date().toISOString().slice(0, 16)}
+              />
+            </div>
+
+            <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground">
+              <p>{previewSubject || 'No subject yet'}</p>
+              <p className="mt-2">
+                {messageInfo.recipients} recipient{messageInfo.recipients === 1 ? '' : 's'} • {messageInfo.attachments} attachment{messageInfo.attachments === 1 ? '' : 's'}
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="ghost" onClick={() => setShowScheduleDialog(false)}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleSchedule}
+                disabled={scheduleMutation.isPending}
+              >
+                <CalendarClock className="mr-2 h-4 w-4" />
+                {scheduleMutation.isPending ? 'Scheduling...' : 'Schedule send'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }
-

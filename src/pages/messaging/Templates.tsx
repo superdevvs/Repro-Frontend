@@ -7,9 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Plus, Search, MoreVertical, Copy, Edit, Trash2, Send, Eye } from 'lucide-react';
+import { Plus, Search, MoreVertical, Copy, Edit, Trash2, Send } from 'lucide-react';
 import { getTemplates, deleteTemplate, duplicateTemplate } from '@/services/messaging';
 import { TemplateEditorDialog } from '@/components/messaging/templates/TemplateEditorDialog';
+import { BulkTemplateTestDialog } from '@/components/messaging/templates/BulkTemplateTestDialog';
 import type { MessageTemplate } from '@/types/messaging';
 import {
   DropdownMenu,
@@ -49,6 +50,7 @@ export default function Templates() {
   const [selectedScope, setSelectedScope] = useState<string>('all');
   const [editingTemplate, setEditingTemplate] = useState<MessageTemplate | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [isBulkTestOpen, setIsBulkTestOpen] = useState(false);
 
   // Fetch templates
   const { data: templates, isLoading } = useQuery({
@@ -122,10 +124,16 @@ export default function Templates() {
                 Manage confirmations, reminders & custom layouts
               </p>
             </div>
-            <Button onClick={() => setIsCreating(true)} size="sm" className="shrink-0 h-8 sm:h-9">
-              <Plus className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">New Template</span>
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => setIsBulkTestOpen(true)} size="sm" className="shrink-0 h-8 sm:h-9">
+                <Send className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Test Templates</span>
+              </Button>
+              <Button onClick={() => setIsCreating(true)} size="sm" className="shrink-0 h-8 sm:h-9">
+                <Plus className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">New Template</span>
+              </Button>
+            </div>
           </div>
 
           {/* Search */}
@@ -271,6 +279,12 @@ export default function Templates() {
             }}
           />
         )}
+
+        <BulkTemplateTestDialog
+          open={isBulkTestOpen}
+          templates={filteredTemplates}
+          onClose={() => setIsBulkTestOpen(false)}
+        />
       </div>
     </DashboardLayout>
   );

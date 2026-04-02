@@ -38,7 +38,7 @@ export function BookingComplete({
 }: BookingCompleteProps) {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [countdown, setCountdown] = useState(3);
+  const [countdown, setCountdown] = useState(10);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [countdownComplete, setCountdownComplete] = useState(false);
   

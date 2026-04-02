@@ -258,6 +258,11 @@ export const toOptionalString = (value: unknown): string | undefined => {
   return trimmed ? trimmed : undefined
 }
 
+export const getApprovalNotes = (notes: ShootData['notes']): string | undefined => {
+  if (!notes || typeof notes === 'string') return undefined
+  return toOptionalString((notes as { approvalNotes?: unknown }).approvalNotes)
+}
+
 export const getEditingNotes = (notes: ShootData['notes']): string | undefined => {
   if (!notes || typeof notes === 'string') return undefined
   return toOptionalString((notes as { editingNotes?: unknown }).editingNotes)
@@ -379,11 +384,31 @@ export const mapShootApiToShootData = (item: Record<string, unknown>): ShootData
   const primaryAction = toObjectValue<Record<string, unknown> & ShootAction>(item.primary_action)
   const notesValue = item.notes
   const noteObject = toObjectValue<Record<string, unknown>>(notesValue)
+  const fallbackApprovalNotes = (() => {
+    const directApproval =
+      toOptionalString((item as { approval_notes?: unknown }).approval_notes) ??
+      toOptionalString((item as { approvalNotes?: unknown }).approvalNotes) ??
+      toOptionalString(noteObject?.['approvalNotes']) ??
+      toOptionalString(noteObject?.['approval_notes'])
+
+    if (directApproval) return directApproval
+    if (typeof notesValue !== 'string') return undefined
+
+    const hasDedicatedNotes = [
+      item.shoot_notes,
+      item.photographer_notes,
+      item.company_notes,
+      (item as { editor_notes?: unknown }).editor_notes,
+    ].some((value) => Boolean(toOptionalString(value)))
+
+    return hasDedicatedNotes ? toOptionalString(notesValue) : undefined
+  })()
   const normalizedNotes = {
     shootNotes:
       toOptionalString(item.shoot_notes) ??
       toOptionalString(notesValue) ??
       toOptionalString(noteObject?.['shootNotes']),
+    approvalNotes: fallbackApprovalNotes,
     photographerNotes:
       toOptionalString(item.photographer_notes) ?? toOptionalString(noteObject?.['photographerNotes']),
     companyNotes: toOptionalString(item.company_notes) ?? toOptionalString(noteObject?.['companyNotes']),

@@ -94,6 +94,7 @@ const fallbackMediaGroups = FALLBACK_MEDIA_TEMPLATES;
 
 type ApiNotePayload = {
   shootNotes?: string;
+  approvalNotes?: string;
   photographerNotes?: string;
   companyNotes?: string;
   editingNotes?: string;
@@ -150,6 +151,7 @@ type ApiShoot = {
   workflow_status?: string;
   notes?: string | ApiNotePayload | null;
   shoot_notes?: string;
+  approval_notes?: string;
   photographer_notes?: string;
   company_notes?: string;
   editor_notes?: string;
@@ -257,22 +259,57 @@ const getStoredShoots = (): ShootData[] => {
   return [];
 };
 
+const toOptionalString = (value: unknown): string | undefined => {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : undefined;
+};
+
+const resolveApprovalNotes = (shoot: ApiShoot, structuredNotes: ApiNotePayload): string | undefined => {
+  const directApprovalNote =
+    toOptionalString((shoot as any).approval_notes) ||
+    toOptionalString((shoot as any).approvalNotes) ||
+    toOptionalString((structuredNotes as any).approvalNotes) ||
+    toOptionalString((structuredNotes as any).approval_notes);
+
+  if (directApprovalNote) {
+    return directApprovalNote;
+  }
+
+  const noteValue = shoot?.notes;
+  if (typeof noteValue !== 'string') {
+    return undefined;
+  }
+
+  const hasDedicatedNotes = [
+    shoot?.shoot_notes,
+    shoot?.photographer_notes,
+    shoot?.company_notes,
+    shoot?.editor_notes,
+  ].some((value) => Boolean(toOptionalString(value)));
+
+  return hasDedicatedNotes ? toOptionalString(noteValue) : undefined;
+};
+
 const normalizeNotes = (shoot: ApiShoot) => {
   const noteValue = shoot?.notes;
+  const structuredNotes: ApiNotePayload =
+    typeof noteValue === 'object' && noteValue !== null ? (noteValue as ApiNotePayload) : {};
+  const approvalNotes = resolveApprovalNotes(shoot, structuredNotes);
+
   if (typeof noteValue === 'string') {
     return {
-      shootNotes: noteValue,
-      photographerNotes: undefined,
-      companyNotes: undefined,
-      editingNotes: undefined,
+      shootNotes: shoot?.shoot_notes ?? noteValue,
+      approvalNotes,
+      photographerNotes: shoot?.photographer_notes ?? undefined,
+      companyNotes: shoot?.company_notes ?? undefined,
+      editingNotes: shoot?.editor_notes ?? undefined,
     };
   }
 
-  const structuredNotes: ApiNotePayload =
-    typeof noteValue === 'object' && noteValue !== null ? (noteValue as ApiNotePayload) : {};
-
   return {
     shootNotes: shoot?.shoot_notes ?? structuredNotes.shootNotes ?? undefined,
+    approvalNotes,
     photographerNotes: shoot?.photographer_notes ?? structuredNotes.photographerNotes ?? undefined,
     companyNotes: shoot?.company_notes ?? structuredNotes.companyNotes ?? undefined,
     editingNotes: shoot?.editor_notes ?? structuredNotes.editingNotes ?? undefined,

@@ -21,6 +21,7 @@ export type AutomationTriggerType =
   | 'TERMS_ACCEPTED'
   | 'SHOOT_REQUESTED'
   | 'SHOOT_REQUEST_APPROVED'
+  | 'SHOOT_REQUEST_MODIFIED'
   | 'SHOOT_BOOKED'
   | 'SHOOT_SCHEDULED'
   | 'SHOOT_UPDATED'
@@ -235,12 +236,7 @@ export interface Message {
   subject?: string;
   body_text?: string;
   body_html?: string;
-  attachments_json?: Array<{
-    name: string;
-    size: number;
-    type: string;
-    url: string;
-  }>;
+  attachments_json?: MessageAttachment[];
   status: MessageStatus;
   send_source: SendSource;
   tags_json?: string[];
@@ -439,6 +435,27 @@ export interface EmailRecipient {
   id: number;
   name?: string;
   email: string;
+}
+
+export interface MessageAttachment {
+  name: string;
+  size: number;
+  type: string;
+  url?: string | null;
+  disk?: string;
+  storage_path?: string;
+}
+
+export type EmailComposeRecipientKind = 'contact' | 'client' | 'user' | 'recent';
+
+export interface EmailComposeRecipient {
+  id: string;
+  email: string;
+  name?: string;
+  kind: EmailComposeRecipientKind;
+  subtitle?: string;
+  related_user_id?: number | null;
+  related_account_id?: number | null;
 }
 
 export interface MessagingOverview {

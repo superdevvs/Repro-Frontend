@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Sheet,
   SheetContent,
@@ -46,6 +46,7 @@ import { format, isToday, isYesterday, differenceInMinutes } from 'date-fns';
 import { useNotifications, NotificationItem } from '@/hooks/useNotifications';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
+import type { DashboardShootModalNavigationState } from '@/types/dashboard';
 
 // Notification types
 type NotificationType = 'all' | 'unread' | 'shoots' | 'messages' | 'system';
@@ -66,6 +67,7 @@ const isRecent = (dateString: string | null | undefined): boolean => {
 
 export function NotificationCenter() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const { notifications, unreadCount, loading, error, refresh, markAsRead, markAllAsRead } =
@@ -273,6 +275,16 @@ export function NotificationCenter() {
     }
     
     setIsOpen(false);
+    if (notification.shootId) {
+      const dashboardState: DashboardShootModalNavigationState = {
+        openShootId: notification.shootId,
+        openShootTab: 'overview',
+      };
+      const targetPath = location.pathname === '/dashboard' ? location.pathname : '/dashboard';
+      navigate(targetPath, { state: dashboardState });
+      return;
+    }
+
     if (notification.actionUrl) {
       navigate(notification.actionUrl);
     }

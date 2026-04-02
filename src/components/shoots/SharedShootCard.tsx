@@ -29,6 +29,7 @@ import { getStateFullName } from '@/utils/stateUtils';
 import { formatWorkflowStatus } from '@/utils/status';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import { normalizeImageUrl } from '@/utils/imageUrl';
+import { getApprovalNotes, getEditingNotes } from '@/components/shoots/history/shootHistoryUtils';
 
 interface SharedShootCardProps {
   shoot: ShootData;
@@ -112,9 +113,9 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
   const isEditor = role === 'editor';
   const isClient = role === 'client';
   const canDelete = (isSuperAdmin || isAdmin) && onDelete;
-  const editingNotes = shoot.notes && typeof shoot.notes === 'object' && !Array.isArray(shoot.notes)
-    ? (shoot.notes as any)?.editingNotes
-    : undefined;
+  const approvalNotes = getApprovalNotes(shoot.notes);
+  const editingNotes = getEditingNotes(shoot.notes);
+  const canShowApprovalNotes = Boolean(approvalNotes) && (isSuperAdmin || isAdmin || isEditingManager || isEditor);
   const canShowEditingNotes = Boolean(editingNotes) && (isSuperAdmin || isAdmin || isEditingManager || isEditor);
   const shootStatus = String(shoot.workflowStatus || shoot.status || '').toLowerCase();
   const canSendToEditing = Boolean(onSendToEditing) && shootStatus === 'uploaded';
@@ -438,13 +439,22 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
           </div>
         )}
       </div>
-      {/* Editing Notes - full-width bottom banner */}
-      {canShowEditingNotes && editingNotes && (
-        <div className="bg-gray-100 dark:bg-purple-900/30 px-3 sm:px-4 py-1.5 text-xs flex items-center gap-2 border-t border-gray-200 dark:border-purple-700/30 rounded-b-lg">
-          <span className="text-gray-700 dark:text-purple-400 font-medium">Editing notes :</span>
-          <span className="text-gray-600 dark:text-purple-300 truncate">{editingNotes}</span>
+      {(canShowApprovalNotes && approvalNotes) || (canShowEditingNotes && editingNotes) ? (
+        <div className="overflow-hidden rounded-b-lg border-t border-gray-200 dark:border-slate-700/40">
+          {canShowApprovalNotes && approvalNotes && (
+            <div className="bg-gray-100 px-3 py-1.5 text-xs sm:px-4 dark:bg-slate-900/40">
+              <span className="text-gray-700 font-medium dark:text-slate-300">Approval notes :</span>{' '}
+              <span className="text-gray-600 dark:text-slate-400">{approvalNotes}</span>
+            </div>
+          )}
+          {canShowEditingNotes && editingNotes && (
+            <div className="bg-gray-100 px-3 py-1.5 text-xs sm:px-4 dark:bg-purple-900/30">
+              <span className="text-gray-700 font-medium dark:text-purple-400">Editing notes :</span>{' '}
+              <span className="text-gray-600 dark:text-purple-300">{editingNotes}</span>
+            </div>
+          )}
         </div>
-      )}
+      ) : null}
     </Card>
   );
 };

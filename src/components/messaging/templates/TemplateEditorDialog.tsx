@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { createTemplate, updateTemplate } from '@/services/messaging';
+import { createTemplate, testSendTemplate, updateTemplate } from '@/services/messaging';
 import type { MessageTemplate, TemplateCategory, TemplateScope, MessageChannel } from '@/types/messaging';
 import {
   Dialog,
@@ -23,9 +23,10 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
 import { ShortcodePanel } from './ShortcodePanel';
-import { Eye, Code, Save, X, ChevronDown, ChevronUp, Braces } from 'lucide-react';
+import { Eye, Code, Save, X, ChevronDown, Braces, Send } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
+import { getStoredTemplateTestEmail, setStoredTemplateTestEmail } from './testSendStorage';
 
 interface TemplateEditorDialogProps {
   template: MessageTemplate | null;
@@ -456,6 +457,7 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
   });
   const [activeTab, setActiveTab] = useState<'html' | 'text' | 'preview'>('html');
   const [mobileSection, setMobileSection] = useState<'editor' | 'settings' | 'shortcodes'>('editor');
+  const [testEmail, setTestEmail] = useState('');
   const htmlTextareaRef = useRef<HTMLTextAreaElement>(null);
   const textTextareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -484,6 +486,8 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
         channel: 'EMAIL',
       });
     }
+
+    setTestEmail(getStoredTemplateTestEmail());
   }, [template, open]);
 
   const saveMutation = useMutation({
@@ -501,6 +505,40 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
     },
     onError: (error: unknown) => {
       toast.error(error instanceof Error ? error.message : 'Failed to save template');
+    },
+  });
+
+  const testSendMutation = useMutation({
+    mutationFn: async () => {
+      if (!template) {
+        throw new Error('Save this template before sending a test email.');
+      }
+
+      const email = testEmail.trim();
+      if (!email) {
+        throw new Error('Enter a test email address first.');
+      }
+
+      setStoredTemplateTestEmail(email);
+
+      return testSendTemplate(template.id, {
+        to: email,
+        template: {
+          channel: formData.channel,
+          name: formData.name,
+          description: formData.description || undefined,
+          category: formData.category,
+          subject: formData.subject,
+          body_html: formData.body_html,
+          body_text: formData.body_text,
+        },
+      });
+    },
+    onSuccess: () => {
+      toast.success(`Test email sent to ${testEmail.trim()}`);
+    },
+    onError: (error: unknown) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to send test email');
     },
   });
 
@@ -522,6 +560,11 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
       ...formData,
       channel: formData.channel || 'EMAIL',
     });
+  };
+
+  const handleTestEmailChange = (value: string) => {
+    setTestEmail(value);
+    setStoredTemplateTestEmail(value);
   };
 
   // Strip wrapped email chrome so the preview only shows the editable body content.
@@ -669,6 +712,47 @@ export function TemplateEditorDialog({ template, open, onClose, onSuccess }: Tem
         <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md text-sm text-yellow-800">
           <strong>System Template:</strong> Some fields cannot be edited.
         </div>
+      )}
+
+      {formData.channel === 'EMAIL' && (
+        <Card className="border-dashed border-primary/30 bg-primary/5 p-4">
+          <div className="space-y-3">
+            <div>
+              <h3 className="text-sm font-semibold">Send Test Email</h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                Send this template to any email address. The last email you enter stays saved for the next template.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="template-test-email">Test email address</Label>
+              <Input
+                id="template-test-email"
+                type="email"
+                value={testEmail}
+                onChange={(e) => handleTestEmailChange(e.target.value)}
+                placeholder="name@example.com"
+              />
+            </div>
+
+            <Button
+              type="button"
+              variant="secondary"
+              className="w-full"
+              onClick={() => testSendMutation.mutate()}
+              disabled={testSendMutation.isPending || !template}
+            >
+              <Send className="h-4 w-4 mr-2" />
+              {testSendMutation.isPending ? 'Sending test...' : 'Send test email'}
+            </Button>
+
+            {!template && (
+              <p className="text-xs text-muted-foreground">
+                Save the template once to enable test sending from this editor.
+              </p>
+            )}
+          </div>
+        </Card>
       )}
     </div>
   );

@@ -51,6 +51,7 @@ export const triggerLabels: Record<string, string> = {
   TERMS_ACCEPTED: 'Terms Accepted',
   SHOOT_REQUESTED: 'Shoot Requested',
   SHOOT_REQUEST_APPROVED: 'Shoot Request Approved',
+  SHOOT_REQUEST_MODIFIED: 'Shoot Request Modified',
   SHOOT_BOOKED: 'Shoot Booked',
   SHOOT_SCHEDULED: 'Shoot Scheduled',
   SHOOT_UPDATED: 'Shoot Updated',
@@ -84,7 +85,7 @@ export const triggerGroups = [
   },
   {
     label: 'Shoot Lifecycle',
-    triggers: ['SHOOT_REQUESTED', 'SHOOT_REQUEST_APPROVED', 'SHOOT_BOOKED', 'SHOOT_SCHEDULED', 'SHOOT_UPDATED', 'SHOOT_REMINDER', 'SHOOT_COMPLETED', 'SHOOT_CANCELED', 'SHOOT_REMOVED'],
+    triggers: ['SHOOT_REQUESTED', 'SHOOT_REQUEST_APPROVED', 'SHOOT_REQUEST_MODIFIED', 'SHOOT_BOOKED', 'SHOOT_SCHEDULED', 'SHOOT_UPDATED', 'SHOOT_REMINDER', 'SHOOT_COMPLETED', 'SHOOT_CANCELED', 'SHOOT_REMOVED'],
   },
   {
     label: 'Payments & Invoices',
@@ -142,6 +143,7 @@ export interface SimpleAutomationDraft {
 export const shootBasedTriggers = new Set<AutomationTriggerType>([
   'SHOOT_REQUESTED',
   'SHOOT_REQUEST_APPROVED',
+  'SHOOT_REQUEST_MODIFIED',
   'SHOOT_BOOKED',
   'SHOOT_SCHEDULED',
   'SHOOT_UPDATED',

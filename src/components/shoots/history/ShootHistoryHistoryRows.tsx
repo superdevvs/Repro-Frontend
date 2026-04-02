@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { useUserPreferences } from '@/contexts/UserPreferencesContext'
-import { getEditingNotes, formatCurrency } from './shootHistoryUtils'
+import { formatCurrency } from './shootHistoryUtils'
 import {
   Building2,
   Calendar as CalendarIcon,
@@ -72,7 +72,9 @@ export const HistoryRow = memo(({
   }
   const isPaid = isSuperAdmin ? (financials.totalPaid >= financials.totalQuote) : false
   const statusLabel = (record.status ?? 'scheduled').replace(/_/g, ' ')
+  const approvalNotesValue = (record.notes as any)?.approvalNotes || (record.notes as any)?.approval
   const editingNotesValue = (record.notes as any)?.editingNotes || (record.notes as any)?.editing
+  const canShowApprovalNotes = Boolean(approvalNotesValue) && (isSuperAdmin || isAdmin || isEditingManager || isEditor)
   const canShowEditingNotes = Boolean(editingNotesValue) && (isSuperAdmin || isAdmin || isEditingManager || isEditor)
   const recordStatus = String(record.status ?? '').toLowerCase()
   const canSendToEditing = Boolean(onSendToEditing) && recordStatus === 'uploaded'
@@ -239,12 +241,22 @@ export const HistoryRow = memo(({
           <ChevronDown className={cn('h-4 w-4 text-muted-foreground ml-auto transition-transform', open && 'rotate-180')} />
         </div>
       </div>
-      {canShowEditingNotes && editingNotesValue && (
-        <div className="bg-gray-100 dark:bg-purple-900/30 px-3 sm:px-4 py-1.5 text-xs flex items-center gap-2 border-t border-gray-200 dark:border-purple-700/30 rounded-b-lg">
-          <span className="text-gray-700 dark:text-purple-400 font-medium">Editing notes :</span>
-          <span className="text-gray-600 dark:text-purple-300 truncate">{editingNotesValue}</span>
+      {(canShowApprovalNotes && approvalNotesValue) || (canShowEditingNotes && editingNotesValue) ? (
+        <div className="overflow-hidden rounded-b-lg border-t border-gray-200 dark:border-slate-700/40">
+          {canShowApprovalNotes && approvalNotesValue && (
+            <div className="bg-gray-100 px-3 py-1.5 text-xs sm:px-4 dark:bg-slate-900/40">
+              <span className="text-gray-700 font-medium dark:text-slate-300">Approval notes :</span>{' '}
+              <span className="text-gray-600 dark:text-slate-400">{approvalNotesValue}</span>
+            </div>
+          )}
+          {canShowEditingNotes && editingNotesValue && (
+            <div className="bg-gray-100 px-3 py-1.5 text-xs sm:px-4 dark:bg-purple-900/30">
+              <span className="text-gray-700 font-medium dark:text-purple-400">Editing notes :</span>{' '}
+              <span className="text-gray-600 dark:text-purple-300">{editingNotesValue}</span>
+            </div>
+          )}
         </div>
-      )}
+      ) : null}
       {open && (
         <div className="border-t bg-muted/20 p-3 sm:p-5">
           <div className="grid gap-4 sm:gap-6 md:grid-cols-2">
@@ -296,6 +308,18 @@ export const HistoryRow = memo(({
                     <div>
                       <span className="text-muted-foreground">Company Notes:</span>
                       <p className="mt-0.5">{record.notes.company}</p>
+                    </div>
+                  )}
+                  {record.notes?.approval && (
+                    <div>
+                      <span className="text-muted-foreground">Approval Notes:</span>
+                      <p className="mt-0.5">{record.notes.approval}</p>
+                    </div>
+                  )}
+                  {(record.notes as any)?.editing && (
+                    <div>
+                      <span className="text-muted-foreground">Editing Notes:</span>
+                      <p className="mt-0.5">{(record.notes as any).editing}</p>
                     </div>
                   )}
                 </div>

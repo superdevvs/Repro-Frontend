@@ -19,6 +19,7 @@ import type {
   SmsContact,
   SmsNumberConfig,
   EmailRecipient,
+  EmailComposeRecipient,
   TemplatePreviewResult,
 } from '@/types/messaging';
 
@@ -89,7 +90,11 @@ export const duplicateTemplate = async (id: number): Promise<MessageTemplate> =>
 
 export const testSendTemplate = async (
   id: number,
-  data: { to: string; variables?: ComposeEmailPayload['variables'] },
+  data: {
+    to: string;
+    variables?: ComposeEmailPayload['variables'];
+    template?: Pick<MessageTemplate, 'channel' | 'name' | 'description' | 'category' | 'subject' | 'body_html' | 'body_text'>;
+  },
 ): Promise<void> => {
   await apiClient.post(`/messaging/templates/${id}/test-send`, data);
 };
@@ -201,6 +206,14 @@ export const getEmailRecipients = async (): Promise<EmailRecipient[]> => {
     : [];
 };
 
+export const getEmailComposeRecipients = async (params?: {
+  search?: string;
+  limit?: number;
+}): Promise<EmailComposeRecipient[]> => {
+  const response = await apiClient.get('/messaging/email/recipients', { params });
+  return Array.isArray(response.data) ? response.data : [];
+};
+
 export const getEmailThreads = async (params?: {
   per_page?: number;
   page?: number;
@@ -259,6 +272,8 @@ export const scheduleEmail = async (data: ScheduleEmailPayload): Promise<Message
     if (data.related_account_id) formData.append('related_account_id', String(data.related_account_id));
     if (data.related_invoice_id) formData.append('related_invoice_id', String(data.related_invoice_id));
     if (data.variables) formData.append('variables', JSON.stringify(data.variables));
+    if (data.cc) data.cc.forEach((email) => formData.append('cc[]', email));
+    if (data.bcc) data.bcc.forEach((email) => formData.append('bcc[]', email));
     formData.append('scheduled_at', data.scheduled_at);
     
     // Add attachments

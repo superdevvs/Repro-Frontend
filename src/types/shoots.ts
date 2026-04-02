@@ -246,6 +246,7 @@ export interface ShootData {
   workflowStatus?: string;
   notes?: string | {
     shootNotes?: string;
+    approvalNotes?: string;
     photographerNotes?: string;
     companyNotes?: string;
     editingNotes?: string;
@@ -383,8 +384,10 @@ export interface ShootHistoryRecord {
   tourPurchased: boolean;
   notes: {
     shoot?: string | null;
+    approval?: string | null;
     photographer?: string | null;
     company?: string | null;
+    editing?: string | null;
   };
   userCreatedBy?: string | null;
 }

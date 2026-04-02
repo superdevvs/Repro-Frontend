@@ -233,6 +233,18 @@ export interface DashboardShootSummary {
   } | null;
 }
 
+export type DashboardShootModalTab =
+  | 'overview'
+  | 'notes'
+  | 'issues'
+  | 'tours'
+  | 'settings';
+
+export interface DashboardShootModalNavigationState {
+  openShootId: number;
+  openShootTab?: DashboardShootModalTab;
+}
+
 export interface DashboardWorkflowColumn {
   key: string;
   label: string;

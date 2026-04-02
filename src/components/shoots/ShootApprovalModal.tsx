@@ -10,8 +10,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -65,6 +63,7 @@ interface ShootDetails {
   financials?: { totalQuote?: number };
   notes?: {
     shoot?: string;
+    approval?: string;
     photographer?: string;
     company?: string;
   };
@@ -618,6 +617,11 @@ export function ShootApprovalModal({
     (shootDetails as any)?.company_notes ||
     shootDetails?.notes?.company ||
     '';
+  const minSelectableDate = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
+  const scheduledDateInputValue = useMemo(
+    () => (scheduledDate ? format(scheduledDate, 'yyyy-MM-dd') : ''),
+    [scheduledDate]
+  );
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -756,29 +760,19 @@ export function ShootApprovalModal({
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label className="text-xs">Date *</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            'w-full justify-start text-left font-normal h-9',
-                            !scheduledDate && 'text-muted-foreground'
-                          )}
-                        >
-                          <CalendarIcon className="mr-2 h-3.5 w-3.5" />
-                          {scheduledDate ? format(scheduledDate, 'MMM d') : 'Select'}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={scheduledDate}
-                          onSelect={setScheduledDate}
-                          disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
+                    <div className="relative">
+                      <CalendarIcon className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        type="date"
+                        min={minSelectableDate}
+                        value={scheduledDateInputValue}
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          setScheduledDate(value ? new Date(`${value}T12:00:00`) : undefined);
+                        }}
+                        className="h-9 pl-9"
+                      />
+                    </div>
                   </div>
 
                   <div className="space-y-1.5">
@@ -880,6 +874,9 @@ export function ShootApprovalModal({
                   rows={3}
                   className="resize-none"
                 />
+                <p className="text-[11px] text-muted-foreground">
+                  Visible to the internal team in the shoot notes and history views after approval.
+                </p>
               </div>
             </div>
           </div>
@@ -913,106 +910,150 @@ export function ShootApprovalModal({
             closePhotographerPicker();
           }
         }}>
-          <DialogContent className="sm:max-w-2xl w-full">
-            <div className="p-4 bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-gray-100 dark:border-slate-800">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
-                  <DialogHeader>
-                    <DialogTitle className="text-lg text-slate-900 dark:text-slate-100">
-                      {photographerPickerContext?.categoryName
-                        ? `Select Photographer for ${photographerPickerContext.categoryName}`
-                        : 'Select Photographer'}
-                    </DialogTitle>
-                    <DialogDescription>
-                      {photographerPickerContext?.categoryName
-                        ? `Choose a photographer for ${photographerPickerContext.categoryName} services`
-                        : 'Choose a photographer for this requested shoot'}
-                    </DialogDescription>
-                  </DialogHeader>
-                </div>
-              </div>
+          <DialogContent className="w-[92vw] max-h-[90vh] overflow-hidden p-0 sm:max-w-2xl">
+            <div className="flex h-full flex-col sm:h-[70vh]">
+              <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-6">
+                <DialogHeader className="items-start space-y-1 text-left">
+                  <DialogTitle className="text-xl text-slate-900 dark:text-slate-100">
+                    {photographerPickerContext?.categoryName
+                      ? `Select Photographer for ${photographerPickerContext.categoryName}`
+                      : 'Select Photographer'}
+                  </DialogTitle>
+                  <DialogDescription className="text-[11px] uppercase tracking-[0.28em] text-blue-500/80">
+                    Curated network - {filteredPhotographers.length} available
+                  </DialogDescription>
+                </DialogHeader>
 
-              <div className="space-y-3 mb-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    placeholder="Search photographers..."
-                    value={photographerSearchQuery}
-                    onChange={(e) => setPhotographerSearchQuery(e.target.value)}
-                    className="pl-9"
-                  />
+                <div className="space-y-3">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      placeholder="Search by name or area..."
+                      value={photographerSearchQuery}
+                      onChange={(e) => setPhotographerSearchQuery(e.target.value)}
+                      className="h-11 rounded-full bg-slate-50 pl-9 dark:bg-slate-900/50"
+                    />
+                  </div>
                 </div>
-              </div>
 
-              <div className="divide-y divide-gray-100 dark:divide-slate-800">
-                <div className="pt-3 max-h-[48vh] overflow-y-auto pr-2">
+                <div className="flex-1 min-h-0 overflow-y-auto pr-2">
                   {filteredPhotographers.length > 0 ? (
-                    <div className="grid gap-4">
-                      {filteredPhotographers.map((photographer) => (
-                        <button
-                          type="button"
-                          key={photographer.id}
-                          onClick={() => setPickerPhotographerId(String(photographer.id))}
-                          className={cn(
-                            'w-full rounded-2xl border p-4 text-left transition-all',
-                            pickerPhotographerId === String(photographer.id)
-                              ? 'border-blue-300 bg-blue-50/70 dark:border-blue-700 dark:bg-blue-950/40'
-                              : 'border-gray-100 bg-gray-50 dark:border-slate-700 dark:bg-slate-800',
-                            'hover:border-blue-200 dark:hover:border-blue-800',
-                          )}
-                        >
-                          <div className="flex items-start gap-4">
-                            <Avatar className="h-12 w-12">
-                              <AvatarImage src={photographer.avatar} alt={photographer.name} />
-                              <AvatarFallback>{photographer.name?.charAt(0)}</AvatarFallback>
-                            </Avatar>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="min-w-0">
-                                  <div className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
-                                    {photographer.name}
-                                  </div>
-                                  {photographer.email && (
-                                    <div className="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">
-                                      {photographer.email}
+                    <div className="grid gap-3">
+                      {filteredPhotographers.map((photographer) => {
+                        const isSelected = pickerPhotographerId === String(photographer.id);
+
+                        return (
+                          <button
+                            type="button"
+                            key={photographer.id}
+                            onClick={() => setPickerPhotographerId(String(photographer.id))}
+                            className={cn(
+                              'w-full rounded-[28px] border px-5 py-4 text-left transition-all',
+                              isSelected
+                                ? 'border-blue-500/80 bg-blue-950/35 shadow-[0_0_0_1px_rgba(59,130,246,0.18)]'
+                                : 'border-slate-200/70 bg-slate-50/90 hover:border-blue-300 dark:border-slate-800 dark:bg-slate-900/70 dark:hover:border-blue-800',
+                            )}
+                          >
+                            <div className="flex items-start gap-4">
+                              <Avatar className="h-12 w-12 shrink-0">
+                                <AvatarImage src={photographer.avatar} alt={photographer.name} />
+                                <AvatarFallback>{photographer.name?.charAt(0)}</AvatarFallback>
+                              </Avatar>
+
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <div className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+                                      {photographer.name}
                                     </div>
-                                  )}
-                                </div>
-                                {pickerPhotographerId === String(photographer.id) && (
-                                  <span className="text-[10px] uppercase tracking-widest text-blue-600 dark:text-blue-300">
-                                    Selected
+                                    {photographer.email && (
+                                      <div className="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">
+                                        {photographer.email}
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  <span
+                                    className={cn(
+                                      'mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full border transition-colors',
+                                      isSelected
+                                        ? 'border-blue-500 bg-blue-600 text-white'
+                                        : 'border-slate-300 bg-transparent text-transparent dark:border-slate-700',
+                                    )}
+                                    aria-hidden="true"
+                                  >
+                                    <Check className="h-4 w-4" />
                                   </span>
+                                </div>
+
+                                {(photographer.city || photographer.state) && (
+                                  <div className="mt-3 text-[11px] text-slate-500 dark:text-slate-400">
+                                    {[photographer.city, photographer.state].filter(Boolean).join(', ')}
+                                  </div>
                                 )}
                               </div>
-                              {(photographer.city || photographer.state) && (
-                                <div className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
-                                  {[photographer.city, photographer.state].filter(Boolean).join(', ')}
-                                </div>
-                              )}
                             </div>
-                          </div>
-                        </button>
-                      ))}
+                          </button>
+                        );
+                      })}
                     </div>
                   ) : (
                     <div className="py-10 text-center text-sm text-muted-foreground">
-                      No photographers available.
+                      {photographerSearchQuery ? 'No photographers found matching your search.' : 'No photographers available.'}
                     </div>
                   )}
                 </div>
-              </div>
 
-              <div className="mt-4 flex justify-between gap-2 border-t pt-4">
-                <Button variant="outline" onClick={handleClearPhotographerPicker}>
-                  Leave unassigned
-                </Button>
-                <div className="flex gap-2">
-                  <Button variant="ghost" onClick={closePhotographerPicker}>
-                    Cancel
-                  </Button>
-                  <Button onClick={handleConfirmPhotographerPicker} disabled={!pickerPhotographerId}>
-                    Use selection
-                  </Button>
+                <div className="flex-shrink-0 border-t border-slate-200/70 bg-white/80 pt-4 backdrop-blur dark:border-slate-800/70 dark:bg-slate-950/50">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <Avatar
+                        className={cn(
+                          'h-10 w-10 shrink-0',
+                          resolvePhotographerDetails(pickerPhotographerId)
+                            ? 'ring-2 ring-blue-500/70 ring-offset-2 ring-offset-white dark:ring-offset-slate-950'
+                            : 'bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-400',
+                        )}
+                      >
+                        {resolvePhotographerDetails(pickerPhotographerId) ? (
+                          <>
+                            <AvatarImage
+                              src={resolvePhotographerDetails(pickerPhotographerId)?.avatar}
+                              alt={resolvePhotographerDetails(pickerPhotographerId)?.name}
+                            />
+                            <AvatarFallback>{resolvePhotographerDetails(pickerPhotographerId)?.name?.charAt(0)}</AvatarFallback>
+                          </>
+                        ) : (
+                          <AvatarFallback>
+                            <User className="h-4 w-4" />
+                          </AvatarFallback>
+                        )}
+                      </Avatar>
+
+                      <div className="min-w-0">
+                        <p className="text-[10px] uppercase tracking-[0.28em] text-blue-500/80">
+                          {photographerPickerContext?.categoryName
+                            ? `Photographer for ${photographerPickerContext.categoryName}`
+                            : 'Selected specialist'}
+                        </p>
+                        <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+                          {resolvePhotographerDetails(pickerPhotographerId)?.name || 'None selected'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 self-stretch lg:self-auto">
+                      <Button variant="outline" onClick={handleClearPhotographerPicker} className="flex-1 lg:flex-none">
+                        Leave unassigned
+                      </Button>
+                      <Button variant="ghost" onClick={closePhotographerPicker} className="flex-1 lg:flex-none">
+                        Discard
+                      </Button>
+                      <Button onClick={handleConfirmPhotographerPicker} disabled={!pickerPhotographerId} className="flex-1 lg:flex-none">
+                        Use selection
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

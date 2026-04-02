@@ -14,13 +14,39 @@ import { CheckCircle2, AlertTriangle, Clock, Activity, Settings, Thermometer, Lo
 import { useTheme } from "@/hooks/useTheme";
 import { useUserPreferences } from "@/contexts/UserPreferencesContext";
 import { API_BASE_URL } from "@/config/env";
+import type { UserRole } from "@/types/auth";
 import axios from 'axios';
+
+const getRoleLabel = (role?: UserRole) => {
+  switch (role) {
+    case 'superadmin':
+      return 'Super Admin';
+    case 'editing_manager':
+      return 'Editing Manager';
+    case 'admin':
+    default:
+      return 'Admin';
+  }
+};
+
+const getRoleBadgeClassName = (role?: UserRole) => {
+  switch (role) {
+    case 'superadmin':
+      return 'bg-red-600 hover:bg-red-700';
+    case 'editing_manager':
+      return 'bg-violet-600 hover:bg-violet-700';
+    case 'admin':
+    default:
+      return 'bg-blue-600 hover:bg-blue-700';
+  }
+};
 
 export function AdminProfile() {
   const { user, setUser } = useAuth();
   const { theme, setTheme } = useTheme();
   const { preferences, setTemperatureUnit, setTimeFormat } = useUserPreferences();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const roleLabel = getRoleLabel(user?.role);
   
   const [formData, setFormData] = useState({
     name: user?.name || "",
@@ -148,16 +174,12 @@ export function AdminProfile() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Admin Profile</h2>
+          <h2 className="text-3xl font-bold tracking-tight">{roleLabel} Profile</h2>
           <p className="text-muted-foreground">
-            Manage your account information and admin preferences
+            Manage your account information and preferences
           </p>
         </div>
-        {user?.role === 'superadmin' ? (
-          <Badge className="bg-red-600 hover:bg-red-700">Super Admin</Badge>
-        ) : (
-          <Badge className="bg-blue-600 hover:bg-blue-700">Admin</Badge>
-        )}
+        <Badge className={getRoleBadgeClassName(user?.role)}>{roleLabel}</Badge>
       </div>
 
       <Separator />
@@ -212,7 +234,7 @@ export function AdminProfile() {
                         <Label htmlFor="role">Role</Label>
                         <Input
                           id="role"
-                          value={user?.role === 'superadmin' ? 'Super Admin' : 'Admin'}
+                          value={roleLabel}
                           readOnly
                           disabled
                           className="opacity-70"

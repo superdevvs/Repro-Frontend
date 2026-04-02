@@ -256,7 +256,9 @@ const registerSchema = z
     country: z.string().optional(),
     password: z.string().min(6, 'Password must be at least 6 characters'),
     confirmPassword: z.string().min(6, 'Please confirm your password'),
-    terms: z.boolean().optional(),
+    terms: z.boolean().refine((value) => value === true, {
+      message: 'You must agree to the Terms & Conditions',
+    }),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: 'Passwords do not match',
@@ -307,6 +309,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
       terms: false,
     },
   });
+  const hasAcceptedTerms = form.watch('terms');
 
   const handleRegister = async (values: RegisterFormValues) => {
     setIsSubmitting(true);
@@ -575,7 +578,13 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
                   id="terms"
                   type="checkbox"
                   checked={field.value ?? false}
-                  onChange={(e) => field.onChange(e.target.checked)}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    field.onChange(checked);
+                    if (checked) {
+                      setTermsOpen(true);
+                    }
+                  }}
                   className={`mt-0.5 h-4 w-4 rounded border ${isMobile ? 'border-white/30 bg-slate-900/60' : 'border-border dark:border-white/30 dark:bg-transparent'}`}
                 />
                 <div className={`text-sm leading-6 ${isMobile ? 'text-slate-300' : 'text-muted-foreground dark:text-slate-300'}`}>
@@ -600,7 +609,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
         />
 
         <Dialog open={termsOpen} onOpenChange={setTermsOpen}>
-          <DialogContent className={`border-white/10 bg-[#060a0e] text-white ${isMobile ? 'w-[calc(100vw-1rem)] max-w-none rounded-2xl p-4' : 'max-w-3xl p-6'} max-h-[85vh]`}>
+          <DialogContent className={`border-white/10 bg-[#060a0e] text-white [&>button]:hidden ${isMobile ? 'w-[calc(100vw-1rem)] max-w-none rounded-2xl p-4' : 'max-w-3xl p-6'} max-h-[85vh]`}>
             <DialogHeader className="space-y-2 pr-8">
               <DialogTitle className="text-left text-xl font-semibold text-white">
                 Terms and Conditions
@@ -678,10 +687,17 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
 
             <Button
               type="button"
-              onClick={() => setTermsOpen(false)}
+              onClick={() => {
+                form.setValue('terms', true, {
+                  shouldDirty: true,
+                  shouldTouch: true,
+                  shouldValidate: true,
+                });
+                setTermsOpen(false);
+              }}
               className="w-full rounded-full bg-gradient-to-r from-blue-500 to-cyan-400 text-white hover:opacity-90"
             >
-              Close
+              Agree and Close
             </Button>
           </DialogContent>
         </Dialog>
@@ -689,11 +705,13 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
         <Button
           type="submit"
           className={`w-full h-12 rounded-full text-base font-semibold mb-4 ${
-            isMobile
-              ? 'bg-gradient-to-r from-blue-500 to-cyan-400 text-white shadow-lg shadow-blue-500/30 hover:opacity-90'
-              : 'dark:bg-gradient-to-r dark:from-blue-600 dark:to-cyan-500 dark:text-white dark:shadow-lg dark:shadow-blue-600/25 dark:hover:opacity-90'
+            hasAcceptedTerms
+              ? isMobile
+                ? 'bg-gradient-to-r from-blue-500 to-cyan-400 text-white shadow-lg shadow-blue-500/30 hover:opacity-90'
+                : 'dark:bg-gradient-to-r dark:from-blue-600 dark:to-cyan-500 dark:text-white dark:shadow-lg dark:shadow-blue-600/25 dark:hover:opacity-90'
+              : 'bg-slate-500/40 text-slate-300 shadow-none cursor-not-allowed hover:opacity-100 dark:bg-slate-700/60 dark:text-slate-400'
           }`}
-          disabled={isSubmitting}
+          disabled={isSubmitting || !hasAcceptedTerms}
         >
           {isSubmitting ? (
             <div className="flex items-center justify-center gap-2">
@@ -710,4 +728,3 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
 };
 
 export default RegisterForm;
-

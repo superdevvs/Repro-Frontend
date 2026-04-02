@@ -76,6 +76,8 @@ import {
   DashboardShootSummary,
   DashboardClientRequest,
   DashboardCancellationItem,
+  DashboardShootModalNavigationState,
+  DashboardShootModalTab,
 } from "@/types/dashboard";
 import { useToast } from "@/hooks/use-toast";
 import { EditingRequest } from "@/services/editingRequestService";
@@ -216,12 +218,26 @@ const DevProfiler: React.FC<{ id: string; children: React.ReactNode }> = ({ id, 
 
 type MobileDashboardTab = "shoots" | "assign" | "requests" | "completed" | "pipeline";
 type MobileClientDashboardTab = "shoots" | "invoices" | "actions";
+type MobileEditingManagerTab = "shoots" | "requests" | "ready";
 
 type CommandBarState = {
   openRequestManager?: boolean;
   selectedRequestId?: string | null;
   openEditingRequest?: boolean;
   editingRequestId?: number | null;
+};
+
+type OpenShootInModalOptions = {
+  initialTab?: DashboardShootModalTab;
+  missingToast?: {
+    title: string;
+    description: string;
+  } | null;
+  authToast?: {
+    title: string;
+    description: string;
+  } | null;
+  onMissing?: () => void;
 };
 
 const Dashboard = () => {
@@ -248,13 +264,14 @@ const Dashboard = () => {
             : canViewAdminDashboard;
   const navigate = useNavigate();
   const location = useLocation();
+  const dashboardNavigationState = location.state as DashboardShootModalNavigationState | null;
   const { toast } = useToast();
   const { openModal, removeRequest, registerShootOpenHandler } = useRequestManager();
   const { data, loading, error, refresh } = useDashboardOverview();
   const [selectedShoot, setSelectedShoot] = useState<DashboardShootSummary | null>(null);
   const [selectedShootWeather, setSelectedShootWeather] = useState<WeatherInfo | null>(null);
   const [shootModalInitialTab, setShootModalInitialTab] =
-    useState<'overview' | 'notes' | 'issues' | 'tours' | 'settings'>('overview');
+    useState<DashboardShootModalTab>('overview');
   const [openDownloadOnSelect, setOpenDownloadOnSelect] = useState(false);
   const [selectedPhotographer, setSelectedPhotographer] =
     useState<DashboardPhotographerSummary | null>(null);
@@ -263,6 +280,7 @@ const Dashboard = () => {
   const [cancellationDialogOpen, setCancellationDialogOpen] = useState(false);
   const [mobileDashboardTab, setMobileDashboardTab] = useState<MobileDashboardTab>("shoots");
   const [mobileClientTab, setMobileClientTab] = useState<MobileClientDashboardTab>("shoots");
+  const [mobileEditingManagerTab, setMobileEditingManagerTab] = useState<MobileEditingManagerTab>("shoots");
   const canCustomizeQuickActions = Boolean(user) && can("dashboard-quick-actions", "update");
   const quickActionsStorageKey = useMemo(
     () => buildQuickActionsStorageKey(role, user?.id),
@@ -611,39 +629,50 @@ const Dashboard = () => {
     );
   }, [removeRequest]);
 
-  const openShootRequestsFromRequestManager = useCallback(
-    async (request: DashboardClientRequest) => {
-      const requestId = String(request.id);
-      const requestShootId = request.shootId ?? request.shoot?.id;
+  const openShootInModalById = useCallback(
+    async (
+      shootId: string | number,
+      {
+        initialTab = 'overview',
+        missingToast = {
+          title: 'Shoot unavailable',
+          description: 'We could not load this shoot right now.',
+        },
+        authToast = {
+          title: 'Unable to open shoot',
+          description: 'Missing auth session. Please refresh and try again.',
+        },
+        onMissing,
+      }: OpenShootInModalOptions = {},
+    ) => {
+      const normalizedShootId = String(shootId);
 
-      if (!requestShootId) {
-        removeDeletedClientRequest(requestId);
-        return 'missing' as const;
-      }
-
-      const normalizedShootId = String(requestShootId);
-      const existingSummary = summaryMap.get(normalizedShootId);
-      if (existingSummary) {
-        setShootModalInitialTab('issues');
-        setSelectedShoot(existingSummary);
+      const openSummary = (summary: DashboardShootSummary) => {
+        setShootModalInitialTab(initialTab);
+        setSelectedShoot(summary);
         setSelectedShootWeather(null);
         return 'opened' as const;
+      };
+
+      const existingSummary = summaryMap.get(normalizedShootId);
+      if (existingSummary) {
+        return openSummary(existingSummary);
       }
 
       const sourceShoot = shoots.find((shoot) => String(shoot.id) === normalizedShootId);
       if (sourceShoot) {
-        setShootModalInitialTab('issues');
-        setSelectedShoot(shootDataToSummary(sourceShoot));
-        setSelectedShootWeather(null);
-        return 'opened' as const;
+        return openSummary(shootDataToSummary(sourceShoot));
       }
 
-      const token =
-        session?.accessToken ||
-        localStorage.getItem('authToken') ||
-        localStorage.getItem('token');
-
+      const token = getToken(session?.accessToken);
       if (!token) {
+        if (authToast) {
+          toast({
+            title: authToast.title,
+            description: authToast.description,
+            variant: 'destructive',
+          });
+        }
         return 'unhandled' as const;
       }
 
@@ -656,7 +685,14 @@ const Dashboard = () => {
         });
 
         if (response.status === 404) {
-          removeDeletedClientRequest(requestId);
+          onMissing?.();
+          if (missingToast) {
+            toast({
+              title: missingToast.title,
+              description: missingToast.description,
+              variant: 'destructive',
+            });
+          }
           return 'missing' as const;
         }
 
@@ -667,14 +703,18 @@ const Dashboard = () => {
 
         const shootData = json?.data as ShootData | undefined;
         if (!shootData) {
-          removeDeletedClientRequest(requestId);
+          onMissing?.();
+          if (missingToast) {
+            toast({
+              title: missingToast.title,
+              description: missingToast.description,
+              variant: 'destructive',
+            });
+          }
           return 'missing' as const;
         }
 
-        setShootModalInitialTab('issues');
-        setSelectedShoot(shootDataToSummary(shootData));
-        setSelectedShootWeather(null);
-        return 'opened' as const;
+        return openSummary(shootDataToSummary(shootData));
       } catch (openShootError) {
         toast({
           title: 'Unable to open shoot',
@@ -687,7 +727,27 @@ const Dashboard = () => {
         return 'unhandled' as const;
       }
     },
-    [removeDeletedClientRequest, session?.accessToken, shoots, summaryMap, toast],
+    [session?.accessToken, shoots, summaryMap, toast],
+  );
+
+  const openShootRequestsFromRequestManager = useCallback(
+    async (request: DashboardClientRequest) => {
+      const requestId = String(request.id);
+      const requestShootId = request.shootId ?? request.shoot?.id;
+
+      if (!requestShootId) {
+        removeDeletedClientRequest(requestId);
+        return 'missing' as const;
+      }
+
+      return openShootInModalById(requestShootId, {
+        initialTab: 'issues',
+        missingToast: null,
+        authToast: null,
+        onMissing: () => removeDeletedClientRequest(requestId),
+      });
+    },
+    [openShootInModalById, removeDeletedClientRequest],
   );
 
   const openShootOverviewFromEditingRequest = useCallback(
@@ -702,85 +762,66 @@ const Dashboard = () => {
         return;
       }
 
-      const normalizedShootId = String(requestShootId);
-      const existingSummary = summaryMap.get(normalizedShootId);
-      if (existingSummary) {
-        setShootModalInitialTab('overview');
-        setSelectedShoot(existingSummary);
-        setSelectedShootWeather(null);
-        return;
-      }
+      await openShootInModalById(requestShootId, {
+        initialTab: 'overview',
+        missingToast: {
+          title: 'Shoot unavailable',
+          description: 'This shoot no longer exists.',
+        },
+      });
+    },
+    [openShootInModalById, toast],
+  );
 
-      const sourceShoot = shoots.find((shoot) => String(shoot.id) === normalizedShootId);
-      if (sourceShoot) {
-        setShootModalInitialTab('overview');
-        setSelectedShoot(shootDataToSummary(sourceShoot));
-        setSelectedShootWeather(null);
-        return;
-      }
+  useEffect(() => {
+    if (location.pathname !== '/dashboard' || !dashboardNavigationState?.openShootId) {
+      return;
+    }
 
-      const token =
-        session?.accessToken ||
-        localStorage.getItem('authToken') ||
-        localStorage.getItem('token');
+    let isCancelled = false;
 
-      if (!token) {
-        toast({
-          title: 'Unable to open shoot',
-          description: 'Missing auth session. Please refresh and try again.',
-          variant: 'destructive',
-        });
-        return;
-      }
-
+    void (async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/shoots/${normalizedShootId}`, {
-          headers: {
-            Accept: 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (response.status === 404) {
-          toast({
+        await openShootInModalById(dashboardNavigationState.openShootId, {
+          initialTab: dashboardNavigationState.openShootTab ?? 'overview',
+          missingToast: {
             title: 'Shoot unavailable',
             description: 'This shoot no longer exists.',
-            variant: 'destructive',
-          });
-          return;
-        }
-
-        const json = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          throw new Error(json?.message || 'Failed to load shoot details');
-        }
-
-        const shootData = json?.data as ShootData | undefined;
-        if (!shootData) {
-          toast({
-            title: 'Shoot unavailable',
-            description: 'We could not load this shoot right now.',
-            variant: 'destructive',
-          });
-          return;
-        }
-
-        setShootModalInitialTab('overview');
-        setSelectedShoot(shootDataToSummary(shootData));
-        setSelectedShootWeather(null);
-      } catch (openShootError) {
-        toast({
-          title: 'Unable to open shoot',
-          description:
-            openShootError instanceof Error
-              ? openShootError.message
-              : 'We could not load this shoot right now.',
-          variant: 'destructive',
+          },
         });
+      } finally {
+        if (!isCancelled) {
+          const remainingState =
+            location.state && typeof location.state === 'object'
+              ? { ...(location.state as Record<string, unknown>) }
+              : {};
+          delete remainingState.openShootId;
+          delete remainingState.openShootTab;
+
+          navigate(
+            {
+              pathname: location.pathname,
+              search: location.search,
+            },
+            {
+              replace: true,
+              state: Object.keys(remainingState).length > 0 ? remainingState : null,
+            },
+          );
+        }
       }
-    },
-    [session?.accessToken, shoots, summaryMap, toast],
-  );
+    })();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [
+    dashboardNavigationState,
+    location.pathname,
+    location.search,
+    navigate,
+    openShootInModalById,
+  ]);
 
   useEffect(() => {
     if (!canViewAdminDashboard || !clientRequests.length || shoots.length === 0) return;
@@ -2325,6 +2366,55 @@ const Dashboard = () => {
     </Tabs>
   );
 
+  const editingManagerMobileTabs = [
+    {
+      id: "shoots" as const,
+      label: "Shoots",
+      content: renderEditingManagerShootsTabsCard(),
+    },
+    {
+      id: "requests" as const,
+      label: "Requests",
+      content: renderPendingReviewsCard(),
+    },
+    {
+      id: "ready" as const,
+      label: "Ready",
+      content: renderEditingManagerReadyToDeliverCard(),
+    },
+  ] as const;
+
+  const editingManagerMobileContent = (
+    <Tabs
+      value={mobileEditingManagerTab}
+      onValueChange={(val) => setMobileEditingManagerTab(val as MobileEditingManagerTab)}
+      className="space-y-2 flex-1 flex flex-col dashboard-mobile-tabs"
+    >
+      <div className="sticky top-[-0.25rem] z-20 pb-1 -mx-2 px-2 sm:-mx-3 sm:px-4 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80" style={{ marginLeft: '-15px' }}>
+        <div className="overflow-x-auto hidden-scrollbar">
+          <TabsList className="inline-flex gap-2 rounded-full border border-border/50 bg-muted/30 pl-1.5 pr-3 py-1.5">
+            {editingManagerMobileTabs.map((tab) => (
+              <TabsTrigger
+                key={tab.id}
+                value={tab.id}
+                className="shrink-0 rounded-full px-3 py-1.5 text-sm font-semibold tracking-tight transition-all duration-150 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=inactive]:text-muted-foreground/80"
+              >
+                {tab.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </div>
+      </div>
+      {editingManagerMobileTabs.map((tab) => (
+        <TabsContent key={tab.id} value={tab.id} className="focus-visible:outline-none flex-1 flex flex-col min-h-0">
+          <div className="flex-1 flex flex-col min-h-0 pt-1">
+            {tab.content}
+          </div>
+        </TabsContent>
+      ))}
+    </Tabs>
+  );
+
   return (
     <DashboardLayout>
       <div className="px-2 pt-3 pb-3 sm:p-6 flex flex-col min-h-full gap-4 sm:gap-6">
@@ -2366,7 +2456,7 @@ const Dashboard = () => {
           </div>
         )}
 
-        {isEditingManager ? editingManagerContent : isMobile ? adminMobileContent : adminDesktopContent}
+        {isEditingManager ? (isMobile ? editingManagerMobileContent : editingManagerContent) : isMobile ? adminMobileContent : adminDesktopContent}
       </div>
 
       {shootDetailsModal}

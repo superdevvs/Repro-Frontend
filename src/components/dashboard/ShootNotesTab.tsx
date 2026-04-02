@@ -28,6 +28,7 @@ export function ShootNotesTab({
   
   const [editableNotes, setEditableNotes] = useState({
     shootNotes: '',
+    approvalNotes: '',
     photographerNotes: '',
     companyNotes: '',
     editingNotes: ''
@@ -35,6 +36,7 @@ export function ShootNotesTab({
   
   const [activeEdits, setActiveEdits] = useState({
     shootNotes: false,
+    approvalNotes: false,
     photographerNotes: false,
     companyNotes: false,
     editingNotes: false
@@ -43,9 +45,18 @@ export function ShootNotesTab({
   // Server-side notes fetched from Laravel API (preferred source when available)
   const [serverNotes, setServerNotes] = useState<{
     shoot_notes?: string;
+    approval_notes?: string;
     company_notes?: string;
     photographer_notes?: string;
     editor_notes?: string;
+    notes?: string | {
+      shootNotes?: string;
+      approvalNotes?: string;
+      photographerNotes?: string;
+      companyNotes?: string;
+      editingNotes?: string;
+      approval_notes?: string;
+    };
   } | null>(null);
 
   // Initialize notes from the shoot data when component mounts or shoot changes
@@ -54,6 +65,7 @@ export function ShootNotesTab({
       console.log("Notes from shoot:", shoot.notes);
       setEditableNotes({
         shootNotes: getNotes('shootNotes'),
+        approvalNotes: getNotes('approvalNotes'),
         photographerNotes: getNotes('photographerNotes'),
         companyNotes: getNotes('companyNotes'),
         editingNotes: getNotes('editingNotes')
@@ -75,9 +87,11 @@ export function ShootNotesTab({
         const s = json?.data || {};
         setServerNotes({
           shoot_notes: s.shoot_notes ?? undefined,
+          approval_notes: s.approval_notes ?? s.approvalNotes ?? undefined,
           company_notes: s.company_notes ?? undefined,
           photographer_notes: s.photographer_notes ?? undefined,
           editor_notes: s.editor_notes ?? undefined,
+          notes: s.notes ?? undefined,
         });
       } catch (e) {
         console.warn('Failed to load server notes', e);
@@ -88,12 +102,58 @@ export function ShootNotesTab({
 
   // Helper function to read notes from API response (supports legacy object and new top-level fields)
   function getNotes(key: string): string {
+    const resolveApprovalNote = (source?: {
+      approval_notes?: string;
+      approvalNotes?: string;
+      shoot_notes?: string;
+      company_notes?: string;
+      photographer_notes?: string;
+      editor_notes?: string;
+      notes?: unknown;
+    } | null): string => {
+      if (!source) return '';
+
+      if (typeof source.approval_notes === 'string' && source.approval_notes.trim()) {
+        return source.approval_notes;
+      }
+
+      if (typeof source.approvalNotes === 'string' && source.approvalNotes.trim()) {
+        return source.approvalNotes;
+      }
+
+      if (source.notes && typeof source.notes === 'object') {
+        const structuredApproval = (source.notes as any)?.approvalNotes ?? (source.notes as any)?.approval_notes;
+        if (typeof structuredApproval === 'string' && structuredApproval.trim()) {
+          return structuredApproval;
+        }
+      }
+
+      if (typeof source.notes === 'string' && source.notes.trim()) {
+        const hasDedicatedNotes = Boolean(
+          source.shoot_notes ||
+          source.company_notes ||
+          source.photographer_notes ||
+          source.editor_notes
+        );
+        if (hasDedicatedNotes) {
+          return source.notes;
+        }
+      }
+
+      return '';
+    };
+
     // Prefer fresh server notes when available
     if (serverNotes) {
       switch (key) {
         case 'shootNotes':
           if (serverNotes.shoot_notes) return String(serverNotes.shoot_notes);
           break;
+        case 'approvalNotes': {
+          const resolved = resolveApprovalNote(serverNotes);
+          if (resolved) return resolved;
+          break;
+        }
         case 'photographerNotes':
           if (serverNotes.photographer_notes) return String(serverNotes.photographer_notes);
           break;
@@ -112,6 +172,11 @@ export function ShootNotesTab({
         case 'shootNotes':
           if (anyShoot.shoot_notes) return String(anyShoot.shoot_notes);
           break;
+        case 'approvalNotes': {
+          const resolved = resolveApprovalNote(anyShoot);
+          if (resolved) return resolved;
+          break;
+        }
         case 'photographerNotes':
           if (anyShoot.photographer_notes) return String(anyShoot.photographer_notes);
           break;
@@ -206,9 +271,11 @@ export function ShootNotesTab({
       const d = json?.data || {};
       setServerNotes({
         shoot_notes: d.shoot_notes ?? serverNotes?.shoot_notes,
+        approval_notes: d.approval_notes ?? serverNotes?.approval_notes,
         company_notes: d.company_notes ?? serverNotes?.company_notes,
         photographer_notes: d.photographer_notes ?? serverNotes?.photographer_notes,
         editor_notes: d.editor_notes ?? serverNotes?.editor_notes,
+        notes: d.notes ?? serverNotes?.notes,
       });
       
       // Exit edit mode
@@ -267,15 +334,19 @@ export function ShootNotesTab({
     if (noteType === 'companyNotes') {
       return false; // Already handled above for admin/superadmin
     }
+
+    if (noteType === 'approvalNotes') {
+      return role === 'editing_manager' || role === 'editor' || role === 'admin' || role === 'superadmin' || role === 'photographer';
+    }
     
     // Editing notes: Super Admin, Admin, Editor, Photographer (NOT Client)
     if (noteType === 'editingNotes') {
-      return role === 'editor' || role === 'admin' || role === 'superadmin' || role === 'photographer';
+      return role === 'editing_manager' || role === 'editor' || role === 'admin' || role === 'superadmin' || role === 'photographer';
     }
     
     // Photographer notes: Super Admin, Admin, Editor, Photographer (NOT Client)
     if (noteType === 'photographerNotes') {
-      return role === 'photographer' || role === 'editor' || role === 'admin' || role === 'superadmin';
+      return role === 'editing_manager' || role === 'photographer' || role === 'editor' || role === 'admin' || role === 'superadmin';
     }
     
     return false;
@@ -295,6 +366,8 @@ export function ShootNotesTab({
     switch (noteType) {
       case 'photographerNotes': 
         return 'bg-blue-50/60 dark:bg-blue-900/10';
+      case 'approvalNotes':
+        return 'bg-slate-50/60 dark:bg-slate-900/20';
       case 'editingNotes': 
         return 'bg-purple-50/60 dark:bg-purple-900/10';
       case 'companyNotes': 
@@ -309,6 +382,8 @@ export function ShootNotesTab({
     switch (noteType) {
       case 'photographerNotes': 
         return 'text-blue-800 dark:text-blue-300';
+      case 'approvalNotes':
+        return 'text-slate-800 dark:text-slate-300';
       case 'editingNotes': 
         return 'text-purple-800 dark:text-purple-300';
       case 'companyNotes': 
@@ -323,6 +398,8 @@ export function ShootNotesTab({
     switch (noteType) {
       case 'photographerNotes': 
         return 'border-blue-200 dark:border-blue-700';
+      case 'approvalNotes':
+        return 'border-slate-200 dark:border-slate-700';
       case 'editingNotes': 
         return 'border-purple-200 dark:border-purple-700';
       case 'companyNotes': 
@@ -372,6 +449,25 @@ export function ShootNotesTab({
       </div>
       )}
       
+      {canView('approvalNotes') && (
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300">Approval Notes</h3>
+        </div>
+        <Textarea 
+          placeholder="No approval notes available" 
+          value={displayNoteValue('approvalNotes')}
+          onChange={(e) => handleNoteChange(e, 'approvalNotes')}
+          readOnly
+          className={`resize-none min-h-[60px] ${getNoteBackgroundClass('approvalNotes')} ${getNoteTextClass('approvalNotes')} border-2 ${getNoteBorderClass('approvalNotes')}`}
+          style={{
+            boxShadow: "inset 0 1px 3px rgba(0,0,0,0.04)",
+            transition: "all 0.2s ease"
+          }}
+        />
+      </div>
+      )}
+
       {canView('photographerNotes') && (
       <div>
         <div className="flex items-center justify-between mb-2">
