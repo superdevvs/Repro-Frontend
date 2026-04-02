@@ -5,6 +5,10 @@ import { ShootData } from '@/types/shoots';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { API_BASE_URL } from '@/config/env';
+import {
+  SHOOT_SHARE_LINKS_UPDATED_EVENT,
+  type ShootShareLinkEntry,
+} from './shareLinksEvents';
 
 interface ShareLink {
   id: number;
@@ -47,36 +51,77 @@ export function MediaLinksSection({
   const [revoking, setRevoking] = React.useState<number | null>(null);
   const { toast } = useToast();
 
-  React.useEffect(() => {
-    const fetchShareLinks = async () => {
-      try {
-        setLoading(true);
-        const token =
-          localStorage.getItem('authToken') || localStorage.getItem('token');
-        const res = await fetch(
-          `${API_BASE_URL}/api/shoots/${shoot.id}/share-links`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              Accept: 'application/json',
-            },
+  const fetchShareLinks = React.useCallback(async () => {
+    try {
+      setLoading(true);
+      const token =
+        localStorage.getItem('authToken') || localStorage.getItem('token');
+      const res = await fetch(
+        `${API_BASE_URL}/api/shoots/${shoot.id}/share-links`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/json',
           },
-        );
-        if (res.ok) {
-          const data = await res.json();
-          setShareLinks(normalizeShareLinksResponse(data));
-        }
-      } catch (error) {
-        console.error('Failed to fetch share links:', error);
-      } finally {
-        setLoading(false);
+        },
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setShareLinks(normalizeShareLinksResponse(data));
       }
+    } catch (error) {
+      console.error('Failed to fetch share links:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [shoot.id]);
+
+  React.useEffect(() => {
+    if (!isEditor) {
+      return;
+    }
+
+    void fetchShareLinks();
+  }, [fetchShareLinks, isEditor]);
+
+  React.useEffect(() => {
+    if (!isEditor || typeof window === 'undefined') {
+      return;
+    }
+
+    const handleShareLinksUpdated = (event: Event) => {
+      const customEvent = event as CustomEvent<{
+        shootId?: string;
+        entry?: ShootShareLinkEntry | null;
+      }>;
+      if (String(customEvent.detail?.shootId || '') !== String(shoot.id)) {
+        return;
+      }
+
+      const entry = customEvent.detail?.entry;
+      if (entry) {
+        setShareLinks((prev) => {
+          const withoutExisting = prev.filter((link) => link.id !== entry.id);
+          return [entry, ...withoutExisting];
+        });
+        return;
+      }
+
+      void fetchShareLinks();
     };
 
-    if (isEditor) {
-      fetchShareLinks();
-    }
-  }, [shoot.id, isEditor]);
+    window.addEventListener(
+      SHOOT_SHARE_LINKS_UPDATED_EVENT,
+      handleShareLinksUpdated as EventListener,
+    );
+
+    return () => {
+      window.removeEventListener(
+        SHOOT_SHARE_LINKS_UPDATED_EVENT,
+        handleShareLinksUpdated as EventListener,
+      );
+    };
+  }, [fetchShareLinks, isEditor, shoot.id]);
 
   const handleRevokeLink = async (linkId: number) => {
     try {

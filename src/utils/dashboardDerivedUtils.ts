@@ -43,6 +43,10 @@ export const DELIVERED_STATUS_KEYWORDS = [
   "ready", // Maps to delivered
   "workflow_completed", // Maps to delivered
 ];
+export const CLIENT_VISIBLE_DELIVERED_STATUS_KEYWORDS = [
+  "delivered",
+  "client_delivered",
+];
 export const CANCELED_STATUS_KEYWORDS = ["canceled", "cancelled", "no_show"];
 export const DECLINED_STATUS_KEYWORDS = ["declined"];
 export const REQUESTED_STATUS_KEYWORDS = ["requested"];
@@ -208,6 +212,9 @@ export type ClientShootRecord = {
 
 export const isCompletedSummary = (summary: DashboardShootSummary) =>
   matchesStatus(summary, [...COMPLETED_STATUS_KEYWORDS, ...DELIVERED_STATUS_KEYWORDS]);
+
+export const isClientVisibleCompletedSummary = (summary: DashboardShootSummary) =>
+  matchesStatus(summary, CLIENT_VISIBLE_DELIVERED_STATUS_KEYWORDS);
 
 export const isCanceledSummary = (summary: DashboardShootSummary) =>
   matchesStatus(summary, CANCELED_STATUS_KEYWORDS);

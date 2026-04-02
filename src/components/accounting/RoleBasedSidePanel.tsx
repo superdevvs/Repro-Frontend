@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { InvoiceData } from '@/utils/invoiceUtils';
-import { ArrowUpRight, ChevronDown, ChevronUp, CreditCard, Clock, TrendingUp, Calendar, Users, DollarSign, CheckCircle2 } from 'lucide-react';
+import { ArrowUpRight, ChevronDown, ChevronUp, CreditCard, Clock, TrendingUp, Calendar, Users, DollarSign, CheckCircle2, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AccountingMode } from '@/config/accountingConfig';
 import { useAuth } from '@/components/auth/AuthProvider';
@@ -471,26 +471,6 @@ function PhotographerSidePanel({
   const currentRange = getEarningsDateRange(timeFilter);
   const periodLabel = getEarningsPeriodLabel(timeFilter);
 
-  const earningsThisPeriod = completedShoots
-    .filter((shoot: any) => isDateInRange(getShootCompletedDate(shoot), currentRange))
-    .reduce((sum: number, shoot: any) => sum + getPhotographerPayForShoot(shoot, user), 0);
-
-  const paidThisPeriod = completedShoots.filter(
-    (shoot: any) =>
-      getPhotographerPayoutStatus(shoot) === 'paid' &&
-      isDateInRange(getShootCompletedDate(shoot), currentRange),
-  ).length;
-
-  const pendingShoots = completedShoots.filter(
-    (shoot: any) =>
-      getPhotographerPayoutStatus(shoot) === 'pending' &&
-      isDateInRange(getShootCompletedDate(shoot), currentRange),
-  );
-  const pendingPayoutValue = pendingShoots.reduce(
-    (sum: number, shoot: any) => sum + getPhotographerPayForShoot(shoot, user),
-    0,
-  );
-
   const recentCompletedShoots = completedShoots
     .filter((shoot: any) => isDateInRange(getShootCompletedDate(shoot), currentRange))
     .sort((a: any, b: any) => {
@@ -501,100 +481,139 @@ function PhotographerSidePanel({
     .slice(0, 6);
 
   return (
-    <div className="flex flex-col gap-6 h-full">
-      <Card className="overflow-hidden border flex-shrink-0">
-        <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-primary" />
-            Earnings Snapshot
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="p-3 rounded-md bg-blue-500/10 border border-blue-500/20">
-              <h4 className="text-xs font-medium text-muted-foreground mb-1">Earned {periodLabel.toLowerCase()}</h4>
-              <p className="text-xl font-semibold">${earningsThisPeriod.toLocaleString()}</p>
-            </div>
-            <div className="p-3 rounded-md bg-amber-500/10 border border-amber-500/20">
-              <h4 className="text-xs font-medium text-muted-foreground mb-1">Pending payouts</h4>
-              <p className="text-xl font-semibold">${pendingPayoutValue.toLocaleString()}</p>
-            </div>
-            <div className="p-3 rounded-md bg-emerald-500/10 border border-emerald-500/20">
-              <h4 className="text-xs font-medium text-muted-foreground mb-1">Paid shoots {periodLabel.toLowerCase()}</h4>
-              <p className="text-xl font-semibold">{paidThisPeriod}</p>
-            </div>
+    <Card className="border overflow-hidden flex-1 flex flex-col min-h-[520px]">
+      <CardHeader className="gap-3 border-b border-border/60 pb-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-3xl">
+              <TrendingUp className="h-5 w-5 text-primary" />
+              Recent Shoot Earnings
+            </CardTitle>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Completed shoots in {periodLabel.toLowerCase()} with photographer pay and payout status.
+            </p>
           </div>
-        </CardContent>
-      </Card>
+          <div className="rounded-2xl border border-primary/20 bg-primary/10 px-3 py-2 text-right">
+            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-primary/80">
+              {periodLabel}
+            </p>
+            <p className="mt-1 text-sm font-semibold text-foreground">
+              {recentCompletedShoots.length} shoot{recentCompletedShoots.length === 1 ? '' : 's'}
+            </p>
+          </div>
+        </div>
 
-      <Card className="border overflow-hidden flex-1 flex flex-col">
-        <CardHeader className="flex-shrink-0">
-          <CardTitle>Recent Shoot Earnings</CardTitle>
-        </CardHeader>
-        <CardContent className="flex-1 flex flex-col min-h-0">
+        <div className="grid grid-cols-3 gap-2">
+          <div className="rounded-2xl border border-border/60 bg-muted/30 px-3 py-3">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Visible Here</p>
+            <p className="mt-2 text-sm font-semibold">Completed shoots only</p>
+          </div>
+          <div className="rounded-2xl border border-border/60 bg-muted/30 px-3 py-3">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Ordering</p>
+            <p className="mt-2 text-sm font-semibold">Latest completion first</p>
+          </div>
+          <div className="rounded-2xl border border-border/60 bg-muted/30 px-3 py-3">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Coverage</p>
+            <p className="mt-2 text-sm font-semibold">Paid and pending payouts</p>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="flex-1 min-h-0 p-0">
+        <div className="flex h-full flex-col">
           {recentCompletedShoots.length > 0 ? (
-            <div className="flex-1 overflow-y-auto space-y-2 pr-2">
+            <div className="flex-1 overflow-y-auto px-4 py-4">
+              <div className="space-y-3">
               {recentCompletedShoots.map((shoot: any) => {
                 const completedDate = getShootCompletedDate(shoot);
                 const scheduledDate = getShootScheduledDate(shoot);
                 const payoutStatus = getPhotographerPayoutStatus(shoot);
                 const pay = getPhotographerPayForShoot(shoot, user);
+                const isPaid = payoutStatus === 'paid';
+                const address =
+                  shoot.location?.address ||
+                  shoot.location?.fullAddress ||
+                  'Shoot';
 
                 return (
                   <div
                     key={shoot.id}
-                    className="rounded-md bg-muted/50 p-3"
+                    className={cn(
+                      'rounded-2xl border p-4 transition-colors',
+                      isPaid
+                        ? 'border-emerald-500/15 bg-emerald-500/5'
+                        : 'border-amber-500/15 bg-amber-500/5',
+                    )}
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">
-                          {shoot.location?.address || shoot.location?.fullAddress || 'Shoot'}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {completedDate
-                            ? `Completed ${formatTransactionDate(completedDate.toISOString())}`
-                            : scheduledDate
-                            ? `Scheduled ${formatTransactionDate(scheduledDate.toISOString())}`
-                            : 'Date unavailable'}
-                        </p>
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start gap-2">
+                          <div
+                            className={cn(
+                              'mt-0.5 h-2.5 w-2.5 flex-shrink-0 rounded-full',
+                              isPaid ? 'bg-emerald-500' : 'bg-amber-500',
+                            )}
+                          />
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold">
+                              {address}
+                            </p>
+                            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                              <span className="inline-flex items-center gap-1">
+                                <Calendar className="h-3.5 w-3.5" />
+                                {completedDate
+                                  ? `Completed ${formatTransactionDate(completedDate.toISOString())}`
+                                  : scheduledDate
+                                  ? `Scheduled ${formatTransactionDate(scheduledDate.toISOString())}`
+                                  : 'Date unavailable'}
+                              </span>
+                              <span className="inline-flex items-center gap-1">
+                                <MapPin className="h-3.5 w-3.5" />
+                                {(shoot.location?.city && shoot.location?.state)
+                                  ? `${shoot.location.city}, ${shoot.location.state}`
+                                  : 'Location unavailable'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm font-semibold">${pay.toLocaleString()}</p>
+                        <p className="text-lg font-semibold">${pay.toLocaleString()}</p>
                         <div
                           className={cn(
-                            'mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium',
-                            payoutStatus === 'paid'
+                            'mt-2 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium',
+                            isPaid
                               ? 'bg-emerald-500/10 text-emerald-500'
                               : 'bg-amber-500/10 text-amber-500',
                           )}
                         >
-                          {payoutStatus === 'paid' ? (
+                          {isPaid ? (
                             <CheckCircle2 className="h-3 w-3" />
                           ) : (
                             <Clock className="h-3 w-3" />
                           )}
-                          {payoutStatus === 'paid' ? 'Paid' : 'Pending'}
+                          {isPaid ? 'Paid' : 'Pending'}
                         </div>
                       </div>
                     </div>
                   </div>
                 );
               })}
+              </div>
             </div>
           ) : (
-            <div className="flex flex-1 items-center justify-center rounded-md border border-dashed border-border/60 p-4 text-center">
-              <div>
-                <DollarSign className="mx-auto mb-2 h-5 w-5 text-muted-foreground" />
-                <p className="text-sm font-medium">No recent completed shoots in this period</p>
-                <p className="text-xs text-muted-foreground">
-                  Completed shoots with photographer pay will appear here for the selected range.
+            <div className="flex flex-1 items-center justify-center p-5">
+              <div className="w-full rounded-3xl border border-dashed border-border/60 bg-muted/20 px-6 py-10 text-center">
+                <DollarSign className="mx-auto mb-3 h-6 w-6 text-muted-foreground" />
+                <p className="text-sm font-semibold">No completed shoots in {periodLabel.toLowerCase()}</p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Recent earnings will appear here as soon as completed shoots fall into the selected time range.
                 </p>
               </div>
             </div>
           )}
-        </CardContent>
-      </Card>
-    </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

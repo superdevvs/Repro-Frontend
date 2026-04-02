@@ -147,7 +147,7 @@ export function Navbar() {
     }
 
     if (weatherCoordSource === 'ip') {
-      return `Near ${weather.location}`;
+      return `Approx. ${weather.location}`;
     }
 
     return null;
@@ -230,7 +230,7 @@ export function Navbar() {
         isLocatingRef.current = false;
         setIsLocating(false);
       },
-      { enableHighAccuracy: false, timeout: 5000, maximumAge: 600000 },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 120000 },
     );
   }, [canUseGeolocation, storeDeviceWeatherCoords]);
 

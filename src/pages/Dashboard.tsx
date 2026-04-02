@@ -476,11 +476,23 @@ const Dashboard = () => {
   ) : null;
 
   const firstName = user?.firstName || user?.name?.split(" ")[0] || "there";
+  const fullName =
+    user?.name ||
+    [user?.firstName, (user as { lastName?: string | null } | null)?.lastName]
+      .filter((value): value is string => Boolean(value && value.trim()))
+      .join(" ") ||
+    firstName;
   const greetingPrefix = getGreetingPrefix();
   const greetingTitle = (
     <span className="inline-flex flex-wrap items-baseline gap-2">
       <span className="font-light">{greetingPrefix}</span>
       <span className="font-bold">{firstName}</span>
+    </span>
+  );
+  const greetingTitleFullName = (
+    <span className="inline-flex flex-wrap items-baseline gap-2">
+      <span className="font-light">{greetingPrefix}</span>
+      <span className="font-bold">{fullName}</span>
     </span>
   );
 
@@ -557,7 +569,7 @@ const Dashboard = () => {
   );
 
   const editingManagerReadyToDeliverShoots = useMemo(
-    () => filterReadyToDeliverShoots(allSummaries).slice(0, 6),
+    () => filterReadyToDeliverShoots(allSummaries),
     [allSummaries],
   );
   
@@ -1322,7 +1334,7 @@ const Dashboard = () => {
   const renderEditingManagerReadyToDeliverCard = () => (
     <Suspense fallback={<CompletedShootsCardSkeleton />}>
       <LazyCompletedShootsCard
-        shoots={editingManagerReadyToDeliverShoots}
+        shoots={editingManagerReadyToDeliverShoots.slice(0, 6)}
         title="Ready to deliver"
         subtitle="Shoots with ready status"
         emptyStateText="No ready shoots waiting for delivery."
@@ -1408,6 +1420,12 @@ const Dashboard = () => {
             label: "Uploaded",
             shoots: editingManagerUploadedShoots,
             emptyStateText: "No uploaded shoots found.",
+          },
+          {
+            id: "ready",
+            label: "Ready",
+            shoots: editingManagerReadyToDeliverShoots,
+            emptyStateText: "No ready shoots found.",
           },
         ]}
         upcomingShoots={[]}
@@ -2002,10 +2020,39 @@ const Dashboard = () => {
         },
       ];
 
+      const photographerMobileTabs = [
+        {
+          id: "shoots",
+          label: "Shoots",
+          content: (
+            <UpcomingShootsCard
+              shoots={photographerUpcoming}
+              onSelect={(shoot, weather) => handleSelectShoot(shoot, weather)}
+              role="photographer"
+            />
+          ),
+        },
+        {
+          id: "completed",
+          label: "Completed",
+          content: (
+            <Suspense fallback={<CompletedShootsCardSkeleton />}>
+              <LazyCompletedShootsCard
+                shoots={photographerDelivered}
+                title="Completed shoots"
+                subtitle="Ready for clients"
+                emptyStateText="No completed shoots yet."
+                onViewAll={() => navigate('/shoot-history?tab=delivered')}
+              />
+            </Suspense>
+          ),
+        },
+      ] as const;
+
       return (
         <>
           <RoleDashboardLayout
-            title={greetingTitle}
+            title={greetingTitleFullName}
             description="Field schedule, quick actions, and delivery milestones."
             quickActions={[]}
             hideLeftColumn
@@ -2026,6 +2073,7 @@ const Dashboard = () => {
             pendingCard={null}
             onSelectShoot={handleSelectShoot}
             role="photographer"
+            mobileTabs={photographerMobileTabs.map((tab) => ({ ...tab }))}
           />
           {shootDetailsModal}
           {quickActionsEditor}
@@ -2185,10 +2233,69 @@ const Dashboard = () => {
         },
       ];
 
+      const editorRequestsCard = (
+        <PendingReviewsCard
+          title="Requests"
+          reviews={[]}
+          issues={[]}
+          onSelect={handleSelectShoot}
+          emptyRequestsText="No active requests."
+          editingRequests={editingRequests}
+          editingRequestsLoading={editingRequestsLoading}
+          showEditingTab={true}
+          onCreateEditingRequest={() => {
+            setSelectedRequestId(null);
+            setSpecialRequestOpen(true);
+          }}
+          onEditingRequestClick={(requestId) => {
+            setSelectedRequestId(requestId);
+            setSpecialRequestOpen(true);
+          }}
+        />
+      );
+
+      const editorMobileTabs = [
+        {
+          id: "queue",
+          label: "Queue",
+          content: (
+            <UpcomingShootsCard
+              shoots={editorUpcoming}
+              onSelect={(shoot, weather) => handleSelectShoot(shoot, weather)}
+              role="editor"
+              title="Editing queue"
+              subtitle="Uploads & active edits"
+              emptyStateText="No edits in progress yet."
+            />
+          ),
+        },
+        {
+          id: "requests",
+          label: "Requests",
+          content: editorRequestsCard,
+        },
+        {
+          id: "delivered",
+          label: "Delivered",
+          content: (
+            <Suspense fallback={<CompletedShootsCardSkeleton />}>
+              <LazyCompletedShootsCard
+                shoots={editorDelivered}
+                title="Delivered edits"
+                subtitle="Recently published"
+                emptyStateText="No delivered edits yet."
+                onSelect={handleSelectShoot}
+                onViewAll={() => navigate('/shoot-history?tab=delivered')}
+              />
+            </Suspense>
+          ),
+        },
+      ] as const;
+
       return (
         <>
           <RoleDashboardLayout
-            title="Editor"
+            title={greetingTitleFullName}
             description="Upcoming edits, requests, and delivery progress."
             quickActions={withCustomQuickActions(quickActions)}
             quickActionsEyebrow="Production"
@@ -2228,28 +2335,10 @@ const Dashboard = () => {
             upcomingSubtitle="Uploads & active edits"
             upcomingEmptyStateText="No edits in progress yet."
             pendingReviews={editorPendingReviews}
-            pendingCard={
-              <PendingReviewsCard
-                title="Requests"
-                reviews={[]}
-                issues={[]}
-                onSelect={handleSelectShoot}
-                emptyRequestsText="No active requests."
-                editingRequests={editingRequests}
-                editingRequestsLoading={editingRequestsLoading}
-                showEditingTab={true}
-                onCreateEditingRequest={() => {
-                  setSelectedRequestId(null);
-                  setSpecialRequestOpen(true);
-                }}
-                onEditingRequestClick={(requestId) => {
-                  setSelectedRequestId(requestId);
-                  setSpecialRequestOpen(true);
-                }}
-              />
-            }
+            pendingCard={editorRequestsCard}
             onSelectShoot={handleSelectShoot}
             role="editor"
+            mobileTabs={editorMobileTabs.map((tab) => ({ ...tab }))}
           />
           {shootDetailsModal}
         </>
@@ -2560,6 +2649,11 @@ interface RoleDashboardLayoutProps {
   onEditQuickActions?: () => void;
   role?: UserRole;
   hideLeftColumn?: boolean;
+  mobileTabs?: Array<{
+    id: string;
+    label: string;
+    content: React.ReactNode;
+  }>;
 }
 
 const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
@@ -2583,7 +2677,9 @@ const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
   onEditQuickActions,
   role,
   hideLeftColumn = false,
+  mobileTabs = [],
 }) => {
+  const isMobileLayout = useIsMobile();
   const pendingContent =
     pendingCard ||
     (
@@ -2608,6 +2704,39 @@ const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
               <UploadStatusWidget />
             </div>
           </div>
+          {isMobileLayout && mobileTabs.length > 0 ? (
+            <Tabs defaultValue={mobileTabs[0]?.id} className="space-y-2 flex-1 flex flex-col dashboard-mobile-tabs">
+              <div
+                className="sticky top-[-0.25rem] z-20 pb-1 -mx-2 px-2 sm:-mx-3 sm:px-4 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80"
+                style={{ marginLeft: '-15px' }}
+              >
+                <div className="overflow-x-auto hidden-scrollbar">
+                  <TabsList className="inline-flex gap-2 rounded-full border border-border/50 bg-muted/30 pl-1.5 pr-3 py-1.5">
+                    {mobileTabs.map((tab) => (
+                      <TabsTrigger
+                        key={tab.id}
+                        value={tab.id}
+                        className="shrink-0 rounded-full px-3 py-1.5 text-sm font-semibold tracking-tight transition-all duration-150 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=inactive]:text-muted-foreground/80"
+                      >
+                        {tab.label}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                </div>
+              </div>
+              {mobileTabs.map((tab) => (
+                <TabsContent
+                  key={tab.id}
+                  value={tab.id}
+                  className="focus-visible:outline-none flex-1 flex flex-col min-h-0"
+                >
+                  <div className="flex-1 flex flex-col min-h-0 pt-1">
+                    {tab.content}
+                  </div>
+                </TabsContent>
+              ))}
+            </Tabs>
+          ) : (
           <div className={cn("grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-stretch", hideLeftColumn && "flex-1")}>
           {!hideLeftColumn && (
           <div className="lg:col-span-3 flex flex-col gap-4 sm:gap-6 h-full order-1 lg:order-none">
@@ -2703,6 +2832,7 @@ const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
               ))}
             </div>
           </div>
+          )}
         </div>
       </DashboardLayout>
     </DevProfiler>

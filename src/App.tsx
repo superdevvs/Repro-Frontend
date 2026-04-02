@@ -69,6 +69,7 @@ const CubiCasaScanning = lazy(() => import('./pages/CubiCasaScanning'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const PaymentPage = lazy(() => import('./pages/PaymentPage'));
 const TermsAndConditions = lazy(() => import('./pages/TermsAndConditions'));
+const ShootShareRedirect = lazy(() => import('./pages/ShootShareRedirect'));
 
 // Messaging pages
 const MessagingOverview = lazy(() => import('./pages/messaging/MessagingOverview'));
@@ -343,6 +344,11 @@ const AppRoutes = () => {
       <Route path="/terms-and-conditions" element={
         <PageTransition>
           <TermsAndConditions />
+        </PageTransition>
+      } />
+      <Route path="/:shootId/:shareId" element={
+        <PageTransition>
+          <ShootShareRedirect />
         </PageTransition>
       } />
        <Route path="/tours/branded" element={

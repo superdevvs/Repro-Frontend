@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
@@ -281,7 +281,10 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
   const [showConfirm, setShowConfirm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [termsOpen, setTermsOpen] = useState(false);
+  const [termsScrollProgress, setTermsScrollProgress] = useState(0);
+  const [termsScrolledToEnd, setTermsScrolledToEnd] = useState(false);
   const isMobile = useIsMobile();
+  const termsScrollRef = useRef<HTMLDivElement | null>(null);
 
   const mobileInputClass =
     'bg-slate-900/70 border border-white/10 rounded-2xl px-4 py-3 text-white placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-0 focus:border-transparent';
@@ -310,6 +313,48 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
     },
   });
   const hasAcceptedTerms = form.watch('terms');
+  const canDismissTermsDialog = hasAcceptedTerms || termsScrolledToEnd;
+
+  useEffect(() => {
+    if (!termsOpen) {
+      return;
+    }
+
+    if (hasAcceptedTerms) {
+      setTermsScrollProgress(1);
+      setTermsScrolledToEnd(true);
+      return;
+    }
+
+    const scrollElement = termsScrollRef.current;
+    if (!scrollElement) {
+      setTermsScrollProgress(0);
+      setTermsScrolledToEnd(false);
+      return;
+    }
+
+    scrollElement.scrollTop = 0;
+    setTermsScrollProgress(0);
+    setTermsScrolledToEnd(false);
+  }, [hasAcceptedTerms, termsOpen]);
+
+  const updateTermsScrollState = () => {
+    const scrollElement = termsScrollRef.current;
+    if (!scrollElement) return;
+
+    const maxScrollTop = scrollElement.scrollHeight - scrollElement.clientHeight;
+    if (maxScrollTop <= 0) {
+      setTermsScrollProgress(1);
+      setTermsScrolledToEnd(true);
+      return;
+    }
+
+    const progress = Math.min(scrollElement.scrollTop / maxScrollTop, 1);
+    const hasReachedBottom = scrollElement.scrollTop + scrollElement.clientHeight >= scrollElement.scrollHeight - 8;
+
+    setTermsScrollProgress(progress);
+    setTermsScrolledToEnd(hasReachedBottom);
+  };
 
   const handleRegister = async (values: RegisterFormValues) => {
     setIsSubmitting(true);
@@ -580,10 +625,11 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
                   checked={field.value ?? false}
                   onChange={(e) => {
                     const checked = e.target.checked;
-                    field.onChange(checked);
                     if (checked) {
                       setTermsOpen(true);
+                      return;
                     }
+                    field.onChange(false);
                   }}
                   className={`mt-0.5 h-4 w-4 rounded border ${isMobile ? 'border-white/30 bg-slate-900/60' : 'border-border dark:border-white/30 dark:bg-transparent'}`}
                 />
@@ -608,8 +654,28 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
           )}
         />
 
-        <Dialog open={termsOpen} onOpenChange={setTermsOpen}>
-          <DialogContent className={`border-white/10 bg-[#060a0e] text-white [&>button]:hidden ${isMobile ? 'w-[calc(100vw-1rem)] max-w-none rounded-2xl p-4' : 'max-w-3xl p-6'} max-h-[85vh]`}>
+        <Dialog
+          open={termsOpen}
+          onOpenChange={(open) => {
+            if (!open && !canDismissTermsDialog) {
+              return;
+            }
+            setTermsOpen(open);
+          }}
+        >
+          <DialogContent
+            onEscapeKeyDown={(event) => {
+              if (!canDismissTermsDialog) {
+                event.preventDefault();
+              }
+            }}
+            onPointerDownOutside={(event) => {
+              if (!canDismissTermsDialog) {
+                event.preventDefault();
+              }
+            }}
+            className={`border-white/10 bg-[#060a0e] text-white [&>button]:hidden ${isMobile ? 'w-[calc(100vw-1rem)] max-w-none rounded-2xl p-4' : 'max-w-3xl p-6'} max-h-[85vh] flex flex-col`}
+          >
             <DialogHeader className="space-y-2 pr-8">
               <DialogTitle className="text-left text-xl font-semibold text-white">
                 Terms and Conditions
@@ -619,7 +685,11 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
               </DialogDescription>
             </DialogHeader>
 
-            <div className="overflow-y-auto pr-2 max-h-[calc(85vh-7rem)] space-y-8 text-sm leading-6 text-slate-200">
+            <div
+              ref={termsScrollRef}
+              onScroll={updateTermsScrollState}
+              className="overflow-y-auto pr-2 flex-1 min-h-0 space-y-8 text-sm leading-6 text-slate-200"
+            >
               {termsSections.map((document) => (
                 <section key={document.title} className="space-y-4">
                   <div className="space-y-2 border-b border-white/10 pb-4">
@@ -685,20 +755,36 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
               ))}
             </div>
 
-            <Button
-              type="button"
-              onClick={() => {
-                form.setValue('terms', true, {
-                  shouldDirty: true,
-                  shouldTouch: true,
-                  shouldValidate: true,
-                });
-                setTermsOpen(false);
-              }}
-              className="w-full rounded-full bg-gradient-to-r from-blue-500 to-cyan-400 text-white hover:opacity-90"
-            >
-              Agree and Close
-            </Button>
+            <div className="mt-4 space-y-3 border-t border-white/10 pt-4">
+              {!canDismissTermsDialog ? (
+                <p className="text-center text-xs text-slate-400">
+                  Scroll to the bottom to unlock agreement.
+                </p>
+              ) : null}
+              <Button
+                type="button"
+                disabled={!canDismissTermsDialog}
+                onClick={() => {
+                  form.setValue('terms', true, {
+                    shouldDirty: true,
+                    shouldTouch: true,
+                    shouldValidate: true,
+                  });
+                  setTermsOpen(false);
+                }}
+                className="w-full rounded-full text-white transition-all duration-200 hover:opacity-90 disabled:cursor-not-allowed disabled:text-slate-300 disabled:opacity-100"
+                style={{
+                  background: canDismissTermsDialog
+                    ? 'linear-gradient(90deg, rgb(59 130 246), rgb(34 211 238))'
+                    : `linear-gradient(90deg, rgba(59, 130, 246, 0.9) 0%, rgba(34, 211, 238, 0.9) ${Math.max(termsScrollProgress * 100, 4)}%, rgba(71, 85, 105, 0.55) ${Math.max(termsScrollProgress * 100, 4)}%, rgba(71, 85, 105, 0.55) 100%)`,
+                  boxShadow: canDismissTermsDialog
+                    ? '0 10px 30px rgba(37, 99, 235, 0.28)'
+                    : 'none',
+                }}
+              >
+                Agree and Close
+              </Button>
+            </div>
           </DialogContent>
         </Dialog>
 

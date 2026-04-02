@@ -238,7 +238,13 @@ export const ScheduledShootListRow = ({
 
           {/* Address - Main Content (can wrap) - Highlighted & Larger */}
           <div className="flex-1 min-w-0">
-            <h3 className="text-lg font-bold leading-tight break-words text-primary">{shoot.location.address}</h3>
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-lg font-bold leading-tight break-words text-primary">{shoot.location.address}</h3>
+              <Badge className={cn('hidden md:inline-flex capitalize font-medium', config.bgColor, config.color)}>
+                <StatusIcon className="h-3.5 w-3.5 mr-1.5" />
+                {statusLabel}
+              </Badge>
+            </div>
             <p className="text-sm text-muted-foreground break-words">
               {shoot.location.city}, {getStateFullName(shoot.location.state)} {shoot.location.zip}
             </p>
@@ -266,10 +272,6 @@ export const ScheduledShootListRow = ({
 
           {/* Desktop: Status & Actions - Right Side */}
           <div className="hidden md:flex items-center gap-2 flex-shrink-0">
-            <Badge className={cn('capitalize font-medium', config.bgColor, config.color)}>
-              <StatusIcon className="h-3.5 w-3.5 mr-1.5" />
-              {statusLabel}
-            </Badge>
             {paymentStatus && (
               <Badge variant={paymentStatus === 'Paid' ? 'secondary' : 'destructive'} className="text-xs">
                 {paymentStatus}

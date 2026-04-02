@@ -35,6 +35,10 @@ import {
   AlertTriangle,
   Calendar,
   Loader2,
+  ChevronDown,
+  ChevronUp,
+  DollarSign,
+  ReceiptText,
 } from 'lucide-react';
 import {
   WeeklyInvoice,
@@ -85,6 +89,7 @@ export const WeeklyInvoiceReview: React.FC = () => {
   const [expenseDesc, setExpenseDesc] = useState('');
   const [expenseAmount, setExpenseAmount] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const [expandedInvoiceId, setExpandedInvoiceId] = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [lastPage, setLastPage] = useState(1);
   const [totalInvoices, setTotalInvoices] = useState(0);
@@ -321,102 +326,204 @@ export const WeeklyInvoiceReview: React.FC = () => {
         const totalCharges = charges.reduce((sum, item) => sum + getChargeDisplayAmount(invoice, item), 0);
         const totalExpenses = expenses.reduce((s, i) => s + parseFloat(String(i.total_amount || 0)), 0);
         const invoiceDisplayTotal = totalCharges + totalExpenses;
+        const isExpanded = expandedInvoiceId === invoice.id;
+        const reviewActionLabel =
+          invoice.approval_status === 'pending' ? 'Review Invoice' : 'Review Response';
 
         return (
-          <Card key={invoice.id} className="overflow-hidden">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Calendar className="w-4 h-4" />
-                    {formatDate(invoice.billing_period_start)} – {formatDate(invoice.billing_period_end)}
-                  </CardTitle>
-                  {canReview(invoice) ? (
-                    <button
-                      type="button"
-                      onClick={() => openReviewDialog(invoice)}
-                      className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                    >
-                      <Badge className={`${statusCfg.color} flex items-center gap-1 cursor-pointer hover:opacity-90 transition-opacity`}>
-                        {statusCfg.icon}
-                        {statusCfg.label}
-                      </Badge>
-                    </button>
-                  ) : (
-                    <Badge className={`${statusCfg.color} flex items-center gap-1`}>
-                      {statusCfg.icon}
-                      {statusCfg.label}
-                    </Badge>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-lg font-bold">{formatCurrency(invoiceDisplayTotal)}</span>
-                </div>
-              </div>
-              {invoice.rejection_reason && invoice.approval_status === 'rejected' && (
-                <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                  <div className="flex items-center gap-2 text-amber-700 text-sm font-medium">
-                    <AlertTriangle className="w-4 h-4" />
-                    Modification Request:
+          <Card key={invoice.id} className="overflow-hidden rounded-3xl border border-border/70 bg-card/80">
+            <button
+              type="button"
+              onClick={() => setExpandedInvoiceId(isExpanded ? null : invoice.id)}
+              className="w-full text-left"
+            >
+              <CardHeader className="gap-4 border-b border-border/60 pb-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <CardTitle className="flex items-center gap-2 text-[1.15rem]">
+                        <Calendar className="h-4 w-4 text-primary" />
+                        {formatDate(invoice.billing_period_start)} – {formatDate(invoice.billing_period_end)}
+                      </CardTitle>
+                      {canReview(invoice) ? (
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openReviewDialog(invoice);
+                          }}
+                          className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        >
+                          <Badge className={`${statusCfg.color} flex items-center gap-1 cursor-pointer hover:opacity-90 transition-opacity`}>
+                            {statusCfg.icon}
+                            {statusCfg.label}
+                          </Badge>
+                        </button>
+                      ) : (
+                        <Badge className={`${statusCfg.color} flex items-center gap-1`}>
+                          {statusCfg.icon}
+                          {statusCfg.label}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="mt-3 text-sm text-muted-foreground">
+                      Compact weekly payout summary with line items, expenses, and review actions on expand.
+                    </p>
                   </div>
-                  <p className="text-amber-700 text-sm mt-1">{invoice.rejection_reason}</p>
+
+                  <div className="flex items-center gap-3 self-start rounded-2xl border border-primary/20 bg-primary/10 px-4 py-3">
+                    <div className="text-right">
+                      <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-primary/80">Invoice Total</p>
+                      <p className="mt-1 text-2xl font-semibold">{formatCurrency(invoiceDisplayTotal)}</p>
+                    </div>
+                    {isExpanded ? (
+                      <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </div>
                 </div>
-              )}
-            </CardHeader>
-            <CardContent className="pt-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Description</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                    <TableHead className="w-12"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {charges.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="text-sm">{item.description}</TableCell>
-                      <TableCell className="text-right font-medium">
-                        {formatCurrency(getChargeDisplayAmount(invoice, item))}
-                      </TableCell>
-                      <TableCell></TableCell>
-                    </TableRow>
-                  ))}
-                  {expenses.map((item) => (
-                    <TableRow key={item.id} className="bg-blue-50/50">
-                      <TableCell className="text-sm">
-                        <span className="text-blue-600 font-medium">Expense:</span> {item.description}
-                      </TableCell>
-                      <TableCell className="text-right font-medium text-blue-600">
-                        +{formatCurrency(item.total_amount)}
-                      </TableCell>
-                      <TableCell>
-                        {canModify(invoice) && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
-                            onClick={() => handleRemoveExpense(invoice, item)}
-                            disabled={actionLoading}
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
+
+                <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="rounded-2xl border border-border/60 bg-muted/25 px-4 py-3">
+                    <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Shoot Pay</p>
+                    <p className="mt-2 text-lg font-semibold">{formatCurrency(totalCharges)}</p>
+                  </div>
+                  <div className="rounded-2xl border border-sky-500/20 bg-sky-500/10 px-4 py-3">
+                    <p className="text-[11px] uppercase tracking-[0.16em] text-sky-500">Expenses</p>
+                    <p className="mt-2 text-lg font-semibold">{formatCurrency(totalExpenses)}</p>
+                  </div>
+                  <div className="rounded-2xl border border-border/60 bg-muted/25 px-4 py-3">
+                    <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Shoots</p>
+                    <p className="mt-2 text-lg font-semibold">{charges.length}</p>
+                  </div>
+                  <div className="rounded-2xl border border-border/60 bg-muted/25 px-4 py-3">
+                    <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Expense Items</p>
+                    <p className="mt-2 text-lg font-semibold">{expenses.length}</p>
+                  </div>
+                </div>
+
+                {invoice.rejection_reason && invoice.approval_status === 'rejected' && (
+                  <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3">
+                    <div className="flex items-center gap-2 text-sm font-medium text-amber-500">
+                      <AlertTriangle className="h-4 w-4" />
+                      Modification Request
+                    </div>
+                    <p className="mt-2 text-sm text-amber-100/90 dark:text-amber-200">
+                      {invoice.rejection_reason}
+                    </p>
+                  </div>
+                )}
+              </CardHeader>
+            </button>
+
+            {isExpanded && (
+              <CardContent className="space-y-5 p-5">
+                <div className="grid gap-5 xl:grid-cols-[1.4fr_0.9fr]">
+                  <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+                    <div className="flex items-center gap-2">
+                      <ReceiptText className="h-4 w-4 text-primary" />
+                      <h4 className="text-sm font-semibold">Service Breakdown</h4>
+                    </div>
+                    <div className="mt-4 space-y-2">
+                      {charges.map((item) => (
+                        <div
+                          key={item.id}
+                          className="flex items-start justify-between gap-3 rounded-2xl border border-border/50 bg-background/60 px-4 py-3"
+                        >
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium">{item.description}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              Shoot payout item
+                            </p>
+                          </div>
+                          <p className="text-sm font-semibold whitespace-nowrap">
+                            {formatCurrency(getChargeDisplayAmount(invoice, item))}
+                          </p>
+                        </div>
+                      ))}
+                      {charges.length === 0 && (
+                        <div className="rounded-2xl border border-dashed border-border/60 px-4 py-6 text-center text-sm text-muted-foreground">
+                          No payout line items for this week.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+                      <div className="flex items-center gap-2">
+                        <DollarSign className="h-4 w-4 text-primary" />
+                        <h4 className="text-sm font-semibold">Expenses & Notes</h4>
+                      </div>
+                      <div className="mt-4 space-y-2">
+                        {expenses.length > 0 ? (
+                          expenses.map((item) => (
+                            <div
+                              key={item.id}
+                              className="flex items-start justify-between gap-3 rounded-2xl border border-sky-500/20 bg-sky-500/5 px-4 py-3"
+                            >
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium">{item.description}</p>
+                                <p className="mt-1 text-xs text-muted-foreground">Expense reimbursement</p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-semibold whitespace-nowrap">
+                                  +{formatCurrency(item.total_amount)}
+                                </p>
+                                {canModify(invoice) && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
+                                    onClick={() => handleRemoveExpense(invoice, item)}
+                                    disabled={actionLoading}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="rounded-2xl border border-dashed border-border/60 px-4 py-6 text-center text-sm text-muted-foreground">
+                            No expenses added for this invoice.
+                          </div>
                         )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                      </div>
+                    </div>
 
-              <Separator className="my-3" />
-
-              <div className="flex items-center justify-between">
-                <div className="text-sm text-muted-foreground">
-                  {charges.length} shoot{charges.length !== 1 ? 's' : ''} • {expenses.length} expense{expenses.length !== 1 ? 's' : ''}
+                    <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+                      <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Summary</p>
+                      <div className="mt-3 space-y-2 text-sm">
+                        <div className="flex items-center justify-between">
+                          <span className="text-muted-foreground">Shoot lines</span>
+                          <span className="font-medium">{charges.length}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-muted-foreground">Expense lines</span>
+                          <span className="font-medium">{expenses.length}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-muted-foreground">Review state</span>
+                          <span className="font-medium">{statusCfg.label}</span>
+                        </div>
+                        <Separator className="my-2" />
+                        <div className="flex items-center justify-between text-base font-semibold">
+                          <span>Total</span>
+                          <span>{formatCurrency(invoiceDisplayTotal)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  {canModify(invoice) && (
-                    <>
+
+                <div className="flex flex-col gap-3 rounded-2xl border border-border/60 bg-muted/15 p-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="text-sm text-muted-foreground">
+                    {charges.length} shoot{charges.length !== 1 ? 's' : ''} and {expenses.length} expense{expenses.length !== 1 ? 's' : ''} in this invoice.
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {canModify(invoice) && (
                       <Button
                         variant="outline"
                         size="sm"
@@ -425,44 +532,42 @@ export const WeeklyInvoiceReview: React.FC = () => {
                           setExpenseOpen(true);
                         }}
                       >
-                        <Plus className="w-3 h-3 mr-1" />
+                        <Plus className="mr-1 h-3.5 w-3.5" />
                         Add Expense
                       </Button>
-                      {canReview(invoice) && (
-                        <Button
-                          size="sm"
-                          onClick={() => openReviewDialog(invoice)}
-                        >
-                          {invoice.approval_status === 'pending' ? 'Review Invoice' : 'Review Response'}
-                        </Button>
-                      )}
-                      {invoice.approval_status === 'rejected' && (
-                        <Button
-                          size="sm"
-                          onClick={() => handleResubmit(invoice)}
-                          disabled={actionLoading}
-                        >
-                          {actionLoading && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
-                          Accept & Resubmit
-                        </Button>
-                      )}
-                    </>
-                  )}
-                  {invoice.approval_status === 'approved' && (
-                    <Badge className="bg-green-100 text-green-800">
-                      <CheckCircle className="w-3 h-3 mr-1" />
-                      Approved – Payment Processing
-                    </Badge>
-                  )}
+                    )}
+                    {canReview(invoice) && (
+                      <Button size="sm" onClick={() => openReviewDialog(invoice)}>
+                        {reviewActionLabel}
+                      </Button>
+                    )}
+                    {invoice.approval_status === 'rejected' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleResubmit(invoice)}
+                        disabled={actionLoading}
+                      >
+                        {actionLoading && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
+                        Accept & Resubmit
+                      </Button>
+                    )}
+                    {invoice.approval_status === 'approved' && (
+                      <Badge className="bg-green-100 text-green-800">
+                        <CheckCircle className="mr-1 h-3 w-3" />
+                        Approved – Payment Processing
+                      </Badge>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </CardContent>
+              </CardContent>
+            )}
           </Card>
         );
       })}
 
       {lastPage > 1 && (
-        <div className="flex items-center justify-between rounded-xl border bg-card p-4 text-sm">
+        <div className="flex flex-col gap-3 rounded-2xl border bg-card px-4 py-4 text-sm sm:flex-row sm:items-center sm:justify-between">
           <div>
             Page {currentPage} of {lastPage} · {totalInvoices} invoice{totalInvoices === 1 ? '' : 's'}
           </div>

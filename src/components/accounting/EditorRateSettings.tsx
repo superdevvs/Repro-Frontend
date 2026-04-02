@@ -7,6 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { API_BASE_URL } from '@/config/env';
 import { DollarSign, Save } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface EditorRateSettings {
   photoEditRate: number;
@@ -15,7 +16,11 @@ interface EditorRateSettings {
   otherRate: number;
 }
 
-export function EditorRateSettings() {
+interface EditorRateSettingsProps {
+  className?: string;
+}
+
+export function EditorRateSettings({ className }: EditorRateSettingsProps = {}) {
   const { user, setUser } = useAuth();
   const { toast } = useToast();
   const [rates, setRates] = useState<EditorRateSettings>({
@@ -194,12 +199,12 @@ export function EditorRateSettings() {
 
   if (isLoading) {
     return (
-      <Card>
+      <Card className={cn('h-full', className)}>
         <CardHeader>
           <CardTitle>Editing Rates</CardTitle>
           <CardDescription>Set your rates per image type</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex-1">
           <div className="text-center py-4 text-muted-foreground">Loading rates...</div>
         </CardContent>
       </Card>
@@ -207,7 +212,7 @@ export function EditorRateSettings() {
   }
 
   return (
-    <Card>
+    <Card className={cn('h-full flex flex-col', className)}>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <DollarSign className="h-5 w-5" />
@@ -217,63 +222,65 @@ export function EditorRateSettings() {
           Set your rates per image type. Earnings will be calculated based on these rates.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="photoEditRate">Photo Edit Rate ($ per image)</Label>
-          <Input
-            id="photoEditRate"
-            type="number"
-            min="0"
-            step="0.01"
-            value={rates.photoEditRate}
-            onChange={(e) => handleRateChange('photoEditRate', e.target.value)}
-            placeholder="0.00"
-          />
-        </div>
+      <CardContent className="flex flex-1 flex-col">
+        <div className="flex flex-1 flex-col space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="photoEditRate">Photo Edit Rate ($ per image)</Label>
+            <Input
+              id="photoEditRate"
+              type="number"
+              min="0"
+              step="0.01"
+              value={rates.photoEditRate}
+              onChange={(e) => handleRateChange('photoEditRate', e.target.value)}
+              placeholder="0.00"
+            />
+          </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="videoEditRate">Video Edit Rate ($ per video)</Label>
-          <Input
-            id="videoEditRate"
-            type="number"
-            min="0"
-            step="0.01"
-            value={rates.videoEditRate}
-            onChange={(e) => handleRateChange('videoEditRate', e.target.value)}
-            placeholder="0.00"
-          />
-        </div>
+          <div className="space-y-2">
+            <Label htmlFor="videoEditRate">Video Edit Rate ($ per video)</Label>
+            <Input
+              id="videoEditRate"
+              type="number"
+              min="0"
+              step="0.01"
+              value={rates.videoEditRate}
+              onChange={(e) => handleRateChange('videoEditRate', e.target.value)}
+              placeholder="0.00"
+            />
+          </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="floorplanRate">Floorplan Rate ($ per floorplan)</Label>
-          <Input
-            id="floorplanRate"
-            type="number"
-            min="0"
-            step="0.01"
-            value={rates.floorplanRate}
-            onChange={(e) => handleRateChange('floorplanRate', e.target.value)}
-            placeholder="0.00"
-          />
-        </div>
+          <div className="space-y-2">
+            <Label htmlFor="floorplanRate">Floorplan Rate ($ per floorplan)</Label>
+            <Input
+              id="floorplanRate"
+              type="number"
+              min="0"
+              step="0.01"
+              value={rates.floorplanRate}
+              onChange={(e) => handleRateChange('floorplanRate', e.target.value)}
+              placeholder="0.00"
+            />
+          </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="otherRate">Other Rate ($ per item)</Label>
-          <Input
-            id="otherRate"
-            type="number"
-            min="0"
-            step="0.01"
-            value={rates.otherRate}
-            onChange={(e) => handleRateChange('otherRate', e.target.value)}
-            placeholder="0.00"
-          />
+          <div className="space-y-2">
+            <Label htmlFor="otherRate">Other Rate ($ per item)</Label>
+            <Input
+              id="otherRate"
+              type="number"
+              min="0"
+              step="0.01"
+              value={rates.otherRate}
+              onChange={(e) => handleRateChange('otherRate', e.target.value)}
+              placeholder="0.00"
+            />
+          </div>
         </div>
 
         <Button
           onClick={handleSave}
           disabled={isSaving}
-          className="w-full"
+          className="mt-4 w-full"
         >
           <Save className="h-4 w-4 mr-2" />
           {isSaving ? 'Saving...' : 'Save Rates'}

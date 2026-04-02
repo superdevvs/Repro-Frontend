@@ -1,14 +1,23 @@
-import React, { useState } from 'react';
-import { Calendar as CalendarIcon, Eye, Edit } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Calendar as CalendarIcon, Edit, Eye, Wallet } from 'lucide-react';
 import { format } from 'date-fns';
-import { useToast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom';
+
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { useNavigate } from 'react-router-dom';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
+import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
-// Editor job interface - this would match your backend structure
 export interface EditorJob {
   id: string;
   shootId: string;
@@ -31,10 +40,41 @@ interface EditorJobsTableProps {
   jobs: EditorJob[];
 }
 
+const usdFormatter = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+});
+
+const buildPaginationItems = (currentPage: number, totalPages: number) => {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  if (currentPage <= 4) {
+    return [1, 2, 3, 4, 5, 'ellipsis', totalPages] as const;
+  }
+
+  if (currentPage >= totalPages - 3) {
+    return [1, 'ellipsis', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages] as const;
+  }
+
+  return [1, 'ellipsis', currentPage - 1, currentPage, currentPage + 1, 'ellipsis', totalPages] as const;
+};
+
+const formatJobDate = (value?: string) => {
+  if (!value) return '-';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '-';
+  return format(parsed, 'MMM d, yyyy');
+};
+
+const getJobPay = (job: EditorJob) => job.pay || job.payAmount || 0;
+
 export function EditorJobsTable({ jobs }: EditorJobsTableProps) {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+  const [currentPage, setCurrentPage] = useState(1);
 
   const getStatusColor = (status: string) => {
     const statusLower = status.toLowerCase();
@@ -64,122 +104,157 @@ export function EditorJobsTable({ jobs }: EditorJobsTableProps) {
 
   const getTypeLabel = (type: string) => {
     const typeMap: Record<string, string> = {
-      'photo_edit': 'Photo Edit',
-      'video_edit': 'Video Edit',
-      'floorplan': 'Floorplan',
-      'other': 'Other',
+      photo_edit: 'Photo Edit',
+      video_edit: 'Video Edit',
+      floorplan: 'Floorplan',
+      other: 'Other',
     };
     return typeMap[type] || type;
   };
 
   const handleViewJob = (job: EditorJob) => {
-    // Navigate to shoot details or editor view
     navigate(`/shoots/${job.shootId}`);
   };
 
   const handleOpenEditor = (job: EditorJob) => {
-    // Open editor interface for this job
     toast({
-      title: "Opening Editor",
+      title: 'Opening Editor',
       description: `Opening editor for job #${job.id}`,
     });
-    // Would navigate to editor interface
   };
 
-  const filteredJobs = jobs; // Could add filtering by status if needed
+  const filteredJobs = jobs;
+  const itemsPerPage = viewMode === 'list' ? 12 : 9;
+  const totalPages = Math.max(1, Math.ceil(filteredJobs.length / itemsPerPage));
+  const safePage = Math.min(currentPage, totalPages);
+  const startIndex = (safePage - 1) * itemsPerPage;
+  const paginatedJobs = filteredJobs.slice(startIndex, startIndex + itemsPerPage);
+  const paginationItems = buildPaginationItems(safePage, totalPages);
+
+  const { showingFrom, showingTo } = useMemo(() => {
+    if (filteredJobs.length === 0) {
+      return { showingFrom: 0, showingTo: 0 };
+    }
+
+    return {
+      showingFrom: startIndex + 1,
+      showingTo: Math.min(startIndex + paginatedJobs.length, filteredJobs.length),
+    };
+  }, [filteredJobs.length, paginatedJobs.length, startIndex]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+  };
 
   return (
     <div className="w-full">
-      <Card className="mb-6">
-        <div className="flex items-center justify-between p-3 border-b">
-          <h3 className="text-lg font-semibold">Editing Jobs</h3>
-          <div className="flex gap-1 ml-4 text-xs">
-            <Button 
-              variant={viewMode === 'list' ? 'secondary' : 'ghost'} 
-              size="sm" 
-              aria-label="List view" 
-              onClick={() => setViewMode('list')}
-            >
-              List View
-            </Button>
-            <Button 
-              variant={viewMode === 'grid' ? 'secondary' : 'ghost'} 
-              size="sm" 
-              aria-label="Grid view" 
-              onClick={() => setViewMode('grid')}
-            >
-              Grid View
-            </Button>
+      <Card className="mb-6 overflow-hidden">
+        <div className="border-b p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h3 className="text-lg font-semibold">Editing Jobs</h3>
+            <div className="flex items-center gap-1 text-xs">
+              <Button
+                variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+                size="sm"
+                aria-label="List view"
+                className="h-8 px-3"
+                onClick={() => setViewMode('list')}
+              >
+                List View
+              </Button>
+              <Button
+                variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+                size="sm"
+                aria-label="Grid view"
+                className="h-8 px-3"
+                onClick={() => setViewMode('grid')}
+              >
+                Grid View
+              </Button>
+            </div>
+          </div>
+
+          <div className="mt-3 flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-muted-foreground">
+              Showing {showingFrom}-{showingTo} of {filteredJobs.length} jobs
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {viewMode === 'list' ? 'Table view for quick scanning' : 'Card view for richer job details'}
+            </p>
           </div>
         </div>
 
         <div>
-          {viewMode === 'list' ? (
+          {filteredJobs.length === 0 ? (
+            <EmptyJobsState />
+          ) : viewMode === 'list' ? (
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
                 <thead>
                   <tr className="border-b">
-                    <th className="py-1 px-2 text-left">Job ID</th>
-                    <th className="py-1 px-2 text-left">Shoot ID</th>
-                    <th className="py-1 px-2 text-left">Client</th>
-                    <th className="py-1 px-2 text-left">Type</th>
-                    <th className="py-1 px-2 text-left">Status</th>
-                    <th className="py-1 px-2 text-left">Pay</th>
-                    <th className="py-1 px-2 text-left">Assigned Date</th>
-                    <th className="py-1 px-2 text-left">Completed Date</th>
-                    <th className="py-1 px-2 text-left">Payout Status</th>
-                    <th className="py-1 px-2 text-left">Actions</th>
+                    <th className="px-3 py-2 text-left">Job ID</th>
+                    <th className="px-3 py-2 text-left">Shoot ID</th>
+                    <th className="px-3 py-2 text-left">Client</th>
+                    <th className="px-3 py-2 text-left">Type</th>
+                    <th className="px-3 py-2 text-left">Status</th>
+                    <th className="px-3 py-2 text-left">Pay</th>
+                    <th className="px-3 py-2 text-left">Assigned Date</th>
+                    <th className="px-3 py-2 text-left">Completed Date</th>
+                    <th className="px-3 py-2 text-left">Payout Status</th>
+                    <th className="px-3 py-2 text-left">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredJobs.map((job) => (
-                    <tr key={job.id} className="border-b hover:bg-muted/30 transition">
-                      <td className="py-1 px-2 font-medium text-xs">#{job.id}</td>
-                      <td className="py-1 px-2 text-xs">#{job.shootId}</td>
-                      <td className="py-1 px-2 text-xs">{job.client?.name || 'N/A'}</td>
-                      <td className="py-1 px-2 text-xs">{getTypeLabel(job.type)}</td>
-                      <td className="py-1 px-2">
-                        <span className={`px-2 py-0.5 rounded text-xs font-semibold ${getStatusColor(job.status)}`}>
+                  {paginatedJobs.map((job) => (
+                    <tr key={job.id} className="border-b transition hover:bg-muted/30">
+                      <td className="px-3 py-2 font-medium text-xs">#{job.id}</td>
+                      <td className="px-3 py-2 text-xs">#{job.shootId}</td>
+                      <td className="px-3 py-2 text-xs">{job.client?.name || 'N/A'}</td>
+                      <td className="px-3 py-2 text-xs">{getTypeLabel(job.type)}</td>
+                      <td className="px-3 py-2">
+                        <span className={`rounded px-2 py-0.5 text-xs font-semibold ${getStatusColor(job.status)}`}>
                           {job.status.replace('_', ' ')}
                         </span>
                       </td>
-                      <td className="py-1 px-2 text-xs font-medium">${(job.pay || job.payAmount || 0).toLocaleString()}</td>
-                      <td className="py-1 px-2 text-xs">
-                        {job.assignedDate ? format(new Date(job.assignedDate), 'MMM d, yyyy') : 'N/A'}
-                      </td>
-                      <td className="py-1 px-2 text-xs">
-                        {job.completedDate ? format(new Date(job.completedDate), 'MMM d, yyyy') : '-'}
-                      </td>
-                      <td className="py-1 px-2">
+                      <td className="px-3 py-2 text-xs font-medium">{usdFormatter.format(getJobPay(job))}</td>
+                      <td className="px-3 py-2 text-xs">{formatJobDate(job.assignedDate)}</td>
+                      <td className="px-3 py-2 text-xs">{formatJobDate(job.completedDate)}</td>
+                      <td className="px-3 py-2">
                         {job.payoutStatus ? (
-                          <span className={`px-2 py-0.5 rounded text-xs font-semibold ${getPayoutStatusColor(job.payoutStatus)}`}>
+                          <span className={`rounded px-2 py-0.5 text-xs font-semibold ${getPayoutStatusColor(job.payoutStatus)}`}>
                             {job.payoutStatus}
                           </span>
                         ) : (
                           <span className="text-xs text-muted-foreground">-</span>
                         )}
                       </td>
-                      <td className="py-1 px-2">
+                      <td className="px-3 py-2">
                         <div className="flex flex-wrap gap-1">
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={() => handleViewJob(job)} 
-                            aria-label="View Job" 
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleViewJob(job)}
+                            aria-label="View Job"
                             className="px-3 py-1 text-xs"
                           >
-                            <Eye className="h-3 w-3 mr-1" />
+                            <Eye className="mr-1 h-3 w-3" />
                             View
                           </Button>
                           {job.status === 'in_progress' && (
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              onClick={() => handleOpenEditor(job)} 
-                              aria-label="Open Editor" 
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleOpenEditor(job)}
+                              aria-label="Open Editor"
                               className="px-3 py-1 text-xs"
                             >
-                              <Edit className="h-3 w-3 mr-1" />
+                              <Edit className="mr-1 h-3 w-3" />
                               Open Editor
                             </Button>
                           )}
@@ -187,22 +262,15 @@ export function EditorJobsTable({ jobs }: EditorJobsTableProps) {
                       </td>
                     </tr>
                   ))}
-                  {filteredJobs.length === 0 && (
-                    <tr>
-                      <td colSpan={10} className="py-4 text-center text-muted-foreground text-sm">
-                        No editing jobs found
-                      </td>
-                    </tr>
-                  )}
                 </tbody>
               </table>
             </div>
           ) : (
-            <ScrollArea className="h-[calc(100vh-320px)] sm:h-[calc(100vh-280px)]">
-              <div className="space-y-3 p-3">
-                {filteredJobs.map((job) => (
-                  <JobItem 
-                    key={job.id} 
+            <div className="p-4">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {paginatedJobs.map((job) => (
+                  <EditorJobCard
+                    key={job.id}
                     job={job}
                     onView={handleViewJob}
                     onOpenEditor={handleOpenEditor}
@@ -211,21 +279,70 @@ export function EditorJobsTable({ jobs }: EditorJobsTableProps) {
                     getTypeLabel={getTypeLabel}
                   />
                 ))}
-                {filteredJobs.length === 0 && (
-                  <div className="py-8 text-center">
-                    <p className="text-muted-foreground text-sm">No editing jobs found</p>
-                  </div>
-                )}
               </div>
-            </ScrollArea>
+            </div>
           )}
         </div>
       </Card>
+
+      {filteredJobs.length > 0 && totalPages > 1 && (
+        <div className="mt-4 flex flex-col gap-3 rounded-lg border bg-card px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs text-muted-foreground sm:text-sm">
+            Page {safePage} of {totalPages}
+          </p>
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  href="#"
+                  className={safePage === 1 ? 'pointer-events-none opacity-40' : ''}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    handlePageChange(safePage - 1);
+                  }}
+                />
+              </PaginationItem>
+
+              {paginationItems.map((item, index) => (
+                item === 'ellipsis' ? (
+                  <PaginationItem key={`ellipsis-${index}`}>
+                    <PaginationEllipsis />
+                  </PaginationItem>
+                ) : (
+                  <PaginationItem key={item}>
+                    <PaginationLink
+                      href="#"
+                      isActive={item === safePage}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        handlePageChange(item);
+                      }}
+                    >
+                      {item}
+                    </PaginationLink>
+                  </PaginationItem>
+                )
+              ))}
+
+              <PaginationItem>
+                <PaginationNext
+                  href="#"
+                  className={safePage === totalPages ? 'pointer-events-none opacity-40' : ''}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    handlePageChange(safePage + 1);
+                  }}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
+      )}
     </div>
   );
 }
 
-interface JobItemProps {
+interface EditorJobCardProps {
   job: EditorJob;
   onView: (job: EditorJob) => void;
   onOpenEditor: (job: EditorJob) => void;
@@ -234,93 +351,99 @@ interface JobItemProps {
   getTypeLabel: (type: string) => string;
 }
 
-function JobItem({ 
-  job, 
+function EditorJobCard({
+  job,
   onView,
   onOpenEditor,
   getStatusColor,
   getPayoutStatusColor,
   getTypeLabel,
-}: JobItemProps) {
+}: EditorJobCardProps) {
+  const pay = usdFormatter.format(getJobPay(job));
+
   return (
-    <div className="flex flex-col bg-card rounded-lg shadow-sm">
-      <div className="p-3 flex-row justify-between items-center border-b border-border hidden sm:flex">
-        <div className="flex items-center gap-3">
-          <div>
-            <h3 className="font-medium text-sm">Job #{job.id}</h3>
-            <div className="text-xs text-muted-foreground">
-              Shoot #{job.shootId} • {job.client?.name || 'N/A'}
-            </div>
-            <div className="text-xs text-muted-foreground mt-1">
-              Type: {getTypeLabel(job.type)}
-            </div>
+    <div className="flex h-full flex-col justify-between rounded-2xl border border-border bg-gradient-to-b from-background via-background to-muted/30 p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg">
+      <div>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Editing Job</p>
+            <h3 className="truncate text-lg font-semibold text-foreground" title={`#${job.id}`}>
+              #{job.id}
+            </h3>
+            <p className="mt-1 text-sm text-muted-foreground">Shoot #{job.shootId}</p>
           </div>
-        </div>
-        <div className="flex items-center gap-3 text-xs">
-          <Badge className={getStatusColor(job.status)}>
+          <Badge className={cn('capitalize', getStatusColor(job.status))}>
             {job.status.replace('_', ' ')}
           </Badge>
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+          <div className="col-span-2">
+            <p className="text-xs text-muted-foreground">Client</p>
+            <p className="truncate font-medium text-foreground" title={job.client?.name || 'N/A'}>
+              {job.client?.name || 'N/A'}
+            </p>
+          </div>
+
+          <div>
+            <p className="text-xs text-muted-foreground">Type</p>
+            <p className="font-medium text-foreground">{getTypeLabel(job.type)}</p>
+          </div>
+
           <div className="text-right">
-            <div className="font-medium">${(job.pay || job.payAmount || 0).toLocaleString()}</div>
-            <div className="text-muted-foreground flex items-center gap-1">
-              <CalendarIcon className="h-3 w-3" />
-              <span>
-                {job.assignedDate ? format(new Date(job.assignedDate), 'MMM d, yyyy') : 'N/A'}
-              </span>
+            <p className="text-xs text-muted-foreground">Pay</p>
+            <p className="text-lg font-semibold text-foreground">{pay}</p>
+          </div>
+
+          <div>
+            <p className="text-xs text-muted-foreground">Assigned</p>
+            <p className="flex items-center gap-1 font-medium text-foreground">
+              <CalendarIcon className="h-3.5 w-3.5" />
+              {formatJobDate(job.assignedDate)}
+            </p>
+          </div>
+
+          <div className="text-right">
+            <p className="text-xs text-muted-foreground">Completed</p>
+            <p className="font-medium text-foreground">{formatJobDate(job.completedDate)}</p>
+          </div>
+
+          <div className="col-span-2 flex items-center justify-between rounded-xl border border-border/70 bg-muted/30 px-3 py-2">
+            <div className="flex items-center gap-2">
+              <Wallet className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium text-foreground">Payout</span>
             </div>
-            {job.payoutStatus && (
-              <Badge className={`mt-1 ${getPayoutStatusColor(job.payoutStatus)}`}>
+            {job.payoutStatus ? (
+              <Badge className={cn('capitalize', getPayoutStatusColor(job.payoutStatus))}>
                 {job.payoutStatus}
               </Badge>
+            ) : (
+              <span className="text-sm text-muted-foreground">-</span>
             )}
           </div>
         </div>
       </div>
 
-      <div className="p-3 flex-row justify-between items-center border-b border-border flex sm:hidden">
-        <div className="space-y-1">
-          <h3 className="font-medium text-sm">Job #{job.id}</h3>
-          <div className="text-xs text-muted-foreground">
-            Shoot #{job.shootId} • {job.client?.name || 'N/A'}
-          </div>
-          <div className="text-xs text-muted-foreground">
-            {getTypeLabel(job.type)}
-          </div>
-          <div className="flex items-center gap-2 mt-1">
-            <Badge className={getStatusColor(job.status)}>
-              {job.status.replace('_', ' ')}
-            </Badge>
-            <div className="text-xs font-medium">${(job.pay || job.payAmount || 0).toLocaleString()}</div>
-          </div>
-        </div>
-      </div>
-
-      <div className="p-3 flex justify-between items-center">
-        <div className="flex flex-wrap gap-2 text-xs">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => onView(job)}
-            className="px-3 py-1"
-          >
-            <Eye className="h-3 w-3 mr-1" />
-            View
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Button variant="secondary" size="sm" onClick={() => onView(job)}>
+          <Eye className="mr-1 h-3.5 w-3.5" />
+          View
+        </Button>
+        {job.status === 'in_progress' && (
+          <Button variant="outline" size="sm" onClick={() => onOpenEditor(job)}>
+            <Edit className="mr-1 h-3.5 w-3.5" />
+            Open Editor
           </Button>
-          {job.status === 'in_progress' && (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => onOpenEditor(job)}
-              className="px-3 py-1"
-            >
-              <Edit className="h-3 w-3 mr-1" />
-              Open Editor
-            </Button>
-          )}
-        </div>
+        )}
       </div>
     </div>
   );
 }
 
-
+function EmptyJobsState() {
+  return (
+    <div className="py-10 text-center">
+      <p className="text-sm text-muted-foreground">No editing jobs found</p>
+    </div>
+  );
+}

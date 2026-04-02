@@ -13,6 +13,10 @@ import {
 } from '@/realtime/realtimeRefreshBus';
 import type { ShootData } from '@/types/shoots';
 import type { MediaFile } from '@/hooks/useShootFiles';
+import {
+  dispatchShootShareLinksUpdated,
+  type ShootShareLinkEntry,
+} from '../overview/shareLinksEvents';
 
 export type ReclassifyMediaType =
   | 'floorplan'
@@ -47,6 +51,7 @@ interface UseShootMediaActionsParams {
   isAdmin: boolean;
   isClient: boolean;
   role: string;
+  displayTab: 'uploaded' | 'edited';
   selectedFiles: Set<string>;
   setSelectedFiles: Dispatch<SetStateAction<Set<string>>>;
   selectedEditingType: string;
@@ -92,6 +97,7 @@ const resetDownloadPopup = (): DownloadPopupState => ({
 export function useShootMediaActions({
   shoot,
   isAdmin,
+  displayTab,
   selectedFiles,
   setSelectedFiles,
   selectedEditingType,
@@ -438,7 +444,13 @@ export function useShootMediaActions({
   };
 
   const handleGenerateShareLink = async (shareAll = true) => {
-    const fileIds = shareAll ? [] : Array.from(selectedFiles);
+    const currentTabFiles = displayTab === 'edited' ? editedFiles : rawFiles;
+    const currentTabFileIds = new Set(currentTabFiles.map((file) => file.id));
+    const fileIds = shareAll
+      ? []
+      : Array.from(selectedFiles).filter((fileId) => currentTabFileIds.has(fileId));
+    const mediaStage = displayTab === 'edited' ? 'edited' : 'raw';
+
     if (!shareAll && fileIds.length === 0) {
       toast({
         title: 'No files selected',
@@ -455,6 +467,7 @@ export function useShootMediaActions({
         headers,
         body: JSON.stringify({
           file_ids: shareAll ? [] : fileIds,
+          media_stage: mediaStage,
         }),
       });
 
@@ -464,10 +477,26 @@ export function useShootMediaActions({
       }
 
       const data = await response.json();
-      await navigator.clipboard.writeText(data.share_link);
+      dispatchShootShareLinksUpdated(
+        shoot.id,
+        (data.share_link_entry as ShootShareLinkEntry | undefined) ?? null,
+      );
+
+      let copiedToClipboard = false;
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText && document.hasFocus()) {
+        try {
+          await navigator.clipboard.writeText(data.share_link);
+          copiedToClipboard = true;
+        } catch {
+          copiedToClipboard = false;
+        }
+      }
+
       toast({
         title: 'Share link generated!',
-        description: 'Link copied to clipboard. Lifetime link.',
+        description: copiedToClipboard
+          ? 'Link copied to clipboard. Lifetime link.'
+          : 'Link created successfully. You can copy it from Media Links.',
       });
     } catch (error: unknown) {
       toast({

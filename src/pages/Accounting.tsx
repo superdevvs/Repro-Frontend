@@ -658,7 +658,7 @@ const AccountingPage = () => {
                         />
                       ) : accountingMode === 'editor' ? (
                         <>
-                          <EditorRateSettings />
+                          <EditorRateSettings className="h-full" />
                           <RoleBasedSidePanel
                             invoices={filteredInvoices}
                             mode={accountingMode}

@@ -67,6 +67,7 @@ const ShootHistory: React.FC = () => {
   const canViewAllShoots = isSuperAdmin || isAdmin || isEditingManager // Super Admin, Admin, and Editing Manager can see all shoots
   const canViewHistory = HISTORY_ALLOWED_ROLES.has((role as string) ?? '')
   const canViewInvoice = !isPhotographer && !isEditingManager // Hide invoice for photographers and editing managers
+  const canSendToEditing = isSuperAdmin || isAdmin || isEditingManager
   
   const {
     tabList,
@@ -486,7 +487,7 @@ const ShootHistory: React.FC = () => {
                   onModify={(s) => setEditModalShoot(s)}
                   onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
                   onViewInvoice={canViewInvoice ? handleViewInvoice : undefined}
-                  onSendToEditing={handleSendToEditing}
+                  onSendToEditing={canSendToEditing ? handleSendToEditing : undefined}
                 />
               ))}
             </div>
@@ -515,13 +516,13 @@ const ShootHistory: React.FC = () => {
             onDecline={(s) => setDeclineModalShoot(s)}
             onModify={(s) => setEditModalShoot(s)}
             onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
-            onSendToEditing={handleSendToEditing}
+            onSendToEditing={canSendToEditing ? handleSendToEditing : undefined}
             shouldHideClientDetails={shouldHideClientDetails}
           />
         ))}
       </div>
     )
-  }, [loading, activeTab, filteredOperationalData, operationalMeta, viewMode, role, operationalMarkers, handleShootSelect, handlePrimaryAction, navigate, isSuperAdmin, scheduledSubTab, isAdmin, isEditingManager, isEditor, canViewInvoice, handleViewInvoice, handleDeleteShoot, handleSendToEditing, shouldHideClientDetails])
+  }, [loading, activeTab, filteredOperationalData, operationalMeta, viewMode, role, operationalMarkers, handleShootSelect, handlePrimaryAction, navigate, isSuperAdmin, scheduledSubTab, isAdmin, isEditingManager, isEditor, canViewInvoice, canSendToEditing, handleViewInvoice, handleDeleteShoot, handleSendToEditing, shouldHideClientDetails])
 
     // Completed shoots content
   const completedContent = useMemo(() => {
@@ -605,7 +606,7 @@ const ShootHistory: React.FC = () => {
                   isEditor={isEditor}
                   onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
                   onViewInvoice={canViewInvoice ? handleViewInvoice : undefined}
-                  onSendToEditing={handleSendToEditing}
+                  onSendToEditing={canSendToEditing ? handleSendToEditing : undefined}
                   shouldHideClientDetails={shouldHideClientDetails}
                 />
               ))}
@@ -633,13 +634,13 @@ const ShootHistory: React.FC = () => {
             isEditor={isEditor}
             onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
             onViewInvoice={canViewInvoice ? handleViewInvoice : undefined}
-            onSendToEditing={handleSendToEditing}
+            onSendToEditing={canSendToEditing ? handleSendToEditing : undefined}
             shouldHideClientDetails={shouldHideClientDetails}
           />
         ))}
       </div>
     )
-  }, [loading, activeTab, filteredOperationalData, operationalMeta, viewMode, operationalMarkers, handleShootSelect, handleDownloadShoot, isSuperAdmin, isAdmin, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleSendToEditing, inProgressSubTab, deliveredSubTab, canViewInvoice, shouldHideClientDetails])
+  }, [loading, activeTab, filteredOperationalData, operationalMeta, viewMode, operationalMarkers, handleShootSelect, handleDownloadShoot, isSuperAdmin, isAdmin, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleSendToEditing, inProgressSubTab, deliveredSubTab, canViewInvoice, canSendToEditing, shouldHideClientDetails])
 
   // Hold-on shoots content
   const holdOnContent = useMemo(() => {
@@ -695,7 +696,7 @@ const ShootHistory: React.FC = () => {
                   isEditor={isEditor}
                   onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
                   onViewInvoice={canViewInvoice ? handleViewInvoice : undefined}
-                  onSendToEditing={handleSendToEditing}
+                  onSendToEditing={canSendToEditing ? handleSendToEditing : undefined}
                   shouldHideClientDetails={shouldHideClientDetails}
                 />
               ))}
@@ -722,13 +723,13 @@ const ShootHistory: React.FC = () => {
             isEditor={isEditor}
             onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
             onViewInvoice={canViewInvoice ? handleViewInvoice : undefined}
-            onSendToEditing={handleSendToEditing}
+            onSendToEditing={canSendToEditing ? handleSendToEditing : undefined}
             shouldHideClientDetails={shouldHideClientDetails}
           />
         ))}
       </div>
     )
-  }, [loading, activeTab, filteredOperationalData, operationalMeta, viewMode, operationalMarkers, handleShootSelect, isSuperAdmin, isAdmin, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleSendToEditing, canViewInvoice, shouldHideClientDetails])
+  }, [loading, activeTab, filteredOperationalData, operationalMeta, viewMode, operationalMarkers, handleShootSelect, isSuperAdmin, isAdmin, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleSendToEditing, canViewInvoice, canSendToEditing, shouldHideClientDetails])
 
   // Legacy operationalContent for backward compatibility
   const operationalContent = useMemo(() => {
@@ -873,13 +874,13 @@ const ShootHistory: React.FC = () => {
             isEditor={isEditor}
             onDelete={isAdmin || isSuperAdmin ? handleDeleteHistoryRecord : undefined}
             onViewInvoice={canViewInvoice ? handleViewInvoice : undefined}
-            onSendToEditing={handleSendToEditing as any}
+            onSendToEditing={canSendToEditing ? handleSendToEditing : undefined}
             shouldHideClientDetails={shouldHideClientDetails}
           />
         ))}
       </div>
     )
-  }, [canViewHistory, loading, activeTab, historyFilters, historyAggregates, historyRecords, historyMarkers, historyMeta, handleHistoryRecordSelect, handlePublishMls, detailLoading, isSuperAdmin, isAdmin, isEditingManager, isEditor, handleDeleteHistoryRecord, handleViewInvoice, handleSendToEditing, canViewInvoice, shouldHideClientDetails])
+  }, [canViewHistory, loading, activeTab, historyFilters, historyAggregates, historyRecords, historyMarkers, historyMeta, handleHistoryRecordSelect, handlePublishMls, detailLoading, isSuperAdmin, isAdmin, isEditingManager, isEditor, handleDeleteHistoryRecord, handleViewInvoice, handleSendToEditing, canViewInvoice, canSendToEditing, shouldHideClientDetails])
 
   const {
     operationalServicesSelected,

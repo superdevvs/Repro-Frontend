@@ -583,6 +583,7 @@ export function useShootDetailsMediaTab({
     isAdmin,
     isClient,
     role,
+    displayTab,
     selectedFiles,
     setSelectedFiles,
     selectedEditingType,
@@ -663,6 +664,8 @@ export function useShootDetailsMediaTab({
   const isDelivered = DELIVERED_STATUSES.some(status => normalizedShootStatus.includes(status));
   const isSuperAdmin = role === 'superadmin';
   const canDelete = isSuperAdmin || ((isAdmin || isPhotographer || isEditor) && !isDelivered);
+  const canUploadInDisplayTab = showUploadTab && displayTab === 'edited';
+  const canDeleteInDisplayTab = canDelete && displayTab === 'edited';
   const isScheduledShoot = normalizedShootStatus === 'scheduled' || normalizedShootStatus === 'booked';
   const hasAnyMedia = rawFiles.length > 0 || editedFiles.length > 0;
 
@@ -750,7 +753,7 @@ export function useShootDetailsMediaTab({
             </div>
             <h3 className="text-xl font-semibold mb-2">{emptyTitle}</h3>
             <p className="text-sm text-muted-foreground mb-6">{emptyDescription}</p>
-            {showUploadTab && (
+            {canUploadInDisplayTab && (
               <Button
                 type="button"
                 variant="default"
@@ -800,7 +803,7 @@ export function useShootDetailsMediaTab({
           onAddComment={handleAddComment}
           onDownloadSingle={handleDownloadSingleFile}
         />
-        {showUploadTab && (
+        {canUploadInDisplayTab && (
           <div className="sm:hidden sticky bottom-2 z-20 flex justify-center pointer-events-none mt-2 pb-2">
             <Button
               type="button"
@@ -945,7 +948,7 @@ export function useShootDetailsMediaTab({
         sortSaveStatus={sortSaveStatus}
         changeSortOrder={changeSortOrder}
         toggleDragMode={toggleDragMode}
-        showUploadTab={showUploadTab}
+        showUploadTab={canUploadInDisplayTab}
         selectedFiles={selectedFiles}
         setRequestManagerOpen={setRequestManagerOpen}
         downloading={downloading}
@@ -953,7 +956,7 @@ export function useShootDetailsMediaTab({
         handleDeleteFiles={handleDeleteFiles}
         handleGenerateShareLink={handleGenerateShareLink}
         handleEditorDownloadRaw={handleEditorDownloadRaw}
-        canDelete={canDelete}
+        canDelete={canDeleteInDisplayTab}
         canDownload={canDownload}
         isAdmin={isAdmin}
         handleReclassify={handleReclassify}

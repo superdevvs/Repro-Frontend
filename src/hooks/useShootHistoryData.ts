@@ -696,7 +696,7 @@ export function useShootHistoryData({
   }, [operationalPage, activeTab, operationalFilters, fetchOperationalData])
 
   const handleSendToEditing = useCallback(
-    async (shoot: ShootData) => {
+    async (shoot: Pick<ShootData, 'id' | 'status' | 'workflowStatus'>) => {
       if (!shoot?.id) return
       try {
         const currentStatus = shoot.status || shoot.workflowStatus || 'booked'

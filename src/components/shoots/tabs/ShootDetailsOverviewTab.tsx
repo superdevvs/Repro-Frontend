@@ -55,6 +55,7 @@ import { ShootData } from '@/types/shoots';
 import { WeatherInfo } from '@/services/weatherService';
 import { useToast } from '@/hooks/use-toast';
 import { API_BASE_URL } from '@/config/env';
+import { useAuth } from '@/components/auth';
 import { calculateDistance, getCoordinatesFromAddress } from '@/utils/distanceUtils';
 import { cn } from '@/lib/utils';
 import API_ROUTES from '@/lib/api';
@@ -85,6 +86,23 @@ const serviceCurrencyFormatter = new Intl.NumberFormat('en-US', {
   currency: 'USD',
   maximumFractionDigits: 2,
 });
+
+const toSafeNumber = (value: unknown) => {
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) ? numericValue : 0;
+};
+
+const isPhotoServiceName = (name: string) => /photo|hdr|twilight/i.test(name);
+
+const isVideoServiceName = (name: string) => /video/i.test(name);
+
+const isFloorplanServiceName = (name: string) =>
+  /floor\s*plan|floorplan/i.test(name);
+
+const extractPhotoCountFromServiceName = (name: string) => {
+  const match = name.match(/(\d+)\s*photo/i);
+  return match ? Number(match[1]) : 0;
+};
 
 const FLEXIBLE_DATE_FORMATS = [
   'dd-MM-yyyy',
@@ -294,6 +312,7 @@ export function ShootDetailsOverviewTab({
   onCancel,
   onRegisterEditActions,
 }: ShootDetailsOverviewTabProps) {
+  const { user } = useAuth();
   const { toast } = useToast();
   const { formatTemperature, formatTime: formatTimePreference, formatDate: formatDatePreference } = useUserPreferences();
 
@@ -526,14 +545,64 @@ export function ShootDetailsOverviewTab({
 
   const services = getServices();
 
+  const editorRates = useMemo(() => {
+    const metadata = user?.metadata ?? {};
+    return {
+      photoEditRate: toSafeNumber(
+        metadata.photo_edit_rate ?? metadata.photoEditRate,
+      ),
+      videoEditRate: toSafeNumber(
+        metadata.video_edit_rate ?? metadata.videoEditRate,
+      ),
+      floorplanRate: toSafeNumber(
+        metadata.floorplan_rate ?? metadata.floorplanRate,
+      ),
+      otherRate: toSafeNumber(metadata.other_rate ?? metadata.otherRate),
+    };
+  }, [user?.metadata]);
+
+  const getEditorServicePayout = (
+    service: ServiceOption | Record<string, unknown>,
+  ) => {
+    const serviceName = String(service.name ?? '');
+    const quantity = Math.max(1, getServiceQuantity(service));
+    const explicitPhotoCount = toSafeNumber(service.photo_count);
+    const photoCount =
+      explicitPhotoCount ||
+      extractPhotoCountFromServiceName(serviceName) ||
+      toSafeNumber(shoot.editedPhotoCount) ||
+      toSafeNumber(shoot.expectedFinalCount) ||
+      quantity;
+
+    if (isPhotoServiceName(serviceName)) {
+      return photoCount * editorRates.photoEditRate;
+    }
+
+    if (isVideoServiceName(serviceName)) {
+      return quantity * editorRates.videoEditRate;
+    }
+
+    if (isFloorplanServiceName(serviceName)) {
+      return quantity * editorRates.floorplanRate;
+    }
+
+    if (explicitPhotoCount > 0) {
+      return explicitPhotoCount * editorRates.photoEditRate;
+    }
+
+    return quantity * editorRates.otherRate;
+  };
+
   const getServiceDisplayPrice = (service: ServiceOption | Record<string, unknown>) => {
     const serviceWithPrice = { ...service, price: service.price ?? 0 };
     const pricingInfo = effectiveSqft && service.pricing_type === 'variable' && service.sqft_ranges?.length
       ? getServicePricingForSqft(serviceWithPrice, effectiveSqft)
       : null;
-    const amount = isPhotographer
-      ? pricingInfo?.photographerPay ?? Number(service.photographer_pay ?? 0)
-      : pricingInfo?.price ?? Number(service.price ?? 0);
+    const amount = isEditor
+      ? getEditorServicePayout(service)
+      : isPhotographer
+        ? pricingInfo?.photographerPay ?? Number(service.photographer_pay ?? 0)
+        : pricingInfo?.price ?? Number(service.price ?? 0);
     return serviceCurrencyFormatter.format(Number.isFinite(amount) ? amount : 0);
   };
 
@@ -697,23 +766,25 @@ export function ShootDetailsOverviewTab({
         openEditPhotographerPicker={openEditPhotographerPicker}
       />
 
-      <OverviewAccessSection
-        isEditMode={isEditMode}
-        propertyDetails={propertyDetails}
-        presenceOption={presenceOption}
-        setPresenceOption={setPresenceOption}
-        lockboxCode={lockboxCode}
-        setLockboxCode={setLockboxCode}
-        lockboxLocation={lockboxLocation}
-        setLockboxLocation={setLockboxLocation}
-        accessContactName={accessContactName}
-        setAccessContactName={setAccessContactName}
-        accessContactPhone={accessContactPhone}
-        setAccessContactPhone={setAccessContactPhone}
-      />
+      {!isEditor && (
+        <OverviewAccessSection
+          isEditMode={isEditMode}
+          propertyDetails={propertyDetails}
+          presenceOption={presenceOption}
+          setPresenceOption={setPresenceOption}
+          lockboxCode={lockboxCode}
+          setLockboxCode={setLockboxCode}
+          lockboxLocation={lockboxLocation}
+          setLockboxLocation={setLockboxLocation}
+          accessContactName={accessContactName}
+          setAccessContactName={setAccessContactName}
+          accessContactPhone={accessContactPhone}
+          setAccessContactPhone={setAccessContactPhone}
+        />
+      )}
 
       {/* Completion Info Card - Only show if completed */}
-      {shoot.completedDate && (
+      {!isEditor && shoot.completedDate && (
         <div className="p-2.5 border rounded-lg bg-card">
           <span className="text-[11px] font-semibold text-muted-foreground uppercase mb-1.5 block">Completion</span>
           <div className="space-y-0.5 text-xs">
@@ -746,11 +817,17 @@ export function ShootDetailsOverviewTab({
         />
       )}
 
-      {/* Notes section - only for photographer */}
-      {isPhotographer && (
+      {/* Notes section - visible in overview for photographer and editing manager */}
+      {(isPhotographer || role === 'editing_manager') && (
         <div className="p-2.5 border rounded-lg bg-card">
           <span className="text-[11px] font-semibold text-muted-foreground uppercase mb-1.5 block">Notes</span>
-          <ShootNotesTab shoot={shoot} isAdmin={false} isPhotographer={true} role="photographer" hideEmptySections />
+          <ShootNotesTab
+            shoot={shoot}
+            isAdmin={isAdmin}
+            isPhotographer={isPhotographer}
+            role={role}
+            hideEmptySections
+          />
         </div>
       )}
 
