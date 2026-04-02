@@ -22,6 +22,7 @@ export interface ServiceGroupClientSummary {
 
 export interface ServiceGroupDetail extends ServiceGroupSummary {
   is_active: boolean;
+  is_default: boolean;
   services: ServiceGroupServiceSummary[];
   clients: ServiceGroupClientSummary[];
   service_ids: string[];

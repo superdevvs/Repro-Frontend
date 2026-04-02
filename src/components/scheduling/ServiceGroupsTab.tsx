@@ -21,6 +21,7 @@ type ServiceGroupFormState = {
   name: string;
   description: string;
   is_active: boolean;
+  is_default: boolean;
   service_ids: string[];
   client_ids: string[];
 };
@@ -31,6 +32,7 @@ const emptyFormState: ServiceGroupFormState = {
   name: '',
   description: '',
   is_active: true,
+  is_default: false,
   service_ids: [],
   client_ids: [],
 };
@@ -140,6 +142,7 @@ export function ServiceGroupsTab() {
       name: group.name,
       description: group.description || '',
       is_active: group.is_active,
+      is_default: group.is_default,
       service_ids: group.service_ids || [],
       client_ids: group.client_ids || [],
     });
@@ -176,6 +179,7 @@ export function ServiceGroupsTab() {
           name: formState.name.trim(),
           description: formState.description.trim() || null,
           is_active: formState.is_active,
+          is_default: formState.is_default,
           service_ids: formState.service_ids.map((id) => Number(id)),
           client_ids: formState.client_ids.map((id) => Number(id)),
         }),
@@ -254,7 +258,7 @@ export function ServiceGroupsTab() {
   const selectedServiceCount = formState.service_ids.length;
   const selectedClientCount = formState.client_ids.length;
   const mobileSteps: Array<{ id: MobileStep; label: string; count?: number | string }> = [
-    { id: 'details', label: 'Details', count: formState.is_active ? 'Live' : 'Paused' },
+    { id: 'details', label: 'Details', count: formState.is_default ? 'Default' : formState.is_active ? 'Live' : 'Paused' },
     { id: 'services', label: 'Services', count: selectedServiceCount },
     { id: 'clients', label: 'Clients', count: selectedClientCount },
   ];
@@ -294,12 +298,40 @@ export function ServiceGroupsTab() {
             <Switch
               id="service-group-active"
               checked={formState.is_active}
-              onCheckedChange={(checked) => setFormState((prev) => ({ ...prev, is_active: checked }))}
+              onCheckedChange={(checked) =>
+                setFormState((prev) => ({
+                  ...prev,
+                  is_active: checked,
+                  is_default: checked ? prev.is_default : false,
+                }))
+              }
             />
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-3">
+        <div className="rounded-xl border bg-background/80 p-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1">
+              <Label htmlFor="service-group-default">Default for New Registrations</Label>
+              <p className="text-sm text-muted-foreground">
+                Automatically assign this group to new client accounts when no specific service group is chosen.
+              </p>
+            </div>
+            <Switch
+              id="service-group-default"
+              checked={formState.is_default}
+              onCheckedChange={(checked) =>
+                setFormState((prev) => ({
+                  ...prev,
+                  is_default: checked,
+                  is_active: checked ? true : prev.is_active,
+                }))
+              }
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
           <div className="rounded-xl border bg-background/80 px-3 py-3">
             <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Services</p>
             <p className="mt-1 text-lg font-semibold">{selectedServiceCount}</p>
@@ -311,6 +343,10 @@ export function ServiceGroupsTab() {
           <div className="rounded-xl border bg-background/80 px-3 py-3">
             <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Status</p>
             <p className="mt-1 text-lg font-semibold">{formState.is_active ? 'Live' : 'Paused'}</p>
+          </div>
+          <div className="rounded-xl border bg-background/80 px-3 py-3">
+            <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Registration</p>
+            <p className="mt-1 text-lg font-semibold">{formState.is_default ? 'Default' : 'Manual'}</p>
           </div>
         </div>
       </div>
@@ -454,6 +490,7 @@ export function ServiceGroupsTab() {
                       <Badge variant={group.is_active ? 'default' : 'secondary'}>
                         {group.is_active ? 'Active' : 'Inactive'}
                       </Badge>
+                      {group.is_default ? <Badge variant="outline">Default</Badge> : null}
                     </div>
                     <CardDescription>
                       {group.description || 'No description yet.'}
