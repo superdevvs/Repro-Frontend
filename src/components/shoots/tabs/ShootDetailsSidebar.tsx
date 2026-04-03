@@ -310,6 +310,9 @@ export function ShootDetailsSidebar({
 
       const data = await res.json();
       const invoiceData = data.data || data;
+      const dueDate = invoiceData.due_date || invoiceData.dueDate || new Date().toISOString();
+      const isPaid = Boolean(invoiceData.is_paid) || String(invoiceData.status || '').toLowerCase() === 'paid';
+      const isOverdue = !isPaid && Boolean(dueDate) && new Date(dueDate) < new Date();
 
       // Convert API response to InvoiceData format
       const invoice: InvoiceData = {
@@ -323,9 +326,9 @@ export function ShootDetailsSidebar({
           || invoiceData.property 
           || 'N/A',
         date: invoiceData.issue_date || invoiceData.date || new Date().toISOString(),
-        dueDate: invoiceData.due_date || invoiceData.dueDate || new Date().toISOString(),
+        dueDate,
         amount: invoiceData.total || invoiceData.amount || 0,
-        status: invoiceData.status === 'paid' ? 'paid' : invoiceData.status === 'sent' ? 'pending' : 'pending',
+        status: isPaid ? 'paid' : (isOverdue ? 'overdue' : 'pending'),
         services: invoiceData.items?.map((item: any) => item.description) || invoiceData.services || [],
         items: invoiceData.items || [],
         subtotal: invoiceData.subtotal || invoiceData.total || invoiceData.amount || 0,

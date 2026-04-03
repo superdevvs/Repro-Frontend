@@ -73,6 +73,7 @@ export function ShootDetailsMediaTabView(props: any) {
     toast,
     queryClient,
     onShootUpdate,
+    clientEditedMediaTabs,
     editedMediaTab,
     setEditedMediaTab,
     editedPhotos,
@@ -99,6 +100,27 @@ export function ShootDetailsMediaTabView(props: any) {
   } = props;
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const canMarkSelectedFiles = !isClient && (!isEditor || displayTab === 'edited');
+  const renderClientEditedCategoryTabs = () => (
+    <div className="flex-1 min-w-0 overflow-x-auto">
+      <div className="flex items-center gap-1.5 min-w-max">
+        {clientEditedMediaTabs.map((tab: { id: string; label: string }) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setEditedMediaTab(tab.id)}
+            className={`text-[11px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 h-7 sm:h-8 rounded-full transition-all whitespace-nowrap ${
+              editedMediaTab === tab.id
+                ? 'bg-primary text-primary-foreground font-medium'
+                : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
   return (
     <div className="flex flex-col h-full min-h-0 bg-background px-1 sm:px-4 lg:px-6" style={{ height: '100%', minHeight: '100%' }}>
       {/* Download progress popup */}
@@ -155,87 +177,91 @@ export function ShootDetailsMediaTabView(props: any) {
       {/* Header - Tabs with Upload button inline on desktop, expand/collapse button */}
       <div className="border-b flex-shrink-0 bg-background pt-1 sm:pt-2">
         <div className="flex items-center justify-between gap-2">
-          <Tabs value={activeSubTab === 'upload' ? displayTab : (activeSubTab === 'uploaded' || activeSubTab === 'edited' ? activeSubTab : defaultTab)} onValueChange={(v) => {
-            if (v === 'media') {
-              // Media tab defaults based on role
-              if (isClient) {
-                setActiveSubTab('edited');
-                setDisplayTab('edited');
-              } else {
+          {isClient ? (
+            renderClientEditedCategoryTabs()
+          ) : (
+            <Tabs value={activeSubTab === 'upload' ? displayTab : (activeSubTab === 'uploaded' || activeSubTab === 'edited' ? activeSubTab : defaultTab)} onValueChange={(v) => {
+              if (v === 'media') {
+                // Media tab defaults based on role
+                if (isClient) {
+                  setActiveSubTab('edited');
+                  setDisplayTab('edited');
+                } else {
+                  setActiveSubTab('uploaded');
+                  setDisplayTab('uploaded');
+                }
+              } else if (v === 'uploaded' && !isClient) {
                 setActiveSubTab('uploaded');
                 setDisplayTab('uploaded');
+              } else if (v === 'edited' && !isPhotographer) {
+                setActiveSubTab('edited');
+                setDisplayTab('edited');
               }
-            } else if (v === 'uploaded' && !isClient) {
-              setActiveSubTab('uploaded');
-              setDisplayTab('uploaded');
-            } else if (v === 'edited' && !isPhotographer) {
-              setActiveSubTab('edited');
-              setDisplayTab('edited');
-            }
-          }} className="flex-1 min-w-0">
-            <TabsList className="w-full justify-start h-7 sm:h-8 bg-background p-0 min-w-max sm:min-w-0 border-b">
-              {/* Media tab - visible to all */}
-              <TabsTrigger 
-                value="media" 
-                className="text-[11px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 h-7 sm:h-8 data-[state=active]:bg-primary/10 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:rounded-none data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground whitespace-nowrap"
-                onClick={() => {
-                  // For clients, Media tab shows edited; for others, shows uploaded
-                  if (isClient) {
-                    setActiveSubTab('edited');
-                    setDisplayTab('edited');
-                  } else {
-                    setActiveSubTab('uploaded');
-                    setDisplayTab('uploaded');
-                  }
-                }}
-              >
-                Media
-              </TabsTrigger>
-              {/* Uploaded tab - hidden for clients (they only see edited media) */}
-              {!isClient && (
-              <TabsTrigger 
-                value="uploaded" 
-                className="text-[11px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 h-7 sm:h-8 data-[state=active]:bg-primary/10 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:rounded-none data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground whitespace-nowrap"
+            }} className="flex-1 min-w-0">
+              <TabsList className="w-full justify-start h-7 sm:h-8 bg-background p-0 min-w-max sm:min-w-0 border-b">
+                {/* Media tab - visible to all */}
+                <TabsTrigger 
+                  value="media" 
+                  className="text-[11px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 h-7 sm:h-8 data-[state=active]:bg-primary/10 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:rounded-none data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground whitespace-nowrap"
                   onClick={() => {
-                    setActiveSubTab('uploaded');
-                    setDisplayTab('uploaded');
-                  }}
-                >
-                  Raw Uploads ({rawFiles.length})
-                </TabsTrigger>
-              )}
-              {isPhotographer ? (
-                <button
-                  type="button"
-                  className="text-[11px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 h-7 sm:h-8 text-primary font-medium hover:bg-primary/10 rounded-md transition-colors whitespace-nowrap inline-flex items-center gap-1"
-                  onClick={() => {
-                      const mlsLink = getPreferredMlsTourLink(shoot);
-                    if (mlsLink) {
-                      window.open(mlsLink, '_blank', 'noopener,noreferrer');
+                    // For clients, Media tab shows edited; for others, shows uploaded
+                    if (isClient) {
+                      setActiveSubTab('edited');
+                      setDisplayTab('edited');
                     } else {
-                      // Open the app's MLS tour page for this shoot
-                      const baseUrl = window.location.origin;
-                      window.open(`${baseUrl}/tour/mls?shootId=${shoot.id}`, '_blank', 'noopener,noreferrer');
+                      setActiveSubTab('uploaded');
+                      setDisplayTab('uploaded');
                     }
                   }}
                 >
-                  <ExternalLink className="h-3 w-3" />
-                  Edited Media
-                </button>
-              ) : (
-                <TabsTrigger 
-                  value="edited" 
-                  className="text-[11px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 h-7 sm:h-8 data-[state=active]:bg-primary/10 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:rounded-none data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground whitespace-nowrap"
-                  onClick={() => {
-                    setActiveSubTab('edited');
-                    setDisplayTab('edited');
-                  }}
-                >
-                  Edited ({editedFiles.length})
+                  Media
                 </TabsTrigger>
-              )}
-            </TabsList>
-          </Tabs>
+                {/* Uploaded tab - hidden for clients (they only see edited media) */}
+                {!isClient && (
+                <TabsTrigger 
+                  value="uploaded" 
+                  className="text-[11px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 h-7 sm:h-8 data-[state=active]:bg-primary/10 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:rounded-none data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground whitespace-nowrap"
+                    onClick={() => {
+                      setActiveSubTab('uploaded');
+                      setDisplayTab('uploaded');
+                    }}
+                  >
+                    Raw Uploads ({rawFiles.length})
+                  </TabsTrigger>
+                )}
+                {isPhotographer ? (
+                  <button
+                    type="button"
+                    className="text-[11px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 h-7 sm:h-8 text-primary font-medium hover:bg-primary/10 rounded-md transition-colors whitespace-nowrap inline-flex items-center gap-1"
+                    onClick={() => {
+                        const mlsLink = getPreferredMlsTourLink(shoot);
+                      if (mlsLink) {
+                        window.open(mlsLink, '_blank', 'noopener,noreferrer');
+                      } else {
+                        // Open the app's MLS tour page for this shoot
+                        const baseUrl = window.location.origin;
+                        window.open(`${baseUrl}/tour/mls?shootId=${shoot.id}`, '_blank', 'noopener,noreferrer');
+                      }
+                    }}
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    Edited Media
+                  </button>
+                ) : (
+                  <TabsTrigger 
+                    value="edited" 
+                    className="text-[11px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 h-7 sm:h-8 data-[state=active]:bg-primary/10 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:rounded-none data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground whitespace-nowrap"
+                    onClick={() => {
+                      setActiveSubTab('edited');
+                      setDisplayTab('edited');
+                    }}
+                  >
+                    Edited ({editedFiles.length})
+                  </TabsTrigger>
+                )}
+              </TabsList>
+            </Tabs>
+          )}
           
           {/* List / Grid view toggle - visible on all screen sizes */}
           {(rawFiles.length > 0 || editedFiles.length > 0) && (
@@ -901,83 +927,84 @@ export function ShootDetailsMediaTabView(props: any) {
                     <Progress value={directUploadProgress} className="h-1.5" />
                   </div>
                 )}
-                {/* Sub-tabs for Photos/Videos/iGuide/Floorplans */}
-                <div className="sticky top-0 z-10 px-2.5 py-1.5 border-b bg-background" style={{ flexShrink: 0 }}>
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 overflow-x-auto">
-                      <button
-                        onClick={() => setEditedMediaTab('photos')}
-                        className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'photos' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
-                      >
-                        Photos ({editedPhotos.length})
-                      </button>
-                      {(shootHasVideoService || editedVideos.length > 0) && (
+                {!isClient && (
+                  <div className="sticky top-0 z-10 px-2.5 py-1.5 border-b bg-background" style={{ flexShrink: 0 }}>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 overflow-x-auto">
                         <button
-                          onClick={() => setEditedMediaTab('videos')}
-                          className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'videos' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
+                          onClick={() => setEditedMediaTab('photos')}
+                          className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'photos' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
                         >
-                          Video ({editedVideos.length})
+                          Photos ({editedPhotos.length})
                         </button>
-                      )}
-                      {!isEditor && iguideUrl && (
-                        <button
-                          onClick={() => setEditedMediaTab('iguide')}
-                          className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'iguide' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
-                        >
-                          iGuide
-                        </button>
-                      )}
-                      {!isEditor && (editedFloorplans.length > 0 || iguideFloorplans.length > 0) && (
-                        <button
-                          onClick={() => setEditedMediaTab('floorplans')}
-                          className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'floorplans' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
-                        >
-                          Floorplans ({editedFloorplans.length + iguideFloorplans.length})
-                        </button>
-                      )}
-                      {editedVirtualStaging.length > 0 && (
-                        <button
-                          onClick={() => setEditedMediaTab('virtualStaging')}
-                          className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'virtualStaging' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
-                        >
-                          Virtual Staging ({editedVirtualStaging.length})
-                        </button>
-                      )}
-                      {editedGreenGrass.length > 0 && (
-                        <button
-                          onClick={() => setEditedMediaTab('greenGrass')}
-                          className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'greenGrass' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
-                        >
-                          Green Grass ({editedGreenGrass.length})
-                        </button>
-                      )}
-                      {editedTwilight.length > 0 && (
-                        <button
-                          onClick={() => setEditedMediaTab('twilight')}
-                          className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'twilight' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
-                        >
-                          Twilight ({editedTwilight.length})
-                        </button>
-                      )}
-                      {editedDrone.length > 0 && (
-                        <button
-                          onClick={() => setEditedMediaTab('drone')}
-                          className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'drone' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
-                        >
-                          Drone ({editedDrone.length})
-                        </button>
-                      )}
-                      {editedExtras.length > 0 && (
-                        <button
-                          onClick={() => setEditedMediaTab('extras')}
-                          className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'extras' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
-                        >
-                          Extras ({editedExtras.length})
-                        </button>
-                      )}
+                        {(shootHasVideoService || editedVideos.length > 0) && (
+                          <button
+                            onClick={() => setEditedMediaTab('videos')}
+                            className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'videos' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
+                          >
+                            Video ({editedVideos.length})
+                          </button>
+                        )}
+                        {!isEditor && iguideUrl && (
+                          <button
+                            onClick={() => setEditedMediaTab('iguide')}
+                            className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'iguide' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
+                          >
+                            iGuide
+                          </button>
+                        )}
+                        {!isEditor && (editedFloorplans.length > 0 || iguideFloorplans.length > 0) && (
+                          <button
+                            onClick={() => setEditedMediaTab('floorplans')}
+                            className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'floorplans' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
+                          >
+                            Floorplans ({editedFloorplans.length + iguideFloorplans.length})
+                          </button>
+                        )}
+                        {editedVirtualStaging.length > 0 && (
+                          <button
+                            onClick={() => setEditedMediaTab('virtualStaging')}
+                            className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'virtualStaging' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
+                          >
+                            Virtual Staging ({editedVirtualStaging.length})
+                          </button>
+                        )}
+                        {editedGreenGrass.length > 0 && (
+                          <button
+                            onClick={() => setEditedMediaTab('greenGrass')}
+                            className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'greenGrass' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
+                          >
+                            Green Grass ({editedGreenGrass.length})
+                          </button>
+                        )}
+                        {editedTwilight.length > 0 && (
+                          <button
+                            onClick={() => setEditedMediaTab('twilight')}
+                            className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'twilight' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
+                          >
+                            Twilight ({editedTwilight.length})
+                          </button>
+                        )}
+                        {editedDrone.length > 0 && (
+                          <button
+                            onClick={() => setEditedMediaTab('drone')}
+                            className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'drone' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
+                          >
+                            Drone ({editedDrone.length})
+                          </button>
+                        )}
+                        {editedExtras.length > 0 && (
+                          <button
+                            onClick={() => setEditedMediaTab('extras')}
+                            className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'extras' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
+                          >
+                            Extras ({editedExtras.length})
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
                 
                 {/* Sub-tab content */}
                 <div style={{ flex: '1 1 0%', minHeight: 0, overflow: 'hidden' }}>

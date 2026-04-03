@@ -68,7 +68,7 @@ export const useMobileMenu = () => {
       icon: "Calendar",
       label: "Availability",
       isActive: pathname === '/availability',
-      visible: permission.can('availability', 'view'),
+      visible: role !== 'client' && permission.can('availability', 'view'),
     },
     {
       to: "/chat-with-reproai",

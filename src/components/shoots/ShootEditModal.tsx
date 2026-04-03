@@ -1109,8 +1109,8 @@ export function ShootEditModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[900px] md:max-w-[1100px] lg:max-w-[1200px] max-h-[90vh] overflow-hidden p-0 text-slate-900 dark:text-slate-100">
-        <DialogHeader className="px-6 pt-6 pb-4">
+      <DialogContent className="flex max-h-[90vh] flex-col overflow-hidden p-0 text-slate-900 dark:text-slate-100 sm:max-w-[900px] md:max-w-[1100px] lg:max-w-[1200px]">
+        <DialogHeader className="shrink-0 px-6 pt-6 pb-4">
           <div className="flex items-center gap-3">
             <div className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-500/10">
               <Edit className="h-5 w-5 text-blue-500" />
@@ -1131,10 +1131,10 @@ export function ShootEditModal({
             <Skeleton className="h-48 rounded-xl" />
           </div>
         ) : (
-          <div className="overflow-y-auto px-6 pb-4">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:items-stretch">
+          <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-4 md:overflow-hidden">
+            <div className="grid grid-cols-1 gap-4 md:h-full md:min-h-0 md:grid-cols-3 md:items-stretch">
               {/* Column 1 - Client & Address */}
-              <div className="space-y-3">
+              <div className="space-y-3 md:min-h-0 md:overflow-y-auto md:pr-1">
               {/* Client Info (read-only) */}
               <div className="rounded-xl border border-border bg-muted/30 p-4">
                 <div className="flex items-center gap-2 mb-3">
@@ -1251,7 +1251,7 @@ export function ShootEditModal({
               </div>
 
               {/* Column 2 - Schedule & Notes */}
-              <div className="space-y-3">
+              <div className="space-y-3 md:min-h-0 md:overflow-y-auto md:pr-1">
               {/* Schedule */}
               <div className="rounded-lg border border-border p-3 space-y-2">
                 <div className="flex items-center gap-2">
@@ -1485,8 +1485,8 @@ export function ShootEditModal({
               </div>
 
               {/* Column 3 - Services */}
-              <div className="space-y-3">
-                <div className="flex h-full min-h-[620px] flex-col rounded-lg border border-border p-3">
+              <div className="space-y-3 md:min-h-0">
+                <div className="flex h-full min-h-[420px] flex-col rounded-lg border border-border p-3 md:min-h-0">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Layers className="h-4 w-4 text-violet-500" />
@@ -1642,7 +1642,7 @@ export function ShootEditModal({
           </div>
         )}
 
-        <DialogFooter className="mt-1 gap-2 border-t border-border/60 px-6 py-5">
+        <DialogFooter className="mt-1 shrink-0 gap-2 border-t border-border/60 px-6 py-5">
           <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>

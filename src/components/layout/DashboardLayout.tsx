@@ -55,8 +55,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
         {!hideNavbar && <Navbar />}
         {/* Main content area (single scrollbar) */}
         <ErrorBoundary>
-          <main className={`flex-1 min-h-0 overflow-y-auto bg-background text-foreground ${contentPadding} ${className || ''}`}>
-            <PageTransition className="flex flex-col min-h-full">
+          <main className={`flex h-full flex-1 min-h-0 flex-col overflow-y-auto bg-background text-foreground ${contentPadding} ${className || ''}`}>
+            <PageTransition className="flex h-full flex-1 flex-col min-h-full">
               {children || <Outlet />}
             </PageTransition>
             <footer className="border-t border-border/40 mt-8 py-4 text-center text-[11px] text-muted-foreground">

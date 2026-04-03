@@ -172,7 +172,7 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
       )}
       
       {/* Availability */}
-      {availabilityPermission.canView() && !isEditingManager && (
+      {availabilityPermission.canView() && !isEditingManager && role !== 'client' && (
         <NavLink
           to="/availability"
           icon={<CalendarIcon className="h-5 w-5" />}

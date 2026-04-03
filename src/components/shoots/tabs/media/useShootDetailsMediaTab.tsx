@@ -193,6 +193,56 @@ export function useShootDetailsMediaTab({
     isEditor,
     isClient,
   });
+  const clientEditedMediaTabs = useMemo(
+    () =>
+      [
+        { id: 'photos' as MediaSubTab, label: `Photos (${editedPhotos.length})` },
+        (shootHasVideoService || editedVideos.length > 0)
+          ? { id: 'videos' as MediaSubTab, label: `Video (${editedVideos.length})` }
+          : null,
+        !isEditor && iguideUrl
+          ? { id: 'iguide' as MediaSubTab, label: 'iGuide' }
+          : null,
+        !isEditor && (editedFloorplans.length > 0 || iguideFloorplans.length > 0)
+          ? {
+              id: 'floorplans' as MediaSubTab,
+              label: `Floorplans (${editedFloorplans.length + iguideFloorplans.length})`,
+            }
+          : null,
+        editedVirtualStaging.length > 0
+          ? {
+              id: 'virtualStaging' as MediaSubTab,
+              label: `Virtual Staging (${editedVirtualStaging.length})`,
+            }
+          : null,
+        editedGreenGrass.length > 0
+          ? { id: 'greenGrass' as MediaSubTab, label: `Green Grass (${editedGreenGrass.length})` }
+          : null,
+        editedTwilight.length > 0
+          ? { id: 'twilight' as MediaSubTab, label: `Twilight (${editedTwilight.length})` }
+          : null,
+        editedDrone.length > 0
+          ? { id: 'drone' as MediaSubTab, label: `Drone (${editedDrone.length})` }
+          : null,
+        editedExtras.length > 0
+          ? { id: 'extras' as MediaSubTab, label: `Extras (${editedExtras.length})` }
+          : null,
+      ].filter((tab): tab is { id: MediaSubTab; label: string } => Boolean(tab)),
+    [
+      editedDrone.length,
+      editedExtras.length,
+      editedFloorplans.length,
+      editedGreenGrass.length,
+      editedPhotos.length,
+      editedTwilight.length,
+      editedVideos.length,
+      editedVirtualStaging.length,
+      iguideFloorplans.length,
+      iguideUrl,
+      isEditor,
+      shootHasVideoService,
+    ],
+  );
   const [sortOrder, setSortOrderRaw] = useState<MediaSortOrder>(() => {
     try {
       const saved = localStorage.getItem(`media-sort-${shoot.id}`);
@@ -252,6 +302,26 @@ export function useShootDetailsMediaTab({
       setViewerFiles(nextViewerFiles);
     }
   }, [editedFiles, rawFiles, setViewerFiles, viewerFiles, viewerOpen]);
+
+  useEffect(() => {
+    if (!isClient) {
+      return;
+    }
+
+    const availableIds = clientEditedMediaTabs.map((tab) => tab.id);
+    if (availableIds.length === 0) {
+      if (editedMediaTab !== 'photos') {
+        setEditedMediaTab('photos');
+      }
+      return;
+    }
+
+    if (availableIds.includes(editedMediaTab)) {
+      return;
+    }
+
+    setEditedMediaTab(availableIds[0]);
+  }, [clientEditedMediaTabs, editedMediaTab, isClient]);
 
   // Load editing types - only for admin/editor users (clients don't have access)
   const canAccessFotello = ['admin', 'superadmin', 'editing_manager', 'editor'].includes(role || '');
@@ -987,6 +1057,7 @@ export function useShootDetailsMediaTab({
         toast={toast}
         queryClient={queryClient}
         onShootUpdate={onShootUpdate}
+        clientEditedMediaTabs={clientEditedMediaTabs}
         editedMediaTab={editedMediaTab}
         setEditedMediaTab={setEditedMediaTab}
         editedPhotos={editedPhotos}

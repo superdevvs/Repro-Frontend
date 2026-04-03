@@ -39,6 +39,8 @@ type InvoiceResponseLike = {
   total?: number | string;
   amount?: number | string;
   status?: string;
+  is_paid?: boolean;
+  amount_paid?: number | string;
   services?: string[];
   paymentMethod?: string;
   payment_method?: string;
@@ -153,11 +155,10 @@ export function useShootDetailsModalPayments({
 
       const data = await res.json();
       const invoiceData = (data.data || data) as InvoiceResponseLike;
-      const normalizedStatus = invoiceData.status === 'paid'
-        ? 'paid'
-        : invoiceData.status === 'overdue'
-          ? 'overdue'
-          : 'pending';
+      const dueDate = invoiceData.due_date || invoiceData.dueDate || new Date().toISOString();
+      const isPaid = Boolean(invoiceData.is_paid) || String(invoiceData.status || '').toLowerCase() === 'paid';
+      const isOverdue = !isPaid && Boolean(dueDate) && new Date(dueDate) < new Date();
+      const normalizedStatus = isPaid ? 'paid' : (isOverdue ? 'overdue' : 'pending');
       const invoice: InvoiceData = {
         id: invoiceData.id?.toString() || '',
         number: String(invoiceData.invoice_number ?? invoiceData.number ?? `Invoice ${invoiceData.id ?? ''}`),
@@ -169,7 +170,7 @@ export function useShootDetailsModalPayments({
           || invoiceData.property
           || 'N/A',
         date: invoiceData.issue_date || invoiceData.date || new Date().toISOString(),
-        dueDate: invoiceData.due_date || invoiceData.dueDate || new Date().toISOString(),
+        dueDate,
         amount: Number(invoiceData.total || invoiceData.amount || 0),
         status: normalizedStatus,
         services: invoiceData.items

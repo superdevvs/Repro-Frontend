@@ -1242,6 +1242,68 @@ const Dashboard = () => {
     ],
   );
 
+  const editorOpenRequestCount = useMemo(
+    () => editingRequests.filter((request) => request.status !== "completed").length,
+    [editingRequests],
+  );
+
+  const editorMetricTiles = useMemo<DashboardMetricTile[]>(
+    () => [
+      {
+        id: "editor-total-assigned",
+        value: editorSourceShoots.length,
+        label: "Total edits assigned",
+        subtitle: "All assigned jobs",
+        icon: <FileText size={16} />,
+        accent:
+          "from-slate-50 via-emerald-50/85 to-teal-100/70 text-emerald-900 dark:from-[#173934] dark:via-[#112431] dark:to-[#09101d] dark:text-white",
+        onClick: () => openShootHistory("editing"),
+      },
+      {
+        id: "editor-in-progress",
+        value: editorUpcoming.length,
+        label: "In progress edits",
+        subtitle: "Active queue",
+        icon: <UploadCloud size={16} />,
+        accent:
+          "from-slate-50 via-sky-50/85 to-blue-100/70 text-sky-900 dark:from-[#19384a] dark:via-[#122534] dark:to-[#09101d] dark:text-white",
+        onClick: () => openShootHistory("editing"),
+      },
+      {
+        id: "editor-delivered",
+        value: editorDelivered.length,
+        label: "Delivered edits",
+        subtitle: "Recently published",
+        icon: <CheckCircle2 size={16} />,
+        accent:
+          "from-slate-50 via-violet-50/85 to-indigo-100/70 text-violet-900 dark:from-[#3d315d] dark:via-[#1e1a32] dark:to-[#0b0f1c] dark:text-white",
+        onClick: () => openShootHistory("delivered"),
+      },
+      {
+        id: "editor-revision-requests",
+        value: editorOpenRequestCount,
+        label: "Revision requests",
+        subtitle: "Needs response",
+        icon: <MessageSquare size={16} />,
+        accent:
+          "from-slate-50 via-amber-50/80 to-orange-100/70 text-amber-900 dark:from-[#342d29] dark:via-[#201b21] dark:to-[#0a101b] dark:text-white",
+        onClick: () =>
+          scrollToDashboardSection("editing-requests", {
+            title: "No active revision requests",
+            description: "Open revision requests will show up here when they need attention.",
+          }),
+      },
+    ],
+    [
+      editorDelivered.length,
+      editorOpenRequestCount,
+      editorSourceShoots.length,
+      editorUpcoming.length,
+      openShootHistory,
+      scrollToDashboardSection,
+    ],
+  );
+
   const assignPhotographers = Array.isArray(data?.photographers) && data.photographers.length
     ? data.photographers
     : Array.isArray(fallbackPhotographers) ? fallbackPhotographers : [];
@@ -1831,14 +1893,16 @@ const Dashboard = () => {
       );
 
       const clientDesktopContent = (
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-6 items-start">
+        <div className="grid h-full grid-cols-1 md:grid-cols-12 gap-4 sm:gap-6 items-stretch flex-1 min-h-0">
           <div className="md:col-span-3 flex flex-col gap-4 sm:gap-6 md:sticky md:top-6">
             {clientMetricsContent}
             {clientInvoicesContent}
           </div>
-          <div className="md:col-span-9 flex flex-col gap-4">
+          <div className="md:col-span-9 flex h-full flex-col gap-4 min-h-0">
             <UploadStatusWidget />
-            {clientShootsContent}
+            <div className="flex h-full flex-1 min-h-0 flex-col">
+              {clientShootsContent}
+            </div>
           </div>
         </div>
       );
@@ -1846,7 +1910,7 @@ const Dashboard = () => {
       return (
         <>
           <DashboardLayout>
-            <div className="px-2 pt-3 pb-3 sm:p-6 flex flex-col min-h-full gap-4 sm:gap-6">
+            <div className="px-2 pt-3 pb-3 sm:p-6 flex h-full flex-1 flex-col min-h-full gap-4 sm:gap-6">
               <PageHeader title={greetingTitle} description={DASHBOARD_DESCRIPTION} />
               {isMobile ? clientMobileContent : clientDesktopContent}
             </div>
@@ -2340,6 +2404,7 @@ const Dashboard = () => {
           <RoleDashboardLayout
             title={greetingTitleFullName}
             description="Upcoming edits, requests, and delivery progress."
+            metricTiles={editorMetricTiles}
             leftColumnCard={
               shouldLoadEditingRequests ? (
                 <Suspense fallback={<EditingRequestsCardSkeletonWrapper />}>
@@ -2420,7 +2485,7 @@ const Dashboard = () => {
   const adminDesktopContent = (
     <>
       {/* Requested shoots section at top, then Upcoming Shoots below */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-6 items-start">
+      <div className="grid h-full grid-cols-1 md:grid-cols-12 gap-4 sm:gap-6 items-stretch flex-1 min-h-0">
         <div className="md:col-span-3 flex flex-col gap-4 sm:gap-6 md:sticky md:top-6 h-full order-1 md:order-none">
           <div className="order-1 md:order-none">
             <RoleMetricTilesCard tiles={adminMetricTiles} />
@@ -2430,7 +2495,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <div className="md:col-span-6 flex flex-col gap-4 sm:gap-6 h-full order-2 md:order-none">
+        <div className="md:col-span-6 flex flex-col gap-4 sm:gap-6 h-full min-h-0 order-2 md:order-none">
           {/* Combined Shoots Card with Upcoming/Requested tabs */}
           {renderShootsTabsCard()}
         </div>
@@ -2448,8 +2513,8 @@ const Dashboard = () => {
   );
 
   const editingManagerContent = (
-    <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 sm:gap-6 items-start">
-      <div className="xl:col-span-9 flex flex-col gap-4 sm:gap-6 min-w-0">
+    <div className="grid h-full grid-cols-1 xl:grid-cols-12 gap-4 sm:gap-6 items-stretch flex-1 min-h-0">
+      <div className="xl:col-span-9 flex h-full flex-1 flex-col gap-4 sm:gap-6 min-h-0 min-w-0">
         {renderEditingManagerShootsTabsCard()}
       </div>
       <div className="xl:col-span-3 flex flex-col gap-4 sm:gap-6 xl:sticky xl:top-6">
@@ -2544,7 +2609,7 @@ const Dashboard = () => {
 
   return (
     <DashboardLayout>
-      <div className="px-2 pt-3 pb-3 sm:p-6 flex flex-col min-h-full gap-4 sm:gap-6">
+      <div className="px-2 pt-3 pb-3 sm:p-6 flex h-full flex-1 flex-col min-h-full gap-4 sm:gap-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex-1">
             <PageHeader title={greetingTitle} description={DASHBOARD_DESCRIPTION} />
@@ -2743,7 +2808,7 @@ const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
   return (
     <DevProfiler id={`RoleDashboardLayout:${role ?? "default"}`}>
       <DashboardLayout>
-        <div className={cn("p-3 sm:p-6 flex flex-col gap-4 sm:gap-6", hideLeftColumn && "min-h-[calc(100vh-4rem)]")}>
+        <div className={cn("p-3 sm:p-6 flex h-full flex-1 flex-col min-h-full gap-4 sm:gap-6", hideLeftColumn && "min-h-[calc(100vh-4rem)]")}>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex-1">
               <PageHeader title={title} description={description} />
@@ -2790,7 +2855,7 @@ const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
               </Tabs>
             </div>
           ) : (
-          <div className={cn("grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-stretch", hideLeftColumn && "flex-1")}>
+          <div className={cn("grid h-full grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-stretch min-h-0", hideLeftColumn ? "flex-1" : "lg:flex-1")}>
           {!hideLeftColumn && (hasMetricTiles || hasLeftColumnCard) && (
           <div className="lg:col-span-3 flex flex-col gap-4 sm:gap-6 h-full order-1 lg:order-none">
               {hasMetricTiles ? (
@@ -2821,7 +2886,7 @@ const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
               ) : null}
             </div>
           )}
-            <div className={cn("flex flex-col h-full order-2 lg:order-none", hideLeftColumn ? "lg:col-span-9" : "lg:col-span-6")}>
+            <div className={cn("flex h-full flex-1 flex-col min-h-0 order-2 lg:order-none", hideLeftColumn ? "lg:col-span-9" : "lg:col-span-6")}>
               <ErrorBoundary
                 fallback={
                   <div className="rounded-2xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
@@ -2937,7 +3002,7 @@ const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
 
   return (
     <DevProfiler id="ClientMyShoots">
-      <Card className="h-full flex flex-col">
+      <Card className="flex h-full flex-1 min-h-0 flex-col overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4 sm:mb-6">
           <div className="flex items-center gap-4">
             <h2 className="text-base sm:text-lg font-bold text-foreground">My shoots</h2>
@@ -2985,9 +3050,9 @@ const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
             </div>
           )}
         </div>
-        <div className="space-y-4">
+        <div className="flex flex-1 min-h-0 flex-col">
           {list.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+            <div className="flex flex-1 flex-col items-center justify-center px-4 py-12 text-center">
               <div className="rounded-full bg-muted p-4 mb-4">
                 <CalendarDays className="h-8 w-8 text-muted-foreground" />
               </div>
@@ -3009,7 +3074,7 @@ const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
               )}
             </div>
           ) : activeTab === "completed" && deliveredViewMode === "grid" ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {list.map((record) => {
                 const summary = shootDataToSummary(record.data);
                 const deliveredPhotos = (() => {
@@ -3094,22 +3159,24 @@ const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
               })}
             </div>
           ) : (
-            list.map((record) => (
-              <ClientShootTile
-                key={record.data.id}
-                record={record}
-                variant={activeTab}
-                onSelect={onSelect}
-                onReschedule={onReschedule}
-                onCancel={onCancel}
-                onContactSupport={onContactSupport}
-                onDownload={onDownload}
-                onRebook={onRebook}
-                onRequestRevision={onRequestRevision}
-                onHoldAction={onHoldAction}
-                onPayment={onPayment}
-              />
-            ))
+            <div className="space-y-4">
+              {list.map((record) => (
+                <ClientShootTile
+                  key={record.data.id}
+                  record={record}
+                  variant={activeTab}
+                  onSelect={onSelect}
+                  onReschedule={onReschedule}
+                  onCancel={onCancel}
+                  onContactSupport={onContactSupport}
+                  onDownload={onDownload}
+                  onRebook={onRebook}
+                  onRequestRevision={onRequestRevision}
+                  onHoldAction={onHoldAction}
+                  onPayment={onPayment}
+                />
+              ))}
+            </div>
           )}
         </div>
         </Card>

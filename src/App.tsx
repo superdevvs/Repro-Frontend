@@ -146,10 +146,12 @@ const PermissionRoute = ({
   action?: string;
   fallbackTo?: string;
 }) => {
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, role } = useAuth();
   const { can, isLoading: permissionsLoading } = usePermission();
   const denyNotifiedRef = useRef(false);
-  const hasPermission = can(resource, action);
+  const isAvailabilityRouteBlockedForClient =
+    role === 'client' && resource === 'availability';
+  const hasPermission = !isAvailabilityRouteBlockedForClient && can(resource, action);
 
   useEffect(() => {
     if (authLoading || permissionsLoading || !isAuthenticated) return;
