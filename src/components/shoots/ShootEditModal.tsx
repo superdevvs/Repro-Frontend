@@ -1133,7 +1133,7 @@ export function ShootEditModal({
         ) : (
           <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-4 md:overflow-hidden">
             <div className="grid grid-cols-1 gap-4 md:h-full md:min-h-0 md:grid-cols-3 md:items-stretch">
-              {/* Column 1 - Client & Address */}
+              {/* Column 1 - Client, Address & Primary Notes */}
               <div className="space-y-3 md:min-h-0 md:overflow-y-auto md:pr-1">
               {/* Client Info (read-only) */}
               <div className="rounded-xl border border-border bg-muted/30 p-4">
@@ -1248,9 +1248,53 @@ export function ShootEditModal({
                 </div>
               </div>
 
+              {/* Shoot Notes */}
+              <div className="rounded-lg border border-border p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-amber-500" />
+                  <Label className="text-xs font-semibold">Shoot Notes</Label>
+                </div>
+                <Textarea
+                  value={shootNotes}
+                  onChange={(e) => setShootNotes(e.target.value)}
+                  placeholder="Access codes, instructions..."
+                  rows={2}
+                  className="resize-none text-xs"
+                />
               </div>
 
-              {/* Column 2 - Schedule & Notes */}
+              {/* Company Notes */}
+              {showInternalNotes && (
+                <div className="rounded-lg border border-border p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-blue-500" />
+                      <Label className="text-xs font-semibold">Company Notes</Label>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => setCompanyNotesOpen((v) => !v)}
+                    >
+                      {companyNotesOpen ? 'Hide' : 'Show'}
+                    </Button>
+                  </div>
+                  {companyNotesOpen && (
+                    <Textarea
+                      value={companyNotes}
+                      onChange={(e) => setCompanyNotes(e.target.value)}
+                      placeholder="Internal notes..."
+                      rows={2}
+                      className="resize-none text-xs"
+                    />
+                  )}
+                </div>
+              )}
+
+              </div>
+
+              {/* Column 2 - Schedule & Team Notes */}
               <div className="space-y-3 md:min-h-0 md:overflow-y-auto md:pr-1">
               {/* Schedule */}
               <div className="rounded-lg border border-border p-3 space-y-2">
@@ -1385,50 +1429,9 @@ export function ShootEditModal({
                 })()}
               </div>
 
-              {/* Shoot Notes */}
-              <div className="rounded-lg border border-border p-3 space-y-2">
-                <div className="flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-amber-500" />
-                  <Label className="text-xs font-semibold">Shoot Notes</Label>
-                </div>
-                <Textarea
-                  value={shootNotes}
-                  onChange={(e) => setShootNotes(e.target.value)}
-                  placeholder="Access codes, instructions..."
-                  rows={2}
-                  className="resize-none text-xs"
-                />
-              </div>
-
               {/* Internal Notes (Admin/Rep) */}
               {showInternalNotes && (
                 <div className="space-y-3">
-                  <div className="rounded-lg border border-border p-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <FileText className="h-4 w-4 text-blue-500" />
-                        <Label className="text-xs font-semibold">Company Notes</Label>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-2 text-xs"
-                        onClick={() => setCompanyNotesOpen((v) => !v)}
-                      >
-                        {companyNotesOpen ? 'Hide' : 'Show'}
-                      </Button>
-                    </div>
-                    {companyNotesOpen && (
-                      <Textarea
-                        value={companyNotes}
-                        onChange={(e) => setCompanyNotes(e.target.value)}
-                        placeholder="Internal notes..."
-                        rows={2}
-                        className="resize-none text-xs"
-                      />
-                    )}
-                  </div>
-
                   <div className="rounded-lg border border-border p-3 space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -1485,8 +1488,8 @@ export function ShootEditModal({
               </div>
 
               {/* Column 3 - Services */}
-              <div className="space-y-3 md:min-h-0">
-                <div className="flex h-full min-h-[420px] flex-col rounded-lg border border-border p-3 md:min-h-0">
+              <div className="space-y-3 md:flex md:min-h-0 md:flex-col md:overflow-hidden">
+                <div className="flex h-full min-h-[420px] flex-col rounded-lg border border-border p-3 md:min-h-0 md:flex-1 md:overflow-hidden">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Layers className="h-4 w-4 text-violet-500" />
@@ -1499,7 +1502,7 @@ export function ShootEditModal({
                   )}
                 </div>
 
-                <div className="mt-2 min-h-0 flex-1 overflow-y-auto pr-1">
+                <div className="mt-2 min-h-0 flex-1 overflow-y-auto pr-1 md:max-h-full">
                   <Accordion
                     type="multiple"
                     value={expandedServiceCategoryKeys}
