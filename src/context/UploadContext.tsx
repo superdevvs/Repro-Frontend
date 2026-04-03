@@ -153,7 +153,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
 
     const runUpload = async () => {
-      const concurrentUploads = 3;
+      const concurrentUploads = 1;
       const errors: string[] = [];
 
       for (let index = 0; index < params.files.length; index += concurrentUploads) {

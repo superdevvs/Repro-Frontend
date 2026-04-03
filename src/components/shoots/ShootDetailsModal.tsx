@@ -56,6 +56,77 @@ import {
 import { ShootDetailsModalBody } from './details/ShootDetailsModalBody';
 import { ShootDetailsModalDialogs } from './details/ShootDetailsModalDialogs';
 
+const sanitizeWeatherSegment = (value?: string | null) => value?.replace(/\s+/g, ' ').trim() ?? '';
+
+const buildWeatherLocationQuery = (shoot: ShootData | null) => {
+  if (!shoot) return null;
+
+  const fullAddress = sanitizeWeatherSegment(shoot.location?.fullAddress);
+  const streetAddress = sanitizeWeatherSegment(shoot.location?.address);
+  const city = sanitizeWeatherSegment(shoot.location?.city);
+  const state = sanitizeWeatherSegment(shoot.location?.state);
+  const zip = sanitizeWeatherSegment(shoot.location?.zip);
+  const fallbackAddressLine = sanitizeWeatherSegment((shoot as any).addressLine);
+  const fallbackCityStateZip = sanitizeWeatherSegment((shoot as any).cityStateZip);
+
+  if (fullAddress) {
+    return fullAddress;
+  }
+
+  const parts = [
+    streetAddress,
+    city,
+    [state, zip].filter(Boolean).join(' '),
+  ].filter(Boolean);
+
+  if (parts.length > 0) {
+    return parts.join(', ');
+  }
+
+  const fallbackParts = [fallbackAddressLine, fallbackCityStateZip].filter(Boolean);
+  return fallbackParts.length > 0 ? fallbackParts.join(', ') : null;
+};
+
+const buildWeatherDateTime = (shoot: ShootData | null) => {
+  if (!shoot) return undefined;
+
+  const startTime = (shoot as any).startTime;
+  if (typeof startTime === 'string' && !Number.isNaN(Date.parse(startTime))) {
+    return new Date(startTime).toISOString();
+  }
+
+  if (!shoot.scheduledDate) {
+    return undefined;
+  }
+
+  const target = new Date(shoot.scheduledDate);
+  if (Number.isNaN(target.getTime())) {
+    const parsed = new Date(`${shoot.scheduledDate} ${shoot.time || '12:00'}`);
+    return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+  }
+
+  const time = shoot.time || '12:00';
+  const twelveHour = time.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  const twentyFourHour = time.match(/^(\d{1,2}):(\d{2})$/);
+
+  if (twelveHour) {
+    let hours = parseInt(twelveHour[1], 10);
+    const minutes = parseInt(twelveHour[2], 10);
+    const period = twelveHour[3].toUpperCase();
+
+    if (period === 'PM' && hours !== 12) hours += 12;
+    if (period === 'AM' && hours === 12) hours = 0;
+
+    target.setHours(hours, minutes, 0, 0);
+  } else if (twentyFourHour) {
+    target.setHours(parseInt(twentyFourHour[1], 10), parseInt(twentyFourHour[2], 10), 0, 0);
+  } else {
+    target.setHours(12, 0, 0, 0);
+  }
+
+  return target.toISOString();
+};
+
 interface ShootDetailsModalProps {
   shootId: string | number;
   isOpen: boolean;
@@ -171,54 +242,14 @@ export function ShootDetailsModal({
     () => getShootDetailsCreatedByLabel(shoot),
     [shoot],
   );
-  const weatherLocationQuery = useMemo(() => {
-    if (!shoot) return null;
-
-    if (shoot.location?.address || shoot.location?.fullAddress || shoot.location?.city || shoot.location?.state) {
-      const parts = [
-        shoot.location?.fullAddress ?? shoot.location?.address ?? null,
-        [shoot.location?.city, shoot.location?.state, shoot.location?.zip].filter(Boolean).join(', '),
-      ].filter((part): part is string => Boolean(part && part.trim()));
-
-      if (parts.length > 0) {
-        return parts.join(', ');
-      }
-    }
-
-    if ((shoot as any).addressLine || (shoot as any).cityStateZip) {
-      const parts = [(shoot as any).addressLine, (shoot as any).cityStateZip]
-        .filter((part): part is string => Boolean(part && part.trim()));
-
-      if (parts.length > 0) {
-        return parts.join(', ');
-      }
-    }
-
-    return null;
-  }, [
-    shoot,
-    shoot?.location?.address,
-    shoot?.location?.fullAddress,
-    shoot?.location?.city,
-    shoot?.location?.state,
-    shoot?.location?.zip,
-    (shoot as any)?.addressLine,
-    (shoot as any)?.cityStateZip,
-  ]);
-  const weatherDateTime = useMemo(() => {
-    if (!shoot) return undefined;
-
-    if ((shoot as any).startTime) {
-      return (shoot as any).startTime as string;
-    }
-
-    if (!shoot.scheduledDate) {
-      return undefined;
-    }
-
-    const time = shoot.time || '12:00';
-    return `${shoot.scheduledDate} ${time}`;
-  }, [shoot, shoot?.scheduledDate, shoot?.time, (shoot as any)?.startTime]);
+  const weatherLocationQuery = useMemo(
+    () => buildWeatherLocationQuery(shoot),
+    [shoot, shoot?.location?.address, shoot?.location?.fullAddress, shoot?.location?.city, shoot?.location?.state, shoot?.location?.zip, (shoot as any)?.addressLine, (shoot as any)?.cityStateZip],
+  );
+  const weatherDateTime = useMemo(
+    () => buildWeatherDateTime(shoot),
+    [shoot, shoot?.scheduledDate, shoot?.time, (shoot as any)?.startTime],
+  );
 
   // Subscribe to weather provider updates
   useEffect(() => {
@@ -276,7 +307,10 @@ export function ShootDetailsModal({
       .then((info) => {
         setWeather(info || null);
       })
-      .catch(() => {
+      .catch((error) => {
+        if (error instanceof Error && error.name === 'AbortError') {
+          return;
+        }
         setWeather(null);
       });
 

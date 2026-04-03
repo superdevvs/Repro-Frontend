@@ -582,7 +582,7 @@ export function EditedUploadSection({
               xhr.send(formData);
             });
 
-          const concurrentUploads = 3;
+          const concurrentUploads = 1;
           let completed = 0;
           const errors: string[] = [];
 
@@ -908,7 +908,7 @@ export function RawUploadSection({
               xhr.send(formData);
             });
 
-          const concurrentUploads = 3;
+          const concurrentUploads = 1;
           let completed = 0;
           const errors: string[] = [];
 

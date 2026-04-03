@@ -145,7 +145,7 @@ export function useShootMediaActions({
       fileNames: files.map((file) => file.name),
       uploadType,
       uploadFn: async (onProgress) => {
-        const concurrentUploads = 3;
+        const concurrentUploads = 1;
         let completed = 0;
         const errors: string[] = [];
 

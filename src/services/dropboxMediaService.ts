@@ -119,7 +119,7 @@ const uploadFilesIndividually = async ({
     onProgress?.(progress);
   };
 
-  const concurrentUploads = 3;
+  const concurrentUploads = 1;
 
   for (let index = 0; index < files.length; index += concurrentUploads) {
     const batch = files.slice(index, index + concurrentUploads);

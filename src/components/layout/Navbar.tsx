@@ -26,7 +26,7 @@ import { RobbieInsightStrip } from '@/components/ai/RobbieInsightStrip';
 import { usePermission } from '@/hooks/usePermission';
 
 const DEFAULT_WEATHER_COORDS = { lat: 40.7128, lon: -74.006 };
-const IP_LOCATION_KEY = 'dashboard.ipLocation.v4';
+const IP_LOCATION_KEY = 'dashboard.ipLocation.v5';
 const IP_LOCATION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 type WeatherCoordSource = 'ip' | 'default';
 type IpLocation = {
@@ -149,52 +149,28 @@ const fetchIpLocation = async (signal?: AbortSignal): Promise<IpLocation | null>
     // ignore and try fallback
   }
 
-  // Fallback: ip-api (may be HTTP in some environments)
+  // Fallback: ipwho.is (HTTPS)
   try {
-    const res = await fetch('http://ip-api.com/json/', { signal });
+    const res = await fetch('https://ipwho.is/', { signal });
     if (res.ok) {
       const data = await res.json();
-      if (typeof data.lat === 'number' && typeof data.lon === 'number') {
+      if (data?.success && typeof data.latitude === 'number' && typeof data.longitude === 'number') {
         return await refineIpLocation({
-          lat: data.lat,
-          lon: data.lon,
+          lat: data.latitude,
+          lon: data.longitude,
           label: buildIpLocationLabel(
             typeof data.city === 'string' ? data.city : null,
             typeof data.region === 'string'
               ? data.region
-              : (typeof data.regionName === 'string' ? data.regionName : null),
+              : null,
           ),
-          postalCode: typeof data.zip === 'string' ? data.zip : null,
-          countryCode: typeof data.countryCode === 'string' ? data.countryCode : null,
+          postalCode: typeof data.postal === 'string' ? data.postal : null,
+          countryCode: typeof data.country_code === 'string' ? data.country_code : null,
         });
       }
     }
   } catch {
     // ignore
-  }
-
-  try {
-    const response = await fetch(withApiBase('/api/ip-location'), { signal });
-    if (response.ok) {
-      const payload = await response.json();
-      const data = payload?.data;
-
-      if (
-        data &&
-        typeof data.latitude === 'number' &&
-        typeof data.longitude === 'number'
-      ) {
-        return {
-          lat: data.latitude,
-          lon: data.longitude,
-          label: typeof data.location === 'string' ? data.location : null,
-          postalCode: typeof data.postalCode === 'string' ? data.postalCode : null,
-          countryCode: null,
-        };
-      }
-    }
-  } catch {
-    // ignore backend fallback failures
   }
 
   return null;
