@@ -269,7 +269,6 @@ export function Navbar() {
       setWeatherCoords(cached);
       setWeatherCoordSource('ip');
       setIpWeatherLocationLabel(cached.label ?? null);
-      return;
     }
 
     const controller = new AbortController();
@@ -278,6 +277,8 @@ export function Navbar() {
       .then((coords) => {
         if (coords) {
           storeIpWeatherCoords(coords);
+        } else if (!cached) {
+          setIpWeatherLocationLabel(null);
         }
       })
       .catch(() => {
