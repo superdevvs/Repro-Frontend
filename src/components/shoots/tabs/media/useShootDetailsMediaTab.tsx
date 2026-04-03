@@ -854,9 +854,6 @@ export function useShootDetailsMediaTab({
 
     return (
       <div className="space-y-4 flex-1 flex flex-col min-h-0">
-        <div className="text-sm text-muted-foreground mb-4">
-          Upload RAW, unedited files for processing. Supported formats: JPG, PNG, TIFF, NEF, CR2, CR3, ARW, DNG (photos){shootHasVideoService ? ', MP4, MOV (videos)' : ''}.
-        </div>
         <RawUploadSection shoot={shoot} onUploadComplete={onUploadComplete} />
       </div>
     );

@@ -946,7 +946,7 @@ export function RawUploadSection({
   return (
     <div className="flex flex-1 flex-col space-y-3">
       {shootRequiresBrackets && (
-        <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-3">
           <div className="text-sm font-medium text-foreground">Bracket Type</div>
           <div className="flex flex-wrap gap-2">
             {[3, 5].map((value) => (

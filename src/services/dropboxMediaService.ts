@@ -87,6 +87,120 @@ export const getMediaUploadErrorMessage = (
   return baseMessage;
 };
 
+interface UploadFilesIndividuallyConfig {
+  endpoint: string;
+  files: File[];
+  token: string;
+  onProgress?: (progress: number) => void;
+  appendFields?: (formData: FormData, file: File, index: number) => void;
+}
+
+const uploadFilesIndividually = async ({
+  endpoint,
+  files,
+  token,
+  onProgress,
+  appendFields,
+}: UploadFilesIndividuallyConfig): Promise<MediaUploadResponse> => {
+  const totalBytes = files.reduce((sum, file) => sum + Math.max(file.size, 0), 0);
+  const inFlightBytes = new Map<number, number>();
+  let processedFiles = 0;
+  let processedBytes = 0;
+  let successCount = 0;
+  let workflowStatus: string | undefined;
+  let workflowStatusChanged = false;
+  const errors: MediaUploadErrorItem[] = [];
+
+  const updateProgress = () => {
+    const uploadedBytes = processedBytes + Array.from(inFlightBytes.values()).reduce((sum, value) => sum + value, 0);
+    const progress = totalBytes > 0
+      ? Math.round((Math.min(uploadedBytes, totalBytes) * 100) / totalBytes)
+      : Math.round((processedFiles * 100) / Math.max(files.length, 1));
+    onProgress?.(progress);
+  };
+
+  const concurrentUploads = 3;
+
+  for (let index = 0; index < files.length; index += concurrentUploads) {
+    const batch = files.slice(index, index + concurrentUploads);
+
+    await Promise.all(batch.map(async (file, batchIndex) => {
+      const fileIndex = index + batchIndex;
+      const formData = new FormData();
+      formData.append('files[]', file);
+      appendFields?.(formData, file, fileIndex);
+
+      try {
+        const response = await axios.post<MediaUploadResponse>(endpoint, formData, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data',
+          },
+          onUploadProgress: (progressEvent) => {
+            const loadedBytes = file.size > 0
+              ? Math.min(progressEvent.loaded, file.size)
+              : Math.min(progressEvent.loaded, progressEvent.total || progressEvent.loaded || 0);
+            inFlightBytes.set(fileIndex, loadedBytes);
+            updateProgress();
+          },
+        });
+
+        const payload = response.data;
+        successCount += payload.success_count ?? 0;
+        workflowStatus = payload.workflow_status ?? workflowStatus;
+        workflowStatusChanged = workflowStatusChanged || Boolean(payload.workflow_status_changed);
+
+        if (Array.isArray(payload.errors) && payload.errors.length > 0) {
+          errors.push(...payload.errors);
+        } else if ((payload.success_count ?? 0) === 0) {
+          errors.push({
+            file_name: file.name,
+            message: payload.message || 'Upload failed',
+            error_type: payload.error_type,
+          });
+        }
+      } catch (error) {
+        if (axios.isAxiosError(error)) {
+          const payload = error.response?.data as MediaUploadResponse | undefined;
+          if (Array.isArray(payload?.errors) && payload.errors.length > 0) {
+            errors.push(...payload.errors);
+          } else {
+            errors.push({
+              file_name: file.name,
+              message: payload?.message || error.message || 'Upload failed',
+              error_type: payload?.error_type,
+            });
+          }
+        } else {
+          errors.push({
+            file_name: file.name,
+            message: error instanceof Error ? error.message : 'Upload failed',
+          });
+        }
+      } finally {
+        inFlightBytes.delete(fileIndex);
+        processedFiles += 1;
+        processedBytes += Math.max(file.size, 0);
+        updateProgress();
+      }
+    }));
+  }
+
+  if (successCount === 0 && errors.length > 0) {
+    throw new Error(errors[0].message || 'Upload failed');
+  }
+
+  return {
+    message: errors.length > 0 ? 'Files processed with some upload errors' : 'Files processed',
+    success_count: successCount,
+    error_count: errors.length,
+    partial_success: successCount > 0 && errors.length > 0,
+    errors,
+    workflow_status: workflowStatus,
+    workflow_status_changed: workflowStatusChanged,
+  };
+};
+
 /**
  * Fetch media files for a shoot by type
  */
@@ -116,35 +230,18 @@ export const uploadRawPhotos = async (
   token: string,
   onProgress?: (progress: number) => void
 ): Promise<MediaUploadResponse> => {
-  const formData = new FormData();
-  files.forEach((file) => {
-    formData.append('files[]', file);
+  return uploadFilesIndividually({
+    endpoint: `${API_BASE_URL}/api/shoots/${shootId}/upload`,
+    files,
+    token,
+    onProgress,
+    appendFields: (formData) => {
+      formData.append('upload_type', 'raw');
+      if (bracketMode) {
+        formData.append('bracket_mode', bracketMode.toString());
+      }
+    },
   });
-  formData.append('upload_type', 'raw');
-  if (bracketMode) {
-    formData.append('bracket_mode', bracketMode.toString());
-  }
-
-  const response = await axios.post(
-    `${API_BASE_URL}/api/shoots/${shootId}/upload`,
-    formData,
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'multipart/form-data',
-      },
-      onUploadProgress: (progressEvent) => {
-        if (onProgress && progressEvent.total) {
-          const percentCompleted = Math.round(
-            (progressEvent.loaded * 100) / progressEvent.total
-          );
-          onProgress(percentCompleted);
-        }
-      },
-    }
-  );
-
-  return response.data;
 };
 
 /**
@@ -156,31 +253,12 @@ export const uploadExtraPhotos = async (
   token: string,
   onProgress?: (progress: number) => void
 ): Promise<MediaUploadResponse> => {
-  const formData = new FormData();
-  files.forEach((file) => {
-    formData.append('files[]', file);
+  return uploadFilesIndividually({
+    endpoint: `${API_BASE_URL}/api/shoots/${shootId}/upload-extra`,
+    files,
+    token,
+    onProgress,
   });
-
-  const response = await axios.post(
-    `${API_BASE_URL}/api/shoots/${shootId}/upload-extra`,
-    formData,
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'multipart/form-data',
-      },
-      onUploadProgress: (progressEvent) => {
-        if (onProgress && progressEvent.total) {
-          const percentCompleted = Math.round(
-            (progressEvent.loaded * 100) / progressEvent.total
-          );
-          onProgress(percentCompleted);
-        }
-      },
-    }
-  );
-
-  return response.data;
 };
 
 /**
@@ -192,32 +270,15 @@ export const uploadEditedPhotos = async (
   token: string,
   onProgress?: (progress: number) => void
 ): Promise<MediaUploadResponse> => {
-  const formData = new FormData();
-  files.forEach((file) => {
-    formData.append('files[]', file);
+  return uploadFilesIndividually({
+    endpoint: `${API_BASE_URL}/api/shoots/${shootId}/upload`,
+    files,
+    token,
+    onProgress,
+    appendFields: (formData) => {
+      formData.append('upload_type', 'edited');
+    },
   });
-  formData.append('upload_type', 'edited');
-
-  const response = await axios.post(
-    `${API_BASE_URL}/api/shoots/${shootId}/upload`,
-    formData,
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'multipart/form-data',
-      },
-      onUploadProgress: (progressEvent) => {
-        if (onProgress && progressEvent.total) {
-          const percentCompleted = Math.round(
-            (progressEvent.loaded * 100) / progressEvent.total
-          );
-          onProgress(percentCompleted);
-        }
-      },
-    }
-  );
-
-  return response.data;
 };
 
 /**

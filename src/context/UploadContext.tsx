@@ -108,56 +108,107 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     setUploads(prev => [...prev, newUpload]);
 
-    const formData = new FormData();
-    params.files.forEach((file) => {
-      formData.append('files[]', file);
-    });
-    formData.append('service_category', params.serviceCategory || 'P');
-    formData.append('upload_type', params.uploadType);
-
     const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+    const totalBytes = params.files.reduce((sum, file) => sum + Math.max(file.size, 0), 0);
+    let processedFiles = 0;
+    let processedBytes = 0;
+    const inFlightBytes = new Map<number, number>();
 
-    axios.post(
-      `${API_BASE_URL}/api/shoots/${params.shootId}/upload`,
-      formData,
-      {
-        headers: {
-          Accept: 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        signal: abortController.signal,
-        onUploadProgress: (progressEvent) => {
-          const percentCompleted = Math.round(
-            (progressEvent.loaded * 100) / (progressEvent.total || 1)
-          );
-          setUploads(prev =>
-            prev.map(u => u.id === uploadId ? { ...u, progress: percentCompleted } : u)
-          );
-          params.onProgress?.(percentCompleted);
-        },
-      }
-    ).then(() => {
+    const updateProgress = () => {
+      const uploadedBytes = processedBytes + Array.from(inFlightBytes.values()).reduce((sum, value) => sum + value, 0);
+      const percentCompleted = totalBytes > 0
+        ? Math.round((Math.min(uploadedBytes, totalBytes) * 100) / totalBytes)
+        : Math.round((processedFiles * 100) / Math.max(params.files.length, 1));
+
       setUploads(prev =>
-        prev.map(u => u.id === uploadId ? { ...u, status: 'completed', progress: 100 } : u)
+        prev.map(u => u.id === uploadId ? { ...u, progress: percentCompleted } : u)
       );
-      const cb = completionCallbacks.current.get(uploadId);
-      if (cb) { cb(); completionCallbacks.current.delete(uploadId); }
-      autoCleanup(uploadId);
-    }).catch((error) => {
-      if (axios.isCancel(error)) {
-        setUploads(prev => prev.filter(u => u.id !== uploadId));
-      } else {
-        setUploads(prev =>
-          prev.map(u => u.id === uploadId
-            ? { ...u, status: 'failed', error: error?.response?.data?.message || 'Upload failed' }
-            : u
-          )
-        );
-        params.onError?.(error?.response?.data?.message || 'Upload failed');
+      params.onProgress?.(percentCompleted);
+    };
+
+    const uploadSingleFile = async (file: File, fileIndex: number) => {
+      const formData = new FormData();
+      formData.append('files[]', file);
+      formData.append('service_category', params.serviceCategory || 'P');
+      formData.append('upload_type', params.uploadType);
+
+      await axios.post(
+        `${API_BASE_URL}/api/shoots/${params.shootId}/upload`,
+        formData,
+        {
+          headers: {
+            Accept: 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          signal: abortController.signal,
+          onUploadProgress: (progressEvent) => {
+            const loadedBytes = file.size > 0
+              ? Math.min(progressEvent.loaded, file.size)
+              : Math.min(progressEvent.loaded, progressEvent.total || progressEvent.loaded || 0);
+            inFlightBytes.set(fileIndex, loadedBytes);
+            updateProgress();
+          },
+        }
+      );
+    };
+
+    const runUpload = async () => {
+      const concurrentUploads = 3;
+      const errors: string[] = [];
+
+      for (let index = 0; index < params.files.length; index += concurrentUploads) {
+        const batch = params.files.slice(index, index + concurrentUploads);
+
+        await Promise.all(batch.map(async (file, batchIndex) => {
+          const fileIndex = index + batchIndex;
+
+          try {
+            await uploadSingleFile(file, fileIndex);
+          } catch (error) {
+            if (axios.isCancel(error)) {
+              throw error;
+            }
+
+            const message = (error as UploadRequestError)?.response?.data?.message || (error as UploadRequestError)?.message || 'Upload failed';
+            errors.push(`${file.name}: ${message}`);
+          } finally {
+            inFlightBytes.delete(fileIndex);
+            processedFiles += 1;
+            processedBytes += Math.max(file.size, 0);
+            updateProgress();
+          }
+        }));
       }
-    }).finally(() => {
-      abortControllers.current.delete(uploadId);
-    });
+
+      if (errors.length === params.files.length) {
+        throw new Error(errors[0] || 'Upload failed');
+      }
+    };
+
+    void runUpload()
+      .then(() => {
+        setUploads(prev =>
+          prev.map(u => u.id === uploadId ? { ...u, status: 'completed', progress: 100 } : u)
+        );
+        const cb = completionCallbacks.current.get(uploadId);
+        if (cb) { cb(); completionCallbacks.current.delete(uploadId); }
+        autoCleanup(uploadId);
+      }).catch((error) => {
+        if (axios.isCancel(error)) {
+          setUploads(prev => prev.filter(u => u.id !== uploadId));
+        } else {
+          const message = (error as UploadRequestError)?.response?.data?.message || (error as UploadRequestError)?.message || 'Upload failed';
+          setUploads(prev =>
+            prev.map(u => u.id === uploadId
+              ? { ...u, status: 'failed', error: message }
+              : u
+            )
+          );
+          params.onError?.(message);
+        }
+      }).finally(() => {
+        abortControllers.current.delete(uploadId);
+      });
 
     return uploadId;
   }, [autoCleanup]);

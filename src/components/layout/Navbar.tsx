@@ -26,24 +26,43 @@ import { RobbieInsightStrip } from '@/components/ai/RobbieInsightStrip';
 import { usePermission } from '@/hooks/usePermission';
 
 const DEFAULT_WEATHER_COORDS = { lat: 40.7128, lon: -74.006 };
-const IP_LOCATION_KEY = 'dashboard.ipLocation.v2';
+const IP_LOCATION_KEY = 'dashboard.ipLocation.v3';
 const IP_LOCATION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 type WeatherCoordSource = 'ip' | 'default';
-type IpLocation = { lat: number; lon: number; label?: string | null };
+type IpLocation = {
+  lat: number;
+  lon: number;
+  label?: string | null;
+  postalCode?: string | null;
+  countryCode?: string | null;
+};
 
 const readCachedIpLocation = () => {
   if (typeof window === 'undefined') return null;
   const raw = window.localStorage.getItem(IP_LOCATION_KEY);
   if (!raw) return null;
   try {
-    const parsed = JSON.parse(raw) as { lat?: number; lon?: number; ts?: number; label?: string | null };
+    const parsed = JSON.parse(raw) as {
+      lat?: number;
+      lon?: number;
+      ts?: number;
+      label?: string | null;
+      postalCode?: string | null;
+      countryCode?: string | null;
+    };
     if (
       typeof parsed.lat === 'number' &&
       typeof parsed.lon === 'number' &&
       typeof parsed.ts === 'number' &&
       Date.now() - parsed.ts < IP_LOCATION_TTL_MS
     ) {
-      return { lat: parsed.lat, lon: parsed.lon, label: typeof parsed.label === 'string' ? parsed.label : null };
+      return {
+        lat: parsed.lat,
+        lon: parsed.lon,
+        label: typeof parsed.label === 'string' ? parsed.label : null,
+        postalCode: typeof parsed.postalCode === 'string' ? parsed.postalCode : null,
+        countryCode: typeof parsed.countryCode === 'string' ? parsed.countryCode : null,
+      };
     }
   } catch {
     // ignore parse errors
@@ -65,6 +84,94 @@ const buildIpLocationLabel = (city?: string | null, region?: string | null) => {
 };
 
 const fetchIpLocation = async (signal?: AbortSignal): Promise<IpLocation | null> => {
+  const refineIpLocation = async (location: IpLocation): Promise<IpLocation> => {
+    try {
+      const params = new URLSearchParams();
+      params.set('latitude', String(location.lat));
+      params.set('longitude', String(location.lon));
+      if (location.postalCode) params.set('postalCode', location.postalCode);
+      if (location.countryCode) params.set('countryCode', location.countryCode);
+      if (location.label) {
+        const [city, region] = location.label.split(',').map((part) => part.trim()).filter(Boolean);
+        if (city) params.set('city', city);
+        if (region) params.set('region', region);
+      }
+
+      const response = await fetch(withApiBase(`/api/ip-location?${params.toString()}`), { signal });
+      if (!response.ok) {
+        return location;
+      }
+
+      const payload = await response.json();
+      const data = payload?.data;
+
+      if (
+        data &&
+        typeof data.latitude === 'number' &&
+        typeof data.longitude === 'number'
+      ) {
+        return {
+          lat: data.latitude,
+          lon: data.longitude,
+          label: typeof data.location === 'string' ? data.location : location.label ?? null,
+          postalCode: typeof data.postalCode === 'string' ? data.postalCode : location.postalCode ?? null,
+          countryCode: location.countryCode ?? null,
+        };
+      }
+    } catch {
+      // ignore refinement failures and use provider location
+    }
+
+    return location;
+  };
+
+  try {
+    const res = await fetch('https://ipapi.co/json/', { signal });
+    if (res.ok) {
+      const data = await res.json();
+      if (typeof data.latitude === 'number' && typeof data.longitude === 'number') {
+        return await refineIpLocation({
+          lat: data.latitude,
+          lon: data.longitude,
+          label: buildIpLocationLabel(
+            typeof data.city === 'string' ? data.city : null,
+            typeof data.region_code === 'string'
+              ? data.region_code
+              : (typeof data.region === 'string' ? data.region : null),
+          ),
+          postalCode: typeof data.postal === 'string' ? data.postal : null,
+          countryCode: typeof data.country_code === 'string' ? data.country_code : null,
+        });
+      }
+    }
+  } catch {
+    // ignore and try fallback
+  }
+
+  // Fallback: ip-api (may be HTTP in some environments)
+  try {
+    const res = await fetch('http://ip-api.com/json/', { signal });
+    if (res.ok) {
+      const data = await res.json();
+      if (typeof data.lat === 'number' && typeof data.lon === 'number') {
+        return await refineIpLocation({
+          lat: data.lat,
+          lon: data.lon,
+          label: buildIpLocationLabel(
+            typeof data.city === 'string' ? data.city : null,
+            typeof data.region === 'string'
+              ? data.region
+              : (typeof data.regionName === 'string' ? data.regionName : null),
+          ),
+          postalCode: typeof data.zip === 'string' ? data.zip : null,
+          countryCode: typeof data.countryCode === 'string' ? data.countryCode : null,
+        });
+      }
+    }
+  } catch {
+    // ignore
+  }
+
   try {
     const response = await fetch(withApiBase('/api/ip-location'), { signal });
     if (response.ok) {
@@ -80,55 +187,13 @@ const fetchIpLocation = async (signal?: AbortSignal): Promise<IpLocation | null>
           lat: data.latitude,
           lon: data.longitude,
           label: typeof data.location === 'string' ? data.location : null,
+          postalCode: typeof data.postalCode === 'string' ? data.postalCode : null,
+          countryCode: null,
         };
       }
     }
   } catch {
-    // ignore and fall back to direct IP providers
-  }
-
-  // Primary: ipapi (HTTPS, production-safe)
-  try {
-    const res = await fetch('https://ipapi.co/json/', { signal });
-    if (res.ok) {
-      const data = await res.json();
-      if (typeof data.latitude === 'number' && typeof data.longitude === 'number') {
-        return {
-          lat: data.latitude,
-          lon: data.longitude,
-          label: buildIpLocationLabel(
-            typeof data.city === 'string' ? data.city : null,
-            typeof data.region_code === 'string'
-              ? data.region_code
-              : (typeof data.region === 'string' ? data.region : null),
-          ),
-        };
-      }
-    }
-  } catch {
-    // ignore and try fallback
-  }
-
-  // Fallback: ip-api (may be HTTP in some environments)
-  try {
-    const res = await fetch('http://ip-api.com/json/', { signal });
-    if (res.ok) {
-      const data = await res.json();
-      if (typeof data.lat === 'number' && typeof data.lon === 'number') {
-        return {
-          lat: data.lat,
-          lon: data.lon,
-          label: buildIpLocationLabel(
-            typeof data.city === 'string' ? data.city : null,
-            typeof data.region === 'string'
-              ? data.region
-              : (typeof data.regionName === 'string' ? data.regionName : null),
-          ),
-        };
-      }
-    }
-  } catch {
-    // ignore
+    // ignore backend fallback failures
   }
 
   return null;
