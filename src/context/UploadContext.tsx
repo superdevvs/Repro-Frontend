@@ -118,7 +118,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const token = localStorage.getItem('authToken') || localStorage.getItem('token');
 
     axios.post(
-      `${API_BASE_URL}/api/shoots/${params.shootId}/upload-from-pc`,
+      `${API_BASE_URL}/api/shoots/${params.shootId}/upload`,
       formData,
       {
         headers: {

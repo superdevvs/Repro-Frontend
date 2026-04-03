@@ -114,9 +114,10 @@ const EnhancedFileUpload: React.FC<EnhancedFileUploadProps> = ({ shootId, onUplo
       formData.append('files[]', file);
     });
     formData.append('service_category', serviceCategory);
+    formData.append('upload_type', 'raw');
 
     try {
-      const response = await axios.post(`/api/shoots/${shootId}/upload-from-pc`, formData, {
+      const response = await axios.post(`/api/shoots/${shootId}/upload`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },

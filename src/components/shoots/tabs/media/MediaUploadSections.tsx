@@ -405,13 +405,16 @@ function UploadClassificationButtons({
   index,
   classifications,
   onToggle,
+  compact = false,
 }: {
   file: File;
   index: number;
   classifications: QueueClassificationMap;
   onToggle: (file: File, index: number, mediaType: UploadQueueMediaType) => void;
+  compact?: boolean;
 }) {
   const isVideo = isVideoUpload(file);
+  const buttonClassName = compact ? 'rounded px-1.5 py-0.5 text-[9px]' : 'rounded px-2 py-1 text-[10px]';
 
   return (
     <div className="flex flex-wrap items-center justify-end gap-1">
@@ -423,7 +426,7 @@ function UploadClassificationButtons({
           <button
             key={option.type}
             type="button"
-            className={`rounded px-2 py-1 text-[10px] font-semibold transition-colors ${
+            className={`${buttonClassName} font-semibold transition-colors ${
               isActive ? option.activeClassName : option.inactiveClassName
             } ${isDisabled ? 'cursor-not-allowed opacity-40' : ''}`}
             onClick={() => {
@@ -750,13 +753,19 @@ export function RawUploadSection({
   onUploadComplete: () => void;
 }) {
   const { toast } = useToast();
-  const { trackUpload } = useUpload();
+  const { trackUpload, uploads } = useUpload();
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [queueClassifications, setQueueClassifications] = useState<QueueClassificationMap>({});
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [notes, setNotes] = useState('');
   const inputId = `raw-upload-input-${shoot.id}`;
+  const shootServices = Array.isArray(shoot.services) ? shoot.services : [];
+  const shootRequiresBrackets = isHdrShoot(shootServices);
+  const shootHasVideoService = useMemo(
+    () => shootServices.some((service) => /video/i.test(String(service))),
+    [shootServices],
+  );
 
   const serviceObjects = useMemo(() => extractPhotoServicesFromServiceObjects(shoot), [shoot]);
   const photoServices = useMemo(() => {
@@ -764,12 +773,12 @@ export function RawUploadSection({
       return serviceObjects;
     }
 
-    return extractPhotoServicesFromServices(Array.isArray(shoot.services) ? shoot.services : []);
-  }, [serviceObjects, shoot.services]);
+    return extractPhotoServicesFromServices(shootServices);
+  }, [serviceObjects, shootServices]);
 
   const defaultBracketMultiplier =
     toPositiveCount(shoot.bracketMode ?? shoot.package?.bracketMode) ??
-    (isHdrShoot(Array.isArray(shoot.services) ? shoot.services : []) ? 5 : 1);
+    (shootRequiresBrackets ? 5 : 1);
   const [bracketMultiplier, setBracketMultiplier] = useState<number>(Math.max(1, defaultBracketMultiplier));
 
   const existingCounts = useMemo(() => createEmptyMediaTypeCounts(), []);
@@ -782,6 +791,9 @@ export function RawUploadSection({
     [bracketMultiplier, shoot],
   );
   const uploadedCount = selectedFiles.length;
+  const existingRawCount = toPositiveCount(shoot.rawPhotoCount) ?? 0;
+  const totalRawCount = existingRawCount + uploadedCount;
+  const missingCount = expectedCount > 0 ? Math.max(0, expectedCount - totalRawCount) : 0;
   const combinedCounts = useMemo(() => {
     const nextCounts = createEmptyMediaTypeCounts();
     TRACKED_MEDIA_TYPES.forEach((mediaType) => {
@@ -790,6 +802,10 @@ export function RawUploadSection({
     return nextCounts;
   }, [existingCounts, queueCounts]);
   const specialCountCards = useMemo(() => getMediaTypeCards(combinedCounts), [combinedCounts]);
+  const activeUploads = useMemo(
+    () => uploads.filter((upload) => upload.shootId === String(shoot.id) && upload.uploadType === 'raw' && upload.status === 'uploading'),
+    [shoot.id, uploads],
+  );
 
   useEffect(() => {
     setSelectedFiles([]);
@@ -927,83 +943,102 @@ export function RawUploadSection({
     });
   };
 
-  const progressValue = expectedCount > 0 ? Math.min(100, Math.round((uploadedCount / expectedCount) * 100)) : 0;
-
   return (
-    <div className="space-y-4">
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <SummaryCard label="Expected" value={expectedCount} />
-        <SummaryCard label="Uploaded" value={uploadedCount} tone="info" />
-        {specialCountCards.map((card) => (
-          <SummaryCard key={card.type} label={card.label} value={card.count} tone="success" />
-        ))}
-      </div>
-
-      <div className="rounded-lg border bg-card p-4">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-          <div className="flex items-center gap-3">
-            <CircularProgress progress={progressValue} />
-            <div>
-              <div className="text-sm font-medium text-foreground">Raw upload progress</div>
-              <div className="text-xs text-muted-foreground">
-                {expectedCount > 0
-                  ? `${uploadedCount} of ${expectedCount} expected raw files selected or uploaded`
-                  : `${uploadedCount} raw file${uploadedCount !== 1 ? 's' : ''} selected`}
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-2 text-xs text-muted-foreground">
-            <div>
-              Expected count follows `expected_raw_count` first, then falls back to edited expected count x bracket multiplier.
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-medium text-foreground">Bracket Multiplier</span>
-              {[1, 3, 5].map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  className={`rounded-md border px-2.5 py-1 text-xs transition-colors ${
-                    bracketMultiplier === value
-                      ? 'border-primary bg-primary text-primary-foreground'
-                      : 'border-border bg-background text-muted-foreground hover:text-foreground'
-                  }`}
-                  onClick={() => setBracketMultiplier(value)}
-                >
-                  {value}x
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {photoServices.length > 0 && (
-          <div className="mt-4 flex flex-wrap gap-2">
-            {photoServices.map((service) => (
-              <div key={`${service.name}-${service.count}`} className="rounded-full border bg-background px-3 py-1 text-xs">
-                {service.name} · {service.count}
-              </div>
+    <div className="flex flex-1 flex-col space-y-3">
+      {shootRequiresBrackets && (
+        <div className="space-y-2">
+          <div className="text-sm font-medium text-foreground">Bracket Type</div>
+          <div className="flex flex-wrap gap-2">
+            {[3, 5].map((value) => (
+              <button
+                key={value}
+                type="button"
+                className={`rounded-md border px-3 py-1.5 text-sm transition-colors ${
+                  bracketMultiplier === value
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-border bg-muted/40 text-muted-foreground hover:text-foreground'
+                }`}
+                onClick={() => setBracketMultiplier(value)}
+              >
+                {value}-Bracket
+              </button>
             ))}
           </div>
-        )}
+        </div>
+      )}
+
+      <div className="grid gap-2 text-xs sm:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-md border bg-muted/40 p-2">
+          <div className="text-muted-foreground">Expected</div>
+          <div className="text-base font-semibold text-foreground">{expectedCount}</div>
+          {photoServices.length > 0 && (
+            <div className="mt-1 space-y-0.5 text-[10px] text-muted-foreground">
+              {photoServices.map((service) => (
+                <div key={`${service.name}-${service.count}`}>
+                  {service.name}: {shootRequiresBrackets ? service.count * bracketMultiplier : service.count}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="rounded-md border bg-muted/40 p-2">
+          <div className="text-muted-foreground">Existing</div>
+          <div className="text-base font-semibold text-foreground">{totalRawCount}</div>
+        </div>
+        <div className="rounded-md border bg-muted/40 p-2">
+          <div className="text-muted-foreground">Selected</div>
+          <div className="text-base font-semibold text-foreground">{uploadedCount}</div>
+        </div>
+        <div className="rounded-md border bg-muted/40 p-2">
+          <div className="text-muted-foreground">Tagged Extras</div>
+          <div className="text-base font-semibold text-foreground">{queueCounts.extra}</div>
+        </div>
+        {specialCountCards
+          .filter((card) => card.type !== 'extra')
+          .map((card) => (
+            <div key={card.type} className="rounded-md border bg-muted/40 p-2">
+              <div className="text-muted-foreground">{card.label}</div>
+              <div className="text-base font-semibold text-foreground">{card.count}</div>
+            </div>
+          ))}
       </div>
 
-      {isUploading && selectedFiles.length > 0 && (
-        <UploadProgressCard
-          fileCount={selectedFiles.length}
-          fileNames={selectedFiles.map((file) => file.name)}
-          progress={uploadProgress}
-          note="Raw uploads continue in the background. You can leave this shoot and keep working elsewhere."
-        />
+      {missingCount > 0 && totalRawCount > 0 && (
+        <div className="rounded-md border border-orange-500/30 bg-orange-500/10 px-3 py-2 text-xs text-orange-200">
+          {missingCount} photo(s) missing. Expected {expectedCount}
+          {shootRequiresBrackets ? ` (${resolveExpectedFinalCount(shoot)} final x ${bracketMultiplier} brackets)` : ''}
+          , but only {totalRawCount} selected or uploaded so far.
+        </div>
       )}
+
+      {activeUploads.length > 0
+        ? activeUploads.map((activeUpload) => (
+            <UploadProgressCard
+              key={activeUpload.id}
+              fileCount={activeUpload.fileCount}
+              fileNames={activeUpload.fileNames}
+              progress={activeUpload.progress}
+              note="You can close this dialog while upload continues in the background."
+            />
+          ))
+        : isUploading && selectedFiles.length > 0 && (
+            <UploadProgressCard
+              fileCount={selectedFiles.length}
+              fileNames={selectedFiles.map((file) => file.name)}
+              progress={uploadProgress}
+              note="Raw uploads continue in the background. You can leave this shoot and keep working elsewhere."
+            />
+          )}
 
       <UploadDropzone
         empty={selectedFiles.length === 0}
         accept={FULL_UPLOAD_ACCEPT}
         inputId={inputId}
-        title="Upload Raw Media"
-        description="Drag and drop raw captures here. Mark floorplans, extras, VS, GG, TW, or DR before upload so the dashboard files land in the right buckets."
-        buttonLabel="Choose Raw Files"
+        title="No uploaded files yet"
+        description={`${
+          shootHasVideoService ? 'Upload photos and videos to get started.' : 'Upload photos to get started.'
+        } You can drag and drop files or use the upload button.`}
+        buttonLabel="Upload Files"
         browseLabel="Drag and drop more raw files here or click to browse"
         onBrowse={() => document.getElementById(inputId)?.click()}
         onDrop={(event) => {
@@ -1018,22 +1053,25 @@ export function RawUploadSection({
       />
 
       {selectedFiles.length > 0 && (
-        <div className="space-y-4 rounded-lg border bg-card p-4">
-          <div className="text-sm font-medium">Selected Files ({selectedFiles.length})</div>
-          <div className="max-h-72 space-y-2 overflow-y-auto">
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2 text-sm font-medium text-foreground">
+            <span>Selected Files ({selectedFiles.length})</span>
+            <span className="text-xs font-normal text-muted-foreground">
+              (FP = floorplan, VS = virtual staging, GG = green grass, TW = twilight, DR = drone, EX = extra)
+            </span>
+          </div>
+          <div className="max-h-48 space-y-1 overflow-y-auto rounded-md border p-2">
             {selectedFiles.map((file, index) => (
-              <div key={getQueueFileKey(file, index)} className="rounded-lg border bg-background px-3 py-2">
-                <div className="flex items-start gap-3">
+              <div key={getQueueFileKey(file, index)} className="rounded-md p-2 transition-colors hover:bg-muted/40">
+                <div className="flex items-start gap-2">
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium">{file.name}</div>
-                    <div className="mt-1 text-xs text-muted-foreground">
-                      {isVideoUpload(file) ? 'Video file' : 'Photo / image file'}
-                    </div>
+                    <div className="truncate text-xs">{file.name}</div>
                   </div>
                   <UploadClassificationButtons
                     file={file}
                     index={index}
                     classifications={queueClassifications}
+                    compact
                     onToggle={(targetFile, targetIndex, mediaType) =>
                       setQueueClassifications((currentMap) =>
                         setQueueClassification(targetFile, targetIndex, mediaType, currentMap),
@@ -1054,13 +1092,13 @@ export function RawUploadSection({
             ))}
           </div>
 
-          <div className="space-y-2">
-            <div className="text-sm font-medium">Notes (Optional)</div>
+          <div className="space-y-1.5">
+            <div className="text-sm font-medium text-foreground">Notes for Editor (Optional)</div>
             <Textarea
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
-              placeholder="Add any notes about this raw upload..."
-              className="min-h-[96px]"
+              placeholder="Add any notes for the editor..."
+              className="min-h-[60px] max-h-[84px] resize-none"
             />
           </div>
 

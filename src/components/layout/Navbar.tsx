@@ -19,13 +19,14 @@ import { getWeatherByCoordinates, WeatherInfo } from '@/services/weatherService'
 import { subscribeToWeatherProvider } from '@/state/weatherProviderStore';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import { NotificationCenter } from '@/components/notifications/NotificationCenter';
+import { withApiBase } from '@/config/env';
 import { cn } from '@/lib/utils';
 import { GlobalCommandBar } from '@/components/search/GlobalCommandBar';
 import { RobbieInsightStrip } from '@/components/ai/RobbieInsightStrip';
 import { usePermission } from '@/hooks/usePermission';
 
 const DEFAULT_WEATHER_COORDS = { lat: 40.7128, lon: -74.006 };
-const IP_LOCATION_KEY = 'dashboard.ipLocation';
+const IP_LOCATION_KEY = 'dashboard.ipLocation.v2';
 const IP_LOCATION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 type WeatherCoordSource = 'ip' | 'default';
 type IpLocation = { lat: number; lon: number; label?: string | null };
@@ -64,6 +65,28 @@ const buildIpLocationLabel = (city?: string | null, region?: string | null) => {
 };
 
 const fetchIpLocation = async (signal?: AbortSignal): Promise<IpLocation | null> => {
+  try {
+    const response = await fetch(withApiBase('/api/ip-location'), { signal });
+    if (response.ok) {
+      const payload = await response.json();
+      const data = payload?.data;
+
+      if (
+        data &&
+        typeof data.latitude === 'number' &&
+        typeof data.longitude === 'number'
+      ) {
+        return {
+          lat: data.latitude,
+          lon: data.longitude,
+          label: typeof data.location === 'string' ? data.location : null,
+        };
+      }
+    }
+  } catch {
+    // ignore and fall back to direct IP providers
+  }
+
   // Primary: ipapi (HTTPS, production-safe)
   try {
     const res = await fetch('https://ipapi.co/json/', { signal });
