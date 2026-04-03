@@ -111,6 +111,24 @@ export const useShootHistoryFilters = ({
   }, [activeTab, pinnedTabs, searchParams, setSearchParams, tabList])
 
   useEffect(() => {
+    const urlRange = searchParams.get('range')
+    if (urlRange !== 'mtd') return
+
+    setOperationalFilters((prev) =>
+      prev.dateRange === 'this_month' ? prev : { ...prev, dateRange: 'this_month' },
+    )
+
+    setHistoryFilters((prev) =>
+      prev.dateRange === 'this_month' ? prev : { ...prev, dateRange: 'this_month' },
+    )
+
+    setSearchParams((prev) => {
+      prev.delete('range')
+      return prev
+    }, { replace: true })
+  }, [searchParams, setSearchParams])
+
+  useEffect(() => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('shootHistory_viewMode', viewMode)
     }

@@ -4,7 +4,6 @@ import { useLocation, useNavigate } from "react-router-dom";
 import {
   MapPin,
   Phone,
-  Mail,
   UserPlus,
   CheckCircle2,
   CalendarDays,
@@ -14,9 +13,6 @@ import {
   Flag,
   Sparkles,
   CalendarPlus,
-  AlertCircle,
-  DownloadCloud,
-  PlayCircle,
   CreditCard,
   FileText,
   FileDown,
@@ -27,7 +23,7 @@ import {
   List,
   Image as ImageIcon,
 } from "lucide-react";
-import { format, parseISO } from "date-fns";
+import { endOfMonth, format, parseISO, startOfMonth } from "date-fns";
 
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -48,13 +44,18 @@ import { Avatar, Card, StatBadge } from "@/components/dashboard/v2/SharedCompone
 import { formatWorkflowStatus } from "@/utils/status";
 import {
   currencyFormatter,
+  filterDeliveredShoots,
   filterEditingManagerUpcomingShoots,
   filterReadyToDeliverShoots,
   filterScheduledShoots,
   filterUploadedShoots,
   getGreetingPrefix,
+  getStatusKey,
   getSpecialInstructions,
+  HOLD_STATUS_KEYWORDS,
   matchesStatus,
+  PENDING_REVIEW_KEYWORDS,
+  REQUESTED_STATUS_KEYWORDS,
   shootDataToSummary,
   DELIVERED_STATUS_KEYWORDS,
 } from "@/utils/dashboardDerivedUtils";
@@ -85,13 +86,10 @@ import type { ShootData } from "@/types/shoots";
 import { fetchAvailablePhotographers } from "@/services/dashboardService";
 import { API_BASE_URL } from "@/config/env";
 import { useUserPreferences } from "@/contexts/UserPreferencesContext";
-import { QuickActionsCard, type QuickActionItem } from "@/components/dashboard/v2/QuickActionsCard";
 import {
-  QuickActionsEditor,
-  type CustomQuickAction,
-  QUICK_ACTION_ICON_MAP,
-  normalizeQuickActions,
-} from "@/components/dashboard/v2/QuickActionsEditor";
+  RoleMetricTilesCard,
+  type DashboardMetricTile,
+} from "@/components/dashboard/v2/RoleMetricTilesCard";
 import { useEditingRequests } from "@/hooks/useEditingRequests";
 import { useRequestManager } from "@/context/RequestManagerContext";
 import { UpcomingShootsCardSkeleton } from "@/components/dashboard/v2/UpcomingShootsCardSkeleton";
@@ -157,20 +155,35 @@ const WORKFLOW_SEQUENCE = [
   "completed",
 ] as const;
 
-const QUICK_ACTIONS_STORAGE_PREFIX = "repro.dashboard.quickActions";
-
-const buildQuickActionsStorageKey = (role?: string | null, userId?: string | number | null) => {
-  const safeRole = role ?? "default";
-  const safeUser = userId != null ? String(userId) : null;
-  const suffix = safeUser ? `.${safeUser}` : "";
-  return `${QUICK_ACTIONS_STORAGE_PREFIX}.${safeRole}${suffix}`;
-};
-
 const getToken = (sessionToken?: string | null) =>
   sessionToken ||
   localStorage.getItem("authToken") ||
   localStorage.getItem("token") ||
   undefined;
+
+const parseDateValue = (value?: string | null) => {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const isDateWithinRange = (value: string | null | undefined, start: Date, end: Date) => {
+  const parsed = parseDateValue(value);
+  return Boolean(parsed && parsed >= start && parsed <= end);
+};
+
+const buildShootHistoryPath = (
+  tab: "scheduled" | "completed" | "delivered" | "hold" | "editing" | "edited",
+  options?: { range?: "mtd" },
+) => {
+  const searchParams = new URLSearchParams({ tab });
+  if (options?.range) {
+    searchParams.set("range", options.range);
+  }
+  return `/shoot-history?${searchParams.toString()}`;
+};
+
+const ACTIVE_CLIENT_REQUEST_STATUSES = new Set(["open", "in-progress", "in_progress"]);
 
 const DASHBOARD_DESCRIPTION =
   "Here's an overview of all your shoots, approvals, and editing status.";
@@ -281,13 +294,8 @@ const Dashboard = () => {
   const [mobileDashboardTab, setMobileDashboardTab] = useState<MobileDashboardTab>("shoots");
   const [mobileClientTab, setMobileClientTab] = useState<MobileClientDashboardTab>("shoots");
   const [mobileEditingManagerTab, setMobileEditingManagerTab] = useState<MobileEditingManagerTab>("shoots");
-  const canCustomizeQuickActions = Boolean(user) && can("dashboard-quick-actions", "update");
-  const quickActionsStorageKey = useMemo(
-    () => buildQuickActionsStorageKey(role, user?.id),
-    [role, user?.id],
-  );
-  const [customQuickActions, setCustomQuickActions] = useState<CustomQuickAction[]>([]);
-  const [quickActionsEditorOpen, setQuickActionsEditorOpen] = useState(false);
+  const currentMonthStart = startOfMonth(new Date());
+  const currentMonthEnd = endOfMonth(new Date());
 
   // Handler for selecting a shoot with optional weather data - memoized to prevent child re-renders
   const handleSelectShoot = useCallback((shoot: DashboardShootSummary, weather?: WeatherInfo | null) => {
@@ -302,71 +310,6 @@ const Dashboard = () => {
     setOpenDownloadOnSelect(false);
     setShootModalInitialTab('overview');
   }, []);
-
-  useEffect(() => {
-    if (!quickActionsStorageKey) return;
-    try {
-      const stored = localStorage.getItem(quickActionsStorageKey);
-      if (stored) {
-        const parsed: CustomQuickAction[] = JSON.parse(stored);
-        setCustomQuickActions(normalizeQuickActions(parsed));
-      } else {
-        setCustomQuickActions([]);
-      }
-    } catch (storageError) {
-      console.warn("Unable to load quick actions preferences", storageError);
-      setCustomQuickActions([]);
-    }
-  }, [quickActionsStorageKey]);
-
-  const saveCustomQuickActions = useCallback(
-    (actions: CustomQuickAction[]) => {
-      const normalized = normalizeQuickActions(actions);
-      setCustomQuickActions(normalized);
-      if (!quickActionsStorageKey) return;
-      try {
-        localStorage.setItem(quickActionsStorageKey, JSON.stringify(normalized));
-      } catch (storageError) {
-        console.warn("Unable to persist quick actions preferences", storageError);
-      }
-    },
-    [quickActionsStorageKey],
-  );
-
-  const customQuickActionItems = useMemo<QuickActionItem[]>(() => {
-    if (!customQuickActions.length) return [];
-    return customQuickActions.map((action) => {
-      const IconComponent = QUICK_ACTION_ICON_MAP[action.icon] ?? CheckCircle2;
-      return {
-        id: `custom-${action.id}`,
-        label: action.label,
-        description: action.description,
-        icon: <IconComponent size={16} />,
-        accent: action.accent,
-        onClick: () => {
-          const target = action.url.trim();
-          if (!target) return;
-          if (/^https?:/i.test(target)) {
-            if (typeof window !== "undefined") {
-              window.open(target, "_blank", "noopener,noreferrer");
-            }
-          } else {
-            navigate(target.startsWith("/") ? target : `/${target}`);
-          }
-        },
-      } satisfies QuickActionItem;
-    });
-  }, [customQuickActions, navigate]);
-
-  const handleOpenQuickActionsEditor = useCallback(() => {
-    setQuickActionsEditorOpen(true);
-  }, []);
-
-  const withCustomQuickActions = useCallback(
-    (actions: QuickActionItem[]) =>
-      customQuickActionItems.length ? [...actions, ...customQuickActionItems] : actions,
-    [customQuickActionItems],
-  );
 
   // Refresh handler for when shoot is updated
   // The context update happens synchronously, so summaryMap and allSummaries will update immediately
@@ -466,15 +409,6 @@ const Dashboard = () => {
     </>
   );
 
-  const quickActionsEditor = canCustomizeQuickActions ? (
-    <QuickActionsEditor
-      open={quickActionsEditorOpen}
-      actions={customQuickActions}
-      onOpenChange={setQuickActionsEditorOpen}
-      onSave={saveCustomQuickActions}
-    />
-  ) : null;
-
   const firstName = user?.firstName || user?.name?.split(" ")[0] || "there";
   const fullName =
     user?.name ||
@@ -527,6 +461,10 @@ const Dashboard = () => {
   const {
     summaryMap,
     allSummaries,
+    photographerSourceShoots,
+    editorSourceShoots,
+    photographerSummaries,
+    editorSummaries,
     editorUpcoming,
     editorPendingReviews,
     editorCompleted,
@@ -542,6 +480,7 @@ const Dashboard = () => {
     clientCompletedRecords,
     clientOnHoldRecords,
     repVisibleSummaries,
+    repSourceShoots,
     repUpcoming,
     repPendingReviews,
     repDelivered,
@@ -552,6 +491,30 @@ const Dashboard = () => {
   const clientBillingSummary = canViewClientBillingWidget
     ? clientBillingData?.summary ?? emptyClientBillingSummary
     : emptyClientBillingSummary;
+
+  const countSummariesThisMonth = useCallback(
+    (
+      summaries: DashboardShootSummary[],
+      getDate: (summary: DashboardShootSummary) => string | null | undefined = (summary) =>
+        summary.startTime,
+    ) =>
+      summaries.filter((summary) =>
+        isDateWithinRange(getDate(summary), currentMonthStart, currentMonthEnd),
+      ).length,
+    [currentMonthEnd, currentMonthStart],
+  );
+
+  const countShootsThisMonth = useCallback(
+    (
+      sourceShoots: ShootData[],
+      getDate: (shoot: ShootData) => string | null | undefined = (shoot) =>
+        shoot.completedDate || shoot.scheduledDate,
+    ) =>
+      sourceShoots.filter((shoot) =>
+        isDateWithinRange(getDate(shoot), currentMonthStart, currentMonthEnd),
+      ).length,
+    [currentMonthEnd, currentMonthStart],
+  );
 
   const editingManagerScheduledShoots = useMemo(
     () => filterScheduledShoots(allSummaries),
@@ -585,6 +548,9 @@ const Dashboard = () => {
   // Fetch client requests for admin dashboard
   const [clientRequests, setClientRequests] = useState<DashboardClientRequest[]>([]);
   const [clientRequestsLoading, setClientRequestsLoading] = useState(false);
+  const [liveCancellationShoots, setLiveCancellationShoots] = useState<DashboardCancellationItem[]>([]);
+  const [liveCancellationLoading, setLiveCancellationLoading] = useState(false);
+  const [liveCancellationLoaded, setLiveCancellationLoaded] = useState(false);
 
   const fetchClientRequests = useCallback(async () => {
     if (!canViewAdminDashboard) return;
@@ -617,6 +583,56 @@ const Dashboard = () => {
   useEffect(() => {
     void fetchClientRequests();
   }, [fetchClientRequests]);
+
+  const fetchPendingCancellationShoots = useCallback(async () => {
+    if (!canViewAdminDashboard) {
+      setLiveCancellationShoots([]);
+      return;
+    }
+
+    setLiveCancellationLoading(true);
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/api/shoots/pending-cancellations`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/json',
+        },
+      });
+
+      if (!res.ok) {
+        setLiveCancellationShoots([]);
+        return;
+      }
+
+      const json = await res.json();
+      const items = Array.isArray(json.data) ? json.data : [];
+      setLiveCancellationShoots(
+        items.map((item: any) => ({
+          id: Number(item.id),
+          address:
+            item.location?.fullAddress ||
+            item.location?.address ||
+            item.address ||
+            item.address_line ||
+            `Shoot #${item.id}`,
+          clientName: item.client?.name || item.client_name || undefined,
+          cancellationReason:
+            item.cancellationReason || item.cancellation_reason || undefined,
+        })),
+      );
+    } catch (error) {
+      console.error('Error fetching pending cancellations:', error);
+      setLiveCancellationShoots([]);
+    } finally {
+      setLiveCancellationLoaded(true);
+      setLiveCancellationLoading(false);
+    }
+  }, [canViewAdminDashboard]);
+
+  useEffect(() => {
+    void fetchPendingCancellationShoots();
+  }, [fetchPendingCancellationShoots]);
 
   useEffect(() => {
     if (!canViewAdminDashboard || typeof window === 'undefined') return;
@@ -863,9 +879,18 @@ const Dashboard = () => {
 
   // Cancellation shoots come from the dashboard overview response (already fetched)
   const cancellationShoots: DashboardCancellationItem[] = useMemo(() => {
-    if (!canViewAdminDashboard || !data?.pendingCancellations) return [];
-    return data.pendingCancellations;
-  }, [canViewAdminDashboard, data?.pendingCancellations]);
+    if (!canViewAdminDashboard) return [];
+    if (liveCancellationLoaded || liveCancellationLoading) {
+      return liveCancellationShoots;
+    }
+    return data?.pendingCancellations ?? [];
+  }, [
+    canViewAdminDashboard,
+    data?.pendingCancellations,
+    liveCancellationLoaded,
+    liveCancellationLoading,
+    liveCancellationShoots,
+  ]);
 
   const cancellationRequestCount = cancellationShoots.length;
 
@@ -878,6 +903,7 @@ const Dashboard = () => {
     if (res.ok) {
       toast({ title: 'Cancellation approved', description: 'Shoot has been cancelled.' });
       refresh();
+      void fetchPendingCancellationShoots();
       if (fetchShoots) fetchShoots().catch(() => {});
     } else {
       const err = await res.json().catch(() => ({}));
@@ -894,6 +920,7 @@ const Dashboard = () => {
     if (res.ok) {
       toast({ title: 'Cancellation rejected', description: 'Request has been dismissed.' });
       refresh();
+      void fetchPendingCancellationShoots();
       if (fetchShoots) fetchShoots().catch(() => {});
     } else {
       const err = await res.json().catch(() => ({}));
@@ -955,73 +982,265 @@ const Dashboard = () => {
     [toast],
   );
 
-  const handleClientBookShoot = useCallback(() => {
-    navigate("/book-shoot");
-  }, [navigate]);
+  const scrollToDashboardSection = useCallback(
+    (
+      sectionId: string,
+      fallback?: {
+        title: string;
+        description: string;
+      },
+    ) => {
+      if (typeof document === "undefined") return false;
+      const section = document.getElementById(sectionId);
+      if (section) {
+        section.scrollIntoView({ behavior: "smooth", block: "start" });
+        return true;
+      }
+      if (fallback) {
+        toast({
+          title: fallback.title,
+          description: fallback.description,
+        });
+      }
+      return false;
+    },
+    [toast],
+  );
 
-  const handleClientReportIssue = useCallback(() => {
-    openSupportEmail("Shoot issue");
-  }, [openSupportEmail]);
+  const activeClientRequestCount = useMemo(
+    () => clientRequests.filter((request) => ACTIVE_CLIENT_REQUEST_STATUSES.has(request.status)).length,
+    [clientRequests],
+  );
+  const activeEditingRequestCount = useMemo(
+    () => editingRequests.filter((request) => request.status !== 'completed').length,
+    [editingRequests],
+  );
+  const totalAdminPendingRequestCount = useMemo(
+    () => activeClientRequestCount + activeEditingRequestCount + cancellationRequestCount,
+    [activeClientRequestCount, activeEditingRequestCount, cancellationRequestCount],
+  );
 
-  const handleClientDownloadLast = useCallback(() => {
-    if (clientLatestCompleted) {
-      setSelectedShoot(clientLatestCompleted.summary);
-    } else {
-      toast({
-        title: "No completed shoots yet",
-        description: "We'll notify you when files are ready.",
-      });
-    }
-  }, [clientLatestCompleted, toast]);
+  const adminDeliveredSummaries = useMemo(() => filterDeliveredShoots(allSummaries), [allSummaries]);
+  const salesPendingAssignmentsCount = useMemo(
+    () =>
+      repVisibleSummaries.filter((shoot) => {
+        const statusKey = getStatusKey(shoot);
+        if (matchesStatus(shoot, DELIVERED_STATUS_KEYWORDS)) return false;
+        if (matchesStatus(shoot, HOLD_STATUS_KEYWORDS)) return false;
+        return !shoot.photographer && !REQUESTED_STATUS_KEYWORDS.some((keyword) => statusKey.includes(keyword));
+      }).length,
+    [repVisibleSummaries],
+  );
+  const salesFollowUpCount = useMemo(
+    () =>
+      repVisibleSummaries.filter((shoot) => {
+        const statusKey = getStatusKey(shoot);
+        return (
+          shoot.isFlagged ||
+          HOLD_STATUS_KEYWORDS.some((keyword) => statusKey.includes(keyword)) ||
+          REQUESTED_STATUS_KEYWORDS.some((keyword) => statusKey.includes(keyword))
+        );
+      }).length,
+    [repVisibleSummaries],
+  );
 
-  const handleClientViewTour = useCallback(() => {
-    if (clientLatestCompleted) {
-      setSelectedShoot(clientLatestCompleted.summary);
-    } else {
-      toast({
-        title: "No tours available",
-        description: "Once a tour is ready, it will appear here.",
-      });
-    }
-  }, [clientLatestCompleted, toast]);
+  const clientDueInvoiceCount = clientBillingSummary.dueNow.count;
 
-  const clientQuickActions = useMemo<QuickActionItem[]>(() => {
-    if (role !== "client") return [];
-    return [
+  const openShootHistory = useCallback(
+    (
+      tab: "scheduled" | "completed" | "delivered" | "hold" | "editing" | "edited",
+      options?: { range?: "mtd" },
+    ) => {
+      navigate(buildShootHistoryPath(tab, options));
+    },
+    [navigate],
+  );
+
+  const adminMetricTiles = useMemo<DashboardMetricTile[]>(
+    () => [
       {
-        id: "book",
-        label: "Book a new shoot",
-        description: "Schedule coverage for a listing",
-        icon: <CalendarPlus size={16} />,
-        accent: "from-white/95 via-emerald-50/70 to-emerald-100/80 text-emerald-800 dark:from-slate-950 dark:via-slate-900/80 dark:to-emerald-900/30 dark:text-emerald-200",
-        onClick: handleClientBookShoot,
+        id: "admin-total-shoots-month",
+        value: countSummariesThisMonth(allSummaries),
+        label: "Total shoots",
+        subtitle: "This month",
+          icon: <CalendarDays size={16} />,
+          accent:
+            "from-slate-50 via-emerald-50/85 to-teal-100/70 text-emerald-900 dark:from-[#173934] dark:via-[#112431] dark:to-[#09101d] dark:text-white",
+          onClick: () => openShootHistory("scheduled", { range: "mtd" }),
+        },
+      {
+        id: "admin-total-deliveries-month",
+        value: countSummariesThisMonth(
+          adminDeliveredSummaries,
+          (summary) => summary.deliveryDeadline || summary.startTime,
+        ),
+        label: "Total deliveries",
+        subtitle: "This month",
+          icon: <CheckCircle2 size={16} />,
+          accent:
+            "from-slate-50 via-sky-50/85 to-blue-100/70 text-sky-900 dark:from-[#19384a] dark:via-[#122534] dark:to-[#09101d] dark:text-white",
+          onClick: () => openShootHistory("delivered", { range: "mtd" }),
+        },
+        {
+          id: "admin-cancelled-shoots",
+          value: cancellationRequestCount,
+          label: "Cancelled shoots",
+            icon: <Flag size={16} />,
+            accent:
+              "from-slate-50 via-rose-50/85 to-fuchsia-100/65 text-rose-900 dark:from-[#2f2438] dark:via-[#1d1828] dark:to-[#0b0f1b] dark:text-white",
+          onClick: () => setCancellationDialogOpen(true),
+        },
+        {
+          id: "admin-pending-requests",
+          value: totalAdminPendingRequestCount,
+          label: "Pending requests",
+            icon: <MessageSquare size={16} />,
+            accent:
+              "from-slate-50 via-amber-50/80 to-orange-100/70 text-amber-900 dark:from-[#342d29] dark:via-[#201b21] dark:to-[#0a101b] dark:text-white",
+          onClick: () => {
+          if (isMobile) {
+            setMobileDashboardTab("requests");
+            setTimeout(() => {
+              scrollToDashboardSection("requests-queue");
+            }, 150);
+            return;
+          }
+          scrollToDashboardSection("requests-queue", {
+            title: "No requests",
+            description: "All requests are clear right now.",
+          });
+        },
+      },
+    ],
+    [
+      adminDeliveredSummaries,
+      allSummaries,
+      totalAdminPendingRequestCount,
+      cancellationRequestCount,
+      countSummariesThisMonth,
+      isMobile,
+      openShootHistory,
+      scrollToDashboardSection,
+    ],
+  );
+
+  const salesMetricTiles = useMemo<DashboardMetricTile[]>(
+    () => [
+      {
+        id: "sales-booked-month",
+        value: countShootsThisMonth(repSourceShoots, (shoot) => shoot.scheduledDate),
+        label: "Shoots booked",
+        subtitle: "This month",
+          icon: <CalendarDays size={16} />,
+          accent:
+            "from-slate-50 via-emerald-50/85 to-teal-100/70 text-emerald-900 dark:from-[#173934] dark:via-[#112431] dark:to-[#09101d] dark:text-white",
+          onClick: () => openShootHistory("scheduled", { range: "mtd" }),
+        },
+      {
+        id: "sales-pending-assignments",
+        value: salesPendingAssignmentsCount,
+        label: "Pending assignments",
+        subtitle: "Needs a photographer",
+          icon: <UserPlus size={16} />,
+          accent:
+            "from-slate-50 via-sky-50/85 to-blue-100/70 text-sky-900 dark:from-[#19384a] dark:via-[#122534] dark:to-[#09101d] dark:text-white",
+          onClick: () => {
+          scrollToDashboardSection("assign-card", {
+            title: "No assignments pending",
+            description: "All visible shoots have coverage right now.",
+          });
+        },
       },
       {
-        id: "make-request",
-        label: "Make a request",
-        description: "Request edits or changes",
-        icon: <AlertCircle size={16} />,
-        accent: "from-white/95 via-rose-50/70 to-rose-100/80 text-rose-800 dark:from-slate-950 dark:via-slate-900/80 dark:to-rose-900/30 dark:text-rose-200",
-        onClick: handleClientReportIssue,
-      },
+        id: "sales-completed-deliveries",
+        value: repDelivered.length,
+        label: "Completed deliveries",
+        subtitle: "Client-ready",
+          icon: <CheckCircle2 size={16} />,
+          accent:
+            "from-slate-50 via-violet-50/85 to-indigo-100/70 text-violet-900 dark:from-[#3d315d] dark:via-[#1e1a32] dark:to-[#0b0f1c] dark:text-white",
+          onClick: () => openShootHistory("delivered"),
+        },
       {
-        id: "download-last",
-        label: "Download last shoot",
-        description: "Grab final files instantly",
-        icon: <DownloadCloud size={16} />,
-        accent: "from-white/95 via-sky-50/70 to-sky-100/80 text-sky-800 dark:from-slate-950 dark:via-slate-900/80 dark:to-sky-900/30 dark:text-sky-200",
-        onClick: handleClientDownloadLast,
+        id: "sales-follow-ups",
+        value: salesFollowUpCount,
+        label: "Client follow-ups",
+        subtitle: can("messaging-email", "view") ? "Unread or pending" : "Needs attention",
+          icon: <MessageSquare size={16} />,
+          accent:
+            "from-slate-50 via-amber-50/80 to-orange-100/70 text-amber-900 dark:from-[#342d29] dark:via-[#201b21] dark:to-[#0a101b] dark:text-white",
+          onClick: () =>
+            can("messaging-email", "view")
+            ? navigate("/messaging/email/inbox")
+            : openShootHistory("hold"),
       },
+    ],
+    [
+      can,
+      countShootsThisMonth,
+      navigate,
+      openShootHistory,
+      repDelivered.length,
+      repSourceShoots,
+      salesFollowUpCount,
+      salesPendingAssignmentsCount,
+      scrollToDashboardSection,
+    ],
+  );
+
+  const clientMetricTiles = useMemo<DashboardMetricTile[]>(
+    () => [
       {
-        id: "view-tour",
-        label: "View a tour",
-        description: "Open a delivered 3D tour",
-        icon: <PlayCircle size={16} />,
-        accent: "from-white/95 via-violet-50/70 to-violet-100/80 text-violet-800 dark:from-slate-950 dark:via-slate-900/80 dark:to-violet-900/30 dark:text-violet-200",
-        onClick: handleClientViewTour,
-      },
-    ];
-  }, [role, handleClientBookShoot, handleClientReportIssue, handleClientDownloadLast, handleClientViewTour]);
+        id: "client-total-shoots-month",
+        value: countShootsThisMonth(clientShoots, (shoot) => shoot.scheduledDate),
+        label: "Total shoots",
+        subtitle: "This month",
+          icon: <CalendarDays size={16} />,
+          accent:
+            "from-slate-50 via-emerald-50/85 to-teal-100/70 text-emerald-900 dark:from-[#173934] dark:via-[#112431] dark:to-[#09101d] dark:text-white",
+          onClick: () => openShootHistory("scheduled", { range: "mtd" }),
+        },
+      {
+        id: "client-delivered-shoots",
+        value: clientCompletedRecords.length,
+        label: "Delivered shoots",
+        subtitle: "Ready to use",
+          icon: <CheckCircle2 size={16} />,
+          accent:
+            "from-slate-50 via-sky-50/85 to-blue-100/70 text-sky-900 dark:from-[#19384a] dark:via-[#122534] dark:to-[#09101d] dark:text-white",
+          onClick: () => openShootHistory("delivered"),
+        },
+      {
+        id: "client-on-hold",
+        value: clientOnHoldRecords.length,
+        label: "On-hold / cancelled",
+        subtitle: "Needs attention",
+          icon: <Flag size={16} />,
+          accent:
+            "from-slate-50 via-rose-50/85 to-fuchsia-100/65 text-rose-900 dark:from-[#2f2438] dark:via-[#1d1828] dark:to-[#0b0f1b] dark:text-white",
+          onClick: () => openShootHistory("hold"),
+        },
+      {
+        id: "client-due-invoices",
+        value: clientDueInvoiceCount,
+        label: "Due invoices",
+        subtitle: "Payment required",
+          icon: <CreditCard size={16} />,
+          accent:
+            "from-slate-50 via-amber-50/80 to-orange-100/70 text-amber-900 dark:from-[#342d29] dark:via-[#201b21] dark:to-[#0a101b] dark:text-white",
+          onClick: () => navigate("/accounting"),
+        },
+    ],
+    [
+      clientCompletedRecords.length,
+      clientDueInvoiceCount,
+      clientOnHoldRecords.length,
+      clientShoots,
+      countShootsThisMonth,
+      navigate,
+      openShootHistory,
+    ],
+  );
 
   const assignPhotographers = Array.isArray(data?.photographers) && data.photographers.length
     ? data.photographers
@@ -1036,74 +1255,6 @@ const Dashboard = () => {
     }
     return allSummaries.filter((shoot) => shoot.photographer?.id === selectedPhotographer.id);
   }, [selectedPhotographer, data?.upcomingShoots, allSummaries]);
-
-  const openFirstPendingShoot = (
-    queue: DashboardShootSummary[],
-    context: string,
-  ) => {
-    if (queue.length > 0) {
-      setSelectedShoot(queue[0]);
-    } else {
-      toast({
-        title: `No ${context}`,
-        description: "Everything looks clear right now.",
-      });
-    }
-  };
-
-  const adminQuickActions: QuickActionItem[] = [
-    {
-      id: "requests-queue",
-      label: "Requests",
-      description: "View active requests",
-      icon: <CheckCircle2 size={16} />,
-      accent: "from-white/95 via-emerald-50/70 to-emerald-100/80 text-emerald-800 dark:from-slate-950 dark:via-slate-900/80 dark:to-emerald-900/30 dark:text-emerald-200",
-      onClick: () => {
-        const requestsSection = document.getElementById('requests-queue');
-        if (requestsSection) {
-          requestsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          return;
-        }
-        toast({
-          title: "No requests",
-          description: "All requests are clear right now.",
-        });
-      },
-    },
-    {
-      id: "manage-availability",
-      label: "Manage availability",
-      description: "Update roster coverage",
-      icon: <CalendarDays size={16} />,
-      accent: "from-white/95 via-amber-50/70 to-amber-100/80 text-amber-800 dark:from-slate-950 dark:via-slate-900/80 dark:to-amber-900/30 dark:text-amber-200",
-      onClick: () => navigate("/availability"),
-    },
-    {
-      id: "chat-with-robbie",
-      label: "Chat with robbie",
-      description: "Get instant answers",
-      icon: <MessageSquare size={16} />,
-      accent: "from-white/95 via-sky-50/70 to-sky-100/80 text-sky-800 dark:from-slate-950 dark:via-slate-900/80 dark:to-sky-900/30 dark:text-sky-200",
-      onClick: () => navigate("/chat-with-reproai"),
-    },
-    {
-      id: "special-editing-request",
-      label: "Special editing request",
-      description: "Route tasks to editors",
-      icon: <Sparkles size={16} />,
-      accent: "from-white/95 via-violet-50/70 to-violet-100/80 text-violet-800 dark:from-slate-950 dark:via-slate-900/80 dark:to-violet-900/30 dark:text-violet-200",
-      onClick: () => setSpecialRequestOpen(true),
-    },
-  ];
-
-  const stats = data?.stats;
-  const totals = {
-    totalShoots: stats?.totalShoots ?? 0,
-    scheduledToday: stats?.scheduledToday ?? 0,
-    flaggedShoots: stats?.flaggedShoots ?? 0,
-    pendingReviews: stats?.pendingReviews ?? 0,
-  };
-  const nextShoot = data?.upcomingShoots?.[0];
 
   // Delivered shoots - filter for ready_for_client, delivered, admin_verified statuses
   const deliveredShoots = useMemo(() => {
@@ -1293,31 +1444,33 @@ const Dashboard = () => {
     loading && !data ? (
       <PendingReviewsCardSkeleton />
     ) : (
-      <PendingReviewsCard
-        reviews={data?.pendingReviews || []}
-        issues={[]}
-        onSelect={(shoot) => handleSelectShoot(shoot)}
-        emptyRequestsText="No active requests."
-        title="Requests"
-        editingRequests={editingRequests}
-        editingRequestsLoading={editingRequestsLoading}
-        onCreateEditingRequest={() => {
-          setSelectedRequestId(null);
-          setSpecialRequestOpen(true);
-        }}
-        onEditingRequestClick={(requestId) => {
-          setSelectedRequestId(requestId);
-          setSpecialRequestOpen(true);
-        }}
-        showEditingTab={shouldLoadEditingRequests}
-        clientRequests={clientRequests}
-        clientRequestsLoading={clientRequestsLoading}
-        showClientTab={isAdminExperience}
-        cancellationShoots={cancellationShoots}
-        showCancellationTab={isAdminExperience}
-        onApproveCancellation={handleApproveCancellation}
-        onRejectCancellation={handleRejectCancellation}
-      />
+      <div id="requests-queue">
+        <PendingReviewsCard
+          reviews={data?.pendingReviews || []}
+          issues={[]}
+          onSelect={(shoot) => handleSelectShoot(shoot)}
+          emptyRequestsText="No active requests."
+          title="Requests"
+          editingRequests={editingRequests}
+          editingRequestsLoading={editingRequestsLoading}
+          onCreateEditingRequest={() => {
+            setSelectedRequestId(null);
+            setSpecialRequestOpen(true);
+          }}
+          onEditingRequestClick={(requestId) => {
+            setSelectedRequestId(requestId);
+            setSpecialRequestOpen(true);
+          }}
+          showEditingTab={shouldLoadEditingRequests}
+          clientRequests={clientRequests}
+          clientRequestsLoading={clientRequestsLoading}
+          showClientTab={isAdminExperience}
+          cancellationShoots={cancellationShoots}
+          showCancellationTab={isAdminExperience}
+          onApproveCancellation={handleApproveCancellation}
+          onRejectCancellation={handleRejectCancellation}
+        />
+      </div>
     );
 
   const renderCompletedShootsCard = () => (
@@ -1332,38 +1485,42 @@ const Dashboard = () => {
   );
 
   const renderEditingManagerReadyToDeliverCard = () => (
-    <Suspense fallback={<CompletedShootsCardSkeleton />}>
-      <LazyCompletedShootsCard
-        shoots={editingManagerReadyToDeliverShoots.slice(0, 6)}
-        title="Ready to deliver"
-        subtitle="Shoots with ready status"
-        emptyStateText="No ready shoots waiting for delivery."
-        ctaLabel="View all shoots"
-        onSelect={handleSelectShoot}
-        onViewInvoice={handleViewInvoice}
-        onViewAll={() => navigate("/shoot-history")}
-      />
-    </Suspense>
+    <div id="ready-to-deliver">
+      <Suspense fallback={<CompletedShootsCardSkeleton />}>
+        <LazyCompletedShootsCard
+          shoots={editingManagerReadyToDeliverShoots.slice(0, 6)}
+          title="Ready to deliver"
+          subtitle="Shoots with ready status"
+          emptyStateText="No ready shoots waiting for delivery."
+          ctaLabel="View all shoots"
+          onSelect={handleSelectShoot}
+          onViewInvoice={handleViewInvoice}
+          onViewAll={() => navigate("/shoot-history")}
+        />
+      </Suspense>
+    </div>
   );
 
   const renderEditingRequestsCard = () =>
     shouldLoadEditingRequests ? (
-      <Suspense fallback={<EditingRequestsCardSkeletonWrapper />}>
-        <LazyEditingRequestsCard
-          requests={editingRequests}
-          loading={editingRequestsLoading}
-          onCreate={() => {
-            setSelectedRequestId(null);
-            setSpecialRequestOpen(true);
-          }}
-          onRequestClick={(requestId) => {
-            setSelectedRequestId(requestId);
-            setSpecialRequestOpen(true);
-          }}
-          onUpdate={updateEditingRequest}
-          onDelete={isAdminExperience ? removeEditingRequest : undefined}
-        />
-      </Suspense>
+      <div id="editing-requests">
+        <Suspense fallback={<EditingRequestsCardSkeletonWrapper />}>
+          <LazyEditingRequestsCard
+            requests={editingRequests}
+            loading={editingRequestsLoading}
+            onCreate={() => {
+              setSelectedRequestId(null);
+              setSpecialRequestOpen(true);
+            }}
+            onRequestClick={(requestId) => {
+              setSelectedRequestId(requestId);
+              setSpecialRequestOpen(true);
+            }}
+            onUpdate={updateEditingRequest}
+            onDelete={isAdminExperience ? removeEditingRequest : undefined}
+          />
+        </Suspense>
+      </div>
     ) : null;
 
   const renderRequestedShootsSection = () =>
@@ -1446,7 +1603,7 @@ const Dashboard = () => {
   ];
 
   const renderPipelineSection = () => (
-    <div className="space-y-3 w-full max-w-full">
+    <div id="pipeline-section" className="space-y-3 w-full max-w-full">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 uppercase tracking-[0.3em]">
           Pipeline
@@ -1632,56 +1789,51 @@ const Dashboard = () => {
         />
       );
 
-      const clientActionsContent = (
-        <QuickActionsCard
-          actions={withCustomQuickActions(clientQuickActions)}
-          eyebrow="Quick actions"
-          columns={1}
-          onEdit={canCustomizeQuickActions ? handleOpenQuickActionsEditor : undefined}
-        />
-      );
+      const clientMetricsContent = <RoleMetricTilesCard tiles={clientMetricTiles} />;
 
       const clientMobileTabs = [
         { id: "shoots" as const, label: "Shoots", content: clientShootsContent },
         { id: "invoices" as const, label: "Invoices", content: clientInvoicesContent },
-        { id: "actions" as const, label: "Actions", content: clientActionsContent },
       ];
 
       const clientMobileContent = (
-        <Tabs
-          value={mobileClientTab}
-          onValueChange={(val) => setMobileClientTab(val as MobileClientDashboardTab)}
-          className="space-y-2 flex-1 flex flex-col dashboard-mobile-tabs"
-        >
-          <div className="sticky top-[-0.25rem] z-20 pb-1 -mx-2 px-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-            <div className="overflow-x-auto hidden-scrollbar">
-              <TabsList className="inline-flex gap-2 rounded-full border border-border/50 bg-muted/30 pl-1.5 pr-3 py-1.5">
-                {clientMobileTabs.map((tab) => (
-                  <TabsTrigger
-                    key={tab.id}
-                    value={tab.id}
-                    className="shrink-0 rounded-full px-3 py-1.5 text-sm font-semibold tracking-tight transition-all duration-150 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=inactive]:text-muted-foreground/80"
-                  >
-                    {tab.label}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </div>
-          </div>
-          {clientMobileTabs.map((tab) => (
-            <TabsContent key={tab.id} value={tab.id} className="focus-visible:outline-none flex-1 flex flex-col min-h-0">
-              <div className="flex-1 flex flex-col min-h-0 pt-1">
-                {tab.content}
+        <div className="space-y-4">
+          {clientMetricsContent}
+          <Tabs
+            value={mobileClientTab}
+            onValueChange={(val) => setMobileClientTab(val as MobileClientDashboardTab)}
+            className="space-y-2 flex-1 flex flex-col dashboard-mobile-tabs"
+          >
+            <div className="sticky top-[-0.25rem] z-20 pb-1 -mx-2 px-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+              <div className="overflow-x-auto hidden-scrollbar">
+                <TabsList className="inline-flex gap-2 rounded-full border border-border/50 bg-muted/30 pl-1.5 pr-3 py-1.5">
+                  {clientMobileTabs.map((tab) => (
+                    <TabsTrigger
+                      key={tab.id}
+                      value={tab.id}
+                      className="shrink-0 rounded-full px-3 py-1.5 text-sm font-semibold tracking-tight transition-all duration-150 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=inactive]:text-muted-foreground/80"
+                    >
+                      {tab.label}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
               </div>
-            </TabsContent>
-          ))}
-        </Tabs>
+            </div>
+            {clientMobileTabs.map((tab) => (
+              <TabsContent key={tab.id} value={tab.id} className="focus-visible:outline-none flex-1 flex flex-col min-h-0">
+                <div className="flex-1 flex flex-col min-h-0 pt-1">
+                  {tab.content}
+                </div>
+              </TabsContent>
+            ))}
+          </Tabs>
+        </div>
       );
 
       const clientDesktopContent = (
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-6 items-start">
           <div className="md:col-span-3 flex flex-col gap-4 sm:gap-6 md:sticky md:top-6">
-            {clientActionsContent}
+            {clientMetricsContent}
             {clientInvoicesContent}
           </div>
           <div className="md:col-span-9 flex flex-col gap-4">
@@ -1699,9 +1851,8 @@ const Dashboard = () => {
               {isMobile ? clientMobileContent : clientDesktopContent}
             </div>
           </DashboardLayout>
-          {shootDetailsModal}
-          {quickActionsEditor}
-          {shootToReschedule && (
+      {shootDetailsModal}
+      {shootToReschedule && (
             <RescheduleDialog
               shoot={shootToReschedule}
               isOpen={rescheduleDialogOpen}
@@ -1985,41 +2136,6 @@ const Dashboard = () => {
     }
 
     if (role === "photographer") {
-      const quickActions: QuickActionItem[] = [
-        {
-          id: "route",
-          label: "Today's route",
-          description: "Review schedule & maps",
-          icon: <MapIcon size={16} />,
-          accent: "from-sky-50 to-white text-sky-600 dark:from-sky-900/80 dark:to-sky-800/80 dark:text-sky-200",
-          onClick: () => navigate("/shoot-history"),
-        },
-        {
-          id: "next-review",
-          label: "Next review",
-          description: "Open pending delivery",
-          icon: <CheckCircle2 size={16} />,
-          accent: "from-emerald-50 to-white text-emerald-600 dark:from-emerald-900/80 dark:to-emerald-800/80 dark:text-emerald-200",
-          onClick: () => openFirstPendingShoot(photographerPendingReviews, "pending reviews"),
-        },
-        {
-          id: "upload-raws",
-          label: "Upload RAWs",
-          description: "Send files to editors",
-          icon: <UploadCloud size={16} />,
-          accent: "from-indigo-50 to-white text-indigo-600 dark:from-indigo-900/80 dark:to-indigo-800/80 dark:text-indigo-200",
-          onClick: () => navigate("/media"),
-        },
-        {
-          id: "availability",
-          label: "Update availability",
-          description: "Set days off & travel",
-          icon: <CalendarDays size={16} />,
-          accent: "from-amber-50 to-white text-amber-600 dark:from-amber-900/80 dark:to-amber-800/80 dark:text-amber-200",
-          onClick: () => navigate("/photographer-availability"),
-        },
-      ];
-
       const photographerMobileTabs = [
         {
           id: "shoots",
@@ -2053,8 +2169,7 @@ const Dashboard = () => {
         <>
           <RoleDashboardLayout
             title={greetingTitleFullName}
-            description="Field schedule, quick actions, and delivery milestones."
-            quickActions={[]}
+            description="Field schedule, uploads, and delivery milestones."
             hideLeftColumn
             leftColumnCard={null}
             rightColumnCards={[
@@ -2076,52 +2191,17 @@ const Dashboard = () => {
             mobileTabs={photographerMobileTabs.map((tab) => ({ ...tab }))}
           />
           {shootDetailsModal}
-          {quickActionsEditor}
         </>
       );
     }
 
     if (role === "salesRep") {
-      const quickActions: QuickActionItem[] = [
-        {
-          id: "assign",
-          label: "Assign photographer",
-          description: "Match next booking",
-          icon: <UserPlus size={16} />,
-          accent: "from-indigo-50 to-white text-indigo-600 dark:from-indigo-900/80 dark:to-indigo-800/80 dark:text-indigo-200",
-          onClick: () => {
-            setSelectedPhotographer(null);
-            document.getElementById("assign-card")?.scrollIntoView({
-              behavior: "smooth",
-              block: "start",
-            });
-          },
-        },
-        {
-          id: "book-shoot",
-          label: "Book a shoot",
-          description: "Create new order",
-          icon: <CalendarDays size={16} />,
-          accent: "from-emerald-50 to-white text-emerald-600 dark:from-emerald-900/80 dark:to-emerald-800/80 dark:text-emerald-200",
-          onClick: () => navigate("/book-shoot"),
-        },
-        {
-          id: "message-client",
-          label: "Message client",
-          description: "Send update or reminder",
-          icon: <MessageSquare size={16} />,
-          accent: "from-amber-50 to-white text-amber-600 dark:from-amber-900/80 dark:to-amber-800/80 dark:text-amber-200",
-          onClick: () => openSupportEmail("Client outreach request"),
-        },
-      ];
-
       return (
         <>
           <RoleDashboardLayout
             title="Rep"
             description="Assign coverage, monitor reviews, and close the loop."
-            quickActions={withCustomQuickActions(quickActions)}
-            quickActionsEyebrow="Pipeline"
+            metricTiles={salesMetricTiles}
             leftColumnCard={
               <ErrorBoundary
                 fallback={
@@ -2194,64 +2274,27 @@ const Dashboard = () => {
     }
 
     if (role === "editor") {
-      const quickActions: QuickActionItem[] = [
-        {
-          id: "start-edit",
-          label: "Start next edit",
-          description: "Open top priority",
-          icon: <Sparkles size={16} />,
-          accent: "from-indigo-50 to-white text-indigo-600 dark:from-indigo-900/80 dark:to-indigo-800/80 dark:text-indigo-200",
-          onClick: () => openFirstPendingShoot(editorUpcoming, "editing queue"),
-        },
-        {
-          id: "upload-edits",
-          label: "Deliver edits",
-          description: "Send to client",
-          icon: <UploadCloud size={16} />,
-          accent: "from-emerald-50 to-white text-emerald-600 dark:from-emerald-900/80 dark:to-emerald-800/80 dark:text-emerald-200",
-          onClick: () => navigate("/media"),
-        },
-        {
-          id: "flag",
-          label: "Flag a shoot",
-          description: "Document blockers for review",
-          icon: <Flag size={16} />,
-          accent: "from-amber-50 to-white text-amber-600 dark:from-amber-900/80 dark:to-amber-800/80 dark:text-amber-200",
-          onClick: () =>
-            toast({
-              title: "Flag noted",
-              description: "Tag ops in requests so they can follow up.",
-            }),
-        },
-        {
-          id: "sync-team",
-          label: "Sync with team",
-          description: "Drop a note in chat",
-          icon: <MessageSquare size={16} />,
-          accent: "from-rose-50 to-white text-rose-600 dark:from-rose-900/80 dark:to-rose-800/80 dark:text-rose-200",
-          onClick: () => openSupportEmail("Team sync request"),
-        },
-      ];
-
       const editorRequestsCard = (
-        <PendingReviewsCard
-          title="Requests"
-          reviews={[]}
-          issues={[]}
-          onSelect={handleSelectShoot}
-          emptyRequestsText="No active requests."
-          editingRequests={editingRequests}
-          editingRequestsLoading={editingRequestsLoading}
-          showEditingTab={true}
-          onCreateEditingRequest={() => {
-            setSelectedRequestId(null);
-            setSpecialRequestOpen(true);
-          }}
-          onEditingRequestClick={(requestId) => {
-            setSelectedRequestId(requestId);
-            setSpecialRequestOpen(true);
-          }}
-        />
+        <div id="editing-requests">
+          <PendingReviewsCard
+            title="Requests"
+            reviews={[]}
+            issues={[]}
+            onSelect={handleSelectShoot}
+            emptyRequestsText="No active requests."
+            editingRequests={editingRequests}
+            editingRequestsLoading={editingRequestsLoading}
+            showEditingTab={true}
+            onCreateEditingRequest={() => {
+              setSelectedRequestId(null);
+              setSpecialRequestOpen(true);
+            }}
+            onEditingRequestClick={(requestId) => {
+              setSelectedRequestId(requestId);
+              setSpecialRequestOpen(true);
+            }}
+          />
+        </div>
       );
 
       const editorMobileTabs = [
@@ -2297,8 +2340,6 @@ const Dashboard = () => {
           <RoleDashboardLayout
             title={greetingTitleFullName}
             description="Upcoming edits, requests, and delivery progress."
-            quickActions={withCustomQuickActions(quickActions)}
-            quickActionsEyebrow="Production"
             leftColumnCard={
               shouldLoadEditingRequests ? (
                 <Suspense fallback={<EditingRequestsCardSkeletonWrapper />}>
@@ -2379,15 +2420,10 @@ const Dashboard = () => {
   const adminDesktopContent = (
     <>
       {/* Requested shoots section at top, then Upcoming Shoots below */}
-      {/* KPI cards temporarily removed by request */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-6 items-start">
         <div className="md:col-span-3 flex flex-col gap-4 sm:gap-6 md:sticky md:top-6 h-full order-1 md:order-none">
           <div className="order-1 md:order-none">
-            <QuickActionsCard
-              actions={withCustomQuickActions(adminQuickActions)}
-              columns={1}
-              onEdit={canCustomizeQuickActions ? handleOpenQuickActionsEditor : undefined}
-            />
+            <RoleMetricTilesCard tiles={adminMetricTiles} />
           </div>
           <div id="assign-card" className="flex-1 min-h-0 flex flex-col hidden md:flex order-3 md:order-none">
             {renderAssignPhotographersCard()}
@@ -2424,34 +2460,37 @@ const Dashboard = () => {
   );
 
   const adminMobileContent = (
-    <Tabs
-      value={mobileDashboardTab}
-      onValueChange={(val) => setMobileDashboardTab(val as MobileDashboardTab)}
-      className="space-y-2 flex-1 flex flex-col dashboard-mobile-tabs"
-    >
-      <div className="sticky top-[-0.25rem] z-20 pb-1 -mx-2 px-2 sm:-mx-3 sm:px-4 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80" style={{ marginLeft: '-15px' }}>
-        <div className="overflow-x-auto hidden-scrollbar">
-          <TabsList className="inline-flex gap-2 rounded-full border border-border/50 bg-muted/30 pl-1.5 pr-3 py-1.5">
-            {mobileTabs.map((tab) => (
-              <TabsTrigger
-                key={tab.id}
-                value={tab.id}
-                className="shrink-0 rounded-full px-3 py-1.5 text-sm font-semibold tracking-tight transition-all duration-150 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=inactive]:text-muted-foreground/80"
-              >
-                {tab.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </div>
-      </div>
-      {mobileTabs.map((tab) => (
-        <TabsContent key={tab.id} value={tab.id} className="focus-visible:outline-none flex-1 flex flex-col min-h-0">
-          <div className="flex-1 flex flex-col min-h-0 pt-1">
-            {tab.content}
+    <div className="space-y-4">
+      <RoleMetricTilesCard tiles={adminMetricTiles} />
+      <Tabs
+        value={mobileDashboardTab}
+        onValueChange={(val) => setMobileDashboardTab(val as MobileDashboardTab)}
+        className="space-y-2 flex-1 flex flex-col dashboard-mobile-tabs"
+      >
+        <div className="sticky top-[-0.25rem] z-20 pb-1 -mx-2 px-2 sm:-mx-3 sm:px-4 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80" style={{ marginLeft: '-15px' }}>
+          <div className="overflow-x-auto hidden-scrollbar">
+            <TabsList className="inline-flex gap-2 rounded-full border border-border/50 bg-muted/30 pl-1.5 pr-3 py-1.5">
+              {mobileTabs.map((tab) => (
+                <TabsTrigger
+                  key={tab.id}
+                  value={tab.id}
+                  className="shrink-0 rounded-full px-3 py-1.5 text-sm font-semibold tracking-tight transition-all duration-150 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=inactive]:text-muted-foreground/80"
+                >
+                  {tab.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
           </div>
-        </TabsContent>
-      ))}
-    </Tabs>
+        </div>
+        {mobileTabs.map((tab) => (
+          <TabsContent key={tab.id} value={tab.id} className="focus-visible:outline-none flex-1 flex flex-col min-h-0">
+            <div className="flex-1 flex flex-col min-h-0 pt-1">
+              {tab.content}
+            </div>
+          </TabsContent>
+        ))}
+      </Tabs>
+    </div>
   );
 
   const editingManagerMobileTabs = [
@@ -2548,7 +2587,6 @@ const Dashboard = () => {
       </div>
 
       {shootDetailsModal}
-      {quickActionsEditor}
 
       {/* Approval Modal for requested shoots */}
       {approvalModalShoot && (
@@ -2621,6 +2659,7 @@ const Dashboard = () => {
         onOpenChange={setCancellationDialogOpen}
         onActionComplete={() => {
           refresh();
+          void fetchPendingCancellationShoots();
           if (fetchShoots) fetchShoots().catch(() => {});
         }}
       />
@@ -2631,8 +2670,7 @@ const Dashboard = () => {
 interface RoleDashboardLayoutProps {
   title: React.ReactNode;
   description: string;
-  quickActions: QuickActionItem[];
-  quickActionsEyebrow?: string;
+  metricTiles?: DashboardMetricTile[];
   leftColumnCard: React.ReactNode;
   rightColumnCards?: React.ReactNode[];
   upcomingShoots: DashboardShootSummary[];
@@ -2645,10 +2683,10 @@ interface RoleDashboardLayoutProps {
   pendingCard?: React.ReactNode;
   pendingTitle?: string;
   emptyPendingText?: string;
-  canCustomizeQuickActions?: boolean;
-  onEditQuickActions?: () => void;
   role?: UserRole;
   hideLeftColumn?: boolean;
+  mobileTab?: string;
+  onMobileTabChange?: (value: string) => void;
   mobileTabs?: Array<{
     id: string;
     label: string;
@@ -2659,8 +2697,7 @@ interface RoleDashboardLayoutProps {
 const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
   title,
   description,
-  quickActions,
-  quickActionsEyebrow,
+  metricTiles,
   leftColumnCard,
   rightColumnCards = [],
   upcomingShoots,
@@ -2673,19 +2710,30 @@ const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
   pendingCard,
   pendingTitle = "Requests",
   emptyPendingText = "No active requests.",
-  canCustomizeQuickActions,
-  onEditQuickActions,
   role,
   hideLeftColumn = false,
+  mobileTab,
+  onMobileTabChange,
   mobileTabs = [],
 }) => {
   const isMobileLayout = useIsMobile();
+  const hasMetricTiles = Boolean(metricTiles && metricTiles.length > 0);
+  const hasLeftColumnCard = Boolean(leftColumnCard);
+  const mobileTabsProps =
+    mobileTab !== undefined
+      ? {
+          value: mobileTab,
+          onValueChange: onMobileTabChange,
+        }
+      : {
+          defaultValue: mobileTabs[0]?.id,
+        };
   const pendingContent =
     pendingCard ||
     (
       <PendingReviewsCard
         title={pendingTitle}
-        reviews={[]}
+        reviews={pendingReviews}
         issues={[]}
         onSelect={onSelectShoot}
         emptyRequestsText={emptyPendingText}
@@ -2705,7 +2753,11 @@ const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
             </div>
           </div>
           {isMobileLayout && mobileTabs.length > 0 ? (
-            <Tabs defaultValue={mobileTabs[0]?.id} className="space-y-2 flex-1 flex flex-col dashboard-mobile-tabs">
+            <div className="space-y-4 flex-1 flex flex-col">
+              {hasMetricTiles ? (
+                <RoleMetricTilesCard tiles={metricTiles} />
+              ) : null}
+              <Tabs {...mobileTabsProps} className="space-y-2 flex-1 flex flex-col dashboard-mobile-tabs">
               <div
                 className="sticky top-[-0.25rem] z-20 pb-1 -mx-2 px-2 sm:-mx-3 sm:px-4 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80"
                 style={{ marginLeft: '-15px' }}
@@ -2735,42 +2787,38 @@ const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
                   </div>
                 </TabsContent>
               ))}
-            </Tabs>
+              </Tabs>
+            </div>
           ) : (
           <div className={cn("grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-stretch", hideLeftColumn && "flex-1")}>
-          {!hideLeftColumn && (
+          {!hideLeftColumn && (hasMetricTiles || hasLeftColumnCard) && (
           <div className="lg:col-span-3 flex flex-col gap-4 sm:gap-6 h-full order-1 lg:order-none">
-              <div className="order-1 lg:order-none">
-                <ErrorBoundary
-                  fallback={
-                    <div className="rounded-2xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
-                      Unable to load quick actions
-                    </div>
-                  }
-                >
-                  <QuickActionsCard
-                    actions={quickActions}
-                    eyebrow={quickActionsEyebrow}
-                    columns={1}
-                    onEdit={
-                      canCustomizeQuickActions && onEditQuickActions
-                        ? onEditQuickActions
-                        : undefined
+              {hasMetricTiles ? (
+                <div className="order-1 lg:order-none">
+                  <ErrorBoundary
+                    fallback={
+                      <div className="rounded-2xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
+                        Unable to load dashboard overview
+                      </div>
                     }
-                  />
-                </ErrorBoundary>
-              </div>
-              <div className="flex-1 min-h-0 flex flex-col hidden lg:flex order-3 lg:order-none">
-                <ErrorBoundary
-                  fallback={
-                    <div className="rounded-2xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
-                      Unable to load card
-                    </div>
-                  }
-                >
-                  {leftColumnCard}
-                </ErrorBoundary>
-              </div>
+                  >
+                    <RoleMetricTilesCard tiles={metricTiles} />
+                  </ErrorBoundary>
+                </div>
+              ) : null}
+              {hasLeftColumnCard ? (
+                <div className="flex-1 min-h-0 flex flex-col hidden lg:flex order-3 lg:order-none">
+                  <ErrorBoundary
+                    fallback={
+                      <div className="rounded-2xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
+                        Unable to load card
+                      </div>
+                    }
+                  >
+                    {leftColumnCard}
+                  </ErrorBoundary>
+                </div>
+              ) : null}
             </div>
           )}
             <div className={cn("flex flex-col h-full order-2 lg:order-none", hideLeftColumn ? "lg:col-span-9" : "lg:col-span-6")}>
@@ -2793,7 +2841,7 @@ const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
               </ErrorBoundary>
             </div>
             {/* Left Column Card - Mobile only, appears after Upcoming Shoots */}
-            {!hideLeftColumn && (
+            {!hideLeftColumn && hasLeftColumnCard && (
             <div className="lg:hidden order-3">
               <ErrorBoundary
                 fallback={
