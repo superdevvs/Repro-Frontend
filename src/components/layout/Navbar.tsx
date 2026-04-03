@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { SearchIcon, SunIcon, MoonIcon, PlusCircleIcon, CloudIcon, HomeIcon, HistoryIcon, CalendarIcon, BarChart3Icon, Settings2Icon, MapPinIcon } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { SearchIcon, SunIcon, MoonIcon, PlusCircleIcon, CloudIcon, HomeIcon, HistoryIcon, CalendarIcon, BarChart3Icon, Settings2Icon } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -21,47 +21,28 @@ import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import { NotificationCenter } from '@/components/notifications/NotificationCenter';
 import { cn } from '@/lib/utils';
 import { GlobalCommandBar } from '@/components/search/GlobalCommandBar';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { RobbieInsightStrip } from '@/components/ai/RobbieInsightStrip';
 import { usePermission } from '@/hooks/usePermission';
 
 const DEFAULT_WEATHER_COORDS = { lat: 40.7128, lon: -74.006 };
-const WEATHER_COORDS_KEY = 'dashboard.weatherCoords';
-const WEATHER_COORDS_SOURCE_KEY = 'dashboard.weatherCoordsSource';
 const IP_LOCATION_KEY = 'dashboard.ipLocation';
 const IP_LOCATION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
-type WeatherCoordSource = 'device' | 'ip' | 'default';
-
-const readStoredCoords = () => {
-  if (typeof window === 'undefined') return null;
-  const source = window.localStorage.getItem(WEATHER_COORDS_SOURCE_KEY);
-  if (source !== 'device') return null;
-  const stored = window.localStorage.getItem(WEATHER_COORDS_KEY);
-  if (!stored) return null;
-  try {
-    const parsed = JSON.parse(stored) as { lat?: number; lon?: number };
-    if (typeof parsed.lat === 'number' && typeof parsed.lon === 'number') {
-      return { lat: parsed.lat, lon: parsed.lon };
-    }
-  } catch {
-    // ignore parse errors
-  }
-  return null;
-};
+type WeatherCoordSource = 'ip' | 'default';
+type IpLocation = { lat: number; lon: number; label?: string | null };
 
 const readCachedIpLocation = () => {
   if (typeof window === 'undefined') return null;
   const raw = window.localStorage.getItem(IP_LOCATION_KEY);
   if (!raw) return null;
   try {
-    const parsed = JSON.parse(raw) as { lat?: number; lon?: number; ts?: number };
+    const parsed = JSON.parse(raw) as { lat?: number; lon?: number; ts?: number; label?: string | null };
     if (
       typeof parsed.lat === 'number' &&
       typeof parsed.lon === 'number' &&
       typeof parsed.ts === 'number' &&
       Date.now() - parsed.ts < IP_LOCATION_TTL_MS
     ) {
-      return { lat: parsed.lat, lon: parsed.lon };
+      return { lat: parsed.lat, lon: parsed.lon, label: typeof parsed.label === 'string' ? parsed.label : null };
     }
   } catch {
     // ignore parse errors
@@ -69,7 +50,7 @@ const readCachedIpLocation = () => {
   return null;
 };
 
-const cacheIpLocation = (coords: { lat: number; lon: number }) => {
+const cacheIpLocation = (coords: IpLocation) => {
   if (typeof window === 'undefined') return;
   window.localStorage.setItem(
     IP_LOCATION_KEY,
@@ -77,14 +58,28 @@ const cacheIpLocation = (coords: { lat: number; lon: number }) => {
   );
 };
 
-const fetchIpLocation = async (signal?: AbortSignal) => {
+const buildIpLocationLabel = (city?: string | null, region?: string | null) => {
+  const parts = [city, region].filter((part): part is string => Boolean(part && part.trim()));
+  return parts.length > 0 ? parts.join(', ') : null;
+};
+
+const fetchIpLocation = async (signal?: AbortSignal): Promise<IpLocation | null> => {
   // Primary: ipapi (HTTPS, production-safe)
   try {
     const res = await fetch('https://ipapi.co/json/', { signal });
     if (res.ok) {
       const data = await res.json();
       if (typeof data.latitude === 'number' && typeof data.longitude === 'number') {
-        return { lat: data.latitude, lon: data.longitude };
+        return {
+          lat: data.latitude,
+          lon: data.longitude,
+          label: buildIpLocationLabel(
+            typeof data.city === 'string' ? data.city : null,
+            typeof data.region_code === 'string'
+              ? data.region_code
+              : (typeof data.region === 'string' ? data.region : null),
+          ),
+        };
       }
     }
   } catch {
@@ -97,7 +92,16 @@ const fetchIpLocation = async (signal?: AbortSignal) => {
     if (res.ok) {
       const data = await res.json();
       if (typeof data.lat === 'number' && typeof data.lon === 'number') {
-        return { lat: data.lat, lon: data.lon };
+        return {
+          lat: data.lat,
+          lon: data.lon,
+          label: buildIpLocationLabel(
+            typeof data.city === 'string' ? data.city : null,
+            typeof data.region === 'string'
+              ? data.region
+              : (typeof data.regionName === 'string' ? data.regionName : null),
+          ),
+        };
       }
     }
   } catch {
@@ -108,17 +112,12 @@ const fetchIpLocation = async (signal?: AbortSignal) => {
 };
 
 const resolveInitialWeatherState = () => {
-  const storedCoords = readStoredCoords();
-  if (storedCoords) {
-    return { coords: storedCoords, source: 'device' as const };
-  }
-
   const cachedIpCoords = readCachedIpLocation();
   if (cachedIpCoords) {
-    return { coords: cachedIpCoords, source: 'ip' as const };
+    return { coords: cachedIpCoords, source: 'ip' as const, ipLabel: cachedIpCoords.label ?? null };
   }
 
-  return { coords: DEFAULT_WEATHER_COORDS, source: 'default' as const };
+  return { coords: DEFAULT_WEATHER_COORDS, source: 'default' as const, ipLabel: null };
 };
 
 export function Navbar() {
@@ -133,25 +132,18 @@ export function Navbar() {
   const [weatherCoordSource, setWeatherCoordSource] = useState<WeatherCoordSource>(
     () => resolveInitialWeatherState().source,
   );
-  const [isLocating, setIsLocating] = useState(false);
-  const isLocatingRef = useRef(false);
+  const [ipWeatherLocationLabel, setIpWeatherLocationLabel] = useState<string | null>(
+    () => resolveInitialWeatherState().ipLabel,
+  );
   const { formatTemperature } = useUserPreferences();
   const [commandOpen, setCommandOpen] = useState(false);
   const weatherLocationLabel = useMemo(() => {
-    if (!weather?.location) {
-      return null;
-    }
-
-    if (weatherCoordSource === 'device') {
-      return weather.location;
-    }
-
     if (weatherCoordSource === 'ip') {
-      return `Approx. ${weather.location}`;
+      return ipWeatherLocationLabel || weather?.location || null;
     }
 
     return null;
-  }, [weather?.location, weatherCoordSource]);
+  }, [ipWeatherLocationLabel, weather?.location, weatherCoordSource]);
 
   // Allow client users to create new shoots
   const canBookShoot = can('book-shoot', 'create');
@@ -198,88 +190,20 @@ export function Navbar() {
     };
   }, [providerVersion, weatherCoords.lat, weatherCoords.lon]);
 
-  const canUseGeolocation = typeof navigator !== 'undefined' && Boolean(navigator.geolocation);
-
-  const storeDeviceWeatherCoords = useCallback((coords: { lat: number; lon: number }) => {
-    setWeatherCoords(coords);
-    setWeatherCoordSource('device');
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(WEATHER_COORDS_KEY, JSON.stringify(coords));
-      window.localStorage.setItem(WEATHER_COORDS_SOURCE_KEY, 'device');
-    }
-  }, []);
-
-  const storeIpWeatherCoords = useCallback((coords: { lat: number; lon: number }) => {
+  const storeIpWeatherCoords = useCallback((coords: IpLocation) => {
     setWeatherCoords(coords);
     setWeatherCoordSource('ip');
+    setIpWeatherLocationLabel(coords.label ?? null);
     cacheIpLocation(coords);
   }, []);
 
-  const requestDeviceLocation = useCallback(() => {
-    if (!canUseGeolocation || isLocatingRef.current) return;
-    isLocatingRef.current = true;
-    setIsLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const coords = { lat: pos.coords.latitude, lon: pos.coords.longitude };
-        storeDeviceWeatherCoords(coords);
-        isLocatingRef.current = false;
-        setIsLocating(false);
-      },
-      () => {
-        isLocatingRef.current = false;
-        setIsLocating(false);
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 120000 },
-    );
-  }, [canUseGeolocation, storeDeviceWeatherCoords]);
-
-  useEffect(() => {
-    if (!canUseGeolocation || typeof navigator === 'undefined' || !navigator.permissions?.query) {
-      return;
-    }
-
-    let cancelled = false;
-    let permissionStatus: PermissionStatus | null = null;
-
-    const handlePermissionChange = () => {
-      if (!cancelled && permissionStatus?.state === 'granted') {
-        requestDeviceLocation();
-      }
-    };
-
-    navigator.permissions
-      .query({ name: 'geolocation' as PermissionName })
-      .then((status) => {
-        if (cancelled) return;
-        permissionStatus = status;
-
-        if (status.state === 'granted') {
-          requestDeviceLocation();
-        }
-
-        status.addEventListener?.('change', handlePermissionChange);
-      })
-      .catch(() => {
-        // ignore permissions API failures
-      });
-
-    return () => {
-      cancelled = true;
-      permissionStatus?.removeEventListener?.('change', handlePermissionChange);
-    };
-  }, [canUseGeolocation, requestDeviceLocation]);
-
   // Prefer IP-based location (no prompt). Falls back to stored/default.
   useEffect(() => {
-    if (weatherCoordSource === 'device') {
-      return;
-    }
-
     const cached = readCachedIpLocation();
     if (cached) {
       setWeatherCoords(cached);
       setWeatherCoordSource('ip');
+      setIpWeatherLocationLabel(cached.label ?? null);
       return;
     }
 
@@ -298,7 +222,7 @@ export function Navbar() {
     return () => {
       controller.abort();
     };
-  }, [storeIpWeatherCoords, weatherCoordSource]);
+  }, [storeIpWeatherCoords]);
 
   const toggleTheme = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark');
@@ -419,25 +343,6 @@ export function Navbar() {
                 : weather.temperature || '--°'}
               {weather.description ? ` · ${weather.description}` : ''}
             </span>
-            {canUseGeolocation && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={requestDeviceLocation}
-                    disabled={isLocating}
-                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                    aria-label="Use my location"
-                  >
-                    <MapPinIcon className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  {isLocating ? 'Locating...' : 'Use my location'}
-                </TooltipContent>
-              </Tooltip>
-            )}
           </div>
         )}
         

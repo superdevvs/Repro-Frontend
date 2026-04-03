@@ -664,8 +664,9 @@ export function useShootDetailsMediaTab({
   const isDelivered = DELIVERED_STATUSES.some(status => normalizedShootStatus.includes(status));
   const isSuperAdmin = role === 'superadmin';
   const canDelete = isSuperAdmin || ((isAdmin || isPhotographer || isEditor) && !isDelivered);
-  const canUploadInDisplayTab = showUploadTab && displayTab === 'edited';
-  const canDeleteInDisplayTab = canDelete && displayTab === 'edited';
+  const editorRestrictedToEditedTab = isEditor;
+  const canUploadInDisplayTab = showUploadTab && (!editorRestrictedToEditedTab || displayTab === 'edited');
+  const canDeleteInDisplayTab = canDelete && (!editorRestrictedToEditedTab || displayTab === 'edited');
   const isScheduledShoot = normalizedShootStatus === 'scheduled' || normalizedShootStatus === 'booked';
   const hasAnyMedia = rawFiles.length > 0 || editedFiles.length > 0;
 

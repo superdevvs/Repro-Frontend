@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { format, isValid, parseISO } from 'date-fns';
+import { addMonths, format, isValid, parseISO, setMonth, setYear, subMonths } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,6 +20,8 @@ import {
   Briefcase,
   Loader2,
   Calendar as CalendarIcon,
+  ChevronLeft,
+  ChevronRight,
   RefreshCw,
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -79,6 +81,19 @@ export const PayoutReportPanel: React.FC<PayoutReportPanelProps> = ({ hideHeader
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const currentYear = useMemo(() => new Date().getFullYear(), []);
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date());
+  const monthOptions = useMemo(
+    () =>
+      Array.from({ length: 12 }, (_, index) => ({
+        value: index,
+        label: format(new Date(currentYear, index, 1), 'MMMM'),
+      })),
+    [currentYear],
+  );
+  const yearOptions = useMemo(
+    () => Array.from({ length: 9 }, (_, index) => currentYear - 5 + index),
+    [currentYear],
+  );
 
   const loadReport = useCallback(async (start?: string, end?: string) => {
     try {
@@ -99,6 +114,13 @@ export const PayoutReportPanel: React.FC<PayoutReportPanelProps> = ({ hideHeader
   useEffect(() => {
     loadReport();
   }, [loadReport]);
+
+  useEffect(() => {
+    const rangeStart = toFilterDate(startDate);
+    if (rangeStart) {
+      setCalendarMonth(rangeStart);
+    }
+  }, [startDate]);
 
   const handleDownload = async () => {
     try {
@@ -177,17 +199,84 @@ export const PayoutReportPanel: React.FC<PayoutReportPanelProps> = ({ hideHeader
                 </Button>
               </PopoverTrigger>
               <PopoverContent
-                className="z-[100] w-[min(92vw,26rem)] max-w-none p-3 [&_select]:h-9 [&_select]:rounded-md [&_select]:border [&_select]:border-border [&_select]:bg-background [&_select]:px-3 [&_select]:text-sm [&_select]:text-foreground [&_select]:outline-none [&_select]:ring-0"
+                className="z-[100] w-[min(92vw,26rem)] max-w-none rounded-2xl border-border/80 bg-background/95 p-4 shadow-2xl backdrop-blur-md [&_label]:mb-1 [&_label]:block [&_label]:text-[11px] [&_label]:font-semibold [&_label]:uppercase [&_label]:tracking-[0.18em] [&_label]:text-muted-foreground [&_select]:h-10 [&_select]:w-full [&_select]:rounded-xl [&_select]:border [&_select]:border-border/70 [&_select]:bg-muted/30 [&_select]:px-3 [&_select]:text-sm [&_select]:font-medium [&_select]:text-foreground [&_select]:outline-none [&_select]:ring-0"
                 align="center"
                 side="bottom"
                 sideOffset={10}
               >
+                <div className="mb-4 rounded-xl border border-border/70 bg-muted/20 p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                        Browse Period
+                      </p>
+                      <p className="mt-1 text-base font-semibold text-foreground">
+                        {format(calendarMonth, 'MMMM yyyy')}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-9 w-9 rounded-xl border-border/70 bg-background/80"
+                        onClick={() => setCalendarMonth((current) => subMonths(current, 1))}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-9 w-9 rounded-xl border-border/70 bg-background/80"
+                        onClick={() => setCalendarMonth((current) => addMonths(current, 1))}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    <div>
+                      <label htmlFor="payout-calendar-month">Month</label>
+                      <select
+                        id="payout-calendar-month"
+                        value={calendarMonth.getMonth()}
+                        onChange={(event) =>
+                          setCalendarMonth((current) => setMonth(current, Number(event.target.value)))
+                        }
+                      >
+                        {monthOptions.map((month) => (
+                          <option key={month.value} value={month.value}>
+                            {month.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label htmlFor="payout-calendar-year">Year</label>
+                      <select
+                        id="payout-calendar-year"
+                        value={calendarMonth.getFullYear()}
+                        onChange={(event) =>
+                          setCalendarMonth((current) => setYear(current, Number(event.target.value)))
+                        }
+                      >
+                        {yearOptions.map((year) => (
+                          <option key={year} value={year}>
+                            {year}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
                 <Calendar
                   mode="range"
                   numberOfMonths={1}
-                  captionLayout="dropdown-buttons"
-                  fromYear={currentYear - 5}
-                  toYear={currentYear + 3}
+                  month={calendarMonth}
+                  onMonthChange={setCalendarMonth}
                   selected={selectedRange}
                   onSelect={(range) => {
                     setStartDate(toFilterValue(range?.from));
@@ -196,14 +285,20 @@ export const PayoutReportPanel: React.FC<PayoutReportPanelProps> = ({ hideHeader
                   className="w-full p-0"
                   classNames={{
                     months: 'w-full',
-                    month: 'w-full space-y-3',
-                    caption: 'flex items-center justify-between gap-2 pt-1',
-                    caption_dropdowns: 'flex items-center gap-2',
-                    dropdown: 'bg-transparent',
-                    nav: 'flex items-center gap-1',
+                    month: 'w-full space-y-2',
+                    caption: 'hidden',
+                    nav: 'hidden',
                     table: 'w-full border-collapse',
                     head_row: 'flex w-full justify-between',
-                    row: 'flex w-full mt-2 justify-between',
+                    head_cell: 'text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground',
+                    row: 'flex w-full mt-1.5 justify-between',
+                    cell: 'relative p-0 text-center text-sm focus-within:relative focus-within:z-20 flex-1',
+                    day: 'h-10 w-10 rounded-xl p-0 font-medium transition-colors aria-selected:opacity-100',
+                    day_today: 'bg-muted text-foreground ring-1 ring-border/70',
+                    day_selected:
+                      'bg-primary text-primary-foreground shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_10px_25px_rgba(37,99,235,0.25)] hover:bg-primary hover:text-primary-foreground',
+                    day_range_middle: 'bg-primary/12 text-foreground',
+                    day_outside: 'text-muted-foreground/35 opacity-100',
                   }}
                   initialFocus
                 />

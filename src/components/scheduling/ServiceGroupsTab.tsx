@@ -264,7 +264,7 @@ export function ServiceGroupsTab() {
   ];
 
   const renderDetailsSection = (className = '') => (
-    <section className={`rounded-2xl border bg-muted/10 p-4 sm:p-5 xl:min-h-0 ${className}`.trim()}>
+    <section className={`rounded-2xl border bg-muted/10 p-4 sm:p-5 xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:overflow-y-auto xl:pr-3 ${className}`.trim()}>
       <div className="space-y-5">
         <div className="space-y-2">
           <Label htmlFor="service-group-name">Group Name</Label>
