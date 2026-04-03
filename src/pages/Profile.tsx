@@ -52,6 +52,7 @@ const Profile = () => {
       case 'admin':
       case 'superadmin':
       case 'editing_manager':
+      case 'salesRep':
         return <AdminProfile />;
       default:
         return (

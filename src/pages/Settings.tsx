@@ -40,6 +40,16 @@ type TabValue =
   | 'robbie'
   | 'overview';
 
+const formatRoleLabel = (value?: string | null) => {
+  if (!value) return 'User';
+  if (value === 'salesRep') return 'Sales Rep';
+
+  return value
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+};
+
 const Settings = () => {
   const { user, role, setUser } = useAuth();
   const { toast } = useToast();
@@ -506,7 +516,7 @@ const Settings = () => {
                         <h2 className="text-xl font-semibold truncate">{name || user?.name || 'Your Name'}</h2>
                         <p className="text-sm text-muted-foreground truncate">{user?.email}</p>
                         <span className="inline-block mt-1 text-xs font-medium px-2.5 py-0.5 rounded-full bg-primary/10 text-primary capitalize">
-                          {role || 'user'}
+                          {formatRoleLabel(role)}
                         </span>
                       </div>
                     </div>

@@ -10,6 +10,7 @@ interface CompletedShootsCardProps {
   subtitle?: string;
   emptyStateText?: string;
   ctaLabel?: string;
+  stretch?: boolean;
   onSelect?: (shoot: DashboardShootSummary) => void;
   onViewInvoice?: (shoot: DashboardShootSummary) => void;
   onViewAll?: () => void;
@@ -129,6 +130,7 @@ export const CompletedShootsCard: React.FC<CompletedShootsCardProps> = ({
   subtitle = 'Latest deliveries',
   emptyStateText = 'No delivered shoots yet.',
   ctaLabel = 'View all delivered shoots',
+  stretch = false,
   onSelect,
   onViewInvoice,
   onViewAll,
@@ -136,7 +138,7 @@ export const CompletedShootsCard: React.FC<CompletedShootsCardProps> = ({
   const safeShoots = Array.isArray(shoots) ? shoots : [];
   
   return (
-    <Card className="flex flex-col h-full flex-1 min-h-0">
+    <Card className={stretch ? "flex h-full flex-1 min-h-0 flex-col" : "flex flex-col min-h-0"}>
       <div className="flex items-center justify-between mb-3 sm:mb-4">
         <div>
           <h2 className="text-base sm:text-lg font-bold text-foreground">{title}</h2>

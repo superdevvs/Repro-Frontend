@@ -60,7 +60,7 @@ export const EditingRequestsCard: React.FC<EditingRequestsCardProps> = ({
   };
 
   return (
-    <Card className="flex flex-col h-full">
+    <Card className="flex flex-col min-h-0">
       <div className="flex-shrink-0 flex items-center justify-between mb-3 sm:mb-4">
         <h2 className="text-base sm:text-lg font-bold text-foreground">Special editing requests</h2>
         {activeRequests.length > 0 && (

@@ -23,6 +23,8 @@ const getRoleLabel = (role?: UserRole) => {
       return 'Super Admin';
     case 'editing_manager':
       return 'Editing Manager';
+    case 'salesRep':
+      return 'Sales Rep';
     case 'admin':
     default:
       return 'Admin';
@@ -35,6 +37,8 @@ const getRoleBadgeClassName = (role?: UserRole) => {
       return 'bg-red-600 hover:bg-red-700';
     case 'editing_manager':
       return 'bg-violet-600 hover:bg-violet-700';
+    case 'salesRep':
+      return 'bg-indigo-600 hover:bg-indigo-700';
     case 'admin':
     default:
       return 'bg-blue-600 hover:bg-blue-700';

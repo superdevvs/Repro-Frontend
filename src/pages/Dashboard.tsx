@@ -1,4 +1,4 @@
-import React, { Profiler, Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
+import React, { Profiler, Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
@@ -294,6 +294,8 @@ const Dashboard = () => {
   const [mobileDashboardTab, setMobileDashboardTab] = useState<MobileDashboardTab>("shoots");
   const [mobileClientTab, setMobileClientTab] = useState<MobileClientDashboardTab>("shoots");
   const [mobileEditingManagerTab, setMobileEditingManagerTab] = useState<MobileEditingManagerTab>("shoots");
+  const clientDesktopLeftColumnRef = useRef<HTMLDivElement | null>(null);
+  const [clientDesktopShootsHeight, setClientDesktopShootsHeight] = useState<number | null>(null);
   const currentMonthStart = startOfMonth(new Date());
   const currentMonthEnd = endOfMonth(new Date());
 
@@ -1242,6 +1244,42 @@ const Dashboard = () => {
     ],
   );
 
+  useLayoutEffect(() => {
+    if (role !== "client" || isMobile) {
+      setClientDesktopShootsHeight(null);
+      return;
+    }
+
+    const leftColumn = clientDesktopLeftColumnRef.current;
+    if (!leftColumn) {
+      setClientDesktopShootsHeight(null);
+      return;
+    }
+
+    const updateHeight = () => {
+      const nextHeight = Math.ceil(leftColumn.getBoundingClientRect().height);
+      setClientDesktopShootsHeight((prev) => (prev === nextHeight ? prev : nextHeight));
+    };
+
+    updateHeight();
+
+    let observer: ResizeObserver | null = null;
+
+    if (typeof ResizeObserver !== "undefined") {
+      observer = new ResizeObserver(() => {
+        updateHeight();
+      });
+      observer.observe(leftColumn);
+    }
+
+    window.addEventListener("resize", updateHeight);
+
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", updateHeight);
+    };
+  }, [isMobile, role]);
+
   const editorOpenRequestCount = useMemo(
     () => editingRequests.filter((request) => request.status !== "completed").length,
     [editingRequests],
@@ -1535,10 +1573,11 @@ const Dashboard = () => {
       </div>
     );
 
-  const renderCompletedShootsCard = () => (
+  const renderCompletedShootsCard = ({ stretch = false }: { stretch?: boolean } = {}) => (
     <Suspense fallback={<CompletedShootsCardSkeleton />}>
       <LazyCompletedShootsCard 
         shoots={deliveredShoots} 
+        stretch={stretch}
         onSelect={handleSelectShoot}
         onViewInvoice={handleViewInvoice}
         onViewAll={() => navigate('/shoot-history?tab=delivered')}
@@ -1843,7 +1882,6 @@ const Dashboard = () => {
         <ClientInvoicesCard
           summary={clientBillingSummary}
           onViewAll={() => navigate("/accounting")}
-          onDownload={() => navigate("/accounting")}
           onPay={() => {
             setSelectedShootsForPayment([]);
             setPaymentSelectionOpen(true);
@@ -1893,14 +1931,23 @@ const Dashboard = () => {
       );
 
       const clientDesktopContent = (
-        <div className="grid h-full grid-cols-1 md:grid-cols-12 gap-4 sm:gap-6 items-stretch flex-1 min-h-0">
-          <div className="md:col-span-3 flex flex-col gap-4 sm:gap-6 md:sticky md:top-6">
+        <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-12 md:items-start">
+          <div
+            ref={clientDesktopLeftColumnRef}
+            className="md:col-span-3 flex flex-col gap-4 sm:gap-6 md:sticky md:top-6"
+          >
             {clientMetricsContent}
             {clientInvoicesContent}
           </div>
-          <div className="md:col-span-9 flex h-full flex-col gap-4 min-h-0">
-            <UploadStatusWidget />
-            <div className="flex h-full flex-1 min-h-0 flex-col">
+          <div className="md:col-span-9 md:min-h-0">
+            <div
+              className="min-h-0"
+              style={
+                clientDesktopShootsHeight
+                  ? { height: `${clientDesktopShootsHeight}px`, maxHeight: `${clientDesktopShootsHeight}px` }
+                  : undefined
+              }
+            >
               {clientShootsContent}
             </div>
           </div>
@@ -1910,7 +1957,7 @@ const Dashboard = () => {
       return (
         <>
           <DashboardLayout>
-            <div className="px-2 pt-3 pb-3 sm:p-6 flex h-full flex-1 flex-col min-h-full gap-4 sm:gap-6">
+            <div className="px-2 pt-3 pb-3 sm:p-6 flex flex-col gap-4 sm:gap-6">
               <PageHeader title={greetingTitle} description={DASHBOARD_DESCRIPTION} />
               {isMobile ? clientMobileContent : clientDesktopContent}
             </div>
@@ -2260,10 +2307,40 @@ const Dashboard = () => {
     }
 
     if (role === "salesRep") {
+      const salesRepRequestsCard = (
+        <div id="requests-queue">
+          <PendingReviewsCard
+            reviews={data?.pendingReviews || []}
+            issues={[]}
+            onSelect={(shoot) => handleSelectShoot(shoot)}
+            emptyRequestsText="No active requests."
+            title="Requests"
+            editingRequests={editingRequests}
+            editingRequestsLoading={editingRequestsLoading}
+            onCreateEditingRequest={() => {
+              setSelectedRequestId(null);
+              setSpecialRequestOpen(true);
+            }}
+            onEditingRequestClick={(requestId) => {
+              setSelectedRequestId(requestId);
+              setSpecialRequestOpen(true);
+            }}
+            showEditingTab={shouldLoadEditingRequests}
+            clientRequests={clientRequests}
+            clientRequestsLoading={clientRequestsLoading}
+            showClientTab
+            cancellationShoots={cancellationShoots}
+            showCancellationTab
+            onApproveCancellation={handleApproveCancellation}
+            onRejectCancellation={handleRejectCancellation}
+          />
+        </div>
+      );
+
       return (
         <>
           <RoleDashboardLayout
-            title="Rep"
+            title={greetingTitleFullName}
             description="Assign coverage, monitor reviews, and close the loop."
             metricTiles={salesMetricTiles}
             leftColumnCard={
@@ -2291,45 +2368,22 @@ const Dashboard = () => {
               </ErrorBoundary>
             }
             rightColumnCards={[
-              <Suspense key="rep-delivered" fallback={<CompletedShootsCardSkeleton />}>
-                <LazyCompletedShootsCard
-                  shoots={repDelivered}
-                  title="Delivered shoots"
-                  subtitle="Most recent handoffs"
-                  emptyStateText="No delivered shoots yet."
-                  onViewAll={() => navigate('/shoot-history?tab=delivered')}
-                />
-              </Suspense>,
-              shouldLoadEditingRequests ? (
-                <Suspense key="rep-editing-requests" fallback={<EditingRequestsCardSkeletonWrapper />}>
-                  <LazyEditingRequestsCard
-                    requests={editingRequests}
-                    loading={editingRequestsLoading}
-                    onCreate={() => {
-                      setSelectedRequestId(null);
-                      setSpecialRequestOpen(true);
-                    }}
-                    onRequestClick={(requestId) => {
-                      setSelectedRequestId(requestId);
-                      setSpecialRequestOpen(true);
-                    }}
-                    onUpdate={updateEditingRequest}
-                    onDelete={isAdminExperience ? removeEditingRequest : undefined}
+              <div key="rep-delivered" className="flex flex-1 min-h-0">
+                <Suspense fallback={<CompletedShootsCardSkeleton />}>
+                  <LazyCompletedShootsCard
+                    shoots={repDelivered}
+                    title="Delivered shoots"
+                    subtitle="Most recent handoffs"
+                    emptyStateText="No delivered shoots yet."
+                    onViewAll={() => navigate('/shoot-history?tab=delivered')}
+                    stretch
                   />
                 </Suspense>
-              ) : null,
+              </div>,
             ]}
             upcomingShoots={repUpcoming}
             pendingReviews={repPendingReviews}
-            pendingCard={
-              <PendingReviewsCard
-                title="Requests"
-                reviews={[]}
-                issues={[]}
-                onSelect={(shoot) => handleSelectShoot(shoot)}
-                emptyRequestsText="No active requests."
-              />
-            }
+            pendingCard={salesRepRequestsCard}
             onSelectShoot={handleSelectShoot}
           />
           {shootDetailsModal}
@@ -2485,7 +2539,7 @@ const Dashboard = () => {
   const adminDesktopContent = (
     <>
       {/* Requested shoots section at top, then Upcoming Shoots below */}
-      <div className="grid h-full grid-cols-1 md:grid-cols-12 gap-4 sm:gap-6 items-stretch flex-1 min-h-0">
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-6 items-start">
         <div className="md:col-span-3 flex flex-col gap-4 sm:gap-6 md:sticky md:top-6 h-full order-1 md:order-none">
           <div className="order-1 md:order-none">
             <RoleMetricTilesCard tiles={adminMetricTiles} />
@@ -2495,7 +2549,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <div className="md:col-span-6 flex flex-col gap-4 sm:gap-6 h-full min-h-0 order-2 md:order-none">
+        <div className="md:col-span-6 flex flex-col gap-4 sm:gap-6 h-full order-2 md:order-none">
           {/* Combined Shoots Card with Upcoming/Requested tabs */}
           {renderShootsTabsCard()}
         </div>
@@ -2504,7 +2558,7 @@ const Dashboard = () => {
 
         <div className="md:col-span-3 flex flex-col gap-4 sm:gap-6 md:sticky md:top-6 h-full order-4 md:order-none">
           {renderPendingReviewsCard()}
-          {renderCompletedShootsCard()}
+          {renderCompletedShootsCard({ stretch: true })}
         </div>
       </div>
 
@@ -2609,7 +2663,7 @@ const Dashboard = () => {
 
   return (
     <DashboardLayout>
-      <div className="px-2 pt-3 pb-3 sm:p-6 flex h-full flex-1 flex-col min-h-full gap-4 sm:gap-6">
+      <div className="px-2 pt-3 pb-3 sm:p-6 flex flex-col min-h-full gap-4 sm:gap-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex-1">
             <PageHeader title={greetingTitle} description={DASHBOARD_DESCRIPTION} />
@@ -2808,7 +2862,7 @@ const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
   return (
     <DevProfiler id={`RoleDashboardLayout:${role ?? "default"}`}>
       <DashboardLayout>
-        <div className={cn("p-3 sm:p-6 flex h-full flex-1 flex-col min-h-full gap-4 sm:gap-6", hideLeftColumn && "min-h-[calc(100vh-4rem)]")}>
+        <div className={cn("p-3 sm:p-6 flex flex-col gap-4 sm:gap-6", hideLeftColumn && "min-h-[calc(100vh-4rem)]")}>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex-1">
               <PageHeader title={title} description={description} />
@@ -2855,7 +2909,7 @@ const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
               </Tabs>
             </div>
           ) : (
-          <div className={cn("grid h-full grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-stretch min-h-0", hideLeftColumn ? "flex-1" : "lg:flex-1")}>
+          <div className={cn("grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-stretch", hideLeftColumn && "flex-1")}>
           {!hideLeftColumn && (hasMetricTiles || hasLeftColumnCard) && (
           <div className="lg:col-span-3 flex flex-col gap-4 sm:gap-6 h-full order-1 lg:order-none">
               {hasMetricTiles ? (
@@ -2886,7 +2940,7 @@ const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
               ) : null}
             </div>
           )}
-            <div className={cn("flex h-full flex-1 flex-col min-h-0 order-2 lg:order-none", hideLeftColumn ? "lg:col-span-9" : "lg:col-span-6")}>
+            <div className={cn("flex flex-col h-full order-2 lg:order-none", hideLeftColumn ? "lg:col-span-9" : "lg:col-span-6")}>
               <ErrorBoundary
                 fallback={
                   <div className="rounded-2xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
@@ -3073,109 +3127,108 @@ const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
                 </Button>
               )}
             </div>
-          ) : activeTab === "completed" && deliveredViewMode === "grid" ? (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {list.map((record) => {
-                const summary = shootDataToSummary(record.data);
-                const deliveredPhotos = (() => {
-                  const d = record.data as any;
-                  const urls: string[] = [];
-                  const fpPatterns = ['floorplan', 'floor-plan', 'floor_plan', 'fp_', 'fp-', 'layout', 'blueprint'];
-                  const isFP = (item: any) => {
-                    const mt = (item?.media_type || item?.mediaType || '').toLowerCase();
-                    if (mt === 'floorplan') return true;
-                    const nm = (item?.filename || item?.name || item?.path || '').toLowerCase();
-                    return fpPatterns.some(p => nm.includes(p));
-                  };
-                  if (d.files && Array.isArray(d.files)) {
-                    d.files.forEach((f: any) => {
-                      if (isFP(f)) return;
-                      const u = f.large_url || f.medium_url || f.url || f.original_url || f.thumb_url || f.path;
-                      if (u) urls.push(u);
-                    });
-                  }
-                  if (urls.length === 0 && d.deliveredPhotos) {
-                    (Array.isArray(d.deliveredPhotos) ? d.deliveredPhotos : []).forEach((p: any) => {
-                      if (typeof p !== 'string' && isFP(p)) return;
-                      const u = typeof p === 'string' ? p : (p?.large_url || p?.medium_url || p?.url || p?.path);
-                      if (u) urls.push(u);
-                    });
-                  }
-                  return urls;
-                })();
-                const coverPhoto = deliveredPhotos[0] || null;
-                const photoCount = deliveredPhotos.length;
-                const dateLabel = summary.startTime
-                  ? format(new Date(summary.startTime), "d MMM yyyy")
-                  : "No date";
-                return (
-                  <div
-                    key={record.data.id}
-                    className="group relative rounded-xl overflow-hidden cursor-pointer border border-border hover:border-primary/40 transition-all hover:shadow-lg"
-                    onClick={() => onSelect(record)}
-                  >
-                    {/* Image */}
-                    {coverPhoto ? (
-                      <img
-                        src={coverPhoto}
-                        alt={summary.addressLine}
-                        className="w-full aspect-[4/3] object-cover transition-transform group-hover:scale-105"
-                        onError={(e) => { (e.target as HTMLImageElement).src = ''; (e.target as HTMLImageElement).className = 'w-full aspect-[4/3] bg-muted'; }}
-                      />
-                    ) : (
-                      <div className="w-full aspect-[4/3] bg-muted flex items-center justify-center">
-                        <ImageIcon className="w-12 h-12 text-muted-foreground/30" />
-                      </div>
-                    )}
-                    {/* Gradient overlay */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                    {/* Photo count badge */}
-                    {photoCount > 0 && (
-                      <div className="absolute top-2 left-2 bg-black/50 backdrop-blur-sm text-white text-[10px] px-2 py-0.5 rounded-full">
-                        {photoCount} photo{photoCount !== 1 ? 's' : ''}
-                      </div>
-                    )}
-                    {/* Download button */}
-                    <button
-                      className="absolute top-2 right-2 h-8 w-8 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white hover:bg-white/40 transition-colors opacity-0 group-hover:opacity-100"
-                      onClick={(e) => { e.stopPropagation(); onDownload(record); }}
-                      title="Download"
-                    >
-                      <Download className="h-4 w-4" />
-                    </button>
-                    {/* Text overlay */}
-                    <div className="absolute bottom-0 left-0 right-0 p-3">
-                      <h3 className="text-white font-semibold text-sm truncate">{summary.addressLine}</h3>
-                      <p className="text-white/70 text-[11px] mt-0.5">{dateLabel}</p>
-                      <div className="flex items-center justify-between mt-1.5">
-                        <Badge className="bg-green-500/30 text-green-300 border-green-500/40 text-[9px] h-4 px-1.5">
-                          <span className="w-1 h-1 rounded-full bg-green-400 mr-1" />
-                          DELIVERED
-                        </Badge>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
           ) : (
-            <div className="space-y-4">
-              {list.map((record) => (
-                <ClientShootTile
-                  key={record.data.id}
-                  record={record}
-                  variant={activeTab}
-                  onSelect={onSelect}
-                  onReschedule={onReschedule}
-                  onCancel={onCancel}
-                  onContactSupport={onContactSupport}
-                  onDownload={onDownload}
-                  onRebook={onRebook}
-                  onRequestRevision={onRequestRevision}
-                  onHoldAction={onHoldAction}
-                  onPayment={onPayment}
-                />
-              ))}
+            <div className="hidden-scrollbar md:flex-1 md:min-h-0 md:overflow-y-auto md:pr-1">
+              {activeTab === "completed" && deliveredViewMode === "grid" ? (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {list.map((record) => {
+                    const summary = shootDataToSummary(record.data);
+                    const deliveredPhotos = (() => {
+                      const d = record.data as any;
+                      const urls: string[] = [];
+                      const fpPatterns = ['floorplan', 'floor-plan', 'floor_plan', 'fp_', 'fp-', 'layout', 'blueprint'];
+                      const isFP = (item: any) => {
+                        const mt = (item?.media_type || item?.mediaType || '').toLowerCase();
+                        if (mt === 'floorplan') return true;
+                        const nm = (item?.filename || item?.name || item?.path || '').toLowerCase();
+                        return fpPatterns.some(p => nm.includes(p));
+                      };
+                      if (d.files && Array.isArray(d.files)) {
+                        d.files.forEach((f: any) => {
+                          if (isFP(f)) return;
+                          const u = f.large_url || f.medium_url || f.url || f.original_url || f.thumb_url || f.path;
+                          if (u) urls.push(u);
+                        });
+                      }
+                      if (urls.length === 0 && d.deliveredPhotos) {
+                        (Array.isArray(d.deliveredPhotos) ? d.deliveredPhotos : []).forEach((p: any) => {
+                          if (typeof p !== 'string' && isFP(p)) return;
+                          const u = typeof p === 'string' ? p : (p?.large_url || p?.medium_url || p?.url || p?.path);
+                          if (u) urls.push(u);
+                        });
+                      }
+                      return urls;
+                    })();
+                    const coverPhoto = deliveredPhotos[0] || null;
+                    const photoCount = deliveredPhotos.length;
+                    const dateLabel = summary.startTime
+                      ? format(new Date(summary.startTime), "d MMM yyyy")
+                      : "No date";
+                    return (
+                      <div
+                        key={record.data.id}
+                        className="group relative rounded-xl overflow-hidden cursor-pointer border border-border hover:border-primary/40 transition-all hover:shadow-lg"
+                        onClick={() => onSelect(record)}
+                      >
+                        {coverPhoto ? (
+                          <img
+                            src={coverPhoto}
+                            alt={summary.addressLine}
+                            className="w-full aspect-[4/3] object-cover transition-transform group-hover:scale-105"
+                            onError={(e) => { (e.target as HTMLImageElement).src = ''; (e.target as HTMLImageElement).className = 'w-full aspect-[4/3] bg-muted'; }}
+                          />
+                        ) : (
+                          <div className="w-full aspect-[4/3] bg-muted flex items-center justify-center">
+                            <ImageIcon className="w-12 h-12 text-muted-foreground/30" />
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                        {photoCount > 0 && (
+                          <div className="absolute top-2 left-2 bg-black/50 backdrop-blur-sm text-white text-[10px] px-2 py-0.5 rounded-full">
+                            {photoCount} photo{photoCount !== 1 ? 's' : ''}
+                          </div>
+                        )}
+                        <button
+                          className="absolute top-2 right-2 h-8 w-8 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white hover:bg-white/40 transition-colors opacity-0 group-hover:opacity-100"
+                          onClick={(e) => { e.stopPropagation(); onDownload(record); }}
+                          title="Download"
+                        >
+                          <Download className="h-4 w-4" />
+                        </button>
+                        <div className="absolute bottom-0 left-0 right-0 p-3">
+                          <h3 className="text-white font-semibold text-sm truncate">{summary.addressLine}</h3>
+                          <p className="text-white/70 text-[11px] mt-0.5">{dateLabel}</p>
+                          <div className="flex items-center justify-between mt-1.5">
+                            <Badge className="bg-green-500/30 text-green-300 border-green-500/40 text-[9px] h-4 px-1.5">
+                              <span className="w-1 h-1 rounded-full bg-green-400 mr-1" />
+                              DELIVERED
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {list.map((record) => (
+                    <ClientShootTile
+                      key={record.data.id}
+                      record={record}
+                      variant={activeTab}
+                      onSelect={onSelect}
+                      onReschedule={onReschedule}
+                      onCancel={onCancel}
+                      onContactSupport={onContactSupport}
+                      onDownload={onDownload}
+                      onRebook={onRebook}
+                      onRequestRevision={onRequestRevision}
+                      onHoldAction={onHoldAction}
+                      onPayment={onPayment}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -3544,11 +3597,10 @@ const ClientShootTile: React.FC<ClientShootTileProps> = React.memo(({
 interface ClientInvoicesCardProps {
   summary: ClientBillingSummary;
   onViewAll: () => void;
-  onDownload: () => void;
   onPay: () => void;
 }
 
-const ClientInvoicesCard: React.FC<ClientInvoicesCardProps> = ({ summary, onViewAll, onDownload, onPay }) => (
+const ClientInvoicesCard: React.FC<ClientInvoicesCardProps> = ({ summary, onViewAll, onPay }) => (
   <Card className="flex flex-col gap-3 sm:gap-4">
     <div>
       <h2 className="text-base sm:text-lg font-bold text-foreground">Invoices & payments</h2>
@@ -3575,9 +3627,6 @@ const ClientInvoicesCard: React.FC<ClientInvoicesCardProps> = ({ summary, onView
     <div className="grid gap-2">
       <Button size="sm" className="text-xs sm:text-sm" onClick={onViewAll}>
         View all invoices
-      </Button>
-      <Button size="sm" variant="outline" className="text-xs sm:text-sm" onClick={onDownload}>
-        Download invoice PDFs
       </Button>
       <Button size="sm" variant="outline" className="text-xs sm:text-sm" onClick={onPay}>
         Make a payment
