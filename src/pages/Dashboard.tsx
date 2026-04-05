@@ -172,6 +172,54 @@ const isDateWithinRange = (value: string | null | undefined, start: Date, end: D
   return Boolean(parsed && parsed >= start && parsed <= end);
 };
 
+const getClientPaymentBadgeInfo = (
+  status: DashboardShootSummary["paymentStatus"] | null | undefined,
+) => {
+  switch (status) {
+    case "paid":
+      return {
+        label: "Paid",
+        defaultClassName: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20",
+        overlayClassName: "bg-emerald-500/25 text-emerald-200 border-emerald-400/30",
+      };
+    case "partial":
+      return {
+        label: "Partial",
+        defaultClassName: "bg-amber-500/10 text-amber-500 border-amber-500/20 hover:bg-amber-500/20",
+        overlayClassName: "bg-amber-500/25 text-amber-100 border-amber-400/30",
+      };
+    default:
+      return {
+        label: "Unpaid",
+        defaultClassName: "bg-rose-500/10 text-rose-500 border-rose-500/20 hover:bg-rose-500/20",
+        overlayClassName: "bg-rose-500/25 text-rose-100 border-rose-400/30",
+      };
+  }
+};
+
+const ClientPaymentPill: React.FC<{
+  status: DashboardShootSummary["paymentStatus"] | null | undefined;
+  overlay?: boolean;
+  className?: string;
+}> = ({ status, overlay = false, className }) => {
+  const badge = getClientPaymentBadgeInfo(status);
+
+  return (
+    <Badge
+      className={cn(
+        "border font-semibold",
+        overlay
+          ? "backdrop-blur-sm text-[9px] h-4 px-1.5"
+          : "text-[10px] sm:text-[11px] h-6 px-2.5",
+        overlay ? badge.overlayClassName : badge.defaultClassName,
+        className,
+      )}
+    >
+      {badge.label}
+    </Badge>
+  );
+};
+
 const buildShootHistoryPath = (
   tab: "scheduled" | "completed" | "delivered" | "hold" | "editing" | "edited",
   options?: { range?: "mtd" },
@@ -231,7 +279,7 @@ const DevProfiler: React.FC<{ id: string; children: React.ReactNode }> = ({ id, 
 
 type MobileDashboardTab = "shoots" | "assign" | "requests" | "completed" | "pipeline";
 type MobileClientDashboardTab = "shoots" | "invoices" | "actions";
-type MobileEditingManagerTab = "shoots" | "requests" | "ready";
+type MobileEditingManagerTab = "shoots" | "requests" | "ready" | "pipeline";
 
 type CommandBarState = {
   openRequestManager?: boolean;
@@ -2567,15 +2615,18 @@ const Dashboard = () => {
   );
 
   const editingManagerContent = (
-    <div className="grid h-full grid-cols-1 xl:grid-cols-12 gap-4 sm:gap-6 items-stretch flex-1 min-h-0">
-      <div className="xl:col-span-9 flex h-full flex-1 flex-col gap-4 sm:gap-6 min-h-0 min-w-0">
-        {renderEditingManagerShootsTabsCard()}
+    <>
+      <div className="grid h-full grid-cols-1 xl:grid-cols-12 gap-4 sm:gap-6 items-stretch flex-1 min-h-0">
+        <div className="xl:col-span-9 flex h-full flex-1 flex-col gap-4 sm:gap-6 min-h-0 min-w-0">
+          {renderEditingManagerShootsTabsCard()}
+        </div>
+        <div className="xl:col-span-3 flex flex-col gap-4 sm:gap-6 xl:sticky xl:top-6">
+          {renderPendingReviewsCard()}
+          {renderEditingManagerReadyToDeliverCard()}
+        </div>
       </div>
-      <div className="xl:col-span-3 flex flex-col gap-4 sm:gap-6 xl:sticky xl:top-6">
-        {renderPendingReviewsCard()}
-        {renderEditingManagerReadyToDeliverCard()}
-      </div>
-    </div>
+      {renderPipelineSection()}
+    </>
   );
 
   const adminMobileContent = (
@@ -2627,6 +2678,11 @@ const Dashboard = () => {
       id: "ready" as const,
       label: "Ready",
       content: renderEditingManagerReadyToDeliverCard(),
+    },
+    {
+      id: "pipeline" as const,
+      label: "Pipeline",
+      content: renderPipelineSection(),
     },
   ] as const;
 
@@ -3164,6 +3220,7 @@ const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
                     const dateLabel = summary.startTime
                       ? format(new Date(summary.startTime), "d MMM yyyy")
                       : "No date";
+                    const paymentStatus = summary.paymentStatus ?? "unpaid";
                     return (
                       <div
                         key={record.data.id}
@@ -3198,11 +3255,12 @@ const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
                         <div className="absolute bottom-0 left-0 right-0 p-3">
                           <h3 className="text-white font-semibold text-sm truncate">{summary.addressLine}</h3>
                           <p className="text-white/70 text-[11px] mt-0.5">{dateLabel}</p>
-                          <div className="flex items-center justify-between mt-1.5">
+                          <div className="flex items-center justify-between gap-2 mt-1.5">
                             <Badge className="bg-green-500/30 text-green-300 border-green-500/40 text-[9px] h-4 px-1.5">
                               <span className="w-1 h-1 rounded-full bg-green-400 mr-1" />
                               DELIVERED
                             </Badge>
+                            <ClientPaymentPill status={paymentStatus} overlay />
                           </div>
                         </div>
                       </div>
@@ -3239,9 +3297,9 @@ const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
   (prevProps, nextProps) => {
     // Custom comparison for ClientMyShoots
     return (
-      prevProps.upcoming.length === nextProps.upcoming.length &&
-      prevProps.completed.length === nextProps.completed.length &&
-      prevProps.onHold.length === nextProps.onHold.length &&
+      prevProps.upcoming === nextProps.upcoming &&
+      prevProps.completed === nextProps.completed &&
+      prevProps.onHold === nextProps.onHold &&
       prevProps.onSelect === nextProps.onSelect &&
       prevProps.onReschedule === nextProps.onReschedule &&
       prevProps.onCancel === nextProps.onCancel &&
@@ -3286,11 +3344,11 @@ const ClientShootTile: React.FC<ClientShootTileProps> = React.memo(({
   const { formatTime, formatDate } = useUserPreferences();
   const { data, summary } = record;
   
-  // Calculate if payment is pending
   const totalQuote = data.payment?.totalQuote ?? 0;
   const totalPaid = data.payment?.totalPaid ?? 0;
-  const hasPendingPayment = totalQuote > 0 && totalPaid < totalQuote;
+  const paymentStatus = summary.paymentStatus ?? "unpaid";
   const balanceDue = Math.max(totalQuote - totalPaid, 0);
+  const hasPendingPayment = totalQuote > 0 && balanceDue > 0 && paymentStatus !== "paid";
   const startDate = summary.startTime ? new Date(summary.startTime) : null;
   const completedDate = data.completedDate ? parseISO(data.completedDate) : null;
   const dateLabel = variant === "completed" && completedDate
@@ -3445,10 +3503,13 @@ const ClientShootTile: React.FC<ClientShootTileProps> = React.memo(({
 
             {/* Bottom row: status + actions */}
             <div className="flex items-center justify-between gap-3 pt-1 border-t border-border/30">
-              <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20 text-[10px] sm:text-[11px] h-6 px-2.5 font-semibold">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 animate-pulse" />
-                Delivered
-              </Badge>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20 text-[10px] sm:text-[11px] h-6 px-2.5 font-semibold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 animate-pulse" />
+                  Delivered
+                </Badge>
+                <ClientPaymentPill status={paymentStatus} />
+              </div>
 
               <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                 {hasPendingPayment && onPayment && (
@@ -3580,7 +3641,7 @@ const ClientShootTile: React.FC<ClientShootTileProps> = React.memo(({
 }, (prevProps, nextProps) => {
   // Custom comparison for ClientShootTile
   return (
-    prevProps.record.data.id === nextProps.record.data.id &&
+    prevProps.record === nextProps.record &&
     prevProps.variant === nextProps.variant &&
     prevProps.onSelect === nextProps.onSelect &&
     prevProps.onReschedule === nextProps.onReschedule &&

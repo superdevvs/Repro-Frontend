@@ -249,6 +249,24 @@ export const currencyFormatter = new Intl.NumberFormat("en-US", {
   currency: "USD",
 });
 
+export const getDashboardPaymentStatus = (
+  payment?: ShootData['payment'] | null,
+): DashboardShootSummary['paymentStatus'] => {
+  const totalPaid = payment?.totalPaid ?? 0;
+  const totalQuote = payment?.totalQuote ?? 0;
+
+  if (payment?.paymentStatus === 'paid') {
+    return 'paid';
+  }
+  if (totalPaid <= 0) {
+    return 'unpaid';
+  }
+  if (totalPaid >= totalQuote) {
+    return 'paid';
+  }
+  return 'partial';
+};
+
 export const buildClientInvoiceSummary = (shoots: ShootData[]) => {
   const summary = {
     dueNow: { amount: 0, count: 0 },
@@ -262,11 +280,13 @@ export const buildClientInvoiceSummary = (shoots: ShootData[]) => {
   shoots.forEach((shoot) => {
     const payment = shoot.payment;
     if (!payment) return;
+    const paymentStatus = getDashboardPaymentStatus(payment);
     const total = payment.totalQuote ?? 0;
     const paid = payment.totalPaid ?? 0;
     const balance = Math.max(total - paid, 0);
+    const isSettled = paymentStatus === "paid";
 
-    if (balance > 1) {
+    if (!isSettled && balance > 1) {
       // Check if shoot is delivered - delivered unpaid goes to "Due Now"
       // Scheduled/requested unpaid goes to "Upcoming"
       const status = (shoot.workflowStatus || shoot.status || "").toLowerCase();
@@ -275,7 +295,7 @@ export const buildClientInvoiceSummary = (shoots: ShootData[]) => {
       summary[target].amount += balance;
       summary[target].count += 1;
     } else if (total > 0) {
-      summary.paid.amount += paid;
+      summary.paid.amount += isSettled ? Math.max(paid, total) : paid;
       summary.paid.count += 1;
     }
   });
@@ -322,17 +342,7 @@ export const shootDataToSummary = (shoot: ShootData): DashboardShootSummary => {
   const start = parseShootDateTime(shoot);
   const location = shoot.location || { address: "No address", city: "", state: "", zip: "" };
 
-  // Calculate payment status from payment data
-  const totalPaid = shoot.payment?.totalPaid || 0;
-  const totalQuote = shoot.payment?.totalQuote || 0;
-  let paymentStatus: "paid" | "unpaid" | "partial" | null = null;
-  if (totalPaid <= 0) {
-    paymentStatus = "unpaid";
-  } else if (totalPaid >= totalQuote) {
-    paymentStatus = "paid";
-  } else {
-    paymentStatus = "partial";
-  }
+  const paymentStatus = getDashboardPaymentStatus(shoot.payment);
 
   const summary: DashboardShootSummary = {
     id: toNumericId(shoot.id, `${location.address}-${shoot.scheduledDate}`),

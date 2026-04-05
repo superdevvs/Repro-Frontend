@@ -163,12 +163,7 @@ export const getShootDetailsStatusBadgeInfo = (status?: string | null) => {
 
 export const getShootDetailsPaymentStatus = (payment?: ShootData['payment']) => {
   const paymentSummary = normalizeShootPaymentSummary({ payment });
-  const totalQuote = paymentSummary.totalQuote || 0;
-  const totalPaid = paymentSummary.totalPaid || 0;
-
-  if (totalPaid <= 0) return 'unpaid';
-  if (totalPaid >= totalQuote) return 'paid';
-  return 'partial';
+  return paymentSummary.paymentStatus ?? 'unpaid';
 };
 
 export const getShootDetailsPaymentBadge = (payment?: ShootData['payment']) =>

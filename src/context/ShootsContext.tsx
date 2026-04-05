@@ -555,6 +555,7 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
       taxAmount: paymentSummary.taxAmount,
       totalQuote: paymentSummary.totalQuote,
       totalPaid: paymentSummary.totalPaid,
+      paymentStatus: paymentSummary.paymentStatus,
       lastPaymentDate: paymentSummary.lastPaymentDate ?? payments[0]?.paid_at ?? undefined,
       lastPaymentType: paymentSummary.lastPaymentType,
     },

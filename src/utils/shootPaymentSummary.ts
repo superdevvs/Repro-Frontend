@@ -24,6 +24,8 @@ type RawPaymentContainer = {
   tax_amount?: unknown;
   total_quote?: unknown;
   total_paid?: unknown;
+  payment_status?: unknown;
+  paymentStatus?: unknown;
   payment?: {
     baseQuote?: unknown;
     base_quote?: unknown;
@@ -37,12 +39,15 @@ type RawPaymentContainer = {
     total_paid?: unknown;
     lastPaymentDate?: unknown;
     lastPaymentType?: unknown;
+    payment_status?: unknown;
     paymentStatus?: unknown;
   } | null;
   last_payment_date?: unknown;
   last_payment_type?: unknown;
   payment_type?: unknown;
 };
+
+export type CanonicalPaymentStatus = 'paid' | 'unpaid' | 'partial';
 
 export type NormalizedShootPaymentSummary = {
   baseQuote: number;
@@ -52,6 +57,7 @@ export type NormalizedShootPaymentSummary = {
   totalQuote: number;
   totalPaid: number;
   balance: number;
+  paymentStatus: CanonicalPaymentStatus | null;
   lastPaymentDate?: string;
   lastPaymentType?: string;
 };
@@ -66,6 +72,27 @@ const toOptionalString = (value: unknown): string | undefined => {
   if (value === null || value === undefined) return undefined;
   const normalized = String(value).trim();
   return normalized ? normalized : undefined;
+};
+
+export const normalizeCanonicalPaymentStatus = (
+  value: unknown,
+): CanonicalPaymentStatus | null => {
+  const normalized = toOptionalString(value)
+    ?.replace(/([a-z])([A-Z])/g, '$1_$2')
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+
+  if (!normalized) return null;
+  if (['paid', 'marked_paid', 'mark_paid', 'paid_in_full', 'fully_paid'].includes(normalized)) {
+    return 'paid';
+  }
+  if (['partial', 'partial_paid', 'partially_paid'].includes(normalized)) {
+    return 'partial';
+  }
+  if (['unpaid', 'not_paid'].includes(normalized)) {
+    return 'unpaid';
+  }
+  return null;
 };
 
 const pickFirstDefinedNumber = (...values: unknown[]): number => {
@@ -172,6 +199,20 @@ export const normalizeShootPaymentSummary = (
         rawShoot?.total_paid,
       )
     : (hasCompletedPayment(rawShoot?.payments) ? completedPaymentsTotal : 0);
+  const explicitPaymentStatus = normalizeCanonicalPaymentStatus(
+    toOptionalString(payment?.paymentStatus) ||
+      toOptionalString(payment?.payment_status) ||
+      toOptionalString(rawShoot?.paymentStatus) ||
+      toOptionalString(rawShoot?.payment_status),
+  );
+  const paymentStatus =
+    explicitPaymentStatus === 'paid'
+      ? 'paid'
+      : totalPaid <= 0
+        ? 'unpaid'
+        : totalPaid >= totalQuote
+          ? 'paid'
+          : 'partial';
 
   return {
     baseQuote,
@@ -181,13 +222,13 @@ export const normalizeShootPaymentSummary = (
     totalQuote,
     totalPaid,
     balance: Math.max(totalQuote - totalPaid, 0),
+    paymentStatus,
     lastPaymentDate:
       toOptionalString(rawShoot?.last_payment_date) ||
       toOptionalString(payment?.lastPaymentDate),
     lastPaymentType:
       toOptionalString(rawShoot?.last_payment_type) ||
       toOptionalString(rawShoot?.payment_type) ||
-      toOptionalString(payment?.lastPaymentType) ||
-      toOptionalString(payment?.paymentStatus),
+      toOptionalString(payment?.lastPaymentType),
   };
 };

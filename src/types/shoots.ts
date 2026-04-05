@@ -234,6 +234,7 @@ export interface ShootData {
     taxAmount: number;
     totalQuote: number;
     totalPaid: number;  // Making this required
+    paymentStatus?: 'paid' | 'unpaid' | 'partial' | null;
     lastPaymentDate?: string;
     lastPaymentType?: string;
   };
