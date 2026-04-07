@@ -149,18 +149,8 @@ const ExclusiveListingGridCard = ({
           loading="lazy"
         />
         <div className="absolute inset-0 bg-gradient-to-b from-white/10 via-transparent to-transparent" />
-        <div
-          className="absolute inset-x-0 bottom-0 h-[46%] overflow-hidden"
-        >
-          <img
-            src={heroUrl}
-            alt=""
-            aria-hidden="true"
-            className="absolute inset-0 h-full w-full scale-[1.28] object-cover object-bottom blur-2xl saturate-150 brightness-[0.56]"
-          />
-          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,12,10,0.04)_0%,rgba(8,12,10,0.18)_18%,rgba(10,14,12,0.62)_54%,rgba(8,12,10,0.9)_100%)]" />
-        </div>
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,7,6,0.08)_0%,rgba(5,7,6,0)_26%,rgba(5,7,6,0.1)_100%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,7,6,0.08)_0%,rgba(5,7,6,0)_24%,rgba(5,7,6,0.12)_54%,rgba(8,12,10,0.22)_68%,rgba(8,12,10,0.72)_84%,rgba(8,12,10,0.94)_100%)]" />
+        <div className="absolute inset-x-0 bottom-0 h-[44%] bg-[linear-gradient(180deg,rgba(8,12,10,0)_0%,rgba(8,12,10,0.18)_18%,rgba(8,12,10,0.56)_52%,rgba(8,12,10,0.88)_100%)]" />
 
         <div className="relative flex h-full flex-col p-4 sm:p-5">
           <div className="flex items-start justify-between gap-3">
