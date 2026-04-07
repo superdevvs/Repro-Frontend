@@ -11,6 +11,33 @@ export const formatPropertyMetricValue = (value: unknown) => {
   return String(value);
 };
 
+export const getBathroomMetricDisplay = (value: unknown) => {
+  if (value === null || value === undefined || value === '') return null;
+
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) {
+    return {
+      label: 'Bath',
+      value: String(value),
+    };
+  }
+
+  const wholeBaths = Math.trunc(numericValue);
+  const fractionalPart = Math.abs(numericValue - wholeBaths);
+
+  if (Math.abs(fractionalPart - 0.5) <= 0.0001) {
+    return {
+      label: 'Bath',
+      value: `${wholeBaths.toLocaleString()} and half`,
+    };
+  }
+
+  return {
+    label: Math.abs(numericValue) === 1 ? 'Bath' : 'Baths',
+    value: formatPropertyMetricValue(numericValue),
+  };
+};
+
 export const getSplitBathroomDisplay = (value: unknown) => {
   if (value === null || value === undefined || value === '') return null;
 

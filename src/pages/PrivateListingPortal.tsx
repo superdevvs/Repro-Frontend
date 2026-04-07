@@ -34,6 +34,7 @@ import {
   Globe,
 } from 'lucide-react';
 import { API_BASE_URL } from '@/config/env';
+import { getBathroomMetricDisplay } from '@/utils/shootPropertyDisplay';
 
 interface PrivateListing {
   id: string;
@@ -102,6 +103,7 @@ const ExclusiveListingGridCard = ({
   onOpen: (listing: PrivateListing) => void;
 }) => {
   const heroUrl = resolvePreviewUrl(listing.heroImage) || '/placeholder.svg';
+  const bathroomDisplay = getBathroomMetricDisplay(listing.bathrooms);
   const metrics = [
     listing.sqft
       ? {
@@ -115,10 +117,10 @@ const ExclusiveListingGridCard = ({
           label: listing.bedrooms === 1 ? 'Bedroom' : 'Bedrooms',
         }
       : null,
-    listing.bathrooms
+    bathroomDisplay
       ? {
-          value: String(listing.bathrooms),
-          label: listing.bathrooms === 1 ? 'Bathroom' : 'Bathrooms',
+          value: bathroomDisplay.value,
+          label: bathroomDisplay.label,
         }
       : null,
   ].filter(Boolean) as Array<{ value: string; label: string }>;
@@ -149,8 +151,8 @@ const ExclusiveListingGridCard = ({
           loading="lazy"
         />
         <div className="absolute inset-0 bg-gradient-to-b from-white/10 via-transparent to-transparent" />
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,7,6,0.08)_0%,rgba(5,7,6,0)_24%,rgba(5,7,6,0.12)_54%,rgba(8,12,10,0.22)_68%,rgba(8,12,10,0.72)_84%,rgba(8,12,10,0.94)_100%)]" />
-        <div className="absolute inset-x-0 bottom-0 h-[44%] bg-[linear-gradient(180deg,rgba(8,12,10,0)_0%,rgba(8,12,10,0.18)_18%,rgba(8,12,10,0.56)_52%,rgba(8,12,10,0.88)_100%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,7,6,0.1)_0%,rgba(5,7,6,0.02)_22%,rgba(5,7,6,0.18)_50%,rgba(8,12,10,0.36)_66%,rgba(8,12,10,0.8)_84%,rgba(8,12,10,0.96)_100%)]" />
+        <div className="absolute inset-x-0 bottom-0 h-[52%] bg-[linear-gradient(180deg,rgba(8,12,10,0)_0%,rgba(8,12,10,0.32)_20%,rgba(8,12,10,0.68)_52%,rgba(8,12,10,0.94)_100%)]" />
 
         <div className="relative flex h-full flex-col p-4 sm:p-5">
           <div className="flex items-start justify-between gap-3">
@@ -179,12 +181,15 @@ const ExclusiveListingGridCard = ({
               </div>
             )}
 
-            <div className="space-y-1.5">
+            <div
+              className="space-y-1.5"
+              style={{ textShadow: '0 2px 14px rgba(0,0,0,0.38), 0 1px 3px rgba(0,0,0,0.7)' }}
+            >
               <h3 className="max-w-[18ch] text-xl font-semibold leading-tight tracking-[-0.04em] text-white sm:text-[1.6rem]">
                 {listing.address}
               </h3>
               {locationLine && (
-                <p className="max-w-[24ch] text-sm leading-relaxed text-white/76">
+                <p className="max-w-[24ch] text-sm leading-relaxed text-white/88">
                   {locationLine}
                 </p>
               )}
@@ -494,6 +499,7 @@ const PrivateListingPortal = () => {
   // ─── List Row ──────────────────────────────────────────────
   const renderListRow = (listing: PrivateListing) => {
     const heroUrl = resolvePreviewUrl(listing.heroImage) || '/placeholder.svg';
+    const bathroomDisplay = getBathroomMetricDisplay(listing.bathrooms);
     return (
       <div
         key={listing.id}
@@ -537,10 +543,10 @@ const PrivateListingPortal = () => {
                 <span>{listing.bedrooms} Bed</span>
               </div>
             )}
-            {listing.bathrooms && (
+            {bathroomDisplay && (
               <div className="flex items-center gap-1">
                 <Bath className="h-3 w-3" />
-                <span>{listing.bathrooms} Bath</span>
+                <span>{bathroomDisplay.value} {bathroomDisplay.label}</span>
               </div>
             )}
             {listing.sqft && (

@@ -2733,7 +2733,7 @@ const Dashboard = () => {
           <div className="flex-1">
             <PageHeader title={greetingTitle} description={DASHBOARD_DESCRIPTION} />
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 empty:hidden">
             <UploadStatusWidget />
             {cancellationRequestCount > 0 && (
               <button
@@ -2932,7 +2932,7 @@ const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
             <div className="flex-1">
               <PageHeader title={title} description={description} />
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 empty:hidden">
               <UploadStatusWidget />
             </div>
           </div>

@@ -1295,7 +1295,7 @@ export default function Accounts() {
 
           <TabsContent value="accounts" className="space-y-3 sm:space-y-6">
             {/* Stats Cards - show inside content only for admin/superadmin */}
-            {(isAdminOrSuperAdmin || isSalesRep) && (
+            {isAdminOrSuperAdmin && (
               <AccountsStatsCards
                 stats={roleStats}
                 selectedRole={filterRole === 'all' ? null : filterRole}

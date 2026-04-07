@@ -88,7 +88,7 @@ import {
 } from '@/utils/editorRates';
 import { useShootOverviewEditor } from './overview/useShootOverviewEditor';
 import { getNormalizedIguideSync, normalizePropertyDetails } from '@/utils/shootTourData';
-import { formatPropertyMetricValue, getSplitBathroomDisplay } from '@/utils/shootPropertyDisplay';
+import { formatPropertyMetricValue, getBathroomMetricDisplay } from '@/utils/shootPropertyDisplay';
 
 const serviceCurrencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -695,8 +695,8 @@ export function ShootDetailsOverviewTab({
     sqft: isEditMode ? propertyMetricsEdit.sqft : baseSqft,
   };
 
-  const splitBathroomDisplay = !isEditMode
-    ? getSplitBathroomDisplay(metricDisplayValues.baths)
+  const bathroomDisplay = !isEditMode
+    ? getBathroomMetricDisplay(metricDisplayValues.baths)
     : null;
 
   const propertyMetrics = [
@@ -705,26 +705,11 @@ export function ShootDetailsOverviewTab({
       icon: BedDouble,
       value: formatPropertyMetricValue(metricDisplayValues.beds),
     },
-    ...(splitBathroomDisplay
-      ? [
-          {
-            label: 'Full Baths',
-            icon: ShowerHead,
-            value: splitBathroomDisplay.fullBaths,
-          },
-          {
-            label: 'Half Baths',
-            icon: ShowerHead,
-            value: splitBathroomDisplay.halfBaths,
-          },
-        ]
-      : [
-          {
-            label: 'Baths',
-            icon: ShowerHead,
-            value: formatPropertyMetricValue(metricDisplayValues.baths),
-          },
-        ]),
+    {
+      label: bathroomDisplay?.label ?? 'Baths',
+      icon: ShowerHead,
+      value: bathroomDisplay?.value ?? formatPropertyMetricValue(metricDisplayValues.baths),
+    },
     {
       label: 'Sqft',
       icon: Ruler,

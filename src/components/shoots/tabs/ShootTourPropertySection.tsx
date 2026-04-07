@@ -22,7 +22,7 @@ import {
   Ruler,
   Save,
 } from 'lucide-react'
-import { formatPropertyMetricValue, getSplitBathroomDisplay } from '@/utils/shootPropertyDisplay'
+import { formatPropertyMetricValue, getBathroomMetricDisplay } from '@/utils/shootPropertyDisplay'
 
 type ShootTourPropertySectionProps = {
   showPropertyInfo: boolean
@@ -101,42 +101,25 @@ export function ShootTourPropertySection({
 }: ShootTourPropertySectionProps) {
   if (!showPropertyInfo) return null
 
-  const splitBathroomDisplay = getSplitBathroomDisplay(propertyBathrooms)
+  const bathroomDisplay = getBathroomMetricDisplay(propertyBathrooms)
   const propertyDetailCards = [
     {
       label: 'Beds',
       icon: BedDouble,
       value: formatPropertyMetricValue(propertyBedrooms),
     },
-    ...(splitBathroomDisplay
-      ? [
-          {
-            label: 'Full Baths',
-            icon: Bath,
-            value: splitBathroomDisplay.fullBaths,
-          },
-          {
-            label: 'Half Baths',
-            icon: Bath,
-            value: splitBathroomDisplay.halfBaths,
-          },
-        ]
-      : [
-          {
-            label: 'Baths',
-            icon: Bath,
-            value: formatPropertyMetricValue(propertyBathrooms),
-          },
-        ]),
+    {
+      label: bathroomDisplay?.label ?? 'Baths',
+      icon: Bath,
+      value: bathroomDisplay?.value ?? formatPropertyMetricValue(propertyBathrooms),
+    },
     {
       label: 'Sqft',
       icon: Ruler,
       value: formatPropertyMetricValue(propertySqft),
     },
   ]
-  const propertyDetailsGridClassName = propertyDetailCards.length > 3
-    ? 'grid gap-3 sm:grid-cols-4'
-    : 'grid gap-3 sm:grid-cols-3'
+  const propertyDetailsGridClassName = 'grid gap-3 sm:grid-cols-3'
 
   return (
     <Card>

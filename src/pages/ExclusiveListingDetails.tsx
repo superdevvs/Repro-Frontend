@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary';
+import { getBathroomMetricDisplay } from '@/utils/shootPropertyDisplay';
 
 const resolvePreviewUrl = (value: string | null | undefined): string | null => {
   if (!value) return null;
@@ -188,6 +189,10 @@ export default function ExclusiveListingDetails() {
     return firstMedia || '/placeholder.svg';
   }, [shoot]);
 
+  const bathroomDisplay = useMemo(() => {
+    return getBathroomMetricDisplay((shoot as any)?.bathrooms);
+  }, [shoot]);
+
   const isPaid = useMemo(() => {
     if (!shoot?.payment) return false;
     return (shoot.payment.totalPaid ?? 0) >= (shoot.payment.totalQuote ?? 0);
@@ -324,22 +329,30 @@ export default function ExclusiveListingDetails() {
                   <div className="flex items-center gap-2">
                     {(shoot as any)?.listing_type && (
                       <Badge className={`${
-                        (shoot as any).listing_type === 'for_rent' 
-                          ? 'bg-blue-500 hover:bg-blue-600' 
+                        (shoot as any).listing_type === 'for_rent'
+                          ? 'bg-blue-500 hover:bg-blue-600'
                           : 'bg-green-500 hover:bg-green-600'
                       } text-white border-0`}>
                         <Tag className="h-3 w-3 mr-1" />
                         {(shoot as any).listing_type === 'for_rent' ? 'For Rent' : 'For Sale'}
                       </Badge>
                     )}
+                    {(shoot as any)?.price && (
+                      <div className="flex items-center gap-2">
+                        <DollarSign className="h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <div className="text-xs text-muted-foreground">Price</div>
+                          <div className="font-medium">${Number((shoot as any).price).toLocaleString()}</div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                {/* Property Details */}
                 {((shoot as any)?.bedrooms || (shoot as any)?.bathrooms || (shoot as any)?.sqft || (shoot as any)?.price || (shoot as any)?.mls_number) && (
                   <div className="rounded-lg border bg-muted/30 p-4">
-                    <div className="text-sm font-medium mb-3">Property Details</div>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div className="mb-3 text-sm font-medium">Property Details</div>
+                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                       {(shoot as any)?.bedrooms && (
                         <div className="flex items-center gap-2">
                           <Home className="h-4 w-4 text-muted-foreground" />
@@ -349,12 +362,12 @@ export default function ExclusiveListingDetails() {
                           </div>
                         </div>
                       )}
-                      {(shoot as any)?.bathrooms && (
+                      {bathroomDisplay && (
                         <div className="flex items-center gap-2">
                           <Home className="h-4 w-4 text-muted-foreground" />
                           <div>
-                            <div className="text-xs text-muted-foreground">Baths</div>
-                            <div className="font-medium">{(shoot as any).bathrooms}</div>
+                            <div className="text-xs text-muted-foreground">{bathroomDisplay.label}</div>
+                            <div className="font-medium">{bathroomDisplay.value}</div>
                           </div>
                         </div>
                       )}
@@ -363,7 +376,7 @@ export default function ExclusiveListingDetails() {
                           <Ruler className="h-4 w-4 text-muted-foreground" />
                           <div>
                             <div className="text-xs text-muted-foreground">Sq Ft</div>
-                            <div className="font-medium">{(shoot as any).sqft.toLocaleString()}</div>
+                            <div className="font-medium">{Number((shoot as any).sqft).toLocaleString()}</div>
                           </div>
                         </div>
                       )}
@@ -378,7 +391,7 @@ export default function ExclusiveListingDetails() {
                       )}
                     </div>
                     {(shoot as any)?.mls_number && (
-                      <div className="mt-3 pt-3 border-t">
+                      <div className="mt-3 border-t pt-3">
                         <div className="text-xs text-muted-foreground">MLS #</div>
                         <div className="font-medium">{(shoot as any).mls_number}</div>
                       </div>
@@ -393,7 +406,7 @@ export default function ExclusiveListingDetails() {
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm">Visibility</CardTitle>
                     </CardHeader>
-                    <CardContent className="text-sm text-muted-foreground space-y-2">
+                    <CardContent className="space-y-2 text-sm text-muted-foreground">
                       <div>Visible to assigned Client / Rep and Admin team.</div>
                       <div className="text-foreground">
                         <span className="font-medium">Client:</span> {shoot.client?.name || 'Unknown'}
@@ -408,14 +421,14 @@ export default function ExclusiveListingDetails() {
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm">Payment</CardTitle>
                     </CardHeader>
-                    <CardContent className="text-sm text-muted-foreground space-y-2">
+                    <CardContent className="space-y-2 text-sm text-muted-foreground">
                       <div className="flex items-center gap-2">
                         {isPaid ? (
                           <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                         ) : (
                           <XCircle className="h-4 w-4 text-destructive" />
                         )}
-                        <span className={isPaid ? 'text-foreground font-medium' : 'text-destructive font-medium'}>
+                        <span className={isPaid ? 'font-medium text-foreground' : 'font-medium text-destructive'}>
                           {isPaid ? 'Paid' : 'Unpaid'}
                         </span>
                       </div>
@@ -431,7 +444,7 @@ export default function ExclusiveListingDetails() {
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm">Tour</CardTitle>
                     </CardHeader>
-                    <CardContent className="text-sm text-muted-foreground space-y-2">
+                    <CardContent className="space-y-2 text-sm text-muted-foreground">
                       {tourLink ? (
                         <Button
                           size="sm"
