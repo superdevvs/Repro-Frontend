@@ -83,6 +83,25 @@ const resolveDownloadableMode = (shoot: ShootData): DownloadableMode => {
   return "automatic";
 };
 
+const hasDownloadableModeValue = (shootLike: unknown): boolean => {
+  if (!shootLike || typeof shootLike !== "object") {
+    return false;
+  }
+
+  const source = shootLike as any;
+  const meta = source?.meta;
+  const candidates = [
+    meta?.downloadable_mode,
+    meta?.downloadableMode,
+    source?.downloadable_mode,
+    source?.downloadableMode,
+    meta?.downloadable,
+    source?.downloadable,
+  ];
+
+  return candidates.some((candidate) => candidate !== undefined && candidate !== null);
+};
+
 const normalizeGhostUsers = (shoot: ShootData): ShootGhostUser[] => {
   return Array.isArray(shoot.ghostUsers)
     ? shoot.ghostUsers.filter((ghostUser): ghostUser is ShootGhostUser => Boolean(ghostUser?.id))
@@ -354,10 +373,15 @@ export function ShootSettingsTab({
 
       const successJson = await res.json().catch(() => null);
       const returned = successJson?.data || successJson;
-      const persistedMode = resolveDownloadableMode(returned ?? shoot);
+      const persistedMode = hasDownloadableModeValue(returned)
+        ? resolveDownloadableMode(returned as ShootData)
+        : mode;
 
       setDownloadableMode(persistedMode);
       onUpdate?.({
+        downloadable,
+        downloadable_mode: persistedMode,
+        downloadableMode: persistedMode,
         meta: {
           ...((shoot as any).meta || {}),
           downloadable,

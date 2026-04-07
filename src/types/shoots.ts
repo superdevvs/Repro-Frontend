@@ -189,6 +189,7 @@ export type ShootTourLinkValue =
   | boolean
   | null
   | undefined
+  | ShootRealtorClient
   | Record<string, unknown>
   | unknown[];
 

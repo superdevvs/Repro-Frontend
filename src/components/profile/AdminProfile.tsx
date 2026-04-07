@@ -13,9 +13,8 @@ import { Separator } from "@/components/ui/separator";
 import { CheckCircle2, AlertTriangle, Clock, Activity, Settings, Thermometer, Loader2 } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 import { useUserPreferences } from "@/contexts/UserPreferencesContext";
-import { API_BASE_URL } from "@/config/env";
 import type { UserRole } from "@/types/auth";
-import axios from 'axios';
+import { useSelfProfileSave } from "@/hooks/useSelfProfileSave";
 
 const getRoleLabel = (role?: UserRole) => {
   switch (role) {
@@ -46,23 +45,26 @@ const getRoleBadgeClassName = (role?: UserRole) => {
 };
 
 export function AdminProfile() {
-  const { user, setUser } = useAuth();
+  const { user } = useAuth();
   const { theme, setTheme } = useTheme();
-  const { preferences, setTemperatureUnit, setTimeFormat } = useUserPreferences();
+  const { preferences: displayPreferences, setTemperatureUnit, setTimeFormat } = useUserPreferences();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const roleLabel = getRoleLabel(user?.role);
+  const { saveProfile } = useSelfProfileSave();
+  const savedPreferences = ((user?.metadata as Record<string, any> | undefined)?.preferences ?? {}) as Record<string, any>;
   
   const [formData, setFormData] = useState({
     name: user?.name || "",
     email: user?.email || "",
     avatar: user?.avatar || "",
-    department: "Operations",
+    department: String(savedPreferences.department || "Operations"),
     notifications: {
-      shootReminders: true,
-      paymentReminders: true,
-      weeklySummaries: true
+      shootReminders: savedPreferences.notifications?.shootReminders ?? true,
+      paymentReminders: savedPreferences.notifications?.paymentReminders ?? true,
+      weeklySummaries: savedPreferences.notifications?.weeklySummaries ?? true
     },
-    uiDensity: "default"
+    uiDensity: String(savedPreferences.uiDensity || "default"),
+    currentPassword: "",
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -92,27 +94,11 @@ export function AdminProfile() {
     // Don't save blob URLs to the backend
     if (url.startsWith('blob:')) return;
 
-    // Save avatar to backend immediately for better UX
     try {
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      if (!token) return;
-
-      const { data } = await axios.put(
-        `${API_BASE_URL}/api/profile`,
-        { avatar: url || null },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      if (data.user && user) {
-        setUser({ ...user, ...data.user, avatar: data.user.avatar });
+      const result = await saveProfile({ avatar: url || null });
+      if (!result.reauthRequired) {
+        toast.success(url ? "Avatar saved" : "Avatar removed");
       }
-
-      toast.success(url ? "Avatar saved" : "Avatar removed");
     } catch (error) {
       console.error('Error saving avatar:', error);
       toast.error("Could not save avatar. Please try again.");
@@ -124,37 +110,21 @@ export function AdminProfile() {
     setIsSubmitting(true);
     
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        toast.error("Not authenticated");
-        return;
-      }
-
-      const response = await fetch(`${API_BASE_URL}/api/profile`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify({
+      const result = await saveProfile({
           name: formData.name,
+          email: formData.email,
+          current_password: formData.email !== user?.email ? formData.currentPassword : undefined,
           avatar: formData.avatar || null,
-        }),
+          preferences: {
+            department: formData.department || null,
+            uiDensity: formData.uiDensity,
+            notifications: formData.notifications,
+          },
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to update profile');
+      if (!result.reauthRequired) {
+        setFormData((prev) => ({ ...prev, currentPassword: "" }));
+        toast.success(result.message);
       }
-
-      // Update local user state
-      if (data.user && user) {
-        setUser({ ...user, ...data.user });
-      }
-
-      toast.success("Profile updated successfully");
     } catch (error) {
       console.error('Error updating profile:', error);
       toast.error(error instanceof Error ? error.message : "Failed to update profile");
@@ -223,6 +193,7 @@ export function AdminProfile() {
                           onChange={handleChange}
                           placeholder="you@example.com"
                         />
+                        <p className="text-xs text-muted-foreground">Changing your email requires your current password.</p>
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="department">Department</Label>
@@ -242,6 +213,17 @@ export function AdminProfile() {
                           readOnly
                           disabled
                           className="opacity-70"
+                        />
+                      </div>
+                      <div className="space-y-2 md:col-span-2">
+                        <Label htmlFor="currentPassword">Current Password</Label>
+                        <Input
+                          id="currentPassword"
+                          name="currentPassword"
+                          type="password"
+                          value={formData.currentPassword}
+                          onChange={handleChange}
+                          placeholder="Required only if you change your email"
                         />
                       </div>
                     </div>
@@ -327,12 +309,12 @@ export function AdminProfile() {
                     <div className="space-y-0.5">
                       <Label htmlFor="temperatureUnit">Temperature Unit</Label>
                       <p className="text-sm text-muted-foreground">
-                        {preferences.temperatureUnit === 'celsius' ? 'Celsius (°C)' : 'Fahrenheit (°F)'}
+                        {displayPreferences.temperatureUnit === 'celsius' ? 'Celsius (°C)' : 'Fahrenheit (°F)'}
                       </p>
                     </div>
                     <Switch
                       id="temperatureUnit"
-                      checked={preferences.temperatureUnit === 'celsius'}
+                      checked={displayPreferences.temperatureUnit === 'celsius'}
                       onCheckedChange={(checked) => setTemperatureUnit(checked ? 'celsius' : 'fahrenheit')}
                     />
                   </div>
@@ -340,12 +322,12 @@ export function AdminProfile() {
                     <div className="space-y-0.5">
                       <Label htmlFor="timeFormat">24-Hour Time Format</Label>
                       <p className="text-sm text-muted-foreground">
-                        {preferences.timeFormat === '24h' ? '24-hour format (14:30)' : '12-hour format (2:30 PM)'}
+                        {displayPreferences.timeFormat === '24h' ? '24-hour format (14:30)' : '12-hour format (2:30 PM)'}
                       </p>
                     </div>
                     <Switch
                       id="timeFormat"
-                      checked={preferences.timeFormat === '24h'}
+                      checked={displayPreferences.timeFormat === '24h'}
                       onCheckedChange={(checked) => setTimeFormat(checked ? '24h' : '12h')}
                     />
                   </div>

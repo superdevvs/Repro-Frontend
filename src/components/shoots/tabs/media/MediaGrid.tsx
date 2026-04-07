@@ -404,6 +404,8 @@ export function MediaGrid({
   };
   const getHiddenMediaClassName = (file: MediaFile) =>
     file.is_hidden ? 'blur-[1px] brightness-[0.92]' : '';
+  const getGridPreviewMediaClassName = (file: MediaFile) =>
+    `absolute inset-0 h-full w-full object-cover transition-all duration-200 ${getHiddenMediaClassName(file)}`;
   const renderHiddenMediaOverlay = () => (
     <>
       <div className="absolute inset-0 bg-slate-950/10 z-[2] pointer-events-none" />
@@ -464,7 +466,7 @@ export function MediaGrid({
               <VideoThumbnail
                 src={videoSrc}
                 alt={file.filename}
-                className={`w-full h-full object-cover transition-all duration-200 ${getHiddenMediaClassName(file)}`}
+                className={getGridPreviewMediaClassName(file)}
               />
             ) : null;
           }
@@ -473,7 +475,7 @@ export function MediaGrid({
               <img
                 src={thumbSrc}
                 alt={file.filename}
-                className={`w-full h-full object-cover transition-all duration-200 ${getHiddenMediaClassName(file)}`}
+                className={getGridPreviewMediaClassName(file)}
                 loading="lazy"
                 draggable={false}
               onError={(e) => {
@@ -595,7 +597,7 @@ export function MediaGrid({
                   <VideoThumbnail
                     src={videoSrc}
                     alt={file.filename}
-                    className={`w-full h-full object-cover transition-all duration-200 ${getHiddenMediaClassName(file)}`}
+                    className={getGridPreviewMediaClassName(file)}
                   />
                 ) : null;
               }
@@ -604,7 +606,7 @@ export function MediaGrid({
                 <img
                   src={thumbSrc}
                   alt={file.filename}
-                  className={`w-full h-full object-cover transition-all duration-200 ${getHiddenMediaClassName(file)}`}
+                  className={getGridPreviewMediaClassName(file)}
                   loading="lazy"
                   draggable={false}
                   onDoubleClick={() => onFileClick(actualIndex, sortedFiles)}

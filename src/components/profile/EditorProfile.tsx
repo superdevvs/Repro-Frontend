@@ -12,20 +12,23 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { FileEdit, ClipboardList, Loader2 } from "lucide-react";
 import { useUserPreferences } from "@/contexts/UserPreferencesContext";
-import { API_BASE_URL } from "@/config/env";
+import { useSelfProfileSave } from "@/hooks/useSelfProfileSave";
 
 export function EditorProfile() {
-  const { user, setUser } = useAuth();
+  const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { preferences, setTemperatureUnit, setTimeFormat } = useUserPreferences();
+  const { preferences: displayPreferences, setTemperatureUnit, setTimeFormat } = useUserPreferences();
+  const { saveProfile } = useSelfProfileSave();
+  const savedPreferences = ((user?.metadata as Record<string, any> | undefined)?.preferences ?? {}) as Record<string, any>;
   
   const [formData, setFormData] = useState({
     name: user?.name || "",
     email: user?.email || "",
     phone: user?.phone || "",
     avatar: user?.avatar || "",
-    showEditingNotes: true,
-    emailNotifications: true,
+    showEditingNotes: savedPreferences.showEditingNotes ?? true,
+    emailNotifications: savedPreferences.emailNotifications ?? true,
+    currentPassword: "",
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -46,37 +49,21 @@ export function EditorProfile() {
     setIsSubmitting(true);
     
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        toast.error("Not authenticated");
-        return;
-      }
-
-      const response = await fetch(`${API_BASE_URL}/api/profile`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify({
+      const result = await saveProfile({
           name: formData.name,
-          phone_number: formData.phone || undefined,
-          avatar: formData.avatar || undefined,
-        }),
+          email: formData.email,
+          current_password: formData.email !== user?.email ? formData.currentPassword : undefined,
+          phone_number: formData.phone,
+          avatar: formData.avatar || null,
+          preferences: {
+            showEditingNotes: formData.showEditingNotes,
+            emailNotifications: formData.emailNotifications,
+          },
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to update profile');
+      if (!result.reauthRequired) {
+        setFormData((prev) => ({ ...prev, currentPassword: "" }));
+        toast.success(result.message);
       }
-
-      if (data.user && user) {
-        setUser({ ...user, ...data.user });
-      }
-
-      toast.success("Profile updated successfully");
     } catch (error) {
       console.error('Error updating profile:', error);
       toast.error(error instanceof Error ? error.message : "Failed to update profile");
@@ -141,11 +128,8 @@ export function EditorProfile() {
                           value={formData.email}
                           onChange={handleChange}
                           placeholder="you@example.com"
-                          readOnly
-                          disabled
-                          className="opacity-70"
                         />
-                        <p className="text-xs text-muted-foreground">Contact admin to change email</p>
+                        <p className="text-xs text-muted-foreground">Changing your email requires your current password.</p>
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="phone">Phone Number</Label>
@@ -155,6 +139,17 @@ export function EditorProfile() {
                           value={formData.phone}
                           onChange={handleChange}
                           placeholder="(123) 456-7890"
+                        />
+                      </div>
+                      <div className="space-y-2 md:col-span-2">
+                        <Label htmlFor="currentPassword">Current Password</Label>
+                        <Input
+                          id="currentPassword"
+                          name="currentPassword"
+                          type="password"
+                          value={formData.currentPassword}
+                          onChange={handleChange}
+                          placeholder="Required only if you change your email"
                         />
                       </div>
                     </div>
@@ -196,12 +191,12 @@ export function EditorProfile() {
                     <div className="space-y-0.5">
                       <Label htmlFor="temperatureUnit">Temperature Unit</Label>
                       <p className="text-sm text-muted-foreground">
-                        {preferences.temperatureUnit === 'celsius' ? 'Celsius (°C)' : 'Fahrenheit (°F)'}
+                        {displayPreferences.temperatureUnit === 'celsius' ? 'Celsius (°C)' : 'Fahrenheit (°F)'}
                       </p>
                     </div>
                     <Switch
                       id="temperatureUnit"
-                      checked={preferences.temperatureUnit === 'celsius'}
+                      checked={displayPreferences.temperatureUnit === 'celsius'}
                       onCheckedChange={(checked) => setTemperatureUnit(checked ? 'celsius' : 'fahrenheit')}
                     />
                   </div>
@@ -209,12 +204,12 @@ export function EditorProfile() {
                     <div className="space-y-0.5">
                       <Label htmlFor="timeFormat">24-Hour Time Format</Label>
                       <p className="text-sm text-muted-foreground">
-                        {preferences.timeFormat === '24h' ? '24-hour format (14:30)' : '12-hour format (2:30 PM)'}
+                        {displayPreferences.timeFormat === '24h' ? '24-hour format (14:30)' : '12-hour format (2:30 PM)'}
                       </p>
                     </div>
                     <Switch
                       id="timeFormat"
-                      checked={preferences.timeFormat === '24h'}
+                      checked={displayPreferences.timeFormat === '24h'}
                       onCheckedChange={(checked) => setTimeFormat(checked ? '24h' : '12h')}
                     />
                   </div>

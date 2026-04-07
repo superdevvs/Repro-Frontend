@@ -126,6 +126,7 @@ export function useShootDetailsMediaTab({
   onToggleExpand,
   onSelectionChange,
 }: ShootDetailsMediaTabProps) {
+  const aiEditEventName = 'shoot-ai-edit-open';
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { trackUpload, uploads } = useUpload();
@@ -301,6 +302,29 @@ export function useShootDetailsMediaTab({
       setViewerFiles(nextViewerFiles);
     }
   }, [editedFiles, rawFiles, setViewerFiles, viewerFiles, viewerOpen]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const handleOpenAiEdit = (event: Event) => {
+      const customEvent = event as CustomEvent<{ shootId?: string | number }>;
+      const targetShootId = customEvent.detail?.shootId;
+
+      if (targetShootId === undefined || String(targetShootId) !== String(shoot.id)) {
+        return;
+      }
+
+      setShowAiEditDialog(true);
+    };
+
+    window.addEventListener(aiEditEventName, handleOpenAiEdit as EventListener);
+
+    return () => {
+      window.removeEventListener(aiEditEventName, handleOpenAiEdit as EventListener);
+    };
+  }, [shoot.id]);
 
   useEffect(() => {
     if (!isClient) {
@@ -742,10 +766,6 @@ export function useShootDetailsMediaTab({
     () => uploads.filter((upload) => upload.shootId === String(shoot.id) && upload.status === 'uploading'),
     [shoot.id, uploads],
   );
-  const canShowAiEditComingSoon =
-    ['admin', 'superadmin', 'editing_manager'].includes((role || '').toLowerCase()) &&
-    displayTab === 'uploaded' &&
-    rawFiles.some((file) => !isVideoFile(file));
   const isScheduledShoot = normalizedShootStatus === 'scheduled' || normalizedShootStatus === 'booked';
   const hasAnyMedia = rawFiles.length > 0 || editedFiles.length > 0;
 
@@ -1052,8 +1072,6 @@ export function useShootDetailsMediaTab({
         canDelete={canDeleteInDisplayTab}
         canDownload={canDownload}
         isAdmin={isAdmin}
-        canShowAiEditComingSoon={canShowAiEditComingSoon}
-        onOpenAiEditComingSoon={() => setShowAiEditDialog(true)}
         handleReclassify={handleReclassify}
         markMenuOptions={markMenuOptions}
         directUploading={directUploading}

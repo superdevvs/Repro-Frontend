@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState } from 'react';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -9,7 +8,7 @@ import { EditedUploadSection, RawUploadSection } from './MediaUploadSections';
 import { UploadProgressCard } from './MediaUploadPanels';
 import { MediaGrid } from './MediaGrid';
 import { getPreferredMlsTourLink } from '@/utils/shootTourData';
-import { AlertCircle, ArrowUpDown, Check, ChevronDown, ChevronRight, ChevronUp, CloudUpload, Download, ExternalLink, FileIcon, GripVertical, LayoutGrid, List, Loader2, Sparkles, Trash2, Upload, X } from 'lucide-react';
+import { AlertCircle, ArrowUpDown, Check, ChevronDown, ChevronRight, ChevronUp, CloudUpload, Download, ExternalLink, FileIcon, GripVertical, LayoutGrid, List, Loader2, Trash2, Upload, X } from 'lucide-react';
 
 export function ShootDetailsMediaTabView(props: any) {
   const {
@@ -45,8 +44,6 @@ export function ShootDetailsMediaTabView(props: any) {
     canDelete,
     canDownload,
     isAdmin,
-    canShowAiEditComingSoon,
-    onOpenAiEditComingSoon,
     handleReclassify,
     markMenuOptions,
     directUploading,
@@ -779,17 +776,6 @@ export function ShootDetailsMediaTabView(props: any) {
                         </button>
                       )}
                     </div>
-                    {canShowAiEditComingSoon && (
-                      <Button
-                        type="button"
-                        size="sm"
-                        className="h-8 shrink-0 bg-violet-600 hover:bg-violet-700 text-white"
-                        onClick={onOpenAiEditComingSoon}
-                      >
-                        <Sparkles className="h-3.5 w-3.5 mr-1.5" />
-                        <span>Ai Edit</span>
-                      </Button>
-                    )}
                   </div>
                 </div>
                 

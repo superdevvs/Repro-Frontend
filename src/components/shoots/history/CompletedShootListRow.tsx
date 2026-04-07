@@ -217,14 +217,17 @@ export const CompletedShootListRow = ({
         {/* Thumbnail - Small square on mobile, rectangular landscape on desktop */}
         <div
           className={cn(
-            'w-24 self-stretch overflow-hidden rounded-lg flex-shrink-0 shadow-sm sm:w-36 min-[1180px]:w-40',
+            'relative w-24 aspect-[4/3] overflow-hidden rounded-lg flex-shrink-0 self-start shadow-sm sm:w-36 min-[1180px]:w-40',
             showPlaceholder ? 'bg-transparent' : 'bg-muted'
           )}
         >
           <img 
             src={displayImage} 
             alt={shoot.location.address} 
-            className={cn('w-full h-full min-h-full', showPlaceholder ? 'object-contain' : 'object-cover')}
+            className={cn(
+              'absolute inset-0 h-full w-full',
+              showPlaceholder ? 'object-contain' : 'object-cover'
+            )}
             loading="lazy"
             onError={() => setImgErrored(true)}
           />

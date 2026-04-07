@@ -123,6 +123,7 @@ const normalizeApiUser = (apiUser: any, base?: UserData | null): UserData => {
     city: apiUser?.city ?? base?.city,
     state: apiUser?.state ?? base?.state,
     zipcode: apiUser?.zipcode ?? apiUser?.zip ?? base?.zipcode,
+    timezone: apiUser?.timezone ?? base?.timezone,
     company: apiUser?.company ?? apiUser?.company_name ?? base?.company,
     companyNotes: apiUser?.companyNotes ?? apiUser?.company_notes ?? base?.companyNotes,
     shootCcEmails: apiUser?.shootCcEmails ?? apiUser?.shoot_cc_emails ?? base?.shootCcEmails ?? base?.shoot_cc_emails ?? [],

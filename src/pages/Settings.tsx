@@ -28,6 +28,7 @@ import { API_BASE_URL } from '@/config/env';
 import WatermarkEditor from '@/components/settings/WatermarkEditor';
 import { RobbieSettings } from '@/components/settings/RobbieSettings';
 import SystemOverviewTab from '@/components/settings/SystemOverviewTab';
+import { useSelfProfileSave } from '@/hooks/useSelfProfileSave';
 
 const BASE_TABS = ['profile', 'account', 'branding', 'notifications'] as const;
 const SYSTEM_OVERVIEW_UNLOCK_CLICKS = 5;
@@ -51,9 +52,10 @@ const formatRoleLabel = (value?: string | null) => {
 };
 
 const Settings = () => {
-  const { user, role, setUser } = useAuth();
+  const { user, role } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { saveProfile } = useSelfProfileSave();
   const permission = usePermission();
   const integrationsPermission = permission.forResource('integrations');
   const canViewIntegrations = integrationsPermission.canView();
@@ -88,6 +90,15 @@ const Settings = () => {
   const [showMap, setShowMap] = React.useState(false);
   const [bio, setBio] = React.useState(user?.bio || '');
   const [name, setName] = useState(user?.name || '');
+  const [accountForm, setAccountForm] = React.useState({
+    email: user?.email || '',
+    phone: user?.phone || '',
+    company: user?.company || '',
+    timezone: user?.timezone || 'America/New_York',
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
   const [isSaving, setIsSaving] = useState(false);
   const [avatarDrawerOpen, setAvatarDrawerOpen] = useState(false);
   const showSystemOverviewTab = systemOverviewUnlocked;
@@ -149,6 +160,21 @@ const Settings = () => {
       }).catch((err) => console.error('Failed to load branding:', err));
     }
   }, [clientIdFromUrl, storageKey, user?.id]);
+
+  React.useEffect(() => {
+    setName(user?.name || '');
+    setBio(user?.bio || '');
+    setAvatar(user?.avatar || '');
+    setAccountForm({
+      email: user?.email || '',
+      phone: user?.phone || '',
+      company: user?.company || '',
+      timezone: user?.timezone || 'America/New_York',
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: '',
+    });
+  }, [user?.avatar, user?.bio, user?.company, user?.email, user?.name, user?.phone, user?.timezone]);
 
   const [activeTab, setActiveTab] = React.useState<TabValue>(() => getValidTab(searchParams.get('tab')));
 
@@ -231,11 +257,6 @@ const Settings = () => {
     setIsSaving(true);
 
     try {
-      const token = localStorage.getItem('authToken');
-      if (!token) {
-        throw new Error('Authentication required');
-      }
-
       const payload: Record<string, string> = {};
       if (name && name !== user?.name) payload.name = name;
       if (bio !== (user?.bio || '')) payload.bio = bio;
@@ -246,28 +267,9 @@ const Settings = () => {
 
       // Only call API if there are changes
       if (Object.keys(payload).length > 0) {
-        const { data } = await axios.put(
-          `${API_BASE_URL}/api/profile`,
-          payload,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-          }
-        );
-
-        // Update the user in AuthProvider context
-        if (data.user) {
-          // Normalize the user data to ensure avatar is at top level
-          const updatedUser = {
-            ...data.user,
-            avatar: data.user.avatar,
-            bio: data.user.bio,
-            company: data.user.company_name,
-            phone: data.user.phonenumber,
-          };
-          setUser(updatedUser);
+        const result = await saveProfile(payload);
+        if (result.reauthRequired) {
+          return;
         }
       }
 
@@ -285,15 +287,6 @@ const Settings = () => {
     } finally {
       setIsSaving(false);
     }
-  };
-
-  const handleSaveAccount = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    toast({
-      title: "Account Updated",
-      description: "Your account settings have been saved.",
-    });
   };
 
   const handleSaveBranding = async (e: React.FormEvent) => {
@@ -355,31 +348,8 @@ const Settings = () => {
     // Save to backend immediately for better UX
     // Empty string means user is removing their avatar - send null to clear it
     try {
-      const token = localStorage.getItem('authToken');
-      if (!token) return;
-
-      const { data } = await axios.put(
-        `${API_BASE_URL}/api/profile`,
-        { avatar: url || null },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      // Update the user in AuthProvider context
-      if (data.user) {
-        // Normalize the user data to ensure avatar is at top level
-        const updatedUser = {
-          ...data.user,
-          avatar: data.user.avatar,
-          bio: data.user.bio,
-          company: data.user.company_name,
-          phone: data.user.phonenumber,
-        };
-        setUser(updatedUser);
+      const result = await saveProfile({ avatar: url || null });
+      if (!result.reauthRequired) {
         toast({
           title: url ? "Avatar saved" : "Avatar removed",
           description: url ? "Your profile photo has been saved to your account." : "Your profile photo has been removed.",
@@ -397,6 +367,58 @@ const Settings = () => {
 
   const handleLogoChange = (url: string) => {
     setBrandLogo(url);
+  };
+
+  const handleAccountInputChange = (
+    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
+  ) => {
+    const { name, value } = event.target;
+    setAccountForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSaveAccountSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSaving(true);
+
+    try {
+      const result = await saveProfile({
+        email: accountForm.email,
+        current_password:
+          accountForm.email !== user?.email || accountForm.newPassword
+            ? accountForm.currentPassword
+            : undefined,
+        phone_number: accountForm.phone,
+        company_name: accountForm.company,
+        timezone: accountForm.timezone,
+        new_password: accountForm.newPassword || undefined,
+        new_password_confirmation: accountForm.confirmPassword || undefined,
+      });
+
+      if (result.reauthRequired) {
+        return;
+      }
+
+      setAccountForm((prev) => ({
+        ...prev,
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+      }));
+
+      toast({
+        title: "Account Updated",
+        description: result.message || "Your account settings have been saved.",
+      });
+    } catch (error) {
+      console.error('Error saving account settings:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to save account settings.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleBannerChange = (url: string) => {
@@ -574,17 +596,36 @@ const Settings = () => {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <form onSubmit={handleSaveAccount} className="space-y-6">
+                  <form onSubmit={handleSaveAccountSettings} className="space-y-6">
                     <div className="space-y-4">
+                      <div className="space-y-2">
+                        <label htmlFor="email" className="text-sm font-medium">
+                          Email Address
+                        </label>
+                        <Input
+                          id="email"
+                          name="email"
+                          type="email"
+                          placeholder="you@example.com"
+                          value={accountForm.email}
+                          onChange={handleAccountInputChange}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Changing your email requires your current password.
+                        </p>
+                      </div>
+
                       <div className="space-y-2">
                         <label htmlFor="phone" className="text-sm font-medium">
                           Phone Number
                         </label>
                         <Input 
                           id="phone" 
+                          name="phone"
                           type="tel" 
                           placeholder="+1 (555) 123-4567"
-                          defaultValue={user?.phone || ''}
+                          value={accountForm.phone}
+                          onChange={handleAccountInputChange}
                         />
                       </div>
 
@@ -594,9 +635,11 @@ const Settings = () => {
                         </label>
                         <Input 
                           id="company" 
+                          name="company"
                           type="text" 
                           placeholder="Your company name"
-                          defaultValue={user?.company || ''}
+                          value={accountForm.company}
+                          onChange={handleAccountInputChange}
                         />
                       </div>
 
@@ -606,8 +649,10 @@ const Settings = () => {
                         </label>
                         <select
                           id="timezone"
+                          name="timezone"
                           className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                          defaultValue="America/New_York"
+                          value={accountForm.timezone}
+                          onChange={handleAccountInputChange}
                         >
                           <option value="America/New_York">Eastern Time (ET)</option>
                           <option value="America/Chicago">Central Time (CT)</option>
@@ -622,7 +667,13 @@ const Settings = () => {
                         <label htmlFor="current-password" className="text-sm font-medium">
                           Current Password
                         </label>
-                        <Input id="current-password" type="password" />
+                        <Input
+                          id="current-password"
+                          name="currentPassword"
+                          type="password"
+                          value={accountForm.currentPassword}
+                          onChange={handleAccountInputChange}
+                        />
                       </div>
 
                       <div className="grid gap-4 sm:grid-cols-2">
@@ -630,20 +681,32 @@ const Settings = () => {
                           <label htmlFor="new-password" className="text-sm font-medium">
                             New Password
                           </label>
-                          <Input id="new-password" type="password" />
+                          <Input
+                            id="new-password"
+                            name="newPassword"
+                            type="password"
+                            value={accountForm.newPassword}
+                            onChange={handleAccountInputChange}
+                          />
                         </div>
                         <div className="space-y-2">
                           <label htmlFor="confirm-password" className="text-sm font-medium">
                             Confirm Password
                           </label>
-                          <Input id="confirm-password" type="password" />
+                          <Input
+                            id="confirm-password"
+                            name="confirmPassword"
+                            type="password"
+                            value={accountForm.confirmPassword}
+                            onChange={handleAccountInputChange}
+                          />
                         </div>
                       </div>
                     </div>
 
                     <div className="flex justify-end">
-                      <Button type="submit">
-                        Update Account
+                      <Button type="submit" disabled={isSaving}>
+                        {isSaving ? 'Saving...' : 'Update Account'}
                       </Button>
                     </div>
                   </form>

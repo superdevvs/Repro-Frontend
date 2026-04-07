@@ -400,15 +400,23 @@ export function Navbar() {
         <div className="flex items-center gap-4">
         {/* Weather Info */}
         {weather && (
-          <div className="hidden md:flex items-center gap-2 text-sm text-muted-foreground">
-            {weatherLocationLabel && <span>{weatherLocationLabel} · </span>}
-            <CloudIcon className="h-4 w-4" />
-            <span>
-              {typeof weather.temperatureC === 'number'
-                ? formatTemperature(weather.temperatureC, weather.temperatureF)
-                : weather.temperature || '--°'}
-              {weather.description ? ` · ${weather.description}` : ''}
-            </span>
+          <div className="hidden md:flex items-center gap-2 text-sm text-muted-foreground leading-none">
+            {weatherLocationLabel && <span className="shrink-0">{weatherLocationLabel}</span>}
+            {weatherLocationLabel && <span className="shrink-0 text-muted-foreground/60">·</span>}
+            <CloudIcon className="h-4 w-4 shrink-0" />
+            <div className="flex items-center gap-1.5 min-w-0 leading-none">
+              <span className="shrink-0">
+                {typeof weather.temperatureC === 'number'
+                  ? formatTemperature(weather.temperatureC, weather.temperatureF)
+                  : weather.temperature || '--°'}
+              </span>
+              {weather.description && (
+                <>
+                  <span className="shrink-0 text-muted-foreground/60">·</span>
+                  <span className="truncate">{weather.description}</span>
+                </>
+              )}
+            </div>
           </div>
         )}
         

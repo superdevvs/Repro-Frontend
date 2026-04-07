@@ -29,6 +29,7 @@ type VisibleTabId =
   | 'media';
 
 interface ShootDetailsModalActionRailProps {
+  canOpenAiEdit: boolean;
   shootAddress: string;
   statusBadge: React.ReactNode;
   isEditMode: boolean;
@@ -66,6 +67,7 @@ interface ShootDetailsModalActionRailProps {
   setIsEditMode: (open: boolean) => void;
   setIsDownloadDialogOpen: (open: boolean) => void;
   setPrintComingSoonOpen: (open: boolean) => void;
+  handleOpenAiEdit: () => void;
   handleMarkOnHoldClick: () => void;
   handleResumeFromHold: () => void;
   handleCancelShootClick: () => void;
@@ -79,6 +81,7 @@ interface ShootDetailsModalActionRailProps {
 }
 
 export function ShootDetailsModalActionRail({
+  canOpenAiEdit,
   shootAddress,
   statusBadge,
   isEditMode,
@@ -116,6 +119,7 @@ export function ShootDetailsModalActionRail({
   setIsEditMode,
   setIsDownloadDialogOpen,
   setPrintComingSoonOpen,
+  handleOpenAiEdit,
   handleMarkOnHoldClick,
   handleResumeFromHold,
   handleCancelShootClick,
@@ -200,6 +204,17 @@ export function ShootDetailsModalActionRail({
                     <span>Modify</span>
                   </Button>
                 </>
+              )}
+              {canOpenAiEdit && !isRequestedStatus && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="h-7 text-xs px-3 bg-violet-600 hover:bg-violet-700 text-white"
+                  onClick={handleOpenAiEdit}
+                >
+                  <Link2 className="h-3 w-3 mr-1" />
+                  <span>AI Edit</span>
+                </Button>
               )}
               {(canAdminEdit || (isAdminOrRep && isScheduledOrOnHold)) && !isRequestedStatus && (
                 <Button

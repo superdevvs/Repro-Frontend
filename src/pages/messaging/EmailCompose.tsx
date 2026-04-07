@@ -10,7 +10,6 @@ import {
   EyeOff,
   Hash,
   Info,
-  Mail,
   Paperclip,
   Send,
   Sparkles,
@@ -292,7 +291,6 @@ export default function EmailCompose() {
   const location = useLocation();
   const { role, user } = useAuth();
   const canSendExternal = canSendExternalEmail(role);
-  const isClient = role === 'client';
   const composeState = (location.state as EmailComposeLocationState | null) ?? {};
   const composeMode: EmailComposeMode =
     composeState.mode === 'reply' || composeState.mode === 'forward' || composeState.mode === 'compose'
@@ -339,11 +337,11 @@ export default function EmailCompose() {
     }
 
     return {
-      title: canSendExternal ? 'Compose Email' : isClient ? 'Contact' : 'Contact Team',
-      subtitle: canSendExternal ? 'Transactional outbound workspace' : 'Choose the shoot, add the details, and route it to the right internal team.',
-      sendLabel: canSendExternal ? 'Send Email' : isClient ? 'Send Contact' : 'Send Contact',
+      title: canSendExternal ? 'Compose Email' : 'New Message',
+      subtitle: canSendExternal ? 'Transactional outbound workspace' : 'Choose the shoot, add the details, and send it to the right internal team.',
+      sendLabel: canSendExternal ? 'Send Email' : 'Send Message',
     };
-  }, [canSendExternal, composeMode, isClient]);
+  }, [canSendExternal, composeMode]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedDirectorySearch(directorySearch.trim()), 250);
@@ -680,7 +678,7 @@ export default function EmailCompose() {
     mutationFn: composeEmail,
     onSuccess: () => {
       window.localStorage.removeItem(draftKey);
-      toast.success(canSendExternal ? 'Email sent successfully.' : 'Contact message sent successfully.');
+      toast.success(canSendExternal ? 'Email sent successfully.' : 'Message sent successfully.');
       navigate('/messaging/email/inbox');
     },
     onError: (error) => {
@@ -839,7 +837,7 @@ export default function EmailCompose() {
     }
 
     if (!canSendExternal && !form.related_shoot_id) {
-      toast.error('Select the shoot this contact message is about.');
+      toast.error('Select the shoot this message is about.');
       return false;
     }
 
@@ -1094,10 +1092,6 @@ export default function EmailCompose() {
           <div className="mx-auto flex w-full max-w-[1680px] flex-col gap-6 px-4 py-5 sm:px-6 lg:px-8">
             <div className="flex flex-col gap-4 rounded-[28px] border border-border/60 bg-gradient-to-br from-background via-background to-muted/20 p-5 shadow-[0_24px_60px_-40px_rgba(15,23,42,0.8)] lg:flex-row lg:items-start lg:justify-between lg:p-6">
               <div className="space-y-3">
-                <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-                  <Mail className="h-3.5 w-3.5" />
-                  {canSendExternal ? 'Outbound workspace' : 'Internal delivery'}
-                </div>
                 <div className="space-y-1">
                   <h1 className="text-2xl font-semibold tracking-tight">{currentMode.title}</h1>
                   <p className="max-w-2xl text-sm text-muted-foreground">{currentMode.subtitle}</p>
@@ -1168,7 +1162,7 @@ export default function EmailCompose() {
                     <div className="flex items-start gap-3">
                       <Info className="mt-0.5 h-4 w-4 text-primary" />
                       <div className="space-y-1">
-                        <p className="text-sm font-medium">Your contact message will reach the internal team with the right shoot attached.</p>
+                        <p className="text-sm font-medium">Your message will reach the internal team with the right shoot attached.</p>
                         <p className="text-sm text-muted-foreground">
                           Choose whether this is about a new or previous shoot, then pick the shoot so admins, editing managers, and the right sales rep can see it.
                         </p>
@@ -1671,8 +1665,8 @@ export default function EmailCompose() {
                     ) : (
                       <p>
                         {form.related_shoot_id
-                          ? `This contact note will be tied to shoot #${form.related_shoot_id} and routed for follow-up.`
-                          : 'Pick a shoot and this contact note will be routed for follow-up.'}
+                          ? `This message will be tied to shoot #${form.related_shoot_id} and routed for follow-up.`
+                          : 'Pick a shoot and this message will be routed for follow-up.'}
                       </p>
                     )}
                   </div>

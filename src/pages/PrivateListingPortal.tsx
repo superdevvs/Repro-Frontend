@@ -68,20 +68,6 @@ interface PrivateListing {
   mls_number?: string;
 }
 
-type ListingTone = {
-  surface: string;
-  edge: string;
-  border: string;
-  shadow: string;
-};
-
-const DEFAULT_LISTING_TONE: ListingTone = {
-  surface: 'rgba(24, 40, 29, 0.92)',
-  edge: 'rgba(14, 24, 18, 0.98)',
-  border: 'rgba(255, 255, 255, 0.18)',
-  shadow: 'rgba(8, 12, 9, 0.42)',
-};
-
 const resolvePreviewUrl = (value: string | null | undefined): string | null => {
   if (!value) return null;
   const trimmed = String(value).trim();
@@ -108,85 +94,6 @@ const getBrandedTourUrl = (shootId: string): string => {
   return `${base}/tour/branded?shootId=${encodeURIComponent(shootId)}`;
 };
 
-const clampColorChannel = (value: number) => Math.max(0, Math.min(255, Math.round(value)));
-
-const buildListingTone = (red: number, green: number, blue: number): ListingTone => {
-  const darken = (factor: number) => ({
-    red: clampColorChannel(red * factor),
-    green: clampColorChannel(green * factor),
-    blue: clampColorChannel(blue * factor),
-  });
-
-  const surface = darken(0.48);
-  const edge = darken(0.28);
-  const border = darken(0.9);
-  const shadow = darken(0.42);
-
-  return {
-    surface: `rgba(${surface.red}, ${surface.green}, ${surface.blue}, 0.94)`,
-    edge: `rgba(${edge.red}, ${edge.green}, ${edge.blue}, 0.98)`,
-    border: `rgba(${border.red}, ${border.green}, ${border.blue}, 0.34)`,
-    shadow: `rgba(${shadow.red}, ${shadow.green}, ${shadow.blue}, 0.42)`,
-  };
-};
-
-const sampleListingTone = async (src: string): Promise<ListingTone> => {
-  if (typeof window === 'undefined') return DEFAULT_LISTING_TONE;
-
-  return new Promise((resolve) => {
-    const image = new Image();
-    image.crossOrigin = 'anonymous';
-    image.decoding = 'async';
-
-    image.onload = () => {
-      try {
-        const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d', { willReadFrequently: true });
-
-        if (!context) {
-          resolve(DEFAULT_LISTING_TONE);
-          return;
-        }
-
-        const width = 28;
-        const height = 28;
-        canvas.width = width;
-        canvas.height = height;
-        context.drawImage(image, 0, 0, width, height);
-
-        const startY = Math.floor(height * 0.64);
-        const data = context.getImageData(0, startY, width, height - startY).data;
-
-        let red = 0;
-        let green = 0;
-        let blue = 0;
-        let pixels = 0;
-
-        for (let index = 0; index < data.length; index += 4) {
-          const alpha = data[index + 3];
-          if (alpha < 40) continue;
-          red += data[index];
-          green += data[index + 1];
-          blue += data[index + 2];
-          pixels += 1;
-        }
-
-        if (!pixels) {
-          resolve(DEFAULT_LISTING_TONE);
-          return;
-        }
-
-        resolve(buildListingTone(red / pixels, green / pixels, blue / pixels));
-      } catch {
-        resolve(DEFAULT_LISTING_TONE);
-      }
-    };
-
-    image.onerror = () => resolve(DEFAULT_LISTING_TONE);
-    image.src = src;
-  });
-};
-
 const ExclusiveListingGridCard = ({
   listing,
   onOpen,
@@ -195,23 +102,6 @@ const ExclusiveListingGridCard = ({
   onOpen: (listing: PrivateListing) => void;
 }) => {
   const heroUrl = resolvePreviewUrl(listing.heroImage) || '/placeholder.svg';
-  const [tone, setTone] = useState<ListingTone>(DEFAULT_LISTING_TONE);
-
-  useEffect(() => {
-    let isActive = true;
-
-    setTone(DEFAULT_LISTING_TONE);
-    sampleListingTone(heroUrl).then((nextTone) => {
-      if (isActive) {
-        setTone(nextTone);
-      }
-    });
-
-    return () => {
-      isActive = false;
-    };
-  }, [heroUrl]);
-
   const metrics = [
     listing.sqft
       ? {
@@ -248,10 +138,10 @@ const ExclusiveListingGridCard = ({
       className="group cursor-pointer overflow-hidden rounded-[30px] border-0 bg-transparent text-white transition-all duration-300 hover:-translate-y-1"
       onClick={() => onOpen(listing)}
       style={{
-        boxShadow: `0 28px 60px -34px ${tone.shadow}`,
+        boxShadow: '0 26px 56px -36px rgba(8, 12, 10, 0.38)',
       }}
     >
-      <div className="relative aspect-[4/5] min-h-[360px] overflow-hidden rounded-[30px] bg-[#101611]">
+      <div className="relative aspect-[10/11] min-h-[320px] overflow-hidden rounded-[30px] bg-[#101611]">
         <img
           src={heroUrl}
           alt={listing.address}
@@ -260,11 +150,16 @@ const ExclusiveListingGridCard = ({
         />
         <div className="absolute inset-0 bg-gradient-to-b from-white/10 via-transparent to-transparent" />
         <div
-          className="absolute inset-x-0 bottom-0 h-[58%]"
-          style={{
-            background: `linear-gradient(180deg, rgba(8, 12, 10, 0) 0%, rgba(8, 12, 10, 0.16) 16%, ${tone.surface} 50%, ${tone.edge} 100%)`,
-          }}
-        />
+          className="absolute inset-x-0 bottom-0 h-[46%] overflow-hidden"
+        >
+          <img
+            src={heroUrl}
+            alt=""
+            aria-hidden="true"
+            className="absolute inset-0 h-full w-full scale-[1.28] object-cover object-bottom blur-2xl saturate-150 brightness-[0.56]"
+          />
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,12,10,0.04)_0%,rgba(8,12,10,0.18)_18%,rgba(10,14,12,0.62)_54%,rgba(8,12,10,0.9)_100%)]" />
+        </div>
         <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,7,6,0.08)_0%,rgba(5,7,6,0)_26%,rgba(5,7,6,0.1)_100%)]" />
 
         <div className="relative flex h-full flex-col p-4 sm:p-5">
@@ -309,7 +204,7 @@ const ExclusiveListingGridCard = ({
               <div
                 className="grid gap-3 border-t pt-4"
                 style={{
-                  borderColor: tone.border,
+                  borderColor: 'rgba(255,255,255,0.14)',
                   gridTemplateColumns: `repeat(${metrics.length}, minmax(0, 1fr))`,
                 }}
               >
@@ -317,7 +212,7 @@ const ExclusiveListingGridCard = ({
                   <div
                     key={metric.label}
                     className={`min-w-0 ${index > 0 ? 'border-l pl-3' : ''}`}
-                    style={index > 0 ? { borderColor: tone.border } : undefined}
+                    style={index > 0 ? { borderColor: 'rgba(255,255,255,0.14)' } : undefined}
                   >
                     <p className="truncate text-base font-semibold leading-none tracking-[-0.03em] text-white">
                       {metric.value}
@@ -332,7 +227,7 @@ const ExclusiveListingGridCard = ({
 
             <div
               className="flex items-center justify-between gap-3 border-t pt-3 text-sm text-white/72"
-              style={{ borderColor: tone.border }}
+              style={{ borderColor: 'rgba(255,255,255,0.14)' }}
             >
               <p className="min-w-0 truncate">
                 By <span className="font-medium text-white">{listing.client.name}</span>

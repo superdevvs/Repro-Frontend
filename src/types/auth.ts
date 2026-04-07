@@ -66,6 +66,7 @@ export interface UserData {
   city?: string;
   state?: string;
   zipcode?: string;
+  timezone?: string;
   company?: string;
   companyNotes?: string;
   bio?: string;

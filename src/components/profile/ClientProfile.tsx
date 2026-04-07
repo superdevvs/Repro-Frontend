@@ -10,18 +10,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ImageUpload } from "@/components/profile/ImageUpload";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle, AlertCircle, Loader2, Facebook, Twitter, Linkedin } from "lucide-react";
 import { useUserPreferences } from "@/contexts/UserPreferencesContext";
-import { API_BASE_URL } from "@/config/env";
+import { useSelfProfileSave } from "@/hooks/useSelfProfileSave";
 
 export function ClientProfile() {
-  const { user, setUser } = useAuth();
+  const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const navigate = useNavigate();
-  const { preferences, setTemperatureUnit, setTimeFormat } = useUserPreferences();
+  const { preferences: displayPreferences, setTemperatureUnit, setTimeFormat } = useUserPreferences();
+  const { saveProfile } = useSelfProfileSave();
+  const savedPreferences = ((user?.metadata as Record<string, any> | undefined)?.preferences ?? {}) as Record<string, any>;
   
   const [formData, setFormData] = useState({
     name: user?.name || "",
@@ -34,13 +34,14 @@ export function ClientProfile() {
     twitterUrl: user?.twitterUrl || "",
     linkedinUrl: user?.linkedinUrl || "",
     pinterestUrl: user?.pinterestUrl || "",
-    preferredPhotographer: "any",
-    notificationEmail: true,
-    notificationSMS: true,
-    billingAddress: "",
-    billingCity: "",
-    billingState: "",
-    billingZip: ""
+    preferredPhotographer: String(savedPreferences.preferredPhotographer || "any"),
+    notificationEmail: savedPreferences.notificationEmail ?? true,
+    notificationSMS: savedPreferences.notificationSMS ?? true,
+    billingAddress: user?.address || "",
+    billingCity: user?.city || "",
+    billingState: user?.state || "",
+    billingZip: user?.zipcode || "",
+    currentPassword: "",
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -65,47 +66,32 @@ export function ClientProfile() {
     setIsSubmitting(true);
     
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        toast.error("Not authenticated");
-        return;
-      }
-
-      const response = await fetch(`${API_BASE_URL}/api/profile`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify({
+      const result = await saveProfile({
           name: formData.name,
-          phone_number: formData.phone || undefined,
-          company_name: formData.company || undefined,
-          avatar: formData.avatar || undefined,
-          about: formData.about || undefined,
-          facebook_url: formData.facebookUrl || undefined,
-          twitter_url: formData.twitterUrl || undefined,
-          linkedin_url: formData.linkedinUrl || undefined,
-          pinterest_url: formData.pinterestUrl || undefined,
-          address: formData.billingAddress || undefined,
-          city: formData.billingCity || undefined,
-          state: formData.billingState || undefined,
-          zip: formData.billingZip || undefined,
-        }),
+          email: formData.email,
+          current_password: formData.email !== user?.email ? formData.currentPassword : undefined,
+          phone_number: formData.phone,
+          company_name: formData.company,
+          avatar: formData.avatar || null,
+          about: formData.about,
+          facebook_url: formData.facebookUrl,
+          twitter_url: formData.twitterUrl,
+          linkedin_url: formData.linkedinUrl,
+          pinterest_url: formData.pinterestUrl,
+          address: formData.billingAddress,
+          city: formData.billingCity,
+          state: formData.billingState,
+          zip: formData.billingZip,
+          preferences: {
+            preferredPhotographer: formData.preferredPhotographer,
+            notificationEmail: formData.notificationEmail,
+            notificationSMS: formData.notificationSMS,
+          },
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to update profile');
+      if (!result.reauthRequired) {
+        setFormData((prev) => ({ ...prev, currentPassword: "" }));
+        toast.success(result.message);
       }
-
-      if (data.user && user) {
-        setUser({ ...user, ...data.user });
-      }
-
-      toast.success("Profile updated successfully");
     } catch (error) {
       console.error('Error updating profile:', error);
       toast.error(error instanceof Error ? error.message : "Failed to update profile");
@@ -173,11 +159,8 @@ export function ClientProfile() {
                       value={formData.email}
                       onChange={handleChange}
                       placeholder="you@example.com"
-                      readOnly
-                      disabled
-                      className="opacity-70"
                     />
-                    <p className="text-xs text-muted-foreground">Contact admin to change email</p>
+                    <p className="text-xs text-muted-foreground">Changing your email requires your current password.</p>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -199,6 +182,17 @@ export function ClientProfile() {
                       value={formData.company}
                       onChange={handleChange}
                       placeholder="Your company name"
+                    />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="currentPassword">Current Password</Label>
+                    <Input
+                      id="currentPassword"
+                      name="currentPassword"
+                      type="password"
+                      value={formData.currentPassword}
+                      onChange={handleChange}
+                      placeholder="Required only if you change your email"
                     />
                   </div>
                 </div>
@@ -341,12 +335,12 @@ export function ClientProfile() {
                   <div className="space-y-0.5">
                     <Label htmlFor="temperatureUnit">Temperature Unit</Label>
                     <p className="text-sm text-muted-foreground">
-                      {preferences.temperatureUnit === 'celsius' ? 'Celsius (°C)' : 'Fahrenheit (°F)'}
-                    </p>
+                        {displayPreferences.temperatureUnit === 'celsius' ? 'Celsius (°C)' : 'Fahrenheit (°F)'}
+                      </p>
                   </div>
                   <Switch
                     id="temperatureUnit"
-                    checked={preferences.temperatureUnit === 'celsius'}
+                    checked={displayPreferences.temperatureUnit === 'celsius'}
                     onCheckedChange={(checked) => setTemperatureUnit(checked ? 'celsius' : 'fahrenheit')}
                   />
                 </div>
@@ -354,12 +348,12 @@ export function ClientProfile() {
                   <div className="space-y-0.5">
                     <Label htmlFor="timeFormat">24-Hour Time Format</Label>
                     <p className="text-sm text-muted-foreground">
-                      {preferences.timeFormat === '24h' ? '24-hour format (14:30)' : '12-hour format (2:30 PM)'}
-                    </p>
+                        {displayPreferences.timeFormat === '24h' ? '24-hour format (14:30)' : '12-hour format (2:30 PM)'}
+                      </p>
                   </div>
                   <Switch
                     id="timeFormat"
-                    checked={preferences.timeFormat === '24h'}
+                    checked={displayPreferences.timeFormat === '24h'}
                     onCheckedChange={(checked) => setTimeFormat(checked ? '24h' : '12h')}
                   />
                 </div>

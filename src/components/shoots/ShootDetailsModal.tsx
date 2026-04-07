@@ -330,6 +330,23 @@ export function ShootDetailsModal({
     () => getShootClientReleaseAccess(shoot, isClient),
     [isClient, shoot],
   );
+  const canOpenAiEdit = useMemo(
+    () =>
+      ['admin', 'superadmin', 'editing_manager'].includes((currentUserRole || '').toLowerCase()) &&
+      rawFileCount > 0,
+    [currentUserRole, rawFileCount],
+  );
+  const handleOpenAiEdit = useCallback(() => {
+    if (typeof window === 'undefined' || !shoot?.id) {
+      return;
+    }
+
+    window.dispatchEvent(
+      new CustomEvent('shoot-ai-edit-open', {
+        detail: { shootId: String(shoot.id) },
+      }),
+    );
+  }, [shoot?.id]);
 
   const handleTabChange = (value: string) => {
     const selectedTab = visibleTabs.find((tab) => tab.id === value);
@@ -340,15 +357,6 @@ export function ShootDetailsModal({
     setActiveTab(value as typeof activeTab);
     if (value !== 'tours') setShowTourAnalytics(false);
   };
-
-  useEffect(() => {
-    if (activeTab !== 'tours' || !clientReleaseAccess.isClientReleaseLocked) {
-      return;
-    }
-
-    setActiveTab('overview');
-    setShowTourAnalytics(false);
-  }, [activeTab, clientReleaseAccess.isClientReleaseLocked]);
 
   // Refresh shoot data AND notify parent to update its list/cards
   const refreshShootAndParent = useCallback(async (): Promise<ShootData | null> => {
@@ -548,7 +556,7 @@ export function ShootDetailsModal({
   }, [shoot]);
   const addressTitle = shoot
     ? (() => {
-        let address = shoot.location?.address || (shoot as any).address || '';
+        const address = shoot.location?.address || (shoot as any).address || '';
         const city = shoot.location?.city || (shoot as any).city || '';
         const state = shoot.location?.state || (shoot as any).state || '';
         const zip = shoot.location?.zip || (shoot as any).zip || '';
@@ -671,6 +679,7 @@ export function ShootDetailsModal({
         </DialogHeader>
         
         <ShootDetailsModalActionRail
+          canOpenAiEdit={canOpenAiEdit}
           shootAddress={shoot.location?.address || 'Shoot'}
           statusBadge={statusBadge}
           isEditMode={isEditMode}
@@ -708,6 +717,7 @@ export function ShootDetailsModal({
           setIsEditMode={setIsEditMode}
           setIsDownloadDialogOpen={setIsDownloadDialogOpen}
           setPrintComingSoonOpen={setPrintComingSoonOpen}
+          handleOpenAiEdit={handleOpenAiEdit}
           handleMarkOnHoldClick={handleMarkOnHoldClick}
           handleResumeFromHold={handleResumeFromHold}
           handleCancelShootClick={handleCancelShootClick}
