@@ -17,7 +17,7 @@ export function EmailNavigation() {
     {
       to: '/messaging/email/inbox',
       icon: Mail,
-      label: isAdmin ? 'Inbox' : 'Messages',
+      label: isAdmin ? 'Inbox' : isClient ? 'Contact' : 'Inbox',
       isActive: pathname.startsWith('/messaging/email/inbox') && pathname !== '/messaging/email/compose',
     },
     {
@@ -50,7 +50,7 @@ export function EmailNavigation() {
       ? allTabs
       : allTabs.filter((tab) => tab.to === '/messaging/email/inbox');
 
-  const composeLabel = isAdmin ? 'Compose' : 'Compose Message';
+  const composeLabel = isAdmin ? 'Compose' : isClient ? 'New Contact' : 'Compose';
 
   return (
     <div className="border-b border-border bg-background">

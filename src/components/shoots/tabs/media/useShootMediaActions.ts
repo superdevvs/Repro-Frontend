@@ -94,6 +94,17 @@ const resetDownloadPopup = (): DownloadPopupState => ({
   sizeLabel: '',
 });
 
+const buildUploadWarningDescription = (errors: string[], totalCount: number): string => {
+  const failedCount = errors.length;
+  const failedNames = errors
+    .slice(0, 3)
+    .map((error) => error.split(':')[0]?.trim())
+    .filter(Boolean);
+  const remainingCount = failedCount - failedNames.length;
+
+  return `${failedCount} of ${totalCount} file${failedCount === 1 ? '' : 's'} failed to upload.${failedNames.length > 0 ? ` Failed: ${failedNames.join(', ')}` : ''}${remainingCount > 0 ? `, plus ${remainingCount} more.` : ''}`;
+};
+
 export function useShootMediaActions({
   shoot,
   isAdmin,
@@ -191,7 +202,20 @@ export function useShootMediaActions({
         }
 
         if (errors.length === files.length) {
+          toast({
+            title: 'Upload failed',
+            description: buildUploadWarningDescription(errors, files.length),
+            variant: 'destructive',
+          });
           throw new Error('All files failed to upload');
+        }
+
+        if (errors.length > 0) {
+          toast({
+            title: 'Some files did not upload',
+            description: buildUploadWarningDescription(errors, files.length),
+            variant: 'destructive',
+          });
         }
 
         queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'raw'] });

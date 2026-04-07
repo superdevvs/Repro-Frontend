@@ -6,6 +6,7 @@ export type TemplateScope = 'SYSTEM' | 'GLOBAL' | 'ACCOUNT' | 'USER';
 export type TemplateCategory = 'BOOKING' | 'REMINDER' | 'PAYMENT' | 'INVOICE' | 'ACCOUNT' | 'GENERAL';
 export type EmailProviderType = 'CAKEMAIL';
 export type ChannelScope = 'GLOBAL' | 'ACCOUNT' | 'USER';
+export type RelatedShootContextType = 'new_shoot' | 'previous_shoot';
 
 export type MessagingJsonPrimitive = string | number | boolean | null;
 export type MessagingJsonValue = MessagingJsonPrimitive | MessagingJsonObject | MessagingJsonValue[];
@@ -252,6 +253,7 @@ export interface Message {
   sender_display_name?: string;
   template_id?: number;
   related_shoot_id?: number;
+  related_shoot_context_type?: RelatedShootContextType;
   related_account_id?: number;
   related_invoice_id?: number;
   thread_id?: number;
@@ -273,6 +275,7 @@ export interface MessageThread {
   id: number;
   channel: MessageChannel;
   contact_id: number;
+  related_shoot_id?: number | null;
   last_message_at?: string;
   last_direction?: MessageDirection;
   last_snippet?: string;
@@ -419,6 +422,7 @@ export interface ComposeEmailPayload {
   template_id?: number;
   channel_id?: number;
   related_shoot_id?: number;
+  related_shoot_context_type?: RelatedShootContextType;
   related_account_id?: number;
   related_invoice_id?: number;
   variables?: MessagingJsonObject;

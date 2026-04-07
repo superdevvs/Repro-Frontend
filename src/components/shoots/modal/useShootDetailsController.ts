@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { ShootData } from '@/types/shoots';
+import { getShootClientReleaseAccess } from '../details/shootClientReleaseAccess';
 import { getShootDetailsCapabilities } from './shootDetailsCapabilities';
 import { getShootDetailsVisibleTabs } from './shootDetailsTabRegistry';
 
@@ -62,15 +63,29 @@ export function useShootDetailsController({
     [currentUserRole, roleFlags, shoot, userId],
   );
 
+  const releaseAccess = useMemo(
+    () => getShootClientReleaseAccess(shoot, roleFlags.isClient),
+    [roleFlags.isClient, shoot],
+  );
+
   const visibleTabs = useMemo(
     () =>
       getShootDetailsVisibleTabs({
         isAdmin: roleFlags.isAdmin,
+        isRep: roleFlags.isRep,
         isClient: roleFlags.isClient,
         isRequestedStatus,
+        isClientReleaseLocked: releaseAccess.isClientReleaseLocked,
         shoot,
       }),
-    [isRequestedStatus, roleFlags.isAdmin, roleFlags.isClient, shoot],
+    [
+      isRequestedStatus,
+      releaseAccess.isClientReleaseLocked,
+      roleFlags.isAdmin,
+      roleFlags.isClient,
+      roleFlags.isRep,
+      shoot,
+    ],
   );
 
   return {

@@ -18,6 +18,7 @@ import {
   FileDown,
   Sun,
   Download,
+  Ghost,
   Calendar,
   LayoutGrid,
   List,
@@ -59,6 +60,12 @@ import {
   shootDataToSummary,
   DELIVERED_STATUS_KEYWORDS,
 } from "@/utils/dashboardDerivedUtils";
+import {
+  isClientDeliveredShootDownloaded,
+  isClientDeliveredShootViewed,
+  markClientDeliveredShootDownloaded,
+  markClientDeliveredShootViewed,
+} from "@/utils/clientDeliveredShootTracker";
 import type { ClientShootRecord } from "@/utils/dashboardDerivedUtils";
 import type { UserRole } from "@/types/auth";
 import { useDashboardDerivedData } from "@/hooks/useDashboardDerivedData";
@@ -109,6 +116,7 @@ import { useClientBilling } from "@/hooks/useClientBilling";
 import { emptyClientBillingSummary } from "@/services/clientBillingService";
 import type { ClientBillingSummary } from "@/types/clientBilling";
 import { usePermission } from "@/hooks/usePermission";
+import { SHOOT_MEDIA_DOWNLOAD_STARTED_EVENT } from "@/utils/shootMediaDownload";
 
 const LazyAssignPhotographersCard = lazy(() =>
   import("@/components/dashboard/v2/AssignPhotographersCard").then((module) => ({
@@ -1910,6 +1918,7 @@ const Dashboard = () => {
           upcoming={clientUpcomingRecords}
           completed={clientCompletedRecords}
           onHold={clientOnHoldRecords}
+          currentUserId={user?.id ?? null}
           onSelect={(record) => setSelectedShoot(record.summary)}
           onReschedule={handleReschedule}
           onCancel={handleCancelShoot}
@@ -3066,6 +3075,7 @@ interface ClientMyShootsProps {
   upcoming: ClientShootRecord[];
   completed: ClientShootRecord[];
   onHold: ClientShootRecord[];
+  currentUserId?: string | number | null;
   onSelect: (record: ClientShootRecord) => void;
   onReschedule: (record: ClientShootRecord) => void;
   onCancel: (record: ClientShootRecord) => void;
@@ -3082,6 +3092,7 @@ const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
   upcoming,
   completed,
   onHold,
+  currentUserId,
   onSelect,
   onReschedule,
   onCancel,
@@ -3105,8 +3116,98 @@ const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
   });
   const toggleDeliveredView = (mode: 'grid' | 'list') => {
     setDeliveredViewMode(mode);
-    try { localStorage.setItem('client-delivered-view', mode); } catch {}
+    try { localStorage.setItem('client-delivered-view', mode); } catch {
+      // Ignore storage write failures and keep the selected view in memory.
+    }
   };
+  const [, setDeliveredTrackerVersion] = useState(0);
+  const normalizedCurrentUserId = currentUserId != null ? String(currentUserId) : null;
+
+  useEffect(() => {
+    if (!normalizedCurrentUserId || typeof window === "undefined") {
+      return;
+    }
+
+    const handleDownloadStarted = (event: Event) => {
+      const customEvent = event as CustomEvent<{
+        shootId?: string;
+        type?: "raw" | "edited";
+      }>;
+      const shootId = customEvent.detail?.shootId;
+      const downloadType = customEvent.detail?.type;
+
+      if (!shootId || downloadType !== "edited") {
+        return;
+      }
+
+      if (!completed.some((record) => String(record.data.id) === String(shootId))) {
+        return;
+      }
+
+      if (markClientDeliveredShootDownloaded(normalizedCurrentUserId, shootId)) {
+        setDeliveredTrackerVersion((version) => version + 1);
+      }
+    };
+
+    window.addEventListener(
+      SHOOT_MEDIA_DOWNLOAD_STARTED_EVENT,
+      handleDownloadStarted as EventListener,
+    );
+
+    return () => {
+      window.removeEventListener(
+        SHOOT_MEDIA_DOWNLOAD_STARTED_EVENT,
+        handleDownloadStarted as EventListener,
+      );
+    };
+  }, [completed, normalizedCurrentUserId]);
+
+  const markDeliveredShootViewed = useCallback((record: ClientShootRecord) => {
+    if (!normalizedCurrentUserId) {
+      return;
+    }
+
+    if (markClientDeliveredShootViewed(normalizedCurrentUserId, record.data.id)) {
+      setDeliveredTrackerVersion((version) => version + 1);
+    }
+  }, [normalizedCurrentUserId]);
+
+  const deliveredBadgeState = !normalizedCurrentUserId
+    ? {
+        remainingCount: completed.length,
+        unseenCount: completed.length,
+      }
+    : completed.reduce(
+        (accumulator, record) => {
+          const shootId = record.data.id;
+          const isDownloaded = isClientDeliveredShootDownloaded(normalizedCurrentUserId, shootId);
+          const isViewed = isClientDeliveredShootViewed(normalizedCurrentUserId, shootId);
+
+          if (!isDownloaded) {
+            accumulator.remainingCount += 1;
+          }
+
+          if (!isDownloaded && !isViewed) {
+            accumulator.unseenCount += 1;
+          }
+
+          return accumulator;
+        },
+        { remainingCount: 0, unseenCount: 0 },
+      );
+
+  const handleSelectRecord = useCallback((record: ClientShootRecord) => {
+    if (activeTab === "completed") {
+      markDeliveredShootViewed(record);
+    }
+    onSelect(record);
+  }, [activeTab, markDeliveredShootViewed, onSelect]);
+
+  const handleDownloadRecord = useCallback((record: ClientShootRecord) => {
+    markDeliveredShootViewed(record);
+    onDownload(record);
+  }, [markDeliveredShootViewed, onDownload]);
+
   const list =
     activeTab === "upcoming" ? upcoming : activeTab === "completed" ? completed : onHold;
 
@@ -3129,9 +3230,16 @@ const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
                 >
                   <span className="flex items-center gap-1.5">
                     {tab.label}
-                    {tab.key === "completed" && tab.count > 0 ? (
-                      <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[10px] font-bold text-white bg-blue-500 rounded-full animate-bounce">
-                        {tab.count}
+                    {tab.key === "completed" && completed.length > 0 ? (
+                      <span
+                        className={cn(
+                          "inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[10px] font-bold rounded-full transition-colors",
+                          deliveredBadgeState.unseenCount > 0
+                            ? "text-white bg-blue-500 animate-bounce"
+                            : "text-slate-700 bg-slate-300",
+                        )}
+                      >
+                        {deliveredBadgeState.remainingCount}
                       </span>
                     ) : (
                       <span>({tab.count})</span>
@@ -3225,7 +3333,7 @@ const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
                       <div
                         key={record.data.id}
                         className="group relative rounded-xl overflow-hidden cursor-pointer border border-border hover:border-primary/40 transition-all hover:shadow-lg"
-                        onClick={() => onSelect(record)}
+                        onClick={() => handleSelectRecord(record)}
                       >
                         {coverPhoto ? (
                           <img
@@ -3247,7 +3355,7 @@ const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
                         )}
                         <button
                           className="absolute top-2 right-2 h-8 w-8 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white hover:bg-white/40 transition-colors opacity-0 group-hover:opacity-100"
-                          onClick={(e) => { e.stopPropagation(); onDownload(record); }}
+                          onClick={(e) => { e.stopPropagation(); handleDownloadRecord(record); }}
                           title="Download"
                         >
                           <Download className="h-4 w-4" />
@@ -3256,10 +3364,18 @@ const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
                           <h3 className="text-white font-semibold text-sm truncate">{summary.addressLine}</h3>
                           <p className="text-white/70 text-[11px] mt-0.5">{dateLabel}</p>
                           <div className="flex items-center justify-between gap-2 mt-1.5">
-                            <Badge className="bg-green-500/30 text-green-300 border-green-500/40 text-[9px] h-4 px-1.5">
-                              <span className="w-1 h-1 rounded-full bg-green-400 mr-1" />
-                              DELIVERED
-                            </Badge>
+                            <div className="flex items-center gap-1.5">
+                              <Badge className="bg-green-500/30 text-green-300 border-green-500/40 text-[9px] h-4 px-1.5">
+                                <span className="w-1 h-1 rounded-full bg-green-400 mr-1" />
+                                DELIVERED
+                              </Badge>
+                              {record.data.isGhostVisibleForUser ? (
+                                <Badge className="bg-slate-900/55 text-slate-100 border-white/15 text-[9px] h-4 px-1.5">
+                                  <Ghost className="mr-1 h-2.5 w-2.5" />
+                                  GHOST
+                                </Badge>
+                              ) : null}
+                            </div>
                             <ClientPaymentPill status={paymentStatus} overlay />
                           </div>
                         </div>
@@ -3274,11 +3390,11 @@ const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
                       key={record.data.id}
                       record={record}
                       variant={activeTab}
-                      onSelect={onSelect}
+                      onSelect={handleSelectRecord}
                       onReschedule={onReschedule}
                       onCancel={onCancel}
                       onContactSupport={onContactSupport}
-                      onDownload={onDownload}
+                      onDownload={handleDownloadRecord}
                       onRebook={onRebook}
                       onRequestRevision={onRequestRevision}
                       onHoldAction={onHoldAction}
@@ -3300,6 +3416,7 @@ const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
       prevProps.upcoming === nextProps.upcoming &&
       prevProps.completed === nextProps.completed &&
       prevProps.onHold === nextProps.onHold &&
+      prevProps.currentUserId === nextProps.currentUserId &&
       prevProps.onSelect === nextProps.onSelect &&
       prevProps.onReschedule === nextProps.onReschedule &&
       prevProps.onCancel === nextProps.onCancel &&
@@ -3508,6 +3625,12 @@ const ClientShootTile: React.FC<ClientShootTileProps> = React.memo(({
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 animate-pulse" />
                   Delivered
                 </Badge>
+                {data.isGhostVisibleForUser ? (
+                  <Badge className="bg-slate-500/10 text-slate-600 border-slate-500/20 hover:bg-slate-500/15 text-[10px] sm:text-[11px] h-6 px-2.5 font-semibold">
+                    <Ghost className="mr-1.5 h-3.5 w-3.5" />
+                    Ghost Access
+                  </Badge>
+                ) : null}
                 <ClientPaymentPill status={paymentStatus} />
               </div>
 

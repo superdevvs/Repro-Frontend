@@ -69,7 +69,6 @@ export function AccountList({
   const isSuperAdmin = viewerRole === 'superadmin';
   const isAdmin = viewerRole === 'admin';
   const canManageAccounts = isAdmin || isSuperAdmin;
-  const canEditClients = canManageAccounts || viewerRole === 'salesRep';
   const canChangeRole = isSuperAdmin; // Only Super Admin can change access rules for other account types
 
   const getInitials = (name: string) => {
@@ -104,7 +103,9 @@ export function AccountList({
         </TableHeader>
         <TableBody>
           {users.map((user) => {
-            const canEditRow = canManageAccounts || (viewerRole === 'salesRep' && user.role === 'client');
+            const canEditRow =
+              canManageAccounts
+              || (viewerRole === 'salesRep' && user.role === 'client');
             const secondaryRoles = Array.isArray((user as any).secondaryRoles)
               ? (user as any).secondaryRoles
               : Array.isArray((user as any).secondary_roles)

@@ -64,8 +64,9 @@ export function AccountCard({
   const isAdmin = viewerRole === 'admin';
   const canViewSensitiveRepData = isSuperAdmin;
   const canManageAccounts = isAdmin || isSuperAdmin;
-  const canEditClients = canManageAccounts || viewerRole === 'salesRep';
-  const canEditThisUser = canManageAccounts || (viewerRole === 'salesRep' && user.role === 'client');
+  const canEditThisUser =
+    canManageAccounts
+    || (viewerRole === 'salesRep' && user.role === 'client');
   const canChangeRole = isSuperAdmin; // Only Super Admin can change access rules for other account types
   const repDetails = (user.metadata?.repDetails as RepDetails | undefined) || undefined;
 

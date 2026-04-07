@@ -20,6 +20,10 @@ import { ShootApprovalModal } from '../ShootApprovalModal';
 import { ShootDeclineModal } from '../ShootDeclineModal';
 import { FileText, Loader2, PauseCircle, Printer, XCircle } from 'lucide-react';
 import { ShootData } from '@/types/shoots';
+import {
+  ShootMediaDownloadSize,
+  getShootMediaDownloadSizeLabel,
+} from '@/utils/shootMediaDownload';
 
 interface ShootDetailsModalDialogsProps {
   shoot: ShootData | null;
@@ -160,6 +164,23 @@ export function ShootDetailsModalDialogs({
   onClose,
   formatTime,
 }: ShootDetailsModalDialogsProps) {
+  const clientDownloadOptions: Array<{
+    size: ShootMediaDownloadSize;
+    label: string;
+    description: string;
+  }> = [
+    {
+      size: 'large',
+      label: getShootMediaDownloadSizeLabel('large'),
+      description: 'High quality, optimized for printing',
+    },
+    {
+      size: 'small',
+      label: getShootMediaDownloadSizeLabel('small'),
+      description: '1800x1200px, MLS-ready export',
+    },
+  ];
+
   return (
     <>
       {shoot && (
@@ -428,17 +449,12 @@ export function ShootDetailsModalDialogs({
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-3 py-4">
-              {[
-                ['original', 'Original Size', 'Full resolution, highest quality'],
-                ['large', 'Large Size', 'High quality, optimized for printing'],
-                ['medium', 'Medium Size', 'Web optimized, good for sharing'],
-                ['small', 'Small Size', '1800x1200px, optimized for web'],
-              ].map(([size, label, description]) => (
+              {clientDownloadOptions.map(({ size, label, description }) => (
                 <Button
                   key={size}
                   variant="outline"
                   className="w-full justify-start h-auto py-4"
-                  onClick={() => handleDownloadMedia(size as 'original' | 'small' | 'medium' | 'large')}
+                  onClick={() => handleDownloadMedia(size)}
                   disabled={isDownloading}
                 >
                   <div className="flex flex-col items-start">

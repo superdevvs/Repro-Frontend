@@ -52,6 +52,11 @@ const statusColors = {
   CANCELLED: 'bg-gray-100 text-gray-800',
 };
 
+const contextLabels = {
+  new_shoot: 'New Shoot',
+  previous_shoot: 'Previous Shoot',
+} as const;
+
 export function EmailMessageDetail({ message, onClose, onRefresh }: EmailMessageDetailProps) {
   const navigate = useNavigate();
   const [isRetrying, setIsRetrying] = useState(false);
@@ -102,6 +107,7 @@ export function EmailMessageDetail({ message, onClose, onRefresh }: EmailMessage
         body_text: replyBody,
         body_html: `<p>${replyBody.replace(/\n/g, '</p><p>')}</p>`,
         related_shoot_id: message.related_shoot_id,
+        related_shoot_context_type: message.related_shoot_context_type,
         related_account_id: message.related_account_id,
         related_invoice_id: message.related_invoice_id,
       });
@@ -307,6 +313,9 @@ export function EmailMessageDetail({ message, onClose, onRefresh }: EmailMessage
               <div className="flex gap-2 flex-wrap">
                 {message.related_shoot_id && (
                   <Badge variant="outline">Shoot #{message.related_shoot_id}</Badge>
+                )}
+                {message.related_shoot_context_type && (
+                  <Badge variant="secondary">{contextLabels[message.related_shoot_context_type]}</Badge>
                 )}
                 {message.related_invoice_id && (
                   <Badge variant="outline">Invoice #{message.related_invoice_id}</Badge>

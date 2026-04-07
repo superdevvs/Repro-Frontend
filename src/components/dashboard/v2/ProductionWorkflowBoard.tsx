@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { format, startOfDay, startOfWeek, endOfWeek, subWeeks } from 'date-fns';
 import { CameraIcon } from 'lucide-react';
-import { DashboardShootSummary, DashboardWorkflow, DashboardWorkflowColumn } from '@/types/dashboard';
+import { DashboardShootSummary, DashboardWorkflow } from '@/types/dashboard';
 
 type PipelineFilter = 'today' | 'this_week' | 'month';
 
@@ -22,11 +22,11 @@ const minutesToLabel = (minutes: number) => {
   return `${hours}h ${mins}m`;
 };
 
-const averageTurnaround = (column: DashboardWorkflowColumn) => {
+const averageTurnaround = (shoots: DashboardShootSummary[]) => {
   try {
-    if (!column || !Array.isArray(column.shoots)) return '—';
+    if (!Array.isArray(shoots)) return '—';
     
-    const durations = column.shoots
+    const durations = shoots
       .map((shoot) => {
         try {
           if (!shoot || !shoot.startTime || !shoot.deliveryDeadline) return null;
@@ -116,9 +116,7 @@ export const ProductionWorkflowBoard: React.FC<ProductionWorkflowBoardProps> = (
       {visibleColumns.map(column => {
         const safeShoots = Array.isArray(column.shoots) ? column.shoots : [];
         const columnKey = column.key || 'unknown';
-        // Backend already pre-filters each column's shoots, so show them all.
-        // No additional frontend date filtering needed.
-        const filteredShoots = safeShoots;
+        const filteredShoots = filterShootsByDate(safeShoots);
         const count = filteredShoots.length;
         const columnLabel = column.label || columnKey;
         const columnAccent = column.accent || '#6b7280';
@@ -135,7 +133,7 @@ export const ProductionWorkflowBoard: React.FC<ProductionWorkflowBoardProps> = (
             </div>
             <div className="text-right flex-shrink-0 ml-2">
               <p className="text-[10px] sm:text-xs text-muted-foreground">Avg</p>
-              <p className="text-xs sm:text-sm font-semibold text-foreground">{averageTurnaround(column)}</p>
+              <p className="text-xs sm:text-sm font-semibold text-foreground">{averageTurnaround(filteredShoots)}</p>
             </div>
           </div>
           <div className="space-y-2 sm:space-y-3 overflow-y-auto max-h-[400px] sm:max-h-[500px] min-h-0 flex-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
@@ -217,4 +215,3 @@ export const ProductionWorkflowBoard: React.FC<ProductionWorkflowBoardProps> = (
     </div>
   );
 };
-

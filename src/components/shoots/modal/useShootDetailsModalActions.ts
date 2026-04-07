@@ -2,7 +2,10 @@ import { useState } from 'react';
 import { ShootData } from '@/types/shoots';
 import { API_BASE_URL } from '@/config/env';
 import { getApiHeaders } from '@/services/api';
-import { downloadShootMediaArchive } from '@/utils/shootMediaDownload';
+import {
+  downloadShootMediaArchive,
+  getShootMediaDownloadSizeLabel,
+} from '@/utils/shootMediaDownload';
 import {
   buildBrightMlsPublishPayloadWithFallback,
 } from '@/utils/brightMls';
@@ -225,7 +228,7 @@ export function useShootDetailsModalActions({
         description:
           result.mode === 'redirect'
             ? 'Opening download link in new tab...'
-            : `Downloading media files in ${size} size...`,
+            : `Downloading media files in ${getShootMediaDownloadSizeLabel(size)}...`,
       });
     } catch (error) {
       console.error('Error downloading media:', error);

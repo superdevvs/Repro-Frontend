@@ -5,9 +5,8 @@ import { useAuth } from '@/components/auth';
 interface ShootDetailsSettingsTabProps {
   shoot: ShootData;
   isAdmin: boolean;
+  isRep?: boolean;
   onShootUpdate: () => void;
-  showHidden?: boolean;
-  onShowHiddenChange?: (val: boolean) => void;
 }
 
 export function ShootDetailsSettingsTab(props: ShootDetailsSettingsTabProps) {
@@ -18,14 +17,13 @@ export function ShootDetailsSettingsTab(props: ShootDetailsSettingsTabProps) {
     shoot={props.shoot}
     isAdmin={props.isAdmin}
     isClient={isClient}
+    canManageGhostUsers={Boolean(props.isAdmin || props.isRep)}
     onUpdate={(updated) => {
       props.onShootUpdate();
     }}
     onDelete={() => {}}
     onProcessPayment={() => {}}
     currentInvoice={null}
-    showHidden={props.showHidden}
-    onShowHiddenChange={props.onShowHiddenChange}
   />;
 }
 

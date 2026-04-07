@@ -12,12 +12,15 @@ import {
   normalizeTourLinks,
 } from '@/utils/shootTourData';
 import { ShootTourPropertySection } from '@/components/shoots/tabs/ShootTourPropertySection';
+import { ShootTourRealtorPicker, type TourRealtorOption } from '@/components/shoots/tabs/ShootTourRealtorPicker';
 import { ShootDetailsTourTabView } from '@/components/shoots/tabs/ShootDetailsTourTabView';
 import { useShootTourPropertyEditor } from '@/components/shoots/tabs/useShootTourPropertyEditor';
 interface ShootDetailsTourTabProps {
   shoot: ShootData;
   isAdmin: boolean;
+  isRep?: boolean;
   isClient?: boolean;
+  isClientReleaseLocked?: boolean;
   onShootUpdate: () => void;
   onShowAnalytics?: () => void;
 }
@@ -35,7 +38,9 @@ type ManagedVideoLinkKey =
 export function ShootDetailsTourTab({
   shoot,
   isAdmin,
+  isRep = false,
   isClient = false,
+  isClientReleaseLocked = false,
   onShootUpdate,
   onShowAnalytics,
 }: ShootDetailsTourTabProps) {
@@ -69,10 +74,14 @@ export function ShootDetailsTourTab({
   const [editingEmbedId, setEditingEmbedId] = useState<string | null>(null);
   const [featuredEmbedId, setFeaturedEmbedId] = useState<string>('');
   const [savingEmbeds, setSavingEmbeds] = useState(false);
+  const [realtorClients, setRealtorClients] = useState<TourRealtorOption[]>([]);
+  const [isLoadingRealtorClients, setIsLoadingRealtorClients] = useState(false);
+  const [realtorSearchOpen, setRealtorSearchOpen] = useState(false);
   const [tourSettings, setTourSettings] = useState({
     header_position: 'center',
     tour_version: 'standard',
     realtor_info: '',
+    realtor_client_id: '',
     autoplay: false,
     show_garage: false,
   });
@@ -209,6 +218,7 @@ export function ShootDetailsTourTab({
         header_position: sourceTourLinks?.header_position || 'center',
         tour_version: sourceTourLinks?.tour_version || 'standard',
         realtor_info: sourceTourLinks?.realtor_info || '',
+        realtor_client_id: normalizedTourLinks.realtor_client_id || '',
         autoplay: Boolean(sourceTourLinks?.autoplay),
         show_garage: Boolean(sourceTourLinks?.show_garage),
       },
@@ -242,6 +252,70 @@ export function ShootDetailsTourTab({
         : initialTourState.settings,
     );
   }, [initialTourStateKey]);
+  useEffect(() => {
+    if (!(isAdmin || isRep)) return;
+
+    let isActive = true;
+
+    const fetchClients = async () => {
+      setIsLoadingRealtorClients(true);
+      try {
+        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+        const response = await fetch(`${API_BASE_URL}/api/admin/clients`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/json',
+          },
+        });
+        if (!response.ok) {
+          throw new Error('Failed to load clients');
+        }
+
+        const json = await response.json();
+        const clientsList = (json.data || json || []).map((client: any) => ({
+          id: String(client.id),
+          name: client.name || 'Client',
+          email: client.email || '',
+          company: client.company_name || client.company || '',
+        }));
+        const currentRealtor = normalizedTourLinks.realtor_client;
+        if (
+          currentRealtor?.id &&
+          !clientsList.some((client: TourRealtorOption) => client.id === String(currentRealtor.id))
+        ) {
+          clientsList.unshift({
+            id: String(currentRealtor.id),
+            name: currentRealtor.name || 'Assigned realtor',
+            email: currentRealtor.email || '',
+            company: currentRealtor.company || '',
+          });
+        }
+
+        if (isActive) {
+          setRealtorClients(clientsList);
+        }
+      } catch (error) {
+        console.error('Error fetching realtor clients:', error);
+        if (isActive) {
+          toast({
+            title: 'Error',
+            description: 'Failed to load realtor clients.',
+            variant: 'destructive',
+          });
+        }
+      } finally {
+        if (isActive) {
+          setIsLoadingRealtorClients(false);
+        }
+      }
+    };
+
+    void fetchClients();
+
+    return () => {
+      isActive = false;
+    };
+  }, [isAdmin, isRep, normalizedTourLinks.realtor_client, toast]);
   const hasVideoEmbedLink = Boolean(tourLinks.video_link?.trim());
   const hasPublicVideoLinks = Boolean(
     tourLinks.video_branded?.trim() || tourLinks.video_mls?.trim() || tourLinks.video_generic?.trim()
@@ -252,6 +326,7 @@ export function ShootDetailsTourTab({
   const showVideoLinksSection = Boolean(isAdmin || isClientView || hasPublicVideoLinks);
   const showVideoEmbedSection = Boolean(isAdmin);
   const showTourSettings = !isClientView;
+  const canManageRealtor = isAdmin || isRep;
   const showPropertyInfo = Boolean(isAdmin || isClientView);
   const show3dTours = !isClientView || hasMatterportLinks || hasIguideLinks || hasZillow3dLink;
   const matterportKeys = ['matterport_branded', 'matterport_mls'] as const;
@@ -321,6 +396,7 @@ export function ShootDetailsTourTab({
         header_position: nextSettings.header_position,
         tour_version: nextSettings.tour_version,
         realtor_info: nextSettings.realtor_info,
+        realtor_client_id: nextSettings.realtor_client_id || null,
         autoplay: nextSettings.autoplay,
         show_garage: nextSettings.show_garage,
       };
@@ -350,12 +426,76 @@ export function ShootDetailsTourTab({
       setIsSavingTourSettings(false);
     }
   };
+  const persistRealtorClient = async (nextClientId: string) => {
+    if (!canManageRealtor) return false;
+
+    setIsSavingTourSettings(true);
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({
+          tour_links: {
+            realtor_client_id: nextClientId || null,
+          },
+        }),
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ message: 'Failed to save realtor' }));
+        throw new Error(errorData.message || 'Failed to save realtor');
+      }
+      await onShootUpdate();
+      return true;
+    } catch (err: any) {
+      console.error('Save realtor failed', err);
+      toast({
+        title: 'Error',
+        description: err?.message || 'Failed to update realtor. Please try again.',
+        variant: 'destructive',
+      });
+      return false;
+    } finally {
+      setIsSavingTourSettings(false);
+    }
+  };
   const updateTourSetting = async <K extends keyof typeof tourSettings>(key: K, value: typeof tourSettings[K], persist = true) => {
     const nextSettings = { ...tourSettings, [key]: value };
     setTourSettings(nextSettings);
     if (persist) {
       await persistTourSettings(nextSettings);
     }
+  };
+  const selectedRealtorClient =
+    realtorClients.find((client) => client.id === tourSettings.realtor_client_id)
+    || normalizedTourLinks.realtor_client
+    || null;
+  const handleRealtorClientChange = async (clientId: string) => {
+    const previousClientId = tourSettings.realtor_client_id;
+    if (clientId === previousClientId) {
+      setRealtorSearchOpen(false);
+      return;
+    }
+
+    setTourSettings((prev) => ({
+      ...prev,
+      realtor_client_id: clientId,
+    }));
+
+    const saved = await persistRealtorClient(clientId);
+    if (!saved) {
+      setTourSettings((prev) => ({
+        ...prev,
+        realtor_client_id: previousClientId,
+      }));
+      return;
+    }
+
+    setRealtorSearchOpen(false);
   };
   const isEmbedHtml = (value: string) => value.includes('<') && value.includes('>');
   const persistEmbeds = async (nextEmbeds: Array<{ id: string; title: string; branded: string; mls: string }>, nextFeaturedId: string) => {
@@ -906,6 +1046,7 @@ export function ShootDetailsTourTab({
   };
   return (
     <ShootDetailsTourTabView
+      isClientReleaseLocked={isClientReleaseLocked}
       onShowAnalytics={onShowAnalytics}
       getTourUrl={getTourUrl}
       copyLink={copyLink}
@@ -952,6 +1093,21 @@ export function ShootDetailsTourTab({
       tourSettings={tourSettings}
       updateTourSetting={updateTourSetting}
       isSavingTourSettings={isSavingTourSettings}
+      realtorPicker={
+        <ShootTourRealtorPicker
+          options={realtorClients}
+          selectedClientId={tourSettings.realtor_client_id}
+          selectedClient={selectedRealtorClient}
+          open={realtorSearchOpen}
+          onOpenChange={setRealtorSearchOpen}
+          onSelect={(clientId) => {
+            void handleRealtorClientChange(clientId);
+          }}
+          isLoading={isLoadingRealtorClients}
+          isSaving={isSavingTourSettings}
+          disabled={!canManageRealtor || isLoadingRealtorClients}
+        />
+      }
       propertySection={
         <ShootTourPropertySection
           showPropertyInfo={showPropertyInfo}

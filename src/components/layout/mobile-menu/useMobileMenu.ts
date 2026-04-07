@@ -108,7 +108,7 @@ export const useMobileMenu = () => {
     {
       to: "/messaging/email/inbox",
       icon: "MessageSquare",
-      label: "Messaging",
+      label: role === 'client' ? "Contact" : "Messaging",
       isActive: pathname.startsWith('/messaging/email'),
       visible:
         permission.can('messaging-email', 'view') &&

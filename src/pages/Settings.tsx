@@ -85,10 +85,7 @@ const Settings = () => {
   const [facebookUrl, setFacebookUrl] = React.useState('');
   const [linkedinUrl, setLinkedinUrl] = React.useState('');
   const [instagramUrl, setInstagramUrl] = React.useState('');
-  const [showMap, setShowMap] = React.useState<boolean>(() => {
-    const stored = localStorage.getItem(storageKey('showMap'));
-    return stored ? stored === 'true' : false;
-  });
+  const [showMap, setShowMap] = React.useState(false);
   const [bio, setBio] = React.useState(user?.bio || '');
   const [name, setName] = useState(user?.name || '');
   const [isSaving, setIsSaving] = useState(false);
@@ -131,9 +128,6 @@ const Settings = () => {
     const storedAvatar = localStorage.getItem(storageKey('avatar'));
     if (storedAvatar) setAvatar(storedAvatar);
 
-    const storedShowMap = localStorage.getItem(storageKey('showMap'));
-    if (storedShowMap) setShowMap(storedShowMap === 'true');
-
     // Load branding from API
     const userId = clientIdFromUrl || user?.id;
     if (userId) {
@@ -142,17 +136,16 @@ const Settings = () => {
         headers: { Authorization: `Bearer ${token}` },
       }).then(({ data }) => {
         const b = data?.data?.branding;
-        if (b) {
-          if (b.logo) setBrandLogo(b.logo);
-          if (b.banner) setBrandBanner(b.banner);
-          if (b.about) setBrandAbout(b.about);
-          if (b.hero_headline) setHeroHeadline(b.hero_headline);
-          if (b.hero_subtitle) setHeroSubtitle(b.hero_subtitle);
-          if (b.hero_image) setHeroImage(b.hero_image);
-          if (b.facebook_url) setFacebookUrl(b.facebook_url);
-          if (b.linkedin_url) setLinkedinUrl(b.linkedin_url);
-          if (b.instagram_url) setInstagramUrl(b.instagram_url);
-        }
+        setBrandLogo(b?.logo ?? '');
+        setBrandBanner(b?.banner ?? '');
+        setBrandAbout(b?.about ?? '');
+        setHeroHeadline(b?.hero_headline ?? '');
+        setHeroSubtitle(b?.hero_subtitle ?? '');
+        setHeroImage(b?.hero_image ?? '');
+        setFacebookUrl(b?.facebook_url ?? '');
+        setLinkedinUrl(b?.linkedin_url ?? '');
+        setInstagramUrl(b?.instagram_url ?? '');
+        setShowMap(Boolean(b?.show_map));
       }).catch((err) => console.error('Failed to load branding:', err));
     }
   }, [clientIdFromUrl, storageKey, user?.id]);
@@ -324,6 +317,7 @@ const Settings = () => {
             facebook_url: facebookUrl || null,
             linkedin_url: linkedinUrl || null,
             instagram_url: instagramUrl || null,
+            show_map: showMap,
           },
         },
         {
@@ -403,12 +397,10 @@ const Settings = () => {
 
   const handleLogoChange = (url: string) => {
     setBrandLogo(url);
-    localStorage.setItem(storageKey('brandLogo'), url);
   };
 
   const handleBannerChange = (url: string) => {
     setBrandBanner(url);
-    localStorage.setItem(storageKey('brandBanner'), url);
   };
 
   // Auto-expanding tabs configuration
@@ -893,10 +885,7 @@ const Settings = () => {
                               type="checkbox"
                               className="sr-only peer"
                               checked={showMap}
-                              onChange={(e) => {
-                                setShowMap(e.target.checked);
-                              localStorage.setItem(storageKey('showMap'), String(e.target.checked));
-                              }}
+                              onChange={(e) => setShowMap(e.target.checked)}
                             />
                             <div className="w-11 h-6 bg-muted-foreground rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                           </label>

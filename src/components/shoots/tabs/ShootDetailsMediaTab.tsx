@@ -8,13 +8,12 @@ interface ShootDetailsMediaTabProps {
   isPhotographer: boolean;
   isEditor: boolean;
   isClient: boolean;
+  isClientReleaseLocked?: boolean;
   role: string;
   onShootUpdate: () => void;
   isExpanded?: boolean;
   onToggleExpand?: () => void;
   onSelectionChange?: (selectedIds: string[]) => void;
-  showHidden?: boolean;
-  onShowHiddenChange?: (val: boolean) => void;
 }
 
 export function ShootDetailsMediaTab(props: ShootDetailsMediaTabProps) {

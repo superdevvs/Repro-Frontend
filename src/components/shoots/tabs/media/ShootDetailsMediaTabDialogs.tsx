@@ -2,11 +2,9 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ShootRequestManager } from '../ShootRequestManager';
 import { MediaViewer } from './MediaViewer';
-import { Loader2, Sparkles } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 
 export function ShootDetailsMediaTabDialogs(props: any) {
   const {
@@ -22,6 +20,7 @@ export function ShootDetailsMediaTabDialogs(props: any) {
     isClient,
     onShootUpdate,
     canInteractSingleMedia,
+    canDownloadSingleMedia,
     onToggleFavorite,
     onAddComment,
     onToggleHidden,
@@ -29,11 +28,6 @@ export function ShootDetailsMediaTabDialogs(props: any) {
     showAiEditDialog,
     setShowAiEditDialog,
     selectedFiles,
-    editingTypes,
-    selectedEditingType,
-    setSelectedEditingType,
-    submittingAiEdit,
-    handleAiEdit,
     requestManagerOpen,
     setRequestManagerOpen,
     isPhotographer,
@@ -56,6 +50,7 @@ export function ShootDetailsMediaTabDialogs(props: any) {
         isClient={isClient}
         onShootUpdate={onShootUpdate}
         canInteractSingleMedia={canInteractSingleMedia}
+        canDownloadSingleMedia={canDownloadSingleMedia}
         onToggleFavorite={onToggleFavorite}
         onAddComment={onAddComment}
         onToggleHidden={onToggleHidden}
@@ -64,62 +59,52 @@ export function ShootDetailsMediaTabDialogs(props: any) {
 
       {/* AI Edit Dialog */}
       <Dialog open={showAiEditDialog} onOpenChange={setShowAiEditDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>AI Edit Images</DialogTitle>
-            <DialogDescription>
-              Select an editing type to apply to {selectedFiles.size} selected image(s)
-            </DialogDescription>
+        <DialogContent className="max-w-lg w-[90vw] p-0 gap-0 overflow-hidden">
+          <DialogHeader className="px-4 py-3 border-b flex-row items-center justify-between space-y-0">
+            <div>
+              <DialogTitle className="text-base">Ai Edit</DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground">
+                Send raw images to AI for editing after upload
+              </DialogDescription>
+            </div>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Editing Type</Label>
-              <Select
-                value={selectedEditingType}
-                onValueChange={setSelectedEditingType}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select editing type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {editingTypes.map((type) => (
-                    <SelectItem key={type.id} value={type.id}>
-                      {type.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {editingTypes.find(t => t.id === selectedEditingType) && (
-                <p className="text-sm text-muted-foreground">
-                  {editingTypes.find(t => t.id === selectedEditingType)?.description}
+          <div className="relative">
+            <div className="p-5 space-y-4 blur-[2px] opacity-60 pointer-events-none select-none" aria-hidden="true">
+              <div className="grid gap-3 sm:grid-cols-2">
+                {[
+                  ['Exposure Balance', 'Auto-correct highlights and shadows'],
+                  ['Sky Cleanup', 'Enhance outdoor scenes with clean sky replacement'],
+                  ['Window Pull', 'Balance interiors with brighter window views'],
+                  ['Color Polish', 'Refine tones for listing-ready delivery'],
+                ].map(([title, description]) => (
+                  <div key={title} className="border rounded-lg p-3 space-y-1.5">
+                    <div className="h-20 bg-muted rounded flex items-center justify-center">
+                      <Sparkles className="h-8 w-8 text-muted-foreground/40" />
+                    </div>
+                    <p className="text-xs font-medium">{title}</p>
+                    <p className="text-[10px] text-muted-foreground">{description}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <div className="flex-1 h-9 bg-muted rounded" />
+                <div className="w-28 h-9 bg-violet-200 rounded dark:bg-violet-900" />
+              </div>
+            </div>
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/60 backdrop-blur-[1px]">
+              <div className="bg-card border shadow-lg rounded-xl px-6 py-4 text-center space-y-2">
+                <Sparkles className="h-8 w-8 mx-auto text-violet-500" />
+                <h3 className="text-lg font-semibold">Coming Soon</h3>
+                <p className="text-sm text-muted-foreground max-w-[260px]">
+                  AI image editing will be available in a future update.
                 </p>
-              )}
+              </div>
             </div>
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setShowAiEditDialog(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleAiEdit}
-                disabled={submittingAiEdit || !selectedEditingType}
-                className="bg-purple-600 hover:bg-purple-700"
-              >
-                {submittingAiEdit ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Submitting...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="h-4 w-4 mr-2" />
-                    Submit
-                  </>
-                )}
-              </Button>
-            </div>
+          </div>
+          <div className="px-4 pb-4 flex justify-end">
+            <Button variant="outline" onClick={() => setShowAiEditDialog(false)}>
+              Close
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

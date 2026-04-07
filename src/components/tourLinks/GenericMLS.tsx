@@ -44,6 +44,7 @@ export function GenericMLS() {
   const [tourStyle, setTourStyle] = useState<string>('default');
   const [heroIndex, setHeroIndex] = useState(0);
   const [shootId, setShootId] = useState<number | null>(null);
+  const [lockedMessage, setLockedMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -74,6 +75,15 @@ export function GenericMLS() {
         const separator = endpoint.includes('?') ? '&' : '?';
         const res = await fetch(`${endpoint}${separator}t=${cacheBuster}`);
         const data = await res.json();
+
+        if (data?.locked) {
+          setLockedMessage(data.message || 'Payment required to unlock this tour.');
+          const resolvedShootId = data?.shoot?.id || shootId;
+          if (resolvedShootId) {
+            setShootId(Number(resolvedShootId));
+          }
+          return;
+        }
 
         setPhotos(Array.isArray(data?.photos) ? data.photos : []);
         setVideos(Array.isArray(data?.videos) ? data.videos : []);
@@ -210,6 +220,18 @@ export function GenericMLS() {
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-muted-foreground">Loading property tour...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (lockedMessage) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-background px-6">
+        <div className="max-w-md rounded-3xl border border-border bg-card p-8 text-center shadow-sm">
+          <Badge className="mb-4">Tour Locked</Badge>
+          <h1 className="text-2xl font-semibold tracking-tight">This tour is locked</h1>
+          <p className="mt-3 text-sm text-muted-foreground">{lockedMessage}</p>
         </div>
       </div>
     );

@@ -30,6 +30,7 @@ interface MediaViewerProps {
   isAdmin?: boolean;
   isClient?: boolean;
   canInteractSingleMedia?: boolean;
+  canDownloadSingleMedia?: boolean;
   onToggleFavorite?: (fileId: string) => void;
   onAddComment?: (fileId: string, comment: string) => void;
   onToggleHidden?: (fileId: string, hidden: boolean) => void;
@@ -93,6 +94,7 @@ export function MediaViewer({
   isAdmin = false,
   isClient = false,
   canInteractSingleMedia = false,
+  canDownloadSingleMedia = false,
   onToggleFavorite,
   onAddComment,
   onToggleHidden,
@@ -670,7 +672,7 @@ export function MediaViewer({
                           {currentFile.is_favorite ? 'Liked' : 'Like'}
                         </Button>
                       )}
-                      {canInteractSingleMedia && onDownloadSingle && (
+                      {canDownloadSingleMedia && onDownloadSingle && (
                         <Button
                           variant="outline"
                           className="justify-start border-white/10 bg-white/5 text-white hover:bg-white/10 hover:text-white"

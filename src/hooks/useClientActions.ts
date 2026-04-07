@@ -5,6 +5,7 @@ import { Client } from '@/types/clients';
 import { useToast } from '@/hooks/use-toast';
 import API_ROUTES from '@/lib/api';
 import { ClientFormData } from '@/components/clients/ClientForm';
+import { useAuth } from '@/components/auth';
 
 interface UseClientActionsProps {
   clientsData: Client[];
@@ -14,6 +15,7 @@ interface UseClientActionsProps {
 export const useClientActions = ({ clientsData, setClientsData }: UseClientActionsProps) => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { user: currentUser, role: viewerRole } = useAuth();
   
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [clientDetailsOpen, setClientDetailsOpen] = useState(false);
@@ -135,6 +137,7 @@ export const useClientActions = ({ clientsData, setClientsData }: UseClientActio
           shootsCount: 0,
           lastActivity: new Date().toISOString().split('T')[0],
           avatar: u.avatar || undefined,
+          rep: u.rep || u.created_by_name || (viewerRole === 'salesRep' ? currentUser?.name || '' : undefined),
         };
         setClientsData([newClient, ...clientsData]);
         toast({ title: 'Client Added', description: `${u.name} has been added successfully.` });

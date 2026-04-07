@@ -308,7 +308,7 @@ export function ShootNotesTab({
     
     switch (noteType) {
       case 'photographerNotes': 
-        return false; // Photographers can no longer edit notes
+        return role === 'photographer';
       case 'editingNotes': 
         return role === 'editor';
       default: 

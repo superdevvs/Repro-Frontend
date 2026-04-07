@@ -16,6 +16,7 @@ import { useToast } from '@/hooks/use-toast'
 import { useUserPreferences } from '@/contexts/UserPreferencesContext'
 import { getStateFullName } from '@/utils/stateUtils'
 import { formatWorkflowStatus } from '@/utils/status'
+import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary'
 import { getEditingNotes, formatCurrency, getShootPlaceholderSrc, resolveShootThumbnail } from './shootHistoryUtils'
 import {
   AlertCircle,
@@ -185,7 +186,16 @@ export const CompletedShootListRow = ({
     ? (shoot.rawPhotoCount ?? shoot.files?.length ?? 0)
     : (shoot.media?.images?.length ?? shoot.editedPhotoCount ?? shoot.rawPhotoCount ?? shoot.files?.length ?? 0)
   const hasTour = shoot.tourPurchased || Boolean(shoot.tourLinks?.branded || shoot.tourLinks?.mls)
-  const isPaid = isSuperAdmin ? ((shoot.payment?.totalPaid ?? 0) >= (shoot.payment?.totalQuote ?? 0)) : false
+  const paymentSummary = normalizeShootPaymentSummary(shoot)
+  const canShowPaymentStatus = Boolean(onViewInvoice) && (
+    paymentSummary.paymentStatus !== null ||
+    paymentSummary.totalQuote > 0 ||
+    paymentSummary.totalPaid > 0
+  )
+  const isPaid = paymentSummary.paymentStatus === 'paid'
+  const paymentBadgeLabel = isPaid
+    ? `Paid: ${formatCurrency(paymentSummary.totalPaid)}`
+    : 'Unpaid'
   const statusValue = shoot.workflowStatus ?? shoot.status ?? ''
   const statusLabel = formatWorkflowStatus(statusValue)
   const editingNotes = getEditingNotes(shoot.notes)
@@ -250,9 +260,9 @@ export const CompletedShootListRow = ({
                   <span className="font-medium">{formatTime(shoot.time)}</span>
                 </div>
               )}
-              {isSuperAdmin && (
+              {canShowPaymentStatus && (
                 <Badge variant={isPaid ? 'secondary' : 'destructive'} className="text-xs">
-                  {isPaid ? 'Paid' : 'Unpaid'}
+                  {paymentBadgeLabel}
                 </Badge>
               )}
               {isSuperAdmin && !isPaid && (

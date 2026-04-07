@@ -68,6 +68,20 @@ interface PrivateListing {
   mls_number?: string;
 }
 
+type ListingTone = {
+  surface: string;
+  edge: string;
+  border: string;
+  shadow: string;
+};
+
+const DEFAULT_LISTING_TONE: ListingTone = {
+  surface: 'rgba(24, 40, 29, 0.92)',
+  edge: 'rgba(14, 24, 18, 0.98)',
+  border: 'rgba(255, 255, 255, 0.18)',
+  shadow: 'rgba(8, 12, 9, 0.42)',
+};
+
 const resolvePreviewUrl = (value: string | null | undefined): string | null => {
   if (!value) return null;
   const trimmed = String(value).trim();
@@ -92,6 +106,248 @@ const formatPrice = (price: number | undefined | null): string => {
 const getBrandedTourUrl = (shootId: string): string => {
   const base = typeof window !== 'undefined' ? window.location.origin : '';
   return `${base}/tour/branded?shootId=${encodeURIComponent(shootId)}`;
+};
+
+const clampColorChannel = (value: number) => Math.max(0, Math.min(255, Math.round(value)));
+
+const buildListingTone = (red: number, green: number, blue: number): ListingTone => {
+  const darken = (factor: number) => ({
+    red: clampColorChannel(red * factor),
+    green: clampColorChannel(green * factor),
+    blue: clampColorChannel(blue * factor),
+  });
+
+  const surface = darken(0.48);
+  const edge = darken(0.28);
+  const border = darken(0.9);
+  const shadow = darken(0.42);
+
+  return {
+    surface: `rgba(${surface.red}, ${surface.green}, ${surface.blue}, 0.94)`,
+    edge: `rgba(${edge.red}, ${edge.green}, ${edge.blue}, 0.98)`,
+    border: `rgba(${border.red}, ${border.green}, ${border.blue}, 0.34)`,
+    shadow: `rgba(${shadow.red}, ${shadow.green}, ${shadow.blue}, 0.42)`,
+  };
+};
+
+const sampleListingTone = async (src: string): Promise<ListingTone> => {
+  if (typeof window === 'undefined') return DEFAULT_LISTING_TONE;
+
+  return new Promise((resolve) => {
+    const image = new Image();
+    image.crossOrigin = 'anonymous';
+    image.decoding = 'async';
+
+    image.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d', { willReadFrequently: true });
+
+        if (!context) {
+          resolve(DEFAULT_LISTING_TONE);
+          return;
+        }
+
+        const width = 28;
+        const height = 28;
+        canvas.width = width;
+        canvas.height = height;
+        context.drawImage(image, 0, 0, width, height);
+
+        const startY = Math.floor(height * 0.64);
+        const data = context.getImageData(0, startY, width, height - startY).data;
+
+        let red = 0;
+        let green = 0;
+        let blue = 0;
+        let pixels = 0;
+
+        for (let index = 0; index < data.length; index += 4) {
+          const alpha = data[index + 3];
+          if (alpha < 40) continue;
+          red += data[index];
+          green += data[index + 1];
+          blue += data[index + 2];
+          pixels += 1;
+        }
+
+        if (!pixels) {
+          resolve(DEFAULT_LISTING_TONE);
+          return;
+        }
+
+        resolve(buildListingTone(red / pixels, green / pixels, blue / pixels));
+      } catch {
+        resolve(DEFAULT_LISTING_TONE);
+      }
+    };
+
+    image.onerror = () => resolve(DEFAULT_LISTING_TONE);
+    image.src = src;
+  });
+};
+
+const ExclusiveListingGridCard = ({
+  listing,
+  onOpen,
+}: {
+  listing: PrivateListing;
+  onOpen: (listing: PrivateListing) => void;
+}) => {
+  const heroUrl = resolvePreviewUrl(listing.heroImage) || '/placeholder.svg';
+  const [tone, setTone] = useState<ListingTone>(DEFAULT_LISTING_TONE);
+
+  useEffect(() => {
+    let isActive = true;
+
+    setTone(DEFAULT_LISTING_TONE);
+    sampleListingTone(heroUrl).then((nextTone) => {
+      if (isActive) {
+        setTone(nextTone);
+      }
+    });
+
+    return () => {
+      isActive = false;
+    };
+  }, [heroUrl]);
+
+  const metrics = [
+    listing.sqft
+      ? {
+          value: listing.sqft.toLocaleString(),
+          label: 'Sq Ft',
+        }
+      : null,
+    listing.bedrooms
+      ? {
+          value: String(listing.bedrooms),
+          label: listing.bedrooms === 1 ? 'Bedroom' : 'Bedrooms',
+        }
+      : null,
+    listing.bathrooms
+      ? {
+          value: String(listing.bathrooms),
+          label: listing.bathrooms === 1 ? 'Bathroom' : 'Bathrooms',
+        }
+      : null,
+  ].filter(Boolean) as Array<{ value: string; label: string }>;
+
+  const location = [listing.city, listing.state].filter(Boolean).join(', ');
+  const locationLine = [location, listing.zip].filter(Boolean).join(' ');
+  const listingTypeLabel =
+    listing.listing_type === 'for_rent'
+      ? 'For Rent'
+      : listing.listing_type === 'for_sale'
+        ? 'For Sale'
+        : null;
+
+  return (
+    <Card
+      key={listing.id}
+      className="group cursor-pointer overflow-hidden rounded-[30px] border-0 bg-transparent text-white transition-all duration-300 hover:-translate-y-1"
+      onClick={() => onOpen(listing)}
+      style={{
+        boxShadow: `0 28px 60px -34px ${tone.shadow}`,
+      }}
+    >
+      <div className="relative aspect-[4/5] min-h-[360px] overflow-hidden rounded-[30px] bg-[#101611]">
+        <img
+          src={heroUrl}
+          alt={listing.address}
+          className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+          loading="lazy"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-white/10 via-transparent to-transparent" />
+        <div
+          className="absolute inset-x-0 bottom-0 h-[58%]"
+          style={{
+            background: `linear-gradient(180deg, rgba(8, 12, 10, 0) 0%, rgba(8, 12, 10, 0.16) 16%, ${tone.surface} 50%, ${tone.edge} 100%)`,
+          }}
+        />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,7,6,0.08)_0%,rgba(5,7,6,0)_26%,rgba(5,7,6,0.1)_100%)]" />
+
+        <div className="relative flex h-full flex-col p-4 sm:p-5">
+          <div className="flex items-start justify-between gap-3">
+            <Badge
+              variant="outline"
+              className="rounded-full border-white/18 bg-white/88 px-3 py-1.5 text-[11px] font-semibold tracking-[0.02em] text-slate-900 shadow-sm backdrop-blur-sm"
+            >
+              <Lock className="mr-1.5 h-3 w-3" />
+              Exclusive Listing
+            </Badge>
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-white/18 bg-black/18 px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.18em] text-white/92 backdrop-blur-sm transition-colors duration-300 group-hover:bg-black/28">
+              <span>Open</span>
+              <ExternalLink className="h-3 w-3" />
+            </div>
+          </div>
+
+          <div className="mt-auto space-y-4">
+            {listing.price && (
+              <div className="space-y-1">
+                <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-white/60">
+                  List Price
+                </p>
+                <p className="text-[1.95rem] font-semibold leading-none tracking-[-0.05em] text-white">
+                  {formatPrice(listing.price)}
+                </p>
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <h3 className="max-w-[18ch] text-xl font-semibold leading-tight tracking-[-0.04em] text-white sm:text-[1.6rem]">
+                {listing.address}
+              </h3>
+              {locationLine && (
+                <p className="max-w-[24ch] text-sm leading-relaxed text-white/76">
+                  {locationLine}
+                </p>
+              )}
+            </div>
+
+            {metrics.length > 0 && (
+              <div
+                className="grid gap-3 border-t pt-4"
+                style={{
+                  borderColor: tone.border,
+                  gridTemplateColumns: `repeat(${metrics.length}, minmax(0, 1fr))`,
+                }}
+              >
+                {metrics.map((metric, index) => (
+                  <div
+                    key={metric.label}
+                    className={`min-w-0 ${index > 0 ? 'border-l pl-3' : ''}`}
+                    style={index > 0 ? { borderColor: tone.border } : undefined}
+                  >
+                    <p className="truncate text-base font-semibold leading-none tracking-[-0.03em] text-white">
+                      {metric.value}
+                    </p>
+                    <p className="mt-1 truncate text-[11px] uppercase tracking-[0.2em] text-white/58">
+                      {metric.label}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div
+              className="flex items-center justify-between gap-3 border-t pt-3 text-sm text-white/72"
+              style={{ borderColor: tone.border }}
+            >
+              <p className="min-w-0 truncate">
+                By <span className="font-medium text-white">{listing.client.name}</span>
+              </p>
+              {listingTypeLabel && (
+                <span className="whitespace-nowrap text-[11px] font-medium uppercase tracking-[0.22em] text-white/54">
+                  {listingTypeLabel}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
 };
 
 const PrivateListingPortal = () => {
@@ -347,91 +603,7 @@ const PrivateListingPortal = () => {
 
   // ─── Grid Card ─────────────────────────────────────────────
   const renderGridCard = (listing: PrivateListing) => {
-    const heroUrl = resolvePreviewUrl(listing.heroImage) || '/placeholder.svg';
-    return (
-      <Card
-        key={listing.id}
-        className="group overflow-hidden border-border/60 bg-card/60 backdrop-blur-sm cursor-pointer transition-all duration-200 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/20 hover:-translate-y-0.5"
-        onClick={() => handleCardClick(listing)}
-      >
-        {/* Hero Image */}
-        <div className="relative aspect-[16/10] overflow-hidden bg-muted">
-          <img
-            src={heroUrl}
-            alt={listing.address}
-            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-            loading="lazy"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-
-          {/* Private Exclusive badge */}
-          <div className="absolute top-3 left-3">
-            <Badge variant="outline" className="border-white/20 bg-black/40 text-white backdrop-blur-sm text-[10px] px-2 py-0.5">
-              <Lock className="h-2.5 w-2.5 mr-1" />
-              Private Exclusive
-            </Badge>
-          </div>
-
-          {/* Tour indicator */}
-          <div className="absolute top-3 right-3">
-            <div className="h-7 w-7 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white transition-colors group-hover:bg-primary/80">
-              <ExternalLink className="h-3.5 w-3.5" />
-            </div>
-          </div>
-
-          {/* Price overlay */}
-          {listing.price && (
-            <div className="absolute bottom-3 right-3">
-              <span className="text-white font-semibold text-lg drop-shadow-md">
-                {formatPrice(listing.price)}
-              </span>
-            </div>
-          )}
-        </div>
-
-        {/* Card Body */}
-        <CardContent className="p-4 space-y-3">
-          {/* Address */}
-          <div>
-            <h3 className="font-semibold text-sm leading-tight truncate">
-              {listing.address}
-            </h3>
-            <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
-              <MapPin className="h-3 w-3 flex-shrink-0" />
-              <span className="truncate">{listing.city}, {listing.state} {listing.zip}</span>
-            </div>
-          </div>
-
-          {/* Property Details */}
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            {listing.bedrooms && (
-              <div className="flex items-center gap-1">
-                <BedDouble className="h-3.5 w-3.5" />
-                <span>{listing.bedrooms} Bed</span>
-              </div>
-            )}
-            {listing.bathrooms && (
-              <div className="flex items-center gap-1">
-                <Bath className="h-3.5 w-3.5" />
-                <span>{listing.bathrooms} Bath</span>
-              </div>
-            )}
-            {listing.sqft && (
-              <div className="flex items-center gap-1">
-                <Ruler className="h-3.5 w-3.5" />
-                <span>{listing.sqft.toLocaleString()} sqft</span>
-              </div>
-            )}
-          </div>
-
-          {/* Client / Agent */}
-          <div className="flex items-center gap-1.5 pt-1 border-t border-border/40">
-            <User className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-            <span className="text-xs text-muted-foreground truncate">{listing.client.name}</span>
-          </div>
-        </CardContent>
-      </Card>
-    );
+    return <ExclusiveListingGridCard key={listing.id} listing={listing} onOpen={handleCardClick} />;
   };
 
   // ─── List Row ──────────────────────────────────────────────

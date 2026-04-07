@@ -6,9 +6,9 @@ const normalizeMessagingRole = (role?: string | null) =>
     .replace(/[_-\s]/g, '');
 
 export const canSendExternalEmail = (role?: string | null): boolean =>
-  ['superadmin', 'admin', 'editingmanager', 'salesrep'].includes(normalizeMessagingRole(role));
+  ['superadmin', 'admin'].includes(normalizeMessagingRole(role));
 
 export const isInternalMessagingRole = (role?: string | null): boolean =>
   ['client', 'photographer', 'editor'].includes(normalizeMessagingRole(role));
 
-export const outboundEmailRoles: UserRole[] = ['superadmin', 'admin', 'editing_manager', 'salesRep'];
+export const outboundEmailRoles: UserRole[] = ['superadmin', 'admin'];

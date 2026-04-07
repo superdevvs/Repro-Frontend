@@ -152,7 +152,7 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
         <NavLink
           to="/messaging/email/inbox"
           icon={<Mail className="h-5 w-5" />}
-          label="Messaging"
+          label={role === 'client' ? 'Contact' : 'Messaging'}
           isCollapsed={isCollapsed}
           isActive={pathname.startsWith('/messaging/email')}
         />

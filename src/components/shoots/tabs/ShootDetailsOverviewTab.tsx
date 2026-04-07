@@ -20,6 +20,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Switch } from '@/components/ui/switch';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { 
   CalendarIcon, 
@@ -78,8 +79,16 @@ import { OverviewPhotographerSection } from './overview/OverviewPhotographerSect
 import { OverviewPropertyLocationSection } from './overview/OverviewPropertyLocationSection';
 import { OverviewScheduleWeatherSection } from './overview/OverviewScheduleWeatherSection';
 import { OverviewServicesSection } from './overview/OverviewServicesSection';
+import {
+  extractPhotoCountFromServiceName,
+  findMatchingEditorRate,
+  getEditorServiceRates,
+  getExplicitEditorPhotoCount,
+  isPhotoServiceName,
+} from '@/utils/editorRates';
 import { useShootOverviewEditor } from './overview/useShootOverviewEditor';
 import { getNormalizedIguideSync, normalizePropertyDetails } from '@/utils/shootTourData';
+import { formatPropertyMetricValue, getSplitBathroomDisplay } from '@/utils/shootPropertyDisplay';
 
 const serviceCurrencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -90,18 +99,6 @@ const serviceCurrencyFormatter = new Intl.NumberFormat('en-US', {
 const toSafeNumber = (value: unknown) => {
   const numericValue = Number(value);
   return Number.isFinite(numericValue) ? numericValue : 0;
-};
-
-const isPhotoServiceName = (name: string) => /photo|hdr|twilight/i.test(name);
-
-const isVideoServiceName = (name: string) => /video/i.test(name);
-
-const isFloorplanServiceName = (name: string) =>
-  /floor\s*plan|floorplan/i.test(name);
-
-const extractPhotoCountFromServiceName = (name: string) => {
-  const match = name.match(/(\d+)\s*photo/i);
-  return match ? Number(match[1]) : 0;
 };
 
 const FLEXIBLE_DATE_FORMATS = [
@@ -130,6 +127,20 @@ const parseFlexibleDate = (value?: string | null) => {
     } catch {}
   }
   return null;
+};
+
+const resolveFeaturedShootState = (shoot?: Partial<ShootData> | null) => {
+  const snakeCaseValue = (shoot as any)?.is_featured;
+  if (snakeCaseValue !== undefined && snakeCaseValue !== null) {
+    return Boolean(snakeCaseValue);
+  }
+
+  const camelCaseValue = (shoot as any)?.isFeatured;
+  if (camelCaseValue !== undefined && camelCaseValue !== null) {
+    return Boolean(camelCaseValue);
+  }
+
+  return false;
 };
 
 type ServiceOption = {
@@ -284,6 +295,7 @@ const loadPhotographerPickerOptions = async (): Promise<PhotographerPickerOption
 interface ShootDetailsOverviewTabProps {
   shoot: ShootData;
   isAdmin: boolean;
+  isRep: boolean;
   isPhotographer: boolean;
   isEditor: boolean;
   isClient: boolean;
@@ -300,6 +312,7 @@ interface ShootDetailsOverviewTabProps {
 export function ShootDetailsOverviewTab({
   shoot,
   isAdmin,
+  isRep,
   isPhotographer,
   isEditor,
   isClient,
@@ -315,6 +328,8 @@ export function ShootDetailsOverviewTab({
   const { user } = useAuth();
   const { toast } = useToast();
   const { formatTemperature, formatTime: formatTimePreference, formatDate: formatDatePreference } = useUserPreferences();
+  const [isFeaturedShoot, setIsFeaturedShoot] = useState<boolean>(() => resolveFeaturedShootState(shoot));
+  const [isSavingFeaturedShoot, setIsSavingFeaturedShoot] = useState(false);
 
   const {
     state: {
@@ -394,6 +409,64 @@ export function ShootDetailsOverviewTab({
     onRegisterEditActions,
     toast,
   });
+
+  useEffect(() => {
+    setIsFeaturedShoot(resolveFeaturedShootState(shoot));
+  }, [shoot]);
+
+  const isAssignedPhotographer = Boolean(
+    isPhotographer &&
+    user?.id != null &&
+    String(shoot.photographer?.id ?? (shoot as any)?.photographer_id ?? '') === String(user.id),
+  );
+
+  const handleFeaturedShootToggle = async (checked: boolean) => {
+    const previousValue = isFeaturedShoot;
+    setIsFeaturedShoot(checked);
+    setIsSavingFeaturedShoot(true);
+
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
+        method: 'PATCH',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ is_featured: checked }),
+      });
+
+      if (!response.ok) {
+        const errorJson = await response.json().catch(() => null);
+        const message =
+          errorJson?.message
+          || errorJson?.error
+          || (errorJson?.errors ? Object.values(errorJson.errors).flat().join(' ') : null)
+          || `Server ${response.status}`;
+        throw new Error(message);
+      }
+
+      const json = await response.json().catch(() => null);
+      const persisted = resolveFeaturedShootState((json?.data || json || { is_featured: checked }) as Partial<ShootData>);
+      setIsFeaturedShoot(persisted);
+      onShootUpdate();
+      toast({
+        title: persisted ? 'Featured Shoot enabled' : 'Featured Shoot removed',
+        description: 'Internal marketing flag updated.',
+      });
+    } catch (error) {
+      console.error('Failed to update Featured Shoot', error);
+      setIsFeaturedShoot(previousValue);
+      toast({
+        title: 'Unable to update Featured Shoot',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSavingFeaturedShoot(false);
+    }
+  };
 
   const formatDate = (dateString?: string | null) => {
     if (!dateString) return 'Not set';
@@ -535,10 +608,12 @@ export function ShootDetailsOverviewTab({
       ? service
       : service?.name || service?.label || String(service);
     const quantity = getServiceQuantity(service);
+    if (isClient) return baseName;
     return quantity > 1 ? `${baseName} x${quantity}` : baseName;
   };
 
   const getServiceCountBadge = (service: any) => {
+    if (isClient) return null;
     const quantity = getServiceQuantity(service);
     return quantity > 1 ? `x${quantity}` : null;
   };
@@ -546,27 +621,20 @@ export function ShootDetailsOverviewTab({
   const services = getServices();
 
   const editorRates = useMemo(() => {
-    const metadata = user?.metadata ?? {};
-    return {
-      photoEditRate: toSafeNumber(
-        metadata.photo_edit_rate ?? metadata.photoEditRate,
-      ),
-      videoEditRate: toSafeNumber(
-        metadata.video_edit_rate ?? metadata.videoEditRate,
-      ),
-      floorplanRate: toSafeNumber(
-        metadata.floorplan_rate ?? metadata.floorplanRate,
-      ),
-      otherRate: toSafeNumber(metadata.other_rate ?? metadata.otherRate),
-    };
+    return getEditorServiceRates(user?.metadata ?? {});
   }, [user?.metadata]);
 
   const getEditorServicePayout = (
     service: ServiceOption | Record<string, unknown>,
   ) => {
     const serviceName = String(service.name ?? '');
+    const matchedRate = findMatchingEditorRate(service, editorRates);
+    if (!matchedRate || matchedRate.rate <= 0) {
+      return 0;
+    }
+
     const quantity = Math.max(1, getServiceQuantity(service));
-    const explicitPhotoCount = toSafeNumber(service.photo_count);
+    const explicitPhotoCount = getExplicitEditorPhotoCount(service);
     const photoCount =
       explicitPhotoCount ||
       extractPhotoCountFromServiceName(serviceName) ||
@@ -575,22 +643,14 @@ export function ShootDetailsOverviewTab({
       quantity;
 
     if (isPhotoServiceName(serviceName)) {
-      return photoCount * editorRates.photoEditRate;
-    }
-
-    if (isVideoServiceName(serviceName)) {
-      return quantity * editorRates.videoEditRate;
-    }
-
-    if (isFloorplanServiceName(serviceName)) {
-      return quantity * editorRates.floorplanRate;
+      return photoCount * matchedRate.rate;
     }
 
     if (explicitPhotoCount > 0) {
-      return explicitPhotoCount * editorRates.photoEditRate;
+      return explicitPhotoCount * matchedRate.rate;
     }
 
-    return quantity * editorRates.otherRate;
+    return quantity * matchedRate.rate;
   };
 
   const getServiceDisplayPrice = (service: ServiceOption | Record<string, unknown>) => {
@@ -635,31 +695,40 @@ export function ShootDetailsOverviewTab({
     sqft: isEditMode ? propertyMetricsEdit.sqft : baseSqft,
   };
 
-  const formatMetricValue = (value: unknown) => {
-    if (value === null || value === undefined || value === '') return '—';
-    const numeric = Number(value);
-    if (!Number.isNaN(numeric)) {
-      return numeric.toLocaleString();
-    }
-    return String(value);
-  };
-
+  const splitBathroomDisplay = !isEditMode
+    ? getSplitBathroomDisplay(metricDisplayValues.baths)
+    : null;
 
   const propertyMetrics = [
     {
       label: 'Beds',
       icon: BedDouble,
-      value: formatMetricValue(metricDisplayValues.beds),
+      value: formatPropertyMetricValue(metricDisplayValues.beds),
     },
-    {
-      label: 'Baths',
-      icon: ShowerHead,
-      value: formatMetricValue(metricDisplayValues.baths),
-    },
+    ...(splitBathroomDisplay
+      ? [
+          {
+            label: 'Full Baths',
+            icon: ShowerHead,
+            value: splitBathroomDisplay.fullBaths,
+          },
+          {
+            label: 'Half Baths',
+            icon: ShowerHead,
+            value: splitBathroomDisplay.halfBaths,
+          },
+        ]
+      : [
+          {
+            label: 'Baths',
+            icon: ShowerHead,
+            value: formatPropertyMetricValue(metricDisplayValues.baths),
+          },
+        ]),
     {
       label: 'Sqft',
       icon: Ruler,
-      value: formatMetricValue(metricDisplayValues.sqft),
+      value: formatPropertyMetricValue(metricDisplayValues.sqft),
     },
   ];
 
@@ -742,8 +811,10 @@ export function ShootDetailsOverviewTab({
         shoot={shoot}
         isEditMode={isEditMode}
         isAdmin={isAdmin}
+        isRep={isRep}
         isPhotographer={isPhotographer}
         isEditor={isEditor}
+        isClient={isClient}
         shouldHideClientDetails={shouldHideClientDetails}
         clients={clients}
         selectedClientId={selectedClientId}
@@ -781,6 +852,32 @@ export function ShootDetailsOverviewTab({
           accessContactPhone={accessContactPhone}
           setAccessContactPhone={setAccessContactPhone}
         />
+      )}
+
+      {isAssignedPhotographer && (
+        <div className="p-2.5 border rounded-lg bg-card">
+          <span className="text-[11px] font-semibold text-muted-foreground uppercase mb-1.5 block">Internal Marketing</span>
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <div className="text-sm font-medium">Featured Shoot</div>
+              <div className="text-xs text-muted-foreground mt-0.5">
+                Mark this shoot for internal marketing and featured collections.
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {isSavingFeaturedShoot ? (
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              ) : null}
+              <Switch
+                checked={isFeaturedShoot}
+                onCheckedChange={(checked: boolean) => {
+                  void handleFeaturedShootToggle(checked);
+                }}
+                disabled={isSavingFeaturedShoot}
+              />
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Completion Info Card - Only show if completed */}

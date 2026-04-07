@@ -1,20 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { API_BASE_URL } from '@/config/env';
-import { DollarSign, Save } from 'lucide-react';
+import { DollarSign, Plus, Save, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-interface EditorRateSettings {
-  photoEditRate: number;
-  videoEditRate: number;
-  floorplanRate: number;
-  otherRate: number;
-}
+import { useServices } from '@/hooks/useServices';
+import {
+  type EditorServiceRate,
+  getEditorRatePayload,
+  getEditorServiceRates,
+  normalizeEditorServiceName,
+} from '@/utils/editorRates';
 
 interface EditorRateSettingsProps {
   className?: string;
@@ -23,33 +30,47 @@ interface EditorRateSettingsProps {
 export function EditorRateSettings({ className }: EditorRateSettingsProps = {}) {
   const { user, setUser } = useAuth();
   const { toast } = useToast();
-  const [rates, setRates] = useState<EditorRateSettings>({
-    photoEditRate: 0,
-    videoEditRate: 0,
-    floorplanRate: 0,
-    otherRate: 0,
-  });
+  const { data: services = [], isLoading: servicesLoading } = useServices();
+  const [rates, setRates] = useState<EditorServiceRate[]>([]);
+  const [selectedServiceId, setSelectedServiceId] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Load existing rates
+  const activeServices = useMemo(
+    () =>
+      services
+        .filter((service) => service.active !== false)
+        .sort((left, right) => left.name.localeCompare(right.name)),
+    [services],
+  );
+
+  const remainingServices = useMemo(() => {
+    const selectedKeys = new Set(
+      rates.map((rate) => rate.serviceId || normalizeEditorServiceName(rate.serviceName)),
+    );
+
+    return activeServices.filter((service) => {
+      const key = service.id || normalizeEditorServiceName(service.name);
+      return !selectedKeys.has(key);
+    });
+  }, [activeServices, rates]);
+
   useEffect(() => {
     const loadRates = async () => {
-      if (!user?.id) return;
-      
+      if (!user?.id || servicesLoading) return;
+
       setIsLoading(true);
       try {
         const token = localStorage.getItem('authToken');
         const url = `${API_BASE_URL}/api/editors/${user.id}/rates`;
-        
-        // Log for debugging (remove in production)
+
         if (import.meta.env.DEV) {
           console.log('Loading rates from:', url);
         }
-        
+
         const response = await fetch(url, {
           headers: {
-            'Authorization': `Bearer ${token}`,
+            Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
         });
@@ -57,53 +78,93 @@ export function EditorRateSettings({ className }: EditorRateSettingsProps = {}) 
         if (response.ok) {
           const data = await response.json().catch(() => null);
           if (data?.data) {
-            const updatedRates = {
-              photoEditRate: data.data.photo_edit_rate || 0,
-              videoEditRate: data.data.video_edit_rate || 0,
-              floorplanRate: data.data.floorplan_rate || 0,
-              otherRate: data.data.other_rate || 0,
+            const updatedMetadata = {
+              ...(user.metadata || {}),
+              ...data.data,
             };
-            setRates(updatedRates);
+            setRates(getEditorServiceRates(updatedMetadata, activeServices));
             if (user) {
-              const updatedMetadata = {
-                ...(user.metadata || {}),
-                photo_edit_rate: updatedRates.photoEditRate,
-                video_edit_rate: updatedRates.videoEditRate,
-                floorplan_rate: updatedRates.floorplanRate,
-                other_rate: updatedRates.otherRate,
-              };
               setUser({ ...user, metadata: updatedMetadata });
             }
+            return;
           }
         } else if (response.status !== 404) {
-          // 404 is expected if rates don't exist yet
           throw new Error('Failed to load rates');
         }
+
+        setRates(getEditorServiceRates(user.metadata || {}, activeServices));
       } catch (error) {
         console.error('Error loading rates:', error);
-        // Don't show error toast for initial load - rates might not exist yet
+        setRates(getEditorServiceRates(user?.metadata || {}, activeServices));
       } finally {
         setIsLoading(false);
       }
     };
 
     loadRates();
-  }, [user?.id]);
+  }, [activeServices, servicesLoading, setUser, user?.id]);
 
-  const handleRateChange = (field: keyof EditorRateSettings, value: string) => {
-    const numValue = parseFloat(value) || 0;
-    setRates(prev => ({
-      ...prev,
-      [field]: numValue,
-    }));
+  useEffect(() => {
+    if (!selectedServiceId && remainingServices.length > 0) {
+      setSelectedServiceId(remainingServices[0].id);
+      return;
+    }
+
+    if (
+      selectedServiceId &&
+      !remainingServices.some((service) => String(service.id) === String(selectedServiceId))
+    ) {
+      setSelectedServiceId(remainingServices[0]?.id || '');
+    }
+  }, [remainingServices, selectedServiceId]);
+
+  const handleRateChange = (serviceKey: string, value: string) => {
+    const rateValue = Number.parseFloat(value);
+    setRates((currentRates) =>
+      currentRates.map((rate) => {
+        const key = rate.serviceId || normalizeEditorServiceName(rate.serviceName);
+        if (key !== serviceKey) return rate;
+        return {
+          ...rate,
+          rate: Number.isFinite(rateValue) ? rateValue : 0,
+        };
+      }),
+    );
+  };
+
+  const handleAddService = () => {
+    if (!selectedServiceId) return;
+
+    const service = activeServices.find(
+      (item) => String(item.id) === String(selectedServiceId),
+    );
+    if (!service) return;
+
+    setRates((currentRates) => [
+      ...currentRates,
+      {
+        serviceId: service.id,
+        serviceName: service.name,
+        rate: 0,
+      },
+    ]);
+  };
+
+  const handleRemoveService = (serviceKey: string) => {
+    setRates((currentRates) =>
+      currentRates.filter((rate) => {
+        const key = rate.serviceId || normalizeEditorServiceName(rate.serviceName);
+        return key !== serviceKey;
+      }),
+    );
   };
 
   const handleSave = async () => {
     if (!user?.id) {
       toast({
-        title: "Error",
-        description: "User information not available.",
-        variant: "destructive",
+        title: 'Error',
+        description: 'User information not available.',
+        variant: 'destructive',
       });
       return;
     }
@@ -112,84 +173,70 @@ export function EditorRateSettings({ className }: EditorRateSettingsProps = {}) 
     try {
       const token = localStorage.getItem('authToken');
       const url = `${API_BASE_URL}/api/editors/${user.id}/rates`;
-      
-      // Log for debugging (remove in production)
+      const payload = getEditorRatePayload(rates);
+
       if (import.meta.env.DEV) {
         console.log('Saving rates to:', url);
       }
-      
+
       const response = await fetch(url, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          photo_edit_rate: rates.photoEditRate,
-          video_edit_rate: rates.videoEditRate,
-          floorplan_rate: rates.floorplanRate,
-          other_rate: rates.otherRate,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const responseData = await response.json().catch(() => null);
 
       if (!response.ok) {
-        const errorData = responseData || {};
-        
-        // Handle 404 specifically - endpoint doesn't exist
         if (response.status === 404) {
-          throw new Error('This feature is not yet available. The API endpoint has not been implemented on the server.');
+          throw new Error(
+            'This feature is not yet available. The API endpoint has not been implemented on the server.',
+          );
         }
-        
-        // Handle other errors
-        const errorMessage = errorData.message || errorData.error || 
-          (response.status === 401 ? 'You are not authorized to perform this action.' :
-           response.status === 500 ? 'Server error. Please try again later.' :
-           'Failed to save rates. Please try again.');
+
+        const errorMessage =
+          responseData?.message ||
+          responseData?.error ||
+          (response.status === 401
+            ? 'You are not authorized to perform this action.'
+            : response.status === 500
+              ? 'Server error. Please try again later.'
+              : 'Failed to save rates. Please try again.');
         throw new Error(errorMessage);
       }
 
-      if (responseData?.data) {
-        const updatedRates = {
-          photoEditRate: responseData.data.photo_edit_rate || 0,
-          videoEditRate: responseData.data.video_edit_rate || 0,
-          floorplanRate: responseData.data.floorplan_rate || 0,
-          otherRate: responseData.data.other_rate || 0,
-        };
-        setRates(updatedRates);
-        if (user) {
-          const updatedMetadata = {
-            ...(user.metadata || {}),
-            photo_edit_rate: updatedRates.photoEditRate,
-            video_edit_rate: updatedRates.videoEditRate,
-            floorplan_rate: updatedRates.floorplanRate,
-            other_rate: updatedRates.otherRate,
-          };
-          setUser({ ...user, metadata: updatedMetadata });
-        }
+      const updatedMetadata = {
+        ...(user.metadata || {}),
+        ...(responseData?.data || payload),
+      };
+      const updatedRates = getEditorServiceRates(updatedMetadata, activeServices);
+      setRates(updatedRates);
+      if (user) {
+        setUser({ ...user, metadata: updatedMetadata });
       }
 
       toast({
-        title: "Rates Saved",
-        description: "Your editing rates have been updated successfully.",
-        variant: "default",
+        title: 'Rates Saved',
+        description: 'Your editing rates have been updated successfully.',
+        variant: 'default',
       });
     } catch (error: any) {
       console.error('Error saving rates:', error);
-      
-      // Handle network errors
       if (error.name === 'TypeError' && error.message.includes('fetch')) {
         toast({
-          title: "Connection Error",
-          description: "Unable to connect to the server. Please check your internet connection and try again.",
-          variant: "destructive",
+          title: 'Connection Error',
+          description:
+            'Unable to connect to the server. Please check your internet connection and try again.',
+          variant: 'destructive',
         });
       } else {
         toast({
-          title: "Error",
-          description: error.message || "Failed to save rates. Please try again.",
-          variant: "destructive",
+          title: 'Error',
+          description: error.message || 'Failed to save rates. Please try again.',
+          variant: 'destructive',
         });
       }
     } finally {
@@ -197,12 +244,12 @@ export function EditorRateSettings({ className }: EditorRateSettingsProps = {}) 
     }
   };
 
-  if (isLoading) {
+  if (isLoading || servicesLoading) {
     return (
       <Card className={cn('h-full', className)}>
         <CardHeader>
           <CardTitle>Editing Rates</CardTitle>
-          <CardDescription>Set your rates per image type</CardDescription>
+          <CardDescription>Choose services and set the editor rate for each one.</CardDescription>
         </CardHeader>
         <CardContent className="flex-1">
           <div className="text-center py-4 text-muted-foreground">Loading rates...</div>
@@ -219,69 +266,91 @@ export function EditorRateSettings({ className }: EditorRateSettingsProps = {}) 
           Editing Rates
         </CardTitle>
         <CardDescription>
-          Set your rates per image type. Earnings will be calculated based on these rates.
+          Choose services from the admin service list and set a rate for each one. Remove any row you do not need.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-1 flex-col">
-        <div className="flex flex-1 flex-col space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="photoEditRate">Photo Edit Rate ($ per image)</Label>
-            <Input
-              id="photoEditRate"
-              type="number"
-              min="0"
-              step="0.01"
-              value={rates.photoEditRate}
-              onChange={(e) => handleRateChange('photoEditRate', e.target.value)}
-              placeholder="0.00"
-            />
+        <div className="flex flex-1 flex-col gap-4">
+          <div className="rounded-lg border border-dashed p-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+              <div className="flex-1 space-y-2">
+                <Label htmlFor="editing-rate-service">Add Service</Label>
+                <Select value={selectedServiceId} onValueChange={setSelectedServiceId}>
+                  <SelectTrigger id="editing-rate-service">
+                    <SelectValue placeholder="Select a service" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {remainingServices.length > 0 ? (
+                      remainingServices.map((service) => (
+                        <SelectItem key={service.id} value={service.id}>
+                          {service.name}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="no-services" disabled>
+                        No more services to add
+                      </SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button
+                type="button"
+                onClick={handleAddService}
+                disabled={!selectedServiceId || remainingServices.length === 0}
+                className="sm:min-w-[140px]"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Field
+              </Button>
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="videoEditRate">Video Edit Rate ($ per video)</Label>
-            <Input
-              id="videoEditRate"
-              type="number"
-              min="0"
-              step="0.01"
-              value={rates.videoEditRate}
-              onChange={(e) => handleRateChange('videoEditRate', e.target.value)}
-              placeholder="0.00"
-            />
-          </div>
+          {rates.length === 0 ? (
+            <div className="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
+              Add a service to start setting editing rates.
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {rates.map((rate) => {
+                const serviceKey =
+                  rate.serviceId || normalizeEditorServiceName(rate.serviceName);
 
-          <div className="space-y-2">
-            <Label htmlFor="floorplanRate">Floorplan Rate ($ per floorplan)</Label>
-            <Input
-              id="floorplanRate"
-              type="number"
-              min="0"
-              step="0.01"
-              value={rates.floorplanRate}
-              onChange={(e) => handleRateChange('floorplanRate', e.target.value)}
-              placeholder="0.00"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="otherRate">Other Rate ($ per item)</Label>
-            <Input
-              id="otherRate"
-              type="number"
-              min="0"
-              step="0.01"
-              value={rates.otherRate}
-              onChange={(e) => handleRateChange('otherRate', e.target.value)}
-              placeholder="0.00"
-            />
-          </div>
+                return (
+                  <div key={serviceKey} className="rounded-lg border p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                      <div className="flex-1 space-y-2">
+                        <Label htmlFor={`rate-${serviceKey}`}>
+                          {rate.serviceName} Rate ($ per item)
+                        </Label>
+                        <Input
+                          id={`rate-${serviceKey}`}
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={rate.rate}
+                          onChange={(event) => handleRateChange(serviceKey, event.target.value)}
+                          placeholder="0.00"
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => handleRemoveService(serviceKey)}
+                        className="sm:min-w-[120px]"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Remove
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
-        <Button
-          onClick={handleSave}
-          disabled={isSaving}
-          className="mt-4 w-full"
-        >
+        <Button onClick={handleSave} disabled={isSaving} className="mt-4 w-full">
           <Save className="h-4 w-4 mr-2" />
           {isSaving ? 'Saving...' : 'Save Rates'}
         </Button>
@@ -289,6 +358,3 @@ export function EditorRateSettings({ className }: EditorRateSettingsProps = {}) 
     </Card>
   );
 }
-
-
-

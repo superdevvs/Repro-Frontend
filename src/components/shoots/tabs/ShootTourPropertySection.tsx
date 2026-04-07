@@ -22,6 +22,7 @@ import {
   Ruler,
   Save,
 } from 'lucide-react'
+import { formatPropertyMetricValue, getSplitBathroomDisplay } from '@/utils/shootPropertyDisplay'
 
 type ShootTourPropertySectionProps = {
   showPropertyInfo: boolean
@@ -100,6 +101,43 @@ export function ShootTourPropertySection({
 }: ShootTourPropertySectionProps) {
   if (!showPropertyInfo) return null
 
+  const splitBathroomDisplay = getSplitBathroomDisplay(propertyBathrooms)
+  const propertyDetailCards = [
+    {
+      label: 'Beds',
+      icon: BedDouble,
+      value: formatPropertyMetricValue(propertyBedrooms),
+    },
+    ...(splitBathroomDisplay
+      ? [
+          {
+            label: 'Full Baths',
+            icon: Bath,
+            value: splitBathroomDisplay.fullBaths,
+          },
+          {
+            label: 'Half Baths',
+            icon: Bath,
+            value: splitBathroomDisplay.halfBaths,
+          },
+        ]
+      : [
+          {
+            label: 'Baths',
+            icon: Bath,
+            value: formatPropertyMetricValue(propertyBathrooms),
+          },
+        ]),
+    {
+      label: 'Sqft',
+      icon: Ruler,
+      value: formatPropertyMetricValue(propertySqft),
+    },
+  ]
+  const propertyDetailsGridClassName = propertyDetailCards.length > 3
+    ? 'grid gap-3 sm:grid-cols-4'
+    : 'grid gap-3 sm:grid-cols-3'
+
   return (
     <Card>
       <Collapsible open={open} onOpenChange={onOpenChange}>
@@ -160,40 +198,20 @@ export function ShootTourPropertySection({
 
             <div className="space-y-3">
               <Label>Property Details</Label>
-              <div className="grid gap-3 sm:grid-cols-3">
-                <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-background/80">
-                      <BedDouble className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Beds</p>
-                      <p className="text-xl font-semibold">{propertyBedrooms || '—'}</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-background/80">
-                      <Bath className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Baths</p>
-                      <p className="text-xl font-semibold">{propertyBathrooms || '—'}</p>
+              <div className={propertyDetailsGridClassName}>
+                {propertyDetailCards.map(({ label, icon: Icon, value }) => (
+                  <div key={label} className="rounded-xl border border-border/60 bg-muted/20 p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-background/80">
+                        <Icon className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
+                        <p className="text-xl font-semibold">{value}</p>
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-background/80">
-                      <Ruler className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Sqft</p>
-                      <p className="text-xl font-semibold">{propertySqft ? Number(propertySqft).toLocaleString() : '—'}</p>
-                    </div>
-                  </div>
-                </div>
+                ))}
               </div>
             </div>
 

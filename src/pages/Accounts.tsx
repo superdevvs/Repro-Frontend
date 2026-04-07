@@ -1131,8 +1131,10 @@ export default function Accounts() {
 
   // Determine which tabs to show based on user role
   const isSuperAdmin = currentUserRole === 'superadmin';
+  const isSalesRep = currentUserRole === 'salesRep';
   const isAdminOrSuperAdmin = currentUserRole === 'admin' || currentUserRole === 'superadmin';
-  const showPermissionsTab = can('permissions-manager', 'view');
+  const canUseTopLevelTabs = isAdminOrSuperAdmin || isSalesRep;
+  const showPermissionsTab = isAdminOrSuperAdmin && can('permissions-manager', 'view');
   const showLinkingTab = can('account-linking', 'view');
 
   // Calculate number of tabs to show
@@ -1251,7 +1253,7 @@ export default function Accounts() {
           <div className="mb-3 flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-3">
             {/* Show top-level tabs for admin/superadmin, role pills for editing_manager */}
             <div className="min-w-0 overflow-hidden">
-            {isAdminOrSuperAdmin ? (
+            {canUseTopLevelTabs ? (
               <TabsList className={`grid w-fit ${gridCols}`}>
                 <TabsTrigger value="accounts">Accounts</TabsTrigger>
                 {showPermissionsTab && (
@@ -1293,7 +1295,7 @@ export default function Accounts() {
 
           <TabsContent value="accounts" className="space-y-3 sm:space-y-6">
             {/* Stats Cards - show inside content only for admin/superadmin */}
-            {isAdminOrSuperAdmin && (
+            {(isAdminOrSuperAdmin || isSalesRep) && (
               <AccountsStatsCards
                 stats={roleStats}
                 selectedRole={filterRole === 'all' ? null : filterRole}

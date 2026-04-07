@@ -56,6 +56,7 @@ import { useQueryClient } from "@tanstack/react-query";
 
 // Define allowed roles for the form
 type FormRole = 'superadmin' | 'admin' | 'editing_manager' | 'photographer' | 'client' | 'editor' | 'salesRep';
+const SALES_REP_CREATABLE_ROLE: FormRole = 'client';
 const payoutFrequencyOptions = ['weekly', 'biweekly', 'monthly'] as const;
 const repCategoryOptions = [
   "Residential Sales",
@@ -118,8 +119,10 @@ const createAccountFormSchema = (viewerRole?: string) => z.object({
   serviceGroupIds: z.array(z.string()).optional(),
 })
 .superRefine((data, ctx) => {
-  // License number required for clients (superadmin can skip)
-  if (data.role === "client" && !data.licenseNumber?.trim() && viewerRole !== 'superadmin') {
+  const isSalesRepViewer = viewerRole === 'salesRep';
+
+  // License number required for clients except for superadmins and sales reps
+  if (data.role === "client" && !data.licenseNumber?.trim() && viewerRole !== 'superadmin' && !isSalesRepViewer) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       message: "License number is required for clients",
@@ -374,22 +377,44 @@ export function AccountForm({
           created_by_id: "",
           serviceGroupIds: [],
         });
+
+        if (viewerRole === 'salesRep' && currentUser?.id) {
+          form.setValue('created_by_id', String(currentUser.id), { shouldValidate: false, shouldDirty: false });
+          form.setValue('created_by_name', currentUser.name || '', { shouldValidate: false, shouldDirty: false });
+        }
+
         setAvatarUrl("");
       }
     }
-  }, [initialData, form, open]);
+  }, [currentUser?.id, currentUser?.name, initialData, form, open, viewerRole]);
 
   const repMetadata = (initialData?.metadata as Record<string, any> | undefined) || {};
   const repMetaId = repMetadata.accountRepId || repMetadata.account_rep_id || repMetadata.repId || repMetadata.rep_id;
   const repMetaName = repMetadata.accountRep || repMetadata.account_rep || repMetadata.rep;
   const createdById = (initialData as any)?.created_by_id || repMetaId || "";
   const createdByName = (initialData as any)?.created_by_name || (initialData as any)?.createdBy || repMetaName || "";
+  const formCreatedById = form.watch("created_by_id");
+  const formCreatedByName = form.watch("created_by_name");
   const currentRole = form.watch("role");
   const isClientRole = currentRole === "client";
-  const repAssigned = Boolean(createdById || createdByName);
+
+  useEffect(() => {
+    if (!open || viewerRole !== 'salesRep') return;
+
+    const nextRole: FormRole = initialData?.role ? (initialData.role as FormRole) : SALES_REP_CREATABLE_ROLE;
+    const currentValue = form.getValues('role');
+
+    if (!initialData && currentValue !== SALES_REP_CREATABLE_ROLE) {
+      form.setValue('role', nextRole, { shouldValidate: true });
+    }
+  }, [form, initialData?.role, open, viewerRole]);
+
+  const displayedRepId = formCreatedById || createdById || (viewerRole === 'salesRep' && currentUser?.id ? String(currentUser.id) : "");
+  const displayedRepName = formCreatedByName || createdByName || (viewerRole === 'salesRep' ? currentUser?.name || '' : "");
+  const repAssigned = Boolean(displayedRepId || displayedRepName);
   const canAssignClientRep = viewerRole === 'superadmin' || (viewerRole === 'admin' && clientsPermission.canAssign());
   const { data: serviceGroups = [] } = useServiceGroups({
-    enabled: open && isClientRole && ['admin', 'superadmin', 'editing_manager'].includes(viewerRole),
+    enabled: open && isClientRole && ['admin', 'superadmin', 'editing_manager', 'salesRep'].includes(viewerRole),
   });
   const serviceGroupOptions = React.useMemo(
     () =>
@@ -526,6 +551,16 @@ export function AccountForm({
 
   const handleSubmit = async (values: AccountFormValues) => {
     console.log("Form submitted with values:", values);
+
+    if (viewerRole === 'salesRep' && !initialData && values.role !== SALES_REP_CREATABLE_ROLE) {
+      toast({
+        title: 'Role not allowed',
+        description: 'Sales reps can only create client accounts.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     const fullName = `${values.firstName} ${values.lastName}`.trim();
     const parsedShootCcEmails = values.role === 'client' ? parseShootCcEmails(values.shootCcEmailsText) : [];
     const normalizedDiscountType = values.role === 'client'
@@ -865,7 +900,8 @@ export function AccountForm({
 
   // watch role to toggle specialties UI
   const isSalesRep = currentRole === "salesRep";
-  const roleSelectionDisabled = viewerRole === 'salesRep';
+  const isSalesRepViewer = viewerRole === 'salesRep';
+  const roleSelectionDisabled = isSalesRepViewer && Boolean(initialData);
   const canManageRoles = viewerRole === 'admin' || viewerRole === 'superadmin';
   const canCreateSalesRep = viewerRole === 'superadmin';
   // Allow superadmin to edit "Created by" for admin, salesRep, client, and superadmin accounts
@@ -914,32 +950,40 @@ export function AccountForm({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {viewerRole === 'superadmin' && (
-                        <SelectItem value="superadmin" disabled={!canManageRoles}>
-                          Super Admin
-                        </SelectItem>
+                      {isSalesRepViewer ? (
+                        <SelectItem value="client">Client</SelectItem>
+                      ) : (
+                        <>
+                          {viewerRole === 'superadmin' && (
+                            <SelectItem value="superadmin" disabled={!canManageRoles}>
+                              Super Admin
+                            </SelectItem>
+                          )}
+                          <SelectItem value="admin" disabled={!canManageRoles}>
+                            Admin
+                          </SelectItem>
+                          <SelectItem value="editing_manager" disabled={!canManageRoles}>
+                            Editing Manager
+                          </SelectItem>
+                          <SelectItem value="photographer" disabled={!canManageRoles}>
+                            Photographer
+                          </SelectItem>
+                          <SelectItem value="client">Client</SelectItem>
+                          <SelectItem value="editor" disabled={!canManageRoles}>
+                            Editor
+                          </SelectItem>
+                          <SelectItem value="salesRep" disabled={!canCreateSalesRep}>
+                            Sales/Rep
+                          </SelectItem>
+                        </>
                       )}
-                      <SelectItem value="admin" disabled={!canManageRoles}>
-                        Admin
-                      </SelectItem>
-                      <SelectItem value="editing_manager" disabled={!canManageRoles}>
-                        Editing Manager
-                      </SelectItem>
-                      <SelectItem value="photographer" disabled={!canManageRoles}>
-                        Photographer
-                      </SelectItem>
-                      <SelectItem value="client">Client</SelectItem>
-                      <SelectItem value="editor" disabled={!canManageRoles}>
-                        Editor
-                      </SelectItem>
-                      <SelectItem value="salesRep" disabled={!canCreateSalesRep}>
-                        Sales/Rep
-                      </SelectItem>
                     </SelectContent>
                   </Select>
-                  {roleSelectionDisabled && (
+                  {isSalesRepViewer && (
                     <p className="text-[10px] text-muted-foreground mt-0.5 text-right whitespace-nowrap sm:text-xs sm:mt-1">
-                      Sales reps can only create clients.
+                      {initialData
+                        ? 'Sales reps can edit only client accounts they manage.'
+                        : 'Sales reps can only create client accounts.'}
                     </p>
                   )}
                   <FormMessage />
@@ -988,7 +1032,7 @@ export function AccountForm({
           {!showRepSelector && isClientRole && (
             <div className="text-[11px] text-muted-foreground mt-0.5 sm:text-xs">
               {repLabel}: <span className="font-medium text-foreground">
-                {createdByName || 'Unassigned'}
+                {displayedRepName || 'Unassigned'}
               </span>
             </div>
           )}

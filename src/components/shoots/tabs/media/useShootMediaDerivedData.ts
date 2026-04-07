@@ -99,6 +99,7 @@ interface UseShootMediaDerivedDataParams {
   isPhotographer: boolean;
   isEditor: boolean;
   isClient: boolean;
+  isClientReleaseLocked?: boolean;
 }
 
 export function useShootMediaDerivedData({
@@ -112,6 +113,7 @@ export function useShootMediaDerivedData({
   isPhotographer,
   isEditor,
   isClient,
+  isClientReleaseLocked = false,
 }: UseShootMediaDerivedDataParams) {
   const uploadedPhotos = useMemo(() => filterPhotoFiles(rawFiles), [rawFiles]);
   const uploadedVideos = useMemo(() => filterVideoFiles(rawFiles), [rawFiles]);
@@ -141,7 +143,7 @@ export function useShootMediaDerivedData({
     return services.some((service) => /video/i.test(String(service)));
   }, [shoot]);
 
-  const canDownload = isAdmin || isClient || isEditor || isPhotographer;
+  const canDownload = isAdmin || isEditor || isPhotographer || (isClient && !isClientReleaseLocked);
   const showUploadTab = isAdmin || isPhotographer || isEditor;
 
   const currentDisplayedFiles = useMemo(() => {

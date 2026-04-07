@@ -818,6 +818,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
         shootsCount: 0,
         lastActivity: new Date().toISOString(),
         companyNotes: data.companyNotes || '',
+        rep: (data as any).rep || data.created_by_name || undefined,
         service_group_ids: Array.isArray((data as any).service_group_ids)
           ? (data as any).service_group_ids.map((id: any) => String(id))
           : Array.isArray((data as any).serviceGroupIds)

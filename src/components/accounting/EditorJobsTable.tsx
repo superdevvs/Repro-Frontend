@@ -25,7 +25,8 @@ export interface EditorJob {
     name: string;
     email?: string;
   };
-  type: 'photo_edit' | 'video_edit' | 'floorplan' | 'other';
+  type: string;
+  typeLabel?: string;
   status: 'in_progress' | 'delivered' | 'approved' | 'pending' | 'rejected';
   pay: number;
   payAmount?: number;
@@ -216,7 +217,7 @@ export function EditorJobsTable({ jobs }: EditorJobsTableProps) {
                       <td className="px-3 py-2 font-medium text-xs">#{job.id}</td>
                       <td className="px-3 py-2 text-xs">#{job.shootId}</td>
                       <td className="px-3 py-2 text-xs">{job.client?.name || 'N/A'}</td>
-                      <td className="px-3 py-2 text-xs">{getTypeLabel(job.type)}</td>
+                      <td className="px-3 py-2 text-xs">{job.typeLabel || getTypeLabel(job.type)}</td>
                       <td className="px-3 py-2">
                         <span className={`rounded px-2 py-0.5 text-xs font-semibold ${getStatusColor(job.status)}`}>
                           {job.status.replace('_', ' ')}
@@ -387,7 +388,7 @@ function EditorJobCard({
 
           <div>
             <p className="text-xs text-muted-foreground">Type</p>
-            <p className="font-medium text-foreground">{getTypeLabel(job.type)}</p>
+            <p className="font-medium text-foreground">{job.typeLabel || getTypeLabel(job.type)}</p>
           </div>
 
           <div className="text-right">

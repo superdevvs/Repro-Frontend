@@ -6,6 +6,7 @@ export type ShootDetailsTabId =
   | 'issues'
   | 'tours'
   | 'settings'
+  | 'activity'
   | 'media';
 
 export type ShootDetailsInitialTab = Exclude<ShootDetailsTabId, 'media'>;
@@ -65,8 +66,24 @@ export interface ShootDetailsTabDefinition {
   label: string;
   isVisible: (input: {
     isAdmin: boolean;
+    isRep: boolean;
     isClient: boolean;
     isRequestedStatus: boolean;
+    isClientReleaseLocked: boolean;
     shoot: ShootData | null;
   }) => boolean;
+  isDisabled?: (input: {
+    isAdmin: boolean;
+    isRep: boolean;
+    isClient: boolean;
+    isRequestedStatus: boolean;
+    isClientReleaseLocked: boolean;
+    shoot: ShootData | null;
+  }) => boolean;
+}
+
+export interface ShootDetailsVisibleTab {
+  id: Exclude<ShootDetailsTabId, 'media'>;
+  label: string;
+  disabled?: boolean;
 }

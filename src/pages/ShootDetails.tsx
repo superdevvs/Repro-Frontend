@@ -770,6 +770,7 @@ const ShootDetails: React.FC = () => {
                       <ShootDetailsTourTab
                         shoot={shoot}
                         isAdmin={isAdmin}
+                        isRep={isRep}
                         isClient={isClient}
                         onShootUpdate={loadShoot}
                       />
@@ -791,6 +792,7 @@ const ShootDetails: React.FC = () => {
                       <ShootDetailsSettingsTab
                         shoot={shoot}
                         isAdmin={isAdmin}
+                        isRep={isRep}
                         onShootUpdate={loadShoot}
                       />
                     </div>

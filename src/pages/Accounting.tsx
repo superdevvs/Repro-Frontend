@@ -45,21 +45,22 @@ import { EditingManagerVerificationView } from '@/components/accounting/EditingM
 import { ShootDetailsModalWrapper } from '@/components/dashboard/v2/ShootDetailsModalWrapper';
 import type { DashboardShootSummary } from '@/types/dashboard';
 import { shootDataToSummary } from '@/utils/dashboardDerivedUtils';
+import { useServices } from '@/hooks/useServices';
+import {
+  extractPhotoCountFromServiceName,
+  findMatchingEditorRate,
+  getEditorServiceId,
+  getEditorServiceName,
+  getEditorServiceQuantity,
+  getEditorServiceRates,
+  getExplicitEditorPhotoCount,
+  isPhotoServiceName,
+  normalizeEditorServiceName,
+} from '@/utils/editorRates';
 
 const toNumber = (value: unknown) => {
   const num = Number(value);
   return Number.isFinite(num) ? num : 0;
-};
-
-const isPhotoServiceName = (name: string) => /photo|hdr|twilight/i.test(name);
-
-const isVideoServiceName = (name: string) => /video/i.test(name);
-
-const isFloorplanServiceName = (name: string) => /floor\s*plan|floorplan/i.test(name);
-
-const extractPhotoCountFromService = (name: string) => {
-  const match = name.match(/(\d+)\s*photo/i);
-  return match ? Number(match[1]) : 0;
 };
 
 const parseAccountingInvoiceDate = (value: unknown) => {
@@ -193,6 +194,7 @@ const AccountingPage = () => {
     downloading: boolean;
   } | null>(null);
   const { shoots: contextShoots } = useShoots();
+  const { data: services = [] } = useServices();
 
   // Get accounting mode based on role
   const accountingMode = useMemo(() => getAccountingMode(role), [role]);
@@ -328,15 +330,14 @@ const AccountingPage = () => {
     return [] as ShootData[];
   }, [accountingMode, contextShoots]);
 
+  const activeServices = useMemo(
+    () => services.filter((service) => service.active !== false),
+    [services],
+  );
+
   const editorRates = useMemo(() => {
-    const metadata = user?.metadata ?? {};
-    return {
-      photoEditRate: toNumber(metadata.photo_edit_rate ?? metadata.photoEditRate),
-      videoEditRate: toNumber(metadata.video_edit_rate ?? metadata.videoEditRate),
-      floorplanRate: toNumber(metadata.floorplan_rate ?? metadata.floorplanRate),
-      otherRate: toNumber(metadata.other_rate ?? metadata.otherRate),
-    };
-  }, [user?.metadata]);
+    return getEditorServiceRates(user?.metadata ?? {}, activeServices);
+  }, [activeServices, user?.metadata]);
 
   const editingJobs = useMemo(() => {
     if (accountingMode !== 'editor') {
@@ -357,24 +358,7 @@ const AccountingPage = () => {
         return;
       }
 
-      const services = (shoot.services || []).map((service) => String(service));
-      const photoCountFromServices = services.reduce(
-        (sum, service) => sum + extractPhotoCountFromService(service),
-        0,
-      );
-      const photoCount =
-        toNumber(shoot.editedPhotoCount) ||
-        toNumber(shoot.expectedFinalCount) ||
-        photoCountFromServices ||
-        0;
-      const videoCount = services.filter((service) => isVideoServiceName(service)).length;
-      const floorplanCount = services.filter((service) => isFloorplanServiceName(service)).length;
-      const otherCount = services.filter(
-        (service) =>
-          !isPhotoServiceName(service) &&
-          !isVideoServiceName(service) &&
-          !isFloorplanServiceName(service),
-      ).length;
+      const shootServices = Array.isArray(shoot.services) ? shoot.services : [];
 
       const statusValue = (() => {
         const workflowStatus = shoot.workflowStatus?.toLowerCase();
@@ -391,14 +375,40 @@ const AccountingPage = () => {
       const assignedDate = shoot.scheduledDate || shoot.completedDate || new Date().toISOString();
       const completedDate = shoot.completedDate || undefined;
 
-      const pushJob = (type: EditorJob['type'], count: number, rate: number) => {
-        if (!count || rate <= 0) return;
-        const pay = Number((count * rate).toFixed(2));
+      shootServices.forEach((service, index) => {
+        const matchedRate = findMatchingEditorRate(service, editorRates);
+        if (!matchedRate || matchedRate.rate <= 0) {
+          return;
+        }
+
+        const rawServiceName = getEditorServiceName(service) || matchedRate.serviceName;
+        const quantity = getEditorServiceQuantity(service);
+        const explicitPhotoCount = getExplicitEditorPhotoCount(service);
+        const derivedPhotoCount =
+          explicitPhotoCount ||
+          extractPhotoCountFromServiceName(rawServiceName) ||
+          toNumber(shoot.editedPhotoCount) ||
+          toNumber(shoot.expectedFinalCount);
+        const count = isPhotoServiceName(rawServiceName)
+          ? derivedPhotoCount || quantity
+          : quantity;
+
+        if (!count) {
+          return;
+        }
+
+        const typeKey =
+          getEditorServiceId(service) ||
+          matchedRate.serviceId ||
+          normalizeEditorServiceName(matchedRate.serviceName || rawServiceName);
+        const pay = Number((count * matchedRate.rate).toFixed(2));
+
         jobs.push({
-          id: `${shoot.id}-${type}`,
+          id: `${shoot.id}-${typeKey}-${index}`,
           shootId: String(shoot.id),
           client: shoot.client,
-          type,
+          type: typeKey,
+          typeLabel: matchedRate.serviceName || rawServiceName,
           status: statusValue,
           pay,
           payAmount: pay,
@@ -408,12 +418,7 @@ const AccountingPage = () => {
           editorId: shootEditorId ?? undefined,
           editor_id: shootEditorId ?? undefined,
         } as EditorJob & { editor_id?: string });
-      };
-
-      pushJob('photo_edit', photoCount, editorRates.photoEditRate);
-      pushJob('video_edit', videoCount, editorRates.videoEditRate);
-      pushJob('floorplan', floorplanCount, editorRates.floorplanRate);
-      pushJob('other', otherCount, editorRates.otherRate);
+      });
     });
 
     return jobs;

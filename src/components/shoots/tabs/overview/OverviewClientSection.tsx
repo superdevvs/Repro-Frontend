@@ -9,8 +9,10 @@ type OverviewClientSectionProps = {
   shoot: ShootData;
   isEditMode: boolean;
   isAdmin: boolean;
+  isRep: boolean;
   isPhotographer: boolean;
   isEditor: boolean;
+  isClient: boolean;
   shouldHideClientDetails: boolean;
   clients: ClientOption[];
   selectedClientId: string;
@@ -24,8 +26,10 @@ export function OverviewClientSection({
   shoot,
   isEditMode,
   isAdmin,
+  isRep,
   isPhotographer,
   isEditor,
+  isClient,
   shouldHideClientDetails,
   clients,
   selectedClientId,
@@ -34,7 +38,7 @@ export function OverviewClientSection({
   setSelectedClientId,
   updateField,
 }: OverviewClientSectionProps) {
-  if ((!shoot.client && !isEditMode) || isPhotographer || isEditor || shouldHideClientDetails) {
+  if ((!shoot.client && !isEditMode) || isPhotographer || isEditor || isClient || shouldHideClientDetails) {
     return null;
   }
 
@@ -109,6 +113,9 @@ export function OverviewClientSection({
             <div className="font-medium">{shoot.client?.name || 'Unknown'}</div>
             {shoot.client?.email && (
               <div className="text-muted-foreground truncate">{shoot.client.email}</div>
+            )}
+            {(isAdmin || isRep) && shoot.client?.phone && (
+              <div className="text-muted-foreground truncate">{shoot.client.phone}</div>
             )}
           </div>
           {isAdmin && (

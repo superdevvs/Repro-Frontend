@@ -51,6 +51,7 @@ type InvoiceViewDialogInvoice = Omit<
   paid_at?: string | null;
   issue_date?: string;
   due_date?: string;
+  amount_paid?: number | string;
 };
 
 interface InvoiceViewDialogProps {
@@ -137,10 +138,12 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
   const subtotal = Number(invoiceData.subtotal ?? Math.max(total - tax, 0));
   const status = invoiceData.status || 'pending';
   const isPaid = status.toLowerCase() === 'paid';
+  const paidAmount = Number(invoiceData.amountPaid ?? invoiceData.amount_paid ?? total) || 0;
   const paymentDetails = invoiceData.paymentDetails ?? invoiceData.payment_details ?? null;
   const paidAt = invoiceData.paidAt || invoiceData.paid_at || null;
   const paymentMethodValue = invoiceData.paymentMethod || invoiceData.payment_method;
   const paymentMethodLabel = formatPaymentMethod(paymentMethodValue, paymentDetails);
+  const paymentMethodDisplay = paymentMethodLabel !== 'N/A' ? paymentMethodLabel : 'Unavailable';
 
   const items: InvoiceItem[] = useMemo(() => invoiceData.items || [], [invoiceData.items]);
   
@@ -485,10 +488,10 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
       }
 
       // Prior Payment if paid
-      if (isPaid && total > 0) {
+      if (isPaid && paidAmount > 0) {
         doc.setTextColor(0, 128, 0);
         doc.text('PRIOR PAYMENT:', summaryLabelX, yPos);
-        doc.text(`-${formatCurrency(total)}`, summaryValueX, yPos, { align: 'right' });
+        doc.text(`-${formatCurrency(paidAmount)}`, summaryValueX, yPos, { align: 'right' });
         doc.setTextColor(0, 0, 0);
         yPos += 7;
       }
@@ -529,7 +532,7 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
       doc.setFontSize(24);
       if (isPaid) {
         doc.setTextColor(0, 128, 0);
-        doc.text(formatCurrency(total), margin, yPos + 12);
+        doc.text(formatCurrency(paidAmount), margin, yPos + 12);
       } else {
         doc.setTextColor(30, 64, 175);
         doc.text(formatCurrency(total), margin, yPos + 12);
@@ -566,7 +569,7 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
     } finally {
       setIsPdfGenerating(false);
     }
-  }, [clientEmail, clientName, formatDate, formatDateTime, invoiceNumber, isPaid, issueDate, isPdfGenerating, items, loadLogoPngForPdf, propertyAddress, subtotal, tax, total, displayInvoiceNumber, resolvePhotographerName, paymentMethodLabel, paidAt]);
+  }, [clientEmail, clientName, formatDate, formatDateTime, invoiceNumber, isPaid, issueDate, isPdfGenerating, items, loadLogoPngForPdf, paidAmount, propertyAddress, subtotal, tax, total, displayInvoiceNumber, resolvePhotographerName, paymentMethodLabel, paidAt]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -742,6 +745,23 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
             </table>
           </div>
 
+          {isPaid && (
+            <div className="grid gap-4 border-y border-border bg-muted/20 py-4 md:grid-cols-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Amount Paid</p>
+                <p className="mt-2 text-2xl font-semibold text-green-600 dark:text-green-400">{formatCurrency(paidAmount)}</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Date Paid</p>
+                <p className="mt-2 text-base font-medium text-foreground">{paidAt ? formatDateTime(paidAt) : 'N/A'}</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Payment Method</p>
+                <p className="mt-2 text-base font-medium text-foreground">{paymentMethodDisplay}</p>
+              </div>
+            </div>
+          )}
+
           {/* Summary Section */}
           <div className="flex justify-end">
             <div className="w-80 space-y-2">
@@ -755,31 +775,18 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
                   <span className="font-medium text-foreground">{formatCurrency(tax)}</span>
                 </div>
               )}
-              {isPaid && total > 0 && (
+              {isPaid && paidAmount > 0 && (
                 <div className="flex justify-between text-sm">
                   <span className="text-green-600 dark:text-green-400">Prior Payment:</span>
-                  <span className="font-medium text-green-600 dark:text-green-400">-{formatCurrency(total)}</span>
+                  <span className="font-medium text-green-600 dark:text-green-400">-{formatCurrency(paidAmount)}</span>
                 </div>
               )}
               <div className="flex justify-between text-base font-bold pt-2 border-t-2 border-border mt-2">
                 <span className="text-foreground">{isPaid ? 'Total Payment:' : 'Total Due:'}</span>
-                <span className={isPaid ? 'text-green-600 dark:text-green-400' : 'text-foreground'}>{formatCurrency(total)}</span>
+                <span className={isPaid ? 'text-green-600 dark:text-green-400' : 'text-foreground'}>{formatCurrency(isPaid ? paidAmount : total)}</span>
               </div>
             </div>
           </div>
-
-          {/* Payment Info if Paid */}
-          {isPaid && (paymentMethodLabel !== 'N/A' || paidAt) && (
-            <div className="pt-4 border-t space-y-1">
-              <p className="text-sm font-medium text-muted-foreground">Payment Method</p>
-              {paymentMethodLabel !== 'N/A' && (
-                <p className="text-sm">{paymentMethodLabel}</p>
-              )}
-              {paidAt && (
-                <p className="text-xs text-muted-foreground">Paid on {formatDate(paidAt)}</p>
-              )}
-            </div>
-          )}
         </div>
       </DialogContent>
     </Dialog>

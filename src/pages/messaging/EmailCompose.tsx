@@ -58,6 +58,7 @@ import {
   CommandSeparator,
 } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
+import { apiClient } from '@/services/api';
 import {
   composeEmail,
   getEmailComposeRecipients,
@@ -74,6 +75,7 @@ import type {
   Message,
   MessagingJsonObject,
   MessagingJsonValue,
+  RelatedShootContextType,
 } from '@/types/messaging';
 
 type Priority = 'normal' | 'high' | 'urgent';
@@ -96,6 +98,12 @@ type DraftAttachmentPlaceholder = {
   needsReattach: boolean;
 };
 
+type ContactShootOption = {
+  id: string;
+  label: string;
+  dateLabel?: string;
+};
+
 type ComposeDraft = {
   version: 1;
   form: ComposeFormState;
@@ -113,6 +121,7 @@ type ComposeFormState = {
   body_html: string;
   template_id: string;
   related_shoot_id: string;
+  related_shoot_context_type: '' | RelatedShootContextType;
   related_account_id: string;
   related_invoice_id: string;
   variables: string;
@@ -139,6 +148,7 @@ const EMPTY_FORM: ComposeFormState = {
   body_html: '',
   template_id: '',
   related_shoot_id: '',
+  related_shoot_context_type: '',
   related_account_id: '',
   related_invoice_id: '',
   variables: '',
@@ -201,6 +211,58 @@ const formatFileSize = (size: number) => {
   return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 };
 
+const formatShootDate = (value?: string | null) => {
+  if (!value) {
+    return 'Date TBD';
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+
+  return parsed.toLocaleDateString([], {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+};
+
+const buildShootOption = (shoot: Record<string, unknown>): ContactShootOption | null => {
+  const id = typeof shoot.id === 'number' || typeof shoot.id === 'string' ? String(shoot.id) : '';
+  if (!id) {
+    return null;
+  }
+
+  const address = typeof shoot.address === 'string' ? shoot.address.trim() : '';
+  const city = typeof shoot.city === 'string' ? shoot.city.trim() : '';
+  const state = typeof shoot.state === 'string' ? shoot.state.trim() : '';
+  const propertySlug = typeof shoot.property_slug === 'string' ? shoot.property_slug.trim() : '';
+  const client = shoot.client && typeof shoot.client === 'object' ? shoot.client as Record<string, unknown> : null;
+  const clientName = client && typeof client.name === 'string' ? client.name.trim() : '';
+  const headline = address || propertySlug || clientName || `Shoot #${id}`;
+  const location = [city, state].filter(Boolean).join(', ');
+  const dateLabel = formatShootDate(
+    typeof shoot.scheduled_at === 'string'
+      ? shoot.scheduled_at
+      : typeof shoot.scheduled_date === 'string'
+        ? shoot.scheduled_date
+        : typeof shoot.completed_at === 'string'
+          ? shoot.completed_at
+          : typeof shoot.editing_completed_at === 'string'
+            ? shoot.editing_completed_at
+            : typeof shoot.admin_verified_at === 'string'
+              ? shoot.admin_verified_at
+              : null,
+  );
+
+  return {
+    id,
+    label: [headline, location].filter(Boolean).join(' • ') || `Shoot #${id}`,
+    dateLabel,
+  };
+};
+
 const getComposeErrorMessage = (error: unknown, fallback: string) => {
   if (error && typeof error === 'object') {
     const response = 'response' in error
@@ -230,6 +292,7 @@ export default function EmailCompose() {
   const location = useLocation();
   const { role, user } = useAuth();
   const canSendExternal = canSendExternalEmail(role);
+  const isClient = role === 'client';
   const composeState = (location.state as EmailComposeLocationState | null) ?? {};
   const composeMode: EmailComposeMode =
     composeState.mode === 'reply' || composeState.mode === 'forward' || composeState.mode === 'compose'
@@ -276,16 +339,55 @@ export default function EmailCompose() {
     }
 
     return {
-      title: canSendExternal ? 'Compose Email' : 'Message Internal Team',
-      subtitle: canSendExternal ? 'Transactional outbound workspace' : 'This message goes straight to the internal inbox',
-      sendLabel: canSendExternal ? 'Send Email' : 'Send Message',
+      title: canSendExternal ? 'Compose Email' : isClient ? 'Contact' : 'Contact Team',
+      subtitle: canSendExternal ? 'Transactional outbound workspace' : 'Choose the shoot, add the details, and route it to the right internal team.',
+      sendLabel: canSendExternal ? 'Send Email' : isClient ? 'Send Contact' : 'Send Contact',
     };
-  }, [canSendExternal, composeMode]);
+  }, [canSendExternal, composeMode, isClient]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedDirectorySearch(directorySearch.trim()), 250);
     return () => window.clearTimeout(timer);
   }, [directorySearch]);
+
+  const { data: contactShootOptions = [], isLoading: isLoadingContactShoots } = useQuery({
+    queryKey: ['contact-shoot-options', user?.id, form.related_shoot_context_type],
+    enabled: !canSendExternal && Boolean(form.related_shoot_context_type),
+    queryFn: async () => {
+      const contextType = form.related_shoot_context_type;
+      const tabs = contextType === 'previous_shoot' ? ['completed', 'delivered'] : ['scheduled'];
+      const responses = await Promise.all(
+        tabs.map((tab) =>
+          apiClient.get('/shoots', {
+            params: {
+              tab,
+              per_page: 100,
+            },
+          }),
+        ),
+      );
+
+      const seen = new Set<string>();
+
+      return responses
+        .flatMap((response) => {
+          const payload = response.data;
+          const records = Array.isArray(payload?.data) ? payload.data : [];
+          return records
+            .map((record) => buildShootOption(record as Record<string, unknown>))
+            .filter((record): record is ContactShootOption => Boolean(record));
+        })
+        .filter((record) => {
+          if (seen.has(record.id)) {
+            return false;
+          }
+
+          seen.add(record.id);
+          return true;
+        })
+        .sort((left, right) => left.label.localeCompare(right.label));
+    },
+  });
 
   useEffect(() => {
     try {
@@ -333,6 +435,7 @@ export default function EmailCompose() {
       body_text: composeMode === 'forward' && !prev.body_text ? quotedBody.trimStart() : prev.body_text,
       body_html: composeMode === 'forward' && !prev.body_html ? bodyTextToHtml(quotedBody.trimStart()) : prev.body_html,
       related_shoot_id: prev.related_shoot_id || (originalMessage.related_shoot_id ? String(originalMessage.related_shoot_id) : ''),
+      related_shoot_context_type: prev.related_shoot_context_type || originalMessage.related_shoot_context_type || '',
       related_account_id: prev.related_account_id || (originalMessage.related_account_id ? String(originalMessage.related_account_id) : ''),
       related_invoice_id: prev.related_invoice_id || (originalMessage.related_invoice_id ? String(originalMessage.related_invoice_id) : ''),
     }));
@@ -366,6 +469,7 @@ export default function EmailCompose() {
         || form.body_text.trim()
         || form.template_id
         || form.related_shoot_id
+        || form.related_shoot_context_type
         || form.related_account_id
         || form.related_invoice_id
         || form.variables.trim()
@@ -394,6 +498,19 @@ export default function EmailCompose() {
 
     return () => window.clearTimeout(timer);
   }, [attachments, draftAttachments, draftHydrated, draftKey, form, previewMode, priority, recipients, showCcBcc]);
+
+  useEffect(() => {
+    if (!form.related_shoot_context_type) {
+      if (form.related_shoot_id) {
+        setForm((prev) => ({ ...prev, related_shoot_id: '' }));
+      }
+      return;
+    }
+
+    if (form.related_shoot_id && !contactShootOptions.some((option) => option.id === form.related_shoot_id)) {
+      setForm((prev) => ({ ...prev, related_shoot_id: '' }));
+    }
+  }, [contactShootOptions, form.related_shoot_context_type, form.related_shoot_id]);
 
   const { data: settingsData } = useQuery({
     queryKey: ['email-settings', canSendExternal],
@@ -537,7 +654,9 @@ export default function EmailCompose() {
   }, [selectedTemplate?.variables_json]);
 
   const messageInfo = useMemo(() => {
-    const totalRecipients = recipients.to.length + recipients.cc.length + recipients.bcc.length;
+    const totalRecipients = canSendExternal
+      ? recipients.to.length + recipients.cc.length + recipients.bcc.length
+      : (form.related_shoot_id ? 1 : 0);
     const previewText = form.body_text.trim() || templatePreviewData?.body_text?.trim() || '';
 
     return {
@@ -546,7 +665,7 @@ export default function EmailCompose() {
       characters: previewText.length,
       attachments: attachments.length,
     };
-  }, [attachments.length, form.body_text, recipients.bcc.length, recipients.cc.length, recipients.to.length, templatePreviewData?.body_text]);
+  }, [attachments.length, canSendExternal, form.body_text, form.related_shoot_id, recipients.bcc.length, recipients.cc.length, recipients.to.length, templatePreviewData?.body_text]);
 
   const previewSubject = !templateCustomized && templatePreviewData?.subject
     ? templatePreviewData.subject
@@ -554,12 +673,14 @@ export default function EmailCompose() {
   const previewBodyHtml = !templateCustomized && templatePreviewData?.body_html
     ? templatePreviewData.body_html
     : form.body_html || bodyTextToHtml(form.body_text);
+  const isMissingRequiredShootContext = !canSendExternal
+    && (!form.related_shoot_context_type || !form.related_shoot_id);
 
   const sendMutation = useMutation({
     mutationFn: composeEmail,
     onSuccess: () => {
       window.localStorage.removeItem(draftKey);
-      toast.success(canSendExternal ? 'Email sent successfully.' : 'Internal message sent successfully.');
+      toast.success(canSendExternal ? 'Email sent successfully.' : 'Contact message sent successfully.');
       navigate('/messaging/email/inbox');
     },
     onError: (error) => {
@@ -696,7 +817,7 @@ export default function EmailCompose() {
   };
 
   const ensureReadyToSend = (mode: 'send' | 'schedule') => {
-    if (variableJsonError) {
+    if (canSendExternal && variableJsonError) {
       toast.error(variableJsonError);
       return false;
     }
@@ -709,6 +830,16 @@ export default function EmailCompose() {
 
     if (!form.body_text.trim() && !form.template_id) {
       toast.error('Add a message body or choose a template.');
+      return false;
+    }
+
+    if (!canSendExternal && !form.related_shoot_context_type) {
+      toast.error('Choose whether this is about a new shoot or a previous shoot.');
+      return false;
+    }
+
+    if (!canSendExternal && !form.related_shoot_id) {
+      toast.error('Select the shoot this contact message is about.');
       return false;
     }
 
@@ -731,9 +862,10 @@ export default function EmailCompose() {
     body_html: form.body_html || bodyTextToHtml(form.body_text) || undefined,
     template_id: form.template_id ? Number(form.template_id) : undefined,
     related_shoot_id: form.related_shoot_id ? Number(form.related_shoot_id) : undefined,
-    related_account_id: form.related_account_id ? Number(form.related_account_id) : undefined,
-    related_invoice_id: form.related_invoice_id ? Number(form.related_invoice_id) : undefined,
-    variables: previewVariables,
+    related_shoot_context_type: form.related_shoot_context_type || undefined,
+    related_account_id: canSendExternal && form.related_account_id ? Number(form.related_account_id) : undefined,
+    related_invoice_id: canSendExternal && form.related_invoice_id ? Number(form.related_invoice_id) : undefined,
+    variables: canSendExternal ? previewVariables : undefined,
     attachments: attachments.length > 0 ? attachments : undefined,
   });
 
@@ -992,19 +1124,21 @@ export default function EmailCompose() {
                   <ArrowLeft className="mr-2 h-4 w-4" />
                   Back
                 </Button>
-                <Button type="button" variant="outline" onClick={() => setPreviewMode((prev) => !prev)}>
-                  {previewMode ? (
-                    <>
-                      <EyeOff className="mr-2 h-4 w-4" />
-                      Edit
-                    </>
-                  ) : (
-                    <>
-                      <Eye className="mr-2 h-4 w-4" />
-                      Preview
-                    </>
-                  )}
-                </Button>
+                {canSendExternal && (
+                  <Button type="button" variant="outline" onClick={() => setPreviewMode((prev) => !prev)}>
+                    {previewMode ? (
+                      <>
+                        <EyeOff className="mr-2 h-4 w-4" />
+                        Edit
+                      </>
+                    ) : (
+                      <>
+                        <Eye className="mr-2 h-4 w-4" />
+                        Preview
+                      </>
+                    )}
+                  </Button>
+                )}
                 {canSendExternal && (
                   <Button type="button" variant="outline" onClick={() => setShowScheduleDialog(true)}>
                     <CalendarClock className="mr-2 h-4 w-4" />
@@ -1018,7 +1152,7 @@ export default function EmailCompose() {
                 <Button
                   type="button"
                   onClick={handleSendNow}
-                  disabled={sendMutation.isPending || scheduleMutation.isPending}
+                  disabled={sendMutation.isPending || scheduleMutation.isPending || isMissingRequiredShootContext}
                   className="min-w-[140px]"
                 >
                   <Send className="mr-2 h-4 w-4" />
@@ -1034,9 +1168,9 @@ export default function EmailCompose() {
                     <div className="flex items-start gap-3">
                       <Info className="mt-0.5 h-4 w-4 text-primary" />
                       <div className="space-y-1">
-                        <p className="text-sm font-medium">This message goes straight to the internal team inbox.</p>
+                        <p className="text-sm font-medium">Your contact message will reach the internal team with the right shoot attached.</p>
                         <p className="text-sm text-muted-foreground">
-                          You can include context, files, and linked IDs. Recipient selection stays locked for internal-only roles.
+                          Choose whether this is about a new or previous shoot, then pick the shoot so admins, editing managers, and the right sales rep can see it.
                         </p>
                       </div>
                     </div>
@@ -1049,37 +1183,41 @@ export default function EmailCompose() {
                       <div>
                         <h2 className="text-lg font-semibold">Compose</h2>
                         <p className="text-sm text-muted-foreground">
-                          Build the message, lock the right context, and send with confidence.
+                          {canSendExternal
+                            ? 'Build the message, lock the right context, and send with confidence.'
+                            : 'Keep it simple: pick the shoot, add the details, and send it through.'}
                         </p>
                       </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <div className="inline-flex rounded-full border border-border/60 bg-muted/40 p-1">
-                          {(['normal', 'high', 'urgent'] as const).map((level) => (
-                            <button
-                              key={level}
-                              type="button"
-                              onClick={() => setPriority(level)}
-                              className={cn(
-                                'rounded-full px-3 py-1.5 text-xs font-medium capitalize transition-colors',
-                                priority === level
-                                  ? 'bg-primary text-primary-foreground shadow-sm'
-                                  : 'text-muted-foreground hover:text-foreground',
-                              )}
-                            >
-                              {level}
-                            </button>
-                          ))}
+                      {canSendExternal && (
+                        <div className="flex flex-wrap items-center gap-2">
+                          <div className="inline-flex rounded-full border border-border/60 bg-muted/40 p-1">
+                            {(['normal', 'high', 'urgent'] as const).map((level) => (
+                              <button
+                                key={level}
+                                type="button"
+                                onClick={() => setPriority(level)}
+                                className={cn(
+                                  'rounded-full px-3 py-1.5 text-xs font-medium capitalize transition-colors',
+                                  priority === level
+                                    ? 'bg-primary text-primary-foreground shadow-sm'
+                                    : 'text-muted-foreground hover:text-foreground',
+                                )}
+                              >
+                                {level}
+                              </button>
+                            ))}
+                          </div>
+                          {(showCcBcc || recipients.cc.length > 0 || recipients.bcc.length > 0) ? (
+                            <Button type="button" variant="ghost" size="sm" onClick={() => setShowCcBcc(false)}>
+                              Hide Cc/Bcc
+                            </Button>
+                          ) : (
+                            <Button type="button" variant="ghost" size="sm" onClick={() => setShowCcBcc(true)}>
+                              Add Cc / Bcc
+                            </Button>
+                          )}
                         </div>
-                        {(showCcBcc || recipients.cc.length > 0 || recipients.bcc.length > 0) ? (
-                          <Button type="button" variant="ghost" size="sm" onClick={() => setShowCcBcc(false)}>
-                            Hide Cc/Bcc
-                          </Button>
-                        ) : canSendExternal ? (
-                          <Button type="button" variant="ghost" size="sm" onClick={() => setShowCcBcc(true)}>
-                            Add Cc / Bcc
-                          </Button>
-                        ) : null}
-                      </div>
+                      )}
                     </div>
                   </div>
 
@@ -1092,7 +1230,7 @@ export default function EmailCompose() {
                       </div>
                     )}
 
-                    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+                    <div className={cn('grid gap-4', canSendExternal ? 'lg:grid-cols-[minmax(0,1fr)_280px]' : 'lg:grid-cols-[minmax(0,1fr)_360px]')}>
                       <div className="space-y-2">
                         <Label htmlFor="compose-subject">Subject</Label>
                         <Input
@@ -1107,7 +1245,7 @@ export default function EmailCompose() {
                         />
                       </div>
 
-                      {canSendExternal && (
+                      {canSendExternal ? (
                         <div className="space-y-2">
                           <Label>Template</Label>
                           <Select
@@ -1134,8 +1272,74 @@ export default function EmailCompose() {
                             </SelectContent>
                           </Select>
                         </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <Label>Regarding</Label>
+                          <div className="inline-flex h-11 w-full rounded-xl border border-border/70 bg-muted/30 p-1">
+                            {([
+                              ['new_shoot', 'New Shoot'],
+                              ['previous_shoot', 'Previous Shoot'],
+                            ] as const).map(([value, label]) => (
+                              <button
+                                key={value}
+                                type="button"
+                                onClick={() => {
+                                  setForm((prev) => ({
+                                    ...prev,
+                                    related_shoot_context_type: prev.related_shoot_context_type === value ? prev.related_shoot_context_type : value,
+                                    related_shoot_id: prev.related_shoot_context_type === value ? prev.related_shoot_id : '',
+                                  }));
+                                }}
+                                className={cn(
+                                  'flex-1 rounded-lg px-3 text-sm font-medium transition-colors',
+                                  form.related_shoot_context_type === value
+                                    ? 'bg-primary text-primary-foreground shadow-sm'
+                                    : 'text-muted-foreground hover:text-foreground',
+                                )}
+                              >
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                       )}
                     </div>
+
+                    {!canSendExternal && (
+                      <div className="space-y-2">
+                        <Label>Select shoot</Label>
+                        <Select
+                          value={form.related_shoot_id || '__none__'}
+                          onValueChange={(value) => setFormValue('related_shoot_id', value === '__none__' ? '' : value)}
+                          disabled={!form.related_shoot_context_type || isLoadingContactShoots}
+                        >
+                          <SelectTrigger className="h-11 rounded-xl">
+                            <SelectValue
+                              placeholder={
+                                !form.related_shoot_context_type
+                                  ? 'Choose new or previous shoot first'
+                                  : isLoadingContactShoots
+                                    ? 'Loading shoots...'
+                                    : 'Select a shoot'
+                              }
+                            />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">No shoot selected</SelectItem>
+                            {contactShootOptions.map((shoot) => (
+                              <SelectItem key={shoot.id} value={shoot.id}>
+                                {shoot.dateLabel ? `${shoot.label} • ${shoot.dateLabel}` : shoot.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {!isLoadingContactShoots && form.related_shoot_context_type && contactShootOptions.length === 0 ? (
+                          <p className="text-xs text-muted-foreground">
+                            No shoots are available for this selection yet.
+                          </p>
+                        ) : null}
+                      </div>
+                    )}
 
                     {canSendExternal && (
                       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(220px,280px)]">
@@ -1222,7 +1426,7 @@ export default function EmailCompose() {
                             }));
                             setTemplateCustomized(true);
                           }}
-                          placeholder={canSendExternal ? 'Write your message here...' : 'Tell the internal team what you need help with...'}
+                          placeholder={canSendExternal ? 'Write your message here...' : 'Tell us what you need help with and any shoot details the team should know...'}
                           className="min-h-[360px] rounded-[24px] border-border/70 bg-background px-4 py-3"
                         />
                       )}
@@ -1255,48 +1459,50 @@ export default function EmailCompose() {
               </div>
 
               <div className="space-y-6">
-                <div className="rounded-[28px] border border-border/60 bg-card p-5 shadow-[0_24px_60px_-50px_rgba(15,23,42,0.95)]">
-                  <div className="flex items-start gap-3">
-                    <Hash className="mt-1 h-4 w-4 text-primary" />
-                    <div>
-                      <h3 className="text-base font-semibold">Linked context</h3>
-                      <p className="text-sm text-muted-foreground">Tie this message to the exact records that should travel with it.</p>
+                {canSendExternal && (
+                  <div className="rounded-[28px] border border-border/60 bg-card p-5 shadow-[0_24px_60px_-50px_rgba(15,23,42,0.95)]">
+                    <div className="flex items-start gap-3">
+                      <Hash className="mt-1 h-4 w-4 text-primary" />
+                      <div>
+                        <h3 className="text-base font-semibold">Linked context</h3>
+                        <p className="text-sm text-muted-foreground">Tie this message to the exact records that should travel with it.</p>
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="mt-5 space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="compose-shoot-id">Shoot ID</Label>
-                      <Input
-                        id="compose-shoot-id"
-                        value={form.related_shoot_id}
-                        onChange={(event) => setFormValue('related_shoot_id', event.target.value)}
-                        placeholder="Enter shoot ID"
-                        className="h-11 rounded-xl"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="compose-account-id">Account ID</Label>
-                      <Input
-                        id="compose-account-id"
-                        value={form.related_account_id}
-                        onChange={(event) => setFormValue('related_account_id', event.target.value)}
-                        placeholder="Enter account ID"
-                        className="h-11 rounded-xl"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="compose-invoice-id">Invoice ID</Label>
-                      <Input
-                        id="compose-invoice-id"
-                        value={form.related_invoice_id}
-                        onChange={(event) => setFormValue('related_invoice_id', event.target.value)}
-                        placeholder="Enter invoice ID"
-                        className="h-11 rounded-xl"
-                      />
+                    <div className="mt-5 space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="compose-shoot-id">Shoot ID</Label>
+                        <Input
+                          id="compose-shoot-id"
+                          value={form.related_shoot_id}
+                          onChange={(event) => setFormValue('related_shoot_id', event.target.value)}
+                          placeholder="Enter shoot ID"
+                          className="h-11 rounded-xl"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="compose-account-id">Account ID</Label>
+                        <Input
+                          id="compose-account-id"
+                          value={form.related_account_id}
+                          onChange={(event) => setFormValue('related_account_id', event.target.value)}
+                          placeholder="Enter account ID"
+                          className="h-11 rounded-xl"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="compose-invoice-id">Invoice ID</Label>
+                        <Input
+                          id="compose-invoice-id"
+                          value={form.related_invoice_id}
+                          onChange={(event) => setFormValue('related_invoice_id', event.target.value)}
+                          placeholder="Enter invoice ID"
+                          className="h-11 rounded-xl"
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
 
                 <div className="rounded-[28px] border border-border/60 bg-card p-5 shadow-[0_24px_60px_-50px_rgba(15,23,42,0.95)]">
                   <div className="flex items-start gap-3">
@@ -1375,56 +1581,58 @@ export default function EmailCompose() {
                   </div>
                 </div>
 
-                <div className="rounded-[28px] border border-border/60 bg-card p-5 shadow-[0_24px_60px_-50px_rgba(15,23,42,0.95)]">
-                  <div className="flex items-start gap-3">
-                    <Sparkles className="mt-1 h-4 w-4 text-primary" />
-                    <div>
-                      <h3 className="text-base font-semibold">Variables</h3>
-                      <p className="text-sm text-muted-foreground">Blend template variables with live context before you send.</p>
+                {canSendExternal && (
+                  <div className="rounded-[28px] border border-border/60 bg-card p-5 shadow-[0_24px_60px_-50px_rgba(15,23,42,0.95)]">
+                    <div className="flex items-start gap-3">
+                      <Sparkles className="mt-1 h-4 w-4 text-primary" />
+                      <div>
+                        <h3 className="text-base font-semibold">Variables</h3>
+                        <p className="text-sm text-muted-foreground">Blend template variables with live context before you send.</p>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 flex flex-wrap gap-2">
+                      {templateSuggestions.map((entry) => (
+                        <button
+                          key={entry.name}
+                          type="button"
+                          className="rounded-full border border-border/70 px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+                          onClick={() => {
+                            const current = parsedVariables ?? {};
+                            const next = {
+                              ...current,
+                              [entry.name]: current[entry.name] ?? '',
+                            } as MessagingJsonObject;
+                            setFormValue('variables', JSON.stringify(next, null, 2));
+                          }}
+                        >
+                          {`{{${entry.name}}}`}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="mt-4 space-y-2">
+                      <Label htmlFor="compose-variables">Variables JSON</Label>
+                      <Textarea
+                        id="compose-variables"
+                        value={form.variables}
+                        onChange={(event) => setFormValue('variables', event.target.value)}
+                        placeholder={`{\n  "client_name": "Jamie",\n  "shoot_date": "2026-04-05"\n}`}
+                        className="min-h-[180px] rounded-2xl"
+                      />
+                      {variableJsonError ? (
+                        <div className="flex items-center gap-2 text-xs text-amber-600">
+                          <AlertCircle className="h-3.5 w-3.5" />
+                          <span>{variableJsonError}</span>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">
+                          JSON keys merge with linked IDs and template variables during preview/send.
+                        </p>
+                      )}
                     </div>
                   </div>
-
-                  <div className="mt-5 flex flex-wrap gap-2">
-                    {templateSuggestions.map((entry) => (
-                      <button
-                        key={entry.name}
-                        type="button"
-                        className="rounded-full border border-border/70 px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
-                        onClick={() => {
-                          const current = parsedVariables ?? {};
-                          const next = {
-                            ...current,
-                            [entry.name]: current[entry.name] ?? '',
-                          } as MessagingJsonObject;
-                          setFormValue('variables', JSON.stringify(next, null, 2));
-                        }}
-                      >
-                        {`{{${entry.name}}}`}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="mt-4 space-y-2">
-                    <Label htmlFor="compose-variables">Variables JSON</Label>
-                    <Textarea
-                      id="compose-variables"
-                      value={form.variables}
-                      onChange={(event) => setFormValue('variables', event.target.value)}
-                      placeholder={`{\n  "client_name": "Jamie",\n  "shoot_date": "2026-04-05"\n}`}
-                      className="min-h-[180px] rounded-2xl"
-                    />
-                    {variableJsonError ? (
-                      <div className="flex items-center gap-2 text-xs text-amber-600">
-                        <AlertCircle className="h-3.5 w-3.5" />
-                        <span>{variableJsonError}</span>
-                      </div>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">
-                        JSON keys merge with linked IDs and template variables during preview/send.
-                      </p>
-                    )}
-                  </div>
-                </div>
+                )}
 
                 <div className="rounded-[28px] border border-border/60 bg-card p-5 shadow-[0_24px_60px_-50px_rgba(15,23,42,0.95)]">
                   <div className="flex items-start gap-3">
@@ -1461,7 +1669,11 @@ export default function EmailCompose() {
                         {recipients.to[0] ? ` to ${recipients.to[0]}` : ' to a primary recipient'}.
                       </p>
                     ) : (
-                      <p>This note will be routed to the internal inbox for follow-up.</p>
+                      <p>
+                        {form.related_shoot_id
+                          ? `This contact note will be tied to shoot #${form.related_shoot_id} and routed for follow-up.`
+                          : 'Pick a shoot and this contact note will be routed for follow-up.'}
+                      </p>
                     )}
                   </div>
                 </div>

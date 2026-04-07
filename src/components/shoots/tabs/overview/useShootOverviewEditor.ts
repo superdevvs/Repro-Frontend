@@ -865,10 +865,10 @@ export function useShootOverviewEditor({
     updates.propertyDetails = {
       ...basePropertyDetails,
       presenceOption,
-      lockboxCode: presenceOption === 'lockbox' ? lockboxCode || undefined : undefined,
-      lockboxLocation: presenceOption === 'lockbox' ? lockboxLocation || undefined : undefined,
-      accessContactName: presenceOption === 'other' ? accessContactName || undefined : undefined,
-      accessContactPhone: presenceOption === 'other' ? accessContactPhone || undefined : undefined,
+      lockboxCode: presenceOption === 'lockbox' ? lockboxCode || null : null,
+      lockboxLocation: presenceOption === 'lockbox' ? lockboxLocation || null : null,
+      accessContactName: presenceOption === 'other' ? accessContactName || null : null,
+      accessContactPhone: presenceOption === 'other' ? accessContactPhone || null : null,
     };
 
     if (updates.client?.id !== undefined && updates.client.id !== null) {
@@ -898,21 +898,19 @@ export function useShootOverviewEditor({
       (shoot as any).living_area ??
       null;
 
-    if (selectedServiceIds.length > 0) {
-      updates.services = selectedServiceIds.map((serviceId) => {
-        const service = servicesList.find((serviceOption) => serviceOption.id === serviceId);
-        const resolvedPrice = service ? resolveServicePrice(service, sqftForPricing, servicePrices[serviceId]).price : 0;
-        const serviceData: any = {
-          id: Number(serviceId),
-          price: resolvedPrice,
-          quantity: 1,
-        };
-        if (servicePhotographerPays[serviceId]) {
-          serviceData.photographer_pay = parseFloat(servicePhotographerPays[serviceId]);
-        }
-        return serviceData;
-      });
-    }
+    updates.services = selectedServiceIds.map((serviceId) => {
+      const service = servicesList.find((serviceOption) => serviceOption.id === serviceId);
+      const resolvedPrice = service ? resolveServicePrice(service, sqftForPricing, servicePrices[serviceId]).price : 0;
+      const serviceData: any = {
+        id: Number(serviceId),
+        price: resolvedPrice,
+        quantity: 1,
+      };
+      if (servicePhotographerPays[serviceId]) {
+        serviceData.photographer_pay = parseFloat(servicePhotographerPays[serviceId]);
+      }
+      return serviceData;
+    });
 
     const servicePhotographerAssignments: Array<{ service_id: number; photographer_id: number }> = [];
     if (Object.keys(perCategoryPhotographers).length > 0 && selectedServiceIds.length > 0) {
@@ -930,9 +928,7 @@ export function useShootOverviewEditor({
         }
       }
     }
-    if (servicePhotographerAssignments.length > 0) {
-      updates.service_photographers = servicePhotographerAssignments;
-    }
+    updates.service_photographers = servicePhotographerAssignments;
 
     onSave(updates);
   }, [

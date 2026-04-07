@@ -62,6 +62,10 @@ export function OverviewPropertyLocationSection({
   getLocationAddress,
   locationDetails,
 }: OverviewPropertyLocationSectionProps) {
+  const propertyMetricsGridClassName = propertyMetrics.length > 3
+    ? 'grid grid-cols-2 gap-2 sm:grid-cols-4'
+    : 'grid grid-cols-3 gap-2';
+
   return (
     <>
       <div className="p-2.5 border rounded-lg bg-card">
@@ -95,7 +99,7 @@ export function OverviewPropertyLocationSection({
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-3 gap-2">
+          <div className={propertyMetricsGridClassName}>
             {propertyMetrics.map(({ label, icon: Icon, value }) => (
               <div key={label} className="flex items-center gap-2">
                 <div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center">

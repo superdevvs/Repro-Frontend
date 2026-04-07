@@ -16,6 +16,7 @@ import { useToast } from '@/hooks/use-toast'
 import { useUserPreferences } from '@/contexts/UserPreferencesContext'
 import { getStateFullName } from '@/utils/stateUtils'
 import { formatWorkflowStatus } from '@/utils/status'
+import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary'
 import { getEditingNotes, formatCurrency, getShootPlaceholderSrc, resolveShootThumbnail } from './shootHistoryUtils'
 import {
   AlertCircle,
@@ -188,7 +189,16 @@ export const CompletedAlbumCard = ({
   const hasNoImages = !heroImage
   const showPlaceholder = hasNoImages || imgErrored
   const hasTour = shoot.tourPurchased || Boolean(shoot.tourLinks?.branded || shoot.tourLinks?.mls)
-  const isPaid = isSuperAdmin ? ((shoot.payment?.totalPaid ?? 0) >= (shoot.payment?.totalQuote ?? 0)) : false
+  const paymentSummary = normalizeShootPaymentSummary(shoot)
+  const canShowPaymentStatus = Boolean(onViewInvoice) && (
+    paymentSummary.paymentStatus !== null ||
+    paymentSummary.totalQuote > 0 ||
+    paymentSummary.totalPaid > 0
+  )
+  const isPaid = paymentSummary.paymentStatus === 'paid'
+  const paymentBadgeLabel = isPaid
+    ? `Paid: ${formatCurrency(paymentSummary.totalPaid)}`
+    : 'Unpaid'
   const statusValue = shoot.workflowStatus ?? shoot.status ?? ''
   const statusLabel = formatWorkflowStatus(statusValue)
   const editingNotes = getEditingNotes(shoot.notes)
@@ -248,11 +258,11 @@ export const CompletedAlbumCard = ({
           })()}
         </div>
 
-        {/* Paid/Unpaid badge - Top right (non-hover) */}
-        {isSuperAdmin && (
-          <div className="absolute top-3 right-3 opacity-100 group-hover:opacity-0 transition-opacity">
-            <Badge variant={isPaid ? 'secondary' : 'destructive'} className="text-xs font-medium">
-              {isPaid ? 'Paid' : 'Unpaid'}
+        {/* Paid/Unpaid badge - Lower right (non-hover) */}
+        {canShowPaymentStatus && (
+          <div className="absolute bottom-3 right-3 opacity-100 group-hover:opacity-0 transition-opacity">
+            <Badge variant={isPaid ? 'secondary' : 'destructive'} className="text-xs font-medium shadow-sm">
+              {paymentBadgeLabel}
             </Badge>
           </div>
         )}

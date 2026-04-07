@@ -632,6 +632,13 @@ useEffect(() => {
         toast({ title: 'Upload Failed', description: errorMsg || 'Something went wrong while uploading.', variant: 'destructive' });
         setUploading(false);
       },
+      onWarning: (warningMsg) => {
+        toast({
+          title: 'Some files did not upload',
+          description: warningMsg,
+          variant: 'destructive',
+        });
+      },
     });
   };
   

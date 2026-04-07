@@ -236,6 +236,7 @@ export const composeEmail = async (data: ComposeEmailPayload): Promise<Message> 
     if (data.channel_id) formData.append('channel_id', String(data.channel_id));
     if (data.template_id) formData.append('template_id', String(data.template_id));
     if (data.related_shoot_id) formData.append('related_shoot_id', String(data.related_shoot_id));
+    if (data.related_shoot_context_type) formData.append('related_shoot_context_type', data.related_shoot_context_type);
     if (data.related_account_id) formData.append('related_account_id', String(data.related_account_id));
     if (data.related_invoice_id) formData.append('related_invoice_id', String(data.related_invoice_id));
     if (data.variables) formData.append('variables', JSON.stringify(data.variables));
@@ -269,6 +270,7 @@ export const scheduleEmail = async (data: ScheduleEmailPayload): Promise<Message
     if (data.channel_id) formData.append('channel_id', String(data.channel_id));
     if (data.template_id) formData.append('template_id', String(data.template_id));
     if (data.related_shoot_id) formData.append('related_shoot_id', String(data.related_shoot_id));
+    if (data.related_shoot_context_type) formData.append('related_shoot_context_type', data.related_shoot_context_type);
     if (data.related_account_id) formData.append('related_account_id', String(data.related_account_id));
     if (data.related_invoice_id) formData.append('related_invoice_id', String(data.related_invoice_id));
     if (data.variables) formData.append('variables', JSON.stringify(data.variables));

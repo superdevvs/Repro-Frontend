@@ -47,6 +47,7 @@ import { useShootDetailsModalWorkflow } from './modal/useShootDetailsModalWorkfl
 import { useShootDetailsModalSave } from './modal/useShootDetailsModalSave';
 import {
   getShootDetailsCreatedByLabel,
+  getShootDetailsPaymentBadge,
   getShootDetailsStatusBadgeInfo,
 } from './details/shootDetailsPresentation';
 import {
@@ -55,6 +56,8 @@ import {
 } from './details/ShootDetailsModalActionRail';
 import { ShootDetailsModalBody } from './details/ShootDetailsModalBody';
 import { ShootDetailsModalDialogs } from './details/ShootDetailsModalDialogs';
+import { getShootClientReleaseAccess } from './details/shootClientReleaseAccess';
+import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary';
 
 const sanitizeWeatherSegment = (value?: string | null) => value?.replace(/\s+/g, ' ').trim() ?? '';
 
@@ -136,7 +139,7 @@ interface ShootDetailsModalProps {
   initialWeather?: WeatherInfo | null; // Pre-fetched weather from dashboard to avoid re-fetching
   onModify?: () => void; // Callback to modify/edit the shoot request
   photographers?: Array<{ id: string | number; name: string; avatar?: string }>; // For approval modal
-  initialTab?: 'overview' | 'notes' | 'issues' | 'tours' | 'settings';
+  initialTab?: 'overview' | 'notes' | 'issues' | 'tours' | 'settings' | 'activity';
   openDownloadDialog?: boolean;
   shouldHideClientDetails?: boolean;
 }
@@ -161,13 +164,12 @@ export function ShootDetailsModal({
   const { updateShoot } = useShoots();
   const { formatTemperature, formatTime } = useUserPreferences();
   
-  const [activeTab, setActiveTab] = useState<'overview' | 'notes' | 'issues' | 'tours' | 'settings' | 'media'>(
+  const [activeTab, setActiveTab] = useState<'overview' | 'notes' | 'issues' | 'tours' | 'settings' | 'activity' | 'media'>(
     initialTab,
   );
   const [weather, setWeather] = useState<WeatherInfo | null>(null);
   const [providerVersion, setProviderVersion] = useState(0);
   const [isMediaExpanded, setIsMediaExpanded] = useState(false);
-  const [showHidden, setShowHidden] = useState(false);
   const [showTourAnalytics, setShowTourAnalytics] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editActions, setEditActions] = useState<{ save: () => void; cancel: () => void } | null>(null);
@@ -324,15 +326,29 @@ export function ShootDetailsModal({
     setActiveTab(initialTab);
   }, [isOpen, initialTab]);
 
+  const clientReleaseAccess = useMemo(
+    () => getShootClientReleaseAccess(shoot, isClient),
+    [isClient, shoot],
+  );
+
   const handleTabChange = (value: string) => {
+    const selectedTab = visibleTabs.find((tab) => tab.id === value);
+    if (selectedTab?.disabled) {
+      return;
+    }
+
     setActiveTab(value as typeof activeTab);
     if (value !== 'tours') setShowTourAnalytics(false);
   };
 
   useEffect(() => {
-    if (!isOpen || !openDownloadDialog) return;
-    setIsDownloadDialogOpen(true);
-  }, [isOpen, openDownloadDialog]);
+    if (activeTab !== 'tours' || !clientReleaseAccess.isClientReleaseLocked) {
+      return;
+    }
+
+    setActiveTab('overview');
+    setShowTourAnalytics(false);
+  }, [activeTab, clientReleaseAccess.isClientReleaseLocked]);
 
   // Refresh shoot data AND notify parent to update its list/cards
   const refreshShootAndParent = useCallback(async (): Promise<ShootData | null> => {
@@ -469,6 +485,17 @@ export function ShootDetailsModal({
     refreshShoot,
     toast,
   });
+
+  useEffect(() => {
+    if (!isOpen || !openDownloadDialog || !clientReleaseAccess.canClientDownload) return;
+    setIsDownloadDialogOpen(true);
+  }, [clientReleaseAccess.canClientDownload, isOpen, openDownloadDialog, setIsDownloadDialogOpen]);
+
+  useEffect(() => {
+    if (!clientReleaseAccess.canClientDownload && isDownloadDialogOpen) {
+      setIsDownloadDialogOpen(false);
+    }
+  }, [clientReleaseAccess.canClientDownload, isDownloadDialogOpen, setIsDownloadDialogOpen]);
   const {
     isSavingChanges,
     isSaveConfirmOpen,
@@ -501,6 +528,24 @@ export function ShootDetailsModal({
   const statusBadge = shoot
     ? getStatusBadge(shoot.status || shoot.workflowStatus || 'booked')
     : null;
+  const paymentBadge = useMemo(() => {
+    if (!shoot) return null;
+
+    const paymentSummary = normalizeShootPaymentSummary(shoot);
+    const hasMeaningfulPaymentState =
+      paymentSummary.paymentStatus !== null ||
+      paymentSummary.totalQuote > 0 ||
+      paymentSummary.totalPaid > 0;
+
+    if (!hasMeaningfulPaymentState) {
+      return null;
+    }
+
+    const badge = getShootDetailsPaymentBadge(shoot.payment);
+    if (!badge) return null;
+
+    return <Badge variant={badge.variant}>{badge.label}</Badge>;
+  }, [shoot]);
   const addressTitle = shoot
     ? (() => {
         let address = shoot.location?.address || (shoot as any).address || '';
@@ -645,8 +690,10 @@ export function ShootDetailsModal({
           mmmRedirectUrl={mmmRedirectUrl}
           isDelivered={isDelivered}
           isAdmin={isAdmin}
+          isClient={isClient}
           isEditor={isEditor}
           isPhotographer={isPhotographer}
+          canClientDownload={clientReleaseAccess.canClientDownload}
           isDownloading={isDownloading}
           isGeneratingShareLink={isGeneratingShareLink}
           rawFileCount={rawFileCount}
@@ -677,12 +724,13 @@ export function ShootDetailsModal({
           addressTitle={addressTitle}
           createdByLabel={createdByLabel}
           statusBadge={statusBadge}
+          paymentBadge={paymentBadge}
           activeTab={activeTab}
           visibleTabs={visibleTabs}
           isEditMode={isEditMode}
           isSavingChanges={isSavingChanges}
           editActions={editActions}
-          setActiveTab={setActiveTab}
+          handleTabChange={handleTabChange}
           setIsMobileActionsOpen={setIsMobileActionsOpen}
           onClose={onClose}
         />
@@ -704,19 +752,17 @@ export function ShootDetailsModal({
           isRequestedStatus={isRequestedStatus}
           isCancelledOrDeclined={isCancelledOrDeclined}
           isPaid={isPaid}
+          isClientReleaseLocked={clientReleaseAccess.isClientReleaseLocked}
           isEditMode={isEditMode}
           isMediaExpanded={isMediaExpanded}
-          showHidden={showHidden}
           showTourAnalytics={showTourAnalytics}
           canResumeFromHold={canResumeFromHold}
           canSendToEditing={canSendToEditing}
           canFinalise={canFinalise}
           canShowInvoiceButton={canShowInvoiceButton}
           isLoadingInvoice={isLoadingInvoice}
-          setActiveTab={setActiveTab}
           setShowTourAnalytics={setShowTourAnalytics}
           setIsMediaExpanded={setIsMediaExpanded}
-          setShowHidden={setShowHidden}
           setSelectedFileIds={setSelectedFileIds}
           setEditActions={setEditActions}
           setIsMarkPaidDialogOpen={setIsMarkPaidDialogOpen}
@@ -762,7 +808,7 @@ export function ShootDetailsModal({
         isWithinCancellationFeeWindow={isWithinCancellationFeeWindow}
         isCancellingShoot={isCancellingShoot}
         isClient={isClient}
-        isDownloadDialogOpen={isDownloadDialogOpen}
+        isDownloadDialogOpen={clientReleaseAccess.canClientDownload ? isDownloadDialogOpen : false}
         isDownloading={isDownloading}
         isApprovalModalOpen={isApprovalModalOpen}
         isDeclineModalOpen={isDeclineModalOpen}

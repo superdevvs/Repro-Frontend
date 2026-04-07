@@ -16,15 +16,23 @@ import { ShootDetailsMediaTab } from '../tabs/ShootDetailsMediaTab';
 import { ShootDetailsNotesTab } from '../tabs/ShootDetailsNotesTab';
 import { ShootDetailsIssuesTab } from '../tabs/ShootDetailsIssuesTab';
 import { ShootDetailsSettingsTab } from '../tabs/ShootDetailsSettingsTab';
+import { ShootDetailsActivityLogTab } from '../tabs/ShootDetailsActivityLogTab';
 import { ShootDetailsTourTab } from '../tabs/ShootDetailsTourTab';
 import { TourAnalyticsPanel } from '../TourAnalyticsPanel';
 
-type VisibleTabId = 'overview' | 'notes' | 'issues' | 'tours' | 'settings' | 'media';
+type VisibleTabId =
+  | 'overview'
+  | 'notes'
+  | 'issues'
+  | 'tours'
+  | 'settings'
+  | 'activity'
+  | 'media';
 
 interface ShootDetailsModalBodyProps {
   shoot: ShootData;
   activeTab: VisibleTabId;
-  visibleTabs: Array<{ id: string; label: string }>;
+  visibleTabs: Array<{ id: string; label: string; disabled?: boolean }>;
   currentUserRole: string;
   weather: WeatherInfo | null;
   isAdmin: boolean;
@@ -38,19 +46,17 @@ interface ShootDetailsModalBodyProps {
   isRequestedStatus: boolean;
   isCancelledOrDeclined: boolean;
   isPaid: boolean;
+  isClientReleaseLocked: boolean;
   isEditMode: boolean;
   isMediaExpanded: boolean;
-  showHidden: boolean;
   showTourAnalytics: boolean;
   canResumeFromHold: boolean;
   canSendToEditing: boolean;
   canFinalise: boolean;
   canShowInvoiceButton: boolean;
   isLoadingInvoice: boolean;
-  setActiveTab: (tab: VisibleTabId) => void;
   setShowTourAnalytics: (open: boolean) => void;
   setIsMediaExpanded: (open: boolean) => void;
-  setShowHidden: (value: boolean) => void;
   setSelectedFileIds: (ids: string[]) => void;
   setEditActions: (actions: { save: () => void; cancel: () => void } | null) => void;
   setIsMarkPaidDialogOpen: (open: boolean) => void;
@@ -82,19 +88,17 @@ export function ShootDetailsModalBody({
   isRequestedStatus,
   isCancelledOrDeclined,
   isPaid,
+  isClientReleaseLocked,
   isEditMode,
   isMediaExpanded,
-  showHidden,
   showTourAnalytics,
   canResumeFromHold,
   canSendToEditing,
   canFinalise,
   canShowInvoiceButton,
   isLoadingInvoice,
-  setActiveTab,
   setShowTourAnalytics,
   setIsMediaExpanded,
-  setShowHidden,
   setSelectedFileIds,
   setEditActions,
   setIsMarkPaidDialogOpen,
@@ -133,6 +137,7 @@ export function ShootDetailsModalBody({
                   <TabsTrigger
                     key={tab.id}
                     value={tab.id}
+                    disabled={tab.disabled}
                     className="text-[11px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 h-7 sm:h-8 data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:rounded-none whitespace-nowrap"
                   >
                     {tab.label}
@@ -148,6 +153,7 @@ export function ShootDetailsModalBody({
                 <ShootDetailsOverviewTab
                   shoot={shoot}
                   isAdmin={isAdmin}
+                  isRep={isRep}
                   isPhotographer={isPhotographer}
                   isEditor={isEditor}
                   isClient={isClient}
@@ -185,25 +191,37 @@ export function ShootDetailsModalBody({
                 />
               </TabsContent>
 
-              {(isAdmin || isClient) && (
+              {(isAdmin || isRep || isClient) && (
                 <TabsContent value="tours" className="mt-0">
                   <ShootDetailsTourTab
                     shoot={shoot}
                     isAdmin={isAdmin}
+                    isRep={isRep}
                     isClient={isClient}
+                    isClientReleaseLocked={isClientReleaseLocked}
                     onShootUpdate={refreshShootAndParent}
                     onShowAnalytics={() => setShowTourAnalytics(true)}
                   />
                 </TabsContent>
               )}
-              {isAdmin && (
+              {(isAdmin || isRep) && (
                 <TabsContent value="settings" className="mt-0">
                   <ShootDetailsSettingsTab
                     shoot={shoot}
                     isAdmin={isAdmin}
+                    isRep={isRep}
                     onShootUpdate={refreshShootAndParent}
-                    showHidden={showHidden}
-                    onShowHiddenChange={setShowHidden}
+                  />
+                </TabsContent>
+              )}
+              {(isAdmin || isRep) && (
+                <TabsContent value="activity" className="mt-0">
+                  <ShootDetailsActivityLogTab
+                    shoot={shoot}
+                    isAdmin={isAdmin}
+                    onShootUpdate={() => {
+                      void refreshShootAndParent();
+                    }}
                   />
                 </TabsContent>
               )}
@@ -251,12 +269,11 @@ export function ShootDetailsModalBody({
               isPhotographer={isPhotographer}
               isEditor={isEditor}
               isClient={isClient}
+              isClientReleaseLocked={isClientReleaseLocked}
               role={currentUserRole}
               onShootUpdate={refreshShootAndParent}
               onSelectionChange={setSelectedFileIds}
               isExpanded
-              showHidden={showHidden}
-              onShowHiddenChange={setShowHidden}
             />
           </div>
         </div>
@@ -272,13 +289,12 @@ export function ShootDetailsModalBody({
                 isPhotographer={isPhotographer}
                 isEditor={isEditor}
                 isClient={isClient}
+                isClientReleaseLocked={isClientReleaseLocked}
                 role={currentUserRole}
                 onShootUpdate={refreshShootAndParent}
                 onSelectionChange={setSelectedFileIds}
                 isExpanded={isMediaExpanded}
                 onToggleExpand={() => setIsMediaExpanded(!isMediaExpanded)}
-                showHidden={showHidden}
-                onShowHiddenChange={setShowHidden}
               />
             )}
           </div>

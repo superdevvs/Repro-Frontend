@@ -50,6 +50,11 @@ const statusColors = {
   CANCELLED: 'text-gray-600',
 };
 
+const contextLabels = {
+  new_shoot: 'New Shoot',
+  previous_shoot: 'Previous Shoot',
+} as const;
+
 function formatMessageTime(dateString: string): string {
   const date = new Date(dateString);
   
@@ -218,6 +223,11 @@ export function EmailMessageList({
                       {message.related_shoot_id && (
                         <Badge variant="outline" className="text-xs">
                           Shoot #{message.related_shoot_id}
+                        </Badge>
+                      )}
+                      {message.related_shoot_context_type && (
+                        <Badge variant="secondary" className="text-xs">
+                          {contextLabels[message.related_shoot_context_type]}
                         </Badge>
                       )}
                     </div>

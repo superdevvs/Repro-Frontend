@@ -205,11 +205,29 @@ export const useDashboardDerivedData = ({
     return filterDeliveredShoots(editorSummaries).filter((shoot) => !readyIds.has(shoot.id));
   }, [editorReadyToDeliver, editorSummaries]);
 
+  const ownedClientShoots = useMemo(() => {
+    if (role !== "client" || !user) return [];
+    return shoots.filter((shoot) => doesShootBelongToClient(shoot, user));
+  }, [role, shoots, user]);
+
   // Optimize client shoots filtering
   const clientShoots = useMemo(() => {
     if (role !== "client" || !user) return [];
-    // Filter to only show shoots belonging to this client
-    return shoots.filter((shoot) => doesShootBelongToClient(shoot, user));
+    const visibleShoots = shoots.filter((shoot) => {
+      if (doesShootBelongToClient(shoot, user)) {
+        return true;
+      }
+
+      if (shoot.isGhostVisibleForUser) {
+        return true;
+      }
+
+      return (shoot.ghostUserIds || []).includes(String(user.id));
+    });
+
+    return Array.from(
+      new Map(visibleShoots.map((shoot) => [String(shoot.id), shoot])).values(),
+    );
   }, [role, shoots, user]);
 
   const clientRecords = useMemo(() => {
@@ -334,8 +352,8 @@ export const useDashboardDerivedData = ({
   const clientInvoiceSummary = useMemo(() => {
     // Always use shoots-based calculation as it correctly categorizes based on shoot status
     // Delivered unpaid → Due Now, Scheduled/Requested unpaid → Upcoming
-    return buildClientInvoiceSummary(clientShoots);
-  }, [clientShoots]);
+    return buildClientInvoiceSummary(ownedClientShoots);
+  }, [ownedClientShoots]);
 
   const fallbackPhotographers = useMemo(
     () => buildPhotographerSummariesFromShoots(shoots),

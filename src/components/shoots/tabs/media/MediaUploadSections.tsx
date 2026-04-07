@@ -131,6 +131,17 @@ const triggerUploadRefreshes = (shootId: string | number) => {
   triggerDashboardOverviewRefresh();
 };
 
+function buildUploadWarningDescription(errors: string[], totalCount: number): string {
+  const failedCount = errors.length;
+  const failedNames = errors
+    .slice(0, 3)
+    .map((error) => error.split(':')[0]?.trim())
+    .filter(Boolean);
+  const remainingCount = failedCount - failedNames.length;
+
+  return `${failedCount} of ${totalCount} file${failedCount === 1 ? '' : 's'} failed to upload.${failedNames.length > 0 ? ` Failed: ${failedNames.join(', ')}` : ''}${remainingCount > 0 ? `, plus ${remainingCount} more.` : ''}`;
+}
+
 function isVideoUpload(file: File): boolean {
   return Boolean(file.type && file.type.toLowerCase().startsWith('video/')) || /\.(mp4|mov|m4v|avi|mkv|wmv|webm|mpg|mpeg|3gp)$/i.test(file.name);
 }
@@ -449,11 +460,13 @@ export function EditedUploadSection({
   onUploadComplete,
   isEditor,
   editedFiles = [],
+  showInlineProgress = true,
 }: {
   shoot: ShootData;
   onUploadComplete: () => void;
   isEditor?: boolean;
   editedFiles?: MediaFile[];
+  showInlineProgress?: boolean;
 }) {
   const { toast } = useToast();
   const { trackUpload } = useUpload();
@@ -541,7 +554,7 @@ export function EditedUploadSection({
       uploadType: 'edited',
       uploadFn: async (onProgress) => {
         try {
-          const uploadOne = (file: File, index: number): Promise<{ success: boolean; error?: string }> =>
+          const uploadOne = (file: File, index: number): Promise<{ success: boolean; error?: string; file: File; originalIndex: number }> =>
             new Promise((resolve) => {
               const formData = new FormData();
               const mediaType = getQueueClassification(file, index, classificationsForUpload);
@@ -563,7 +576,7 @@ export function EditedUploadSection({
               const xhr = new XMLHttpRequest();
               xhr.addEventListener('load', () => {
                 if (xhr.status >= 200 && xhr.status < 300) {
-                  resolve({ success: true });
+                  resolve({ success: true, file, originalIndex: index });
                   return;
                 }
 
@@ -573,9 +586,9 @@ export function EditedUploadSection({
                 } catch {
                   // Keep generic message when server response is not JSON.
                 }
-                resolve({ success: false, error: `${file.name}: ${message}` });
+                resolve({ success: false, error: `${file.name}: ${message}`, file, originalIndex: index });
               });
-              xhr.addEventListener('error', () => resolve({ success: false, error: `${file.name}: Network error` }));
+              xhr.addEventListener('error', () => resolve({ success: false, error: `${file.name}: Network error`, file, originalIndex: index }));
               xhr.open('POST', `${API_BASE_URL}/api/shoots/${shoot.id}/upload`);
               if (authHeader) xhr.setRequestHeader('Authorization', authHeader);
               if (impersonateHeader) xhr.setRequestHeader('X-Impersonate-User-Id', impersonateHeader);
@@ -585,6 +598,7 @@ export function EditedUploadSection({
           const concurrentUploads = 1;
           let completed = 0;
           const errors: string[] = [];
+          const failedFileEntries: Array<{ file: File; originalIndex: number }> = [];
 
           for (let index = 0; index < filesForUpload.length; index += concurrentUploads) {
             const batch = filesForUpload.slice(index, index + concurrentUploads);
@@ -593,6 +607,7 @@ export function EditedUploadSection({
               completed += 1;
               if (!result.success && result.error) {
                 errors.push(result.error);
+                failedFileEntries.push({ file: result.file, originalIndex: result.originalIndex });
               }
             });
 
@@ -602,10 +617,39 @@ export function EditedUploadSection({
           }
 
           if (errors.length === filesForUpload.length) {
+            toast({
+              title: 'Upload failed',
+              description: buildUploadWarningDescription(errors, filesForUpload.length),
+              variant: 'destructive',
+            });
             throw new Error(errors[0] || 'All files failed to upload');
           }
 
           triggerUploadRefreshes(shoot.id);
+          if (failedFileEntries.length > 0) {
+            toast({
+              title: 'Some files did not upload',
+              description: buildUploadWarningDescription(errors, filesForUpload.length),
+              variant: 'destructive',
+            });
+            const failedFiles = failedFileEntries.map((entry) => entry.file);
+            const failedClassificationMap = failedFileEntries.reduce<QueueClassificationMap>((map, entry, failedIndex) => {
+              const failedKey = getQueueFileKey(entry.file, failedIndex);
+              const originalClassification = getQueueClassification(entry.file, entry.originalIndex, classificationsForUpload);
+
+              if (originalClassification) {
+                map[failedKey] = originalClassification;
+              } else if (!isVideoUpload(entry.file) && isEditedFloorplanByName(entry.file.name)) {
+                map[failedKey] = 'floorplan';
+              }
+
+              return map;
+            }, {});
+            setSelectedFiles(failedFiles);
+            setQueueClassifications(failedClassificationMap);
+            return;
+          }
+
           setSelectedFiles([]);
           setQueueClassifications({});
           setNotes('');
@@ -650,7 +694,7 @@ export function EditedUploadSection({
         </div>
       </div>
 
-      {isUploading && selectedFiles.length > 0 && (
+      {showInlineProgress && isUploading && selectedFiles.length > 0 && (
         <UploadProgressCard
           fileCount={selectedFiles.length}
           fileNames={selectedFiles.map((file) => file.name)}
@@ -748,9 +792,11 @@ export function EditedUploadSection({
 export function RawUploadSection({
   shoot,
   onUploadComplete,
+  showInlineProgress = true,
 }: {
   shoot: ShootData;
   onUploadComplete: () => void;
+  showInlineProgress?: boolean;
 }) {
   const { toast } = useToast();
   const { trackUpload, uploads } = useUpload();
@@ -866,7 +912,7 @@ export function RawUploadSection({
       uploadType: 'raw',
       uploadFn: async (onProgress) => {
         try {
-          const uploadOne = (file: File, index: number): Promise<{ success: boolean; error?: string }> =>
+          const uploadOne = (file: File, index: number): Promise<{ success: boolean; error?: string; file: File; originalIndex: number }> =>
             new Promise((resolve) => {
               const formData = new FormData();
               const mediaType = getQueueClassification(file, index, classificationsForUpload);
@@ -889,7 +935,7 @@ export function RawUploadSection({
               const xhr = new XMLHttpRequest();
               xhr.addEventListener('load', () => {
                 if (xhr.status >= 200 && xhr.status < 300) {
-                  resolve({ success: true });
+                  resolve({ success: true, file, originalIndex: index });
                   return;
                 }
 
@@ -899,9 +945,9 @@ export function RawUploadSection({
                 } catch {
                   // Keep the generic message when the upload response is not JSON.
                 }
-                resolve({ success: false, error: `${file.name}: ${message}` });
+                resolve({ success: false, error: `${file.name}: ${message}`, file, originalIndex: index });
               });
-              xhr.addEventListener('error', () => resolve({ success: false, error: `${file.name}: Network error` }));
+              xhr.addEventListener('error', () => resolve({ success: false, error: `${file.name}: Network error`, file, originalIndex: index }));
               xhr.open('POST', `${API_BASE_URL}/api/shoots/${shoot.id}/upload`);
               if (authHeader) xhr.setRequestHeader('Authorization', authHeader);
               if (impersonateHeader) xhr.setRequestHeader('X-Impersonate-User-Id', impersonateHeader);
@@ -911,6 +957,7 @@ export function RawUploadSection({
           const concurrentUploads = 1;
           let completed = 0;
           const errors: string[] = [];
+          const failedFileEntries: Array<{ file: File; originalIndex: number }> = [];
 
           for (let index = 0; index < filesForUpload.length; index += concurrentUploads) {
             const batch = filesForUpload.slice(index, index + concurrentUploads);
@@ -919,6 +966,7 @@ export function RawUploadSection({
               completed += 1;
               if (!result.success && result.error) {
                 errors.push(result.error);
+                failedFileEntries.push({ file: result.file, originalIndex: result.originalIndex });
               }
             });
 
@@ -928,10 +976,39 @@ export function RawUploadSection({
           }
 
           if (errors.length === filesForUpload.length) {
+            toast({
+              title: 'Upload failed',
+              description: buildUploadWarningDescription(errors, filesForUpload.length),
+              variant: 'destructive',
+            });
             throw new Error(errors[0] || 'All files failed to upload');
           }
 
           triggerUploadRefreshes(shoot.id);
+          if (failedFileEntries.length > 0) {
+            toast({
+              title: 'Some files did not upload',
+              description: buildUploadWarningDescription(errors, filesForUpload.length),
+              variant: 'destructive',
+            });
+            const failedFiles = failedFileEntries.map((entry) => entry.file);
+            const failedClassificationMap = failedFileEntries.reduce<QueueClassificationMap>((map, entry, failedIndex) => {
+              const failedKey = getQueueFileKey(entry.file, failedIndex);
+              const originalClassification = getQueueClassification(entry.file, entry.originalIndex, classificationsForUpload);
+
+              if (originalClassification) {
+                map[failedKey] = originalClassification;
+              } else if (!isVideoUpload(entry.file) && isEditedFloorplanByName(entry.file.name)) {
+                map[failedKey] = 'floorplan';
+              }
+
+              return map;
+            }, {});
+            setSelectedFiles(failedFiles);
+            setQueueClassifications(failedClassificationMap);
+            return;
+          }
+
           setSelectedFiles([]);
           setQueueClassifications({});
           setNotes('');
@@ -1011,7 +1088,7 @@ export function RawUploadSection({
         </div>
       )}
 
-      {activeUploads.length > 0
+      {showInlineProgress && (activeUploads.length > 0
         ? activeUploads.map((activeUpload) => (
             <UploadProgressCard
               key={activeUpload.id}
@@ -1028,7 +1105,7 @@ export function RawUploadSection({
               progress={uploadProgress}
               note="Raw uploads continue in the background. You can leave this shoot and keep working elsewhere."
             />
-          )}
+          ))}
 
       <UploadDropzone
         empty={selectedFiles.length === 0}

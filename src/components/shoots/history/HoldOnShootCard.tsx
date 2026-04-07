@@ -114,6 +114,7 @@ const PaymentButton = ({ shoot, onViewInvoice }: { shoot: ShootData; onViewInvoi
 
 // Status configuration for visual consistency
 const statusConfig: Record<string, { icon: React.ElementType; color: string; bgColor: string }> = {
+  requested: { icon: AlertCircle, color: 'text-slate-600', bgColor: 'bg-slate-50 border-slate-200' },
   scheduled: { icon: CalendarIcon, color: 'text-blue-600', bgColor: 'bg-blue-50 border-blue-200' },
   booked: { icon: CalendarIcon, color: 'text-blue-600', bgColor: 'bg-blue-50 border-blue-200' },
   in_progress: { icon: Camera, color: 'text-amber-600', bgColor: 'bg-amber-50 border-amber-200' },
@@ -123,12 +124,34 @@ const statusConfig: Record<string, { icon: React.ElementType; color: string; bgC
   pending_review: { icon: AlertCircle, color: 'text-yellow-600', bgColor: 'bg-yellow-50 border-yellow-200' },
   rescheduled: { icon: Clock, color: 'text-orange-600', bgColor: 'bg-orange-50 border-orange-200' },
   completed: { icon: CheckCircle2, color: 'text-emerald-600', bgColor: 'bg-emerald-50 border-emerald-200' },
+  ready: { icon: CheckCircle2, color: 'text-emerald-600', bgColor: 'bg-emerald-50 border-emerald-200' },
   on_hold: { icon: PauseCircle, color: 'text-orange-600', bgColor: 'bg-orange-50 border-orange-200' },
   hold_on: { icon: PauseCircle, color: 'text-orange-600', bgColor: 'bg-orange-50 border-orange-200' },
   cancelled: { icon: XCircle, color: 'text-red-600', bgColor: 'bg-red-50 border-red-200' },
   canceled: { icon: XCircle, color: 'text-red-600', bgColor: 'bg-red-50 border-red-200' },
   awaiting_date: { icon: AlertCircle, color: 'text-orange-600', bgColor: 'bg-orange-50 border-orange-200' },
   payment_pending: { icon: DollarSign, color: 'text-red-600', bgColor: 'bg-red-50 border-red-200' },
+}
+
+const holdStatusAliasMap: Record<string, string> = {
+  admin_verified: 'delivered',
+  booked: 'scheduled',
+  completed: 'uploaded',
+  delivered_to_client: 'delivered',
+  editing_complete: 'editing',
+  editing_issue: 'editing',
+  editing_uploaded: 'editing',
+  hold_on: 'on_hold',
+  in_progress: 'uploaded',
+  pending_review: 'editing',
+  photos_uploaded: 'uploaded',
+  qc: 'editing',
+  raw_issue: 'uploaded',
+  raw_upload_pending: 'scheduled',
+  raw_uploaded: 'uploaded',
+  ready_for_client: 'delivered',
+  ready_for_review: 'editing',
+  review: 'editing',
 }
 
 export const HoldOnShootCard = ({
@@ -159,14 +182,14 @@ export const HoldOnShootCard = ({
     if (!value) return '—'
     try { return formatDatePref(new Date(value)) } catch { return value ?? '—' }
   }
-  // Determine hold reason
-  const getHoldReason = () => {
-    if (!shoot.scheduledDate || shoot.scheduledDate === '') return { label: 'Awaiting Date', color: 'bg-orange-50 text-orange-700 border-orange-200' }
-    if ((shoot.payment?.totalPaid ?? 0) < (shoot.payment?.totalQuote ?? 0)) return { label: 'Payment Pending', color: 'bg-red-50 text-red-700 border-red-200' }
-    return { label: 'On Hold', color: 'bg-amber-50 text-amber-700 border-amber-200' }
-  }
-
-  const holdReason = getHoldReason()
+  const rawHoldStatus = String(shoot.holdStatus ?? '').trim().toLowerCase()
+  const normalizedHoldStatus = holdStatusAliasMap[rawHoldStatus] ?? rawHoldStatus
+  const holdStatusKey = normalizedHoldStatus && normalizedHoldStatus !== 'on_hold'
+    ? normalizedHoldStatus
+    : 'on_hold'
+  const holdStatusConfig = statusConfig[holdStatusKey] ?? statusConfig.on_hold
+  const HoldStatusIcon = holdStatusConfig.icon
+  const holdStatusLabel = formatWorkflowStatus(holdStatusKey, 'On Hold')
   const displayDate = shoot.scheduledDate ? formatDisplayDateLocal(shoot.scheduledDate) : 'Date not assigned'
   const displayTime = shoot.time && shoot.time !== 'TBD' ? formatTime(shoot.time) : 'Awaiting confirmation'
   const editingNotes = getEditingNotes(shoot.notes)
@@ -183,9 +206,9 @@ export const HoldOnShootCard = ({
         <div className="flex items-start justify-between gap-4 mb-4">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-2">
-              <Badge className={holdReason.color}>
-                <PauseCircle className="h-3.5 w-3.5 mr-1" />
-                {holdReason.label}
+              <Badge className={cn(holdStatusConfig.bgColor, holdStatusConfig.color)}>
+                <HoldStatusIcon className="h-3.5 w-3.5 mr-1" />
+                {holdStatusLabel}
               </Badge>
             </div>
             <h3 className="font-bold text-lg leading-tight text-primary">{shoot.location.fullAddress}</h3>

@@ -20,28 +20,43 @@ const SHOOT_DETAILS_TAB_REGISTRY: ShootDetailsTabDefinition[] = [
   {
     id: 'tours',
     label: 'Tours',
-    isVisible: ({ isAdmin, isClient, isRequestedStatus }) =>
-      !isRequestedStatus && (isAdmin || isClient),
+    isVisible: ({ isAdmin, isRep, isClient, isRequestedStatus }) =>
+      !isRequestedStatus && (isAdmin || isRep || isClient),
+    isDisabled: ({ isClient, isClientReleaseLocked }) => isClient && isClientReleaseLocked,
   },
   {
     id: 'settings',
     label: 'Settings',
-    isVisible: ({ isAdmin, isRequestedStatus }) =>
-      !isRequestedStatus && isAdmin,
+    isVisible: ({ isAdmin, isRep, isRequestedStatus }) =>
+      !isRequestedStatus && (isAdmin || isRep),
+  },
+  {
+    id: 'activity',
+    label: 'Activity Log',
+    isVisible: ({ isAdmin, isRep, isRequestedStatus }) =>
+      !isRequestedStatus && (isAdmin || isRep),
   },
 ];
 
 export const getShootDetailsVisibleTabs = ({
   isAdmin,
+  isRep,
   isClient,
   isRequestedStatus,
+  isClientReleaseLocked,
   shoot,
 }: {
   isAdmin: boolean;
+  isRep: boolean;
   isClient: boolean;
   isRequestedStatus: boolean;
+  isClientReleaseLocked: boolean;
   shoot: ShootData | null;
 }) =>
   SHOOT_DETAILS_TAB_REGISTRY.filter((tab) =>
-    tab.isVisible({ isAdmin, isClient, isRequestedStatus, shoot }),
-  ).map(({ id, label }) => ({ id, label }));
+    tab.isVisible({ isAdmin, isRep, isClient, isRequestedStatus, isClientReleaseLocked, shoot }),
+  ).map(({ id, label, isDisabled }) => ({
+    id,
+    label,
+    disabled: isDisabled?.({ isAdmin, isRep, isClient, isRequestedStatus, isClientReleaseLocked, shoot }) ?? false,
+  }));

@@ -6,9 +6,10 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { EditedUploadSection, RawUploadSection } from './MediaUploadSections';
+import { UploadProgressCard } from './MediaUploadPanels';
 import { MediaGrid } from './MediaGrid';
 import { getPreferredMlsTourLink } from '@/utils/shootTourData';
-import { AlertCircle, ArrowUpDown, Check, ChevronDown, ChevronRight, ChevronUp, CloudUpload, Download, ExternalLink, FileIcon, GripVertical, LayoutGrid, List, Loader2, Trash2, Upload, X } from 'lucide-react';
+import { AlertCircle, ArrowUpDown, Check, ChevronDown, ChevronRight, ChevronUp, CloudUpload, Download, ExternalLink, FileIcon, GripVertical, LayoutGrid, List, Loader2, Sparkles, Trash2, Upload, X } from 'lucide-react';
 
 export function ShootDetailsMediaTabView(props: any) {
   const {
@@ -32,6 +33,7 @@ export function ShootDetailsMediaTabView(props: any) {
     sortSaveStatus,
     changeSortOrder,
     toggleDragMode,
+    activeShootUploads,
     showUploadTab,
     selectedFiles,
     setRequestManagerOpen,
@@ -43,6 +45,8 @@ export function ShootDetailsMediaTabView(props: any) {
     canDelete,
     canDownload,
     isAdmin,
+    canShowAiEditComingSoon,
+    onOpenAiEditComingSoon,
     handleReclassify,
     markMenuOptions,
     directUploading,
@@ -95,7 +99,6 @@ export function ShootDetailsMediaTabView(props: any) {
     isVideoFile,
     isExpanded,
     onToggleExpand,
-    showHidden,
     toggleFileHidden,
   } = props;
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
@@ -490,7 +493,7 @@ export function ShootDetailsMediaTabView(props: any) {
       {/* Selected-file actions - Below tabs on mobile only */}
       {canDownload && selectedFiles.size > 0 && (
         <div className="mb-1.5 pb-1 border-b flex-shrink-0 sm:hidden">
-          <div className="flex items-center justify-end gap-1.5">
+          <div className="flex items-center justify-end gap-1.5 flex-wrap">
             {/* Mark selected files - mobile */}
             {canMarkSelectedFiles && (
               <DropdownMenu>
@@ -498,7 +501,7 @@ export function ShootDetailsMediaTabView(props: any) {
                   <Button
                     size="sm"
                     variant="outline"
-                    className="h-7 text-[11px] px-2 w-full"
+                    className="h-7 text-[11px] px-2 flex-shrink-0"
                     title={`Mark ${selectedFiles.size} file(s)`}
                   >
                     <FileIcon className="h-3 w-3 mr-1" />
@@ -518,7 +521,7 @@ export function ShootDetailsMediaTabView(props: any) {
             {isClient && (
               <Button
                 size="sm"
-                className="h-7 text-[11px] px-2 w-full bg-blue-600 hover:bg-blue-700 text-white"
+                className="h-7 text-[11px] px-2 flex-shrink-0 bg-blue-600 hover:bg-blue-700 text-white"
                 onClick={() => setRequestManagerOpen(true)}
               >
                 <AlertCircle className="h-3 w-3 mr-1" />
@@ -527,10 +530,16 @@ export function ShootDetailsMediaTabView(props: any) {
             )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button size="icon" className="h-7 w-7 relative flex-shrink-0" disabled={downloading} title={`Download ${selectedFiles.size} file(s)`}>
+                <Button
+                  size="sm"
+                  className="h-7 px-2 text-[11px] gap-1.5 flex-shrink-0"
+                  disabled={downloading}
+                  title={`Download ${selectedFiles.size} file(s)`}
+                >
                   <Download className="h-3.5 w-3.5" />
+                  <span>Download</span>
                   {selectedFiles.size > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 bg-primary text-primary-foreground text-[9px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
+                    <span className="inline-flex min-w-[16px] h-4 items-center justify-center rounded-full bg-primary-foreground/20 px-1 text-[9px] font-bold leading-none text-current">
                       {selectedFiles.size}
                     </span>
                   )}
@@ -575,6 +584,21 @@ export function ShootDetailsMediaTabView(props: any) {
 
       {/* Content - Compact Overview-style layout */}
       <div className="flex-1 min-h-0 flex flex-col bg-background">
+        {activeShootUploads.length > 0 && (
+          <div className="space-y-2 border-b bg-background px-2.5 py-2">
+            {activeShootUploads.map((upload: any) => (
+              <UploadProgressCard
+                key={upload.id}
+                fileCount={upload.fileCount}
+                fileNames={upload.fileNames}
+                progress={upload.progress}
+                note={`${
+                  upload.uploadType === 'edited' ? 'Edited' : 'Raw'
+                } files are still uploading in the background. You can stay on this shoot and keep working.`}
+              />
+            ))}
+          </div>
+        )}
         {activeSubTab === 'upload' ? (
           /* Upload Tab Content */
           <div className="flex-1 flex flex-col min-h-0 p-2.5">
@@ -613,6 +637,7 @@ export function ShootDetailsMediaTabView(props: any) {
                 <EditedUploadSection
                   shoot={shoot}
                   isEditor={isEditor}
+                  showInlineProgress={false}
                     onUploadComplete={() => {
                       toast({
                         title: 'Upload complete',
@@ -629,6 +654,7 @@ export function ShootDetailsMediaTabView(props: any) {
               ) : (
                 <RawUploadSection
                   shoot={shoot}
+                  showInlineProgress={false}
                     onUploadComplete={() => {
                       toast({
                         title: 'Upload complete',
@@ -753,6 +779,17 @@ export function ShootDetailsMediaTabView(props: any) {
                         </button>
                       )}
                     </div>
+                    {canShowAiEditComingSoon && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="h-8 shrink-0 bg-violet-600 hover:bg-violet-700 text-white"
+                        onClick={onOpenAiEditComingSoon}
+                      >
+                        <Sparkles className="h-3.5 w-3.5 mr-1.5" />
+                        <span>Ai Edit</span>
+                      </Button>
+                    )}
                   </div>
                 </div>
                 
@@ -825,7 +862,6 @@ export function ShootDetailsMediaTabView(props: any) {
                             isImage={isPreviewableImage}
                             isVideo={isVideoFile}
                             viewMode={mediaViewMode}
-                            showHidden={showHidden}
                             isClient={isClient}
                             toggleFileHidden={toggleFileHidden}
                           />
@@ -1075,7 +1111,6 @@ export function ShootDetailsMediaTabView(props: any) {
                             isImage={isPreviewableImage}
                             isVideo={isVideoFile}
                             viewMode={mediaViewMode}
-                            showHidden={showHidden}
                             isClient={isClient}
                             toggleFileHidden={toggleFileHidden}
                           />

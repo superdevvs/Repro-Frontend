@@ -1,6 +1,12 @@
 import type { ShootData } from '@/types/shoots';
 
 type LooseRecord = Record<string, unknown>;
+type RealtorClientLite = {
+  id: string;
+  name: string;
+  email?: string;
+  company?: string;
+};
 type ShootLike = Partial<ShootData> & {
   tour_links?: LooseRecord;
   property_details?: LooseRecord;
@@ -33,6 +39,8 @@ export type NormalizedTourLinks = LooseRecord & {
   video_branded: string;
   video_mls: string;
   video_generic: string;
+  realtor_client_id: string;
+  realtor_client?: RealtorClientLite | null;
 };
 
 export type NormalizedPropertyDetails = LooseRecord & {
@@ -71,6 +79,25 @@ export const normalizeTourLinks = (shoot?: ShootLike | null): NormalizedTourLink
   const rawLinks = getRawTourLinks(shoot);
   const matterportBranded = String(pickFirst(rawLinks.matterport_branded, rawLinks.matterport) ?? '');
   const iGuideBranded = String(pickFirst(rawLinks.iguide_branded, rawLinks.iGuide, rawLinks.iguide) ?? '');
+  const rawRealtorClient = pickFirst(
+    rawLinks.realtor_client,
+    rawLinks.realtorClient,
+    (shoot as LooseRecord | undefined)?.realtor_client,
+    (shoot as LooseRecord | undefined)?.realtorClient,
+  );
+  const normalizedRealtorClient =
+    rawRealtorClient && typeof rawRealtorClient === 'object'
+      ? {
+          id: String((rawRealtorClient as LooseRecord).id ?? ''),
+          name: String((rawRealtorClient as LooseRecord).name ?? ''),
+          email: String((rawRealtorClient as LooseRecord).email ?? ''),
+          company: String(
+            (rawRealtorClient as LooseRecord).company
+              ?? (rawRealtorClient as LooseRecord).company_name
+              ?? '',
+          ),
+        }
+      : null;
 
   return {
     ...rawLinks,
@@ -88,6 +115,8 @@ export const normalizeTourLinks = (shoot?: ShootLike | null): NormalizedTourLink
     video_branded: String(rawLinks.video_branded ?? ''),
     video_mls: String(rawLinks.video_mls ?? ''),
     video_generic: String(rawLinks.video_generic ?? ''),
+    realtor_client_id: String(pickFirst(rawLinks.realtor_client_id, rawLinks.realtorClientId) ?? ''),
+    realtor_client: normalizedRealtorClient?.id ? normalizedRealtorClient : null,
   };
 };
 

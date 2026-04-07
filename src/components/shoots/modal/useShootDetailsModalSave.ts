@@ -17,6 +17,34 @@ interface UseShootDetailsModalSaveParams {
   canNotifyPhotographer: boolean;
 }
 
+const hasOwn = (value: unknown, key: PropertyKey): boolean =>
+  value !== null && value !== undefined && Object.prototype.hasOwnProperty.call(value, key);
+
+const normalizeNullableString = (value: unknown): string | null | undefined => {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  if (typeof value !== 'string') return String(value);
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
+const toNullableInteger = (value: unknown): number | null | undefined => {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  if (typeof value === 'string' && value.trim() === '') return null;
+  const parsed = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(parsed)) return undefined;
+  return Math.trunc(parsed);
+};
+
+const toNullableNumber = (value: unknown): number | null | undefined => {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  if (typeof value === 'string' && value.trim() === '') return null;
+  const parsed = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
+
 export function useShootDetailsModalSave({
   shoot,
   setShoot,
@@ -90,22 +118,23 @@ export function useShootDetailsModalSave({
       
       // Map updates to API format (support snake_case from API)
       const shootAny = shoot as any;
-      const scheduledDate = updates.scheduledDate || shoot.scheduledDate || shootAny.scheduled_date;
-      const scheduledTime = updates.time !== undefined ? updates.time : (shoot.time as string | undefined);
-      if (scheduledDate) payload.scheduled_date = scheduledDate;
-      if (scheduledTime !== undefined) payload.time = scheduledTime;
-      if (scheduledDate && scheduledTime) {
-        const time24 = to24Hour(scheduledTime);
-        payload.scheduled_at = `${scheduledDate} ${time24 ?? scheduledTime}`;
+      if (hasOwn(updates, 'scheduledDate')) {
+        payload.scheduled_date = normalizeNullableString(updates.scheduledDate);
       }
-      if (updates.status) payload.status = updates.status;
-      if (updates.workflowStatus) payload.workflow_status = updates.workflowStatus;
+      if (hasOwn(updates, 'time')) {
+        const normalizedTime = normalizeNullableString(updates.time);
+        payload.time = normalizedTime ? to24Hour(normalizedTime) ?? normalizedTime : normalizedTime;
+      }
+      if (hasOwn(updates, 'status')) payload.status = updates.status;
+      if (hasOwn(updates, 'workflowStatus')) payload.workflow_status = updates.workflowStatus;
       
       // Location fields
-      if (updates.location?.address) payload.address = updates.location.address;
-      if (updates.location?.city) payload.city = updates.location.city;
-      if (updates.location?.state) payload.state = updates.location.state;
-      if (updates.location?.zip) payload.zip = updates.location.zip;
+      if (updates.location) {
+        if (hasOwn(updates.location, 'address')) payload.address = normalizeNullableString(updates.location.address);
+        if (hasOwn(updates.location, 'city')) payload.city = normalizeNullableString(updates.location.city);
+        if (hasOwn(updates.location, 'state')) payload.state = normalizeNullableString(updates.location.state);
+        if (hasOwn(updates.location, 'zip')) payload.zip = normalizeNullableString(updates.location.zip);
+      }
 
       if (notifyOptions?.notifyClient !== undefined) {
         payload.notify_client = notifyOptions.notifyClient;
@@ -164,88 +193,61 @@ export function useShootDetailsModalSave({
       if (updates.payment?.totalQuote !== undefined) payload.total_quote = updates.payment.totalQuote;
       
       // Property details (beds, baths, sqft, access info)
-      if (updates.propertyDetails) {
+      if (hasOwn(updates, 'propertyDetails')) {
         // Ensure numeric fields are properly converted to numbers
         const propertyDetails: any = { ...updates.propertyDetails };
-        
-        // Convert beds/bedrooms to number
-        if (propertyDetails.beds !== undefined && propertyDetails.beds !== null) {
-          const bedsNum = typeof propertyDetails.beds === 'string' 
-            ? parseInt(propertyDetails.beds, 10) 
-            : Number(propertyDetails.beds);
-          if (!isNaN(bedsNum) && bedsNum > 0) {
-            payload.bedrooms = bedsNum;
-            propertyDetails.beds = bedsNum;
-            propertyDetails.bedrooms = bedsNum;
-          }
+
+        const bedroomsValue = toNullableInteger(propertyDetails.beds ?? propertyDetails.bedrooms);
+        const bathroomsValue = toNullableNumber(propertyDetails.baths ?? propertyDetails.bathrooms);
+        const sqftValue = toNullableInteger(propertyDetails.sqft ?? propertyDetails.squareFeet);
+
+        if (bedroomsValue !== undefined) {
+          payload.bedrooms = bedroomsValue;
+          propertyDetails.beds = bedroomsValue;
+          propertyDetails.bedrooms = bedroomsValue;
         }
-        
-        // Convert baths/bathrooms to number
-        if (propertyDetails.baths !== undefined && propertyDetails.baths !== null) {
-          const bathsNum = typeof propertyDetails.baths === 'string' 
-            ? parseInt(propertyDetails.baths, 10) 
-            : Number(propertyDetails.baths);
-          if (!isNaN(bathsNum) && bathsNum > 0) {
-            payload.bathrooms = bathsNum;
-            propertyDetails.baths = bathsNum;
-            propertyDetails.bathrooms = bathsNum;
-          }
+
+        if (bathroomsValue !== undefined) {
+          payload.bathrooms = bathroomsValue;
+          propertyDetails.baths = bathroomsValue;
+          propertyDetails.bathrooms = bathroomsValue;
         }
-        
-        // Convert sqft to number
-        if (propertyDetails.sqft !== undefined && propertyDetails.sqft !== null) {
-          const sqftNum = typeof propertyDetails.sqft === 'string' 
-            ? parseInt(propertyDetails.sqft, 10) 
-            : Number(propertyDetails.sqft);
-          if (!isNaN(sqftNum) && sqftNum > 0) {
-            payload.sqft = sqftNum;
-            propertyDetails.sqft = sqftNum;
-            propertyDetails.squareFeet = sqftNum;
-          }
+
+        if (sqftValue !== undefined) {
+          payload.sqft = sqftValue;
+          propertyDetails.sqft = sqftValue;
+          propertyDetails.squareFeet = sqftValue;
         }
         
         // Send the full property_details object (excluding the numeric fields we already sent)
-        // Keep other fields like presenceOption, lockboxCode, lockboxLocation, accessContactName, accessContactPhone, etc.
-        // Only include fields that are not undefined/null and are serializable
         const cleanPropertyDetails: Record<string, unknown> = {};
         Object.keys(propertyDetails).forEach(key => {
           const value = propertyDetails[key];
-          // Skip numeric fields we already sent separately, and skip undefined/null
-          // But keep all other fields including lockbox fields
+          // Skip numeric fields we already sent separately.
           if (key !== 'beds' && key !== 'baths' && key !== 'sqft' && 
               key !== 'bedrooms' && key !== 'bathrooms' && key !== 'squareFeet' &&
-              value !== undefined && value !== null) {
-            // Ensure string values are properly trimmed
+              value !== undefined) {
             if (typeof value === 'string') {
-              cleanPropertyDetails[key] = value.trim();
+              cleanPropertyDetails[key] = normalizeNullableString(value);
             } else {
               cleanPropertyDetails[key] = value;
             }
           }
         });
         
-        // Always include property_details if there are any fields
-        // This ensures lockbox and access fields are sent
-        // Include property_details even if only numeric fields were updated (for lockbox/access preservation)
-        if (Object.keys(cleanPropertyDetails).length > 0 || 
-            payload.bedrooms !== undefined || 
-            payload.bathrooms !== undefined || 
-            payload.sqft !== undefined) {
-          // Merge numeric fields back into property_details for consistency
-          if (payload.bedrooms !== undefined) {
-            cleanPropertyDetails.bedrooms = payload.bedrooms;
-            cleanPropertyDetails.beds = payload.bedrooms;
-          }
-          if (payload.bathrooms !== undefined) {
-            cleanPropertyDetails.bathrooms = payload.bathrooms;
-            cleanPropertyDetails.baths = payload.bathrooms;
-          }
-          if (payload.sqft !== undefined) {
-            cleanPropertyDetails.sqft = payload.sqft;
-            cleanPropertyDetails.squareFeet = payload.sqft;
-          }
-          payload.property_details = cleanPropertyDetails;
+        if (payload.bedrooms !== undefined) {
+          cleanPropertyDetails.bedrooms = payload.bedrooms;
+          cleanPropertyDetails.beds = payload.bedrooms;
         }
+        if (payload.bathrooms !== undefined) {
+          cleanPropertyDetails.bathrooms = payload.bathrooms;
+          cleanPropertyDetails.baths = payload.bathrooms;
+        }
+        if (payload.sqft !== undefined) {
+          cleanPropertyDetails.sqft = payload.sqft;
+          cleanPropertyDetails.squareFeet = payload.sqft;
+        }
+        payload.property_details = cleanPropertyDetails;
         
         console.log('💾 Property details update:', { 
           bedrooms: payload.bedrooms, 
@@ -256,7 +258,7 @@ export function useShootDetailsModalSave({
       }
       
       // Services - convert to API format
-      if (updates.services && Array.isArray(updates.services)) {
+      if (hasOwn(updates, 'services') && Array.isArray(updates.services)) {
         const servicesPayload = updates.services.map((service: any) => {
           if (typeof service === 'string') {
             // If it's just a string (service name), we can't update it without ID
@@ -300,15 +302,13 @@ export function useShootDetailsModalSave({
           }
           return null;
         }).filter(Boolean);
-        
-        if (servicesPayload.length > 0) {
-          payload.services = servicesPayload;
-          console.log('💾 Services update:', servicesPayload);
-        }
+
+        payload.services = servicesPayload;
+        console.log('💾 Services update:', servicesPayload);
       }
 
       // Per-service photographer assignments
-      if ((updates as any).service_photographers && Array.isArray((updates as any).service_photographers)) {
+      if (hasOwn(updates, 'service_photographers') && Array.isArray((updates as any).service_photographers)) {
         payload.service_photographers = (updates as any).service_photographers;
         console.log('💾 Service photographers update:', payload.service_photographers);
       }

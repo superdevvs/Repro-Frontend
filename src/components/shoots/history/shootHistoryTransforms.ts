@@ -25,6 +25,39 @@ const toOptionalString = (value: unknown): string | undefined => {
   return trimmed ? trimmed : undefined
 }
 
+const resolveHoldStatusValue = (item: Record<string, unknown>): string | undefined => {
+  const extraData = toObjectValue<Record<string, unknown>>(item.extraData)
+    ?? toObjectValue<Record<string, unknown>>(item.extra_data)
+    ?? {}
+
+  return toOptionalString(
+    item.hold_status
+    ?? item.holdStatus
+    ?? item.status_at_hold
+    ?? item.statusAtHold
+    ?? item.status_before_hold
+    ?? item.statusBeforeHold
+    ?? item.previous_status
+    ?? item.previousStatus
+    ?? item.previous_workflow_status
+    ?? item.previousWorkflowStatus
+    ?? item.workflow_status_at_hold
+    ?? item.workflowStatusAtHold
+    ?? extraData.hold_status
+    ?? extraData.holdStatus
+    ?? extraData.status_at_hold
+    ?? extraData.statusAtHold
+    ?? extraData.status_before_hold
+    ?? extraData.statusBeforeHold
+    ?? extraData.previous_status
+    ?? extraData.previousStatus
+    ?? extraData.previous_workflow_status
+    ?? extraData.previousWorkflowStatus
+    ?? extraData.workflow_status_at_hold
+    ?? extraData.workflowStatusAtHold,
+  )
+}
+
 const getEditingNotes = (notes: ShootData['notes']): string | undefined => {
   if (!notes || typeof notes === 'string') return undefined
   return toOptionalString((notes as { editingNotes?: unknown }).editingNotes)
@@ -193,6 +226,7 @@ export const mapShootApiToShootData = (item: Record<string, unknown>): ShootData
     mediaSummary: item.media_summary as ShootData['mediaSummary'],
     heroImage: item.hero_image as string | undefined,
     weather: item.weather as ShootData['weather'],
+    holdStatus: resolveHoldStatusValue(item),
     primaryAction: primaryAction ?? undefined,
     files: toArrayValue<ShootFileData>(item.files),
     tourPurchased: toBooleanValue(item.tourPurchased ?? item.tour_purchased),

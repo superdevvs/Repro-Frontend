@@ -25,6 +25,7 @@ interface StartUploadParams {
   onProgress?: (progress: number) => void;
   onComplete?: () => void;
   onError?: (error: string) => void;
+  onWarning?: (warning: string) => void;
 }
 
 interface TrackUploadParams {
@@ -182,6 +183,15 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       if (errors.length === params.files.length) {
         throw new Error(errors[0] || 'Upload failed');
+      }
+
+      if (errors.length > 0) {
+        const failedCount = errors.length;
+        const failedFileDetails = errors.slice(0, 3).join(', ');
+        const remainingCount = failedCount - Math.min(failedCount, 3);
+        params.onWarning?.(
+          `${failedCount} of ${params.files.length} file${failedCount === 1 ? '' : 's'} failed to upload.${failedFileDetails ? ` ${failedFileDetails}` : ''}${remainingCount > 0 ? `, plus ${remainingCount} more.` : ''}`
+        );
       }
     };
 

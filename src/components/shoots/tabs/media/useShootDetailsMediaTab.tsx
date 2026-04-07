@@ -84,13 +84,12 @@ interface ShootDetailsMediaTabProps {
   isPhotographer: boolean;
   isEditor: boolean;
   isClient: boolean;
+  isClientReleaseLocked?: boolean;
   role: string;
   onShootUpdate: () => void;
   isExpanded?: boolean;
   onToggleExpand?: () => void;
   onSelectionChange?: (selectedIds: string[]) => void;
-  showHidden?: boolean;
-  onShowHiddenChange?: (val: boolean) => void;
 }
 
 type MediaSubTab =
@@ -120,17 +119,16 @@ export function useShootDetailsMediaTab({
   isPhotographer,
   isEditor,
   isClient,
+  isClientReleaseLocked = false,
   role,
   onShootUpdate,
   isExpanded = false,
   onToggleExpand,
   onSelectionChange,
-  showHidden = false,
-  onShowHiddenChange,
 }: ShootDetailsMediaTabProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { trackUpload } = useUpload();
+  const { trackUpload, uploads } = useUpload();
   // Default tab based on role: clients see edited, others see uploaded
   const defaultTab = isClient ? 'edited' : 'uploaded';
   const [activeSubTab, setActiveSubTab] = useState<'uploaded' | 'edited' | 'upload'>(defaultTab);
@@ -192,6 +190,7 @@ export function useShootDetailsMediaTab({
     isPhotographer,
     isEditor,
     isClient,
+    isClientReleaseLocked,
   });
   const clientEditedMediaTabs = useMemo(
     () =>
@@ -676,6 +675,8 @@ export function useShootDetailsMediaTab({
     setDragOverTab,
   });
   const canInteractSingleMedia = isClient || ['admin', 'superadmin', 'editing_manager', 'salesRep', 'rep', 'representative'].includes(role || '');
+  const canDownloadSingleMedia =
+    isAdmin || isEditor || isPhotographer || (isClient && !isClientReleaseLocked);
 
   const mediaShoot = shoot as ShootMediaTabSource;
   const normalizedShootStatus = String(shoot?.workflowStatus || mediaShoot.status || '').toLowerCase();
@@ -737,12 +738,28 @@ export function useShootDetailsMediaTab({
   const editorRestrictedToEditedTab = isEditor;
   const canUploadInDisplayTab = showUploadTab && (!editorRestrictedToEditedTab || displayTab === 'edited');
   const canDeleteInDisplayTab = canDelete && (!editorRestrictedToEditedTab || displayTab === 'edited');
+  const activeShootUploads = useMemo(
+    () => uploads.filter((upload) => upload.shootId === String(shoot.id) && upload.status === 'uploading'),
+    [shoot.id, uploads],
+  );
+  const canShowAiEditComingSoon =
+    ['admin', 'superadmin', 'editing_manager'].includes((role || '').toLowerCase()) &&
+    displayTab === 'uploaded' &&
+    rawFiles.some((file) => !isVideoFile(file));
   const isScheduledShoot = normalizedShootStatus === 'scheduled' || normalizedShootStatus === 'booked';
   const hasAnyMedia = rawFiles.length > 0 || editedFiles.length > 0;
 
   // Determine if shoot is finalized (client can view photos)
   const FINALIZED_STATUSES = ['admin_verified', 'delivered', 'client_delivered', 'ready_for_client', 'workflow_completed', 'finalized'];
   const isShootFinalized = FINALIZED_STATUSES.some(status => normalizedShootStatus.includes(status));
+
+  useEffect(() => {
+    if (canDownload || selectedFiles.size === 0) {
+      return;
+    }
+
+    setSelectedFiles(new Set());
+  }, [canDownload, selectedFiles.size, setSelectedFiles]);
   
   // Calculate progress for non-finalized shoots (for client progress indicator)
   const clientProgress = useMemo(() => {
@@ -842,40 +859,46 @@ export function useShootDetailsMediaTab({
     }
 
     return (
-      <div className="h-full m-0 sm:m-2.5 border-0 sm:border rounded-none sm:rounded-lg bg-card overflow-y-auto p-1 sm:p-2.5">
-        <MediaGrid
-          files={files}
-          onFileClick={(index, sorted) => openViewer(index, sorted)}
-          selectedFiles={selectedFiles}
-          onSelectionChange={toggleSelection}
-          onSelectAll={() => {
-            if (selectedFiles.size === files.length) {
-              setSelectedFiles(new Set());
-            } else {
-              setSelectedFiles(new Set(files.map((f) => f.id)));
-            }
-          }}
-          canSelect={canDownload}
-          sortOrder={sortOrder}
-          manualSortActive={isDragMode}
-          manualOrder={manualOrder}
-          onManualOrderChange={(nextOrder) => handleManualOrderChange(files, nextOrder, separateExtras)}
-          getImageUrl={getImageUrl}
-          getSrcSet={getSrcSet}
-          isImage={isPreviewableImage}
-          isVideo={isVideoFile}
-          viewMode={mediaViewMode}
-          showHidden={showHidden}
-          isClient={isClient}
-          toggleFileHidden={toggleFileHidden}
-          separateExtras={separateExtras}
-          canInteractSingleMedia={canInteractSingleMedia}
-          onToggleFavorite={handleToggleFavorite}
-          onAddComment={handleAddComment}
-          onDownloadSingle={handleDownloadSingleFile}
-        />
+      <div className="relative h-full m-0 sm:m-2.5 border-0 sm:border rounded-none sm:rounded-lg bg-card">
+        <div className={`h-full overflow-y-auto p-1 sm:p-2.5 ${canUploadInDisplayTab ? 'pb-20 sm:pb-2.5' : ''}`}>
+          <MediaGrid
+            files={files}
+            onFileClick={(index, sorted) => openViewer(index, sorted)}
+            selectedFiles={selectedFiles}
+            onSelectionChange={toggleSelection}
+            onSelectAll={() => {
+              if (!canDownload) {
+                return;
+              }
+
+              if (selectedFiles.size === files.length) {
+                setSelectedFiles(new Set());
+              } else {
+                setSelectedFiles(new Set(files.map((f) => f.id)));
+              }
+            }}
+            canSelect={canDownload}
+            sortOrder={sortOrder}
+            manualSortActive={isDragMode}
+            manualOrder={manualOrder}
+            onManualOrderChange={(nextOrder) => handleManualOrderChange(files, nextOrder, separateExtras)}
+            getImageUrl={getImageUrl}
+            getSrcSet={getSrcSet}
+            isImage={isPreviewableImage}
+            isVideo={isVideoFile}
+            viewMode={mediaViewMode}
+            isClient={isClient}
+            toggleFileHidden={toggleFileHidden}
+            separateExtras={separateExtras}
+            canInteractSingleMedia={canInteractSingleMedia}
+            canDownloadSingleMedia={canDownloadSingleMedia}
+            onToggleFavorite={handleToggleFavorite}
+            onAddComment={handleAddComment}
+            onDownloadSingle={canDownloadSingleMedia ? handleDownloadSingleFile : undefined}
+          />
+        </div>
         {canUploadInDisplayTab && (
-          <div className="sm:hidden sticky bottom-2 z-20 flex justify-center pointer-events-none mt-2 pb-2">
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex justify-center bg-gradient-to-t from-background via-background/90 to-transparent px-3 pb-3 pt-8 sm:hidden">
             <Button
               type="button"
               variant="default"
@@ -917,6 +940,7 @@ export function useShootDetailsMediaTab({
             onUploadComplete={onEditedUploadComplete}
             isEditor={isEditor}
             editedFiles={editedFiles}
+            showInlineProgress={false}
           />
         </div>
       );
@@ -924,7 +948,7 @@ export function useShootDetailsMediaTab({
 
     return (
       <div className="space-y-4 flex-1 flex flex-col min-h-0">
-        <RawUploadSection shoot={shoot} onUploadComplete={onUploadComplete} />
+        <RawUploadSection shoot={shoot} onUploadComplete={onUploadComplete} showInlineProgress={false} />
       </div>
     );
   };
@@ -1016,6 +1040,7 @@ export function useShootDetailsMediaTab({
         sortSaveStatus={sortSaveStatus}
         changeSortOrder={changeSortOrder}
         toggleDragMode={toggleDragMode}
+        activeShootUploads={activeShootUploads}
         showUploadTab={canUploadInDisplayTab}
         selectedFiles={selectedFiles}
         setRequestManagerOpen={setRequestManagerOpen}
@@ -1027,6 +1052,8 @@ export function useShootDetailsMediaTab({
         canDelete={canDeleteInDisplayTab}
         canDownload={canDownload}
         isAdmin={isAdmin}
+        canShowAiEditComingSoon={canShowAiEditComingSoon}
+        onOpenAiEditComingSoon={() => setShowAiEditDialog(true)}
         handleReclassify={handleReclassify}
         markMenuOptions={markMenuOptions}
         directUploading={directUploading}
@@ -1077,7 +1104,6 @@ export function useShootDetailsMediaTab({
         getSrcSet={getSrcSet}
         isPreviewableImage={isPreviewableImage}
         isVideoFile={isVideoFile}
-        showHidden={showHidden}
         toggleFileHidden={toggleFileHidden}
       />
       <ShootDetailsMediaTabDialogs
@@ -1093,10 +1119,11 @@ export function useShootDetailsMediaTab({
         isClient={isClient}
         onShootUpdate={onShootUpdate}
         canInteractSingleMedia={canInteractSingleMedia}
+        canDownloadSingleMedia={canDownloadSingleMedia}
         onToggleFavorite={handleToggleFavorite}
         onAddComment={handleAddComment}
         onToggleHidden={toggleFileHidden}
-        onDownloadSingle={handleDownloadSingleFile}
+        onDownloadSingle={canDownloadSingleMedia ? handleDownloadSingleFile : undefined}
         showAiEditDialog={showAiEditDialog}
         setShowAiEditDialog={setShowAiEditDialog}
         selectedFiles={selectedFiles}

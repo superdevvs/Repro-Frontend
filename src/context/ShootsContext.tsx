@@ -176,6 +176,24 @@ type ApiShoot = {
   tour_purchased?: unknown;
   is_private_listing?: boolean;
   isPrivateListing?: boolean;
+  ghost_users?: Array<{
+    id?: string | number;
+    name?: string;
+    email?: string;
+    company?: string;
+    company_name?: string;
+  }>;
+  ghostUsers?: Array<{
+    id?: string | number;
+    name?: string;
+    email?: string;
+    company?: string;
+    company_name?: string;
+  }>;
+  ghost_user_ids?: Array<string | number>;
+  ghostUserIds?: Array<string | number>;
+  is_ghost_visible_for_user?: boolean;
+  isGhostVisibleForUser?: boolean;
   [key: string]: unknown;
 };
 
@@ -382,6 +400,33 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
     typeof (shoot as any).is_private_listing === 'boolean'
       ? Boolean((shoot as any).is_private_listing)
       : Boolean((shoot as any).isPrivateListing);
+  const normalizedGhostUsers = (() => {
+    const source = Array.isArray((shoot as any).ghost_users)
+      ? (shoot as any).ghost_users
+      : (Array.isArray((shoot as any).ghostUsers) ? (shoot as any).ghostUsers : []);
+
+    return source
+      .map((ghostUser: any) => ({
+        id: ghostUser?.id != null ? String(ghostUser.id) : '',
+        name: ghostUser?.name || 'Client',
+        email: ghostUser?.email || undefined,
+        company: ghostUser?.company || ghostUser?.company_name || undefined,
+      }))
+      .filter((ghostUser: { id: string }) => Boolean(ghostUser.id));
+  })();
+  const normalizedGhostUserIds = (() => {
+    const source = Array.isArray((shoot as any).ghost_user_ids)
+      ? (shoot as any).ghost_user_ids
+      : (Array.isArray((shoot as any).ghostUserIds) ? (shoot as any).ghostUserIds : []);
+
+    if (source.length > 0) {
+      return source
+        .map((id: string | number | null | undefined) => id != null ? String(id) : '')
+        .filter(Boolean);
+    }
+
+    return normalizedGhostUsers.map((ghostUser) => ghostUser.id);
+  })();
 
   const normalizedServices = (() => {
     if (Array.isArray(shoot.services_list) && shoot.services_list.length > 0) {
@@ -599,6 +644,11 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
     mmmLastPunchoutAt: (shoot as any).mmm_last_punchout_at || undefined,
     mmmLastOrderAt: (shoot as any).mmm_last_order_at || undefined,
     mmmLastError: (shoot as any).mmm_last_error || undefined,
+    ghostUsers: normalizedGhostUsers,
+    ghostUserIds: normalizedGhostUserIds,
+    isGhostVisibleForUser: typeof (shoot as any).is_ghost_visible_for_user === 'boolean'
+      ? Boolean((shoot as any).is_ghost_visible_for_user)
+      : Boolean((shoot as any).isGhostVisibleForUser),
   };
 };
 

@@ -54,11 +54,11 @@ interface MediaGridProps {
   isImage: (file: MediaFile) => boolean;
   isVideo?: (file: MediaFile) => boolean;
   viewMode?: 'list' | 'grid';
-  showHidden?: boolean;
   isClient?: boolean;
   toggleFileHidden?: (fileId: string, hidden: boolean) => void;
   separateExtras?: boolean;
   canInteractSingleMedia?: boolean;
+  canDownloadSingleMedia?: boolean;
   onToggleFavorite?: (fileId: string) => void;
   onAddComment?: (fileId: string, comment: string) => void;
   onDownloadSingle?: (fileId: string) => void;
@@ -80,11 +80,11 @@ export function MediaGrid({
   isImage,
   isVideo,
   viewMode = 'list',
-  showHidden = false,
   isClient = false,
   toggleFileHidden,
   separateExtras = true,
   canInteractSingleMedia = false,
+  canDownloadSingleMedia = false,
   onToggleFavorite,
   onAddComment,
   onDownloadSingle,
@@ -105,7 +105,7 @@ export function MediaGrid({
     () => (separateExtras ? sortedFiles.filter((file) => !file.isExtra) : sortedFiles).map((file) => file.id),
     [separateExtras, sortedFiles],
   );
-  const visibleSorted = showHidden ? sortedFiles : sortedFiles.filter(f => !f.is_hidden);
+  const visibleSorted = sortedFiles;
   const regularFiles = separateExtras ? visibleSorted.filter(f => !f.isExtra) : visibleSorted;
   const extraFiles = separateExtras ? visibleSorted.filter(f => f.isExtra) : [];
   const visibleRegularIds = regularFiles.map((file) => file.id);
@@ -340,7 +340,7 @@ export function MediaGrid({
           </button>
         )}
         {renderCommentAction(file, 'h-7 w-7 rounded-full bg-black/55 backdrop-blur-sm text-white flex items-center justify-center')}
-        {canInteractSingleMedia && onDownloadSingle && (
+        {canDownloadSingleMedia && onDownloadSingle && (
           <button
             className="h-7 w-7 rounded-full bg-black/55 backdrop-blur-sm text-white flex items-center justify-center"
             onClick={(e) => {
@@ -402,6 +402,19 @@ export function MediaGrid({
     }
     return '-';
   };
+  const getHiddenMediaClassName = (file: MediaFile) =>
+    file.is_hidden ? 'blur-[1px] brightness-[0.92]' : '';
+  const renderHiddenMediaOverlay = () => (
+    <>
+      <div className="absolute inset-0 bg-slate-950/10 z-[2] pointer-events-none" />
+      <div className="absolute inset-x-3 bottom-3 z-[3] flex items-center justify-center pointer-events-none">
+        <div className="inline-flex items-center gap-1.5 rounded-full bg-black/55 px-2.5 py-1 text-[10px] font-medium text-white backdrop-blur-sm">
+          <EyeOff className="h-3.5 w-3.5" />
+          <span>Hidden</span>
+        </div>
+      </div>
+    </>
+  );
   
   const renderFileCard = (file: MediaFile, index: number, isExtraSection: boolean = false) => {
     const isSelected = selectedFiles.has(file.id);
@@ -451,7 +464,7 @@ export function MediaGrid({
               <VideoThumbnail
                 src={videoSrc}
                 alt={file.filename}
-                className="w-full h-full object-cover"
+                className={`w-full h-full object-cover transition-all duration-200 ${getHiddenMediaClassName(file)}`}
               />
             ) : null;
           }
@@ -460,7 +473,7 @@ export function MediaGrid({
               <img
                 src={thumbSrc}
                 alt={file.filename}
-                className="w-full h-full object-cover"
+                className={`w-full h-full object-cover transition-all duration-200 ${getHiddenMediaClassName(file)}`}
                 loading="lazy"
                 draggable={false}
               onError={(e) => {
@@ -500,11 +513,7 @@ export function MediaGrid({
         )}
 
         {/* Hidden overlay */}
-        {file.is_hidden && (
-          <div className="absolute inset-0 bg-black/50 z-[2] flex items-center justify-center pointer-events-none">
-            <EyeOff className="h-5 w-5 text-white/70" />
-          </div>
-        )}
+        {file.is_hidden && renderHiddenMediaOverlay()}
 
         {renderSingleMediaActions(file)}
 
@@ -586,7 +595,7 @@ export function MediaGrid({
                   <VideoThumbnail
                     src={videoSrc}
                     alt={file.filename}
-                    className="w-full h-full object-cover"
+                    className={`w-full h-full object-cover transition-all duration-200 ${getHiddenMediaClassName(file)}`}
                   />
                 ) : null;
               }
@@ -595,7 +604,7 @@ export function MediaGrid({
                 <img
                   src={thumbSrc}
                   alt={file.filename}
-                  className="w-full h-full object-cover"
+                  className={`w-full h-full object-cover transition-all duration-200 ${getHiddenMediaClassName(file)}`}
                   loading="lazy"
                   draggable={false}
                   onDoubleClick={() => onFileClick(actualIndex, sortedFiles)}
@@ -629,6 +638,8 @@ export function MediaGrid({
                 </div>
               </div>
             )}
+
+            {file.is_hidden && renderHiddenMediaOverlay()}
 
             {renderSingleMediaActions(file)}
 
@@ -735,7 +746,7 @@ export function MediaGrid({
             <img
               src={file.thumb || imageUrl}
               alt={file.filename}
-              className="w-full h-full object-cover"
+              className={`w-full h-full object-cover transition-all duration-200 ${getHiddenMediaClassName(file)}`}
               loading="lazy"
               draggable={false}
               onError={(e) => {
@@ -748,7 +759,7 @@ export function MediaGrid({
             <VideoThumbnail
               src={file.original || file.large || file.medium || file.url || getImageUrl(file, 'original')}
               alt={file.filename}
-              className="w-full h-full object-cover"
+              className={`w-full h-full object-cover transition-all duration-200 ${getHiddenMediaClassName(file)}`}
             />
           ) : null}
           <div 
@@ -778,6 +789,7 @@ export function MediaGrid({
               {file.comment_count}
             </div>
           )}
+          {file.is_hidden && renderHiddenMediaOverlay()}
         </div>
 
         {/* Filename - takes remaining space */}
@@ -828,7 +840,7 @@ export function MediaGrid({
             </button>
           )}
           {renderCommentAction(file, 'h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted')}
-          {canInteractSingleMedia && onDownloadSingle && (
+          {canDownloadSingleMedia && onDownloadSingle && (
             <button
               className="h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted"
               onClick={(e) => {
@@ -854,14 +866,6 @@ export function MediaGrid({
             </button>
           )}
         </div>
-
-        {/* Hidden indicator overlay on thumbnail */}
-        {file.is_hidden && (
-          <div className="absolute left-0 top-0 bottom-0 w-20 sm:w-28 bg-black/40 rounded-l flex items-center justify-center pointer-events-none">
-            <EyeOff className="h-4 w-4 text-white/60" />
-          </div>
-        )}
-
       </div>
     );
   };
@@ -917,7 +921,7 @@ export function MediaGrid({
                 <img
                   src={file.thumb || imageUrl}
                   alt={file.filename}
-                  className="w-full h-full object-cover"
+                  className={`w-full h-full object-cover transition-all duration-200 ${getHiddenMediaClassName(file)}`}
                   loading="lazy"
                   draggable={false}
                   onError={(e) => {
@@ -930,7 +934,7 @@ export function MediaGrid({
                 <VideoThumbnail
                   src={file.original || file.large || file.medium || file.url || getImageUrl(file, 'original')}
                   alt={file.filename}
-                  className="w-full h-full object-cover"
+                  className={`w-full h-full object-cover transition-all duration-200 ${getHiddenMediaClassName(file)}`}
                 />
               ) : null}
               <div
@@ -942,6 +946,7 @@ export function MediaGrid({
                   <span className="text-[8px] font-semibold uppercase">{ext || 'FILE'}</span>
                 </div>
               </div>
+              {file.is_hidden && renderHiddenMediaOverlay()}
             </div>
 
             <div className="flex-1 min-w-0">
@@ -987,7 +992,7 @@ export function MediaGrid({
                 </button>
               )}
               {renderCommentAction(file, 'h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted')}
-              {canInteractSingleMedia && onDownloadSingle && (
+              {canDownloadSingleMedia && onDownloadSingle && (
                 <button
                   className="h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted"
                   onClick={(e) => {
@@ -1151,5 +1156,3 @@ export function MediaGrid({
     </div>
   );
 }
-
-

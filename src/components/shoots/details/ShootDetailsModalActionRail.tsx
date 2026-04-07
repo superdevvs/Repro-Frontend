@@ -19,7 +19,14 @@ import {
   XCircle,
 } from 'lucide-react';
 
-type VisibleTabId = 'overview' | 'notes' | 'issues' | 'tours' | 'settings' | 'media';
+type VisibleTabId =
+  | 'overview'
+  | 'notes'
+  | 'issues'
+  | 'tours'
+  | 'settings'
+  | 'activity'
+  | 'media';
 
 interface ShootDetailsModalActionRailProps {
   shootAddress: string;
@@ -41,8 +48,10 @@ interface ShootDetailsModalActionRailProps {
   mmmRedirectUrl: string | null;
   isDelivered: boolean;
   isAdmin: boolean;
+  isClient: boolean;
   isEditor: boolean;
   isPhotographer: boolean;
+  canClientDownload: boolean;
   isDownloading: boolean;
   isGeneratingShareLink: boolean;
   rawFileCount: number;
@@ -89,8 +98,10 @@ export function ShootDetailsModalActionRail({
   mmmRedirectUrl,
   isDelivered,
   isAdmin,
+  isClient,
   isEditor,
   isPhotographer,
+  canClientDownload,
   isDownloading,
   isGeneratingShareLink,
   rawFileCount,
@@ -223,7 +234,7 @@ export function ShootDetailsModalActionRail({
                   <span>{cancelActionLabel}</span>
                 </Button>
               )}
-              {isDelivered && !isEditor && !isPhotographer && (
+              {isDelivered && !isEditor && !isPhotographer && (!isClient || canClientDownload) && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -434,12 +445,13 @@ interface ShootDetailsModalHeaderProps {
   addressTitle: string;
   createdByLabel: string | null;
   statusBadge: React.ReactNode;
+  paymentBadge?: React.ReactNode;
   activeTab: VisibleTabId;
-  visibleTabs: Array<{ id: string; label: string }>;
+  visibleTabs: Array<{ id: string; label: string; disabled?: boolean }>;
   isEditMode: boolean;
   isSavingChanges: boolean;
   editActions: { save: () => void; cancel: () => void } | null;
-  setActiveTab: (tab: VisibleTabId) => void;
+  handleTabChange: (value: string) => void;
   setIsMobileActionsOpen: (open: boolean) => void;
   onClose: () => void;
 }
@@ -448,12 +460,13 @@ export function ShootDetailsModalHeader({
   addressTitle,
   createdByLabel,
   statusBadge,
+  paymentBadge,
   activeTab,
   visibleTabs,
   isEditMode,
   isSavingChanges,
   editActions,
-  setActiveTab,
+  handleTabChange,
   setIsMobileActionsOpen,
   onClose,
 }: ShootDetailsModalHeaderProps) {
@@ -465,6 +478,7 @@ export function ShootDetailsModalHeader({
             <div className="flex items-center gap-2 sm:gap-3 mb-1.5 sm:mb-2 flex-wrap">
               <h2 className="text-base sm:text-lg font-bold truncate text-left">{addressTitle}</h2>
               <div className="flex-shrink-0">{statusBadge}</div>
+              {paymentBadge ? <div className="flex-shrink-0">{paymentBadge}</div> : null}
             </div>
 
             {createdByLabel && (
@@ -532,11 +546,20 @@ export function ShootDetailsModalHeader({
             <button
               key={tab.id}
               type="button"
-              onClick={() => setActiveTab(tab.id as VisibleTabId)}
+              onClick={() => {
+                if (tab.disabled) {
+                  return;
+                }
+
+                handleTabChange(tab.id);
+              }}
+              disabled={tab.disabled}
               className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition whitespace-nowrap ${
                 activeTab === tab.id
                   ? 'bg-blue-600/10 text-blue-500 ring-1 ring-blue-500/50'
-                  : 'text-muted-foreground'
+                  : tab.disabled
+                    ? 'cursor-not-allowed text-muted-foreground/50'
+                    : 'text-muted-foreground'
               }`}
             >
               {tab.label}

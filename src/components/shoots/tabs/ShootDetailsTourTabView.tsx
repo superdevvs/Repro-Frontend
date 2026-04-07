@@ -3,7 +3,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -11,9 +10,10 @@ import { Switch } from '@/components/ui/switch';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { BarChart3, Copy, ExternalLink, Share2, QrCode, ChevronDown, ChevronUp, Download, Edit, Trash, Check, X, Plus, Info } from 'lucide-react';
+import { BarChart3, Copy, ExternalLink, Share2, QrCode, ChevronDown, ChevronUp, Download, Edit, Trash, Check, X, Plus, Info, Lock } from 'lucide-react';
 export function ShootDetailsTourTabView(props: any) {
   const {
+    isClientReleaseLocked,
     onShowAnalytics,
     getTourUrl,
     copyLink,
@@ -60,6 +60,7 @@ export function ShootDetailsTourTabView(props: any) {
     tourSettings,
     updateTourSetting,
     isSavingTourSettings,
+    realtorPicker,
     propertySection,
     visibleMatterportKeys,
     visibleIguideKeys,
@@ -80,6 +81,33 @@ export function ShootDetailsTourTabView(props: any) {
     onCopyQrDialogLink,
     downloadQrCode,
   } = props;
+
+  if (isClientReleaseLocked) {
+    return (
+      <div className="space-y-6 w-full">
+        <Card className="border-slate-200 bg-slate-50/80 dark:border-slate-800 dark:bg-slate-950/60">
+          <CardHeader>
+            <div className="flex items-center gap-2 text-slate-700 dark:text-slate-200">
+              <Lock className="h-4 w-4" />
+              <CardTitle className="text-base">Tours Locked</CardTitle>
+            </div>
+            <CardDescription>
+              Full payment is required before branded, MLS, and generic tour links become active.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="rounded-xl border border-dashed border-slate-300 bg-white/70 p-4 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-300">
+              Tour links, QR codes, sharing actions, and public tour access unlock automatically after the shoot is fully paid.
+            </div>
+            <Badge variant="secondary" className="bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+              Payment required to unlock tours
+            </Badge>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 w-full">
       {/* Tour Links Section */}
@@ -272,9 +300,6 @@ export function ShootDetailsTourTabView(props: any) {
               <div className="space-y-3">
                 <div className="space-y-1">
                   <Label>Public Video Pages</Label>
-                  <p className="text-xs text-muted-foreground">
-                    Separate public video pages for branded, MLS, and generic sharing. Clients can view these links, but only admins can manage them.
-                  </p>
                 </div>
                 {publicVideoLinkConfigs.map(({ key, label, placeholder }) => {
                   const isEditing = editingVideoLinkKey === key;
@@ -613,18 +638,7 @@ export function ShootDetailsTourTabView(props: any) {
                 </Select>
                 <p className="text-xs text-muted-foreground">Use this label to distinguish published variants.</p>
               </div>
-              <div className="space-y-2">
-                <Label>Realtor(s)</Label>
-                <Textarea
-                  value={tourSettings.realtor_info}
-                  onChange={(e) => updateTourSetting('realtor_info', e.target.value, false)}
-                  onBlur={async () => updateTourSetting('realtor_info', tourSettings.realtor_info)}
-                  placeholder="Add agent names, phone numbers, or notes"
-                  disabled={!isAdmin}
-                  className="min-h-[90px]"
-                />
-                <p className="text-xs text-muted-foreground">Displayed in contact sections on public tour pages.</p>
-              </div>
+              {realtorPicker}
               <div className="flex items-center justify-between rounded-lg border border-border/60 p-3">
                 <div>
                   <Label>Autoplay</Label>

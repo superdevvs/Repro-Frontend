@@ -307,6 +307,8 @@ export default function Availability() {
   const { formatTime: formatTimePreference, preferences } = useUserPreferences();
 
   const isAdmin = role === 'admin' || role === 'superadmin';
+  const isSalesRep = role === 'salesRep';
+  const canManagePhotographerSelection = isAdmin || isSalesRep;
   const isPhotographer = role === 'photographer';
   const photographerScopedBlockId = isPhotographer && user?.id ? String(user.id) : "";
 
@@ -729,9 +731,9 @@ export default function Availability() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPhotographer, date, currentMonth, viewMode, loadingPhotographers]);
 
-  // Keep list availability updated for admin view when a single photographer is selected
+  // Keep list availability updated for team management view when a single photographer is selected
   useEffect(() => {
-    if (!isAdmin || loadingPhotographers || selectedPhotographer === "all") return;
+    if (!canManagePhotographerSelection || loadingPhotographers || selectedPhotographer === "all") return;
     if (!date || photographers.length === 0) return;
 
     const anchorDate = date || new Date();
@@ -806,7 +808,7 @@ export default function Availability() {
     return () => {
       cancelled = true;
     };
-  }, [isAdmin, selectedPhotographer, date, viewMode, photographers, loadingPhotographers]);
+  }, [canManagePhotographerSelection, selectedPhotographer, date, viewMode, photographers, loadingPhotographers]);
 
   const dateStr = useMemo(() => date ? format(date, 'yyyy-MM-dd') : undefined, [date]);
   const dayOfWeek = useMemo(() => date ? date.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase() : undefined, [date]);
@@ -1845,7 +1847,7 @@ export default function Availability() {
               <TabsContent value="calendar" className="mt-0 flex min-h-0 flex-col gap-2 pb-4">
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    {isAdmin && (
+                    {canManagePhotographerSelection && (
                       <Sheet open={isPhotographerSheetOpen} onOpenChange={setIsPhotographerSheetOpen}>
                         <SheetTrigger asChild>
                           <Button variant="outline" size="sm" className="shrink-0 gap-2 px-3">
@@ -2759,8 +2761,8 @@ export default function Availability() {
                   : undefined
               }
             >
-              {/* Left Column: Search and Select Photographer (Admin only) */}
-              {isAdmin && (
+              {/* Left Column: Search and Select Photographer */}
+              {canManagePhotographerSelection && (
                 <div className="lg:col-span-3 flex flex-col min-h-0">
                   <Card className="p-4 flex flex-col h-full border shadow-sm rounded-md min-h-0 overflow-hidden">
                     <div className="mb-4">
@@ -2848,7 +2850,7 @@ export default function Availability() {
               {/* Middle Column: Calendar */}
               <div className={cn(
                 "flex flex-col min-h-0",
-                isAdmin ? "lg:col-span-5" : "lg:col-span-8"
+                canManagePhotographerSelection ? "lg:col-span-5" : "lg:col-span-8"
               )}>
                 <Card className="p-4 flex-1 flex flex-col border shadow-sm rounded-md min-h-0 overflow-hidden">
                   <div className="flex items-start justify-between mb-3 flex-shrink-0">

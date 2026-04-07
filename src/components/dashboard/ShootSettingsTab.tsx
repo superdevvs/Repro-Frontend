@@ -1,19 +1,22 @@
 import React, { useEffect, useState } from "react";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { InvoiceData } from '@/utils/invoiceUtils';
 import { useAuth } from "@/components/auth";
+import { MultiSelectChecklist } from "@/components/ui/multi-select-checklist";
 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast as sonnerToast } from "sonner";
 import { DollarSignIcon as DSIcon } from "lucide-react";
-import { ShootData } from "@/types/shoots";
+import { ShootData, ShootGhostUser } from "@/types/shoots";
 import { format } from "date-fns";
 import { Switch } from "@/components/ui/switch";
-import { DollarSignIcon, Sparkles } from "lucide-react";
+import { DollarSignIcon, Sparkles, X } from "lucide-react";
 import { API_BASE_URL } from '@/config/env';
 
 import { PaymentDialog, type InvoicePaymentCompletePayload } from "@/components/invoices/PaymentDialog";
@@ -23,36 +26,99 @@ interface ShootSettingsTabProps {
   shoot: ShootData;
   isAdmin?: boolean;
   isClient?: boolean;
+  canManageGhostUsers?: boolean;
   onUpdate?: (updated: Partial<ShootData>) => void; // optimistic update callback
   onDelete?: () => void;
   onProcessPayment?: (invoice: InvoiceData) => void;
   currentInvoice?: InvoiceData | null;
-  showHidden?: boolean;
-  onShowHiddenChange?: (val: boolean) => void;
 }
+
+type DownloadableMode = "automatic" | "unlocked" | "locked";
+
+type GhostClientOption = {
+  id: string;
+  name: string;
+  email?: string;
+  company?: string;
+};
+
+const resolveFeaturedState = (shoot: ShootData): boolean => {
+  const candidates = [
+    (shoot as any)?.is_featured,
+    (shoot as any)?.isFeatured,
+  ];
+
+  for (const candidate of candidates) {
+    if (candidate !== undefined && candidate !== null) {
+      return Boolean(candidate);
+    }
+  }
+
+  return false;
+};
+
+const resolveDownloadableMode = (shoot: ShootData): DownloadableMode => {
+  const meta = (shoot as any)?.meta;
+  const candidates = [
+    meta?.downloadable_mode,
+    meta?.downloadableMode,
+    (shoot as any)?.downloadable_mode,
+    (shoot as any)?.downloadableMode,
+    meta?.downloadable,
+    (shoot as any)?.downloadable,
+  ];
+
+  for (const candidate of candidates) {
+    if (candidate === "automatic" || candidate === "unlocked" || candidate === "locked") {
+      return candidate;
+    }
+    if (candidate === true) {
+      return "unlocked";
+    }
+    if (candidate === false) {
+      return "locked";
+    }
+  }
+
+  return "automatic";
+};
+
+const normalizeGhostUsers = (shoot: ShootData): ShootGhostUser[] => {
+  return Array.isArray(shoot.ghostUsers)
+    ? shoot.ghostUsers.filter((ghostUser): ghostUser is ShootGhostUser => Boolean(ghostUser?.id))
+    : [];
+};
+
+const normalizeGhostUserIds = (shoot: ShootData): string[] => {
+  if (Array.isArray(shoot.ghostUserIds) && shoot.ghostUserIds.length > 0) {
+    return shoot.ghostUserIds.map((id) => String(id));
+  }
+
+  return normalizeGhostUsers(shoot).map((ghostUser) => String(ghostUser.id));
+};
 
 export function ShootSettingsTab({
   shoot,
   isAdmin = false,
   isClient = false,
+  canManageGhostUsers = false,
   onUpdate,
   onDelete,
   onProcessPayment,
   currentInvoice = null,
-  showHidden = false,
-  onShowHiddenChange,
 }: ShootSettingsTabProps) {
   // ---------- local state ----------
   const [isSavingSettings, setIsSavingSettings] = useState(false);
 
   // toggles (use shoot meta if available; safe cast to avoid TS errors)
   const [isFinalized, setIsFinalized] = useState<boolean>(() => !!(shoot as any)?.meta?.finalized);
-  const [isDownloadable, setIsDownloadable] = useState<boolean>(() => !!(shoot as any)?.meta?.downloadable);
+  const [downloadableMode, setDownloadableMode] = useState<DownloadableMode>(() => resolveDownloadableMode(shoot));
   const [isMarkedPaid, setIsMarkedPaid] = useState<boolean>(() => !!(shoot as any)?.payment?.totalPaid);
   const [autoEditEnabled, setAutoEditEnabled] = useState<boolean>(() => !!(shoot as any)?.auto_edit_enabled);
   const [autoEditStyle, setAutoEditStyle] = useState<string>(() => (shoot as any)?.auto_edit_preferences?.style || 'signature');
   const [autoEditType, setAutoEditType] = useState<string>(() => (shoot as any)?.auto_edit_preferences?.editing_type || 'enhance');
   const [isPrivateExclusive, setIsPrivateExclusive] = useState<boolean>(() => !!((shoot as any)?.is_private_listing || (shoot as any)?.isPrivateListing));
+  const [isFeaturedShoot, setIsFeaturedShoot] = useState<boolean>(() => resolveFeaturedState(shoot));
 
   const auth = useAuth();
   const role = auth?.user?.role || 'client';
@@ -66,20 +132,26 @@ export function ShootSettingsTab({
 
   // Local invoice state (sync with prop if provided)
   const [localInvoice, setLocalInvoice] = useState<InvoiceData | null>(currentInvoice ?? null);
+  const [ghostClientOptions, setGhostClientOptions] = useState<GhostClientOption[]>([]);
+  const [selectedGhostUserIds, setSelectedGhostUserIds] = useState<string[]>(() => normalizeGhostUserIds(shoot));
 
   // initialize from prop
   useEffect(() => {
     // refresh toggles from fresh shoot prop
     setIsFinalized(!!(shoot as any)?.meta?.finalized);
-    setIsDownloadable(!!(shoot as any)?.meta?.downloadable);
+    setDownloadableMode(resolveDownloadableMode(shoot));
     setIsMarkedPaid(!!(shoot as any)?.payment?.totalPaid);
     setAutoEditEnabled(!!(shoot as any)?.auto_edit_enabled);
     setAutoEditStyle((shoot as any)?.auto_edit_preferences?.style || 'signature');
     setAutoEditType((shoot as any)?.auto_edit_preferences?.editing_type || 'enhance');
     setIsPrivateExclusive(!!((shoot as any)?.is_private_listing || (shoot as any)?.isPrivateListing));
+    setIsFeaturedShoot(resolveFeaturedState(shoot));
+    setSelectedGhostUserIds(normalizeGhostUserIds(shoot));
   }, [shoot]);
 
   const canManagePrivateExclusive = isAdmin || isClient || isSalesRep;
+  const canManageFeaturedShoot = isAdmin || isSalesRep;
+  const canManageGhostUsersResolved = canManageGhostUsers || isAdmin || isSalesRep;
 
   const normalizedStatus = String((shoot as any)?.workflowStatus || (shoot as any)?.workflow_status || (shoot as any)?.status || '').toLowerCase();
   const eligibleForPrivateExclusive = ['delivered', 'ready_for_client', 'admin_verified', 'ready', 'completed'].includes(normalizedStatus);
@@ -88,6 +160,55 @@ export function ShootSettingsTab({
   useEffect(() => {
     setLocalInvoice(currentInvoice ?? null);
   }, [currentInvoice]);
+
+  useEffect(() => {
+    if (!canManageGhostUsersResolved) return;
+
+    let active = true;
+
+    const fetchClients = async () => {
+      try {
+        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+        const response = await fetch(`${API_BASE_URL}/api/admin/clients`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/json',
+          },
+        });
+        if (!response.ok) return;
+
+        const json = await response.json();
+        const clients = (json.data || json.users || json || []).map((client: any) => ({
+          id: String(client.id),
+          name: client.name || 'Client',
+          email: client.email || '',
+          company: client.company_name || client.company || '',
+        }));
+        const existingGhostUsers = normalizeGhostUsers(shoot).map((ghostUser) => ({
+          id: String(ghostUser.id),
+          name: ghostUser.name,
+          email: ghostUser.email || '',
+          company: ghostUser.company || '',
+        }));
+
+        const combined = Array.from(
+          new Map([...existingGhostUsers, ...clients].map((client) => [client.id, client])).values(),
+        );
+
+        if (active) {
+          setGhostClientOptions(combined);
+        }
+      } catch (error) {
+        console.error('Error fetching ghost clients:', error);
+      }
+    };
+
+    void fetchClients();
+
+    return () => {
+      active = false;
+    };
+  }, [canManageGhostUsersResolved, shoot]);
 
   // ---------- helpers ----------
   const formatMoney = (v: number) => `$${v.toFixed(2)}`;
@@ -190,6 +311,66 @@ export function ShootSettingsTab({
       const message = err instanceof Error ? err.message : 'Failed to update';
       sonnerToast.error(message);
       throw err;
+    } finally {
+      setSavingToggleKey(null);
+    }
+  };
+
+  const updateDownloadableSetting = async (mode: DownloadableMode) => {
+    const previousMode = downloadableMode;
+    const downloadable = mode === "unlocked";
+
+    setDownloadableMode(mode);
+    setSavingToggleKey("downloadable");
+
+    try {
+      const base = API_BASE_URL;
+      const token = (typeof window !== 'undefined')
+        ? (localStorage.getItem('authToken') || localStorage.getItem('token'))
+        : null;
+
+      const res = await fetch(`${base}/api/shoots/${shoot.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          downloadable,
+          downloadable_mode: mode,
+        }),
+      });
+
+      if (!res.ok) {
+        const errorJson = await res.json().catch(() => null);
+        const message =
+          errorJson?.message
+          || errorJson?.error
+          || (errorJson?.errors ? Object.values(errorJson.errors).flat().join(' ') : null)
+          || `Server ${res.status}`;
+        throw new Error(message);
+      }
+
+      const successJson = await res.json().catch(() => null);
+      const returned = successJson?.data || successJson;
+      const persistedMode = resolveDownloadableMode(returned ?? shoot);
+
+      setDownloadableMode(persistedMode);
+      onUpdate?.({
+        meta: {
+          ...((shoot as any).meta || {}),
+          downloadable,
+          downloadable_mode: persistedMode,
+          downloadableMode: persistedMode,
+        },
+      } as any);
+      sonnerToast.success('Setting updated');
+    } catch (err) {
+      console.error('Downloadable update failed', err);
+      setDownloadableMode(previousMode);
+      const message = err instanceof Error ? err.message : 'Failed to update';
+      sonnerToast.error(message);
     } finally {
       setSavingToggleKey(null);
     }
@@ -340,9 +521,173 @@ export function ShootSettingsTab({
     sonnerToast.success(`Payment processed (${methodLabel}) for invoice ${invoiceId}`);
   };
 
+  const updateGhostUsers = async (nextIds: string[]) => {
+    setSavingToggleKey("ghost_user_ids");
+    try {
+      const token = (typeof window !== 'undefined')
+        ? (localStorage.getItem('authToken') || localStorage.getItem('token'))
+        : null;
+      const response = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
+        method: 'PATCH',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ ghost_user_ids: nextIds.map((id) => Number(id)) }),
+      });
+
+      if (!response.ok) {
+        const errorJson = await response.json().catch(() => null);
+        const message =
+          errorJson?.message
+          || errorJson?.error
+          || (errorJson?.errors ? Object.values(errorJson.errors).flat().join(' ') : null)
+          || `Server ${response.status}`;
+        throw new Error(message);
+      }
+
+      const json = await response.json().catch(() => null);
+      const returned = json?.data || json;
+      const persistedGhostUsers = Array.isArray(returned?.ghost_users)
+        ? returned.ghost_users.map((ghostUser: any) => ({
+            id: String(ghostUser.id),
+            name: ghostUser.name || 'Client',
+            email: ghostUser.email || undefined,
+            company: ghostUser.company || ghostUser.company_name || undefined,
+          }))
+        : ghostClientOptions
+            .filter((client) => nextIds.includes(client.id))
+            .map((client) => ({
+              id: client.id,
+              name: client.name,
+              email: client.email || undefined,
+              company: client.company || undefined,
+            }));
+      const persistedGhostUserIds = Array.isArray(returned?.ghost_user_ids)
+        ? returned.ghost_user_ids.map((id: string | number) => String(id))
+        : persistedGhostUsers.map((ghostUser) => ghostUser.id);
+
+      setSelectedGhostUserIds(persistedGhostUserIds);
+      onUpdate?.({
+        ghostUsers: persistedGhostUsers,
+        ghostUserIds: persistedGhostUserIds,
+        isGhostVisibleForUser: Boolean(returned?.is_ghost_visible_for_user ?? returned?.isGhostVisibleForUser),
+      } as Partial<ShootData>);
+      sonnerToast.success('Ghost users updated');
+    } catch (error) {
+      console.error('Failed to update ghost users', error);
+      const message = error instanceof Error ? error.message : 'Failed to update ghost users';
+      sonnerToast.error(message);
+      throw error;
+    } finally {
+      setSavingToggleKey(null);
+    }
+  };
+
+  const updateFeaturedSetting = async (nextValue: boolean) => {
+    setSavingToggleKey('is_featured');
+    try {
+      const token = (typeof window !== 'undefined')
+        ? (localStorage.getItem('authToken') || localStorage.getItem('token'))
+        : null;
+      const response = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
+        method: 'PATCH',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ is_featured: nextValue }),
+      });
+
+      if (!response.ok) {
+        const errorJson = await response.json().catch(() => null);
+        const message =
+          errorJson?.message
+          || errorJson?.error
+          || (errorJson?.errors ? Object.values(errorJson.errors).flat().join(' ') : null)
+          || `Server ${response.status}`;
+        throw new Error(message);
+      }
+
+      const json = await response.json().catch(() => null);
+      const returned = json?.data || json;
+      const persisted = resolveFeaturedState((returned || shoot) as ShootData);
+
+      setIsFeaturedShoot(persisted);
+      onUpdate?.({
+        is_featured: persisted,
+        isFeatured: persisted,
+      } as Partial<ShootData>);
+      sonnerToast.success(persisted ? 'Featured Shoot enabled' : 'Featured Shoot removed');
+    } catch (error) {
+      console.error('Failed to update Featured Shoot', error);
+      const message = error instanceof Error ? error.message : 'Failed to update Featured Shoot';
+      sonnerToast.error(message);
+      throw error;
+    } finally {
+      setSavingToggleKey(null);
+    }
+  };
+
+  const selectedGhostClients = Array.from(
+    new Map(
+      [
+        ...normalizeGhostUsers(shoot).map((ghostUser) => ({
+          id: String(ghostUser.id),
+          name: ghostUser.name,
+          email: ghostUser.email || '',
+          company: ghostUser.company || '',
+        })),
+        ...ghostClientOptions,
+      ].map((client) => [client.id, client]),
+    ).values(),
+  ).filter((client) => selectedGhostUserIds.includes(client.id));
+
+  const ghostClientChecklistOptions = ghostClientOptions.map((client) => ({
+    id: client.id,
+    label: client.name,
+    description: client.email || 'No email available',
+    meta: client.company || undefined,
+  }));
+
+  const handleGhostUsersChange = (nextIds: string[]) => {
+    const previousIds = selectedGhostUserIds;
+    setSelectedGhostUserIds(nextIds);
+    void updateGhostUsers(nextIds).catch(() => {
+      setSelectedGhostUserIds(previousIds);
+    });
+  };
+
   // ---------- render ----------
   return (
     <div className="space-y-6 w-full">
+      {canManageFeaturedShoot && (
+        <div className="border rounded-lg p-3.5">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium">Featured Shoot</div>
+              <div className="text-xs text-muted-foreground mt-0.5">
+                Internal marketing flag for promoting standout shoots
+              </div>
+            </div>
+            <Switch
+              checked={isFeaturedShoot}
+              onCheckedChange={(checked: boolean) => {
+                const previousValue = isFeaturedShoot;
+                setIsFeaturedShoot(checked);
+                void updateFeaturedSetting(checked).catch(() => {
+                  setIsFeaturedShoot(previousValue);
+                });
+              }}
+              disabled={savingToggleKey === 'is_featured'}
+              className="flex-shrink-0"
+            />
+          </div>
+        </div>
+      )}
+
       {/* Private Exclusive Toggle */}
       {canManagePrivateExclusive && (
         <div className="border rounded-lg p-3.5">
@@ -375,30 +720,96 @@ export function ShootSettingsTab({
         </div>
       )}
 
+      {canManageGhostUsersResolved && (
+        <div className="border rounded-lg p-3.5 space-y-3">
+          <div className="space-y-1">
+            <div className="text-sm font-medium">Ghost User(s)</div>
+            <div className="text-xs text-muted-foreground">
+              Grant delivered-view access for this shoot and its tours to selected clients.
+            </div>
+          </div>
+
+          {selectedGhostClients.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {selectedGhostClients.map((client) => (
+                <Badge key={client.id} variant="secondary" className="gap-1 pr-1">
+                  <span>{client.name}</span>
+                  <button
+                    type="button"
+                    className="rounded-full p-0.5 hover:bg-black/10"
+                    onClick={() => handleGhostUsersChange(selectedGhostUserIds.filter((id) => id !== client.id))}
+                    disabled={savingToggleKey === 'ghost_user_ids'}
+                    aria-label={`Remove ${client.name}`}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              ))}
+            </div>
+          ) : null}
+
+          <MultiSelectChecklist
+            options={ghostClientChecklistOptions}
+            value={selectedGhostUserIds}
+            onChange={handleGhostUsersChange}
+            placeholder="No ghost users selected."
+            searchPlaceholder="Search clients..."
+            emptyMessage="No client accounts available."
+            disabled={savingToggleKey === 'ghost_user_ids'}
+            maxHeightClassName="max-h-64"
+          />
+        </div>
+      )}
+
       {/* Settings */}
       {isAdmin && (
         <div className="min-w-0 space-y-4">
           <div className="space-y-2">
             <h3 className="text-sm font-semibold">Settings</h3>
             
-            {/* Downloadable Toggle */}
+            {/* Downloadable Access */}
             <div className="border rounded-lg p-3.5">
-              <div className="flex items-center justify-between gap-4">
+              <div className="space-y-3">
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium">Downloadable</div>
                   <div className="text-xs text-muted-foreground mt-0.5">
                     Allow clients to download media files
                   </div>
                 </div>
-                <Switch
-                  checked={isDownloadable}
-                  onCheckedChange={(checked: boolean) => {
-                    setIsDownloadable(checked);
-                    toggleSetting("downloadable", checked);
+                <ToggleGroup
+                  type="single"
+                  value={downloadableMode}
+                  onValueChange={(value) => {
+                    if (!value || value === downloadableMode) {
+                      return;
+                    }
+                    void updateDownloadableSetting(value as DownloadableMode);
                   }}
                   disabled={savingToggleKey === "downloadable"}
-                  className="flex-shrink-0"
-                />
+                  className="grid w-full grid-cols-3 gap-0 overflow-hidden rounded-md border bg-muted/30 p-1"
+                >
+                  <ToggleGroupItem
+                    value="automatic"
+                    aria-label="Automatic downloadable access"
+                    className="h-9 rounded-sm border-0 text-xs font-medium text-muted-foreground data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm"
+                  >
+                    Automatic
+                  </ToggleGroupItem>
+                  <ToggleGroupItem
+                    value="unlocked"
+                    aria-label="Unlocked downloadable access"
+                    className="h-9 rounded-sm border-0 text-xs font-medium text-muted-foreground data-[state=on]:bg-emerald-600 data-[state=on]:text-white data-[state=on]:shadow-sm"
+                  >
+                    Unlocked
+                  </ToggleGroupItem>
+                  <ToggleGroupItem
+                    value="locked"
+                    aria-label="Locked downloadable access"
+                    className="h-9 rounded-sm border-0 text-xs font-medium text-muted-foreground data-[state=on]:bg-rose-600 data-[state=on]:text-white data-[state=on]:shadow-sm"
+                  >
+                    Locked
+                  </ToggleGroupItem>
+                </ToggleGroup>
               </div>
             </div>
 
@@ -514,25 +925,6 @@ export function ShootSettingsTab({
               </div>
             </div>
 
-            {/* Ghost User */}
-            <div className="border rounded-lg p-3.5">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium">Ghost User</div>
-                  <div className="text-xs text-muted-foreground mt-0.5">
-                    Hide user from public listings
-                  </div>
-                </div>
-                <Switch
-                  checked={(shoot as any)?.ghost_user || false}
-                  onCheckedChange={(checked: boolean) => {
-                    toggleSetting("ghost_user", checked);
-                  }}
-                  className="flex-shrink-0"
-                />
-              </div>
-            </div>
-
             {/* Hide Proof */}
             <div className="border rounded-lg p-3.5">
               <div className="flex items-center justify-between gap-4">
@@ -546,25 +938,6 @@ export function ShootSettingsTab({
                   checked={(shoot as any)?.hide_proof || false}
                   onCheckedChange={(checked: boolean) => {
                     toggleSetting("hide_proof", checked);
-                  }}
-                  className="flex-shrink-0"
-                />
-              </div>
-            </div>
-
-            {/* Show Hidden Images */}
-            <div className="border rounded-lg p-3.5">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium">Show Hidden Images</div>
-                  <div className="text-xs text-muted-foreground mt-0.5">
-                    Reveal images hidden from tours and portfolio
-                  </div>
-                </div>
-                <Switch
-                  checked={showHidden}
-                  onCheckedChange={(checked: boolean) => {
-                    onShowHiddenChange?.(checked);
                   }}
                   className="flex-shrink-0"
                 />

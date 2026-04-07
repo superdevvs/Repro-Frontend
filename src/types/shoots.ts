@@ -146,6 +146,20 @@ export interface ShootServicePhotographer {
   email?: string;
 }
 
+export interface ShootGhostUser {
+  id: string;
+  name: string;
+  email?: string;
+  company?: string;
+}
+
+export interface ShootRealtorClient {
+  id: string;
+  name: string;
+  email?: string;
+  company?: string;
+}
+
 export interface ShootServiceObject {
   id: string;
   name: string;
@@ -239,6 +253,8 @@ export interface ShootData {
     lastPaymentType?: string;
   };
   isPrivateListing?: boolean;
+  isFeatured?: boolean;
+  is_featured?: boolean;
   listingType?: 'for_sale' | 'for_rent';
   listing_type?: 'for_sale' | 'for_rent';
   propertyStatus?: 'available' | 'sold' | 'rented';
@@ -303,6 +319,8 @@ export interface ShootData {
     video_mls?: string;
     video_generic?: string;
     tour_style?: string;
+    realtor_client_id?: string | number | null;
+    realtor_client?: ShootRealtorClient | null;
     [key: string]: ShootTourLinkValue;
   };
   iguideTourUrl?: string;
@@ -337,6 +355,7 @@ export interface ShootData {
   holdRequestedAt?: string;
   holdRequestedBy?: string | number;
   holdReason?: string;
+  holdStatus?: string;
   mmmStatus?: string;
   mmmOrderNumber?: string;
   mmmBuyerCookie?: string;
@@ -344,6 +363,10 @@ export interface ShootData {
   mmmLastPunchoutAt?: string;
   mmmLastOrderAt?: string;
   mmmLastError?: string;
+  ghostUsers?: ShootGhostUser[];
+  ghostUserIds?: string[];
+  isGhostVisibleForUser?: boolean;
+  realtorClient?: ShootRealtorClient | null;
 }
 
 export interface ShootHistoryFinancials {

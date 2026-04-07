@@ -188,19 +188,23 @@ export const generateInvoicePDF = (invoice: InvoiceData): void => {
   
   // Payment info
   const paymentMethodLabel = formatPaymentMethod(invoice.paymentMethod, invoice.paymentDetails);
+  const paymentMethodDisplay = paymentMethodLabel !== 'N/A' ? paymentMethodLabel : 'Unavailable';
+  const isPaidInvoice = invoice.status === 'paid';
   doc.setFontSize(10);
-  doc.setFont("helvetica", "bold");
-  doc.text("Payment Method:", 20, yPos);
-  doc.setFont("helvetica", "normal");
-  doc.text(paymentMethodLabel, 70, yPos);
-
-  yPos += 8;
-  if (invoice.paidAt) {
+  if (isPaidInvoice) {
     doc.setFont("helvetica", "bold");
-    doc.text("Paid on:", 20, yPos);
+    doc.text("Payment Method:", 20, yPos);
     doc.setFont("helvetica", "normal");
-    doc.text(format(new Date(invoice.paidAt), "MM/dd/yyyy"), 70, yPos);
+    doc.text(paymentMethodDisplay, 70, yPos);
     yPos += 8;
+
+    if (invoice.paidAt) {
+      doc.setFont("helvetica", "bold");
+      doc.text("Paid on:", 20, yPos);
+      doc.setFont("helvetica", "normal");
+      doc.text(format(new Date(invoice.paidAt), "MM/dd/yyyy"), 70, yPos);
+      yPos += 8;
+    }
   }
   
   yPos += 7;

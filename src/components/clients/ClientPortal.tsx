@@ -17,6 +17,7 @@ import {
   ExternalLink,
   Phone,
   Facebook,
+  Instagram,
   Twitter,
   Linkedin,
   Send,
@@ -47,6 +48,12 @@ type PortfolioItem = {
   bathrooms?: number;
   sqft?: number;
   status?: string;
+};
+
+type LoadError = {
+  title: string;
+  description: string;
+  retryable: boolean;
 };
 
 const extractUrls = (arr: any[] | undefined | null): string[] => {
@@ -102,6 +109,7 @@ export function ClientPortal() {
     hero_image?: string;
     phone?: string;
     facebook_url?: string;
+    instagram_url?: string;
     twitter_url?: string;
     linkedin_url?: string;
     pinterest_url?: string;
@@ -116,48 +124,72 @@ export function ClientPortal() {
   const [galleryTitle, setGalleryTitle] = useState("");
   const [galleryIndex, setGalleryIndex] = useState(0);
   const [activeTourUrl, setActiveTourUrl] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<LoadError | null>(null);
   const clientId = React.useMemo(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get('clientId');
   }, []);
-  const storageKey = React.useCallback(
-    (key: string) => `client-${clientId || 'default'}-${key}`,
-    [clientId]
-  );
-  const [showMap, setShowMap] = useState<boolean>(() => {
-    const params = new URLSearchParams(window.location.search);
-    const cid = params.get('clientId') || 'default';
-    const stored = typeof window !== 'undefined' ? localStorage.getItem(`client-${cid}-showMap`) : null;
-    return stored ? stored === 'true' : false;
-  });
+  const [showMap, setShowMap] = useState(false);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const clientId = params.get('clientId');
-    
     if (!clientId) {
+      setLoadError({
+        title: 'Portfolio Link Missing',
+        description: 'No portfolio identifier was provided in this link.',
+        retryable: false,
+      });
       setLoading(false);
       return;
     }
 
     const fetchClientData = async () => {
+      setLoadError(null);
+
       try {
-        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-        const headers: HeadersInit = { Accept: 'application/json' };
-        if (token) {
-          headers['Authorization'] = `Bearer ${token}`;
-        }
-        
         const res = await fetch(`${API_BASE_URL}/api/public/clients/${clientId}/profile`, {
-          headers,
+          headers: { Accept: 'application/json' },
         });
-        
-        if (!res.ok) throw new Error('Failed to fetch data');
-        
+
+        if (!res.ok) {
+          if (res.status === 404) {
+            setLoadError({
+              title: 'Client Not Found',
+              description: 'Unable to load profile data. The link may be invalid or expired.',
+              retryable: false,
+            });
+            return;
+          }
+
+          if (res.status >= 500) {
+            setLoadError({
+              title: 'Portfolio Unavailable',
+              description: 'The portfolio is temporarily unavailable. Please try again in a moment.',
+              retryable: true,
+            });
+            return;
+          }
+
+          setLoadError({
+            title: 'Portfolio Unavailable',
+            description: 'This portfolio could not be opened right now.',
+            retryable: true,
+          });
+          return;
+        }
+
         const data = await res.json();
         const c = data.client || {};
-        
-        if (c.name) setClientName(c.name);
+
+        if (!c.id) {
+          setLoadError({
+            title: 'Client Not Found',
+            description: 'Unable to load profile data. The link may be invalid or expired.',
+            retryable: false,
+          });
+          return;
+        }
+
+        setClientName(c.name || "");
         setClientInfo({
           email: c.email,
           company_name: c.company_name,
@@ -171,11 +203,13 @@ export function ClientPortal() {
           hero_image: c.hero_image || 'header-1',
           phone: c.phone,
           facebook_url: c.facebook_url,
+          instagram_url: c.instagram_url,
           twitter_url: c.twitter_url,
           linkedin_url: c.linkedin_url,
           pinterest_url: c.pinterest_url,
           rep: c.rep || null,
         });
+        setShowMap(Boolean(c.show_map));
 
         const items: PortfolioItem[] = (data.shoots || []).map((s: any) => {
           // Backend now returns gallery array with all image URLs
@@ -221,13 +255,18 @@ export function ClientPortal() {
         setShoots(items);
       } catch (error) {
         console.error("Error fetching client portal data:", error);
+        setLoadError({
+          title: 'Connection Problem',
+          description: 'We could not reach the portfolio service. Check your connection and try again.',
+          retryable: true,
+        });
       } finally {
         setLoading(false);
       }
     };
 
     fetchClientData();
-  }, []);
+  }, [clientId]);
 
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id);
@@ -266,11 +305,10 @@ export function ClientPortal() {
     
     setIsSubmittingContact(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/public/contact`, {
+      const res = await fetch(`${API_BASE_URL}/api/public/clients/${clientId}/contact`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: JSON.stringify({
-          client_id: clientId,
           name: contactForm.name.trim(),
           email: contactForm.email.trim(),
           message: contactForm.message.trim(),
@@ -295,15 +333,15 @@ export function ClientPortal() {
     }
   };
 
-  const hasSocialLinks = clientInfo?.facebook_url || clientInfo?.twitter_url || clientInfo?.linkedin_url || clientInfo?.pinterest_url;
+  const hasSocialLinks =
+    clientInfo?.facebook_url ||
+    clientInfo?.instagram_url ||
+    clientInfo?.twitter_url ||
+    clientInfo?.linkedin_url ||
+    clientInfo?.pinterest_url;
 
-  const storedBrandLogo = typeof window !== 'undefined' ? localStorage.getItem(storageKey('brandLogo')) : '';
-  const storedBanner = typeof window !== 'undefined' ? localStorage.getItem(storageKey('brandBanner')) : '';
-  const storedAvatar = typeof window !== 'undefined' ? localStorage.getItem(storageKey('avatar')) : '';
-  const customAbout = typeof window !== 'undefined' ? localStorage.getItem(storageKey('brandAbout')) || '' : '';
-
-  const logoImage = normalizeImageUrl(storedBrandLogo || clientInfo?.logo || '') || '';
-  const bannerImage = normalizeImageUrl(storedBanner || clientInfo?.banner_image || '') || '';
+  const logoImage = normalizeImageUrl(clientInfo?.logo || '') || '';
+  const bannerImage = normalizeImageUrl(clientInfo?.banner_image || '') || '';
   const hasBanner = Boolean(bannerImage);
 
   if (loading) {
@@ -314,11 +352,11 @@ export function ClientPortal() {
     );
   }
 
-  if (!clientName && !loading) {
+  if (loadError && !loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground p-4 text-center">
-        <h1 className="text-2xl font-bold mb-2">Client Not Found</h1>
-        <p className="text-muted-foreground mb-4">Unable to load profile data. The link may be invalid or expired.</p>
+        <h1 className="text-2xl font-bold mb-2">{loadError.title}</h1>
+        <p className="text-muted-foreground mb-4">{loadError.description}</p>
         <Button variant="outline" onClick={() => window.location.reload()}>Retry</Button>
       </div>
     );
@@ -603,8 +641,7 @@ export function ClientPortal() {
           <div className="space-y-6">
             <h2 className="text-3xl md:text-4xl font-bold">About</h2>
             <p className="text-muted-foreground text-lg leading-relaxed">
-              {customAbout ||
-                clientInfo?.about ||
+              {clientInfo?.about ||
                 (clientInfo?.company_name
                   ? `${clientInfo.company_name} showcases their active listings here—curated photography, video, and media in one place for quick sharing.`
                   : "Explore the listings curated for you with high-quality visuals and easy access to every asset you need.")}
@@ -715,6 +752,16 @@ export function ClientPortal() {
                         className="h-10 w-10 rounded-full bg-[#1877F2]/10 hover:bg-[#1877F2]/20 flex items-center justify-center transition-colors"
                       >
                         <Facebook className="h-5 w-5 text-[#1877F2]" />
+                      </a>
+                    )}
+                    {clientInfo?.instagram_url && (
+                      <a 
+                        href={clientInfo.instagram_url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="h-10 w-10 rounded-full bg-[#E4405F]/10 hover:bg-[#E4405F]/20 flex items-center justify-center transition-colors"
+                      >
+                        <Instagram className="h-5 w-5 text-[#E4405F]" />
                       </a>
                     )}
                     {clientInfo?.twitter_url && (

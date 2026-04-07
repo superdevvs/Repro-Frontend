@@ -111,7 +111,7 @@ export default function EmailInbox() {
             onClick={() => navigate('/messaging/email/compose')}
           >
             <Pencil className="h-4 w-4" />
-            Compose
+            {role === 'client' ? 'Contact' : 'Compose'}
           </Button>
         </div>
       )}

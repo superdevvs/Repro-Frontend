@@ -3,6 +3,24 @@ import { getApiHeaders } from '@/services/api';
 
 export type ShootMediaDownloadType = 'raw' | 'edited';
 export type ShootMediaDownloadSize = 'original' | 'small' | 'medium' | 'large';
+export const SHOOT_MEDIA_DOWNLOAD_STARTED_EVENT = 'shoot-media-download-started';
+
+export const getShootMediaDownloadSizeLabel = (
+  size: ShootMediaDownloadSize,
+) => {
+  switch (size) {
+    case 'original':
+      return 'Original Size';
+    case 'large':
+      return 'Large Size';
+    case 'medium':
+      return 'Medium Size';
+    case 'small':
+      return 'MLS Compliant';
+    default:
+      return size;
+  }
+};
 
 const sanitizeFilenameSegment = (value?: string | null) => {
   const normalized = (value || 'shoot').replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_');
@@ -36,6 +54,30 @@ const getFilenameFromDisposition = (contentDisposition: string | null) => {
   return basicMatch?.[1] || null;
 };
 
+const emitShootMediaDownloadStarted = ({
+  shootId,
+  type,
+  size,
+}: {
+  shootId: string | number;
+  type: ShootMediaDownloadType;
+  size?: ShootMediaDownloadSize;
+}) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.dispatchEvent(
+    new CustomEvent(SHOOT_MEDIA_DOWNLOAD_STARTED_EVENT, {
+      detail: {
+        shootId: String(shootId),
+        type,
+        size: size ?? 'original',
+      },
+    }),
+  );
+};
+
 export const buildShootDownloadFilename = (
   address: string | null | undefined,
   type: ShootMediaDownloadType,
@@ -51,7 +93,7 @@ export const buildShootDownloadFilename = (
   }
 
   if (size && size !== 'original') {
-    parts.push(size);
+    parts.push(size === 'small' ? 'mls_compliant' : size);
   }
 
   return `${parts.join('_')}.zip`;
@@ -98,6 +140,7 @@ export const downloadShootMediaArchive = async ({
     const data = await response.json();
     if (data?.type === 'redirect' && data?.url) {
       window.open(data.url, '_blank', 'noopener,noreferrer');
+      emitShootMediaDownloadStarted({ shootId, type, size });
       return { mode: 'redirect' as const, url: data.url as string };
     }
 
@@ -110,5 +153,6 @@ export const downloadShootMediaArchive = async ({
     buildShootDownloadFilename(address, type, size);
 
   downloadBlob(blob, suggestedFilename);
+  emitShootMediaDownloadStarted({ shootId, type, size });
   return { mode: 'blob' as const, filename: suggestedFilename };
 };
