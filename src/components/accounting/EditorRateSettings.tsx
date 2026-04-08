@@ -62,14 +62,6 @@ export function EditorRateSettings({ className }: EditorRateSettingsProps = {}) 
   }, [activeServices, rates]);
 
   useEffect(() => {
-    if (!user?.id) return;
-
-    if (rates.length === 0) {
-      setRates(getEditorServiceRates(user.metadata || {}, activeServices));
-    }
-  }, [activeServices, rates.length, user?.id, user?.metadata]);
-
-  useEffect(() => {
     const loadRates = async () => {
       if (!user?.id) return;
 

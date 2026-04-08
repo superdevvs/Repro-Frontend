@@ -8,6 +8,7 @@ import type {
 } from "@/types/dashboard";
 import type { ShootData } from "@/types/shoots";
 import type { UserData } from "@/types/auth";
+import { shootHasEditorAssignment } from "@/utils/shootEditorAssignments";
 import { getStateFullName } from "@/utils/stateUtils";
 
 type ClientWithLegacyPhoneNumber = ShootData["client"] & {
@@ -589,6 +590,9 @@ export const buildIssuesFromShoots = (
 
 export const isAssignmentMatch = (shoot: ShootData, user: UserData | null, role: "photographer" | "editor") => {
   if (!user) return false;
+  if (role === "editor") {
+    return shootHasEditorAssignment(shoot, user);
+  }
   const assignment = role === "photographer" ? shoot.photographer : shoot.editor;
   if (!assignment?.name && !assignment?.id) return false;
   const assignmentId = assignment?.id != null ? String(assignment.id) : undefined;

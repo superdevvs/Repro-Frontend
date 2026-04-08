@@ -4,9 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { PenLine, Save, X } from "lucide-react";
 import { ShootData } from '@/types/shoots';
-import { useShoots } from '@/context/ShootsContext';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/components/auth/AuthProvider';
 import { API_BASE_URL } from '@/config/env';
 
 interface ShootNotesTabProps {
@@ -24,9 +22,8 @@ export function ShootNotesTab({
   role,
   hideEmptySections = false,
 }: ShootNotesTabProps) {
-  const { updateShoot } = useShoots();
   const { toast } = useToast();
-  const { user } = useAuth();
+  const isEditor = role === 'editor';
   
   const [editableNotes, setEditableNotes] = useState({
     shootNotes: '',
@@ -224,6 +221,9 @@ export function ShootNotesTab({
   }
   
   async function handleSaveNotes(noteType: string) {
+    if (isEditor) {
+      return;
+    }
     console.log(`Saving ${noteType} with content: ${editableNotes[noteType as keyof typeof editableNotes]}`);
     
     // Create a new notes object based on existing notes
@@ -325,7 +325,7 @@ export function ShootNotesTab({
       return true;
     }
     
-    if (role === 'editor') {
+    if (isEditor) {
       return noteType === 'editingNotes';
     }
 
@@ -422,6 +422,28 @@ export function ShootNotesTab({
         return 'border-green-200 dark:border-green-700';
     }
   };
+
+  if (isEditor) {
+    return (
+      <div className="space-y-3 w-full mt-0">
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-medium text-purple-700 dark:text-purple-400">Editing Notes</h3>
+          </div>
+          <Textarea
+            placeholder="No editing notes available"
+            value={getNotes('editingNotes')}
+            readOnly
+            className={`resize-none min-h-[60px] ${getNoteBackgroundClass('editingNotes')} ${getNoteTextClass('editingNotes')} border-2 ${getNoteBorderClass('editingNotes')}`}
+            style={{
+              boxShadow: "inset 0 1px 3px rgba(0,0,0,0.04)",
+              transition: "all 0.2s ease"
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3 w-full mt-0">

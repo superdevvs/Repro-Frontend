@@ -134,9 +134,13 @@ export const getEditorServiceRates = (
   services: Service[] = [],
 ): EditorServiceRate[] => {
   const record = toRecord(metadata);
+  const hasExplicitStoredRates =
+    Array.isArray(record.service_rates) ||
+    Array.isArray(record.serviceRates) ||
+    Array.isArray(record.editing_service_rates);
   const storedRates = getStoredEditorServiceRates(record);
 
-  if (storedRates.length > 0) {
+  if (hasExplicitStoredRates) {
     return dedupeServiceRates(
       storedRates.map((rate) => {
         const matchedService = rate.serviceId

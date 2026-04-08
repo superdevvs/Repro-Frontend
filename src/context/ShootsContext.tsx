@@ -8,7 +8,7 @@ import React, {
   useMemo,
 } from 'react';
 import { useLocation } from 'react-router-dom';
-import { ShootData } from '@/types/shoots';
+import { ShootData, ShootEditorAssignment, ShootServiceObject } from '@/types/shoots';
 import { v4 as uuidv4 } from 'uuid';
 import { format, addDays } from 'date-fns';
 import { useAuth } from '@/components/auth/AuthProvider';
@@ -334,6 +334,77 @@ const normalizeNotes = (shoot: ApiShoot) => {
   };
 };
 
+const normalizeServicePerson = (person: unknown) => {
+  if (!person || typeof person !== 'object') return null;
+
+  const source = person as Record<string, unknown>;
+  const id = source.id != null ? String(source.id) : undefined;
+  const name =
+    (typeof source.name === 'string' && source.name.trim() ? source.name : undefined) ||
+    (typeof source.full_name === 'string' && source.full_name.trim() ? source.full_name : undefined) ||
+    (typeof source.display_name === 'string' && source.display_name.trim() ? source.display_name : undefined);
+
+  if (!id && !name) {
+    return null;
+  }
+
+  return {
+    id,
+    name: name ?? `User #${id}`,
+    avatar:
+      (typeof source.avatar === 'string' && source.avatar.trim() ? source.avatar : undefined) ||
+      (typeof source.profile_image === 'string' && source.profile_image.trim() ? source.profile_image : undefined) ||
+      (typeof source.profile_photo_url === 'string' && source.profile_photo_url.trim()
+        ? source.profile_photo_url
+        : undefined),
+    email: typeof source.email === 'string' && source.email.trim() ? source.email : undefined,
+  };
+};
+
+const normalizeEditorAssignments = (shoot: ApiShoot): ShootEditorAssignment[] | undefined => {
+  const rawAssignments = (shoot as any).editor_assignments ?? (shoot as any).editorAssignments;
+  if (!Array.isArray(rawAssignments)) return undefined;
+
+  const assignments = rawAssignments
+    .filter((assignment): assignment is Record<string, unknown> => Boolean(assignment) && typeof assignment === 'object')
+    .map((assignment) => {
+      const editor = normalizeServicePerson(assignment.editor);
+      const editorId =
+        assignment.editor_id != null
+          ? String(assignment.editor_id)
+          : assignment.editorId != null
+            ? String(assignment.editorId)
+            : editor?.id ?? null;
+
+      return {
+        lane:
+          (typeof assignment.lane === 'string' && assignment.lane.trim()) ||
+          (typeof assignment.category_key === 'string' && assignment.category_key.trim()) ||
+          'photo',
+        label: typeof assignment.label === 'string' && assignment.label.trim() ? assignment.label : undefined,
+        editorId,
+        editor,
+        serviceIds: Array.isArray(assignment.service_ids)
+          ? assignment.service_ids.map((id) => String(id)).filter(Boolean)
+          : Array.isArray(assignment.serviceIds)
+            ? assignment.serviceIds.map((id) => String(id)).filter(Boolean)
+            : undefined,
+        serviceNames: Array.isArray(assignment.service_names)
+          ? assignment.service_names.filter((name): name is string => typeof name === 'string' && Boolean(name.trim()))
+          : Array.isArray(assignment.serviceNames)
+            ? assignment.serviceNames.filter((name): name is string => typeof name === 'string' && Boolean(name.trim()))
+            : undefined,
+        ready: Boolean(assignment.ready),
+        readyAt:
+          (typeof assignment.ready_at === 'string' && assignment.ready_at.trim() ? assignment.ready_at : undefined) ||
+          (typeof assignment.readyAt === 'string' && assignment.readyAt.trim() ? assignment.readyAt : undefined) ||
+          null,
+      };
+    });
+
+  return assignments.length > 0 ? assignments : undefined;
+};
+
 export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
   const client = (shoot.client ?? {}) as NonNullable<ApiShoot['client']>;
   const photographer = (shoot.photographer ?? {}) as NonNullable<ApiShoot['photographer']>;
@@ -461,7 +532,7 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
 
   const serviceObjects = (() => {
     if (Array.isArray(shoot.services)) {
-      const objs = shoot.services
+      const objs: ShootServiceObject[] = shoot.services
         .filter((s): s is Record<string, any> => s !== null && typeof s === 'object' && 'id' in s)
         .map((s) => ({
           id: String(s.id),
@@ -496,21 +567,9 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
             : null,
           photographer: (() => {
             const servicePhotographer = s.resolved_photographer ?? s.photographer;
-            if (servicePhotographer && typeof servicePhotographer === 'object') {
-              return {
-                id: servicePhotographer.id ? String(servicePhotographer.id) : undefined,
-                name:
-                  servicePhotographer.name ||
-                  servicePhotographer.full_name ||
-                  servicePhotographer.display_name ||
-                  `Photographer #${servicePhotographer.id}`,
-                avatar:
-                  servicePhotographer.avatar ||
-                  servicePhotographer.profile_image ||
-                  servicePhotographer.profile_photo_url ||
-                  undefined,
-                email: servicePhotographer.email || undefined,
-              };
+            const normalizedPhotographer = normalizeServicePerson(servicePhotographer);
+            if (normalizedPhotographer) {
+              return normalizedPhotographer;
             }
 
             const fallbackPhotographerId =
@@ -548,11 +607,71 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
 
             return null;
           })(),
+          editor_id: (s.pivot?.editor_id ?? s.editor_id) != null
+            ? String(s.pivot?.editor_id ?? s.editor_id)
+            : null,
+          resolved_editor_id: (s.resolved_editor_id ?? s.pivot?.editor_id ?? s.editor_id) != null
+            ? String(s.resolved_editor_id ?? s.pivot?.editor_id ?? s.editor_id)
+            : null,
+          editor: (() => {
+            const normalizedEditor = normalizeServicePerson(s.resolved_editor ?? s.editor);
+            if (normalizedEditor) {
+              return normalizedEditor;
+            }
+
+            const fallbackEditorId =
+              s.resolved_editor_id ??
+              s.pivot?.editor_id ??
+              s.editor_id;
+
+            if (fallbackEditorId != null) {
+              const fallbackId = String(fallbackEditorId);
+              const shootEditorId = editorId ? String(editorId) : undefined;
+
+              if (shootEditorId && shootEditorId === fallbackId && shoot.editor && typeof shoot.editor === 'object') {
+                return {
+                  id: shootEditorId,
+                  name: (shoot.editor as any)?.name || `Editor #${fallbackId}`,
+                  avatar: (shoot.editor as any)?.avatar || undefined,
+                  email: (shoot.editor as any)?.email || undefined,
+                };
+              }
+
+              return {
+                id: fallbackId,
+                name:
+                  s.resolved_editor_name ||
+                  s.editor_name ||
+                  `Editor #${fallbackId}`,
+                avatar: undefined,
+                email: undefined,
+              };
+            }
+
+            return null;
+          })(),
+          editing_completed_at: s.editing_completed_at != null
+            ? String(s.editing_completed_at)
+            : null,
+          lane: s.lane != null ? String(s.lane) : null,
+          category_key: (s.category_key ?? s.categoryKey ?? s.lane) != null
+            ? String(s.category_key ?? s.categoryKey ?? s.lane)
+            : null,
         }));
       if (objs.length > 0) return objs;
     }
     return undefined;
   })();
+  const editorAssignments = normalizeEditorAssignments(shoot);
+  const resolvedEditor =
+    (shoot.editor || editorId)
+      ? {
+          id: editorId,
+          name: (shoot.editor as any)?.name ?? '',
+          avatar: (shoot.editor as any)?.avatar ?? undefined,
+          email: (shoot.editor as any)?.email ?? undefined,
+        }
+      : editorAssignments?.[0]?.editor;
 
   return {
     id: String(shoot.id),
@@ -584,16 +703,11 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
         (shoot as any).photographerEmail ||
         undefined,
     },
-    editor: shoot.editor || editorId
-      ? {
-          id: editorId,
-          name: (shoot.editor as any)?.name ?? '',
-          avatar: (shoot.editor as any)?.avatar ?? undefined,
-        }
-      : undefined,
-    editorId,
+    editor: resolvedEditor,
+    editorId: resolvedEditor?.id ? String(resolvedEditor.id) : editorId,
     services: normalizedServices,
     serviceObjects,
+    editorAssignments,
     payment: {
       baseQuote: paymentSummary.baseQuote,
       taxRate: paymentSummary.taxRate || toNumber(rawTaxRate),
