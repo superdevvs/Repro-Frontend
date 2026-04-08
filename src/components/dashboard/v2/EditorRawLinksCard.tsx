@@ -1,6 +1,6 @@
 import React from 'react';
 import { format } from 'date-fns';
-import { AlertTriangle, ArrowUpRight, Copy, Download, ExternalLink, FolderOpen, Link2, Loader2, UploadCloud } from 'lucide-react';
+import { AlertTriangle, ArrowUpRight, Copy, Download, Link2, Loader2, UploadCloud } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -175,7 +175,6 @@ export function EditorRawLinksCard({
   const highlightShoot = React.useMemo(() => getHighlightShoot(shoots), [shoots]);
   const missingRawCount = React.useMemo(() => getMissingRawCount(shoots), [shoots]);
   const rawCount = highlightShoot ? getRawFileCount(highlightShoot) : 0;
-  const rawFolderUrl = highlightShoot?.dropboxPaths?.rawFolder || null;
   const canUseRawActions = Boolean(highlightShoot && hasRawAssets(highlightShoot));
   const preferredMediaStage = highlightShoot
     ? getPreferredRawMediaStage(highlightShoot, editorId)
@@ -236,27 +235,35 @@ export function EditorRawLinksCard({
     );
   }, [preferredMediaStage, shareLinks]);
 
-  const handleCopyOrGenerateShareLink = async () => {
+  const handleCopyShareLink = async () => {
     if (!highlightShoot) return;
 
-    if (activeRawShareLink?.share_url) {
-      try {
-        await navigator.clipboard.writeText(activeRawShareLink.share_url);
-        toast({
-          title: 'Share link copied',
-          description: 'Raw files link copied to clipboard.',
-        });
-      } catch {
-        toast({
-          title: 'Copy failed',
-          description: 'Unable to copy the share link right now.',
-          variant: 'destructive',
-        });
-      }
+    if (!activeRawShareLink?.share_url) {
+      toast({
+        title: 'No share link yet',
+        description: 'Generate a new link first for this shoot.',
+        variant: 'destructive',
+      });
       return;
     }
 
-    if (!canUseRawActions) {
+    try {
+      await navigator.clipboard.writeText(activeRawShareLink.share_url);
+      toast({
+        title: 'Share link copied',
+        description: 'Raw files link copied to clipboard.',
+      });
+    } catch {
+      toast({
+        title: 'Copy failed',
+        description: 'Unable to copy the share link right now.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleGenerateShareLink = async () => {
+    if (!highlightShoot || !canUseRawActions) {
       return;
     }
 
@@ -287,7 +294,7 @@ export function EditorRawLinksCard({
       await loadShareLinks();
       toast({
         title: 'Share link ready',
-        description: generatedLink ? 'Link copied to clipboard.' : 'Raw files link generated successfully.',
+        description: generatedLink ? 'New link copied to clipboard.' : 'Raw files link generated successfully.',
       });
     } catch (error) {
       console.error('Error generating raw share link:', error);
@@ -355,17 +362,6 @@ export function EditorRawLinksCard({
     }
   };
 
-  const handleOpenRawFolder = () => {
-    if (!highlightShoot) return;
-
-    if (rawFolderUrl) {
-      window.open(rawFolderUrl, '_blank', 'noopener,noreferrer');
-      return;
-    }
-
-    navigate(`/shoots/${highlightShoot.id}#media`);
-  };
-
   const handleOpenShoot = () => {
     if (!highlightShoot) return;
 
@@ -382,7 +378,7 @@ export function EditorRawLinksCard({
   };
 
   return (
-    <Card className="h-full flex flex-col bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.10),transparent_38%),linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0))]">
+    <Card className="h-full flex flex-col bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.08),transparent_38%),linear-gradient(180deg,rgba(255,255,255,0.7),rgba(255,255,255,0.95))] dark:bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.10),transparent_38%),linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0))]">
       <div className="flex h-full flex-col">
         <div>
           <h3 className="text-[2rem] font-semibold tracking-tight leading-none">Raw Files &amp; Links</h3>
@@ -413,14 +409,14 @@ export function EditorRawLinksCard({
             <button
               type="button"
               onClick={handleOpenShoot}
-              className="group relative flex min-h-[250px] flex-1 flex-col justify-between overflow-hidden rounded-[30px] border border-border/60 bg-[linear-gradient(160deg,rgba(255,255,255,0.05),rgba(255,255,255,0.01)),radial-gradient(circle_at_top_right,rgba(59,130,246,0.14),transparent_30%)] p-5 text-left transition-all duration-200 hover:border-primary/35 hover:bg-[linear-gradient(160deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02)),radial-gradient(circle_at_top_right,rgba(59,130,246,0.20),transparent_34%)] hover:shadow-[0_18px_50px_rgba(0,0,0,0.22)]"
+              className="group relative flex min-h-[250px] flex-1 flex-col justify-between overflow-hidden rounded-[30px] border border-slate-200/90 bg-[linear-gradient(160deg,rgba(255,255,255,0.92),rgba(248,250,252,0.98)),radial-gradient(circle_at_top_right,rgba(59,130,246,0.10),transparent_32%)] p-5 text-left transition-all duration-200 hover:border-sky-300/80 hover:bg-[linear-gradient(160deg,rgba(255,255,255,0.96),rgba(239,246,255,0.98)),radial-gradient(circle_at_top_right,rgba(59,130,246,0.14),transparent_36%)] hover:shadow-[0_18px_50px_rgba(15,23,42,0.10)] dark:border-border/60 dark:bg-[linear-gradient(160deg,rgba(255,255,255,0.05),rgba(255,255,255,0.01)),radial-gradient(circle_at_top_right,rgba(59,130,246,0.14),transparent_30%)] dark:hover:border-primary/35 dark:hover:bg-[linear-gradient(160deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02)),radial-gradient(circle_at_top_right,rgba(59,130,246,0.20),transparent_34%)] dark:hover:shadow-[0_18px_50px_rgba(0,0,0,0.22)]"
             >
-              <div className="absolute right-4 top-4 rounded-full border border-white/10 bg-white/5 p-2 text-muted-foreground transition-colors group-hover:text-white">
+              <div className="absolute right-4 top-4 rounded-full border border-slate-200 bg-white/80 p-2 text-slate-500 transition-colors group-hover:text-sky-700 dark:border-white/10 dark:bg-white/5 dark:text-muted-foreground dark:group-hover:text-white">
                 <ArrowUpRight className="h-4 w-4" />
               </div>
 
               <div className="space-y-5">
-                <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-sky-200/75">
+                <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-sky-700/75 dark:text-sky-200/75">
                   <UploadCloud className="h-3.5 w-3.5" />
                   <span>{hasRawAssets(highlightShoot) ? 'Latest raw upload' : 'Latest assigned shoot'}</span>
                 </div>
@@ -432,56 +428,56 @@ export function EditorRawLinksCard({
                       className={cn(
                         'rounded-full border px-3 py-1 text-[11px] font-semibold',
                         activeRawShareLink
-                          ? 'border-emerald-500/35 bg-emerald-500/10 text-emerald-300'
-                          : 'border-white/10 bg-white/5 text-slate-300',
+                          ? 'border-emerald-500/35 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                          : 'border-slate-200 bg-white/80 text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300',
                       )}
                     >
-                      {activeRawShareLink ? 'Link ready' : 'Link pending'}
+                      {activeRawShareLink ? 'Share link ready' : 'No share link yet'}
                     </Badge>
                     <Badge
                       variant="outline"
-                      className="rounded-full border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold text-slate-200"
+                      className="rounded-full border-slate-200 bg-white/80 px-3 py-1 text-[11px] font-semibold text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-200"
                     >
                       {rawCount > 0 ? `${rawCount} raw files` : 'Awaiting raw files'}
                     </Badge>
                   </div>
 
-                  <h4 className="max-w-[18rem] text-[1.75rem] font-semibold leading-[1.05] tracking-tight text-white transition-colors group-hover:text-sky-100">
+                  <h4 className="max-w-[18rem] text-[1.75rem] font-semibold leading-[1.05] tracking-tight text-slate-950 transition-colors group-hover:text-sky-900 dark:text-white dark:group-hover:text-sky-100">
                     {highlightShoot.location.address}
                   </h4>
 
-                  <p className="text-sm text-slate-300">
+                  <p className="text-sm text-slate-600 dark:text-slate-300">
                     {formatShortDate(highlightShoot.scheduledDate)} · {formatTimeLabel(highlightShoot.time)}
                     {highlightShoot.location.city ? ` · ${highlightShoot.location.city}` : ''}
                   </p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 border-t border-white/10 pt-4">
+              <div className="grid grid-cols-2 gap-3 border-t border-slate-200/90 pt-4 dark:border-white/10">
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-muted-foreground">
                     Latest raw upload
                   </p>
-                  <p className="mt-2 text-2xl font-semibold text-white">
+                  <p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">
                     {rawCount > 0 ? rawCount : 0}
                   </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
+                  <p className="mt-1 text-xs text-slate-500 dark:text-muted-foreground">
                     {rawCount === 1 ? 'file available' : 'files available'}
                   </p>
                 </div>
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-muted-foreground">
                     Missing raw files
                   </p>
                   <p
                     className={cn(
                       'mt-2 text-2xl font-semibold',
-                      missingRawCount > 0 ? 'text-amber-300' : 'text-white',
+                      missingRawCount > 0 ? 'text-amber-600 dark:text-amber-300' : 'text-slate-950 dark:text-white',
                     )}
                   >
                     {missingRawCount}
                   </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
+                  <p className="mt-1 text-xs text-slate-500 dark:text-muted-foreground">
                     active shoot{missingRawCount === 1 ? '' : 's'} still waiting
                   </p>
                 </div>
@@ -502,19 +498,13 @@ export function EditorRawLinksCard({
                 className="h-12 justify-between rounded-2xl px-4 text-sm"
                 onClick={(event) => {
                   event.stopPropagation();
-                  void handleCopyOrGenerateShareLink();
+                  void handleCopyShareLink();
                 }}
-                disabled={isGeneratingShareLink || !canUseRawActions}
+                disabled={!activeRawShareLink?.share_url}
               >
                 <span className="flex items-center gap-2">
-                  {isGeneratingShareLink ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : activeRawShareLink ? (
-                    <Copy className="h-4 w-4" />
-                  ) : (
-                    <Link2 className="h-4 w-4" />
-                  )}
-                  {activeRawShareLink ? 'Copy share link' : 'Generate link'}
+                  <Copy className="h-4 w-4" />
+                  Share link
                 </span>
                 <ArrowUpRight className="h-4 w-4 opacity-70" />
               </Button>
@@ -547,13 +537,17 @@ export function EditorRawLinksCard({
                   className="h-12 justify-between rounded-2xl px-4 text-sm"
                   onClick={(event) => {
                     event.stopPropagation();
-                    handleOpenRawFolder();
+                    void handleGenerateShareLink();
                   }}
-                  disabled={!highlightShoot}
+                  disabled={isGeneratingShareLink || !canUseRawActions}
                 >
                   <span className="flex items-center gap-2">
-                    {rawFolderUrl ? <ExternalLink className="h-4 w-4" /> : <FolderOpen className="h-4 w-4" />}
-                    Open raw folder
+                    {isGeneratingShareLink ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Link2 className="h-4 w-4" />
+                    )}
+                    Generate new link
                   </span>
                   <ArrowUpRight className="h-4 w-4 opacity-70" />
                 </Button>
@@ -562,7 +556,7 @@ export function EditorRawLinksCard({
 
             {shareLinksError ? (
               <p className="text-xs text-muted-foreground">
-                Share links are unavailable right now, but raw download and folder access still work.
+                Share links are unavailable right now, but raw download still works.
               </p>
             ) : shareLinksLoading ? (
               <p className="text-xs text-muted-foreground">Checking current share links...</p>
