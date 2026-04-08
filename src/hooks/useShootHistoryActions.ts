@@ -22,6 +22,7 @@ import {
   ShootHistoryRecord,
   ShootHistoryServiceAggregate,
 } from '@/types/shoots'
+import { shootHasEditorAssignment } from '@/utils/shootEditorAssignments'
 
 type ToastFn = (args: { title: string; description?: string; variant?: 'default' | 'destructive' }) => void
 type InvoicePayload = Record<string, unknown>
@@ -181,6 +182,15 @@ export function useShootHistoryActions(args: UseShootHistoryActionsArgs) {
   }, [setDeleteShootId])
 
   const handleViewInvoice = useCallback(async (shoot: ShootData | { id: string | number }) => {
+    if (!canViewInvoice) {
+      toast({
+        title: 'Invoice unavailable',
+        description: 'You do not have access to client invoices.',
+        variant: 'destructive',
+      })
+      return
+    }
+
     setInvoiceLoading(true)
     try {
       const shootId = 'id' in shoot ? shoot.id : (shoot as ShootData).id
@@ -197,7 +207,7 @@ export function useShootHistoryActions(args: UseShootHistoryActionsArgs) {
     } finally {
       setInvoiceLoading(false)
     }
-  }, [setInvoiceLoading, setSelectedInvoice, setInvoiceDialogOpen, toast])
+  }, [canViewInvoice, setInvoiceLoading, setSelectedInvoice, setInvoiceDialogOpen, toast])
 
   const handlePrimaryAction = useCallback((action: ShootAction | undefined, shoot: ShootData) => {
     if (!action) {
@@ -270,14 +280,7 @@ export function useShootHistoryActions(args: UseShootHistoryActionsArgs) {
               return photographerName === userName
             }
             if (role === 'editor') {
-              const userId = user?.id ? String(user.id) : ''
-              const editorId = shoot.editor?.id ? String(shoot.editor.id) : ''
-              if (userId && editorId) return userId === editorId
-              const userName = user?.name?.toLowerCase() || ''
-              const editorName = shoot.editor?.name?.toLowerCase() || ''
-              if (!editorId && !editorName) return true
-              if (!userId && !userName) return true
-              return editorName === userName
+              return shootHasEditorAssignment(shoot, user)
             }
             return true
           })
@@ -289,7 +292,7 @@ export function useShootHistoryActions(args: UseShootHistoryActionsArgs) {
         setOperationalMeta({ current_page: operationalPage, per_page: 12, total: 0 })
       }
       const filtersMeta: FilterCollections = payload.meta?.filters ?? deriveFilterOptionsFromShoots(mappedShoots)
-      setOperationalOptions(filtersMeta)
+      setOperationalOptions(shouldHideClientDetails ? { ...filtersMeta, clients: [] } : filtersMeta)
     } catch (error) {
       if (axios.isAxiosError(error) && (error.code === 'ERR_CANCELED' || error.name === 'CanceledError')) return
       toast({ title: 'Unable to load shoots', description: 'Please try refreshing the page.', variant: 'destructive' })
@@ -361,7 +364,7 @@ export function useShootHistoryActions(args: UseShootHistoryActionsArgs) {
         setHistoryMeta(payload.meta ? { current_page: payload.meta.current_page ?? 1, per_page: 12, total: payload.meta.total ?? 0 } : null)
       }
       if (payload.meta?.filters) {
-        setHistoryOptions(payload.meta.filters)
+        setHistoryOptions(shouldHideClientDetails ? { ...payload.meta.filters, clients: [] } : payload.meta.filters)
       }
     } finally {
       setLoading(false)

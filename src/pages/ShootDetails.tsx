@@ -713,7 +713,7 @@ const ShootDetails: React.FC = () => {
                     </div>
                   )}
                   {/* Photographer info for editor/photographer - right aligned */}
-                  {(isEditor || isPhotographer) && shoot.photographer?.name && (
+                  {isPhotographer && shoot.photographer?.name && (
                     <div className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30">
                       <div className="h-10 w-10 rounded-full bg-blue-500/10 flex items-center justify-center">
                         <Camera className="h-5 w-5 text-blue-600" />

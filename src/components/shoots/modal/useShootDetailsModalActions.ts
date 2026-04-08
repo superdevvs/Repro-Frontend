@@ -181,6 +181,7 @@ export function useShootDetailsModalActions({
         headers,
         body: JSON.stringify({
           file_ids: selectedFileIds,
+          media_stage: 'raw',
         }),
       });
 

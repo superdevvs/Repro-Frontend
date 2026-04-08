@@ -1,7 +1,9 @@
 
 import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '@/components/auth/AuthProvider';
 import API_ROUTES from '@/lib/api';
 import type { ServiceGroupSummary } from '@/types/serviceGroups';
+import type { UserRole } from '@/types/auth';
 
 export type Service = {
   id: string;
@@ -22,9 +24,25 @@ export type Service = {
   service_group_ids?: string[];
 };
 
-export const useServices = () => {
+type UseServicesScope = 'auto' | 'public' | 'admin';
+
+interface UseServicesOptions {
+  scope?: UseServicesScope;
+}
+
+const ADMIN_SERVICE_CATALOG_ROLES = new Set<UserRole>([
+  'admin',
+  'superadmin',
+  'editing_manager',
+]);
+
+export const useServices = ({ scope = 'auto' }: UseServicesOptions = {}) => {
+  const { role } = useAuth();
+  const preferAdminCatalog =
+    scope === 'admin' || (scope === 'auto' && ADMIN_SERVICE_CATALOG_ROLES.has(role));
+
   return useQuery({
-    queryKey: ['services'],
+    queryKey: ['services', scope, role],
     queryFn: async () => {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       const headers = {
@@ -34,7 +52,7 @@ export const useServices = () => {
 
       let response: Response | null = null;
 
-      if (token) {
+      if (token && preferAdminCatalog) {
         response = await fetch(API_ROUTES.services.adminAll, { headers });
       }
 

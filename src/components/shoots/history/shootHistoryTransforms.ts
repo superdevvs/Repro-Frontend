@@ -1,6 +1,13 @@
 import { getStateFullName } from '@/utils/stateUtils'
 import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary'
-import { ShootAction, ShootData, ShootFileData } from '@/types/shoots'
+import {
+  ShootAction,
+  ShootData,
+  ShootEditorAssignment,
+  ShootFileData,
+  ShootServiceEditor,
+  ShootServiceObject,
+} from '@/types/shoots'
 import { FilterCollections } from './shootHistoryUtils'
 
 const toStringValue = (value: unknown, fallback = ''): string => (typeof value === 'string' ? value : fallback)
@@ -24,6 +31,53 @@ const toOptionalString = (value: unknown): string | undefined => {
   const trimmed = value.trim()
   return trimmed ? trimmed : undefined
 }
+const toOptionalIdString = (value: unknown): string | undefined => {
+  if (value === null || value === undefined) return undefined
+  const normalized = String(value).trim()
+  return normalized ? normalized : undefined
+}
+const toOptionalIsoString = (value: unknown): string | undefined => {
+  if (typeof value === 'string' && value.trim()) return value
+  return undefined
+}
+
+const normalizeServicePerson = (value: unknown): ShootServiceEditor | null => {
+  const person = toObjectValue<Record<string, unknown>>(value)
+  if (!person) return null
+
+  const id = toOptionalIdString(person.id)
+  const name =
+    toOptionalString(person.name) ??
+    toOptionalString(person.full_name) ??
+    toOptionalString(person.display_name)
+
+  if (!id && !name) return null
+
+  return {
+    id,
+    name: name ?? `User #${id}`,
+    avatar: toOptionalString(person.avatar) ?? toOptionalString(person.profile_image),
+    email: toOptionalString(person.email),
+  }
+}
+
+const normalizeEditorAssignments = (value: unknown): ShootEditorAssignment[] =>
+  toArrayValue<Record<string, unknown>>(value).map((assignment) => ({
+    lane: toOptionalString(assignment.lane) ?? 'photo',
+    label: toOptionalString(assignment.label),
+    editorId:
+      toOptionalIdString(assignment.editor_id) ??
+      toOptionalIdString(toObjectValue<Record<string, unknown>>(assignment.editor)?.id),
+    editor: normalizeServicePerson(assignment.editor),
+    serviceIds: toArrayValue<unknown>(assignment.service_ids)
+      .map((id) => toOptionalIdString(id))
+      .filter((id): id is string => Boolean(id)),
+    serviceNames: toArrayValue<unknown>(assignment.service_names)
+      .map((name) => toOptionalString(name))
+      .filter((name): name is string => Boolean(name)),
+    ready: toBooleanValue(assignment.ready),
+    readyAt: toOptionalIsoString(assignment.ready_at),
+  }))
 
 const resolveHoldStatusValue = (item: Record<string, unknown>): string | undefined => {
   const extraData = toObjectValue<Record<string, unknown>>(item.extraData)
@@ -121,6 +175,72 @@ export const mapShootApiToShootData = (item: Record<string, unknown>): ShootData
   const client = toObjectValue<{ id?: number | string; name?: string; email?: string; company_name?: string; phonenumber?: string; totalShoots?: number; total_shoots?: number }>(item.client)
   const photographer = toObjectValue<{ id?: number | string; name?: string; avatar?: string }>(item.photographer)
   const editor = toObjectValue<{ id?: number | string; name?: string; avatar?: string }>(item.editor)
+  const editorAssignments = normalizeEditorAssignments(item.editor_assignments ?? item.editorAssignments)
+  const serviceObjects = servicesArray
+    .filter((service): service is Record<string, unknown> => Boolean(service) && typeof service === 'object')
+    .map((service): ShootServiceObject => {
+      const category = toObjectValue<{ id?: string | number; name?: string }>(service.category)
+      const categoryName =
+        category?.name ??
+        toOptionalString(service.category_name) ??
+        toOptionalString(service.categoryKey) ??
+        'Other'
+
+      return {
+        id: toOptionalIdString(service.id) ?? Math.random().toString(36).slice(2),
+        name:
+          toOptionalString(service.name) ??
+          toOptionalString(service.label) ??
+          toOptionalString(service.service_name) ??
+          'Unnamed service',
+        price: toNumberValue(service.price),
+        quantity: toNumberValue(service.quantity, 1),
+        pricing_type:
+          (toOptionalString(service.pricing_type) as ShootServiceObject['pricing_type']) ??
+          undefined,
+        photo_count:
+          service.photo_count === null || service.photo_count === undefined
+            ? undefined
+            : toNumberValue(service.photo_count),
+        sqft_ranges: toArrayValue<Record<string, unknown>>(service.sqft_ranges).map((range) => ({
+          id: typeof range.id === 'number' ? range.id : undefined,
+          sqft_from: toNumberValue(range.sqft_from),
+          sqft_to: toNumberValue(range.sqft_to),
+          duration:
+            range.duration === null || range.duration === undefined
+              ? null
+              : toNumberValue(range.duration),
+          price: toNumberValue(range.price),
+          photographer_pay:
+            range.photographer_pay === null || range.photographer_pay === undefined
+              ? null
+              : toNumberValue(range.photographer_pay),
+          photo_count:
+            range.photo_count === null || range.photo_count === undefined
+              ? null
+              : toNumberValue(range.photo_count),
+        })),
+        category: category
+          ? {
+              id: toOptionalIdString(category.id) ?? '',
+              name: category.name ?? categoryName,
+            }
+          : null,
+        photographer_pay:
+          service.photographer_pay === null || service.photographer_pay === undefined
+            ? null
+            : toNumberValue(service.photographer_pay),
+        photographer_id: toOptionalIdString(service.photographer_id) ?? null,
+        resolved_photographer_id: toOptionalIdString(service.resolved_photographer_id) ?? null,
+        photographer: normalizeServicePerson(service.photographer),
+        editor_id: toOptionalIdString(service.editor_id) ?? null,
+        resolved_editor_id: toOptionalIdString(service.resolved_editor_id) ?? null,
+        editor: normalizeServicePerson(service.editor),
+        editing_completed_at: toOptionalIsoString(service.editing_completed_at) ?? null,
+        lane: toOptionalString(service.lane) ?? null,
+        category_key: toOptionalString(service.category_key) ?? toOptionalString(service.lane) ?? null,
+      }
+    })
   const paymentDetails = toObjectValue<{ taxRate?: number; totalPaid?: number; lastPaymentDate?: string; lastPaymentType?: string }>(item.payment)
   const paymentSummary = normalizeShootPaymentSummary({
     payments: item.payments,
@@ -165,6 +285,18 @@ export const mapShootApiToShootData = (item: Record<string, unknown>): ShootData
   const hasNotes = Object.values(normalizedNotes).some(Boolean)
   const resolvedNotes = hasNotes ? normalizedNotes : notesValue
   const shootId = item.id ?? item.shoot_id ?? Math.random().toString(36).slice(2)
+  const resolvedEditor =
+    (editor
+      ? { id: editor.id ? String(editor.id) : undefined, name: editor.name ?? 'Unassigned', avatar: editor.avatar }
+      : undefined) ??
+    (editorAssignments[0]?.editor
+      ? {
+          id: editorAssignments[0].editor?.id ? String(editorAssignments[0].editor?.id) : undefined,
+          name: editorAssignments[0].editor?.name ?? 'Unassigned',
+          avatar: editorAssignments[0].editor?.avatar,
+          email: editorAssignments[0].editor?.email,
+        }
+      : undefined)
 
   return {
     id: String(shootId),
@@ -182,8 +314,11 @@ export const mapShootApiToShootData = (item: Record<string, unknown>): ShootData
     },
     location: { address, city, state, zip, fullAddress },
     photographer: photographer ? { id: photographer.id ? String(photographer.id) : undefined, name: photographer.name ?? 'Unassigned', avatar: photographer.avatar } : undefined,
-    editor: editor ? { id: editor.id ? String(editor.id) : undefined, name: editor.name ?? 'Unassigned', avatar: editor.avatar } : undefined,
+    editor: resolvedEditor,
+    editorId: resolvedEditor?.id ? String(resolvedEditor.id) : undefined,
     services: serviceValues,
+    serviceObjects: serviceObjects.length ? serviceObjects : undefined,
+    editorAssignments: editorAssignments.length ? editorAssignments : undefined,
     status: (() => {
       const status = toStringValue(item.status)
       return status === 'hold_on' ? 'on_hold' : status

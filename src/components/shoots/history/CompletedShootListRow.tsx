@@ -318,10 +318,12 @@ export const CompletedShootListRow = ({
                       <span className="truncate"><span className="font-semibold text-foreground">{shoot.client.name}</span></span>
                     </span>
                   )}
-                  <span className="flex min-w-0 items-center gap-1.5">
-                    <Camera className="h-3.5 w-3.5 flex-shrink-0" />
-                    <span className="truncate"><span className="font-semibold text-foreground">{shoot.photographer?.name ?? 'Unassigned'}</span></span>
-                  </span>
+                  {!isEditor && (
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <Camera className="h-3.5 w-3.5 flex-shrink-0" />
+                      <span className="truncate"><span className="font-semibold text-foreground">{shoot.photographer?.name ?? 'Unassigned'}</span></span>
+                    </span>
+                  )}
                   <span className="flex items-center gap-1.5">
                     <Image className="h-3.5 w-3.5" />
                     <span>{photoCount} photos</span>

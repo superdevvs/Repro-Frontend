@@ -74,7 +74,7 @@ export const HistoryRow = memo(({
   const statusLabel = (record.status ?? 'scheduled').replace(/_/g, ' ')
   const approvalNotesValue = (record.notes as any)?.approvalNotes || (record.notes as any)?.approval
   const editingNotesValue = (record.notes as any)?.editingNotes || (record.notes as any)?.editing
-  const canShowApprovalNotes = Boolean(approvalNotesValue) && (isSuperAdmin || isAdmin || isEditingManager || isEditor)
+  const canShowApprovalNotes = Boolean(approvalNotesValue) && (isSuperAdmin || isAdmin || isEditingManager)
   const canShowEditingNotes = Boolean(editingNotesValue) && (isSuperAdmin || isAdmin || isEditingManager || isEditor)
   const recordStatus = String(record.status ?? '').toLowerCase()
   const canSendToEditing = Boolean(onSendToEditing) && recordStatus === 'uploaded'
@@ -212,10 +212,12 @@ export const HistoryRow = memo(({
             <MapPin className="h-4 w-4 text-primary/70" />
             <span className="truncate max-w-[400px] font-semibold text-base text-foreground">{record.address?.full ?? '—'}</span>
           </div>
-          <div className="flex items-center gap-2">
-            <Camera className="h-4 w-4 text-muted-foreground" />
-            <span>{record.photographer?.name ?? 'Unassigned'}</span>
-          </div>
+          {!isEditor && (
+            <div className="flex items-center gap-2">
+              <Camera className="h-4 w-4 text-muted-foreground" />
+              <span>{record.photographer?.name ?? 'Unassigned'}</span>
+            </div>
+          )}
           <div className="flex flex-wrap gap-1.5">
             {services.slice(0, 3).map((service, idx) => (
               <Badge key={idx} variant="outline" className="text-xs font-normal">
@@ -294,17 +296,19 @@ export const HistoryRow = memo(({
                   Notes
                 </h4>
                 <div className="space-y-2 text-sm pl-6">
-                  <div>
-                    <span className="text-muted-foreground">Shoot Notes:</span>
-                    <p className="mt-0.5">{record.notes?.shoot || 'No notes'}</p>
-                  </div>
-                  {record.notes?.photographer && (
+                  {!isEditor && (
+                    <div>
+                      <span className="text-muted-foreground">Shoot Notes:</span>
+                      <p className="mt-0.5">{record.notes?.shoot || 'No notes'}</p>
+                    </div>
+                  )}
+                  {!isEditor && record.notes?.photographer && (
                     <div>
                       <span className="text-muted-foreground">Photographer Notes:</span>
                       <p className="mt-0.5">{record.notes.photographer}</p>
                     </div>
                   )}
-                  {record.notes?.company && (
+                  {!isEditor && record.notes?.company && (
                     <div>
                       <span className="text-muted-foreground">Company Notes:</span>
                       <p className="mt-0.5">{record.notes.company}</p>

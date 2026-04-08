@@ -66,7 +66,7 @@ const ShootHistory: React.FC = () => {
   const shouldHideClientDetails = isEditor
   const canViewAllShoots = isSuperAdmin || isAdmin || isEditingManager // Super Admin, Admin, and Editing Manager can see all shoots
   const canViewHistory = HISTORY_ALLOWED_ROLES.has((role as string) ?? '')
-  const canViewInvoice = !isPhotographer && !isEditingManager // Hide invoice for photographers and editing managers
+  const canViewInvoice = !isPhotographer && !isEditingManager && !isEditor
   const canSendToEditing = isSuperAdmin || isAdmin || isEditingManager
   
   const {

@@ -13,6 +13,7 @@ import {
 interface ShareLink {
   id: number;
   share_url: string;
+  media_stage?: string;
   download_count: number;
   created_at: string;
   expires_at: string | null;
@@ -193,6 +194,18 @@ export function MediaLinksSection({
 
   const activeLinks = shareLinks.filter((link) => link.is_active);
   const inactiveLinks = shareLinks.filter((link) => !link.is_active);
+  const getStageLabel = (link: ShareLink) => {
+    switch ((link.media_stage || 'raw').toLowerCase()) {
+      case 'edited':
+        return 'Edited';
+      case 'raw_photo':
+        return 'Raw Photo';
+      case 'raw_video':
+        return 'Raw Video';
+      default:
+        return 'Raw';
+    }
+  };
 
   return (
     <div className="p-2.5 border rounded-lg bg-card">
@@ -237,6 +250,10 @@ export function MediaLinksSection({
                   <div className="flex items-center gap-1 flex-1 min-w-0">
                     <span className="text-green-600 text-[10px] font-medium">
                       Active
+                    </span>
+                    <span className="text-muted-foreground text-[10px]">•</span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {getStageLabel(link)}
                     </span>
                     <span className="text-muted-foreground text-[10px]">•</span>
                     <span className="text-[10px] text-muted-foreground">
@@ -295,6 +312,10 @@ export function MediaLinksSection({
                           }`}
                         >
                           {link.is_revoked ? 'Revoked' : 'Expired'}
+                        </span>
+                        <span className="text-muted-foreground">•</span>
+                        <span className="text-[10px] text-muted-foreground">
+                          {getStageLabel(link)}
                         </span>
                         <span className="text-muted-foreground">•</span>
                         <span className="text-[10px] text-muted-foreground">

@@ -146,6 +146,13 @@ export interface ShootServicePhotographer {
   email?: string;
 }
 
+export interface ShootServiceEditor {
+  id?: string | number;
+  name: string;
+  avatar?: string;
+  email?: string;
+}
+
 export interface ShootGhostUser {
   id: string;
   name: string;
@@ -181,6 +188,23 @@ export interface ShootServiceObject {
   photographer_id?: string | null;
   resolved_photographer_id?: string | null;
   photographer?: ShootServicePhotographer | null;
+  editor_id?: string | null;
+  resolved_editor_id?: string | null;
+  editor?: ShootServiceEditor | null;
+  editing_completed_at?: string | null;
+  lane?: string | null;
+  category_key?: string | null;
+}
+
+export interface ShootEditorAssignment {
+  lane: string;
+  label?: string;
+  editorId?: string | null;
+  editor?: ShootServiceEditor | null;
+  serviceIds?: string[];
+  serviceNames?: string[];
+  ready?: boolean;
+  readyAt?: string | null;
 }
 
 export type ShootTourLinkValue =
@@ -237,6 +261,7 @@ export interface ShootData {
   editorId?: string;
   services: string[];
   serviceObjects?: ShootServiceObject[];
+  editorAssignments?: ShootEditorAssignment[];
   payment: {
     serviceSubtotal?: number;
     baseQuote: number;

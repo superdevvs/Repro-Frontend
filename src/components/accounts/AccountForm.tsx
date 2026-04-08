@@ -67,6 +67,10 @@ const repCategoryOptions = [
   "Video Packages",
   "Editing Upsell",
 ] as const;
+const editorCapabilityOptions = [
+  { id: 'photo', label: 'Photo', description: 'Receive photo editing lanes' },
+  { id: 'video', label: 'Video', description: 'Receive video editing lanes' },
+] as const;
 
 const parseShootCcEmails = (value?: string) =>
   String(value || '')
@@ -95,6 +99,7 @@ const createAccountFormSchema = (viewerRole?: string) => z.object({
   bio: z.string().optional(),
   isActive: z.boolean().default(true),
   specialties: z.array(z.string()).optional(),
+  editingCapabilities: z.array(z.string()).optional(),
   travelRange: z.number().optional(),
   travelRangeUnit: z.enum(['miles', 'km']).optional(),
   pilotLicenseFile: z.string().optional(),
@@ -175,6 +180,14 @@ const createAccountFormSchema = (viewerRole?: string) => z.object({
       });
     }
   }
+
+  if (data.role === "editor" && (!Array.isArray(data.editingCapabilities) || data.editingCapabilities.length === 0)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Select at least one editing capability",
+      path: ["editingCapabilities"],
+    });
+  }
 });
 
 // Default schema for type inference
@@ -239,6 +252,7 @@ export function AccountForm({
           companyNotes: "",
           isActive: true,
           specialties: [],
+          editingCapabilities: ['photo', 'video'],
           travelRange: 25,
           travelRangeUnit: 'miles' as const,
           pilotLicenseFile: "",
@@ -305,6 +319,9 @@ export function AccountForm({
           companyNotes: initialData.companyNotes || "",
           isActive: initialData.isActive !== undefined ? initialData.isActive : true,
           specialties: (initialData.metadata?.specialties as string[]) ?? (initialData as any).specialties ?? [],
+          editingCapabilities: (initialData.metadata?.editing_capabilities as string[])
+            ?? (initialData as any).editingCapabilities
+            ?? (role === 'editor' ? ['photo', 'video'] : []),
           travelRange: Number(initialData.metadata?.travel_range) || 25,
           travelRangeUnit: (initialData.metadata?.travel_range_unit as 'miles' | 'km') || 'miles',
           pilotLicenseFile: initialData.metadata?.pilotLicenseFile || "",
@@ -354,6 +371,7 @@ export function AccountForm({
           companyNotes: "",
           isActive: true,
           specialties: [],
+          editingCapabilities: ['photo', 'video'],
           travelRange: 25,
           travelRangeUnit: 'miles' as const,
           pilotLicenseFile: "",
@@ -569,6 +587,11 @@ export function AccountForm({
     const normalizedDiscountValue = values.role === 'client' && values.clientDiscountValue?.trim()
       ? Number(values.clientDiscountValue)
       : null;
+    const normalizedEditingCapabilities = values.role === 'editor'
+      ? editorCapabilityOptions
+          .map((option) => option.id)
+          .filter((capability) => Array.isArray(values.editingCapabilities) && values.editingCapabilities.includes(capability))
+      : [];
     const payload: AccountFormValues = {
       ...values,
       name: fullName,
@@ -583,6 +606,12 @@ export function AccountForm({
       metadataPayload.repDetails = repDetails;
     } else if (metadataPayload.repDetails) {
       delete metadataPayload.repDetails;
+    }
+
+    if (values.role === 'editor') {
+      metadataPayload.editing_capabilities = normalizedEditingCapabilities;
+    } else if ('editing_capabilities' in metadataPayload) {
+      delete metadataPayload.editing_capabilities;
     }
 
     // Add photographer-specific data to metadata
@@ -665,6 +694,9 @@ export function AccountForm({
         }
         if (values.specialties && Array.isArray(values.specialties) && values.specialties.length > 0) {
           formData.append('specialties', JSON.stringify(values.specialties));
+        }
+        if (values.role === 'editor') {
+          formData.append('editing_capabilities', JSON.stringify(normalizedEditingCapabilities));
         }
         if (values.pilotLicenseFile) formData.append('pilotLicenseFile', values.pilotLicenseFile);
         if (values.pilotLicenseFileName) formData.append('pilotLicenseFileName', values.pilotLicenseFileName);
@@ -777,8 +809,11 @@ export function AccountForm({
       formData.append('client_discount_value', normalizedDiscountValue !== null ? String(normalizedDiscountValue) : '');
       formData.append('role', values.role || 'client');
       if (values.bio) formData.append('bio', values.bio);
-      if (values.specialties && Array.isArray(values.specialties) && values.specialties.length > 0) {
-        formData.append('specialties', JSON.stringify(values.specialties));
+        if (values.specialties && Array.isArray(values.specialties) && values.specialties.length > 0) {
+          formData.append('specialties', JSON.stringify(values.specialties));
+        }
+      if (values.role === 'editor') {
+        formData.append('editing_capabilities', JSON.stringify(normalizedEditingCapabilities));
       }
       if (values.pilotLicenseFile) formData.append('pilotLicenseFile', values.pilotLicenseFile);
       if (values.pilotLicenseFileName) formData.append('pilotLicenseFileName', values.pilotLicenseFileName);
@@ -900,6 +935,7 @@ export function AccountForm({
 
   // watch role to toggle specialties UI
   const isSalesRep = currentRole === "salesRep";
+  const isEditorRole = currentRole === "editor";
   const isSalesRepViewer = viewerRole === 'salesRep';
   const roleSelectionDisabled = isSalesRepViewer && Boolean(initialData);
   const canManageRoles = viewerRole === 'admin' || viewerRole === 'superadmin';
@@ -1743,6 +1779,66 @@ export function AccountForm({
                   />
                 </div>
               </>
+            )}
+
+            {isEditorRole && (
+              <div className="space-y-4 rounded-lg border border-border/60 bg-muted/30 p-4">
+                <div className="space-y-1">
+                  <h3 className="text-sm font-semibold">Editing Capabilities</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Choose which editing lanes this account can automatically receive.
+                  </p>
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="editingCapabilities"
+                  render={({ field }) => {
+                    const valueArray: string[] = Array.isArray(field.value) ? field.value : []
+                    const toggle = (capability: string) => {
+                      if (valueArray.includes(capability)) {
+                        field.onChange(valueArray.filter((value) => value !== capability))
+                        return
+                      }
+
+                      field.onChange([...valueArray, capability])
+                    }
+
+                    return (
+                      <FormItem>
+                        <FormLabel>Lane Assignment</FormLabel>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          {editorCapabilityOptions.map((option) => {
+                            const active = valueArray.includes(option.id)
+                            return (
+                              <button
+                                key={option.id}
+                                type="button"
+                                onClick={() => toggle(option.id)}
+                                className={cn(
+                                  "rounded-lg border px-4 py-3 text-left transition",
+                                  active
+                                    ? "border-primary/40 bg-primary/10 text-foreground shadow-sm"
+                                    : "border-border/70 bg-background text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                                )}
+                              >
+                                <div className="text-sm font-medium">{option.label}</div>
+                                <div className="mt-1 text-xs text-muted-foreground">
+                                  {option.description}
+                                </div>
+                              </button>
+                            )
+                          })}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Select one or both. Mixed photo/video shoots route lanes based on these capabilities.
+                        </p>
+                        <FormMessage />
+                      </FormItem>
+                    )
+                  }}
+                />
+              </div>
             )}
 
             {isClientRole && (

@@ -3,6 +3,7 @@ export const SHOOT_SHARE_LINKS_UPDATED_EVENT = 'shoot-share-links-updated';
 export type ShootShareLinkEntry = {
   id: number;
   share_url: string;
+  media_stage: string;
   download_count: number;
   created_at: string;
   expires_at: string | null;

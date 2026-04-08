@@ -305,12 +305,10 @@ export function ShootNotesTab({
     if (isAdmin || role === 'superadmin') {
       return true; // Admin and superadmin can edit all note types
     }
-    
+
     switch (noteType) {
       case 'photographerNotes': 
         return role === 'photographer';
-      case 'editingNotes': 
-        return role === 'editor';
       default: 
         return false;
     }
@@ -327,6 +325,10 @@ export function ShootNotesTab({
       return true;
     }
     
+    if (role === 'editor') {
+      return noteType === 'editingNotes';
+    }
+
     // Shoot notes: visible to all roles
     if (noteType === 'shootNotes') {
       return true;
@@ -346,9 +348,9 @@ export function ShootNotesTab({
       return role === 'editing_manager' || role === 'editor' || role === 'admin' || role === 'superadmin' || role === 'photographer';
     }
     
-    // Photographer notes: Super Admin, Admin, Editor, Photographer (NOT Client)
+    // Photographer notes: Super Admin, Admin, Photographer (NOT Client)
     if (noteType === 'photographerNotes') {
-      return role === 'editing_manager' || role === 'photographer' || role === 'editor' || role === 'admin' || role === 'superadmin';
+      return role === 'editing_manager' || role === 'photographer' || role === 'admin' || role === 'superadmin';
     }
     
     return false;

@@ -179,7 +179,7 @@ export const ScheduledShootListRow = ({
     : null
   const approvalNotes = getApprovalNotes(shoot.notes)
   const editingNotes = getEditingNotes(shoot.notes)
-  const canShowApprovalNotes = Boolean(approvalNotes) && (isSuperAdmin || isAdmin || isEditingManager || isEditor)
+  const canShowApprovalNotes = Boolean(approvalNotes) && (isSuperAdmin || isAdmin || isEditingManager)
   const canShowEditingNotes = Boolean(editingNotes) && (isSuperAdmin || isAdmin || isEditingManager || isEditor)
   const shootStatus = String(shoot.status ?? shoot.workflowStatus ?? '').toLowerCase()
   const canSendToEditing = Boolean(onSendToEditing) && shootStatus === 'uploaded'
@@ -260,7 +260,7 @@ export const ScheduledShootListRow = ({
                 </span>
               </div>
             )}
-            {shoot.photographer?.name && shoot.photographer.name !== 'Unassigned' && (
+            {!isEditor && shoot.photographer?.name && shoot.photographer.name !== 'Unassigned' && (
               <div className="flex items-center gap-1.5 min-w-0">
                 <Camera className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                 <span className="font-medium break-words" title={shoot.photographer.name}>

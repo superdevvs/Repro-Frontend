@@ -277,7 +277,7 @@ export const HoldOnShootCard = ({
                 <span>{shoot.client.name}</span>
               </div>
             )}
-            {shoot.photographer?.name && shoot.photographer.name !== 'Unassigned' && (
+            {!isEditor && shoot.photographer?.name && shoot.photographer.name !== 'Unassigned' && (
               <div className="flex items-center gap-2">
                 <Camera className="h-4 w-4 text-muted-foreground" />
                 <span>{shoot.photographer.name}</span>

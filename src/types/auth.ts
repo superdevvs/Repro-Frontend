@@ -49,6 +49,8 @@ export interface UserMetadata {
   accountRepId?: string;
   accountRep?: string;
   repDetails?: RepDetails;
+  editing_capabilities?: string[];
+  specialties?: string[];
   [key: string]: any;
 }
 

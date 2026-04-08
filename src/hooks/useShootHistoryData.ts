@@ -28,6 +28,7 @@ import {
   ShootHistoryRecord,
   ShootHistoryServiceAggregate,
 } from '@/types/shoots'
+import { shootHasEditorAssignment } from '@/utils/shootEditorAssignments'
 
 type ToastFn = (args: { title: string; description?: string; variant?: 'default' | 'destructive' }) => void
 
@@ -84,15 +85,7 @@ const filterShootByRole = (
   }
 
   if (role === 'editor') {
-    const userId = user?.id ? String(user.id) : ''
-    const editorId = shoot.editor?.id ? String(shoot.editor.id) : ''
-    if (userId && editorId) return userId === editorId
-
-    const userName = user?.name?.toLowerCase() || ''
-    const editorName = shoot.editor?.name?.toLowerCase() || ''
-    if (!editorId && !editorName) return true
-    if (!userId && !userName) return true
-    return editorName === userName
+    return shootHasEditorAssignment(shoot, user)
   }
 
   return true

@@ -1184,7 +1184,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                                 return null;
                               })()}
                             </span>
-                          ) : (
+                          ) : role === 'editor' ? null : (
                             <span>Photographer <span className="font-semibold text-foreground">• {shoot.photographer?.name || 'Unassigned'}</span></span>
                           )}
                         </div>
@@ -1313,7 +1313,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                                 return null;
                               })()}
                             </>
-                          ) : (
+                          ) : role === 'editor' ? null : (
                             <>
                               Photographer{' '}
                               <span className="font-semibold text-foreground">
