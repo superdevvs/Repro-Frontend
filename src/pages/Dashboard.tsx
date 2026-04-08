@@ -346,6 +346,8 @@ const Dashboard = () => {
   const [selectedPhotographer, setSelectedPhotographer] =
     useState<DashboardPhotographerSummary | null>(null);
   const [specialRequestOpen, setSpecialRequestOpen] = useState(false);
+  const [specialRequestInitialTab, setSpecialRequestInitialTab] =
+    useState<"new" | "ongoing">("new");
   const [selectedRequestId, setSelectedRequestId] = useState<number | null>(null);
   const [cancellationDialogOpen, setCancellationDialogOpen] = useState(false);
   const [mobileDashboardTab, setMobileDashboardTab] = useState<MobileDashboardTab>("shoots");
@@ -1351,6 +1353,69 @@ const Dashboard = () => {
     [editingRequests],
   );
 
+  const openEditingRequestCenter = useCallback(() => {
+    setSelectedRequestId(null);
+    setSpecialRequestInitialTab("ongoing");
+    setSpecialRequestOpen(true);
+  }, []);
+
+  const openEditingRequestById = useCallback((requestId: number) => {
+    setSelectedRequestId(requestId);
+    setSpecialRequestInitialTab("ongoing");
+    setSpecialRequestOpen(true);
+  }, []);
+
+  const editorQueueStageCounts = useMemo(() => {
+    const counts = {
+      uploaded: 0,
+      editing: 0,
+      review: 0,
+      ready: 0,
+    };
+
+    effectiveEditorUpcoming.forEach((shoot) => {
+      const statusKey = getStatusKey(shoot.workflowStatus || shoot.status);
+
+      if (["uploaded", "raw_uploaded", "photos_uploaded"].includes(statusKey)) {
+        counts.uploaded += 1;
+        return;
+      }
+
+      if (
+        [
+          "editing",
+          "in_progress",
+          "completed",
+          "editing_complete",
+          "editing_uploaded",
+          "editing_issue",
+        ].includes(statusKey)
+      ) {
+        counts.editing += 1;
+        return;
+      }
+
+      if (
+        [
+          "review",
+          "qc",
+          "pending_review",
+          "ready_for_review",
+          "raw_issue",
+        ].includes(statusKey)
+      ) {
+        counts.review += 1;
+        return;
+      }
+
+      if (["ready", "ready_for_client", "admin_verified"].includes(statusKey)) {
+        counts.ready += 1;
+      }
+    });
+
+    return counts;
+  }, [effectiveEditorUpcoming]);
+
   const editorMetricTiles = useMemo<DashboardMetricTile[]>(
     () => [
       {
@@ -1386,15 +1451,15 @@ const Dashboard = () => {
       {
         id: "editor-revision-requests",
         value: editorOpenRequestCount,
-        label: "Revision requests",
+        label: "Open requests",
         subtitle: "Needs response",
         icon: <MessageSquare size={16} />,
         accent:
           "from-slate-50 via-amber-50/80 to-orange-100/70 text-amber-900 dark:from-[#342d29] dark:via-[#201b21] dark:to-[#0a101b] dark:text-white",
         onClick: () =>
           scrollToDashboardSection("editing-requests", {
-            title: "No active revision requests",
-            description: "Open revision requests will show up here when they need attention.",
+            title: "No active requests",
+            description: "Open editor requests will show up here when they need attention.",
           }),
       },
     ],
@@ -2461,24 +2526,18 @@ const Dashboard = () => {
     if (role === "editor") {
       const editorRequestsCard = (
         <div id="editing-requests">
-          <PendingReviewsCard
-            title="Requests"
-            reviews={[]}
-            issues={[]}
-            onSelect={handleSelectShoot}
-            emptyRequestsText="No active requests."
-            editingRequests={editingRequests}
-            editingRequestsLoading={editingRequestsLoading}
-            showEditingTab={true}
-            onCreateEditingRequest={() => {
-              setSelectedRequestId(null);
-              setSpecialRequestOpen(true);
-            }}
-            onEditingRequestClick={(requestId) => {
-              setSelectedRequestId(requestId);
-              setSpecialRequestOpen(true);
-            }}
-          />
+          <Suspense fallback={<EditingRequestsCardSkeletonWrapper />}>
+            <LazyEditingRequestsCard
+              requests={editingRequests}
+              loading={editingRequestsLoading}
+              onCreate={openEditingRequestCenter}
+              onRequestClick={openEditingRequestById}
+              onUpdate={updateEditingRequest}
+              title="Requests"
+              emptyStateText="No active requests."
+              actionLabel="View all"
+            />
+          </Suspense>
         </div>
       );
 
@@ -2527,22 +2586,13 @@ const Dashboard = () => {
             description="Upcoming edits, requests, and delivery progress."
             metricTiles={editorMetricTiles}
             leftColumnCard={
-              shouldLoadEditingRequests ? (
-                <Suspense fallback={<EditingRequestsCardSkeletonWrapper />}>
-                  <LazyEditingRequestsCard
-                    requests={editingRequests}
-                    loading={editingRequestsLoading}
-                    onUpdate={updateEditingRequest}
-                  />
-                </Suspense>
-              ) : (
-                <Suspense fallback={<EditingRequestsCardSkeletonWrapper />}>
-                  <LazyEditingRequestsCard
-                    requests={[]}
-                    loading={editingRequestsLoading}
-                  />
-                </Suspense>
-              )
+              <EditorQueueBreakdownCard
+                counts={editorQueueStageCounts}
+                activeCount={effectiveEditorUpcoming.length}
+                requestCount={editorOpenRequestCount}
+                onViewQueue={() => openShootHistory("editing")}
+                onOpenRequests={openEditingRequestCenter}
+              />
             }
             rightColumnCards={[
               <Suspense key="delivered-edits" fallback={<CompletedShootsCardSkeleton />}>
@@ -2836,12 +2886,20 @@ const Dashboard = () => {
             setSpecialRequestOpen(open);
             if (!open) {
               setSelectedRequestId(null);
+              setSpecialRequestInitialTab("new");
             }
           }}
-          shoots={role === "salesRep" ? repVisibleSummaries : data?.upcomingShoots || []}
+          shoots={
+            role === "salesRep"
+              ? repVisibleSummaries
+              : role === "editor"
+                ? effectiveEditorUpcoming
+                : data?.upcomingShoots || []
+          }
           onSuccess={refreshEditingRequests}
           requests={editingRequests}
           selectedRequestId={selectedRequestId}
+          initialTab={specialRequestInitialTab}
           onUpdate={updateEditingRequest}
           onDelete={isAdminExperience ? removeEditingRequest : undefined}
           onOpenShoot={openShootOverviewFromEditingRequest}
@@ -3078,6 +3136,70 @@ const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
         </div>
       </DashboardLayout>
     </DevProfiler>
+  );
+};
+
+type EditorQueueBreakdownCounts = {
+  uploaded: number;
+  editing: number;
+  review: number;
+  ready: number;
+};
+
+interface EditorQueueBreakdownCardProps {
+  counts: EditorQueueBreakdownCounts;
+  activeCount: number;
+  requestCount: number;
+  onViewQueue: () => void;
+  onOpenRequests: () => void;
+}
+
+const EditorQueueBreakdownCard: React.FC<EditorQueueBreakdownCardProps> = ({
+  counts,
+  activeCount,
+  requestCount,
+  onViewQueue,
+  onOpenRequests,
+}) => {
+  const rows = [
+    { label: "Uploaded", value: counts.uploaded },
+    { label: "In editing", value: counts.editing },
+    { label: "In review", value: counts.review },
+    { label: "Ready", value: counts.ready },
+  ];
+
+  return (
+    <Card className="flex flex-col gap-4 h-full">
+      <div>
+        <h2 className="text-base sm:text-lg font-bold text-foreground">Queue stages</h2>
+        <p className="text-xs sm:text-sm text-muted-foreground">
+          A quick view of where your active edits are sitting right now.
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        {rows.map((row) => (
+          <div
+            key={row.label}
+            className="flex items-center justify-between rounded-2xl border border-border/70 bg-muted/20 px-3 py-2.5"
+          >
+            <span className="text-sm font-medium text-foreground">{row.label}</span>
+            <Badge variant="secondary" className="min-w-8 justify-center">
+              {row.value}
+            </Badge>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid gap-2 mt-auto">
+        <Button size="sm" onClick={onViewQueue}>
+          View all active edits ({activeCount})
+        </Button>
+        <Button size="sm" variant="outline" onClick={onOpenRequests}>
+          Open request center ({requestCount})
+        </Button>
+      </div>
+    </Card>
   );
 };
 

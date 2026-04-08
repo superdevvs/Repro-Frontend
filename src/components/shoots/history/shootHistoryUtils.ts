@@ -124,13 +124,13 @@ export const EDITOR_ACTIVE_STATUS_KEYS = [
   'ready_for_review',
   'raw_uploaded',
   'photos_uploaded',
+  'ready',
+  'ready_for_client',
+  'admin_verified',
 ] as const
 
 export const EDITOR_DELIVERED_STATUS_KEYS = [
   'delivered',
-  'ready_for_client',
-  'admin_verified',
-  'ready',
   'workflow_completed',
   'client_delivered',
 ] as const

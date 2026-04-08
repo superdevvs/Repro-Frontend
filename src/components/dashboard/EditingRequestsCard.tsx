@@ -15,6 +15,9 @@ interface EditingRequestsCardProps {
   onDelete?: (id: number) => Promise<void>;
   maxItems?: number;
   onRequestClick?: (requestId: number) => void;
+  title?: string;
+  emptyStateText?: string;
+  actionLabel?: string;
 }
 
 const PRIORITY_STYLES: Record<EditingRequest['priority'], string> = {
@@ -43,6 +46,9 @@ export const EditingRequestsCard: React.FC<EditingRequestsCardProps> = ({
   onDelete,
   maxItems = 5,
   onRequestClick,
+  title = 'Editing requests',
+  emptyStateText = 'No active requests.',
+  actionLabel = 'New request',
 }) => {
   const { toast } = useToast();
   const [actionLoading, setActionLoading] = useState<number | null>(null);
@@ -62,7 +68,7 @@ export const EditingRequestsCard: React.FC<EditingRequestsCardProps> = ({
   return (
     <Card className="flex flex-col min-h-0">
       <div className="flex-shrink-0 flex items-center justify-between mb-3 sm:mb-4">
-        <h2 className="text-base sm:text-lg font-bold text-foreground">Special editing requests</h2>
+        <h2 className="text-base sm:text-lg font-bold text-foreground">{title}</h2>
         {activeRequests.length > 0 && (
           <Badge variant="secondary" className="text-xs">
             {activeRequests.length} active
@@ -74,10 +80,10 @@ export const EditingRequestsCard: React.FC<EditingRequestsCardProps> = ({
         <EditingRequestsCardSkeleton />
       ) : list.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center min-h-[120px] px-4">
-          <p className="text-xs sm:text-sm text-muted-foreground italic mb-4">No active requests.</p>
+          <p className="text-xs sm:text-sm text-muted-foreground italic mb-4">{emptyStateText}</p>
           {onCreate && (
             <Button size="sm" onClick={onCreate} className="w-full">
-              New request
+              {actionLabel}
             </Button>
           )}
         </div>
@@ -115,7 +121,7 @@ export const EditingRequestsCard: React.FC<EditingRequestsCardProps> = ({
           </div>
           {onCreate && (
             <Button size="sm" onClick={onCreate} className="w-full flex-shrink-0">
-              New request
+              {actionLabel}
             </Button>
           )}
         </>

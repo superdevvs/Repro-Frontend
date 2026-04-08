@@ -23,6 +23,7 @@ interface SpecialEditingRequestDialogProps {
   onUpdate?: (id: number, payload: EditingRequestUpdatePayload) => Promise<void>;
   onDelete?: (id: number) => Promise<void>;
   onOpenShoot?: (request: EditingRequest) => void | Promise<void>;
+  initialTab?: 'new' | 'ongoing';
 }
 
 const DEFAULT_FORM = {
@@ -61,6 +62,7 @@ export const SpecialEditingRequestDialog: React.FC<SpecialEditingRequestDialogPr
   onUpdate,
   onDelete,
   onOpenShoot,
+  initialTab = 'new',
 }) => {
   const { toast } = useToast();
   const [form, setForm] = useState(DEFAULT_FORM);
@@ -72,9 +74,9 @@ export const SpecialEditingRequestDialog: React.FC<SpecialEditingRequestDialogPr
     if (open && selectedRequestId) {
       setActiveTab('ongoing');
     } else if (open) {
-      setActiveTab('new');
+      setActiveTab(initialTab);
     }
-  }, [open, selectedRequestId]);
+  }, [initialTab, open, selectedRequestId]);
 
   const shootOptions = useMemo(() => {
     return shoots.map((shoot) => ({
@@ -186,13 +188,13 @@ export const SpecialEditingRequestDialog: React.FC<SpecialEditingRequestDialogPr
     }}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle>Special editing requests</DialogTitle>
+          <DialogTitle>Request center</DialogTitle>
         </DialogHeader>
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'new' | 'ongoing')} className="flex-1 flex flex-col min-h-0">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="new">New Request</TabsTrigger>
             <TabsTrigger value="ongoing">
-              Ongoing Requests {activeRequests.length > 0 && `(${activeRequests.length})`}
+              All Requests {activeRequests.length > 0 && `(${activeRequests.length})`}
             </TabsTrigger>
           </TabsList>
           
