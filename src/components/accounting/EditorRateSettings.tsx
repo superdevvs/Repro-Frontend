@@ -12,14 +12,12 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/auth/AuthProvider';
-import { API_BASE_URL } from '@/config/env';
 import { DollarSign, Plus, Save, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useServices } from '@/hooks/useServices';
+import { useEditorRates } from '@/hooks/useEditorRates';
 import {
   type EditorServiceRate,
-  getEditorRatePayload,
-  getEditorServiceRates,
   normalizeEditorServiceName,
 } from '@/utils/editorRates';
 
@@ -28,20 +26,13 @@ interface EditorRateSettingsProps {
 }
 
 export function EditorRateSettings({ className }: EditorRateSettingsProps = {}) {
-  const { user, setUser } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
   const {
     data: services = [],
     isLoading: servicesLoading,
     isError: servicesError,
   } = useServices({ scope: 'public' });
-  const [rates, setRates] = useState<EditorServiceRate[]>(() =>
-    getEditorServiceRates(user?.metadata || {}, []),
-  );
-  const [selectedServiceId, setSelectedServiceId] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-
   const activeServices = useMemo(
     () =>
       services
@@ -49,6 +40,20 @@ export function EditorRateSettings({ className }: EditorRateSettingsProps = {}) 
         .sort((left, right) => left.name.localeCompare(right.name)),
     [services],
   );
+  const {
+    rates: savedRates,
+    isLoading,
+    isError: isRatesError,
+    error: ratesError,
+    isSaving,
+    saveRates,
+  } = useEditorRates(user?.id, {
+    enabled: Boolean(user?.id),
+    services: activeServices,
+  });
+  const [rates, setRates] = useState<EditorServiceRate[]>([]);
+  const [selectedServiceId, setSelectedServiceId] = useState('');
+  const [hasLocalEdits, setHasLocalEdits] = useState(false);
 
   const remainingServices = useMemo(() => {
     const selectedKeys = new Set(
@@ -61,52 +66,20 @@ export function EditorRateSettings({ className }: EditorRateSettingsProps = {}) 
     });
   }, [activeServices, rates]);
 
+  const hasChanges = useMemo(
+    () => JSON.stringify(rates) !== JSON.stringify(savedRates),
+    [rates, savedRates],
+  );
+
   useEffect(() => {
-    const loadRates = async () => {
-      if (!user?.id) return;
+    if (!hasLocalEdits || !hasChanges) {
+      setRates(savedRates);
+    }
 
-      setIsLoading(true);
-      try {
-        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-        const url = `${API_BASE_URL}/api/editors/${user.id}/rates`;
-
-        if (import.meta.env.DEV) {
-          console.log('Loading rates from:', url);
-        }
-
-        const response = await fetch(url, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (response.ok) {
-          const data = await response.json().catch(() => null);
-          if (data?.data) {
-            const updatedMetadata = {
-              ...(user.metadata || {}),
-              ...data.data,
-            };
-            setRates(getEditorServiceRates(updatedMetadata, activeServices));
-            setUser({ ...user, metadata: updatedMetadata });
-            return;
-          }
-        } else if (response.status !== 404) {
-          throw new Error('Failed to load rates');
-        }
-
-        setRates(getEditorServiceRates(user.metadata || {}, activeServices));
-      } catch (error) {
-        console.error('Error loading rates:', error);
-        setRates(getEditorServiceRates(user?.metadata || {}, activeServices));
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadRates();
-  }, [activeServices, setUser, user?.id]);
+    if (hasLocalEdits && !hasChanges) {
+      setHasLocalEdits(false);
+    }
+  }, [hasChanges, hasLocalEdits, savedRates]);
 
   useEffect(() => {
     if (!selectedServiceId && remainingServices.length > 0) {
@@ -124,6 +97,7 @@ export function EditorRateSettings({ className }: EditorRateSettingsProps = {}) 
 
   const handleRateChange = (serviceKey: string, value: string) => {
     const rateValue = Number.parseFloat(value);
+    setHasLocalEdits(true);
     setRates((currentRates) =>
       currentRates.map((rate) => {
         const key = rate.serviceId || normalizeEditorServiceName(rate.serviceName);
@@ -144,6 +118,7 @@ export function EditorRateSettings({ className }: EditorRateSettingsProps = {}) 
     );
     if (!service) return;
 
+    setHasLocalEdits(true);
     setRates((currentRates) => [
       ...currentRates,
       {
@@ -155,6 +130,7 @@ export function EditorRateSettings({ className }: EditorRateSettingsProps = {}) 
   };
 
   const handleRemoveService = (serviceKey: string) => {
+    setHasLocalEdits(true);
     setRates((currentRates) =>
       currentRates.filter((rate) => {
         const key = rate.serviceId || normalizeEditorServiceName(rate.serviceName);
@@ -173,54 +149,10 @@ export function EditorRateSettings({ className }: EditorRateSettingsProps = {}) 
       return;
     }
 
-    setIsSaving(true);
     try {
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      const url = `${API_BASE_URL}/api/editors/${user.id}/rates`;
-      const payload = getEditorRatePayload(rates);
-
-      if (import.meta.env.DEV) {
-        console.log('Saving rates to:', url);
-      }
-
-      const response = await fetch(url, {
-        method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const responseData = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        if (response.status === 404) {
-          throw new Error(
-            'This feature is not yet available. The API endpoint has not been implemented on the server.',
-          );
-        }
-
-        const errorMessage =
-          responseData?.message ||
-          responseData?.error ||
-          (response.status === 401
-            ? 'You are not authorized to perform this action.'
-            : response.status === 500
-              ? 'Server error. Please try again later.'
-              : 'Failed to save rates. Please try again.');
-        throw new Error(errorMessage);
-      }
-
-      const updatedMetadata = {
-        ...(user.metadata || {}),
-        ...(responseData?.data || payload),
-      };
-      const updatedRates = getEditorServiceRates(updatedMetadata, activeServices);
-      setRates(updatedRates);
-      if (user) {
-        setUser({ ...user, metadata: updatedMetadata });
-      }
+      const nextSavedRates = await saveRates(rates);
+      setRates(nextSavedRates.service_rates);
+      setHasLocalEdits(false);
 
       toast({
         title: 'Rates Saved',
@@ -243,8 +175,6 @@ export function EditorRateSettings({ className }: EditorRateSettingsProps = {}) 
           variant: 'destructive',
         });
       }
-    } finally {
-      setIsSaving(false);
     }
   };
 
@@ -275,6 +205,14 @@ export function EditorRateSettings({ className }: EditorRateSettingsProps = {}) 
       </CardHeader>
       <CardContent className="flex flex-1 flex-col">
         <div className="flex flex-1 flex-col gap-4">
+          {isRatesError && (
+            <div className="rounded-lg border border-dashed px-4 py-3 text-sm text-muted-foreground">
+              {ratesError instanceof Error
+                ? ratesError.message
+                : 'Saved editor rates are temporarily unavailable.'}
+            </div>
+          )}
+
           {servicesError && (
             <div className="rounded-lg border border-dashed px-4 py-3 text-sm text-muted-foreground">
               Service options are temporarily unavailable. Existing rates can still be viewed and saved.
@@ -310,7 +248,10 @@ export function EditorRateSettings({ className }: EditorRateSettingsProps = {}) 
                 type="button"
                 onClick={handleAddService}
                 disabled={
-                  servicesLoading || !selectedServiceId || remainingServices.length === 0
+                  servicesLoading ||
+                  servicesError ||
+                  !selectedServiceId ||
+                  remainingServices.length === 0
                 }
                 className="sm:min-w-[140px]"
               >
@@ -364,7 +305,7 @@ export function EditorRateSettings({ className }: EditorRateSettingsProps = {}) 
           )}
         </div>
 
-        <Button onClick={handleSave} disabled={isSaving} className="mt-4 w-full">
+        <Button onClick={handleSave} disabled={isSaving || !hasChanges} className="mt-4 w-full">
           <Save className="h-4 w-4 mr-2" />
           {isSaving ? 'Saving...' : 'Save Rates'}
         </Button>

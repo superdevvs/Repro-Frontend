@@ -31,6 +31,7 @@ import { getAccountingMode, accountingConfigs } from '@/config/accountingConfig'
 import { fetchInvoices, markInvoiceAsPaid } from '@/services/invoiceService';
 import { registerInvoicesRefresh } from '@/realtime/realtimeRefreshBus';
 import { useClientBilling } from '@/hooks/useClientBilling';
+import { useEditorRates } from '@/hooks/useEditorRates';
 import {
   emptyClientBillingSummary,
   toClientBillingInvoiceViewData,
@@ -52,7 +53,6 @@ import {
   getEditorServiceId,
   getEditorServiceName,
   getEditorServiceQuantity,
-  getEditorServiceRates,
   getExplicitEditorPhotoCount,
   isPhotoServiceName,
   normalizeEditorServiceName,
@@ -335,9 +335,10 @@ const AccountingPage = () => {
     [services],
   );
 
-  const editorRates = useMemo(() => {
-    return getEditorServiceRates(user?.metadata ?? {}, activeServices);
-  }, [activeServices, user?.metadata]);
+  const { rates: editorRates } = useEditorRates(user?.id, {
+    enabled: accountingMode === 'editor' && Boolean(user?.id),
+    services: activeServices,
+  });
 
   const editingJobs = useMemo(() => {
     if (accountingMode !== 'editor') {

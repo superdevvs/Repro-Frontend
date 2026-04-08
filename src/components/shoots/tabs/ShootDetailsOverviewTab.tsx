@@ -55,6 +55,7 @@ import axios from 'axios';
 import { ShootData } from '@/types/shoots';
 import { WeatherInfo } from '@/services/weatherService';
 import { useToast } from '@/hooks/use-toast';
+import { useEditorRates } from '@/hooks/useEditorRates';
 import { API_BASE_URL } from '@/config/env';
 import { useAuth } from '@/components/auth';
 import { calculateDistance, getCoordinatesFromAddress } from '@/utils/distanceUtils';
@@ -82,7 +83,6 @@ import { OverviewServicesSection } from './overview/OverviewServicesSection';
 import {
   extractPhotoCountFromServiceName,
   findMatchingEditorRate,
-  getEditorServiceRates,
   getExplicitEditorPhotoCount,
   isPhotoServiceName,
 } from '@/utils/editorRates';
@@ -620,9 +620,9 @@ export function ShootDetailsOverviewTab({
 
   const services = getServices();
 
-  const editorRates = useMemo(() => {
-    return getEditorServiceRates(user?.metadata ?? {});
-  }, [user?.metadata]);
+  const { rates: editorRates } = useEditorRates(user?.id, {
+    enabled: isEditor && Boolean(user?.id),
+  });
 
   const getEditorServicePayout = (
     service: ServiceOption | Record<string, unknown>,
@@ -941,4 +941,3 @@ export function ShootDetailsOverviewTab({
     </div>
   );
 }
-

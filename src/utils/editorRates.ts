@@ -8,6 +8,15 @@ export interface EditorServiceRate {
   rate: number;
 }
 
+export interface EditorRatesData {
+  photo_edit_rate: number;
+  video_edit_rate: number;
+  floorplan_rate: number;
+  virtual_staging_rate: number;
+  other_rate: number;
+  service_rates: EditorServiceRate[];
+}
+
 const toNumber = (value: unknown) => {
   const numericValue = Number(value);
   return Number.isFinite(numericValue) ? numericValue : 0;
@@ -74,6 +83,21 @@ const dedupeServiceRates = (rates: EditorServiceRate[]) => {
   });
 };
 
+const matchStoredRateToService = (
+  rate: EditorServiceRate,
+  services: Service[],
+): EditorServiceRate => {
+  const matchedService = rate.serviceId
+    ? services.find((service) => String(service.id) === String(rate.serviceId))
+    : services.find((service) => getServiceMatchScore(service.name, rate.serviceName) > 0);
+
+  return {
+    serviceId: matchedService?.id || rate.serviceId,
+    serviceName: matchedService?.name || rate.serviceName,
+    rate: toNumber(rate.rate),
+  };
+};
+
 const findPreferredService = (
   services: Service[],
   matcher: (name: string) => boolean,
@@ -116,47 +140,72 @@ const buildLegacyServiceRates = (
   });
 };
 
-export const getStoredEditorServiceRates = (metadata: unknown): EditorServiceRate[] => {
+export const normalizeEditorServiceRates = (
+  rates: EditorServiceRate[],
+  services: Service[] = [],
+) => {
+  return dedupeServiceRates(rates.map((rate) => matchStoredRateToService(rate, services)));
+};
+
+export const getStoredEditorServiceRates = (
+  metadata: unknown,
+  services: Service[] = [],
+): EditorServiceRate[] => {
   const record = toRecord(metadata);
   const rawRates = record.service_rates ?? record.serviceRates ?? record.editing_service_rates;
 
   if (!Array.isArray(rawRates)) return [];
 
-  return dedupeServiceRates(
+  return normalizeEditorServiceRates(
     rawRates
       .map((value) => sanitizeServiceRate(value))
       .filter((value): value is EditorServiceRate => Boolean(value)),
+    services,
   );
+};
+
+export const getLegacyEditorServiceRates = (
+  metadata: unknown,
+  services: Service[] = [],
+): EditorServiceRate[] => {
+  return dedupeServiceRates(buildLegacyServiceRates(toRecord(metadata), services));
+};
+
+export const getEditorRatesData = (metadata: unknown): EditorRatesData => {
+  const record = toRecord(metadata);
+
+  return {
+    photo_edit_rate: toNumber(record.photo_edit_rate ?? record.photoEditRate),
+    video_edit_rate: toNumber(record.video_edit_rate ?? record.videoEditRate),
+    floorplan_rate: toNumber(record.floorplan_rate ?? record.floorplanRate),
+    virtual_staging_rate: toNumber(
+      record.virtual_staging_rate ?? record.virtualStagingRate,
+    ),
+    other_rate: toNumber(record.other_rate ?? record.otherRate),
+    service_rates: getStoredEditorServiceRates(record),
+  };
 };
 
 export const getEditorServiceRates = (
   metadata: unknown,
   services: Service[] = [],
+  options: { includeLegacyFallback?: boolean } = {},
 ): EditorServiceRate[] => {
   const record = toRecord(metadata);
   const hasExplicitStoredRates =
     Array.isArray(record.service_rates) ||
     Array.isArray(record.serviceRates) ||
     Array.isArray(record.editing_service_rates);
-  const storedRates = getStoredEditorServiceRates(record);
 
   if (hasExplicitStoredRates) {
-    return dedupeServiceRates(
-      storedRates.map((rate) => {
-        const matchedService = rate.serviceId
-          ? services.find((service) => String(service.id) === String(rate.serviceId))
-          : services.find((service) => getServiceMatchScore(service.name, rate.serviceName) > 0);
-
-        return {
-          serviceId: matchedService?.id || rate.serviceId,
-          serviceName: matchedService?.name || rate.serviceName,
-          rate: toNumber(rate.rate),
-        };
-      }),
-    );
+    return getStoredEditorServiceRates(record, services);
   }
 
-  return dedupeServiceRates(buildLegacyServiceRates(record, services));
+  if (options.includeLegacyFallback) {
+    return getLegacyEditorServiceRates(record, services);
+  }
+
+  return [];
 };
 
 export const getEditorServiceName = (service: unknown) => {

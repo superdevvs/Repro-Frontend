@@ -82,6 +82,9 @@ export const API_ROUTES = {
     assignServicePhotographer: (shootId: number | string) => `${BASE_URL}/api/shoots/${shootId}/assign-service-photographer`,
     assignServicePhotographers: (shootId: number | string) => `${BASE_URL}/api/shoots/${shootId}/assign-service-photographers`,
   },
+  editors: {
+    rates: (editorId: number | string) => `${BASE_URL}/api/editors/${editorId}/rates`,
+  },
   
   // Add more groups as needed, for example:
   // users: {
