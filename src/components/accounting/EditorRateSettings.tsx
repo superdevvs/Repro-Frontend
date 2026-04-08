@@ -30,8 +30,14 @@ interface EditorRateSettingsProps {
 export function EditorRateSettings({ className }: EditorRateSettingsProps = {}) {
   const { user, setUser } = useAuth();
   const { toast } = useToast();
-  const { data: services = [], isLoading: servicesLoading } = useServices();
-  const [rates, setRates] = useState<EditorServiceRate[]>([]);
+  const {
+    data: services = [],
+    isLoading: servicesLoading,
+    isError: servicesError,
+  } = useServices({ scope: 'public' });
+  const [rates, setRates] = useState<EditorServiceRate[]>(() =>
+    getEditorServiceRates(user?.metadata || {}, []),
+  );
   const [selectedServiceId, setSelectedServiceId] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -56,12 +62,20 @@ export function EditorRateSettings({ className }: EditorRateSettingsProps = {}) 
   }, [activeServices, rates]);
 
   useEffect(() => {
+    if (!user?.id) return;
+
+    if (rates.length === 0) {
+      setRates(getEditorServiceRates(user.metadata || {}, activeServices));
+    }
+  }, [activeServices, rates.length, user?.id, user?.metadata]);
+
+  useEffect(() => {
     const loadRates = async () => {
-      if (!user?.id || servicesLoading) return;
+      if (!user?.id) return;
 
       setIsLoading(true);
       try {
-        const token = localStorage.getItem('authToken');
+        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
         const url = `${API_BASE_URL}/api/editors/${user.id}/rates`;
 
         if (import.meta.env.DEV) {
@@ -83,9 +97,7 @@ export function EditorRateSettings({ className }: EditorRateSettingsProps = {}) 
               ...data.data,
             };
             setRates(getEditorServiceRates(updatedMetadata, activeServices));
-            if (user) {
-              setUser({ ...user, metadata: updatedMetadata });
-            }
+            setUser({ ...user, metadata: updatedMetadata });
             return;
           }
         } else if (response.status !== 404) {
@@ -102,7 +114,7 @@ export function EditorRateSettings({ className }: EditorRateSettingsProps = {}) 
     };
 
     loadRates();
-  }, [activeServices, servicesLoading, setUser, user?.id]);
+  }, [activeServices, setUser, user?.id]);
 
   useEffect(() => {
     if (!selectedServiceId && remainingServices.length > 0) {
@@ -171,7 +183,7 @@ export function EditorRateSettings({ className }: EditorRateSettingsProps = {}) 
 
     setIsSaving(true);
     try {
-      const token = localStorage.getItem('authToken');
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       const url = `${API_BASE_URL}/api/editors/${user.id}/rates`;
       const payload = getEditorRatePayload(rates);
 
@@ -244,7 +256,7 @@ export function EditorRateSettings({ className }: EditorRateSettingsProps = {}) 
     }
   };
 
-  if (isLoading || servicesLoading) {
+  if (isLoading && rates.length === 0) {
     return (
       <Card className={cn('h-full', className)}>
         <CardHeader>
@@ -266,18 +278,26 @@ export function EditorRateSettings({ className }: EditorRateSettingsProps = {}) 
           Editing Rates
         </CardTitle>
         <CardDescription>
-          Choose services from the admin service list and set a rate for each one. Remove any row you do not need.
+          Choose services and set a rate for each one. Remove any row you do not need.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-1 flex-col">
         <div className="flex flex-1 flex-col gap-4">
+          {servicesError && (
+            <div className="rounded-lg border border-dashed px-4 py-3 text-sm text-muted-foreground">
+              Service options are temporarily unavailable. Existing rates can still be viewed and saved.
+            </div>
+          )}
+
           <div className="rounded-lg border border-dashed p-3">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
               <div className="flex-1 space-y-2">
                 <Label htmlFor="editing-rate-service">Add Service</Label>
                 <Select value={selectedServiceId} onValueChange={setSelectedServiceId}>
                   <SelectTrigger id="editing-rate-service">
-                    <SelectValue placeholder="Select a service" />
+                    <SelectValue
+                      placeholder={servicesLoading ? 'Loading services...' : 'Select a service'}
+                    />
                   </SelectTrigger>
                   <SelectContent>
                     {remainingServices.length > 0 ? (
@@ -297,7 +317,9 @@ export function EditorRateSettings({ className }: EditorRateSettingsProps = {}) 
               <Button
                 type="button"
                 onClick={handleAddService}
-                disabled={!selectedServiceId || remainingServices.length === 0}
+                disabled={
+                  servicesLoading || !selectedServiceId || remainingServices.length === 0
+                }
                 className="sm:min-w-[140px]"
               >
                 <Plus className="mr-2 h-4 w-4" />
