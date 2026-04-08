@@ -109,6 +109,58 @@ export const STATUS_FILTERS_BY_TAB: Record<ActiveOperationalTab, string[]> = {
   hold: ['on_hold', 'cancelled', 'canceled', 'declined', 'no_show'],
 }
 
+export const EDITOR_ACTIVE_STATUS_KEYS = [
+  'uploaded',
+  'editing',
+  'review',
+  'qc',
+  'in_progress',
+  'raw_issue',
+  'completed',
+  'editing_complete',
+  'editing_uploaded',
+  'editing_issue',
+  'pending_review',
+  'ready_for_review',
+  'raw_uploaded',
+  'photos_uploaded',
+] as const
+
+export const EDITOR_DELIVERED_STATUS_KEYS = [
+  'delivered',
+  'ready_for_client',
+  'admin_verified',
+  'ready',
+  'workflow_completed',
+  'client_delivered',
+] as const
+
+const normalizeStatusValue = (value: unknown) =>
+  String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_')
+
+export const getOperationalStatusKey = (
+  shoot: Pick<ShootData, 'workflowStatus' | 'status'>,
+) => normalizeStatusValue(shoot.workflowStatus || shoot.status)
+
+export const isEditorActiveOperationalShoot = (
+  shoot: Pick<ShootData, 'workflowStatus' | 'status'>,
+) => EDITOR_ACTIVE_STATUS_KEYS.includes(getOperationalStatusKey(shoot) as (typeof EDITOR_ACTIVE_STATUS_KEYS)[number])
+
+export const isEditorDeliveredOperationalShoot = (
+  shoot: Pick<ShootData, 'workflowStatus' | 'status'>,
+) => EDITOR_DELIVERED_STATUS_KEYS.includes(getOperationalStatusKey(shoot) as (typeof EDITOR_DELIVERED_STATUS_KEYS)[number])
+
+export const filterEditorActiveOperationalShoots = <T extends Pick<ShootData, 'workflowStatus' | 'status'>>(
+  shoots: T[],
+) => shoots.filter((shoot) => isEditorActiveOperationalShoot(shoot))
+
+export const filterEditorDeliveredOperationalShoots = <T extends Pick<ShootData, 'workflowStatus' | 'status'>>(
+  shoots: T[],
+) => shoots.filter((shoot) => isEditorDeliveredOperationalShoot(shoot))
+
 export const DEFAULT_OPERATIONAL_FILTERS: OperationalFiltersState = {
   search: '',
   clientId: '',

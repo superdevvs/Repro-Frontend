@@ -69,6 +69,7 @@ import {
 import type { ClientShootRecord } from "@/utils/dashboardDerivedUtils";
 import type { UserRole } from "@/types/auth";
 import { useDashboardDerivedData } from "@/hooks/useDashboardDerivedData";
+import { useEditorDashboardQueue } from "@/hooks/useEditorDashboardQueue";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -545,6 +546,11 @@ const Dashboard = () => {
     clientLatestCompleted,
     fallbackPhotographers,
   } = useDashboardDerivedData({ shoots, role, user: user ?? null });
+  const {
+    sourceShoots: freshEditorSourceShoots,
+    upcomingSummaries: freshEditorUpcoming,
+    deliveredSummaries: freshEditorDelivered,
+  } = useEditorDashboardQueue(user?.id ?? null, role === 'editor');
   const { data: clientBillingData } = useClientBilling();
   const clientBillingSummary = canViewClientBillingWidget
     ? clientBillingData?.summary ?? emptyClientBillingSummary
@@ -573,6 +579,10 @@ const Dashboard = () => {
       ).length,
     [currentMonthEnd, currentMonthStart],
   );
+
+  const effectiveEditorSourceShoots = role === 'editor' ? freshEditorSourceShoots : editorSourceShoots;
+  const effectiveEditorUpcoming = role === 'editor' ? freshEditorUpcoming : editorUpcoming;
+  const effectiveEditorDelivered = role === 'editor' ? freshEditorDelivered : editorDelivered;
 
   const editingManagerScheduledShoots = useMemo(
     () => filterScheduledShoots(allSummaries),
@@ -1345,7 +1355,7 @@ const Dashboard = () => {
     () => [
       {
         id: "editor-total-assigned",
-        value: editorSourceShoots.length,
+        value: effectiveEditorSourceShoots.length,
         label: "Total edits assigned",
         subtitle: "All assigned jobs",
         icon: <FileText size={16} />,
@@ -1355,7 +1365,7 @@ const Dashboard = () => {
       },
       {
         id: "editor-in-progress",
-        value: editorUpcoming.length,
+        value: effectiveEditorUpcoming.length,
         label: "In progress edits",
         subtitle: "Active queue",
         icon: <UploadCloud size={16} />,
@@ -1365,7 +1375,7 @@ const Dashboard = () => {
       },
       {
         id: "editor-delivered",
-        value: editorDelivered.length,
+        value: effectiveEditorDelivered.length,
         label: "Delivered edits",
         subtitle: "Recently published",
         icon: <CheckCircle2 size={16} />,
@@ -1389,10 +1399,10 @@ const Dashboard = () => {
       },
     ],
     [
-      editorDelivered.length,
+      effectiveEditorDelivered.length,
       editorOpenRequestCount,
-      editorSourceShoots.length,
-      editorUpcoming.length,
+      effectiveEditorSourceShoots.length,
+      effectiveEditorUpcoming.length,
       openShootHistory,
       scrollToDashboardSection,
     ],
@@ -2478,7 +2488,7 @@ const Dashboard = () => {
           label: "Queue",
           content: (
             <UpcomingShootsCard
-              shoots={editorUpcoming}
+              shoots={effectiveEditorUpcoming}
               onSelect={(shoot, weather) => handleSelectShoot(shoot, weather)}
               role="editor"
               title="Editing queue"
@@ -2498,7 +2508,7 @@ const Dashboard = () => {
           content: (
             <Suspense fallback={<CompletedShootsCardSkeleton />}>
               <LazyCompletedShootsCard
-                shoots={editorDelivered}
+                shoots={effectiveEditorDelivered}
                 title="Delivered edits"
                 subtitle="Recently published"
                 emptyStateText="No delivered edits yet."
@@ -2537,7 +2547,7 @@ const Dashboard = () => {
             rightColumnCards={[
               <Suspense key="delivered-edits" fallback={<CompletedShootsCardSkeleton />}>
                 <LazyCompletedShootsCard
-                  shoots={editorDelivered}
+                  shoots={effectiveEditorDelivered}
                   title="Delivered edits"
                   subtitle="Recently published"
                   emptyStateText="No delivered edits yet."
@@ -2547,7 +2557,7 @@ const Dashboard = () => {
               </Suspense>,
               null,
             ]}
-            upcomingShoots={editorUpcoming}
+            upcomingShoots={effectiveEditorUpcoming}
             upcomingTitle="Editing queue"
             upcomingSubtitle="Uploads & active edits"
             upcomingEmptyStateText="No edits in progress yet."

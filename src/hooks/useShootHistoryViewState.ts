@@ -3,6 +3,8 @@ import { AutoExpandingTab } from '@/components/ui/auto-expanding-tabs'
 import {
   ActiveOperationalTab,
   STATUS_FILTERS_BY_TAB,
+  isEditorActiveOperationalShoot,
+  isEditorDeliveredOperationalShoot,
 } from '@/components/shoots/history/shootHistoryUtils'
 import { ShootData } from '@/types/shoots'
 import {
@@ -42,8 +44,8 @@ export function useShootHistoryViewState({
     const completedCount = operationalData.filter((shoot) => matchesTab(shoot, 'completed')).length
     const deliveredCount = operationalData.filter((shoot) => matchesTab(shoot, 'delivered')).length
     const holdCount = operationalData.filter((shoot) => matchesTab(shoot, 'hold')).length
-    const editingCount = operationalData.filter((shoot) => matchesTab(shoot, 'editing')).length
-    const editedCount = operationalData.filter((shoot) => matchesTab(shoot, 'edited')).length
+    const editingCount = operationalData.filter((shoot) => isEditorActiveOperationalShoot(shoot)).length
+    const editedCount = operationalData.filter((shoot) => isEditorDeliveredOperationalShoot(shoot)).length
 
     if (isEditor) {
       const editorTabs: AutoExpandingTab[] = [

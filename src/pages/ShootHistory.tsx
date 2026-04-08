@@ -19,7 +19,15 @@ import { useShootHistoryViewState } from '@/hooks/useShootHistoryViewState'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { useUserPreferences } from '@/contexts/UserPreferencesContext'
 import { Calendar as CalendarIcon, CheckCircle2, PauseCircle, Trash2 } from 'lucide-react'
-import { DEFAULT_OPERATIONAL_FILTERS, HISTORY_ALLOWED_ROLES, MapMarker, STATUS_FILTERS_BY_TAB, formatCurrency } from '@/components/shoots/history/shootHistoryUtils'
+import {
+  DEFAULT_OPERATIONAL_FILTERS,
+  HISTORY_ALLOWED_ROLES,
+  MapMarker,
+  STATUS_FILTERS_BY_TAB,
+  filterEditorActiveOperationalShoots,
+  filterEditorDeliveredOperationalShoots,
+  formatCurrency,
+} from '@/components/shoots/history/shootHistoryUtils'
 import { ShootAction, ShootData, ShootFileData, ShootHistoryRecord, ShootHistoryServiceAggregate } from '@/types/shoots'
 import { apiClient } from '@/services/api'
 import API_ROUTES from '@/lib/api'
@@ -288,20 +296,12 @@ const ShootHistory: React.FC = () => {
     
     // Editor "Editing" tab — backend sends tab=completed, filter to editing-status only
     if (activeTab === 'editing') {
-      const allowed = STATUS_FILTERS_BY_TAB['editing']
-      return operationalData.filter(s => {
-        const status = (s.workflowStatus || s.status || '').toLowerCase()
-        return allowed.some(a => status.includes(a))
-      })
+      return filterEditorActiveOperationalShoots(operationalData)
     }
 
     // Editor "Edited" tab — backend sends tab=delivered, filter to delivered-status only
     if (activeTab === 'edited') {
-      const allowed = STATUS_FILTERS_BY_TAB['edited']
-      return operationalData.filter(s => {
-        const status = (s.workflowStatus || s.status || '').toLowerCase()
-        return allowed.some(a => status.includes(a))
-      })
+      return filterEditorDeliveredOperationalShoots(operationalData)
     }
 
     // Hold tab filtering

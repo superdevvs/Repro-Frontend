@@ -510,6 +510,14 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
       .filter((group) => !group.isPast && !group.isToday)
       .sort((a, b) => (a.dayTime || Number.POSITIVE_INFINITY) - (b.dayTime || Number.POSITIVE_INFINITY));
 
+    if (isEditorRole) {
+      return {
+        visibleGroups: [...pastGroups, ...todayGroups, ...futureGroups],
+        hasPastDays: false,
+        pastButtonLabel: 'Previous shoots',
+      };
+    }
+
     const visiblePastGroups = showPastDays ? pastGroups.slice(0, 3) : [];
     const hasPastDays = pastGroups.length > 0;
 
