@@ -188,7 +188,7 @@ export const SpecialEditingRequestDialog: React.FC<SpecialEditingRequestDialogPr
     }}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle>Request center</DialogTitle>
+          <DialogTitle>Special editing requests</DialogTitle>
         </DialogHeader>
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'new' | 'ongoing')} className="flex-1 flex flex-col min-h-0">
           <TabsList className="grid w-full grid-cols-2">

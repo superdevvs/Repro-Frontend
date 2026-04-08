@@ -318,6 +318,7 @@ const Dashboard = () => {
   const isEditingManager = role === "editing_manager";
   const isAdminExperience = ["admin", "superadmin", "editing_manager"].includes(role);
   const canViewAdminDashboard = can("dashboard-admin", "view");
+  const canViewDashboardClientRequests = canViewAdminDashboard || role === "editor";
   const canLoadAvailability = !isEditingManager && can("dashboard-availability", "view");
   const canViewDashboardEditingRequests = can("dashboard-editing-requests", "view");
   const canViewContactActions = can("dashboard-contact-actions", "view");
@@ -623,7 +624,7 @@ const Dashboard = () => {
   const [liveCancellationLoaded, setLiveCancellationLoaded] = useState(false);
 
   const fetchClientRequests = useCallback(async () => {
-    if (!canViewAdminDashboard) return;
+    if (!canViewDashboardClientRequests) return;
 
     setClientRequestsLoading(true);
     try {
@@ -648,7 +649,7 @@ const Dashboard = () => {
     } finally {
       setClientRequestsLoading(false);
     }
-  }, [canViewAdminDashboard]);
+  }, [canViewDashboardClientRequests]);
 
   useEffect(() => {
     void fetchClientRequests();
@@ -705,7 +706,7 @@ const Dashboard = () => {
   }, [fetchPendingCancellationShoots]);
 
   useEffect(() => {
-    if (!canViewAdminDashboard || typeof window === 'undefined') return;
+    if (!canViewDashboardClientRequests || typeof window === 'undefined') return;
 
     const handleShootRequestSync = () => {
       void fetchClientRequests();
@@ -717,7 +718,7 @@ const Dashboard = () => {
       window.removeEventListener('shoot-request-created', handleShootRequestSync);
       window.removeEventListener('shoot-request-updated', handleShootRequestSync);
     };
-  }, [canViewAdminDashboard, fetchClientRequests]);
+  }, [canViewDashboardClientRequests, fetchClientRequests]);
 
   const removeDeletedClientRequest = useCallback((requestId: string | number) => {
     const normalizedRequestId = String(requestId);
@@ -922,7 +923,7 @@ const Dashboard = () => {
   ]);
 
   useEffect(() => {
-    if (!canViewAdminDashboard || !clientRequests.length || shoots.length === 0) return;
+    if (!canViewDashboardClientRequests || !clientRequests.length || shoots.length === 0) return;
 
     const activeShootIds = new Set(shoots.map((shoot) => String(shoot.id)));
     const staleRequestIds = new Set(
@@ -940,7 +941,7 @@ const Dashboard = () => {
       prev.filter((request) => !staleRequestIds.has(String(request.id))),
     );
     staleRequestIds.forEach((requestId) => removeRequest(requestId));
-  }, [canViewAdminDashboard, clientRequests, removeRequest, shoots]);
+  }, [canViewDashboardClientRequests, clientRequests, removeRequest, shoots]);
 
   useEffect(() => {
     registerShootOpenHandler(openShootRequestsFromRequestManager);
@@ -1004,7 +1005,7 @@ const Dashboard = () => {
 
     let handled = false;
 
-    if (state.openRequestManager && isAdminExperience && !clientRequestsLoading) {
+    if (state.openRequestManager && canViewDashboardClientRequests && !clientRequestsLoading) {
       openModal(clientRequests, state.selectedRequestId ?? null);
       handled = true;
     }
@@ -1023,7 +1024,7 @@ const Dashboard = () => {
   }, [
     clientRequests,
     clientRequestsLoading,
-    isAdminExperience,
+    canViewDashboardClientRequests,
     location.state,
     navigate,
     openModal,
@@ -1349,8 +1350,8 @@ const Dashboard = () => {
   }, [isMobile, role]);
 
   const editorOpenRequestCount = useMemo(
-    () => editingRequests.filter((request) => request.status !== "completed").length,
-    [editingRequests],
+    () => activeClientRequestCount + activeEditingRequestCount,
+    [activeClientRequestCount, activeEditingRequestCount],
   );
 
   const openEditingRequestCenter = useCallback(() => {
@@ -1364,57 +1365,6 @@ const Dashboard = () => {
     setSpecialRequestInitialTab("ongoing");
     setSpecialRequestOpen(true);
   }, []);
-
-  const editorQueueStageCounts = useMemo(() => {
-    const counts = {
-      uploaded: 0,
-      editing: 0,
-      review: 0,
-      ready: 0,
-    };
-
-    effectiveEditorUpcoming.forEach((shoot) => {
-      const statusKey = getStatusKey(shoot.workflowStatus || shoot.status);
-
-      if (["uploaded", "raw_uploaded", "photos_uploaded"].includes(statusKey)) {
-        counts.uploaded += 1;
-        return;
-      }
-
-      if (
-        [
-          "editing",
-          "in_progress",
-          "completed",
-          "editing_complete",
-          "editing_uploaded",
-          "editing_issue",
-        ].includes(statusKey)
-      ) {
-        counts.editing += 1;
-        return;
-      }
-
-      if (
-        [
-          "review",
-          "qc",
-          "pending_review",
-          "ready_for_review",
-          "raw_issue",
-        ].includes(statusKey)
-      ) {
-        counts.review += 1;
-        return;
-      }
-
-      if (["ready", "ready_for_client", "admin_verified"].includes(statusKey)) {
-        counts.ready += 1;
-      }
-    });
-
-    return counts;
-  }, [effectiveEditorUpcoming]);
 
   const editorMetricTiles = useMemo<DashboardMetricTile[]>(
     () => [
@@ -2525,19 +2475,23 @@ const Dashboard = () => {
 
     if (role === "editor") {
       const editorRequestsCard = (
-        <div id="editing-requests">
-          <Suspense fallback={<EditingRequestsCardSkeletonWrapper />}>
-            <LazyEditingRequestsCard
-              requests={editingRequests}
-              loading={editingRequestsLoading}
-              onCreate={openEditingRequestCenter}
-              onRequestClick={openEditingRequestById}
-              onUpdate={updateEditingRequest}
-              title="Requests"
-              emptyStateText="No active requests."
-              actionLabel="View all"
-            />
-          </Suspense>
+        <div id="requests-queue">
+          <PendingReviewsCard
+            reviews={[]}
+            issues={[]}
+            onSelect={(shoot) => handleSelectShoot(shoot)}
+            title="Requests"
+            emptyRequestsText="No active requests."
+            editingRequests={editingRequests}
+            editingRequestsLoading={editingRequestsLoading}
+            onCreateEditingRequest={openEditingRequestCenter}
+            onEditingRequestClick={openEditingRequestById}
+            editingActionLabel="View all"
+            clientRequests={clientRequests}
+            clientRequestsLoading={clientRequestsLoading}
+            showEditingTab
+            showClientTab
+          />
         </div>
       );
 
@@ -2585,15 +2539,7 @@ const Dashboard = () => {
             title={greetingTitleFullName}
             description="Upcoming edits, requests, and delivery progress."
             metricTiles={editorMetricTiles}
-            leftColumnCard={
-              <EditorQueueBreakdownCard
-                counts={editorQueueStageCounts}
-                activeCount={effectiveEditorUpcoming.length}
-                requestCount={editorOpenRequestCount}
-                onViewQueue={() => openShootHistory("editing")}
-                onOpenRequests={openEditingRequestCenter}
-              />
-            }
+            leftColumnCard={null}
             rightColumnCards={[
               <Suspense key="delivered-edits" fallback={<CompletedShootsCardSkeleton />}>
                 <LazyCompletedShootsCard
@@ -3136,70 +3082,6 @@ const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
         </div>
       </DashboardLayout>
     </DevProfiler>
-  );
-};
-
-type EditorQueueBreakdownCounts = {
-  uploaded: number;
-  editing: number;
-  review: number;
-  ready: number;
-};
-
-interface EditorQueueBreakdownCardProps {
-  counts: EditorQueueBreakdownCounts;
-  activeCount: number;
-  requestCount: number;
-  onViewQueue: () => void;
-  onOpenRequests: () => void;
-}
-
-const EditorQueueBreakdownCard: React.FC<EditorQueueBreakdownCardProps> = ({
-  counts,
-  activeCount,
-  requestCount,
-  onViewQueue,
-  onOpenRequests,
-}) => {
-  const rows = [
-    { label: "Uploaded", value: counts.uploaded },
-    { label: "In editing", value: counts.editing },
-    { label: "In review", value: counts.review },
-    { label: "Ready", value: counts.ready },
-  ];
-
-  return (
-    <Card className="flex flex-col gap-4 h-full">
-      <div>
-        <h2 className="text-base sm:text-lg font-bold text-foreground">Queue stages</h2>
-        <p className="text-xs sm:text-sm text-muted-foreground">
-          A quick view of where your active edits are sitting right now.
-        </p>
-      </div>
-
-      <div className="space-y-2">
-        {rows.map((row) => (
-          <div
-            key={row.label}
-            className="flex items-center justify-between rounded-2xl border border-border/70 bg-muted/20 px-3 py-2.5"
-          >
-            <span className="text-sm font-medium text-foreground">{row.label}</span>
-            <Badge variant="secondary" className="min-w-8 justify-center">
-              {row.value}
-            </Badge>
-          </div>
-        ))}
-      </div>
-
-      <div className="grid gap-2 mt-auto">
-        <Button size="sm" onClick={onViewQueue}>
-          View all active edits ({activeCount})
-        </Button>
-        <Button size="sm" variant="outline" onClick={onOpenRequests}>
-          Open request center ({requestCount})
-        </Button>
-      </div>
-    </Card>
   );
 };
 

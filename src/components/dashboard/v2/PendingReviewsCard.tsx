@@ -25,6 +25,7 @@ interface PendingReviewsCardProps {
   editingRequestsLoading?: boolean;
   onCreateEditingRequest?: () => void;
   onEditingRequestClick?: (requestId: number) => void;
+  editingActionLabel?: string;
   // Client Requests props
   clientRequests?: DashboardClientRequest[];
   clientRequestsLoading?: boolean;
@@ -91,6 +92,7 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
   editingRequestsLoading = false,
   onCreateEditingRequest,
   onEditingRequestClick,
+  editingActionLabel = 'New request',
   clientRequests = [],
   clientRequestsLoading = false,
   onClientRequestClick,
@@ -245,7 +247,7 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
                 <p className="text-xs text-muted-foreground italic mb-3">No active requests.</p>
                 {onCreateEditingRequest && (
                   <Button size="sm" onClick={onCreateEditingRequest} className="w-full">
-                    New request
+                    {editingActionLabel}
                   </Button>
                 )}
               </div>
@@ -279,7 +281,7 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
                 {onCreateEditingRequest && (
                   <div className="pt-2 mt-auto">
                     <Button size="sm" onClick={onCreateEditingRequest} className="w-full">
-                      New request
+                      {editingActionLabel}
                     </Button>
                   </div>
                 )}
