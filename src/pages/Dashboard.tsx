@@ -2485,6 +2485,9 @@ const Dashboard = () => {
             editorId={user?.id ?? null}
             isLoading={freshEditorQueueLoading}
             isError={freshEditorQueueError}
+            onOpenShoot={(shootId) => {
+              void openShootInModalById(shootId, { initialTab: 'overview' });
+            }}
           />
         </div>
       );
