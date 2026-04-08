@@ -35,6 +35,7 @@ import { useDashboardOverview } from "@/hooks/useDashboardOverview";
 import { WeatherInfo } from "@/services/weatherService";
 import { UpcomingShootsCard } from "@/components/dashboard/v2/UpcomingShootsCard";
 import { PendingReviewsCard } from "@/components/dashboard/v2/PendingReviewsCard";
+import { EditorRawLinksCard } from "@/components/dashboard/v2/EditorRawLinksCard";
 import { RequestedShootsCard } from "@/components/dashboard/v2/RequestedShootsCard";
 import { ShootApprovalModal } from "@/components/shoots/ShootApprovalModal";
 import { ShootDeclineModal } from "@/components/shoots/ShootDeclineModal";
@@ -551,8 +552,11 @@ const Dashboard = () => {
   } = useDashboardDerivedData({ shoots, role, user: user ?? null });
   const {
     sourceShoots: freshEditorSourceShoots,
+    upcomingShoots: freshEditorUpcomingShoots,
     upcomingSummaries: freshEditorUpcoming,
     deliveredSummaries: freshEditorDelivered,
+    isLoading: freshEditorQueueLoading,
+    isError: freshEditorQueueError,
   } = useEditorDashboardQueue(user?.id ?? null, role === 'editor');
   const { data: clientBillingData } = useClientBilling();
   const clientBillingSummary = canViewClientBillingWidget
@@ -2474,6 +2478,17 @@ const Dashboard = () => {
     }
 
     if (role === "editor") {
+      const editorRawLinksCard = (
+        <div id="editor-raw-links-card" className="h-full flex flex-col">
+          <EditorRawLinksCard
+            shoots={freshEditorUpcomingShoots}
+            editorId={user?.id ?? null}
+            isLoading={freshEditorQueueLoading}
+            isError={freshEditorQueueError}
+          />
+        </div>
+      );
+
       const editorRequestsCard = (
         <div id="requests-queue">
           <PendingReviewsCard
@@ -2539,7 +2554,7 @@ const Dashboard = () => {
             title={greetingTitleFullName}
             description="Upcoming edits, requests, and delivery progress."
             metricTiles={editorMetricTiles}
-            leftColumnCard={null}
+            leftColumnCard={editorRawLinksCard}
             rightColumnCards={[
               <Suspense key="delivered-edits" fallback={<CompletedShootsCardSkeleton />}>
                 <LazyCompletedShootsCard
