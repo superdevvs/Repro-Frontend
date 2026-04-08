@@ -1,10 +1,13 @@
 import React from 'react';
 import { format } from 'date-fns';
-import { AlertTriangle, ArrowUpRight, Loader2, UploadCloud } from 'lucide-react';
+import { AlertTriangle, ArrowUpRight, Copy, Loader2, UploadCloud } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/dashboard/v2/SharedComponents';
+import { useToast } from '@/hooks/use-toast';
+import { API_BASE_URL } from '@/config/env';
+import { getApiHeaders } from '@/services/api';
 import type { ShootData } from '@/types/shoots';
 import { cn } from '@/lib/utils';
 
@@ -15,6 +18,16 @@ interface EditorRawLinksCardProps {
   isError?: boolean;
   onOpenShoot?: (shootId: string | number) => void;
 }
+
+type ShareLink = {
+  id: number;
+  share_url: string;
+  media_stage?: string;
+  created_at?: string | null;
+  is_active?: boolean;
+  is_revoked?: boolean;
+  is_expired?: boolean;
+};
 
 const getRawFileCount = (shoot: ShootData) => {
   if (typeof shoot.rawPhotoCount === 'number') {
@@ -54,6 +67,33 @@ const formatShortDate = (value?: string | null) => {
 
 const formatTimeLabel = (value?: string | null) => value || 'Time TBD';
 
+const normalizeShareLinksResponse = (payload: unknown): ShareLink[] => {
+  if (Array.isArray(payload)) {
+    return payload as ShareLink[];
+  }
+
+  if (payload && typeof payload === 'object') {
+    const data = (payload as Record<string, unknown>).data;
+    if (Array.isArray(data)) {
+      return data as ShareLink[];
+    }
+  }
+
+  return [];
+};
+
+const sortShareLinks = (links: ShareLink[]) =>
+  [...links].sort((a, b) => {
+    const first = a.created_at ? new Date(a.created_at).getTime() : 0;
+    const second = b.created_at ? new Date(b.created_at).getTime() : 0;
+    return second - first;
+  });
+
+const isRawStage = (mediaStage?: string | null) => {
+  const normalized = String(mediaStage || 'raw').toLowerCase();
+  return normalized === 'raw' || normalized.startsWith('raw_');
+};
+
 export function EditorRawLinksCard({
   shoots,
   isLoading = false,
@@ -61,14 +101,70 @@ export function EditorRawLinksCard({
   onOpenShoot,
 }: EditorRawLinksCardProps) {
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const [shareLinksByShoot, setShareLinksByShoot] = React.useState<Record<string, ShareLink | null>>({});
 
   const sortedShoots = React.useMemo(() => sortShoots(shoots), [shoots]);
-  const visibleShoots = React.useMemo(() => sortedShoots.slice(0, 2), [sortedShoots]);
   const hasMoreShoots = sortedShoots.length > 2;
   const missingRawCount = React.useMemo(
     () => sortedShoots.filter((shoot) => !hasRawAssets(shoot)).length,
     [sortedShoots],
   );
+
+  React.useEffect(() => {
+    let isMounted = true;
+
+    const loadShareLinks = async () => {
+      if (sortedShoots.length === 0) {
+        if (isMounted) {
+          setShareLinksByShoot({});
+        }
+        return;
+      }
+
+      const results = await Promise.all(
+        sortedShoots.map(async (shoot) => {
+          try {
+            const response = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/share-links`, {
+              headers: {
+                ...getApiHeaders(),
+                Accept: 'application/json',
+              },
+            });
+
+            if (!response.ok) {
+              return [String(shoot.id), null] as const;
+            }
+
+            const data = await response.json();
+            const links = sortShareLinks(normalizeShareLinksResponse(data));
+            const activeRawLink =
+              links.find((link) => {
+                if (link.is_revoked || link.is_expired || link.is_active === false) {
+                  return false;
+                }
+
+                return isRawStage(link.media_stage);
+              }) ?? null;
+
+            return [String(shoot.id), activeRawLink] as const;
+          } catch {
+            return [String(shoot.id), null] as const;
+          }
+        }),
+      );
+
+      if (isMounted) {
+        setShareLinksByShoot(Object.fromEntries(results));
+      }
+    };
+
+    void loadShareLinks();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [sortedShoots]);
 
   const handleOpenShoot = (shootId: string | number) => {
     if (onOpenShoot) {
@@ -81,6 +177,34 @@ export function EditorRawLinksCard({
 
   const handleOpenQueue = () => {
     navigate('/shoot-history?tab=completed');
+  };
+
+  const handleCopyShareLink = async (event: React.MouseEvent<HTMLButtonElement>, shootId: string | number) => {
+    event.stopPropagation();
+    const shareLink = shareLinksByShoot[String(shootId)]?.share_url;
+
+    if (!shareLink) {
+      toast({
+        title: 'No share link yet',
+        description: 'This shoot does not have an active raw share link yet.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(shareLink);
+      toast({
+        title: 'Share link copied',
+        description: 'Raw files link copied to clipboard.',
+      });
+    } catch {
+      toast({
+        title: 'Copy failed',
+        description: 'Unable to copy the share link right now.',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (
@@ -134,6 +258,7 @@ export function EditorRawLinksCard({
                 {sortedShoots.map((shoot, index) => {
                   const rawCount = getRawFileCount(shoot);
                   const isReady = hasRawAssets(shoot);
+                  const shareLink = shareLinksByShoot[String(shoot.id)]?.share_url;
 
                   return (
                     <button
@@ -185,9 +310,22 @@ export function EditorRawLinksCard({
                             {rawCount}
                           </p>
                         </div>
-                        <p className="text-xs text-slate-500 dark:text-muted-foreground">
-                          Shoot #{shoot.id}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 rounded-full px-3 text-xs"
+                            onClick={(event) => void handleCopyShareLink(event, shoot.id)}
+                            disabled={!shareLink}
+                          >
+                            <Copy className="mr-1.5 h-3.5 w-3.5" />
+                            Share link
+                          </Button>
+                          <p className="text-xs text-slate-500 dark:text-muted-foreground">
+                            Shoot #{shoot.id}
+                          </p>
+                        </div>
                       </div>
                     </button>
                   );
