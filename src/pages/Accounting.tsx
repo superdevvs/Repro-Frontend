@@ -206,7 +206,7 @@ const AccountingPage = () => {
   } = useClientBilling();
 
   const loadInvoices = useCallback(async (): Promise<void> => {
-    if (accountingMode === 'client') {
+    if (accountingMode === 'client' || accountingMode === 'editor') {
       setInvoices([]);
       setLoading(false);
       return;
@@ -257,7 +257,7 @@ const AccountingPage = () => {
 
   // Fetch invoices from API
   useEffect(() => {
-    if (accountingMode === 'client') {
+    if (accountingMode === 'client' || accountingMode === 'editor') {
       setLoading(false);
       return;
     }
@@ -266,7 +266,7 @@ const AccountingPage = () => {
   }, [accountingMode, loadInvoices]);
 
   useEffect(() => {
-    if (accountingMode === 'client') {
+    if (accountingMode === 'client' || accountingMode === 'editor') {
       return;
     }
 
