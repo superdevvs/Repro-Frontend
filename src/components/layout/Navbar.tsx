@@ -26,7 +26,7 @@ import { RobbieInsightStrip } from '@/components/ai/RobbieInsightStrip';
 import { usePermission } from '@/hooks/usePermission';
 
 const DEFAULT_WEATHER_COORDS = { lat: 40.7128, lon: -74.006 };
-const IP_LOCATION_KEY = 'dashboard.ipLocation.v5';
+const IP_LOCATION_KEY = 'dashboard.ipLocation.v6';
 const IP_LOCATION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 type WeatherCoordSource = 'ip' | 'default';
 type IpLocation = {
@@ -113,8 +113,10 @@ const fetchIpLocation = async (signal?: AbortSignal): Promise<IpLocation | null>
         return {
           lat: data.latitude,
           lon: data.longitude,
-          // Keep the visible label tied to the direct IP provider result.
-          label: location.label ?? (typeof data.location === 'string' ? data.location : null),
+          label:
+            (typeof data.location === 'string' && data.location.trim())
+              ? data.location.trim()
+              : location.label,
           postalCode: typeof data.postalCode === 'string' ? data.postalCode : location.postalCode ?? null,
           countryCode: location.countryCode ?? null,
         };

@@ -1587,6 +1587,8 @@ export default function Availability() {
                   variant="outline"
                   size="sm"
                   className="rounded-md whitespace-nowrap h-8 px-2.5 text-xs"
+                  aria-label="Availability Sync"
+                  title="Availability Sync"
                   onClick={() => setIsSyncModalOpen(true)}
                 >
                   <RefreshCw className="h-4 w-4" />
@@ -1647,7 +1649,7 @@ export default function Availability() {
                     onClick={() => setIsSyncModalOpen(true)}
                   >
                     <RefreshCw className="h-4 w-4 mr-2" />
-                    Sync
+                    Availability Sync
                   </Button>
                 </div>
               }

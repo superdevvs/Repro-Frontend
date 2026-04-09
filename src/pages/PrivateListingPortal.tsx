@@ -158,12 +158,12 @@ const ExclusiveListingGridCard = ({
           <div className="flex items-start justify-between gap-3">
             <Badge
               variant="outline"
-              className="rounded-full border-white/18 bg-white/88 px-3 py-1.5 text-[11px] font-semibold tracking-[0.02em] text-slate-900 shadow-sm backdrop-blur-sm"
+              className="rounded-full border-white/80 bg-white px-3 py-1.5 text-[11px] font-semibold tracking-[0.02em] text-slate-900 shadow-sm"
             >
               <Lock className="mr-1.5 h-3 w-3" />
               Exclusive Listing
             </Badge>
-            <div className="inline-flex items-center gap-1.5 rounded-full border border-white/18 bg-black/18 px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.18em] text-white/92 backdrop-blur-sm transition-colors duration-300 group-hover:bg-black/28">
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-[#8fc2ff] bg-[#79b3ff] px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.18em] text-white shadow-sm transition-colors duration-300 group-hover:bg-[#5ea4ff]">
               <span>Open</span>
               <ExternalLink className="h-3 w-3" />
             </div>

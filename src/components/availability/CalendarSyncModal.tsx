@@ -22,6 +22,7 @@ import {
   generateOutlookCalendarURL,
 } from "@/utils/icsGenerator";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 
 type CalendarType = "google" | "apple" | "outlook" | null;
 type DateRangeOption = "30days" | "90days" | "custom";
@@ -300,9 +301,14 @@ export function CalendarSyncModal({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Sync your availability</DialogTitle>
+          <div className="flex items-center gap-2">
+            <DialogTitle>Availability Sync</DialogTitle>
+            <Badge variant="secondary" className="border border-slate-200 bg-slate-50 text-slate-700">
+              One-time export
+            </Badge>
+          </div>
           <DialogDescription>
-            Sync your availability to Google, Apple or Outlook calendars.
+            Export your availability to Google, Apple, or Outlook. This is separate from the ongoing Google shoot sync in Photographer Account.
           </DialogDescription>
         </DialogHeader>
 
@@ -314,7 +320,7 @@ export function CalendarSyncModal({
                 Sync started
               </p>
               <p className="text-sm text-green-700 dark:text-green-300 mt-1">
-                We've sent your availability to {calendarName} for {lastSyncedInfo.dateRange}.
+                We prepared your availability export for {calendarName} for {lastSyncedInfo.dateRange}.
               </p>
             </div>
           </div>
@@ -495,14 +501,14 @@ export function CalendarSyncModal({
           <div className="space-y-2">
             <Label className="text-base font-semibold">Sync type</Label>
             <div className="text-sm text-muted-foreground">
-              This is a one-time sync. You can sync again anytime.
+              This exports availability only and does not create an ongoing live connection. You can export again anytime.
             </div>
           </div>
         </div>
 
         <DialogFooter className="flex items-center justify-between sm:justify-between">
           <p className="text-xs text-muted-foreground">
-            You can change this anytime from Settings → Calendar sync.
+            For automatic shoot syncing, use Google Calendar in Photographer Account → Preferences.
           </p>
           <div className="flex gap-2">
             <Button variant="ghost" onClick={onClose}>

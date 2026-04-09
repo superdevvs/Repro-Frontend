@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -29,6 +29,8 @@ import { format } from 'date-fns';
 import { ShootsDialogs } from '@/components/dashboard/ShootsDialogs';
 import { ShootData } from '@/types/shoots';
 import { ImageUpload } from '@/components/profile/ImageUpload';
+import API_ROUTES from '@/lib/api';
+import { GoogleCalendarStatusBadge } from '@/components/integrations/GoogleCalendarStatusBadge';
 
 // Define form schemas
 const personalInfoSchema = z.object({
@@ -52,6 +54,31 @@ type PersonalInfoFormValues = z.infer<typeof personalInfoSchema>;
 type SpecialtiesFormValues = z.infer<typeof specialtiesSchema>;
 type NotificationsFormValues = z.infer<typeof notificationsSchema>;
 
+type GoogleCalendarStatus = {
+  available: boolean;
+  connected: boolean;
+  provider_email?: string | null;
+  calendar_id?: string | null;
+  sync_enabled: boolean;
+  last_synced_at?: string | null;
+  last_error?: string | null;
+};
+
+const getStoredToken = () =>
+  window.localStorage.getItem('authToken') ||
+  window.localStorage.getItem('token') ||
+  window.localStorage.getItem('access_token');
+
+const buildAuthHeaders = () => {
+  const token = getStoredToken();
+
+  return {
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+};
+
 const PhotographerAccount = () => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -61,6 +88,13 @@ const PhotographerAccount = () => {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [profileImage, setProfileImage] = useState<string>(user?.avatar || '');
+  const [googleCalendarStatus, setGoogleCalendarStatus] = useState<GoogleCalendarStatus>({
+    available: true,
+    connected: false,
+    sync_enabled: false,
+  });
+  const [isGoogleCalendarLoading, setIsGoogleCalendarLoading] = useState(true);
+  const [googleCalendarAction, setGoogleCalendarAction] = useState<'connect' | 'disconnect' | 'resync' | null>(null);
 
   // Filter shoots by this photographer
   const photographerShoots = shoots.filter(shoot => 
@@ -187,6 +221,154 @@ const PhotographerAccount = () => {
       title: 'Profile photo updated',
       description: 'Your profile photo has been updated successfully.',
     });
+  };
+
+  const fetchGoogleCalendarStatus = async () => {
+    setIsGoogleCalendarLoading(true);
+
+    try {
+      const response = await fetch(API_ROUTES.googleCalendar.status, {
+        headers: buildAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error('Unable to load Google Calendar status.');
+      }
+
+      const payload = await response.json();
+      setGoogleCalendarStatus(payload.data);
+    } catch (error) {
+      setGoogleCalendarStatus({
+        available: false,
+        connected: false,
+        sync_enabled: false,
+        last_error: error instanceof Error ? error.message : 'Unable to load Google Calendar status.',
+      });
+    } finally {
+      setIsGoogleCalendarLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchGoogleCalendarStatus();
+  }, []);
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const googleCalendarState = url.searchParams.get('google_calendar');
+    const message = url.searchParams.get('message');
+
+    if (!googleCalendarState) {
+      return;
+    }
+
+    if (googleCalendarState === 'connected') {
+      toast({
+        title: 'Google Calendar connected',
+        description: 'New and updated shoots will now sync to your primary Google Calendar.',
+      });
+    } else if (googleCalendarState === 'error') {
+      toast({
+        title: 'Google Calendar connection failed',
+        description: message || 'We could not connect your Google Calendar.',
+        variant: 'destructive',
+      });
+    }
+
+    url.searchParams.delete('google_calendar');
+    url.searchParams.delete('message');
+    window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+
+    fetchGoogleCalendarStatus();
+  }, [toast]);
+
+  const handleGoogleCalendarConnect = async () => {
+    setGoogleCalendarAction('connect');
+
+    try {
+      const response = await fetch(API_ROUTES.googleCalendar.connect, {
+        method: 'POST',
+        headers: buildAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error('Unable to start Google Calendar connection.');
+      }
+
+      const payload = await response.json();
+      const authorizationUrl = payload?.data?.authorization_url;
+
+      if (!authorizationUrl) {
+        throw new Error('Google Calendar authorization URL was not returned.');
+      }
+
+      window.location.assign(authorizationUrl);
+    } catch (error) {
+      toast({
+        title: 'Google Calendar connection failed',
+        description: error instanceof Error ? error.message : 'Unable to start Google Calendar connection.',
+        variant: 'destructive',
+      });
+      setGoogleCalendarAction(null);
+    }
+  };
+
+  const handleGoogleCalendarDisconnect = async () => {
+    setGoogleCalendarAction('disconnect');
+
+    try {
+      const response = await fetch(API_ROUTES.googleCalendar.disconnect, {
+        method: 'DELETE',
+        headers: buildAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error('Unable to disconnect Google Calendar.');
+      }
+
+      toast({
+        title: 'Google Calendar disconnected',
+        description: 'Shoot sync to Google Calendar has been turned off.',
+      });
+      await fetchGoogleCalendarStatus();
+    } catch (error) {
+      toast({
+        title: 'Disconnect failed',
+        description: error instanceof Error ? error.message : 'Unable to disconnect Google Calendar.',
+        variant: 'destructive',
+      });
+    } finally {
+      setGoogleCalendarAction(null);
+    }
+  };
+
+  const handleGoogleCalendarResync = async () => {
+    setGoogleCalendarAction('resync');
+
+    try {
+      const response = await fetch(API_ROUTES.googleCalendar.resync, {
+        method: 'POST',
+        headers: buildAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error('Unable to start Google Calendar resync.');
+      }
+
+      toast({
+        title: 'Google Calendar resync started',
+        description: 'We are refreshing your synced shoot events now.',
+      });
+      await fetchGoogleCalendarStatus();
+    } catch (error) {
+      toast({
+        title: 'Resync failed',
+        description: error instanceof Error ? error.message : 'Unable to start Google Calendar resync.',
+        variant: 'destructive',
+      });
+    } finally {
+      setGoogleCalendarAction(null);
+    }
   };
 
   return (
@@ -490,20 +672,88 @@ const PhotographerAccount = () => {
                           
                           <h3 className="text-lg font-medium pt-4">Calendar Sync</h3>
                           <p className="text-sm text-muted-foreground">
-                            Connect your calendar to automatically sync your shoots
+                            Connect Google Calendar to automatically sync scheduled shoots from REPro to your primary calendar.
                           </p>
-                          
-                          <div className="space-y-2">
-                            <Button variant="outline" className="w-full">
-                              Connect Google Calendar
-                            </Button>
-                            <Button variant="outline" className="w-full">
-                              Connect iCalendar
-                            </Button>
-                            <Button variant="outline" className="w-full">
-                              Connect Outlook Calendar
-                            </Button>
-                          </div>
+
+                          <Card className="border-dashed">
+                            <CardHeader className="space-y-3">
+                              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                <div className="space-y-1">
+                                  <CardTitle className="text-base">Google Calendar</CardTitle>
+                                  <CardDescription>
+                                    One-way sync for shoots only. Availability export stays separate on the Availability page.
+                                  </CardDescription>
+                                </div>
+                                <GoogleCalendarStatusBadge
+                                  available={googleCalendarStatus.available}
+                                  connected={googleCalendarStatus.connected}
+                                  syncEnabled={googleCalendarStatus.sync_enabled}
+                                />
+                              </div>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                              <div className="rounded-lg border bg-muted/30 p-4 text-sm space-y-2">
+                                <div className="flex items-center justify-between gap-4">
+                                  <span className="text-muted-foreground">Calendar</span>
+                                  <span className="font-medium">
+                                    {googleCalendarStatus.connected
+                                      ? googleCalendarStatus.provider_email || 'Primary calendar'
+                                      : 'Not connected'}
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between gap-4">
+                                  <span className="text-muted-foreground">Sync target</span>
+                                  <span className="font-medium">
+                                    {googleCalendarStatus.connected ? 'Primary Google Calendar' : 'No active sync'}
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between gap-4">
+                                  <span className="text-muted-foreground">Last sync</span>
+                                  <span className="font-medium">
+                                    {googleCalendarStatus.last_synced_at
+                                      ? new Date(googleCalendarStatus.last_synced_at).toLocaleString()
+                                      : 'Not synced yet'}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {googleCalendarStatus.last_error && (
+                                <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+                                  {googleCalendarStatus.last_error}
+                                </div>
+                              )}
+
+                              <div className="flex flex-col gap-2 sm:flex-row">
+                                <Button
+                                  type="button"
+                                  onClick={handleGoogleCalendarConnect}
+                                  disabled={isGoogleCalendarLoading || googleCalendarAction !== null || !googleCalendarStatus.available}
+                                >
+                                  {googleCalendarAction === 'connect'
+                                    ? 'Connecting...'
+                                    : googleCalendarStatus.connected
+                                      ? 'Reconnect Google Calendar'
+                                      : 'Connect Google Calendar'}
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  onClick={handleGoogleCalendarResync}
+                                  disabled={!googleCalendarStatus.connected || googleCalendarAction !== null}
+                                >
+                                  {googleCalendarAction === 'resync' ? 'Resyncing...' : 'Manual Resync'}
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  onClick={handleGoogleCalendarDisconnect}
+                                  disabled={!googleCalendarStatus.connected || googleCalendarAction !== null}
+                                >
+                                  {googleCalendarAction === 'disconnect' ? 'Disconnecting...' : 'Disconnect'}
+                                </Button>
+                              </div>
+                            </CardContent>
+                          </Card>
                         </div>
                         
                         <Button type="submit" className="w-full">Save Preferences</Button>

@@ -18,22 +18,14 @@ import {
   CheckCircle,
   Inbox,
 } from 'lucide-react';
-import { getMessagingOverview, getEmailMessages } from '@/services/messaging';
+import { getMessagingOverview } from '@/services/messaging';
 import { Skeleton } from '@/components/ui/skeleton';
-import { format } from 'date-fns';
 
 export default function MessagingOverview() {
   const { data: overview, isLoading: overviewLoading } = useQuery({
     queryKey: ['messaging-overview'],
     queryFn: getMessagingOverview,
   });
-
-  const { data: recentMessages, isLoading: messagesLoading } = useQuery({
-    queryKey: ['recent-messages'],
-    queryFn: () => getEmailMessages({ per_page: 10 }),
-  });
-
-  const messages = recentMessages?.data || [];
 
   const stats = [
     { title: 'Sent Today', value: overview?.total_sent_today || 0, icon: Send, color: 'text-emerald-500', bgColor: 'bg-emerald-100/70' },
@@ -50,15 +42,6 @@ export default function MessagingOverview() {
     { title: 'Automations', description: 'Configure automation rules', icon: Zap, href: '/messaging/email/automations', color: 'text-orange-600' },
     { title: 'Settings', description: 'Email & SMS providers', icon: Settings, href: '/messaging/settings', color: 'text-gray-600' },
   ];
-
-  const statusColors = {
-    SENT: 'bg-green-100 text-green-800',
-    SCHEDULED: 'bg-blue-100 text-blue-800',
-    FAILED: 'bg-red-100 text-red-800',
-    QUEUED: 'bg-yellow-100 text-yellow-800',
-    DELIVERED: 'bg-green-100 text-green-800',
-    CANCELLED: 'bg-gray-100 text-gray-800',
-  };
 
   const heroMetrics = useMemo(() => ([
     { label: 'Delivery rate', value: overview?.delivery_rate ? `${overview.delivery_rate}%` : '—', icon: TrendingUp, lightTone: 'text-emerald-600', darkTone: 'text-emerald-100' },
@@ -200,86 +183,6 @@ export default function MessagingOverview() {
           </div>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-3 min-w-0">
-          <Card className="lg:col-span-2 overflow-hidden">
-            <div className="flex items-center justify-between p-4 sm:p-6 pb-3 sm:pb-4 gap-3">
-              <div>
-                <h2 className="text-xl font-semibold">Recent Activity</h2>
-                <p className="text-sm text-muted-foreground">Latest outbound and inbound messages</p>
-              </div>
-              <Button variant="outline" asChild>
-                <Link to="/messaging/email/inbox">View Inbox</Link>
-              </Button>
-            </div>
-            {messagesLoading ? (
-              <div className="p-4 space-y-3">
-                {[...Array(5)].map((_, i) => (
-                  <Skeleton key={i} className="h-16 w-full" />
-                ))}
-              </div>
-            ) : messages.length === 0 ? (
-              <div className="p-12 text-center text-muted-foreground">
-                <Mail className="h-12 w-12 mx-auto opacity-20 mb-2" />
-                <p>No recent activity</p>
-              </div>
-            ) : (
-              <div className="divide-y">
-                {messages.map((message) => (
-                  <Link key={message.id} to="/messaging/email/inbox" className="block p-3 sm:p-4 hover:bg-muted/50 transition-colors">
-                    <div className="flex items-start justify-between gap-2 sm:gap-4 min-w-0">
-                      <div className="flex-1 min-w-0 overflow-hidden">
-                        <div className="flex items-center gap-2 mb-1 min-w-0">
-                          <span className="font-medium truncate text-sm sm:text-base">
-                            {message.direction === 'OUTBOUND' ? message.to_address : message.from_address}
-                          </span>
-                          <Badge className={`${statusColors[message.status]} flex-shrink-0`}>
-                            {message.status}
-                          </Badge>
-                        </div>
-                        <p className="text-sm font-medium truncate">
-                          {message.subject || '(No Subject)'}
-                        </p>
-                        <p className="text-xs sm:text-sm text-muted-foreground truncate">
-                          {message.body_text?.substring(0, 80)}
-                        </p>
-                      </div>
-                      <div className="hidden sm:block text-sm text-muted-foreground whitespace-nowrap">
-                        {format(new Date(message.created_at), 'MMM d, h:mm a')}
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </Card>
-
-          <Card className="p-6 space-y-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">SMS Queue</p>
-                <p className="text-2xl font-semibold">{overview?.unread_sms_count || 0}</p>
-              </div>
-              <Button variant="outline" size="sm" asChild>
-                <Link to="/messaging/sms">Open SMS</Link>
-              </Button>
-            </div>
-            <div className="space-y-3 text-sm text-muted-foreground">
-              <div>
-                <p className="font-medium text-foreground">Upcoming broadcasts</p>
-                <p>{overview?.upcoming_broadcasts || 'No broadcasts scheduled'}</p>
-              </div>
-              <div>
-                <p className="font-medium text-foreground">Automation alerts</p>
-                <p>• {overview?.automation_summary?.paused || 0} paused rules</p>
-                <p>• Deliverability steady at {overview?.delivery_rate ? `${overview.delivery_rate}%` : '92%'}</p>
-              </div>
-            </div>
-            <Button asChild>
-              <Link to="/messaging/email/automations">Review Automations</Link>
-            </Button>
-          </Card>
-        </div>
-
         <Card className="p-6 bg-blue-50 border-blue-200">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -305,4 +208,3 @@ export default function MessagingOverview() {
     </DashboardLayout>
   );
 }
-
