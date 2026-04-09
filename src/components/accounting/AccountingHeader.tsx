@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-type AccountingTab = 'home' | 'photographers';
+type AccountingTab = 'home' | 'photographers' | 'editors' | 'sales-reps';
 
 interface AccountingHeaderProps {
   onCreateInvoice: () => void;
@@ -225,6 +225,28 @@ export function AccountingHeader({
               }`}
             >
               Photographers
+            </button>
+            <button
+              type="button"
+              onClick={() => onTabChange('editors')}
+              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                activeTab === 'editors'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Editors
+            </button>
+            <button
+              type="button"
+              onClick={() => onTabChange('sales-reps')}
+              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                activeTab === 'sales-reps'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Sales Reps
             </button>
           </div>
 

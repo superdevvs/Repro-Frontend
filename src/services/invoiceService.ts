@@ -332,6 +332,7 @@ export const removeInvoiceMiscItem = async (
 
 export interface WeeklyInvoice {
   id: number;
+  role?: 'photographer' | 'salesRep';
   photographer_id?: number;
   sales_rep_id?: number;
   billing_period_start: string;
@@ -346,11 +347,23 @@ export interface WeeklyInvoice {
   approved_at?: string;
   rejected_at?: string;
   modified_at?: string;
+  modified_by?: number;
+  approved_by?: number;
+  rejected_by?: number;
+  last_activity_at?: string;
   created_at: string;
-  photographer?: { id: number; name: string; email: string };
-  salesRep?: { id: number; name: string; email: string };
-  items: WeeklyInvoiceItem[];
-  shoots: InvoiceShootRef[];
+  payee?: WeeklyInvoiceActor | null;
+  photographer?: WeeklyInvoiceActor | null;
+  salesRep?: WeeklyInvoiceActor | null;
+  modifiedBy?: WeeklyInvoiceActor | null;
+  approvedBy?: WeeklyInvoiceActor | null;
+  rejectedBy?: WeeklyInvoiceActor | null;
+  shoot_count?: number;
+  charge_count?: number;
+  expense_count?: number;
+  items?: WeeklyInvoiceItem[];
+  shoots?: WeeklyInvoiceReviewShoot[];
+  timeline?: WeeklyInvoiceTimelineEvent[];
 }
 
 export interface WeeklyInvoiceItem {
@@ -364,6 +377,46 @@ export interface WeeklyInvoiceItem {
   total_amount: number;
   recorded_at?: string;
   meta?: Record<string, unknown> | null;
+}
+
+export interface WeeklyInvoiceActor {
+  id: number;
+  name: string;
+  email: string;
+  role?: string;
+}
+
+export interface WeeklyInvoiceTimelineEvent {
+  key: string;
+  label: string;
+  timestamp: string;
+  actor?: WeeklyInvoiceActor | null;
+  reason?: string | null;
+}
+
+export interface WeeklyInvoiceReviewShoot extends InvoiceShootRef {
+  completed_at?: string;
+  scheduled_date?: string;
+  total_quote?: number;
+  photographer_paid_at?: string | null;
+  sales_rep_paid_at?: string | null;
+}
+
+export interface WeeklyInvoiceReviewQueueSummary {
+  invoice_count: number;
+  total_amount: number;
+  needs_review_count: number;
+  approved_count: number;
+  returned_count: number;
+}
+
+export interface WeeklyInvoiceReviewQueueResponse {
+  data: WeeklyInvoice[];
+  current_page: number;
+  last_page: number;
+  per_page: number;
+  total: number;
+  summary: WeeklyInvoiceReviewQueueSummary;
 }
 
 /**
@@ -547,6 +600,50 @@ export const fetchPendingApprovalInvoices = async (params: { page?: number; per_
   return response.json();
 };
 
+export const fetchAdminInvoiceReviewQueue = async (params: {
+  role?: 'photographer' | 'salesRep';
+  approval_status?: 'pending_approval' | 'approved' | 'rejected';
+  search?: string;
+  start?: string;
+  end?: string;
+  page?: number;
+  per_page?: number;
+} = {}): Promise<WeeklyInvoiceReviewQueueResponse> => {
+  const queryParams = new URLSearchParams();
+
+  if (params.role) queryParams.append('role', params.role);
+  if (params.approval_status) queryParams.append('approval_status', params.approval_status);
+  if (params.search) queryParams.append('search', params.search);
+  if (params.start) queryParams.append('start', params.start);
+  if (params.end) queryParams.append('end', params.end);
+  if (params.page) queryParams.append('page', params.page.toString());
+  if (params.per_page) queryParams.append('per_page', params.per_page.toString());
+
+  const url = `${API_BASE_URL}/api/admin/invoices/review-queue${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+  const response = await fetch(url, { headers: buildHeaders() });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.message || 'Failed to fetch admin invoice review queue');
+  }
+
+  return response.json();
+};
+
+export const fetchAdminInvoiceReviewDetail = async (invoiceId: number): Promise<WeeklyInvoice> => {
+  const response = await fetch(`${API_BASE_URL}/api/admin/invoices/${invoiceId}/review-detail`, {
+    headers: buildHeaders(),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.message || 'Failed to fetch invoice review detail');
+  }
+
+  const payload = await response.json();
+  return payload.data;
+};
+
 /**
  * Approve a weekly invoice (admin)
  */
@@ -593,19 +690,26 @@ export interface PayoutSummary {
   email: string;
   role: string;
   shoot_count: number;
+  service_count?: number;
   gross_total: number;
   average_value: number;
   commission_rate?: number | null;
   commission_total?: number | null;
+  unpaid_amount?: number | null;
+  paid_amount?: number | null;
 }
 
 export interface PayoutReport {
+  role?: 'all' | 'photographer' | 'salesRep' | 'editor';
   period: { start: string; end: string };
   photographers: PayoutSummary[];
+  editors: PayoutSummary[];
   sales_reps: PayoutSummary[];
   totals: {
     photographer_count: number;
     photographer_total: number;
+    editor_count: number;
+    editor_total: number;
     sales_rep_count: number;
     sales_rep_commission_total: number;
   };
@@ -614,10 +718,15 @@ export interface PayoutReport {
 /**
  * Fetch payout report data
  */
-export const fetchPayoutReport = async (params: { start?: string; end?: string } = {}): Promise<PayoutReport> => {
+export const fetchPayoutReport = async (params: {
+  start?: string;
+  end?: string;
+  role?: 'all' | 'photographer' | 'salesRep' | 'editor';
+} = {}): Promise<PayoutReport> => {
   const queryParams = new URLSearchParams();
   if (params.start) queryParams.append('start', params.start);
   if (params.end) queryParams.append('end', params.end);
+  if (params.role) queryParams.append('role', params.role);
 
   const url = `${API_BASE_URL}/api/admin/payout-report${queryParams.toString() ? `?${queryParams}` : ''}`;
   const response = await fetch(url, { headers: buildHeaders() });
@@ -633,10 +742,15 @@ export const fetchPayoutReport = async (params: { start?: string; end?: string }
 /**
  * Download payout report as CSV
  */
-export const downloadPayoutReport = async (params: { start?: string; end?: string } = {}): Promise<void> => {
+export const downloadPayoutReport = async (params: {
+  start?: string;
+  end?: string;
+  role?: 'all' | 'photographer' | 'salesRep' | 'editor';
+} = {}): Promise<void> => {
   const queryParams = new URLSearchParams();
   if (params.start) queryParams.append('start', params.start);
   if (params.end) queryParams.append('end', params.end);
+  if (params.role) queryParams.append('role', params.role);
 
   const url = `${API_BASE_URL}/api/admin/payout-report/download${queryParams.toString() ? `?${queryParams}` : ''}`;
   const response = await fetch(url, { headers: buildHeaders() });
@@ -654,4 +768,225 @@ export const downloadPayoutReport = async (params: { start?: string; end?: strin
   link.click();
   link.remove();
   window.URL.revokeObjectURL(downloadUrl);
+};
+
+export const sendPayoutReport = async (params: {
+  start?: string;
+  end?: string;
+  role?: 'all' | 'photographer' | 'salesRep' | 'editor';
+} = {}): Promise<{ message: string; sent_count: number }> => {
+  const response = await fetch(`${API_BASE_URL}/api/admin/payout-report/send`, {
+    method: 'POST',
+    headers: buildHeaders(),
+    body: JSON.stringify(params),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.message || 'Failed to send payout report');
+  }
+
+  return response.json();
+};
+
+export interface EditorEarningsSummaryRow {
+  editor: WeeklyInvoiceActor;
+  status: 'paid' | 'unpaid';
+  service_count: number;
+  shoot_count: number;
+  total_earned: number;
+  unpaid_amount: number;
+  paid_amount: number;
+  latest_completed_at?: string | null;
+}
+
+export interface EditorEarningsLineItem {
+  id: number;
+  shoot_id: number;
+  service_id?: number | null;
+  service_name: string;
+  quantity_snapshot: number;
+  rate_snapshot: number;
+  payout_amount: number;
+  completed_at?: string | null;
+  is_paid: boolean;
+  paid_at?: string | null;
+  payout_batch_id?: string | null;
+  client?: WeeklyInvoiceActor | null;
+  shoot?: {
+    id: number;
+    address?: string;
+    city?: string;
+    state?: string;
+    zip?: string;
+    scheduled_date?: string | null;
+  } | null;
+  paid_by?: WeeklyInvoiceActor | null;
+}
+
+export interface EditorEarningsDetail {
+  editor: WeeklyInvoiceActor;
+  period: { start?: string | null; end?: string | null };
+  summary: {
+    service_count: number;
+    shoot_count: number;
+    total_earned: number;
+    unpaid_amount: number;
+    paid_amount: number;
+    latest_completed_at?: string | null;
+  };
+  current_rates: {
+    photo_edit_rate: number;
+    video_edit_rate: number;
+    floorplan_rate: number;
+    virtual_staging_rate: number;
+    other_rate: number;
+    service_rates: Array<{
+      service_id?: string | number | null;
+      service_name: string;
+      rate: number;
+    }>;
+  };
+  line_items: EditorEarningsLineItem[];
+  timeline: Array<{
+    id: number;
+    label: string;
+    timestamp?: string | null;
+    service_name: string;
+    actor?: WeeklyInvoiceActor | null;
+  }>;
+}
+
+export interface EditorEarningsAdminResponse {
+  period: { start?: string | null; end?: string | null };
+  data: EditorEarningsSummaryRow[];
+  summary: {
+    editor_count: number;
+    service_count: number;
+    total_earned: number;
+    unpaid_amount: number;
+    paid_amount: number;
+  };
+}
+
+export const fetchAdminEditorEarnings = async (params: {
+  status?: 'paid' | 'unpaid';
+  search?: string;
+  start?: string;
+  end?: string;
+  service_type?: string;
+} = {}): Promise<EditorEarningsAdminResponse> => {
+  const queryParams = new URLSearchParams();
+  if (params.status) queryParams.append('status', params.status);
+  if (params.search) queryParams.append('search', params.search);
+  if (params.start) queryParams.append('start', params.start);
+  if (params.end) queryParams.append('end', params.end);
+  if (params.service_type) queryParams.append('service_type', params.service_type);
+
+  const response = await fetch(
+    `${API_BASE_URL}/api/admin/editors/earnings${queryParams.toString() ? `?${queryParams}` : ''}`,
+    { headers: buildHeaders() },
+  );
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.message || 'Failed to fetch editor earnings');
+  }
+
+  return response.json();
+};
+
+export const fetchAdminEditorEarningsDetail = async (
+  editorId: number,
+  params: { status?: 'paid' | 'unpaid'; start?: string; end?: string; service_type?: string } = {},
+): Promise<EditorEarningsDetail> => {
+  const queryParams = new URLSearchParams();
+  if (params.status) queryParams.append('status', params.status);
+  if (params.start) queryParams.append('start', params.start);
+  if (params.end) queryParams.append('end', params.end);
+  if (params.service_type) queryParams.append('service_type', params.service_type);
+
+  const response = await fetch(
+    `${API_BASE_URL}/api/admin/editors/${editorId}/earnings-detail${queryParams.toString() ? `?${queryParams}` : ''}`,
+    { headers: buildHeaders() },
+  );
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.message || 'Failed to fetch editor earnings detail');
+  }
+
+  const payload = await response.json();
+  return payload.data;
+};
+
+export const markAdminEditorPayoutsPaid = async (payoutIds: number[]) => {
+  const response = await fetch(`${API_BASE_URL}/api/admin/editors/payouts/mark-paid`, {
+    method: 'POST',
+    headers: buildHeaders(),
+    body: JSON.stringify({ payout_ids: payoutIds }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.message || 'Failed to mark editor earnings paid');
+  }
+
+  return response.json();
+};
+
+export const sendAdminEditorReport = async (params: { start?: string; end?: string } = {}) => {
+  const response = await fetch(`${API_BASE_URL}/api/admin/editors/reports/send`, {
+    method: 'POST',
+    headers: buildHeaders(),
+    body: JSON.stringify(params),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.message || 'Failed to send editor report');
+  }
+
+  return response.json();
+};
+
+export const fetchSelfEditorEarnings = async (params: {
+  status?: 'paid' | 'unpaid';
+  start?: string;
+  end?: string;
+  service_type?: string;
+} = {}): Promise<EditorEarningsDetail> => {
+  const queryParams = new URLSearchParams();
+  if (params.status) queryParams.append('status', params.status);
+  if (params.start) queryParams.append('start', params.start);
+  if (params.end) queryParams.append('end', params.end);
+  if (params.service_type) queryParams.append('service_type', params.service_type);
+
+  const response = await fetch(
+    `${API_BASE_URL}/api/editor/earnings${queryParams.toString() ? `?${queryParams}` : ''}`,
+    { headers: buildHeaders() },
+  );
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.message || 'Failed to fetch editor earnings');
+  }
+
+  const payload = await response.json();
+  return payload.data;
+};
+
+export const sendSelfEditorReport = async (params: { start?: string; end?: string } = {}) => {
+  const response = await fetch(`${API_BASE_URL}/api/editor/reports/send`, {
+    method: 'POST',
+    headers: buildHeaders(),
+    body: JSON.stringify(params),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.message || 'Failed to send editor report');
+  }
+
+  return response.json();
 };

@@ -12,7 +12,7 @@ import { ClientBillingCharts } from '@/components/accounting/ClientBillingCharts
 import { ClientBillingSidePanel } from '@/components/accounting/ClientBillingSidePanel';
 import { ClientBillingList } from '@/components/accounting/ClientBillingList';
 import { PhotographerShootsTable } from '@/components/accounting/PhotographerShootsTable';
-import { EditorJobsTable, EditorJob } from '@/components/accounting/EditorJobsTable';
+import { EditorJob } from '@/components/accounting/EditorJobsTable';
 import { PaymentsSummary } from '@/components/accounting/PaymentsSummary';
 import { RoleBasedSidePanel } from '@/components/accounting/RoleBasedSidePanel';
 import { EditorRateSettings } from '@/components/accounting/EditorRateSettings';
@@ -40,8 +40,9 @@ import {
 import type { ClientBillingItem } from '@/types/clientBilling';
 import { useShoots } from '@/context/ShootsContext';
 import { WeeklyInvoiceReview } from '@/components/invoices/WeeklyInvoiceReview';
-import { PayoutReportPanel } from '@/components/accounting/PayoutReportPanel';
-import { PendingInvoiceApprovals } from '@/components/accounting/PendingInvoiceApprovals';
+import { PhotographerInvoiceReviewWorkspace } from '@/components/accounting/PhotographerInvoiceReviewWorkspace';
+import { SalesRepInvoiceReviewWorkspace } from '@/components/accounting/SalesRepInvoiceReviewWorkspace';
+import { EditorEarningsWorkspace } from '@/components/accounting/EditorEarningsWorkspace';
 import { EditingManagerVerificationView } from '@/components/accounting/EditingManagerVerificationView';
 import { ShootDetailsModalWrapper } from '@/components/dashboard/v2/ShootDetailsModalWrapper';
 import type { DashboardShootSummary } from '@/types/dashboard';
@@ -187,12 +188,6 @@ const AccountingPage = () => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<AccountingTab>('home');
   const [daysWindow, setDaysWindow] = useState<number>(30);
-  const [payoutActions, setPayoutActions] = useState<{
-    refresh: () => void;
-    download: () => Promise<void>;
-    loading: boolean;
-    downloading: boolean;
-  } | null>(null);
   const { shoots: contextShoots } = useShoots();
   const { data: services = [] } = useServices();
 
@@ -324,7 +319,7 @@ const AccountingPage = () => {
   // Example for editor:
   // const editingJobs = useEditingJobsForEditor(user?.id);
   const shoots = useMemo(() => {
-    if (accountingMode === 'photographer' || accountingMode === 'editor') {
+    if (accountingMode === 'photographer' || accountingMode === 'editor' || accountingMode === 'rep') {
       return contextShoots;
     }
     return [] as ShootData[];
@@ -559,12 +554,36 @@ const AccountingPage = () => {
   return (
     <DashboardLayout>
       <div className="space-y-4 px-2 pt-3 pb-3 sm:space-y-6 sm:p-6">
+          {(() => {
+            const adminTabTitles: Record<AccountingTab, { title: string; description: string }> = {
+              home: {
+                title: config.pageTitle,
+                description: 'Manage your finances, invoices, and payments',
+              },
+              photographers: {
+                title: 'Photographer Accounting',
+                description: 'Review weekly photographer invoices, payout totals, exports, and reports.',
+              },
+              editors: {
+                title: 'Editor Accounting',
+                description: 'Track snapshot-based editor earnings, payout batches, exports, and reports.',
+              },
+              'sales-reps': {
+                title: 'Sales Rep Accounting',
+                description: 'Review commission invoices, payout totals, exports, and weekly reports.',
+              },
+            };
+
+            const activeAdminCopy = adminTabTitles[activeTab];
+
+            return (
           <AccountingHeader
             onCreateInvoice={() => canCreateInvoice && setCreateDialogOpen(true)}
             onCreateBatch={() => canCreateInvoice && setBatchDialogOpen(true)}
-            title={isEditingManagerAccounting ? 'Editing Accounting' : config.pageTitle}
+            title={isEditingManagerAccounting ? 'Editing Accounting' : accountingMode === 'admin' ? activeAdminCopy.title : config.pageTitle}
             description={
               isEditingManagerAccounting ? 'Verify editor work against linked invoices' :
+              accountingMode === 'admin' ? activeAdminCopy.description :
               accountingMode === 'photographer' ? 'View your earnings and payout status' :
               accountingMode === 'editor' ? 'Track your editing jobs and pay' :
               accountingMode === 'client' ? 'View your invoices and payment history' :
@@ -572,14 +591,16 @@ const AccountingPage = () => {
               'Manage your finances, invoices, and payments'
             }
             badge={config.sidebarLabel}
-            showCreateButton={!isEditingManagerAccounting && canCreateInvoice && accountingMode === 'admin'}
+            showCreateButton={!isEditingManagerAccounting && canCreateInvoice && accountingMode === 'admin' && activeTab === 'home'}
             activeTab={activeTab}
             onTabChange={setActiveTab}
             showTabs={!isEditingManagerAccounting && accountingMode === 'admin'}
             daysWindow={isEditingManagerAccounting ? undefined : daysWindow}
             onDaysWindowChange={isEditingManagerAccounting ? undefined : setDaysWindow}
-            payoutActions={isEditingManagerAccounting ? null : payoutActions}
+            payoutActions={null}
           />
+            );
+          })()}
 
           {isEditingManagerAccounting ? (
             <EditingManagerVerificationView
@@ -692,6 +713,10 @@ const AccountingPage = () => {
                 <WeeklyInvoiceReview />
               )}
 
+              {accountingMode === 'editor' && (
+                <EditorEarningsWorkspace mode="self" />
+              )}
+
               {/* For non-client: show invoice table in original position (after charts) */}
               {accountingMode !== 'client' && config.showInvoiceTable && (
                 <>
@@ -700,34 +725,42 @@ const AccountingPage = () => {
                       shoots={shoots}
                       onViewShoot={handleViewPhotographerShoot}
                     />
-                  ) : accountingMode === 'editor' ? (
-                    <EditorJobsTable jobs={editingJobs} />
                   ) : (
-                    <InvoiceList
-                      data={{ invoices: filteredInvoices }}
-                      onView={handleViewInvoice}
-                      onEdit={handleEditInvoice}
-                      onDownload={handleDownloadInvoice}
-                      onPay={handlePayInvoice}
-                      onSendReminder={handleSendReminder}
-                      isAdmin={isAdmin}
-                      isSuperAdmin={isSuperAdmin}
-                      role={role || ''}
-                    />
+                    accountingMode === 'editor' ? null : (
+                      <InvoiceList
+                        data={{ invoices: filteredInvoices }}
+                        onView={handleViewInvoice}
+                        onEdit={handleEditInvoice}
+                        onDownload={handleDownloadInvoice}
+                        onPay={handlePayInvoice}
+                        onSendReminder={handleSendReminder}
+                        isAdmin={isAdmin}
+                        isSuperAdmin={isSuperAdmin}
+                        role={role || ''}
+                      />
+                    )
                   )}
                 </>
               )}
                 </>
               )}
 
-              {/* Photographers Tab Content - Payout Report and Pending Invoice Approvals */}
+              {/* Photographers Tab Content */}
               {activeTab === 'photographers' && accountingMode === 'admin' && (
-                <div className="space-y-4 sm:space-y-6">
-                  <PayoutReportPanel 
-                    hideHeaderButtons={true}
-                    registerActions={setPayoutActions}
-                  />
-                  <PendingInvoiceApprovals />
+                <div className="flex flex-col gap-4 sm:gap-6">
+                  <PhotographerInvoiceReviewWorkspace />
+                </div>
+              )}
+
+              {activeTab === 'editors' && accountingMode === 'admin' && (
+                <div className="flex flex-col gap-4 sm:gap-6">
+                  <EditorEarningsWorkspace mode="admin" />
+                </div>
+              )}
+
+              {activeTab === 'sales-reps' && accountingMode === 'admin' && (
+                <div className="flex flex-col gap-4 sm:gap-6">
+                  <SalesRepInvoiceReviewWorkspace />
                 </div>
               )}
             </>
