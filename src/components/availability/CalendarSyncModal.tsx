@@ -44,6 +44,15 @@ interface CalendarSyncModalProps {
   photographerName?: string;
   onGoogleCalendarConnect?: () => Promise<void> | void;
   isGoogleCalendarConnecting?: boolean;
+  googleCalendarStatus?: {
+    available: boolean;
+    connected: boolean;
+    provider_email?: string | null;
+    sync_enabled: boolean;
+    last_error?: string | null;
+  };
+  isGoogleCalendarStatusLoading?: boolean;
+  requiresPhotographerSelection?: boolean;
 }
 
 // Calendar Icons
@@ -73,6 +82,9 @@ export function CalendarSyncModal({
   photographerName = "Your",
   onGoogleCalendarConnect,
   isGoogleCalendarConnecting = false,
+  googleCalendarStatus,
+  isGoogleCalendarStatusLoading = false,
+  requiresPhotographerSelection = false,
 }: CalendarSyncModalProps) {
   const { toast } = useToast();
   const [dateRangeOption, setDateRangeOption] = useState<DateRangeOption>("30days");
@@ -303,6 +315,10 @@ export function CalendarSyncModal({
   };
 
   const handleGoogleCalendarClick = async () => {
+    if (requiresPhotographerSelection || isGoogleCalendarStatusLoading) {
+      return;
+    }
+
     if (onGoogleCalendarConnect) {
       setSelectedCalendar(null);
       await onGoogleCalendarConnect();
@@ -315,6 +331,23 @@ export function CalendarSyncModal({
   const calendarName = selectedCalendar === "google" ? "Google Calendar" : 
                        selectedCalendar === "apple" ? "Apple Calendar" : 
                        selectedCalendar === "outlook" ? "Outlook" : "";
+  const googleCardLabel = requiresPhotographerSelection
+    ? "Choose photographer first"
+    : isGoogleCalendarStatusLoading
+      ? "Checking status..."
+      : googleCalendarStatus?.connected
+        ? "Connected"
+        : googleCalendarStatus && !googleCalendarStatus.available
+          ? "OAuth not configured"
+          : "Connect with Google";
+  const googleCardSubtext = requiresPhotographerSelection
+    ? "Admin must pick one photographer"
+    : googleCalendarStatus?.connected
+      ? googleCalendarStatus.provider_email || "Primary Google Calendar linked"
+      : googleCalendarStatus?.last_error && !googleCalendarStatus.available
+        ? googleCalendarStatus.last_error
+        : undefined;
+  const googleCardDisabled = isGoogleCalendarConnecting || isGoogleCalendarStatusLoading || requiresPhotographerSelection || (googleCalendarStatus ? !googleCalendarStatus.available : false);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -327,7 +360,7 @@ export function CalendarSyncModal({
             </Badge>
           </div>
           <DialogDescription>
-            Export your availability to Apple or Outlook, or start Google Calendar OAuth for live shoot sync. Google Calendar connection stays separate from one-time availability exports.
+            Export availability or connect Google Calendar.
           </DialogDescription>
         </DialogHeader>
 
@@ -357,7 +390,7 @@ export function CalendarSyncModal({
         <div className="space-y-6">
           {/* Section 1: What to sync */}
           <div className="space-y-4">
-            <Label className="text-base font-semibold">Choose what you want to sync</Label>
+            <Label className="text-base font-semibold">Range</Label>
             <RadioGroup
               value={dateRangeOption}
               onValueChange={(value) => setDateRangeOption(value as DateRangeOption)}
@@ -438,7 +471,7 @@ export function CalendarSyncModal({
             )}
 
             <div className="text-sm text-muted-foreground pt-2">
-              You're syncing: <span className="font-medium text-foreground">{eventCount} events</span> from{" "}
+              <span className="font-medium text-foreground">{eventCount} events</span> from{" "}
               {format(dateRange.start, "MMM d, yyyy")} to {format(dateRange.end, "MMM d, yyyy")}
             </div>
           </div>
@@ -447,35 +480,45 @@ export function CalendarSyncModal({
 
           {/* Section 2: Where to sync */}
           <div className="space-y-4">
-            <Label className="text-base font-semibold">Choose your calendar</Label>
+            <Label className="text-base font-semibold">Calendar</Label>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <button
                 type="button"
                 onClick={() => void handleGoogleCalendarClick()}
-                disabled={isGoogleCalendarConnecting}
+                disabled={googleCardDisabled}
                 className={cn(
                   "flex flex-col items-center justify-center gap-2 p-4 rounded-lg border-2 transition-all",
-                  onGoogleCalendarConnect
-                    ? "border-border hover:border-primary/50"
+                  googleCalendarStatus?.connected
+                    ? "border-emerald-500/60 bg-emerald-500/5"
                     : selectedCalendar === "google"
                       ? "border-primary bg-primary/5"
                       : "border-border hover:border-primary/50",
+                  googleCardDisabled && "cursor-not-allowed opacity-70",
                   isGoogleCalendarConnecting && "cursor-wait opacity-70"
                 )}
               >
-                {isGoogleCalendarConnecting ? (
+                {isGoogleCalendarConnecting || isGoogleCalendarStatusLoading ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
                 ) : (
                   <GoogleCalendarIcon />
                 )}
                 <span className="text-sm font-medium">Google Calendar</span>
                 {onGoogleCalendarConnect ? (
-                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                    <LinkIcon className="h-3 w-3" />
-                    Connect with Google
+                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground text-center">
+                    {googleCalendarStatus?.connected ? (
+                      <Check className="h-3 w-3 text-emerald-500" />
+                    ) : (
+                      <LinkIcon className="h-3 w-3" />
+                    )}
+                    {googleCardLabel}
                   </span>
                 ) : selectedCalendar === "google" && (
                   <Check className="h-4 w-4 text-primary" />
+                )}
+                {googleCardSubtext && (
+                  <span className="text-[11px] leading-4 text-muted-foreground text-center">
+                    {googleCardSubtext}
+                  </span>
                 )}
               </button>
               <button
@@ -515,33 +558,20 @@ export function CalendarSyncModal({
             {selectedCalendar && (
               <div className="text-sm text-muted-foreground pt-2">
                 {selectedCalendar === "google" && (
-                  <>We'll open Google Calendar in a new tab to add your availability.</>
+                  <>Google opens secure connect.</>
                 )}
                 {selectedCalendar === "apple" && (
-                  <>We'll download a calendar file you can open in Apple Calendar.</>
+                  <>Apple downloads an .ics file.</>
                 )}
                 {selectedCalendar === "outlook" && (
-                  <>We'll open Outlook or download a calendar file if that's not possible.</>
+                  <>Outlook opens or downloads an .ics file.</>
                 )}
               </div>
             )}
           </div>
-
-          <Separator />
-
-          {/* Section 3: Sync behavior */}
-          <div className="space-y-2">
-            <Label className="text-base font-semibold">Sync type</Label>
-            <div className="text-sm text-muted-foreground">
-              Apple and Outlook export availability only. Google Calendar starts OAuth for ongoing shoot sync and does not export these availability slots directly.
-            </div>
-          </div>
         </div>
 
         <DialogFooter className="flex items-center justify-between sm:justify-between">
-          <p className="text-xs text-muted-foreground">
-            Google Calendar opens a live connection. Apple and Outlook continue to use one-time availability exports.
-          </p>
           <div className="flex gap-2">
             <Button variant="ghost" onClick={onClose}>
               Cancel

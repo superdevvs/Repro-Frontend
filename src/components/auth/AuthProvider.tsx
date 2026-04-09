@@ -145,6 +145,77 @@ const normalizeApiUser = (apiUser: any, base?: UserData | null): UserData => {
   };
 };
 
+const AUTH_SESSION_FINGERPRINT_KEY = 'auth_session_fingerprint';
+
+const clearSessionScopedCaches = () => {
+  if (typeof window === 'undefined') return;
+  const keysToRemove = ['photographers_cache', 'photographers_cache_time'];
+
+  keysToRemove.forEach((key) => sessionStorage.removeItem(key));
+
+  Object.keys(sessionStorage)
+    .filter((key) => key.startsWith('photographers_cache:'))
+    .forEach((key) => sessionStorage.removeItem(key));
+};
+
+const getOriginalUserIdFromStorage = () => {
+  if (typeof window === 'undefined') return null;
+
+  const storedOriginalUser = localStorage.getItem('originalUser');
+  if (!storedOriginalUser) return null;
+
+  try {
+    const parsedOriginalUser = JSON.parse(storedOriginalUser);
+    return parsedOriginalUser?.id ? String(parsedOriginalUser.id) : null;
+  } catch {
+    return null;
+  }
+};
+
+const buildAuthFingerprint = ({
+  user,
+  role,
+  isAuthenticated,
+  token,
+  originalUserId,
+}: {
+  user: UserData | null;
+  role: Role;
+  isAuthenticated: boolean;
+  token: string | null;
+  originalUserId?: string | null;
+}) => {
+  if (!user || !isAuthenticated || !token) {
+    return 'guest';
+  }
+
+  return `${String(user.id)}:${role}:${originalUserId || 'none'}`;
+};
+
+const getPersistedAuthFingerprint = (): string => {
+  if (typeof window === 'undefined') return 'guest';
+
+  const storedToken = getStoredToken();
+  const storedUser = localStorage.getItem('user');
+
+  if (!storedToken || !storedUser) {
+    return 'guest';
+  }
+
+  try {
+    const parsedUser = normalizeApiUser(JSON.parse(storedUser));
+    return buildAuthFingerprint({
+      user: parsedUser,
+      role: normalizeRole(parsedUser.role),
+      isAuthenticated: true,
+      token: storedToken,
+      originalUserId: getOriginalUserIdFromStorage(),
+    });
+  } catch {
+    return 'guest';
+  }
+};
+
 
 
 export const AuthProvider = ({ children }: AuthProviderProps) => {
@@ -173,6 +244,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     localStorage.removeItem('access_token');
     localStorage.removeItem('user');
     localStorage.removeItem('originalUser');
+    sessionStorage.removeItem(AUTH_SESSION_FINGERPRINT_KEY);
+    clearSessionScopedCaches();
   };
 
   // Initialize auth state from localStorage on component mount
@@ -309,6 +382,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     };
     // Store the user data in localStorage
     localStorage.setItem('user', JSON.stringify(updatedUserData));
+    clearSessionScopedCaches();
     setUser(updatedUserData);
     setIsAuthenticated(true);
     setRole(roleToUse);
@@ -370,6 +444,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
     // Clear cached shoots so the new user context gets fresh data
     localStorage.removeItem('shoots');
+    clearSessionScopedCaches();
 
     // Update React state
     setUser(updatedUserData);
@@ -396,6 +471,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     localStorage.setItem('user', JSON.stringify(originalUser));
     // Clear cached shoots so dashboard re-fetches for the admin context
     localStorage.removeItem('shoots');
+    clearSessionScopedCaches();
     
     const restoredRole = normalizeRole(originalUser.role);
     setUser(originalUser);
@@ -481,6 +557,60 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   // Context value
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const token = getStoredToken();
+    const fingerprint = buildAuthFingerprint({
+      user,
+      role,
+      isAuthenticated,
+      token,
+      originalUserId: isImpersonating ? originalUser?.id ?? null : null,
+    });
+
+    sessionStorage.setItem(AUTH_SESSION_FINGERPRINT_KEY, fingerprint);
+  }, [isAuthenticated, isImpersonating, originalUser?.id, role, user]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const ensureFreshAuthState = () => {
+      const inMemoryFingerprint = buildAuthFingerprint({
+        user,
+        role,
+        isAuthenticated,
+        token: getStoredToken(),
+        originalUserId: isImpersonating ? originalUser?.id ?? null : null,
+      });
+      const persistedFingerprint = getPersistedAuthFingerprint();
+
+      if (inMemoryFingerprint !== persistedFingerprint) {
+        window.location.reload();
+      }
+    };
+
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (!event.persisted) return;
+      ensureFreshAuthState();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') return;
+      ensureFreshAuthState();
+    };
+
+    window.addEventListener('pageshow', handlePageShow);
+    window.addEventListener('focus', ensureFreshAuthState);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('pageshow', handlePageShow);
+      window.removeEventListener('focus', ensureFreshAuthState);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [isAuthenticated, isImpersonating, originalUser?.id, role, user]);
+
   const contextValue: AuthContextType = {
     user,
     isAuthenticated,

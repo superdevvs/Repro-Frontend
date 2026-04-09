@@ -117,6 +117,18 @@ interface ShootDetails {
   duration_minutes?: number;
 }
 
+type GoogleCalendarAvailabilityStatus = {
+  user_id?: number;
+  user_name?: string;
+  available: boolean;
+  connected: boolean;
+  provider_email?: string | null;
+  calendar_id?: string | null;
+  sync_enabled: boolean;
+  last_synced_at?: string | null;
+  last_error?: string | null;
+};
+
 type BackendSlot = {
   id: number | string;
   photographer_id: number;
@@ -251,6 +263,12 @@ export default function Availability() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const [isGoogleCalendarConnecting, setIsGoogleCalendarConnecting] = useState(false);
+  const [googleCalendarStatus, setGoogleCalendarStatus] = useState<GoogleCalendarAvailabilityStatus>({
+    available: true,
+    connected: false,
+    sync_enabled: false,
+  });
+  const [isGoogleCalendarStatusLoading, setIsGoogleCalendarStatusLoading] = useState(false);
   const [shootDetailsModalOpen, setShootDetailsModalOpen] = useState(false);
   const [selectedShootId, setSelectedShootId] = useState<number | null>(null);
   const [rightClickedDate, setRightClickedDate] = useState<Date | null>(null);
@@ -304,7 +322,7 @@ export default function Availability() {
   const [desktopCalendarRowHeight, setDesktopCalendarRowHeight] = useState<number | null>(null);
 
   const { toast } = useToast();
-  const { user, role } = useAuth();
+  const { user, role, isImpersonating, originalUser } = useAuth();
   const { formatTime: formatTimePreference, preferences } = useUserPreferences();
 
   const isAdmin = role === 'admin' || role === 'superadmin';
@@ -313,13 +331,50 @@ export default function Availability() {
   const isPhotographer = role === 'photographer';
   const canLaunchGoogleCalendarOAuth = ['photographer', 'admin', 'superadmin', 'editing_manager'].includes(role || '');
   const photographerScopedBlockId = isPhotographer && user?.id ? String(user.id) : "";
+  const availabilitySessionScope = useMemo(
+    () =>
+      [
+        role || 'guest',
+        user?.id ? String(user.id) : 'guest',
+        isImpersonating ? `impersonating:${originalUser?.id ?? 'unknown'}` : 'direct',
+      ].join(':'),
+    [isImpersonating, originalUser?.id, role, user?.id]
+  );
+  const photographersCacheKey = `photographers_cache:${availabilitySessionScope}`;
+  const photographersCacheTimeKey = `photographers_cache_time:${availabilitySessionScope}`;
 
-  const authHeaders = () => {
+  const authHeaders = React.useCallback(() => {
     const token = localStorage.getItem("authToken") || localStorage.getItem("token");
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (token) headers["Authorization"] = `Bearer ${token}`;
     return headers;
-  };
+  }, []);
+
+  useEffect(() => {
+    randomAvailabilityCacheRef.current = {};
+    bookedSlotsCacheRef.current.clear();
+    bulkAvailabilityCacheRef.current = null;
+    listAvailabilityCacheRef.current = null;
+    loadingRef.current = false;
+
+    setPhotographers([]);
+    setBackendSlots([]);
+    setAllBackendSlots([]);
+    setLoading(false);
+    setLoadingPhotographers(true);
+    setSearchQuery("");
+    setExpandedBookingDetails(new Set());
+    setSelectedSlotId(null);
+    setGoogleCalendarStatus({
+      available: true,
+      connected: false,
+      sync_enabled: false,
+    });
+    setIsGoogleCalendarConnecting(false);
+    setIsGoogleCalendarStatusLoading(false);
+    setIsSyncModalOpen(false);
+    setSelectedPhotographer(isPhotographer && user?.id ? String(user.id) : "all");
+  }, [availabilitySessionScope, isPhotographer, user?.id]);
 
   const fetchGoogleCalendarAuthorizationUrl = React.useCallback(async () => {
     if (!canLaunchGoogleCalendarOAuth) {
@@ -395,6 +450,76 @@ export default function Availability() {
     toast,
   ]);
 
+  const fetchGoogleCalendarStatus = React.useCallback(async () => {
+    if (!canLaunchGoogleCalendarOAuth) {
+      setGoogleCalendarStatus({
+        available: false,
+        connected: false,
+        sync_enabled: false,
+        last_error: "Your account cannot view Google Calendar status.",
+      });
+      return;
+    }
+
+    const isAdminManagedStatus = !isPhotographer;
+
+    if (isAdminManagedStatus && (!selectedPhotographer || selectedPhotographer === "all")) {
+      setGoogleCalendarStatus({
+        available: true,
+        connected: false,
+        sync_enabled: false,
+        last_error: null,
+      });
+      return;
+    }
+
+    setIsGoogleCalendarStatusLoading(true);
+
+    try {
+      const params = new URLSearchParams();
+      if (isAdminManagedStatus && selectedPhotographer !== "all") {
+        params.set("user_id", selectedPhotographer);
+      }
+
+      const response = await fetch(
+        `${API_ROUTES.googleCalendar.status}${params.toString() ? `?${params.toString()}` : ""}`,
+        {
+          headers: authHeaders(),
+        }
+      );
+
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        const validationMessage = payload?.errors
+          ? Object.values(payload.errors).flat().find(Boolean)
+          : null;
+
+        throw new Error(
+          validationMessage ||
+            payload?.message ||
+            "Unable to load Google Calendar status."
+        );
+      }
+
+      setGoogleCalendarStatus(payload.data);
+    } catch (error) {
+      setGoogleCalendarStatus({
+        available: false,
+        connected: false,
+        sync_enabled: false,
+        last_error: error instanceof Error ? error.message : "Unable to load Google Calendar status.",
+      });
+    } finally {
+      setIsGoogleCalendarStatusLoading(false);
+    }
+  }, [
+    authHeaders,
+    canLaunchGoogleCalendarOAuth,
+    isPhotographer,
+    selectedPhotographer,
+  ]);
+
   useEffect(() => {
     const url = new URL(window.location.href);
     const googleCalendarState = url.searchParams.get("google_calendar");
@@ -421,7 +546,16 @@ export default function Availability() {
     url.searchParams.delete("message");
     window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
     setIsGoogleCalendarConnecting(false);
-  }, [toast]);
+    fetchGoogleCalendarStatus();
+  }, [fetchGoogleCalendarStatus, toast]);
+
+  useEffect(() => {
+    if (!isSyncModalOpen) {
+      return;
+    }
+
+    fetchGoogleCalendarStatus();
+  }, [fetchGoogleCalendarStatus, isSyncModalOpen]);
 
   const uiTimeToHhmm = (t?: string): string => {
     if (!t) return "";
@@ -713,8 +847,8 @@ export default function Availability() {
   // Load photographers with client-side caching
   useEffect(() => {
     // Check sessionStorage cache first
-    const cachedPhotographers = sessionStorage.getItem('photographers_cache');
-    const cacheTimestamp = sessionStorage.getItem('photographers_cache_time');
+    const cachedPhotographers = sessionStorage.getItem(photographersCacheKey);
+    const cacheTimestamp = sessionStorage.getItem(photographersCacheTimeKey);
     const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
     
     if (cachedPhotographers && cacheTimestamp) {
@@ -775,8 +909,8 @@ export default function Availability() {
 
         setPhotographers(list);
         if (list.length > 0) {
-          sessionStorage.setItem('photographers_cache', JSON.stringify(list));
-          sessionStorage.setItem('photographers_cache_time', String(Date.now()));
+          sessionStorage.setItem(photographersCacheKey, JSON.stringify(list));
+          sessionStorage.setItem(photographersCacheTimeKey, String(Date.now()));
         }
       } catch {
         // Unexpected error — ensure state is still updated
@@ -787,7 +921,7 @@ export default function Availability() {
     };
 
     loadPhotographers();
-  }, []);
+  }, [photographersCacheKey, photographersCacheTimeKey]);
 
   // Auto-select photographer if user is photographer
   useEffect(() => {
@@ -5463,6 +5597,9 @@ export default function Availability() {
         onClose={() => setIsSyncModalOpen(false)}
         onGoogleCalendarConnect={fetchGoogleCalendarAuthorizationUrl}
         isGoogleCalendarConnecting={isGoogleCalendarConnecting}
+        googleCalendarStatus={googleCalendarStatus}
+        isGoogleCalendarStatusLoading={isGoogleCalendarStatusLoading}
+        requiresPhotographerSelection={!isPhotographer && selectedPhotographer === "all"}
         availabilitySlots={
           (selectedPhotographer === "all" ? allBackendSlots : backendSlots).map(slot => ({
             ...slot,
