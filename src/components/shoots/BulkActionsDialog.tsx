@@ -31,7 +31,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { ShootDetailsModal } from '@/components/shoots/ShootDetailsModal';
-import { SquarePaymentDialog } from '@/components/payments/SquarePaymentDialog';
+import { StripePaymentDialog } from '@/components/payments/StripePaymentDialog';
 import { MarkAsPaidDialog, MarkAsPaidPayload } from '@/components/payments/MarkAsPaidDialog';
 
 interface BulkActionsDialogProps {
@@ -129,7 +129,7 @@ export function BulkActionsDialog({
   const [processing, setProcessing] = useState(false);
   const [detailShootId, setDetailShootId] = useState<string | number | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
-  const [squarePaymentOpen, setSquarePaymentOpen] = useState(false);
+  const [stripePaymentOpen, setStripePaymentOpen] = useState(false);
   const [isMarkPaidDialogOpen, setIsMarkPaidDialogOpen] = useState(false);
 
   useEffect(() => {
@@ -248,7 +248,7 @@ export function BulkActionsDialog({
     }
 
     if (activeAction === 'pay' && paymentMethod === 'stripe') {
-      setSquarePaymentOpen(true);
+      setStripePaymentOpen(true);
       return;
     }
 
@@ -348,8 +348,8 @@ export function BulkActionsDialog({
     }
   };
 
-  const handleSquarePaymentSuccess = async () => {
-    setSquarePaymentOpen(false);
+  const handleStripePaymentSuccess = async () => {
+    setStripePaymentOpen(false);
     setProcessing(true);
 
     try {
@@ -695,16 +695,16 @@ export function BulkActionsDialog({
             onShootUpdate={onComplete}
           />
         )}
-        <SquarePaymentDialog
-          isOpen={squarePaymentOpen}
-          onClose={() => setSquarePaymentOpen(false)}
+        <StripePaymentDialog
+          isOpen={stripePaymentOpen}
+          onClose={() => setStripePaymentOpen(false)}
           amount={totalDue}
           shootIds={eligibleShoots.map((shoot) => String(shoot.id))}
           shootAddress={`${eligibleShoots.length} shoots selected`}
           shootServices={eligibleShoots.map((shoot) => resolveAddress(shoot)).slice(0, 5)}
           totalQuote={eligibleShoots.reduce((sum, shoot) => sum + (shoot.payment?.totalQuote ?? 0), 0)}
           totalPaid={eligibleShoots.reduce((sum, shoot) => sum + (shoot.payment?.totalPaid ?? 0), 0)}
-          onPaymentSuccess={handleSquarePaymentSuccess}
+          onPaymentSuccess={handleStripePaymentSuccess}
         />
         <MarkAsPaidDialog
           isOpen={isMarkPaidDialogOpen}

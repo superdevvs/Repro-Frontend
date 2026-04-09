@@ -2,8 +2,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { SquarePaymentDialog } from '@/components/payments/SquarePaymentDialog';
-import type { SquarePaymentSuccessPayload } from '@/components/payments/SquarePaymentForm';
+import { StripePaymentDialog } from '@/components/payments/StripePaymentDialog';
+import type { StripePaymentSuccessPayload } from '@/components/payments/StripePaymentForm';
 import { MarkAsPaidDialog, MarkAsPaidPayload } from '@/components/payments/MarkAsPaidDialog';
 import { RescheduleDialog } from '@/components/dashboard/RescheduleDialog';
 import { PauseCircle, Loader2 } from 'lucide-react';
@@ -39,7 +39,7 @@ interface ShootDetailsPageDialogsProps {
   onOnHoldDialogChange: (open: boolean) => void;
   onHoldApprovalDialogChange: (open: boolean) => void;
   onOnHoldReasonChange: (value: string) => void;
-  onPaymentSuccess: (payment: SquarePaymentSuccessPayload) => void;
+  onPaymentSuccess: (payment: StripePaymentSuccessPayload) => void;
   onMarkPaidConfirm: (payload: MarkAsPaidPayload) => void | Promise<void>;
   onSubmitHold: () => void;
   onRejectHold: () => void;
@@ -83,7 +83,7 @@ export function ShootDetailsPageDialogs({
 
   return (
     <>
-      <SquarePaymentDialog
+      <StripePaymentDialog
         isOpen={isPaymentDialogOpen}
         onClose={onPaymentDialogClose}
         amount={amountDue}

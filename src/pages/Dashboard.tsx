@@ -41,7 +41,7 @@ import { ShootApprovalModal } from "@/components/shoots/ShootApprovalModal";
 import { ShootDeclineModal } from "@/components/shoots/ShootDeclineModal";
 import { ShootEditModal } from "@/components/shoots/ShootEditModal";
 import { RescheduleDialog } from "@/components/dashboard/RescheduleDialog";
-import { SquarePaymentDialog } from "@/components/payments/SquarePaymentDialog";
+import { StripePaymentDialog } from "@/components/payments/StripePaymentDialog";
 import { Avatar, Card, StatBadge } from "@/components/dashboard/v2/SharedComponents";
 import { formatWorkflowStatus } from "@/utils/status";
 import {
@@ -1608,7 +1608,7 @@ const Dashboard = () => {
   const [shootToReschedule, setShootToReschedule] = useState<ShootData | null>(null);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [shootToPay, setShootToPay] = useState<ClientShootRecord | null>(null);
-  const [squarePaymentOpen, setSquarePaymentOpen] = useState(false);
+  const [stripePaymentOpen, setStripePaymentOpen] = useState(false);
   const [paymentSelectionOpen, setPaymentSelectionOpen] = useState(false);
   const [selectedShootsForPayment, setSelectedShootsForPayment] = useState<ClientShootRecord[]>([]);
   const [multiPaymentOpen, setMultiPaymentOpen] = useState(false);
@@ -2119,7 +2119,7 @@ const Dashboard = () => {
                   onClick={() => {
                     setPaymentModalOpen(false);
                     // Open Square Payment Dialog
-                    setSquarePaymentOpen(true);
+                    setStripePaymentOpen(true);
                   }}
                 >
                   <CreditCard className="h-4 w-4 mr-2" />
@@ -2131,10 +2131,10 @@ const Dashboard = () => {
           
           {/* Square Payment Dialog */}
           {shootToPay && (
-            <SquarePaymentDialog
-              isOpen={squarePaymentOpen}
+            <StripePaymentDialog
+              isOpen={stripePaymentOpen}
               onClose={() => {
-                setSquarePaymentOpen(false);
+                setStripePaymentOpen(false);
                 setShootToPay(null);
               }}
               amount={(shootToPay.data.payment?.totalQuote ?? 0) - (shootToPay.data.payment?.totalPaid ?? 0)}
@@ -2148,7 +2148,7 @@ const Dashboard = () => {
               totalQuote={shootToPay.data.payment?.totalQuote}
               totalPaid={shootToPay.data.payment?.totalPaid}
               onPaymentSuccess={() => {
-                setSquarePaymentOpen(false);
+                setStripePaymentOpen(false);
                 setShootToPay(null);
                 refresh();
                 toast({
@@ -2282,7 +2282,7 @@ const Dashboard = () => {
                             setPaymentSelectionOpen(false);
                             if (selectedShootsForPayment.length === 1) {
                               setShootToPay(selectedShootsForPayment[0]);
-                              setSquarePaymentOpen(true);
+                              setStripePaymentOpen(true);
                             } else {
                               setMultiPaymentOpen(true);
                             }
@@ -2301,7 +2301,7 @@ const Dashboard = () => {
 
           {/* Multi-Payment Dialog */}
           {selectedShootsForPayment.length > 1 && (
-            <SquarePaymentDialog
+            <StripePaymentDialog
               isOpen={multiPaymentOpen}
               onClose={() => {
                 setMultiPaymentOpen(false);

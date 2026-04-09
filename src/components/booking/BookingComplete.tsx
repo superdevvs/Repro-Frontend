@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { CheckCircleIcon, CreditCard } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
-import { SquarePaymentDialog } from '@/components/payments/SquarePaymentDialog';
+import { StripePaymentDialog } from '@/components/payments/StripePaymentDialog';
 import { useToast } from '@/hooks/use-toast';
 import type { PricingBreakdown } from '@/utils/pricing';
 
@@ -156,8 +155,8 @@ export function BookingComplete({
         </div>
       </motion.div>
 
-      {/* Square Payment Dialog */}
-      <SquarePaymentDialog
+      {/* Stripe Payment Dialog */}
+      <StripePaymentDialog
         isOpen={showPaymentDialog}
         onClose={() => setShowPaymentDialog(false)}
         amount={totalAmount}

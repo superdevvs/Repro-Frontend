@@ -136,7 +136,51 @@ const refineLocationHint = async (location: IpLocation, signal?: AbortSignal): P
   return location;
 };
 
+const normalizeApiLocation = (data: Record<string, unknown>): IpLocation | null => {
+  if (
+    typeof data.latitude !== 'number' ||
+    typeof data.longitude !== 'number'
+  ) {
+    return null;
+  }
+
+  return {
+    lat: data.latitude,
+    lon: data.longitude,
+    label:
+      (typeof data.location === 'string' && data.location.trim())
+        ? data.location.trim()
+        : null,
+    postalCode: typeof data.postalCode === 'string' ? data.postalCode : null,
+    countryCode: typeof data.countryCode === 'string' ? data.countryCode : null,
+  };
+};
+
+const fetchBackendIpLocation = async (signal?: AbortSignal): Promise<IpLocation | null> => {
+  try {
+    const response = await fetch(withApiBase('/api/ip-location'), { signal });
+    if (!response.ok) {
+      return null;
+    }
+
+    const payload = await response.json();
+    const data = payload?.data;
+
+    if (!data || typeof data !== 'object') {
+      return null;
+    }
+
+    return normalizeApiLocation(data);
+  } catch {
+    return null;
+  }
+};
+
 const fetchIpLocation = async (signal?: AbortSignal): Promise<IpLocation | null> => {
+  const backendLocation = await fetchBackendIpLocation(signal);
+  if (backendLocation) {
+    return backendLocation;
+  }
 
   try {
     const res = await fetch('https://ipapi.co/json/', { signal });
@@ -189,11 +233,6 @@ const fetchIpLocation = async (signal?: AbortSignal): Promise<IpLocation | null>
 };
 
 const resolveInitialWeatherState = () => {
-  const cachedBrowserCoords = readCachedBrowserLocation();
-  if (cachedBrowserCoords) {
-    return { coords: cachedBrowserCoords, source: 'browser' as const, label: cachedBrowserCoords.label ?? null };
-  }
-
   const cachedIpCoords = readCachedIpLocation();
   if (cachedIpCoords) {
     return { coords: cachedIpCoords, source: 'ip' as const, label: cachedIpCoords.label ?? null };
@@ -301,52 +340,6 @@ export function Navbar() {
     }
   }, []);
 
-  useEffect(() => {
-    const cachedBrowser = readCachedBrowserLocation();
-    if (cachedBrowser) {
-      applyWeatherCoords(cachedBrowser, 'browser');
-    }
-
-    if (typeof window === 'undefined' || !navigator.geolocation) {
-      return;
-    }
-
-    let cancelled = false;
-    const controller = new AbortController();
-
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        if (cancelled) return;
-
-        const coords: IpLocation = {
-          lat: position.coords.latitude,
-          lon: position.coords.longitude,
-          label: cachedBrowser?.label ?? null,
-          postalCode: cachedBrowser?.postalCode ?? null,
-          countryCode: cachedBrowser?.countryCode ?? null,
-        };
-
-        const refined = await refineLocationHint(coords, controller.signal);
-        if (!cancelled) {
-          applyWeatherCoords(refined, 'browser');
-        }
-      },
-      () => {
-        // Ignore denied/unavailable browser geolocation and fall back to IP-based lookup.
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 5 * 60 * 1000,
-      },
-    );
-
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [applyWeatherCoords]);
-
   // Prefer IP-based location (no prompt). Falls back to stored/default.
   useEffect(() => {
     const cachedIp = readCachedIpLocation();
@@ -371,6 +364,40 @@ export function Navbar() {
     return () => {
       controller.abort();
     };
+  }, [applyWeatherCoords]);
+
+  const requestPreciseWeatherLocation = useCallback(() => {
+    const cachedBrowser = readCachedBrowserLocation();
+    if (cachedBrowser) {
+      applyWeatherCoords(cachedBrowser, 'browser');
+      return;
+    }
+
+    if (typeof window === 'undefined' || !navigator.geolocation) {
+      return;
+    }
+
+    const controller = new AbortController();
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const coords: IpLocation = {
+          lat: position.coords.latitude,
+          lon: position.coords.longitude,
+        };
+
+        const refined = await refineLocationHint(coords, controller.signal);
+        applyWeatherCoords(refined, 'browser');
+      },
+      () => {
+        // Keep the current IP-based weather if the user declines or location is unavailable.
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 5 * 60 * 1000,
+      },
+    );
   }, [applyWeatherCoords]);
 
   const toggleTheme = () => {
@@ -483,7 +510,12 @@ export function Navbar() {
         <div className="flex items-center gap-4">
         {/* Weather Info */}
         {weather && (
-          <div className="hidden md:flex items-center gap-2 text-sm text-muted-foreground leading-none">
+          <button
+            type="button"
+            onClick={requestPreciseWeatherLocation}
+            className="hidden md:flex items-center gap-2 text-sm text-muted-foreground leading-none rounded-md px-2 py-1 transition-colors hover:bg-accent hover:text-foreground"
+            title="Click to use your exact location"
+          >
             {weatherLocationLabel && <span className="shrink-0">{weatherLocationLabel}</span>}
             {weatherLocationLabel && <span className="shrink-0 text-muted-foreground/60">·</span>}
             <CloudIcon className="h-4 w-4 shrink-0" />
@@ -500,7 +532,7 @@ export function Navbar() {
                 </>
               )}
             </div>
-          </div>
+          </button>
         )}
         
         {/* Theme Toggle */}

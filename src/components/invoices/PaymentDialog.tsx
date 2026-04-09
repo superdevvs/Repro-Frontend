@@ -8,7 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { CreditCard, CheckIcon, Banknote, MapPin, Package, Loader2 } from "lucide-react";
 import { InvoiceData } from '@/utils/invoiceUtils';
 import { useToast } from '@/hooks/use-toast';
-import { SquarePaymentForm } from '@/components/payments/SquarePaymentForm';
+import { StripePaymentForm } from '@/components/payments/StripePaymentForm';
 import { MarkAsPaidDialog, MarkAsPaidPayload } from '@/components/payments/MarkAsPaidDialog';
 import { formatPaymentMethod, type PaymentDetails } from '@/utils/paymentUtils';
 
@@ -68,12 +68,12 @@ export function PaymentDialog({
   const outstandingAmount = invoice.amount;
   const remainingBalanceAfterPayment = outstandingAmount - paymentAmount;
 
-  const handleSquarePaymentSuccess = async () => {
+  const handleStripePaymentSuccess = async () => {
     try {
       if (onPaymentComplete) {
         await onPaymentComplete({
           invoiceId: invoice.id,
-          paymentMethod: 'square',
+          paymentMethod: 'stripe',
           amount: invoice.amount,
         });
       }
@@ -152,7 +152,7 @@ export function PaymentDialog({
           
           <Tabs value={paymentMethod} onValueChange={setPaymentMethod} className="w-full">
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="square" className="gap-2">
+              <TabsTrigger value="stripe" className="gap-2">
                 <CreditCard className="h-4 w-4" />
                 Card Payment
               </TabsTrigger>
@@ -162,8 +162,8 @@ export function PaymentDialog({
               </TabsTrigger>
             </TabsList>
             
-            <TabsContent value="square" className="space-y-4 py-4">
-              <SquarePaymentForm
+            <TabsContent value="stripe" className="space-y-4 py-4">
+              <StripePaymentForm
                 amount={invoice.amount}
                 currency="USD"
                 shootAddress={shootAddress}
@@ -172,7 +172,7 @@ export function PaymentDialog({
                 clientName={clientName}
                 totalQuote={invoice.amount}
                 totalPaid={0}
-                onPaymentSuccess={handleSquarePaymentSuccess}
+                onPaymentSuccess={handleStripePaymentSuccess}
               />
             </TabsContent>
             

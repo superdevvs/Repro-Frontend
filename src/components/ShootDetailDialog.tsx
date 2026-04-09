@@ -9,8 +9,8 @@ import type { ShootData } from '@/types/shoots';
 import { format } from 'date-fns';
 import { User, Camera, Building, DollarSign, List, Info, Clock, Calendar as CalendarIcon, Loader2 } from 'lucide-react';
 import { API_BASE_URL } from '@/config/env';
-import { SquarePaymentDialog } from '@/components/payments/SquarePaymentDialog';
-import type { SquarePaymentSuccessPayload } from '@/components/payments/SquarePaymentForm';
+import { StripePaymentDialog } from '@/components/payments/StripePaymentDialog';
+import type { StripePaymentSuccessPayload } from '@/components/payments/StripePaymentForm';
 
 const normalizeShootServices = (services: ShootData['services']): string[] => {
   return Array.isArray(services) ? services.filter((service): service is string => typeof service === 'string') : [];
@@ -42,7 +42,7 @@ export const ShootDetailDialog = ({ shoot, isOpen, onOpenChange }: ShootDetailDi
   const amountDue = shoot.payment.totalQuote - shoot.payment.totalPaid;
   const isPaid = amountDue <= 0.01; // Use a small epsilon for float comparison
 
-  const handlePaymentSuccess = (_payment: SquarePaymentSuccessPayload) => {
+  const handlePaymentSuccess = (_payment: StripePaymentSuccessPayload) => {
     toast({
       title: "Payment Successful",
       description: `Payment of $${amountDue.toFixed(2)} has been processed successfully.`,
@@ -95,7 +95,7 @@ export const ShootDetailDialog = ({ shoot, isOpen, onOpenChange }: ShootDetailDi
         </DialogFooter>
       </DialogContent>
 
-      <SquarePaymentDialog
+      <StripePaymentDialog
         isOpen={isPaymentDialogOpen}
         onClose={() => setIsPaymentDialogOpen(false)}
         amount={amountDue}

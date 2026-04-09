@@ -12,7 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { MarkAsPaidDialog, MarkAsPaidPayload } from '@/components/payments/MarkAsPaidDialog';
-import { SquarePaymentDialog } from '@/components/payments/SquarePaymentDialog';
+import { StripePaymentDialog } from '@/components/payments/StripePaymentDialog';
 import { InvoiceViewDialog } from '@/components/invoices/InvoiceViewDialog';
 import { InvoiceData } from '@/utils/invoiceUtils';
 import { BrightMlsImportDialog } from '@/components/integrations/BrightMlsImportDialog';
@@ -184,7 +184,7 @@ export function ShootDetailsModalDialogs({
   return (
     <>
       {shoot && (
-        <SquarePaymentDialog
+        <StripePaymentDialog
           isOpen={isPaymentDialogOpen}
           onClose={() => setIsPaymentDialogOpen(false)}
           amount={amountDue || Number(shoot.payment?.totalQuote || 0)}

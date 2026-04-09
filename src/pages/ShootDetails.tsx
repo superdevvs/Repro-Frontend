@@ -61,7 +61,6 @@ import { ShootDetailsActivityLogTab } from '@/components/shoots/tabs/ShootDetail
 import { ShootDetailsIssuesTab } from '@/components/shoots/tabs/ShootDetailsIssuesTab';
 import { ShootDetailsSidebar } from '@/components/shoots/tabs/ShootDetailsSidebar';
 import { AddServiceDialog } from '@/components/shoots/AddServiceDialog';
-import { SquarePaymentDialog } from '@/components/payments/SquarePaymentDialog';
 import { MarkAsPaidDialog, MarkAsPaidPayload } from '@/components/payments/MarkAsPaidDialog';
 import { RescheduleDialog } from '@/components/dashboard/RescheduleDialog';
 
