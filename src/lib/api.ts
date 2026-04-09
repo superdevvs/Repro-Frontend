@@ -83,6 +83,7 @@ export const API_ROUTES = {
     status: `${BASE_URL}/api/google-calendar/status`,
     disconnect: `${BASE_URL}/api/google-calendar/disconnect`,
     resync: `${BASE_URL}/api/google-calendar/resync`,
+    adminOverview: `${BASE_URL}/api/admin/google-calendar/overview`,
   },
   shoots: {
     assignServicePhotographer: (shootId: number | string) => `${BASE_URL}/api/shoots/${shootId}/assign-service-photographer`,

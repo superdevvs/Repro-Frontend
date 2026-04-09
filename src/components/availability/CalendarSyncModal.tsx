@@ -13,7 +13,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format, addDays, startOfDay, endOfDay, isAfter, isBefore } from "date-fns";
-import { CalendarIcon, Check, Loader2, AlertCircle } from "lucide-react";
+import { CalendarIcon, Check, Loader2, AlertCircle, Link as LinkIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -42,6 +42,8 @@ interface CalendarSyncModalProps {
   onClose: () => void;
   availabilitySlots: AvailabilitySlot[];
   photographerName?: string;
+  onGoogleCalendarConnect?: () => Promise<void> | void;
+  isGoogleCalendarConnecting?: boolean;
 }
 
 // Calendar Icons
@@ -69,6 +71,8 @@ export function CalendarSyncModal({
   onClose,
   availabilitySlots,
   photographerName = "Your",
+  onGoogleCalendarConnect,
+  isGoogleCalendarConnecting = false,
 }: CalendarSyncModalProps) {
   const { toast } = useToast();
   const [dateRangeOption, setDateRangeOption] = useState<DateRangeOption>("30days");
@@ -191,6 +195,11 @@ export function CalendarSyncModal({
       return;
     }
 
+    if (selectedCalendar === "google" && onGoogleCalendarConnect) {
+      await onGoogleCalendarConnect();
+      return;
+    }
+
     if (eventCount === 0) {
       toast({
         title: "No availability found",
@@ -293,6 +302,16 @@ export function CalendarSyncModal({
     }
   };
 
+  const handleGoogleCalendarClick = async () => {
+    if (onGoogleCalendarConnect) {
+      setSelectedCalendar(null);
+      await onGoogleCalendarConnect();
+      return;
+    }
+
+    setSelectedCalendar("google");
+  };
+
   const calendarName = selectedCalendar === "google" ? "Google Calendar" : 
                        selectedCalendar === "apple" ? "Apple Calendar" : 
                        selectedCalendar === "outlook" ? "Outlook" : "";
@@ -308,7 +327,7 @@ export function CalendarSyncModal({
             </Badge>
           </div>
           <DialogDescription>
-            Export your availability to Google, Apple, or Outlook. This is separate from the ongoing Google shoot sync in Photographer Account.
+            Export your availability to Apple or Outlook, or start Google Calendar OAuth for live shoot sync. Google Calendar connection stays separate from one-time availability exports.
           </DialogDescription>
         </DialogHeader>
 
@@ -432,17 +451,30 @@ export function CalendarSyncModal({
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <button
                 type="button"
-                onClick={() => setSelectedCalendar("google")}
+                onClick={() => void handleGoogleCalendarClick()}
+                disabled={isGoogleCalendarConnecting}
                 className={cn(
                   "flex flex-col items-center justify-center gap-2 p-4 rounded-lg border-2 transition-all",
-                  selectedCalendar === "google"
-                    ? "border-primary bg-primary/5"
-                    : "border-border hover:border-primary/50"
+                  onGoogleCalendarConnect
+                    ? "border-border hover:border-primary/50"
+                    : selectedCalendar === "google"
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:border-primary/50",
+                  isGoogleCalendarConnecting && "cursor-wait opacity-70"
                 )}
               >
-                <GoogleCalendarIcon />
+                {isGoogleCalendarConnecting ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <GoogleCalendarIcon />
+                )}
                 <span className="text-sm font-medium">Google Calendar</span>
-                {selectedCalendar === "google" && (
+                {onGoogleCalendarConnect ? (
+                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                    <LinkIcon className="h-3 w-3" />
+                    Connect with Google
+                  </span>
+                ) : selectedCalendar === "google" && (
                   <Check className="h-4 w-4 text-primary" />
                 )}
               </button>
@@ -501,20 +533,20 @@ export function CalendarSyncModal({
           <div className="space-y-2">
             <Label className="text-base font-semibold">Sync type</Label>
             <div className="text-sm text-muted-foreground">
-              This exports availability only and does not create an ongoing live connection. You can export again anytime.
+              Apple and Outlook export availability only. Google Calendar starts OAuth for ongoing shoot sync and does not export these availability slots directly.
             </div>
           </div>
         </div>
 
         <DialogFooter className="flex items-center justify-between sm:justify-between">
           <p className="text-xs text-muted-foreground">
-            For automatic shoot syncing, use Google Calendar in Photographer Account → Preferences.
+            Google Calendar opens a live connection. Apple and Outlook continue to use one-time availability exports.
           </p>
           <div className="flex gap-2">
             <Button variant="ghost" onClick={onClose}>
               Cancel
             </Button>
-            <Button onClick={handleSync} disabled={isSyncing || !selectedCalendar || eventCount === 0}>
+            <Button onClick={handleSync} disabled={isSyncing || isGoogleCalendarConnecting || !selectedCalendar || eventCount === 0}>
               {isSyncing ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

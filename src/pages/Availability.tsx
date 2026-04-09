@@ -250,6 +250,7 @@ export default function Availability() {
   const [expandedBookingDetails, setExpandedBookingDetails] = useState<Set<string>>(new Set());
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
+  const [isGoogleCalendarConnecting, setIsGoogleCalendarConnecting] = useState(false);
   const [shootDetailsModalOpen, setShootDetailsModalOpen] = useState(false);
   const [selectedShootId, setSelectedShootId] = useState<number | null>(null);
   const [rightClickedDate, setRightClickedDate] = useState<Date | null>(null);
@@ -310,6 +311,7 @@ export default function Availability() {
   const isSalesRep = role === 'salesRep';
   const canManagePhotographerSelection = isAdmin || isSalesRep;
   const isPhotographer = role === 'photographer';
+  const canLaunchGoogleCalendarOAuth = ['photographer', 'admin', 'superadmin', 'editing_manager'].includes(role || '');
   const photographerScopedBlockId = isPhotographer && user?.id ? String(user.id) : "";
 
   const authHeaders = () => {
@@ -318,6 +320,108 @@ export default function Availability() {
     if (token) headers["Authorization"] = `Bearer ${token}`;
     return headers;
   };
+
+  const fetchGoogleCalendarAuthorizationUrl = React.useCallback(async () => {
+    if (!canLaunchGoogleCalendarOAuth) {
+      toast({
+        title: "Google Calendar unavailable",
+        description: "Your account cannot start Google Calendar sync from this page.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const selectedPhotographerRecord = photographers.find((p) => p.id === selectedPhotographer);
+    const isAdminManagedConnect = !isPhotographer;
+
+    if (isAdminManagedConnect && (!selectedPhotographer || selectedPhotographer === "all" || !selectedPhotographerRecord)) {
+      toast({
+        title: "Select a photographer",
+        description: "Choose a specific photographer before connecting Google Calendar from Availability.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGoogleCalendarConnecting(true);
+
+    try {
+      const response = await fetch(API_ROUTES.googleCalendar.connect, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({
+          source: "availability",
+          ...(isAdminManagedConnect && selectedPhotographerRecord
+            ? { user_id: Number(selectedPhotographerRecord.id) }
+            : {}),
+        }),
+      });
+
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        const validationMessage = payload?.errors
+          ? Object.values(payload.errors).flat().find(Boolean)
+          : null;
+
+        throw new Error(
+          validationMessage ||
+            payload?.message ||
+            "Unable to start Google Calendar connection."
+        );
+      }
+
+      const authorizationUrl = payload?.data?.authorization_url;
+
+      if (!authorizationUrl) {
+        throw new Error("Google Calendar authorization URL was not returned.");
+      }
+
+      window.location.assign(authorizationUrl);
+    } catch (error) {
+      toast({
+        title: "Google Calendar connection failed",
+        description: error instanceof Error ? error.message : "Unable to start Google Calendar connection.",
+        variant: "destructive",
+      });
+      setIsGoogleCalendarConnecting(false);
+    }
+  }, [
+    authHeaders,
+    canLaunchGoogleCalendarOAuth,
+    isPhotographer,
+    photographers,
+    selectedPhotographer,
+    toast,
+  ]);
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const googleCalendarState = url.searchParams.get("google_calendar");
+    const message = url.searchParams.get("message");
+
+    if (!googleCalendarState) {
+      return;
+    }
+
+    if (googleCalendarState === "connected") {
+      toast({
+        title: "Google Calendar connected",
+        description: message || "Shoot sync is now connected to Google Calendar.",
+      });
+    } else if (googleCalendarState === "error") {
+      toast({
+        title: "Google Calendar connection failed",
+        description: message || "We could not connect Google Calendar.",
+        variant: "destructive",
+      });
+    }
+
+    url.searchParams.delete("google_calendar");
+    url.searchParams.delete("message");
+    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+    setIsGoogleCalendarConnecting(false);
+  }, [toast]);
 
   const uiTimeToHhmm = (t?: string): string => {
     if (!t) return "";
@@ -1587,8 +1691,8 @@ export default function Availability() {
                   variant="outline"
                   size="sm"
                   className="rounded-md whitespace-nowrap h-8 px-2.5 text-xs"
-                  aria-label="Availability Sync"
-                  title="Availability Sync"
+                  aria-label="Sync"
+                  title="Sync"
                   onClick={() => setIsSyncModalOpen(true)}
                 >
                   <RefreshCw className="h-4 w-4" />
@@ -1649,7 +1753,7 @@ export default function Availability() {
                     onClick={() => setIsSyncModalOpen(true)}
                   >
                     <RefreshCw className="h-4 w-4 mr-2" />
-                    Availability Sync
+                    Sync
                   </Button>
                 </div>
               }
@@ -5357,6 +5461,8 @@ export default function Availability() {
       <CalendarSyncModal
         isOpen={isSyncModalOpen}
         onClose={() => setIsSyncModalOpen(false)}
+        onGoogleCalendarConnect={fetchGoogleCalendarAuthorizationUrl}
+        isGoogleCalendarConnecting={isGoogleCalendarConnecting}
         availabilitySlots={
           (selectedPhotographer === "all" ? allBackendSlots : backendSlots).map(slot => ({
             ...slot,
