@@ -40,6 +40,7 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
   showContactActions = false,
 }) => {
   const { openModal } = usePhotographerAssignment();
+  const sectionGutter = 'px-3 sm:px-5';
   const [tab, setTab] = useState<Tab>('available');
   const [sortBy, setSortBy] = useState<SortBy>('availability');
   const [preset, setPreset] = useState<WindowPreset>('today');
@@ -146,7 +147,7 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
 
   return (
     <Card className="p-0 sm:p-0 h-full flex-1 flex flex-col overflow-hidden min-h-0">
-      <div className="p-3 sm:p-5 border-b border-border/60 space-y-2 sm:space-y-3">
+      <div className={cn(sectionGutter, "py-3 sm:py-5 border-b border-border/60 space-y-2 sm:space-y-3")}>
         <div className="flex items-center justify-between">
           <h2 className="text-base sm:text-lg font-bold text-foreground">Assign Photographers</h2>
         </div>
@@ -177,7 +178,8 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
 
       <div
         className={cn(
-          "flex-1 overflow-y-auto px-3 sm:px-5 py-3 sm:py-4 custom-scrollbar min-h-0",
+          sectionGutter,
+          "flex-1 overflow-y-auto py-3 sm:py-4 custom-scrollbar min-h-0",
           filteredPhotographers.length === 0 ? "flex items-center justify-center" : "space-y-2",
         )}
       >
@@ -198,7 +200,7 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
                   handlePhotographerClick(photographer);
                 }
               }}
-              className="w-full flex flex-col gap-2 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl border border-transparent hover:border-primary/40 hover:bg-primary/5 transition-all text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              className="w-full -mx-2.5 sm:-mx-3 flex flex-col gap-2 px-2.5 sm:px-3 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl border border-transparent hover:border-primary/40 hover:bg-primary/5 transition-all text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
             >
               <div className="flex items-center gap-2 sm:gap-3">
                 <Avatar
@@ -265,7 +267,7 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
         )}
       </div>
 
-      <div className="p-3 sm:p-5 border-t border-border/60 mt-auto">
+      <div className={cn(sectionGutter, "py-3 sm:py-5 border-t border-border/60 mt-auto")}>
         <div className="space-y-2 mb-3">
           <p className="text-[10px] sm:text-[11px] text-muted-foreground uppercase tracking-wide">Select window</p>
           <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
@@ -302,4 +304,3 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
     </Card>
   );
 };
-

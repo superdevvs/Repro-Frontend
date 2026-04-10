@@ -25,6 +25,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -441,7 +442,7 @@ export function EditorEarningsWorkspace({ mode = 'admin' }: EditorEarningsWorksp
             Narrow the ledger by payout status, service type, and completion date.
           </CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-[minmax(0,1.1fr)_repeat(4,minmax(0,0.55fr))]">
+        <CardContent className="grid gap-3 md:grid-cols-[minmax(0,1.1fr)_repeat(2,minmax(0,0.6fr))_minmax(0,1fr)_auto]">
           {isAdmin ? (
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -477,8 +478,13 @@ export function EditorEarningsWorkspace({ mode = 'admin' }: EditorEarningsWorksp
             <option value="virtual_staging">Virtual Staging</option>
             <option value="floorplan">Floorplan</option>
           </select>
-          <Input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
-          <Input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} />
+          <DateRangePicker
+            value={{ startDate, endDate }}
+            onChange={({ startDate: nextStartDate, endDate: nextEndDate }) => {
+              setStartDate(nextStartDate);
+              setEndDate(nextEndDate);
+            }}
+          />
           <Button variant="outline" onClick={() => (isAdmin ? loadSummary() : loadDetail())} disabled={loading || detailLoading}>
             <RefreshCw className="mr-2 h-4 w-4" />
             Refresh

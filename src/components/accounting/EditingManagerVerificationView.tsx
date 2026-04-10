@@ -6,6 +6,7 @@ import { ShootDetailsModalWrapper } from '@/components/dashboard/v2/ShootDetails
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { Input } from '@/components/ui/input';
 import {
   Pagination,
@@ -753,27 +754,16 @@ export function EditingManagerVerificationView({
             </Select>
           </div>
 
-          <div className="space-y-2 xl:col-span-2">
-            <p className="text-sm font-medium">From</p>
-            <Input
-              type="date"
-              value={fromDate}
-              onChange={(event) => {
+          <div className="space-y-2 xl:col-span-4">
+            <p className="text-sm font-medium">Custom range</p>
+            <DateRangePicker
+              value={{ startDate: fromDate, endDate: toDate }}
+              onChange={({ startDate: nextFromDate, endDate: nextToDate }) => {
                 setDatePreset('custom');
-                setFromDate(event.target.value);
+                setFromDate(nextFromDate);
+                setToDate(nextToDate);
               }}
-            />
-          </div>
-
-          <div className="space-y-2 xl:col-span-2">
-            <p className="text-sm font-medium">To</p>
-            <Input
-              type="date"
-              value={toDate}
-              onChange={(event) => {
-                setDatePreset('custom');
-                setToDate(event.target.value);
-              }}
+              placeholder="Choose verification range"
             />
           </div>
 

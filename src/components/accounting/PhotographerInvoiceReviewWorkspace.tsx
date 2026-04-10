@@ -26,6 +26,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
@@ -749,7 +750,7 @@ export function PhotographerInvoiceReviewWorkspace({
               Filter {resolvedPluralLabel.toLowerCase()} weekly invoices by review state, week, or {resolvedShortLabel.toLowerCase()}.
             </CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-3 md:grid-cols-[minmax(0,1.2fr)_minmax(12rem,0.7fr)_repeat(2,minmax(0,0.55fr))]">
+          <CardContent className="grid gap-3 md:grid-cols-[minmax(0,1.2fr)_minmax(12rem,0.7fr)_minmax(0,1fr)]">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -778,8 +779,13 @@ export function PhotographerInvoiceReviewWorkspace({
               ))}
             </div>
 
-            <Input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
-            <Input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} />
+            <DateRangePicker
+              value={{ startDate, endDate }}
+              onChange={({ startDate: nextStartDate, endDate: nextEndDate }) => {
+                setStartDate(nextStartDate);
+                setEndDate(nextEndDate);
+              }}
+            />
           </CardContent>
         </Card>
 

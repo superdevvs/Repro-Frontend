@@ -217,7 +217,7 @@ export const CompletedShootListRow = ({
         {/* Thumbnail - Small square on mobile, rectangular landscape on desktop */}
         <div
           className={cn(
-            'relative w-24 aspect-[4/3] overflow-hidden rounded-lg flex-shrink-0 self-start shadow-sm sm:w-36 min-[1180px]:w-40',
+            'relative w-28 aspect-[4/3] overflow-hidden rounded-lg flex-shrink-0 self-start shadow-sm sm:w-40 min-[1180px]:w-44',
             showPlaceholder ? 'bg-transparent' : 'bg-muted'
           )}
         >

@@ -2,6 +2,7 @@ import React from 'react'
 import { Tabs, TabsContent } from '@/components/ui/tabs'
 import { AutoExpandingTabsList, type AutoExpandingTab } from '@/components/ui/auto-expanding-tabs'
 import { Button } from '@/components/ui/button'
+import { DateRangePicker } from '@/components/ui/date-range-picker'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -629,15 +630,19 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
                     </Select>
                   </div>
                   {operationalFilters.dateRange === 'custom' && (
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <span className="text-sm font-medium text-muted-foreground">Start date</span>
-                        <Input type="date" value={operationalFilters.scheduledStart} onChange={(event) => onOperationalFilterChange('scheduledStart', event.target.value)} />
-                      </div>
-                      <div className="space-y-2">
-                        <span className="text-sm font-medium text-muted-foreground">End date</span>
-                        <Input type="date" value={operationalFilters.scheduledEnd} onChange={(event) => onOperationalFilterChange('scheduledEnd', event.target.value)} />
-                      </div>
+                    <div className="space-y-2">
+                      <span className="text-sm font-medium text-muted-foreground">Custom range</span>
+                      <DateRangePicker
+                        value={{
+                          startDate: operationalFilters.scheduledStart,
+                          endDate: operationalFilters.scheduledEnd,
+                        }}
+                        onChange={({ startDate, endDate }) => {
+                          onOperationalFilterChange('scheduledStart', startDate)
+                          onOperationalFilterChange('scheduledEnd', endDate)
+                        }}
+                        placeholder="Choose scheduled range"
+                      />
                     </div>
                   )}
                 </div>
@@ -729,25 +734,34 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
                             </SelectContent>
                           </Select>
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <span className="text-sm font-medium text-muted-foreground">Scheduled start</span>
-                            <Input type="date" value={historyFilters.scheduledStart} onChange={(event) => onHistoryFilterChange('scheduledStart', event.target.value)} disabled={historyFilters.dateRange !== 'custom'} />
-                          </div>
-                          <div className="space-y-2">
-                            <span className="text-sm font-medium text-muted-foreground">Scheduled end</span>
-                            <Input type="date" value={historyFilters.scheduledEnd} onChange={(event) => onHistoryFilterChange('scheduledEnd', event.target.value)} disabled={historyFilters.dateRange !== 'custom'} />
-                          </div>
+                        <div className="space-y-2">
+                          <span className="text-sm font-medium text-muted-foreground">Scheduled range</span>
+                          <DateRangePicker
+                            value={{
+                              startDate: historyFilters.scheduledStart,
+                              endDate: historyFilters.scheduledEnd,
+                            }}
+                            onChange={({ startDate, endDate }) => {
+                              onHistoryFilterChange('scheduledStart', startDate)
+                              onHistoryFilterChange('scheduledEnd', endDate)
+                            }}
+                            placeholder="Choose scheduled range"
+                            disabled={historyFilters.dateRange !== 'custom'}
+                          />
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <span className="text-sm font-medium text-muted-foreground">Completed start</span>
-                            <Input type="date" value={historyFilters.completedStart} onChange={(event) => onHistoryFilterChange('completedStart', event.target.value)} />
-                          </div>
-                          <div className="space-y-2">
-                            <span className="text-sm font-medium text-muted-foreground">Completed end</span>
-                            <Input type="date" value={historyFilters.completedEnd} onChange={(event) => onHistoryFilterChange('completedEnd', event.target.value)} />
-                          </div>
+                        <div className="space-y-2">
+                          <span className="text-sm font-medium text-muted-foreground">Completed range</span>
+                          <DateRangePicker
+                            value={{
+                              startDate: historyFilters.completedStart,
+                              endDate: historyFilters.completedEnd,
+                            }}
+                            onChange={({ startDate, endDate }) => {
+                              onHistoryFilterChange('completedStart', startDate)
+                              onHistoryFilterChange('completedEnd', endDate)
+                            }}
+                            placeholder="Choose completed range"
+                          />
                         </div>
                         <div className="space-y-2">
                           <span className="text-sm font-medium text-muted-foreground">Group by</span>

@@ -30,6 +30,7 @@ import { getIconComponent } from '@/components/scheduling/IconPicker';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -1339,24 +1340,16 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
                   ))}
                 </div>
                 {draftFilters.dateRange === 'custom' && (
-                  <div className="mt-4 grid grid-cols-2 gap-3">
-                    <Input
-                      type="date"
-                      value={draftFilters.customRange.from}
-                      onChange={(event) =>
+                  <div className="mt-4">
+                    <DateRangePicker
+                      value={{
+                        startDate: draftFilters.customRange.from,
+                        endDate: draftFilters.customRange.to,
+                      }}
+                      onChange={({ startDate, endDate }) =>
                         setDraftFilters((prev) => ({
                           ...prev,
-                          customRange: { ...prev.customRange, from: event.target.value },
-                        }))
-                      }
-                    />
-                    <Input
-                      type="date"
-                      value={draftFilters.customRange.to}
-                      onChange={(event) =>
-                        setDraftFilters((prev) => ({
-                          ...prev,
-                          customRange: { ...prev.customRange, to: event.target.value },
+                          customRange: { from: startDate, to: endDate },
                         }))
                       }
                     />
@@ -1809,24 +1802,16 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
                     ))}
                   </div>
                   {draftFilters.dateRange === 'custom' && (
-                    <div className="mt-4 grid grid-cols-2 gap-3">
-                      <Input
-                        type="date"
-                        value={draftFilters.customRange.from}
-                        onChange={(event) =>
+                    <div className="mt-4">
+                      <DateRangePicker
+                        value={{
+                          startDate: draftFilters.customRange.from,
+                          endDate: draftFilters.customRange.to,
+                        }}
+                        onChange={({ startDate, endDate }) =>
                           setDraftFilters((prev) => ({
                             ...prev,
-                            customRange: { ...prev.customRange, from: event.target.value },
-                          }))
-                        }
-                      />
-                      <Input
-                        type="date"
-                        value={draftFilters.customRange.to}
-                        onChange={(event) =>
-                          setDraftFilters((prev) => ({
-                            ...prev,
-                            customRange: { ...prev.customRange, to: event.target.value },
+                            customRange: { from: startDate, to: endDate },
                           }))
                         }
                       />
