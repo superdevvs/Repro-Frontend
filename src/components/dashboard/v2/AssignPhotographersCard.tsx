@@ -200,7 +200,7 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
                   handlePhotographerClick(photographer);
                 }
               }}
-              className="w-full -ml-2.5 -mr-4 sm:-mx-3 flex flex-col gap-2 pl-2.5 pr-4 sm:px-3 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl border border-transparent hover:border-primary/40 hover:bg-primary/5 transition-all text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              className="mx-auto w-full flex flex-col gap-2 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl border border-transparent hover:border-primary/40 hover:bg-primary/5 transition-all text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
             >
               <div className="flex items-start gap-2 sm:gap-3">
                 <Avatar
