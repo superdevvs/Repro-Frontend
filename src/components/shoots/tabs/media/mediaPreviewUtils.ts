@@ -60,11 +60,12 @@ export const getMediaImageUrlCandidates = (
 };
 
 export const getMediaViewerImageUrl = (file: MediaFile): string => {
+  const thumbCandidates = getImageUrlCandidates(file, 'thumb');
   const preferredCandidates = [
-    ...getImageUrlCandidates(file, 'web').filter((candidate) => !getImageUrlCandidates(file, 'thumb').includes(candidate)),
-    ...getImageUrlCandidates(file, 'large').filter((candidate) => !getImageUrlCandidates(file, 'thumb').includes(candidate)),
-    ...getImageUrlCandidates(file, 'original'),
-    ...getImageUrlCandidates(file, 'thumb'),
+    ...getImageUrlCandidates(file, 'web').filter((candidate) => !thumbCandidates.includes(candidate)),
+    ...getImageUrlCandidates(file, 'medium').filter((candidate) => !thumbCandidates.includes(candidate)),
+    ...getImageUrlCandidates(file, 'large').filter((candidate) => !thumbCandidates.includes(candidate)),
+    ...thumbCandidates,
   ];
 
   return preferredCandidates.find(Boolean) || '';
