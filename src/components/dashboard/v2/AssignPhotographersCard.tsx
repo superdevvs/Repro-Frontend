@@ -41,6 +41,7 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
 }) => {
   const { openModal } = usePhotographerAssignment();
   const sectionGutter = 'px-3 sm:px-5';
+  const listGutter = 'px-2 sm:px-5';
   const [tab, setTab] = useState<Tab>('available');
   const [sortBy, setSortBy] = useState<SortBy>('availability');
   const [preset, setPreset] = useState<WindowPreset>('today');
@@ -178,7 +179,7 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
 
       <div
         className={cn(
-          sectionGutter,
+          listGutter,
           "flex-1 overflow-y-auto py-3 sm:py-4 custom-scrollbar min-h-0",
           filteredPhotographers.length === 0 ? "flex items-center justify-center" : "space-y-2",
         )}
@@ -200,7 +201,7 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
                   handlePhotographerClick(photographer);
                 }
               }}
-              className="mx-auto w-full flex flex-col gap-2 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl border border-transparent hover:border-primary/40 hover:bg-primary/5 transition-all text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              className="mx-auto w-full flex flex-col gap-2 px-4 sm:px-4 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl border border-transparent hover:border-primary/40 hover:bg-primary/5 transition-all text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
             >
               <div className="flex items-start gap-2 sm:gap-3">
                 <Avatar
@@ -210,9 +211,9 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
                   status={availabilitySet.has(photographer.id) || !hasAvailabilityData ? 'free' : photographer.status}
                 />
                 <div className="min-w-0 flex-1">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                  <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between md:gap-3">
                     <div className="min-w-0">
-                      <h3 className="text-xs sm:text-sm font-semibold text-foreground truncate">
+                      <h3 className="text-sm font-semibold leading-tight text-foreground">
                         {photographer.name}
                       </h3>
                       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] sm:text-[11px] text-muted-foreground">
@@ -227,7 +228,7 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
                         )}
                       </div>
                     </div>
-                    <div className="min-w-0 sm:w-[8.5rem] sm:flex-shrink-0 sm:text-right">
+                    <div className="min-w-0 md:w-[8.5rem] md:flex-shrink-0 md:text-right">
                       <span className="block text-[10px] sm:text-[11px] text-muted-foreground">
                         {photographer.region}
                       </span>
