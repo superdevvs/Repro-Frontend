@@ -9,7 +9,7 @@ import { getApiHeaders } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 import { type ShootData } from '@/types/shoots';
 import { type MediaFile } from '@/hooks/useShootFiles';
-import { getDisplayMediaFilename, getMediaViewerImageUrl } from './mediaPreviewUtils';
+import { getDisplayMediaFilename, getMediaFullSizeImageUrl, getMediaViewerImageUrl } from './mediaPreviewUtils';
 import { isRawFile } from '@/services/rawPreviewService';
 import {
   triggerDashboardOverviewRefresh,
@@ -31,6 +31,7 @@ interface MediaViewerProps {
   shoot?: ShootData;
   isAdmin?: boolean;
   isClient?: boolean;
+  canViewFullSize?: boolean;
   canInteractSingleMedia?: boolean;
   canDownloadSingleMedia?: boolean;
   onToggleFavorite?: (fileId: string) => void;
@@ -95,6 +96,7 @@ export function MediaViewer({
   shoot,
   isAdmin = false,
   isClient = false,
+  canViewFullSize = false,
   canInteractSingleMedia = false,
   canDownloadSingleMedia = false,
   onToggleFavorite,
@@ -147,6 +149,7 @@ export function MediaViewer({
     return /\.(mp4|mov|avi|mkv|wmv|webm)$/.test(name);
   };
   const [zoom, setZoom] = useState(1);
+  const [previewMode, setPreviewMode] = useState<'web' | 'full'>('web');
   const [showRequestComposer, setShowRequestComposer] = useState(false);
   const [flagReason, setFlagReason] = useState('');
   const [flagging, setFlagging] = useState(false);
@@ -204,6 +207,10 @@ export function MediaViewer({
     setShowRequestComposer(false);
     setFlagReason('');
   }, [currentFile?.id]);
+
+  useEffect(() => {
+    setPreviewMode('web');
+  }, [currentFile?.id, isOpen]);
 
   useEffect(() => {
     if (!isOpen || !shoot?.id) {
@@ -390,13 +397,23 @@ export function MediaViewer({
 
   if (!isOpen || !currentFile) return null;
 
-  const imageUrl = getMediaViewerImageUrl(currentFile);
+  const previewImageUrl = getMediaViewerImageUrl(currentFile);
+  const fullSizeImageUrl = getMediaFullSizeImageUrl(currentFile);
   const isImg = isPreviewableImage(currentFile);
   const isVid = isVideoFile(currentFile);
   const videoUrl = isVid ? (getImageUrl(currentFile, 'original') || getImageUrl(currentFile, 'large')) : '';
   const fileExt = currentFile?.filename?.split('.')?.pop()?.toUpperCase();
   const displayFilename = getDisplayMediaFilename(currentFile) || currentFile.filename;
   const mediaType = (currentFile.media_type || '').toLowerCase();
+  const fullSizeAvailable = Boolean(
+    fullSizeImageUrl &&
+      previewImageUrl &&
+      fullSizeImageUrl !== previewImageUrl,
+  );
+  const imageUrl =
+    previewMode === 'full' && fullSizeAvailable
+      ? fullSizeImageUrl
+      : previewImageUrl;
   const canSetHero =
     Boolean(shoot) &&
     isImg &&
@@ -483,39 +500,64 @@ export function MediaViewer({
                       {!isClient && currentFile.fileSize && <span>{formatViewerFileSize(currentFile.fileSize)}</span>}
                     </div>
                   </div>
-                  {/* Zoom Controls */}
+                  {/* Viewer Controls */}
                   {isImg ? (
-                    <div className="flex items-center gap-1 rounded-lg bg-black/30 p-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-white hover:bg-white/15"
-                        onClick={handleZoomOut}
-                        disabled={zoom <= 0.5}
-                        title="Zoom out"
-                      >
-                        <span className="text-sm">−</span>
-                      </Button>
-                      <span className="min-w-[3rem] text-center text-xs font-medium text-white">{Math.round(zoom * 100)}%</span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-white hover:bg-white/15"
-                        onClick={handleZoomIn}
-                        disabled={zoom >= 3}
-                        title="Zoom in"
-                      >
-                        <span className="text-sm">+</span>
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="hidden h-8 text-xs text-white hover:bg-white/15 sm:inline-flex"
-                        onClick={handleResetZoom}
-                        title="Reset zoom (0)"
-                      >
-                        Reset
-                      </Button>
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      {canViewFullSize && (
+                        <div className="flex items-center gap-1 rounded-lg bg-black/30 p-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className={`h-8 text-xs text-white hover:bg-white/15 ${previewMode === 'web' ? 'bg-white/10' : ''}`}
+                            onClick={() => setPreviewMode('web')}
+                            title="Use web-sized preview"
+                          >
+                            Web size
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className={`h-8 text-xs text-white hover:bg-white/15 ${previewMode === 'full' ? 'bg-white/10' : ''}`}
+                            onClick={() => setPreviewMode('full')}
+                            disabled={!fullSizeAvailable}
+                            title={fullSizeAvailable ? 'Use full-size preview' : 'Full-size preview unavailable'}
+                          >
+                            Full size
+                          </Button>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-1 rounded-lg bg-black/30 p-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-white hover:bg-white/15"
+                          onClick={handleZoomOut}
+                          disabled={zoom <= 0.5}
+                          title="Zoom out"
+                        >
+                          <span className="text-sm">−</span>
+                        </Button>
+                        <span className="min-w-[3rem] text-center text-xs font-medium text-white">{Math.round(zoom * 100)}%</span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-white hover:bg-white/15"
+                          onClick={handleZoomIn}
+                          disabled={zoom >= 3}
+                          title="Zoom in"
+                        >
+                          <span className="text-sm">+</span>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="hidden h-8 text-xs text-white hover:bg-white/15 sm:inline-flex"
+                          onClick={handleResetZoom}
+                          title="Reset zoom (0)"
+                        >
+                          Reset
+                        </Button>
+                      </div>
                     </div>
                   ) : (
                     <p className="text-[11px] text-white/55">Use ← → to navigate • ESC to close</p>

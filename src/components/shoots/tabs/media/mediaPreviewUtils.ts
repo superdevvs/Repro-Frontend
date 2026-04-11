@@ -172,6 +172,10 @@ export const getMediaViewerImageUrl = (file: MediaFile): string => {
   return getMediaViewerImageCandidates(file)[0] || '';
 };
 
+export const getMediaFullSizeImageUrl = (file: MediaFile): string => {
+  return getStrictResolvedUrls(file, ['original_url', 'original'])[0] || '';
+};
+
 export const getDisplayMediaFilename = (file: Pick<MediaFile, 'filename'>): string => {
   const rawFilename = String(file.filename || '').trim();
   if (!rawFilename) {

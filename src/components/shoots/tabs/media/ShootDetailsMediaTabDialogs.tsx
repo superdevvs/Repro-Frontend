@@ -17,6 +17,7 @@ export function ShootDetailsMediaTabDialogs(props: any) {
     shoot,
     isAdmin,
     isClient,
+    canViewFullSize,
     onShootUpdate,
     canInteractSingleMedia,
     canDownloadSingleMedia,
@@ -46,6 +47,7 @@ export function ShootDetailsMediaTabDialogs(props: any) {
         shoot={shoot}
         isAdmin={isAdmin}
         isClient={isClient}
+        canViewFullSize={canViewFullSize}
         onShootUpdate={onShootUpdate}
         canInteractSingleMedia={canInteractSingleMedia}
         canDownloadSingleMedia={canDownloadSingleMedia}

@@ -25,6 +25,7 @@ import { ShootRequestManager } from './ShootRequestManager';
 import { useShootFiles, type MediaFile } from '@/hooks/useShootFiles';
 import { MediaViewer } from './media/MediaViewer';
 import { getMediaImageUrl, getMediaSrcSet } from './media/mediaPreviewUtils';
+import { getShootClientReleaseAccess } from '../details/shootClientReleaseAccess';
 
 interface ShootDetailsIssuesTabProps {
   shoot: ShootData;
@@ -89,6 +90,9 @@ export function ShootDetailsIssuesTab({
     enabled: Boolean(shoot.id),
     cacheKey: shootFilesCacheKey,
   });
+  const { isPaidInFull } = getShootClientReleaseAccess(shoot, isClient);
+  const canViewFullSizeMedia =
+    isAdmin || isEditor || isPhotographer || (isClient && isPaidInFull);
   
   // Check if shoot has requests that can be marked as resolved
   const shootHasRequests = shoot.isFlagged || 
@@ -487,6 +491,7 @@ export function ShootDetailsIssuesTab({
         shoot={shoot}
         isAdmin={isAdmin}
         isClient={isClient}
+        canViewFullSize={canViewFullSizeMedia}
         canInteractSingleMedia={false}
         onShootUpdate={onShootUpdate}
       />

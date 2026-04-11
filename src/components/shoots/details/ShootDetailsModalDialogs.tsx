@@ -439,39 +439,37 @@ export function ShootDetailsModalDialogs({
         </DialogContent>
       </Dialog>
 
-      {isClient && (
-        <Dialog open={isDownloadDialogOpen} onOpenChange={setIsDownloadDialogOpen}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Download Media</DialogTitle>
-              <DialogDescription>
-                Select the image size you want to download
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-3 py-4">
-              {clientDownloadOptions.map(({ size, label, description }) => (
-                <Button
-                  key={size}
-                  variant="outline"
-                  className="w-full justify-start h-auto py-4"
-                  onClick={() => handleDownloadMedia(size)}
-                  disabled={isDownloading}
-                >
-                  <div className="flex flex-col items-start">
-                    <div className="font-medium">{label}</div>
-                    <div className="text-xs text-muted-foreground">{description}</div>
-                  </div>
-                </Button>
-              ))}
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsDownloadDialogOpen(false)} disabled={isDownloading}>
-                Cancel
+      <Dialog open={isDownloadDialogOpen} onOpenChange={setIsDownloadDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Download Media</DialogTitle>
+            <DialogDescription>
+              Select the image size you want to download
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-4">
+            {clientDownloadOptions.map(({ size, label, description }) => (
+              <Button
+                key={size}
+                variant="outline"
+                className="w-full justify-start h-auto py-4"
+                onClick={() => handleDownloadMedia(size)}
+                disabled={isDownloading}
+              >
+                <div className="flex flex-col items-start">
+                  <div className="font-medium">{label}</div>
+                  <div className="text-xs text-muted-foreground">{description}</div>
+                </div>
               </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
+            ))}
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setIsDownloadDialogOpen(false)} disabled={isDownloading}>
+              Cancel
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {isApprovalModalOpen && shoot && (
         <ShootApprovalModal
