@@ -54,11 +54,9 @@ export const getMediaImageUrl = (
 export const getMediaSrcSet = (file: MediaFile): string => {
   const sizes: string[] = [];
   const thumbUrl = getMediaImageUrl(file, 'thumb');
-  const mediumUrl = getMediaImageUrl(file, 'medium');
-  const largeUrl = getMediaImageUrl(file, 'large');
+  const previewUrl = getMediaImageUrl(file, 'medium');
 
-  if (thumbUrl) sizes.push(`${thumbUrl} 300w`);
-  if (mediumUrl) sizes.push(`${mediumUrl} 800w`);
-  if (largeUrl) sizes.push(`${largeUrl} 1800w`);
+  if (thumbUrl && thumbUrl !== previewUrl) sizes.push(`${thumbUrl} 300w`);
+  if (previewUrl) sizes.push(`${previewUrl} 1600w`);
   return sizes.join(', ');
 };

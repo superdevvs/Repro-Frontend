@@ -95,10 +95,12 @@ export function normalizeImageUrl(value?: string | null): string {
   return withBase(encodeURI(normalized));
 }
 
-const firstResolvedUrl = (
+const collectResolvedUrls = (
   file: ImageUrlFields,
   keys: Array<keyof ImageUrlFields>,
-): string => {
+): Set<string> => {
+  const resolvedUrls = new Set<string>();
+
   for (const key of keys) {
     const candidate = file[key];
     if (!candidate || isPlaceholderImageUrl(candidate as string)) {
@@ -107,6 +109,29 @@ const firstResolvedUrl = (
 
     const resolved = normalizeImageUrl(String(candidate));
     if (resolved) {
+      resolvedUrls.add(resolved);
+    }
+  }
+
+  return resolvedUrls;
+};
+
+const firstResolvedUrl = (
+  file: ImageUrlFields,
+  keys: Array<keyof ImageUrlFields>,
+  excludeMatchingKeys: Array<keyof ImageUrlFields> = [],
+): string => {
+  const excludedUrls =
+    excludeMatchingKeys.length > 0 ? collectResolvedUrls(file, excludeMatchingKeys) : null;
+
+  for (const key of keys) {
+    const candidate = file[key];
+    if (!candidate || isPlaceholderImageUrl(candidate as string)) {
+      continue;
+    }
+
+    const resolved = normalizeImageUrl(String(candidate));
+    if (resolved && !excludedUrls?.has(resolved)) {
       return resolved;
     }
   }
@@ -128,12 +153,17 @@ export function getImageUrl(
       'thumb',
       'thumbnail_url',
       'thumbnail_path',
-      'placeholder_url',
-      'placeholder_path',
-      'medium_url',
-      'medium',
       'web_url',
       'web_path',
+      'medium_url',
+      'medium',
+      'placeholder_url',
+      'placeholder_path',
+    ], [
+      'original_url',
+      'original',
+      'url',
+      'path',
       'large_url',
       'large',
     ]);
@@ -141,18 +171,23 @@ export function getImageUrl(
 
   if (size === 'medium') {
     return firstResolvedUrl(file, [
-      'medium_url',
-      'medium',
       'web_url',
       'web_path',
+      'medium_url',
+      'medium',
       'thumb_url',
       'thumb',
       'thumbnail_url',
       'thumbnail_path',
-      'large_url',
-      'large',
       'placeholder_url',
       'placeholder_path',
+    ], [
+      'original_url',
+      'original',
+      'url',
+      'path',
+      'large_url',
+      'large',
     ]);
   }
 
@@ -160,18 +195,21 @@ export function getImageUrl(
     return firstResolvedUrl(file, [
       'large_url',
       'large',
-      'medium_url',
-      'medium',
       'web_url',
       'web_path',
-      'original_url',
-      'original',
-      'url',
-      'path',
+      'medium_url',
+      'medium',
       'thumb_url',
       'thumb',
       'thumbnail_url',
       'thumbnail_path',
+      'placeholder_url',
+      'placeholder_path',
+    ], [
+      'original_url',
+      'original',
+      'url',
+      'path',
     ]);
   }
 

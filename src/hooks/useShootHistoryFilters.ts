@@ -38,7 +38,7 @@ export const useShootHistoryFilters = ({
 
   const [inProgressSubTab, setInProgressSubTab] = useState<'all' | 'uploaded' | 'editing'>('all')
   const hideDeliveredSubTabs = ['client', 'editor', 'photographer'].includes(role || '')
-  const [deliveredSubTab, setDeliveredSubTab] = useState<'all' | 'delivered' | 'ready'>(hideDeliveredSubTabs ? 'delivered' : 'all')
+  const [deliveredSubTab, setDeliveredSubTab] = useState<'all' | 'delivered' | 'ready'>('all')
   const [holdSubTab, setHoldSubTab] = useState<'all' | 'on_hold' | 'cancelled'>('all')
   const [historySubTab, setHistorySubTab] = useState<'all' | 'mls-queue'>('all')
   const [scheduledSubTab, setScheduledSubTab] = useState<'all' | 'requested' | 'scheduled'>('all')
@@ -152,7 +152,7 @@ export const useShootHistoryFilters = ({
   useEffect(() => {
     if (activeTab !== 'scheduled') setScheduledSubTab('all')
     if (activeTab !== 'completed') setInProgressSubTab('all')
-    if (activeTab !== 'delivered') setDeliveredSubTab(hideDeliveredSubTabs ? 'delivered' : 'all')
+    if (activeTab !== 'delivered') setDeliveredSubTab('all')
     if (activeTab !== 'hold') setHoldSubTab('all')
   }, [activeTab, hideDeliveredSubTabs])
 

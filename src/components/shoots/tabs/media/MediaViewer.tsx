@@ -105,7 +105,7 @@ export function MediaViewer({
   
   const isImageFile = (file: MediaFile): boolean => {
     // If RAW file has processed thumbnail, it's displayable
-    if ((file.media_type === 'raw' || file.media_type === 'image') && (file.thumbnail_path || file.thumb || file.medium)) {
+    if ((file.media_type === 'raw' || file.media_type === 'image') && (file.thumbnail_path || file.thumb || file.medium || file.web_path)) {
       return true;
     }
 
@@ -122,7 +122,7 @@ export function MediaViewer({
   };
   const isPreviewableImage = (file: MediaFile): boolean => {
     // If RAW file has processed thumbnail, it's previewable
-    if ((file.media_type === 'raw' || file.media_type === 'image') && (file.thumbnail_path || file.thumb || file.medium)) {
+    if ((file.media_type === 'raw' || file.media_type === 'image') && (file.thumbnail_path || file.thumb || file.medium || file.web_path)) {
       return true;
     }
 
@@ -388,8 +388,8 @@ export function MediaViewer({
 
   if (!isOpen || !currentFile) return null;
 
-  // Use medium size for viewer (1500px) - only load original when user explicitly requests
-  const imageUrl = getImageUrl(currentFile, 'medium') || getImageUrl(currentFile, 'large');
+  // Keep the viewer on web/preview assets and reserve originals for explicit downloads only.
+  const imageUrl = getImageUrl(currentFile, 'medium') || getImageUrl(currentFile, 'thumb');
   const srcSet = getSrcSet(currentFile);
   const isImg = isPreviewableImage(currentFile);
   const isVid = isVideoFile(currentFile);

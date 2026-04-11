@@ -22,6 +22,7 @@ const SHOOT_DETAILS_TAB_REGISTRY: ShootDetailsTabDefinition[] = [
     label: 'Tours',
     isVisible: ({ isAdmin, isRep, isClient, isRequestedStatus }) =>
       !isRequestedStatus && (isAdmin || isRep || isClient),
+    isDisabled: ({ isClient, isClientReleaseLocked }) => isClient && isClientReleaseLocked,
   },
   {
     id: 'settings',

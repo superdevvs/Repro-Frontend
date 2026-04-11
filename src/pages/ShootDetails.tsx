@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { apiClient, getApiHeaders } from '@/services/api';
 import {
@@ -599,12 +599,59 @@ const ShootDetails: React.FC = () => {
     window.open(`https://www.google.com/maps/search/?api=1&query=${address}`, '_blank');
   };
 
+  const pageTabState = useMemo(() => {
+    const lookup = new Map(visibleTabs.map((tab) => [tab.id, tab]));
+
+    return {
+      canShowIssuesTab: lookup.has('issues'),
+      canShowToursTab: lookup.has('tours'),
+      isToursTabDisabled: Boolean(lookup.get('tours')?.disabled),
+      canShowSettingsTab: lookup.has('settings'),
+      canShowNotesTab: lookup.has('notes'),
+    };
+  }, [visibleTabs]);
+
+  const isPageTabDisabled = useCallback(
+    (value: string) => {
+      if (value === 'media' || value === 'slideshow') {
+        return false;
+      }
+
+      if (value === 'tour') {
+        return pageTabState.isToursTabDisabled;
+      }
+
+      return false;
+    },
+    [pageTabState.isToursTabDisabled],
+  );
+
+  const handlePageTabChange = useCallback(
+    (value: string) => {
+      if (isPageTabDisabled(value)) {
+        return;
+      }
+
+      setActiveTab(value);
+    },
+    [isPageTabDisabled],
+  );
+
   const fullAddress = shoot?.location?.fullAddress || 
     (shoot?.location ? `${shoot.location.address}, ${shoot.location.city}, ${getStateFullName(shoot.location.state)} ${shoot.location.zip}`.trim() : '');
-  const canShowIssuesTab = visibleTabs.some((tab) => tab.id === 'issues');
-  const canShowToursTab = visibleTabs.some((tab) => tab.id === 'tours');
-  const canShowSettingsTab = visibleTabs.some((tab) => tab.id === 'settings');
-  const canShowNotesTab = visibleTabs.some((tab) => tab.id === 'notes');
+  const {
+    canShowIssuesTab,
+    canShowToursTab,
+    isToursTabDisabled,
+    canShowSettingsTab,
+    canShowNotesTab,
+  } = pageTabState;
+
+  useEffect(() => {
+    if (activeTab === 'tour' && isToursTabDisabled) {
+      setActiveTab('media');
+    }
+  }, [activeTab, isToursTabDisabled]);
 
   if (loading) {
     return (
@@ -663,6 +710,7 @@ const ShootDetails: React.FC = () => {
           canFinalise={canFinalise}
           canShowIssuesTab={canShowIssuesTab}
           canShowToursTab={canShowToursTab}
+          isToursTabDisabled={isToursTabDisabled}
           canShowSettingsTab={canShowSettingsTab}
           canShowNotesTab={canShowNotesTab}
           canShowActivity={isAdmin || isRep}
@@ -752,7 +800,7 @@ const ShootDetails: React.FC = () => {
             <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
               {/* Tab Content */}
               <div className={`flex-1 flex flex-col min-h-0 overflow-hidden ${activeTab === 'media' ? '' : 'h-auto'}`}>
-                <Tabs value={activeTab} onValueChange={setActiveTab} className={`flex flex-col min-h-0 ${activeTab === 'media' ? 'flex-1 h-full' : 'h-auto'}`}>
+                <Tabs value={activeTab} onValueChange={handlePageTabChange} className={`flex flex-col min-h-0 ${activeTab === 'media' ? 'flex-1 h-full' : 'h-auto'}`}>
                   <TabsContent value="media" className="!mt-0 !p-0 bg-background flex-1 flex flex-col min-h-0 overflow-hidden" style={{ display: 'flex', flexDirection: 'column', margin: 0, padding: 0, height: '100%' }}>
                     <ShootDetailsMediaTab
                       shoot={shoot}

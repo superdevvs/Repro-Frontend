@@ -45,6 +45,7 @@ interface ShootDetailsPageHeaderProps {
   canFinalise: boolean;
   canShowIssuesTab: boolean;
   canShowToursTab: boolean;
+  isToursTabDisabled: boolean;
   canShowSettingsTab: boolean;
   canShowNotesTab: boolean;
   canShowActivity: boolean;
@@ -87,6 +88,7 @@ export function ShootDetailsPageHeader({
   canFinalise,
   canShowIssuesTab,
   canShowToursTab,
+  isToursTabDisabled,
   canShowSettingsTab,
   canShowNotesTab,
   canShowActivity,
@@ -363,6 +365,7 @@ export function ShootDetailsPageHeader({
                 {canShowToursTab && (
                   <TabsTrigger
                     value="tour"
+                    disabled={isToursTabDisabled}
                     className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-semibold data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-10 sm:h-12 px-3 sm:px-4 text-xs sm:text-sm whitespace-nowrap"
                   >
                     Tour
