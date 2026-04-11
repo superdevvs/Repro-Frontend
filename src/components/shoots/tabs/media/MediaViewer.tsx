@@ -807,6 +807,8 @@ export function MediaViewer({
       },
     }),
   };
+  const sidebarActionButtonClassName =
+    'h-10 justify-start border-white/10 bg-white/5 text-white hover:bg-white/10 hover:text-white xl:h-11';
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -946,14 +948,14 @@ export function MediaViewer({
             <X className="h-5 w-5 sm:h-6 sm:w-6" />
           </Button>
 
-          <div className="flex h-full w-full min-h-0 flex-col px-2 pb-2 pt-2 sm:px-4 sm:pb-4 sm:pt-3 lg:px-6 lg:pb-6 lg:pt-4">
-            <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-[minmax(0,68fr)_minmax(340px,32fr)] lg:gap-4">
+          <div className="flex h-full w-full min-h-0 flex-col px-1.5 pb-1.5 pt-1.5 sm:px-3 sm:pb-3 sm:pt-2 lg:px-4 lg:pb-4 lg:pt-3 2xl:px-6 2xl:pb-6 2xl:pt-4">
+            <div className="grid min-h-0 flex-1 grid-cols-1 gap-2.5 lg:grid-cols-[minmax(0,1fr)_minmax(280px,22rem)] xl:grid-cols-[minmax(0,1fr)_minmax(300px,24rem)] 2xl:grid-cols-[minmax(0,68fr)_minmax(340px,32fr)] lg:gap-3 2xl:gap-4">
               <div className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md">
                 {/* Top Metadata Bar */}
-                <div className="flex flex-wrap items-start justify-between gap-3 border-b border-white/10 px-3 py-3 sm:px-4">
+                <div className="flex flex-wrap items-start justify-between gap-2 border-b border-white/10 px-2.5 py-2 sm:px-3 sm:py-2.5 2xl:px-4 2xl:py-3">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-white sm:text-base">{displayFilename}</p>
-                    <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-white/60">
+                    <p className="truncate text-[13px] font-semibold text-white sm:text-sm xl:text-base">{displayFilename}</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-white/60 sm:text-[11px]">
                       <span>{currentIndex + 1} of {files.length}</span>
                       {currentFile.width && currentFile.height && <span>{currentFile.width} × {currentFile.height}</span>}
                       {!isClient && currentFile.fileSize && <span>{formatViewerFileSize(currentFile.fileSize)}</span>}
@@ -961,13 +963,13 @@ export function MediaViewer({
                   </div>
                   {/* Viewer Controls */}
                   {isImg ? (
-                    <div className="flex flex-wrap items-center justify-end gap-2">
+                    <div className="flex flex-wrap items-center justify-end gap-1.5">
                       {canViewFullSize && (
                         <div className="flex items-center gap-1 rounded-lg bg-black/30 p-1">
                           <Button
                             variant="ghost"
                             size="sm"
-                            className={`h-8 text-xs text-white hover:bg-white/15 ${previewMode === 'web' ? 'bg-white/10' : ''}`}
+                            className={`h-7 px-2.5 text-[11px] text-white hover:bg-white/15 sm:h-8 sm:text-xs ${previewMode === 'web' ? 'bg-white/10' : ''}`}
                             onClick={() => setPreviewMode('web')}
                             title="Use web-sized preview"
                           >
@@ -976,7 +978,7 @@ export function MediaViewer({
                           <Button
                             variant="ghost"
                             size="sm"
-                            className={`h-8 text-xs text-white hover:bg-white/15 ${previewMode === 'full' ? 'bg-white/10' : ''}`}
+                            className={`h-7 px-2.5 text-[11px] text-white hover:bg-white/15 sm:h-8 sm:text-xs ${previewMode === 'full' ? 'bg-white/10' : ''}`}
                             onClick={() => setPreviewMode('full')}
                             disabled={!fullSizeAvailable}
                             title={fullSizeAvailable ? 'Use full-size preview' : 'Full-size preview unavailable'}
@@ -989,18 +991,18 @@ export function MediaViewer({
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-white hover:bg-white/15"
+                          className="h-7 w-7 text-white hover:bg-white/15 sm:h-8 sm:w-8"
                           onClick={handleZoomOut}
                           disabled={zoom <= 0.5}
                           title="Zoom out"
                         >
                           <span className="text-sm">−</span>
                         </Button>
-                        <span className="min-w-[3rem] text-center text-xs font-medium text-white">{Math.round(zoom * 100)}%</span>
+                        <span className="min-w-[2.5rem] text-center text-[11px] font-medium text-white sm:min-w-[3rem] sm:text-xs">{Math.round(zoom * 100)}%</span>
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-white hover:bg-white/15"
+                          className="h-7 w-7 text-white hover:bg-white/15 sm:h-8 sm:w-8"
                           onClick={handleZoomIn}
                           disabled={zoom >= 3}
                           title="Zoom in"
@@ -1010,7 +1012,7 @@ export function MediaViewer({
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="hidden h-8 text-xs text-white hover:bg-white/15 sm:inline-flex"
+                          className="hidden h-7 text-[11px] text-white hover:bg-white/15 sm:inline-flex sm:h-8 sm:text-xs"
                           onClick={handleResetZoom}
                           title="Reset zoom (0)"
                         >
@@ -1024,16 +1026,16 @@ export function MediaViewer({
                 </div>
 
                 <div className="flex min-h-0 flex-1 flex-col">
-                  <div className="flex min-h-0 flex-1 items-stretch justify-center px-2 pb-2 pt-2 sm:px-3 sm:pb-3 sm:pt-2">
-                    <div className="relative flex h-full min-h-[420px] w-full items-center justify-center overflow-auto rounded-xl bg-black/55 p-2 sm:min-h-[520px] sm:p-3">
+                  <div className="flex min-h-0 flex-1 items-stretch justify-center px-1.5 pb-1.5 pt-1.5 sm:px-2.5 sm:pb-2.5 sm:pt-2">
+                    <div className="relative flex h-full min-h-0 w-full flex-1 items-center justify-center overflow-auto rounded-lg bg-black/55 p-1.5 sm:rounded-xl sm:p-2.5">
                       {currentIndex > 0 && (
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="absolute left-2 top-1/2 z-10 h-10 w-10 -translate-y-1/2 rounded-full border border-white/10 bg-black/45 text-white hover:bg-white/15"
+                          className="absolute left-1.5 top-1/2 z-10 h-8 w-8 -translate-y-1/2 rounded-full border border-white/10 bg-black/45 text-white hover:bg-white/15 sm:left-2 sm:h-10 sm:w-10"
                           onClick={handlePrevious}
                         >
-                          <ChevronLeft className="h-6 w-6" />
+                          <ChevronLeft className="h-5 w-5 sm:h-6 sm:w-6" />
                         </Button>
                       )}
 
@@ -1041,10 +1043,10 @@ export function MediaViewer({
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="absolute right-2 top-1/2 z-10 h-10 w-10 -translate-y-1/2 rounded-full border border-white/10 bg-black/45 text-white hover:bg-white/15"
+                          className="absolute right-1.5 top-1/2 z-10 h-8 w-8 -translate-y-1/2 rounded-full border border-white/10 bg-black/45 text-white hover:bg-white/15 sm:right-2 sm:h-10 sm:w-10"
                           onClick={handleNext}
                         >
-                          <ChevronRight className="h-6 w-6" />
+                          <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6" />
                         </Button>
                       )}
                       {isImg ? (
@@ -1075,15 +1077,15 @@ export function MediaViewer({
                   </div>
 
                   {/* Bottom Filmstrip */}
-                  <div className="border-t border-white/10 px-3 py-3 sm:px-4">
+                  <div className="border-t border-white/10 px-2.5 py-2 sm:px-3 sm:py-2.5 2xl:px-4 2xl:py-3">
                     <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                       <div>
-                        <p className="text-sm font-medium text-white">All media</p>
-                        <p className="text-[11px] text-white/55">
+                        <p className="text-[13px] font-medium text-white sm:text-sm">All media</p>
+                        <p className="text-[10px] text-white/55 sm:text-[11px]">
                           {isImg ? 'Use ← → to navigate • + - to zoom • ESC to close' : 'Use ← → to navigate • ESC to close'}
                         </p>
                       </div>
-                      <p className="text-[11px] text-white/50">{currentIndex + 1} of {files.length}</p>
+                      <p className="text-[10px] text-white/50 sm:text-[11px]">{currentIndex + 1} of {files.length}</p>
                     </div>
 
                     {/* Filmstrip Thumbnails */}
@@ -1105,7 +1107,7 @@ export function MediaViewer({
                               onIndexChange(index);
                               setZoom(1);
                             }}
-                            className={`relative flex-shrink-0 w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden border-2 transition-all ${
+                            className={`relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg border-2 transition-all sm:h-14 sm:w-14 sm:rounded-xl 2xl:h-16 2xl:w-16 ${
                               isActive
                                 ? 'border-white ring-2 ring-white/50 scale-[1.03]'
                                 : 'border-white/20 hover:border-white/60 opacity-70 hover:opacity-100'
@@ -1150,12 +1152,12 @@ export function MediaViewer({
 
               <div className="min-h-0 overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md">
                 <ScrollArea className="h-full">
-                  <div className="space-y-4 p-3 text-white sm:p-4">
+                  <div className="space-y-3 p-2.5 text-white sm:p-3 xl:p-3.5 2xl:space-y-4 2xl:p-4">
                     <div className="grid gap-2 sm:grid-cols-2">
                       {canSetHero && (
                         <Button
                           variant="outline"
-                          className="justify-start border-white/10 bg-white/5 text-white hover:bg-white/10 hover:text-white"
+                          className={sidebarActionButtonClassName}
                           onClick={handleSetHeroImage}
                         >
                           <CheckCircle2 className="mr-2 h-4 w-4" />
@@ -1165,7 +1167,7 @@ export function MediaViewer({
                       {canInteractSingleMedia && onToggleFavorite && (
                         <Button
                           variant="outline"
-                          className="justify-start border-white/10 bg-white/5 text-white hover:bg-white/10 hover:text-white"
+                          className={sidebarActionButtonClassName}
                           onClick={() => onToggleFavorite(currentFile.id)}
                         >
                           <Heart className={`mr-2 h-4 w-4 ${currentFile.is_favorite ? 'fill-current' : ''}`} />
@@ -1175,7 +1177,7 @@ export function MediaViewer({
                       {canDownloadSingleMedia && onDownloadSingle && (
                         <Button
                           variant="outline"
-                          className="justify-start border-white/10 bg-white/5 text-white hover:bg-white/10 hover:text-white"
+                          className={sidebarActionButtonClassName}
                           onClick={() => onDownloadSingle(currentFile.id)}
                         >
                           <Download className="mr-2 h-4 w-4" />
@@ -1185,7 +1187,7 @@ export function MediaViewer({
                       {onToggleHidden && (
                         <Button
                           variant="outline"
-                          className="justify-start border-white/10 bg-white/5 text-white hover:bg-white/10 hover:text-white"
+                          className={sidebarActionButtonClassName}
                           onClick={() => onToggleHidden(currentFile.id, !currentFile.is_hidden)}
                         >
                           {currentFile.is_hidden ? <Eye className="mr-2 h-4 w-4" /> : <EyeOff className="mr-2 h-4 w-4" />}
@@ -1196,7 +1198,7 @@ export function MediaViewer({
                         <div className="sm:col-span-2">
                           <Button
                             variant="outline"
-                            className="w-full justify-start border-white/10 bg-white/5 text-white hover:bg-white/10 hover:text-white"
+                            className={`${sidebarActionButtonClassName} w-full`}
                             onClick={handleEnterSlideshow}
                           >
                             <Play className="mr-2 h-4 w-4 fill-current" />
@@ -1209,7 +1211,7 @@ export function MediaViewer({
                         <div className="sm:col-span-2 space-y-2">
                           <Button
                             variant="destructive"
-                            className="justify-start"
+                            className="h-10 justify-start xl:h-11"
                             onClick={() => {
                               blurActiveElement();
                               setShowRequestComposer((current) => !current);
@@ -1228,7 +1230,7 @@ export function MediaViewer({
                                 value={flagReason}
                                 onChange={(event) => setFlagReason(event.target.value)}
                                 placeholder="Request any changes in this image..."
-                                className="mt-3 min-h-[96px] resize-none border-white/10 bg-black/30 text-white placeholder:text-white/45"
+                                className="mt-3 min-h-[80px] resize-none border-white/10 bg-black/30 text-white placeholder:text-white/45 xl:min-h-[96px]"
                               />
                               <div className="mt-3 flex items-center justify-end gap-2">
                                 <Button
@@ -1299,7 +1301,7 @@ export function MediaViewer({
                             value={commentDraft}
                             onChange={(event) => setCommentDraft(event.target.value)}
                             placeholder="Add a comment for this image..."
-                            className="min-h-[88px] resize-none border-white/10 bg-black/30 text-white placeholder:text-white/45"
+                            className="min-h-[76px] resize-none border-white/10 bg-black/30 text-white placeholder:text-white/45 xl:min-h-[88px]"
                           />
                           <div className="flex items-center justify-end gap-2">
                             <Button
