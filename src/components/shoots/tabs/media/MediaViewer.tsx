@@ -25,13 +25,12 @@ interface MediaViewerProps {
   currentIndex: number;
   onIndexChange: (index: number) => void;
   getImageUrl: (file: MediaFile, size?: 'thumb' | 'web' | 'medium' | 'large' | 'original') => string;
-  getImageUrlCandidates: (file: MediaFile, size?: 'thumb' | 'web' | 'medium' | 'large' | 'original') => string[];
+  getSrcSet: (file: MediaFile) => string;
   shoot?: ShootData;
   isAdmin?: boolean;
   isClient?: boolean;
   canInteractSingleMedia?: boolean;
   canDownloadSingleMedia?: boolean;
-  canPreviewFullSize?: boolean;
   onToggleFavorite?: (fileId: string) => void;
   onAddComment?: (fileId: string, comment: string) => void;
   onToggleHidden?: (fileId: string, hidden: boolean) => void;
@@ -90,13 +89,12 @@ export function MediaViewer({
   currentIndex, 
   onIndexChange,
   getImageUrl,
-  getImageUrlCandidates,
+  getSrcSet: _getSrcSet,
   shoot,
   isAdmin = false,
   isClient = false,
   canInteractSingleMedia = false,
   canDownloadSingleMedia = false,
-  canPreviewFullSize = false,
   onToggleFavorite,
   onAddComment,
   onToggleHidden,
@@ -155,8 +153,6 @@ export function MediaViewer({
   const [viewerRequests, setViewerRequests] = useState<MediaIssueRequest[]>([]);
   const [requestsLoading, setRequestsLoading] = useState(false);
   const [requestRefreshKey, setRequestRefreshKey] = useState(0);
-  const [showFullSizePreview, setShowFullSizePreview] = useState(false);
-  const [imageCandidateIndex, setImageCandidateIndex] = useState(0);
   const currentFile = files[currentIndex];
   const fileComments = useMemo(
     () => {
@@ -205,20 +201,7 @@ export function MediaViewer({
     setShowFileDetails(false);
     setShowRequestComposer(false);
     setFlagReason('');
-    setShowFullSizePreview(false);
-    setImageCandidateIndex(0);
   }, [currentFile?.id]);
-
-  useEffect(() => {
-    if (!isOpen) {
-      setShowFullSizePreview(false);
-      setImageCandidateIndex(0);
-    }
-  }, [isOpen]);
-
-  useEffect(() => {
-    setImageCandidateIndex(0);
-  }, [showFullSizePreview]);
 
   useEffect(() => {
     if (!isOpen || !shoot?.id) {
@@ -405,23 +388,10 @@ export function MediaViewer({
 
   if (!isOpen || !currentFile) return null;
 
-  const previewImageCandidates = getImageUrlCandidates(currentFile, 'web');
-  const originalImageCandidates = getImageUrlCandidates(currentFile, 'original');
-  const previewImageUrl = previewImageCandidates[0] || '';
-  const originalImageUrl = originalImageCandidates[0] || '';
-  const activeImageCandidates = showFullSizePreview
-    ? (originalImageCandidates.length > 0 ? originalImageCandidates : previewImageCandidates)
-    : previewImageCandidates;
-  const imageUrl = activeImageCandidates[imageCandidateIndex] || '';
+  const imageUrl = getImageUrl(currentFile, 'web') || getImageUrl(currentFile, 'medium') || getImageUrl(currentFile, 'thumb');
   const isImg = isPreviewableImage(currentFile);
   const isVid = isVideoFile(currentFile);
   const videoUrl = isVid ? (getImageUrl(currentFile, 'original') || getImageUrl(currentFile, 'large')) : '';
-  const canShowFullSizeButton =
-    isImg &&
-    canPreviewFullSize &&
-    Boolean(originalImageUrl) &&
-    Boolean(previewImageUrl) &&
-    originalImageUrl !== previewImageUrl;
   const fileExt = currentFile?.filename?.split('.')?.pop()?.toUpperCase();
   const mediaType = (currentFile.media_type || '').toLowerCase();
   const canSetHero =
@@ -513,17 +483,6 @@ export function MediaViewer({
                   {/* Zoom Controls */}
                   {isImg ? (
                     <div className="flex items-center gap-1 rounded-lg bg-black/30 p-1">
-                      {canShowFullSizeButton && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 px-3 text-xs text-white hover:bg-white/15"
-                          onClick={() => setShowFullSizePreview((current) => !current)}
-                          title={showFullSizePreview ? 'Return to web preview' : 'Temporarily view the full-size image'}
-                        >
-                          {showFullSizePreview ? 'Web size' : 'Full size'}
-                        </Button>
-                      )}
                       <Button
                         variant="ghost"
                         size="icon"
@@ -592,11 +551,6 @@ export function MediaViewer({
                           style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
                           loading="eager"
                           draggable={false}
-                          onError={() => {
-                            if (imageCandidateIndex < activeImageCandidates.length - 1) {
-                              setImageCandidateIndex((current) => current + 1);
-                            }
-                          }}
                         />
                       ) : isVid ? (
                         <video

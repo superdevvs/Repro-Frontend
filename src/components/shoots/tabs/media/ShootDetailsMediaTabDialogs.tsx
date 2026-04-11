@@ -14,14 +14,12 @@ export function ShootDetailsMediaTabDialogs(props: any) {
     viewerIndex,
     setViewerIndex,
     getImageUrl,
-    getImageUrlCandidates,
     shoot,
     isAdmin,
     isClient,
     onShootUpdate,
     canInteractSingleMedia,
     canDownloadSingleMedia,
-    canPreviewFullSize,
     onToggleFavorite,
     onAddComment,
     onToggleHidden,
@@ -45,14 +43,12 @@ export function ShootDetailsMediaTabDialogs(props: any) {
         currentIndex={viewerIndex}
         onIndexChange={setViewerIndex}
         getImageUrl={getImageUrl}
-        getImageUrlCandidates={getImageUrlCandidates}
         shoot={shoot}
         isAdmin={isAdmin}
         isClient={isClient}
         onShootUpdate={onShootUpdate}
         canInteractSingleMedia={canInteractSingleMedia}
         canDownloadSingleMedia={canDownloadSingleMedia}
-        canPreviewFullSize={canPreviewFullSize}
         onToggleFavorite={onToggleFavorite}
         onAddComment={onAddComment}
         onToggleHidden={onToggleHidden}
