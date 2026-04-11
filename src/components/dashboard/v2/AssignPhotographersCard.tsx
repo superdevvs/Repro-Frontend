@@ -213,8 +213,8 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
         }
 
         .assign-photographer-name__text {
-          display: inline-block;
-          max-width: 100%;
+          display: block;
+          width: 100%;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
@@ -307,7 +307,7 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
                 />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between lg:gap-3">
-                    <div className="min-w-0 flex-1">
+                    <div className="min-w-[8.5rem] flex-1">
                       <h3 className="text-sm font-semibold leading-tight text-foreground">
                         <HoverMarqueeText text={photographer.name} />
                       </h3>
