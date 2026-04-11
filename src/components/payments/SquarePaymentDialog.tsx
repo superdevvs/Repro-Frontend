@@ -48,7 +48,7 @@ export function SquarePaymentDialog({
   onPaymentSuccess,
   onPaymentError,
 }: SquarePaymentDialogProps) {
-  const [paymentCompleted, setPaymentCompleted] = useState(false);
+  const [successfulPayment, setSuccessfulPayment] = useState<SquarePaymentSuccessPayload | null>(null);
   const [checkoutActive, setCheckoutActive] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -64,19 +64,19 @@ export function SquarePaymentDialog({
   }, []);
 
   const handlePaymentSuccess = (payment: SquarePaymentSuccessPayload) => {
-    setPaymentCompleted(true);
+    setSuccessfulPayment(payment);
     if (onPaymentSuccess) {
       onPaymentSuccess(payment);
     }
     // Auto-close after 2 seconds on success
     setTimeout(() => {
       onClose();
-      setPaymentCompleted(false);
+      setSuccessfulPayment(null);
     }, 2000);
   };
 
   const handleClose = () => {
-    if (!paymentCompleted) {
+    if (!successfulPayment) {
       onClose();
     }
   };
@@ -105,7 +105,7 @@ export function SquarePaymentDialog({
         </DialogHeader>
 
         <div ref={scrollContainerRef} className="pt-2 flex-1 min-h-0 overflow-y-auto lg:overflow-visible">
-          {paymentCompleted ? (
+          {successfulPayment ? (
             <div className="text-center py-8">
               <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
                 <svg
@@ -124,7 +124,7 @@ export function SquarePaymentDialog({
               </div>
               <h3 className="text-lg font-semibold mb-2">Payment Successful!</h3>
               <p className="text-sm text-muted-foreground">
-                Your payment of ${amount.toFixed(2)} has been processed successfully.
+                Your payment of ${successfulPayment.amount.toFixed(2)} has been processed successfully.
               </p>
             </div>
           ) : (

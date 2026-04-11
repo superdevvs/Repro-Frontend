@@ -56,8 +56,9 @@ export function PaymentDialog({
   // Reset state when invoice changes
   useEffect(() => {
     if (invoice) {
-      setPaymentAmount(invoice.amount);
-      setPaymentAmountInput(invoice.amount.toFixed(2));
+      const outstanding = Math.max(invoice.balance ?? (invoice.amount - (invoice.amountPaid ?? 0)), 0);
+      setPaymentAmount(outstanding);
+      setPaymentAmountInput(outstanding.toFixed(2));
       setIsPartialPaymentMode(false);
       setIsMarkPaidDialogOpen(false);
     }
@@ -65,7 +66,11 @@ export function PaymentDialog({
 
   if (!invoice) return null;
 
-  const outstandingAmount = invoice.amount;
+  const alreadyPaidAmount = Math.max(
+    invoice.amountPaid ?? (invoice.balance !== undefined ? invoice.amount - invoice.balance : 0),
+    0,
+  );
+  const outstandingAmount = Math.max(invoice.balance ?? (invoice.amount - alreadyPaidAmount), 0);
   const remainingBalanceAfterPayment = outstandingAmount - paymentAmount;
 
   const handleStripePaymentSuccess = async () => {
@@ -74,12 +79,12 @@ export function PaymentDialog({
         await onPaymentComplete({
           invoiceId: invoice.id,
           paymentMethod: 'stripe',
-          amount: invoice.amount,
+          amount: outstandingAmount,
         });
       }
       toast({
         title: "Payment Successful",
-        description: `Payment of $${invoice.amount.toFixed(2)} for invoice ${invoice.id} has been processed.`,
+        description: `Payment of $${outstandingAmount.toFixed(2)} for invoice ${invoice.id} has been processed.`,
         variant: "default",
       });
       onClose();
@@ -164,14 +169,14 @@ export function PaymentDialog({
             
             <TabsContent value="stripe" className="space-y-4 py-4">
               <StripePaymentForm
-                amount={invoice.amount}
+                amount={outstandingAmount}
                 currency="USD"
                 shootAddress={shootAddress}
                 shootServices={shootServices}
                 clientEmail={clientEmail}
                 clientName={clientName}
                 totalQuote={invoice.amount}
-                totalPaid={0}
+                totalPaid={alreadyPaidAmount}
                 onPaymentSuccess={handleStripePaymentSuccess}
               />
             </TabsContent>

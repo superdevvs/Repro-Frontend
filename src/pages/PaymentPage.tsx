@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Logo } from '@/components/layout/Logo';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -9,6 +9,7 @@ import { HorizontalLoader } from '@/components/ui/horizontal-loader';
 import axios from 'axios';
 import { API_BASE_URL, STRIPE_PUBLISHABLE_KEY } from '@/config/env';
 import { loadStripe } from '@stripe/stripe-js';
+import { canUseSafeHistoryFallback, sanitizeRelativeReturnTo } from '@/utils/paymentReturn';
 
 interface ShootDetails {
   id: number;
@@ -31,18 +32,30 @@ interface ShootDetails {
   payments?: Array<{ amount: number; status: string }>;
 }
 
+type PaymentConfirmationResult = {
+  last_payment_amount?: number | string | null;
+  return_to?: string | null;
+};
+
 export default function PaymentPage() {
   const { token } = useParams<{ token: string }>();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const initialSessionId = searchParams.get('session_id');
+  const initialReturnTo = searchParams.get('return_to');
+  const isSuccessRedirect = searchParams.get('success') === 'true' && Boolean(initialSessionId);
   const [shoot, setShoot] = useState<ShootDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [paymentSuccess, setPaymentSuccess] = useState(searchParams.get('success') === 'true');
+  const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [confirmingPayment, setConfirmingPayment] = useState(isSuccessRedirect);
   const [isPartialOpen, setIsPartialOpen] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState(0);
   const [paymentAmountInput, setPaymentAmountInput] = useState('0.00');
   const [lastPaymentAmount, setLastPaymentAmount] = useState<number | null>(null);
+  const [resolvedReturnTo, setResolvedReturnTo] = useState<string | null>(
+    sanitizeRelativeReturnTo(initialReturnTo),
+  );
   const [stripeLoading, setStripeLoading] = useState(false);
   const [stripeError, setStripeError] = useState<string | null>(null);
   const [showEmbeddedCheckout, setShowEmbeddedCheckout] = useState(false);
@@ -79,15 +92,19 @@ export default function PaymentPage() {
     }
   }, []);
 
-  const confirmStripeSession = useCallback(async (sessionId: string) => {
-    if (!token || !sessionId) return;
+  const confirmStripeSession = useCallback(async (sessionId: string): Promise<PaymentConfirmationResult | null> => {
+    if (!token || !sessionId) {
+      return null;
+    }
 
     try {
-      await axios.post(`${API_BASE_URL}/api/public/payments/${token}/confirm`, {
+      const response = await axios.post(`${API_BASE_URL}/api/public/payments/${token}/confirm`, {
         session_id: sessionId,
       });
+      return (response.data?.data || response.data) as PaymentConfirmationResult;
     } catch {
       // Ignore confirmation errors and let polling/webhooks continue
+      return null;
     }
   }, [token]);
 
@@ -98,10 +115,40 @@ export default function PaymentPage() {
   }, [token, fetchShootDetails]);
 
   useEffect(() => {
-    if (searchParams.get('success') === 'true' && initialSessionId) {
-      void confirmStripeSession(initialSessionId).then(() => fetchShootDetails());
+    if (!isSuccessRedirect || !initialSessionId) {
+      setConfirmingPayment(false);
+      return;
     }
-  }, [confirmStripeSession, fetchShootDetails, initialSessionId, searchParams]);
+
+    let cancelled = false;
+
+    const confirmPayment = async () => {
+      setConfirmingPayment(true);
+      const confirmation = await confirmStripeSession(initialSessionId);
+      await fetchShootDetails();
+
+      if (cancelled) {
+        return;
+      }
+
+      const confirmedAmount = Number(confirmation?.last_payment_amount ?? Number.NaN);
+      if (Number.isFinite(confirmedAmount) && confirmedAmount > 0) {
+        setLastPaymentAmount(confirmedAmount);
+      }
+
+      setResolvedReturnTo(
+        sanitizeRelativeReturnTo(confirmation?.return_to ?? initialReturnTo),
+      );
+      setPaymentSuccess(Boolean(confirmation));
+      setConfirmingPayment(false);
+    };
+
+    void confirmPayment();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [confirmStripeSession, fetchShootDetails, initialReturnTo, initialSessionId, isSuccessRedirect]);
 
   const totalPaid = shoot?.payments
     ?.filter((p) => p.status === 'completed')
@@ -164,8 +211,9 @@ export default function PaymentPage() {
     setPaymentAmountInput(clamped.toFixed(2));
   };
 
-  const handlePaymentSuccess = () => {
-    setLastPaymentAmount(effectivePaymentAmount);
+  const handlePaymentSuccess = (processedAmount: number, returnTo?: string | null) => {
+    setLastPaymentAmount(processedAmount);
+    setResolvedReturnTo(sanitizeRelativeReturnTo(returnTo ?? null));
     setPaymentSuccess(true);
     void fetchShootDetails();
   };
@@ -240,8 +288,14 @@ export default function PaymentPage() {
     pollingIntervalRef.current = setInterval(async () => {
       try {
         const activeSessionId = sessionId ?? checkoutSessionIdRef.current;
+        const confirmation = activeSessionId
+          ? await confirmStripeSession(activeSessionId)
+          : null;
         if (activeSessionId) {
-          await confirmStripeSession(activeSessionId);
+          const confirmedAmount = Number(confirmation?.last_payment_amount ?? effectivePaymentAmount);
+          const confirmedReturnTo = sanitizeRelativeReturnTo(confirmation?.return_to ?? null);
+          setLastPaymentAmount(Number.isFinite(confirmedAmount) ? confirmedAmount : effectivePaymentAmount);
+          setResolvedReturnTo(confirmedReturnTo);
         }
 
         const statusRes = await axios.get(`${API_BASE_URL}/api/public/payments/${token}`);
@@ -258,7 +312,10 @@ export default function PaymentPage() {
             setShowEmbeddedCheckout(false);
             setStripeLoading(false);
             checkoutSessionIdRef.current = null;
-            handlePaymentSuccess();
+            handlePaymentSuccess(
+              Number(confirmation?.last_payment_amount ?? effectivePaymentAmount),
+              confirmation?.return_to ?? null,
+            );
           }
       } catch {
         // Ignore polling errors
@@ -279,11 +336,54 @@ export default function PaymentPage() {
     }, 10000);
   };
 
-  if (loading) {
+  const isPopup = typeof window !== 'undefined' && !!window.opener;
+  const canGoBack = canUseSafeHistoryFallback();
+  const canReturn = Boolean(resolvedReturnTo) || canGoBack;
+
+  const handleReturn = useCallback(() => {
+    if (resolvedReturnTo) {
+      navigate(resolvedReturnTo);
+      return;
+    }
+
+    if (canUseSafeHistoryFallback()) {
+      window.history.back();
+    }
+  }, [navigate, resolvedReturnTo]);
+
+  useEffect(() => {
+    if (!paymentSuccess) {
+      return;
+    }
+
+    if (isPopup) {
+      const popupCloseTimer = window.setTimeout(() => {
+        try {
+          window.close();
+        } catch (closeError) {
+          console.warn('Unable to auto-close payment popup:', closeError);
+        }
+      }, 3000);
+
+      return () => window.clearTimeout(popupCloseTimer);
+    }
+
+    if (!canReturn) {
+      return;
+    }
+
+    const returnTimer = window.setTimeout(() => {
+      handleReturn();
+    }, 3000);
+
+    return () => window.clearTimeout(returnTimer);
+  }, [canReturn, handleReturn, isPopup, paymentSuccess]);
+
+  if (loading || confirmingPayment) {
     return (
       <div className="min-h-screen bg-[#060a0e] flex items-center justify-center">
         <div className="w-full max-w-md">
-          <HorizontalLoader message="Loading payment details..." />
+          <HorizontalLoader message={confirmingPayment ? "Confirming payment..." : "Loading payment details..."} />
         </div>
       </div>
     );
@@ -304,19 +404,6 @@ export default function PaymentPage() {
   }
 
   if (paymentSuccess) {
-    const isPopup = !!window.opener;
-
-    // Auto-close popup after 3 seconds
-    if (isPopup) {
-      setTimeout(() => {
-        try {
-          window.close();
-        } catch (closeError) {
-          console.warn('Unable to auto-close payment popup:', closeError);
-        }
-      }, 3000);
-    }
-
     return (
       <div className="min-h-screen bg-[#060a0e] flex items-center justify-center p-4">
         <Card className="max-w-md w-full bg-[#0a0f1a] border-green-500/30">
@@ -329,10 +416,15 @@ export default function PaymentPage() {
             <p className="text-sm text-gray-500">
               You will receive a confirmation email shortly.
             </p>
-            {isPopup && (
+            {(isPopup || canReturn) && (
               <p className="text-xs text-gray-600 mt-4">
-                This window will close automatically...
+                {isPopup ? 'This window will close automatically...' : 'Returning you to the previous page...'}
               </p>
+            )}
+            {canReturn && !isPopup && (
+              <Button className="mt-4" onClick={handleReturn}>
+                Return to previous page
+              </Button>
             )}
           </CardContent>
         </Card>

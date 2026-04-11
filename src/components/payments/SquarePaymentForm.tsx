@@ -19,6 +19,13 @@ import axios from 'axios';
 import { loadStripe } from '@stripe/stripe-js';
 import { blurActiveElement } from '@/components/shoots/dialogFocusUtils';
 import type { PricingBreakdown } from '@/utils/pricing';
+import {
+  triggerDashboardOverviewRefresh,
+  triggerInvoicesRefresh,
+  triggerShootDetailRefresh,
+  triggerShootHistoryRefresh,
+} from '@/realtime/realtimeRefreshBus';
+import { getCurrentReturnTo, sanitizeRelativeReturnTo } from '@/utils/paymentReturn';
 
 type EmbeddedCheckoutInstance = {
   mount: (element: HTMLElement | string) => void;
@@ -35,6 +42,11 @@ type ShootPaymentStatusResponse = {
   payments?: PaymentRecord[];
 };
 
+type PaymentSessionConfirmationResponse = {
+  last_payment_amount?: number | string | null;
+  return_to?: string | null;
+};
+
 type CouponValidationResponse = {
   valid?: boolean;
   discount?: number;
@@ -46,6 +58,7 @@ type CouponValidationResponse = {
 export interface SquarePaymentSuccessPayload {
   status: 'success';
   amount: number;
+  returnTo?: string | null;
 }
 
 const getErrorMessage = (error: unknown, fallback: string): string => {
@@ -171,6 +184,18 @@ export function SquarePaymentForm({
 
   const remainingBalanceAfterPayment = outstandingAmount - effectivePaymentAmount;
 
+  const triggerPostPaymentRefreshes = useCallback(() => {
+    triggerDashboardOverviewRefresh();
+    triggerInvoicesRefresh();
+    triggerShootHistoryRefresh();
+
+    if (shootId) {
+      triggerShootDetailRefresh(shootId);
+    }
+
+    shootIds?.forEach((id) => triggerShootDetailRefresh(id));
+  }, [shootId, shootIds]);
+
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -207,7 +232,10 @@ export function SquarePaymentForm({
         : `${API_BASE_URL}/api/shoots/${shootId}/create-stripe-embedded-checkout`;
       const body = isBulk
         ? { shoot_ids: shootIds }
-        : { amount: effectivePaymentAmount };
+        : {
+            amount: effectivePaymentAmount,
+            return_to: getCurrentReturnTo() ?? undefined,
+          };
 
       const response = await axios.post(url, body, {
         headers: {
@@ -285,14 +313,6 @@ export function SquarePaymentForm({
         const token = authTokenRef.current;
         const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-        if (!isBulk && shootId && checkoutSessionIdRef.current) {
-          await axios.post(
-            `${API_BASE_URL}/api/shoots/${shootId}/confirm-stripe-session`,
-            { session_id: checkoutSessionIdRef.current },
-            { headers }
-          ).catch(() => null);
-        }
-
         if (isBulk) {
           // Poll each shoot and check if any payment was made
           const results = await Promise.all(
@@ -315,10 +335,25 @@ export function SquarePaymentForm({
             onCheckoutActiveChange?.(false);
             checkoutSessionIdRef.current = null;
             if (embeddedCheckoutRef.current) { embeddedCheckoutRef.current.destroy(); embeddedCheckoutRef.current = null; }
+            triggerPostPaymentRefreshes();
             toast({ title: 'Payment Successful', description: `Bulk payment has been processed via Stripe.` });
             if (onPaymentSuccess) onPaymentSuccess({ status: 'success', amount: effectivePaymentAmount });
           }
         } else {
+          let confirmationData: PaymentSessionConfirmationResponse | null = null;
+
+          if (shootId && checkoutSessionIdRef.current) {
+            const confirmationResponse = await axios.post(
+              `${API_BASE_URL}/api/shoots/${shootId}/confirm-stripe-session`,
+              { session_id: checkoutSessionIdRef.current },
+              { headers }
+            ).catch(() => null);
+
+            confirmationData = confirmationResponse
+              ? ((confirmationResponse.data?.data || confirmationResponse.data) as PaymentSessionConfirmationResponse)
+              : null;
+          }
+
           const statusRes = await axios.get(
             `${API_BASE_URL}/api/shoots/${shootId}/payment-details`,
             { headers }
@@ -335,8 +370,18 @@ export function SquarePaymentForm({
             onCheckoutActiveChange?.(false);
             checkoutSessionIdRef.current = null;
             if (embeddedCheckoutRef.current) { embeddedCheckoutRef.current.destroy(); embeddedCheckoutRef.current = null; }
-            toast({ title: 'Payment Successful', description: `Payment of $${effectivePaymentAmount.toFixed(2)} has been processed via Stripe.` });
-            if (onPaymentSuccess) onPaymentSuccess({ status: 'success', amount: effectivePaymentAmount });
+            const processedAmount = Number(confirmationData?.last_payment_amount ?? effectivePaymentAmount);
+            const resolvedReturnTo = sanitizeRelativeReturnTo(confirmationData?.return_to ?? null);
+
+            triggerPostPaymentRefreshes();
+            toast({ title: 'Payment Successful', description: `Payment of $${processedAmount.toFixed(2)} has been processed via Stripe.` });
+            if (onPaymentSuccess) {
+              onPaymentSuccess({
+                status: 'success',
+                amount: processedAmount,
+                returnTo: resolvedReturnTo,
+              });
+            }
           }
         }
       } catch {

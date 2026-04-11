@@ -21,6 +21,7 @@ export function ShootDetailsMediaTabDialogs(props: any) {
     onShootUpdate,
     canInteractSingleMedia,
     canDownloadSingleMedia,
+    canPreviewFullSize,
     onToggleFavorite,
     onAddComment,
     onToggleHidden,
@@ -51,6 +52,7 @@ export function ShootDetailsMediaTabDialogs(props: any) {
         onShootUpdate={onShootUpdate}
         canInteractSingleMedia={canInteractSingleMedia}
         canDownloadSingleMedia={canDownloadSingleMedia}
+        canPreviewFullSize={canPreviewFullSize}
         onToggleFavorite={onToggleFavorite}
         onAddComment={onAddComment}
         onToggleHidden={onToggleHidden}

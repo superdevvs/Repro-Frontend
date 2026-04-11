@@ -68,6 +68,7 @@ const PublicVideoPage = lazy(() => import('@/components/tourLinks/PublicVideoPag
 const CubiCasaScanning = lazy(() => import('./pages/CubiCasaScanning'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const PaymentPage = lazy(() => import('./pages/PaymentPage'));
+const AuthenticatedPaymentReturnPage = lazy(() => import('./pages/AuthenticatedPaymentReturnPage'));
 const TermsAndConditions = lazy(() => import('./pages/TermsAndConditions'));
 const ShootShareRedirect = lazy(() => import('./pages/ShootShareRedirect'));
 
@@ -342,6 +343,13 @@ const AppRoutes = () => {
         <PageTransition>
           <PaymentPage />
         </PageTransition>
+      } />
+      <Route path="/payment-return/shoot/:shootId" element={
+        <ProtectedRoute>
+          <PageTransition>
+            <AuthenticatedPaymentReturnPage />
+          </PageTransition>
+        </ProtectedRoute>
       } />
       <Route path="/terms-and-conditions" element={
         <PageTransition>

@@ -31,6 +31,7 @@ interface MediaViewerProps {
   isClient?: boolean;
   canInteractSingleMedia?: boolean;
   canDownloadSingleMedia?: boolean;
+  canPreviewFullSize?: boolean;
   onToggleFavorite?: (fileId: string) => void;
   onAddComment?: (fileId: string, comment: string) => void;
   onToggleHidden?: (fileId: string, hidden: boolean) => void;
@@ -95,6 +96,7 @@ export function MediaViewer({
   isClient = false,
   canInteractSingleMedia = false,
   canDownloadSingleMedia = false,
+  canPreviewFullSize = false,
   onToggleFavorite,
   onAddComment,
   onToggleHidden,
@@ -153,6 +155,7 @@ export function MediaViewer({
   const [viewerRequests, setViewerRequests] = useState<MediaIssueRequest[]>([]);
   const [requestsLoading, setRequestsLoading] = useState(false);
   const [requestRefreshKey, setRequestRefreshKey] = useState(0);
+  const [showFullSizePreview, setShowFullSizePreview] = useState(false);
   const currentFile = files[currentIndex];
   const fileComments = useMemo(
     () => {
@@ -201,7 +204,14 @@ export function MediaViewer({
     setShowFileDetails(false);
     setShowRequestComposer(false);
     setFlagReason('');
+    setShowFullSizePreview(false);
   }, [currentFile?.id]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setShowFullSizePreview(false);
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen || !shoot?.id) {
@@ -388,12 +398,19 @@ export function MediaViewer({
 
   if (!isOpen || !currentFile) return null;
 
-  // Keep the viewer on web/preview assets and reserve originals for explicit downloads only.
-  const imageUrl = getImageUrl(currentFile, 'medium') || getImageUrl(currentFile, 'thumb');
-  const srcSet = getSrcSet(currentFile);
+  const previewImageUrl = getImageUrl(currentFile, 'medium') || getImageUrl(currentFile, 'thumb');
+  const originalImageUrl = getImageUrl(currentFile, 'original');
+  const imageUrl = showFullSizePreview ? (originalImageUrl || previewImageUrl) : previewImageUrl;
+  const srcSet = showFullSizePreview ? '' : getSrcSet(currentFile);
   const isImg = isPreviewableImage(currentFile);
   const isVid = isVideoFile(currentFile);
   const videoUrl = isVid ? (getImageUrl(currentFile, 'original') || getImageUrl(currentFile, 'large')) : '';
+  const canShowFullSizeButton =
+    isImg &&
+    canPreviewFullSize &&
+    Boolean(originalImageUrl) &&
+    Boolean(previewImageUrl) &&
+    originalImageUrl !== previewImageUrl;
   const fileExt = currentFile?.filename?.split('.')?.pop()?.toUpperCase();
   const mediaType = (currentFile.media_type || '').toLowerCase();
   const canSetHero =
@@ -485,6 +502,17 @@ export function MediaViewer({
                   {/* Zoom Controls */}
                   {isImg ? (
                     <div className="flex items-center gap-1 rounded-lg bg-black/30 p-1">
+                      {canShowFullSizeButton && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 px-3 text-xs text-white hover:bg-white/15"
+                          onClick={() => setShowFullSizePreview((current) => !current)}
+                          title={showFullSizePreview ? 'Return to web preview' : 'Temporarily view the full-size image'}
+                        >
+                          {showFullSizePreview ? 'Web size' : 'Full size'}
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="icon"
@@ -548,8 +576,8 @@ export function MediaViewer({
                       {isImg ? (
                         <img
                           src={imageUrl}
-                          srcSet={srcSet}
-                          sizes="(min-width: 1024px) 60vw, 100vw"
+                          srcSet={srcSet || undefined}
+                          sizes={srcSet ? '(min-width: 1024px) 60vw, 100vw' : undefined}
                           alt={currentFile.filename}
                           className="max-h-full max-w-full select-none rounded-xl object-contain shadow-2xl transition-transform duration-200"
                           style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}

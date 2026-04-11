@@ -2,7 +2,11 @@ import React, { useMemo } from 'react';
 import { AlertTriangle, CreditCard } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { ClientBillingItem, ClientBillingSummary } from '@/types/clientBilling';
-import { formatPaymentMethod, getPaymentMethodLabel } from '@/utils/paymentUtils';
+import {
+  formatPaymentMethod,
+  getPaymentBreakdown,
+  getPaymentMethodLabel,
+} from '@/utils/paymentUtils';
 
 interface ClientBillingSidePanelProps {
   items: ClientBillingItem[];
@@ -22,9 +26,24 @@ export function ClientBillingSidePanel({
     const methodCounts = items
       .filter((item) => item.bucket === 'paid' && item.paymentMethod)
       .reduce((acc, item) => {
-        const label = getPaymentMethodLabel(item.paymentMethod);
-        const method = label === 'N/A' ? 'Unknown' : label;
-        acc[method] = (acc[method] || 0) + 1;
+        const breakdown = getPaymentBreakdown(
+          item.paymentMethod,
+          item.paymentDetails,
+          item.amountPaid > 0 ? item.amountPaid : item.amount,
+        );
+        if (breakdown.length === 0) {
+          const label = getPaymentMethodLabel(item.paymentMethod);
+          const method = label === 'N/A' ? 'Unknown' : label;
+          acc[method] = (acc[method] || 0) + 1;
+          return acc;
+        }
+
+        breakdown.forEach((entry) => {
+          const label = getPaymentMethodLabel(entry.method);
+          const method = label === 'N/A' ? 'Unknown' : label;
+          acc[method] = (acc[method] || 0) + 1;
+        });
+
         return acc;
       }, {} as Record<string, number>);
 

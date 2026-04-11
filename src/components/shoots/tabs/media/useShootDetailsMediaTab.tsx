@@ -704,6 +704,8 @@ export function useShootDetailsMediaTab({
   const canInteractSingleMedia = isClient || ['admin', 'superadmin', 'editing_manager', 'salesRep', 'rep', 'representative'].includes(role || '');
   const canDownloadSingleMedia =
     isAdmin || isEditor || isPhotographer || (isClient && !isClientReleaseLocked);
+  const canPreviewFullSize =
+    isAdmin || isEditor || isPhotographer || (isClient && !isClientReleaseLocked);
 
   const mediaShoot = shoot as ShootMediaTabSource;
   const normalizedShootStatus = String(shoot?.workflowStatus || mediaShoot.status || '').toLowerCase();
@@ -1141,6 +1143,7 @@ export function useShootDetailsMediaTab({
         onShootUpdate={onShootUpdate}
         canInteractSingleMedia={canInteractSingleMedia}
         canDownloadSingleMedia={canDownloadSingleMedia}
+        canPreviewFullSize={canPreviewFullSize}
         onToggleFavorite={handleToggleFavorite}
         onAddComment={handleAddComment}
         onToggleHidden={toggleFileHidden}

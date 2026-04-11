@@ -6,7 +6,12 @@ import { ArrowUpRight, ChevronDown, ChevronUp, CreditCard, Clock, TrendingUp, Ca
 import { cn } from '@/lib/utils';
 import { AccountingMode } from '@/config/accountingConfig';
 import { useAuth } from '@/components/auth/AuthProvider';
-import { formatPaymentMethod, getPaymentMethodLabel } from '@/utils/paymentUtils';
+import {
+  formatPaymentBreakdown,
+  formatPaymentMethod,
+  getPaymentBreakdown,
+  getPaymentMethodLabel,
+} from '@/utils/paymentUtils';
 import {
   EarningsTimeFilter,
   getEarningsDateRange,
@@ -93,9 +98,13 @@ const getInvoiceMetaValue = (invoice: InvoiceData, keys: string[]) => {
   return null;
 };
 
+const getInvoicePaidAmount = (invoice: InvoiceData) =>
+  invoice.amountPaid && invoice.amountPaid > 0 ? invoice.amountPaid : invoice.amount;
+
 const getTransactionDetailRows = (invoice: InvoiceData) => {
   const { method, details, paidAt } = getInvoicePaymentInfo(invoice);
   const methodLabel = formatPaymentMethod(method, details);
+  const paymentBreakdown = formatPaymentBreakdown(method, details, getInvoicePaidAmount(invoice));
   const property = invoice.property || getInvoiceMetaValue(invoice, ['property_address', 'address']);
   const invoiceNumber = invoice.number || invoice.invoiceNumber || String(invoice.id);
   const transactionId = getInvoiceMetaValue(invoice, ['transaction_id', 'transactionId', 'payment_intent', 'paymentIntent']);
@@ -109,6 +118,7 @@ const getTransactionDetailRows = (invoice: InvoiceData) => {
     { label: 'Paid on', value: formatTransactionDate(paidAt) },
     { label: 'Time', value: paidTime },
     { label: 'Method', value: methodLabel !== 'N/A' ? methodLabel : 'Unavailable' },
+    { label: 'Breakdown', value: paymentBreakdown },
     { label: 'Transaction ID', value: transactionId },
     { label: 'IP', value: ipAddress },
     { label: 'Check #', value: checkNumber },
@@ -163,10 +173,21 @@ function AdminPaymentsSummary({ invoices }: { invoices: InvoiceData[] }) {
   const paymentMethods = invoices
     .filter(i => i.status === 'paid' && Boolean(getInvoicePaymentInfo(i).method))
     .reduce((acc, i) => {
-      const { method } = getInvoicePaymentInfo(i);
-      const label = getPaymentMethodLabel(method);
-      const methodName = label === 'N/A' ? 'Unknown' : label;
-      acc[methodName] = (acc[methodName] || 0) + i.amount;
+      const { method, details } = getInvoicePaymentInfo(i);
+      const breakdown = getPaymentBreakdown(method, details, getInvoicePaidAmount(i));
+      if (breakdown.length === 0) {
+        const label = getPaymentMethodLabel(method);
+        const methodName = label === 'N/A' ? 'Unknown' : label;
+        acc[methodName] = (acc[methodName] || 0) + getInvoicePaidAmount(i);
+        return acc;
+      }
+
+      breakdown.forEach((entry) => {
+        const label = getPaymentMethodLabel(entry.method);
+        const methodName = label === 'N/A' ? 'Unknown' : label;
+        acc[methodName] = (acc[methodName] || 0) + entry.amount;
+      });
+
       return acc;
     }, {} as Record<string, number>);
 
@@ -282,7 +303,7 @@ function AdminPaymentsSummary({ invoices }: { invoices: InvoiceData[] }) {
                         </p>
                       </div>
                       <div className="flex items-start gap-2">
-                        <p className="text-sm font-medium">${invoice.amount.toLocaleString()}</p>
+                        <p className="text-sm font-medium">${getInvoicePaidAmount(invoice).toLocaleString()}</p>
                         {isExpanded ? (
                           <ChevronUp className="mt-0.5 h-4 w-4 text-muted-foreground" />
                         ) : (
@@ -347,10 +368,21 @@ function ClientSidePanel({ invoices, user }: { invoices: InvoiceData[]; user: an
   const paymentMethods = paidInvoices
     .filter(i => Boolean(getInvoicePaymentInfo(i).method))
     .reduce((acc, i) => {
-      const { method } = getInvoicePaymentInfo(i);
-      const label = getPaymentMethodLabel(method);
-      const methodLabel = label === 'N/A' ? 'Unknown' : label;
-      acc[methodLabel] = (acc[methodLabel] || 0) + 1;
+      const { method, details } = getInvoicePaymentInfo(i);
+      const breakdown = getPaymentBreakdown(method, details, getInvoicePaidAmount(i));
+      if (breakdown.length === 0) {
+        const label = getPaymentMethodLabel(method);
+        const methodLabel = label === 'N/A' ? 'Unknown' : label;
+        acc[methodLabel] = (acc[methodLabel] || 0) + 1;
+        return acc;
+      }
+
+      breakdown.forEach((entry) => {
+        const label = getPaymentMethodLabel(entry.method);
+        const methodLabel = label === 'N/A' ? 'Unknown' : label;
+        acc[methodLabel] = (acc[methodLabel] || 0) + 1;
+      });
+
       return acc;
     }, {} as Record<string, number>);
 
@@ -424,7 +456,7 @@ function ClientSidePanel({ invoices, user }: { invoices: InvoiceData[]; user: an
                         </p>
                       </div>
                       <div className="flex items-start gap-2">
-                        <p className="text-sm font-medium">${invoice.amount.toLocaleString()}</p>
+                        <p className="text-sm font-medium">${getInvoicePaidAmount(invoice).toLocaleString()}</p>
                         {isExpanded ? (
                           <ChevronUp className="mt-0.5 h-4 w-4 text-muted-foreground" />
                         ) : (

@@ -10,7 +10,7 @@ import { Logo } from "@/components/layout/Logo";
 import { useToast } from '@/hooks/use-toast';
 import { usePermission } from '@/hooks/usePermission';
 import { addInvoiceMiscItem, removeInvoiceMiscItem } from '@/services/invoiceService';
-import { formatPaymentMethod, type PaymentDetails } from '@/utils/paymentUtils';
+import { formatPaymentBreakdown, formatPaymentMethod, type PaymentDetails } from '@/utils/paymentUtils';
 import type { InvoiceData, InvoiceItem as SharedInvoiceItem, InvoiceParty, InvoiceShootRef } from '@/utils/invoiceUtils';
 
 const COMPANY_NAME = 'REPRO Photos';
@@ -144,6 +144,7 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
   const paymentMethodValue = invoiceData.paymentMethod || invoiceData.payment_method;
   const paymentMethodLabel = formatPaymentMethod(paymentMethodValue, paymentDetails);
   const paymentMethodDisplay = paymentMethodLabel !== 'N/A' ? paymentMethodLabel : 'Unavailable';
+  const paymentBreakdown = formatPaymentBreakdown(paymentMethodValue, paymentDetails, paidAmount);
 
   const items: InvoiceItem[] = useMemo(() => invoiceData.items || [], [invoiceData.items]);
   
@@ -505,6 +506,15 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
         yPos += 7;
       }
 
+      if (isPaid && paymentBreakdown) {
+        doc.setTextColor(60, 60, 60);
+        doc.setFont('helvetica', 'normal');
+        doc.text('PAYMENT SPLIT:', summaryLabelX, yPos);
+        doc.setTextColor(0, 0, 0);
+        doc.text(paymentBreakdown, summaryValueX, yPos, { align: 'right', maxWidth: 70 });
+        yPos += 7;
+      }
+
       if (isPaid && paidAt) {
         doc.setTextColor(60, 60, 60);
         doc.setFont('helvetica', 'normal');
@@ -746,7 +756,7 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
           </div>
 
           {isPaid && (
-            <div className="grid gap-4 border-y border-border bg-muted/20 py-4 md:grid-cols-3">
+            <div className="grid gap-4 border-y border-border bg-muted/20 py-4 md:grid-cols-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Amount Paid</p>
                 <p className="mt-2 text-2xl font-semibold text-green-600 dark:text-green-400">{formatCurrency(paidAmount)}</p>
@@ -758,6 +768,10 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Payment Method</p>
                 <p className="mt-2 text-base font-medium text-foreground">{paymentMethodDisplay}</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Payment Split</p>
+                <p className="mt-2 text-base font-medium text-foreground">{paymentBreakdown || 'N/A'}</p>
               </div>
             </div>
           )}
