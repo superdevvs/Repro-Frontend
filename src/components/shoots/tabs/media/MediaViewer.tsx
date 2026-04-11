@@ -26,7 +26,6 @@ interface MediaViewerProps {
   onIndexChange: (index: number) => void;
   getImageUrl: (file: MediaFile, size?: 'thumb' | 'web' | 'medium' | 'large' | 'original') => string;
   getImageUrlCandidates: (file: MediaFile, size?: 'thumb' | 'web' | 'medium' | 'large' | 'original') => string[];
-  getSrcSet: (file: MediaFile) => string;
   shoot?: ShootData;
   isAdmin?: boolean;
   isClient?: boolean;
@@ -92,7 +91,6 @@ export function MediaViewer({
   onIndexChange,
   getImageUrl,
   getImageUrlCandidates,
-  getSrcSet,
   shoot,
   isAdmin = false,
   isClient = false,
@@ -415,7 +413,6 @@ export function MediaViewer({
     ? (originalImageCandidates.length > 0 ? originalImageCandidates : previewImageCandidates)
     : previewImageCandidates;
   const imageUrl = activeImageCandidates[imageCandidateIndex] || '';
-  const srcSet = !showFullSizePreview && imageCandidateIndex === 0 ? getSrcSet(currentFile) : '';
   const isImg = isPreviewableImage(currentFile);
   const isVid = isVideoFile(currentFile);
   const videoUrl = isVid ? (getImageUrl(currentFile, 'original') || getImageUrl(currentFile, 'large')) : '';
@@ -590,8 +587,6 @@ export function MediaViewer({
                       {isImg ? (
                         <img
                           src={imageUrl}
-                          srcSet={srcSet || undefined}
-                          sizes={srcSet ? '(min-width: 1024px) 60vw, 100vw' : undefined}
                           alt={currentFile.filename}
                           className="max-h-full max-w-full select-none rounded-xl object-contain shadow-2xl transition-transform duration-200"
                           style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
