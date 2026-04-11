@@ -8,6 +8,7 @@ import { type MediaFile } from '@/hooks/useShootFiles';
 import { isRawFile } from '@/services/rawPreviewService';
 import VideoThumbnail from '../../VideoThumbnail';
 import { normalizeManualOrder, sortMediaFiles, type MediaSortOrder } from './mediaSort';
+import { getDisplayMediaFilename } from './mediaPreviewUtils';
 import { DndContext, PointerSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, arrayMove, rectSortingStrategy, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -256,6 +257,8 @@ export function MediaGrid({
       return null;
     }
 
+    const displayFilename = getDisplayMediaFilename(file) || file.filename;
+
     return (
       <Popover
         open={commentPopoverFileId === file.id}
@@ -281,7 +284,7 @@ export function MediaGrid({
           <div className="space-y-3">
             <div className="space-y-1">
               <p className="text-sm font-medium">Comment on image</p>
-              <p className="line-clamp-2 text-xs text-muted-foreground">{file.filename}</p>
+              <p className="line-clamp-2 text-xs text-muted-foreground">{displayFilename}</p>
             </div>
             <Textarea
               value={commentDraft}
@@ -425,6 +428,7 @@ export function MediaGrid({
     const isRaw = isRawFile(file.filename);
     const thumbUrl = getImageUrl(file, 'thumb');
     const ext = file.filename.split('.').pop()?.toUpperCase();
+    const displayFilename = getDisplayMediaFilename(file) || file.filename;
     
     // Find the actual index in the full sorted array for viewer
     const actualIndex = sortedFiles.findIndex(f => f.id === file.id);
@@ -474,7 +478,7 @@ export function MediaGrid({
             return hasDisplayableImage ? (
               <img
                 src={thumbSrc}
-                alt={file.filename}
+                alt={displayFilename}
                 className={getGridPreviewMediaClassName(file)}
                 loading="lazy"
                 draggable={false}
@@ -553,8 +557,8 @@ export function MediaGrid({
         )}
         </div>
         <div className="px-2 py-2 bg-card">
-          <p className="text-[11px] font-medium truncate" title={file.filename}>
-            {file.filename}
+          <p className="text-[11px] font-medium truncate" title={displayFilename}>
+            {displayFilename}
           </p>
           {latestCommentText && (
             <p className="mt-1 text-[10px] text-muted-foreground line-clamp-2 max-h-0 opacity-0 group-hover:max-h-10 group-hover:opacity-100 transition-all">
@@ -573,6 +577,7 @@ export function MediaGrid({
     const isRaw = isRawFile(file.filename);
     const thumbUrl = getImageUrl(file, 'thumb');
     const ext = file.filename.split('.').pop()?.toUpperCase();
+    const displayFilename = getDisplayMediaFilename(file) || file.filename;
     const actualIndex = sortedFiles.findIndex(f => f.id === file.id);
     const latestCommentText = getLatestCommentText(file);
 
@@ -605,7 +610,7 @@ export function MediaGrid({
               return hasDisplayableImage ? (
                 <img
                   src={thumbSrc}
-                  alt={file.filename}
+                  alt={displayFilename}
                   className={getGridPreviewMediaClassName(file)}
                   loading="lazy"
                   draggable={false}
@@ -677,8 +682,8 @@ export function MediaGrid({
             )}
             </div>
             <div className="px-2 py-2 bg-card">
-              <p className="text-[11px] font-medium truncate" title={file.filename}>
-                {file.filename}
+              <p className="text-[11px] font-medium truncate" title={displayFilename}>
+                {displayFilename}
               </p>
               {latestCommentText && (
                 <p className="mt-1 text-[10px] text-muted-foreground line-clamp-2 max-h-0 opacity-0 group-hover:max-h-10 group-hover:opacity-100 transition-all">
@@ -699,6 +704,7 @@ export function MediaGrid({
     const isRaw = isRawFile(file.filename);
     const imageUrl = getImageUrl(file, 'thumb');
     const ext = file.filename.split('.').pop()?.toUpperCase();
+    const displayFilename = getDisplayMediaFilename(file) || file.filename;
     const actualIndex = sortedFiles.findIndex(f => f.id === file.id);
     const isDragging = draggedId === file.id;
     const isDragOver = dragOverId === file.id;
@@ -747,7 +753,7 @@ export function MediaGrid({
           {hasDisplayableImage ? (
             <img
               src={file.thumb || imageUrl}
-              alt={file.filename}
+              alt={displayFilename}
               className={`w-full h-full object-cover transition-all duration-200 ${getHiddenMediaClassName(file)}`}
               loading="lazy"
               draggable={false}
@@ -796,8 +802,8 @@ export function MediaGrid({
 
         {/* Filename - takes remaining space */}
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-medium truncate" title={file.filename}>
-            {file.filename}
+          <p className="text-xs font-medium truncate" title={displayFilename}>
+            {displayFilename}
           </p>
           {latestCommentText && (
             <p className="text-[10px] text-muted-foreground line-clamp-2 mt-0.5">
@@ -878,6 +884,7 @@ export function MediaGrid({
     const isRaw = isRawFile(file.filename);
     const imageUrl = getImageUrl(file, 'thumb');
     const ext = file.filename.split('.').pop()?.toUpperCase();
+    const displayFilename = getDisplayMediaFilename(file) || file.filename;
     const actualIndex = sortedFiles.findIndex(f => f.id === file.id);
     const hasProcessedThumb = isRaw ? !!(file.thumbnail_path || file.web_path) : true;
     const hasDisplayableImage = hasProcessedThumb && (file.thumb || imageUrl);
@@ -922,7 +929,7 @@ export function MediaGrid({
               {hasDisplayableImage ? (
                 <img
                   src={file.thumb || imageUrl}
-                  alt={file.filename}
+                  alt={displayFilename}
                   className={`w-full h-full object-cover transition-all duration-200 ${getHiddenMediaClassName(file)}`}
                   loading="lazy"
                   draggable={false}
@@ -935,7 +942,7 @@ export function MediaGrid({
               ) : isVid ? (
                 <VideoThumbnail
                   src={file.original || file.large || file.medium || file.url || getImageUrl(file, 'original')}
-                  alt={file.filename}
+                  alt={displayFilename}
                   className={`w-full h-full object-cover transition-all duration-200 ${getHiddenMediaClassName(file)}`}
                 />
               ) : null}
@@ -952,8 +959,8 @@ export function MediaGrid({
             </div>
 
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium truncate" title={file.filename}>
-                {file.filename}
+              <p className="text-xs font-medium truncate" title={displayFilename}>
+                {displayFilename}
               </p>
               {latestCommentText && (
                 <p className="text-[10px] text-muted-foreground line-clamp-2 mt-0.5">

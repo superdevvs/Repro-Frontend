@@ -9,6 +9,7 @@ import { getApiHeaders } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 import { type ShootData } from '@/types/shoots';
 import { type MediaFile } from '@/hooks/useShootFiles';
+import { getDisplayMediaFilename, getMediaViewerImageUrl } from './mediaPreviewUtils';
 import { isRawFile } from '@/services/rawPreviewService';
 import {
   triggerDashboardOverviewRefresh,
@@ -17,6 +18,7 @@ import {
 } from '@/realtime/realtimeRefreshBus';
 import { blurActiveElement } from '../../dialogFocusUtils';
 import { AlertCircle, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Download, Eye, EyeOff, FileIcon, Heart, Play, X } from 'lucide-react';
+
 // Media Viewer Component
 interface MediaViewerProps {
   isOpen: boolean;
@@ -82,11 +84,11 @@ const getRequestStatusClassName = (status?: string) => {
   return 'border-rose-500/30 bg-rose-500/15 text-rose-100';
 };
 
-export function MediaViewer({ 
-  isOpen, 
-  onClose, 
-  files, 
-  currentIndex, 
+export function MediaViewer({
+  isOpen,
+  onClose,
+  files,
+  currentIndex,
   onIndexChange,
   getImageUrl,
   getSrcSet: _getSrcSet,
@@ -102,7 +104,7 @@ export function MediaViewer({
   onShootUpdate,
 }: MediaViewerProps) {
   const { toast } = useToast();
-  
+
   const isImageFile = (file: MediaFile): boolean => {
     // If RAW file has processed thumbnail, it's displayable
     if ((file.media_type === 'raw' || file.media_type === 'image') && (file.thumbnail_path || file.thumb || file.medium || file.web_path)) {
@@ -388,11 +390,12 @@ export function MediaViewer({
 
   if (!isOpen || !currentFile) return null;
 
-  const imageUrl = getImageUrl(currentFile, 'web') || getImageUrl(currentFile, 'medium') || getImageUrl(currentFile, 'thumb');
+  const imageUrl = getMediaViewerImageUrl(currentFile);
   const isImg = isPreviewableImage(currentFile);
   const isVid = isVideoFile(currentFile);
   const videoUrl = isVid ? (getImageUrl(currentFile, 'original') || getImageUrl(currentFile, 'large')) : '';
   const fileExt = currentFile?.filename?.split('.')?.pop()?.toUpperCase();
+  const displayFilename = getDisplayMediaFilename(currentFile) || currentFile.filename;
   const mediaType = (currentFile.media_type || '').toLowerCase();
   const canSetHero =
     Boolean(shoot) &&
@@ -473,7 +476,7 @@ export function MediaViewer({
                 {/* Top Metadata Bar */}
                 <div className="flex flex-wrap items-start justify-between gap-3 border-b border-white/10 px-3 py-3 sm:px-4">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-white sm:text-base">{currentFile.filename}</p>
+                    <p className="truncate text-sm font-semibold text-white sm:text-base">{displayFilename}</p>
                     <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-white/60">
                       <span>{currentIndex + 1} of {files.length}</span>
                       {currentFile.width && currentFile.height && <span>{currentFile.width} × {currentFile.height}</span>}
@@ -546,7 +549,7 @@ export function MediaViewer({
                       {isImg ? (
                         <img
                           src={imageUrl}
-                          alt={currentFile.filename}
+                          alt={displayFilename}
                           className="max-h-full max-w-full select-none rounded-xl object-contain shadow-2xl transition-transform duration-200"
                           style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
                           loading="eager"
@@ -564,7 +567,7 @@ export function MediaViewer({
                       ) : (
                         <div className="text-white text-center">
                           <FileIcon className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-4" />
-                          <p className="text-sm sm:text-base">{currentFile.filename}</p>
+                          <p className="text-sm sm:text-base">{displayFilename}</p>
                         </div>
                       )}
                     </div>

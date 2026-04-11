@@ -4,6 +4,7 @@ import { getImageUrl, getImageUrlCandidates } from '@/utils/imageUrl';
 export type MediaImageSize = 'thumb' | 'web' | 'medium' | 'large' | 'original';
 
 const RAW_EXTENSIONS = /\.(nef|cr2|cr3|arw|dng|raf|rw2|orf|pef|srw|3fr|iiq)$/;
+const DERIVATIVE_SUFFIX_REGEX = /([._-](thumb|thumbnail|web|medium|large|full|placeholder))+$/i;
 
 const hasProcessedRawPreview = (file: MediaFile): boolean =>
   Boolean(file.thumbnail_path || file.thumb || file.medium || file.web_path);
@@ -56,6 +57,39 @@ export const getMediaImageUrlCandidates = (
   size: MediaImageSize = 'medium',
 ): string[] => {
   return getImageUrlCandidates(file, size);
+};
+
+export const getMediaViewerImageUrl = (file: MediaFile): string => {
+  const preferredCandidates = [
+    ...getImageUrlCandidates(file, 'web').filter((candidate) => !getImageUrlCandidates(file, 'thumb').includes(candidate)),
+    ...getImageUrlCandidates(file, 'large').filter((candidate) => !getImageUrlCandidates(file, 'thumb').includes(candidate)),
+    ...getImageUrlCandidates(file, 'original'),
+    ...getImageUrlCandidates(file, 'thumb'),
+  ];
+
+  return preferredCandidates.find(Boolean) || '';
+};
+
+export const getDisplayMediaFilename = (file: Pick<MediaFile, 'filename'>): string => {
+  const rawFilename = String(file.filename || '').trim();
+  if (!rawFilename) {
+    return '';
+  }
+
+  const extensionMatch = rawFilename.match(/\.([^.]+)$/);
+  if (!extensionMatch) {
+    return rawFilename.replace(DERIVATIVE_SUFFIX_REGEX, '');
+  }
+
+  const extension = extensionMatch[1];
+  const baseName = rawFilename.slice(0, -(extension.length + 1));
+  const cleanedBaseName = baseName.replace(DERIVATIVE_SUFFIX_REGEX, '');
+
+  if (new RegExp(`\\.${extension}$`, 'i').test(cleanedBaseName)) {
+    return cleanedBaseName;
+  }
+
+  return `${cleanedBaseName}.${extension}`;
 };
 
 export const getMediaSrcSet = (file: MediaFile): string => {
