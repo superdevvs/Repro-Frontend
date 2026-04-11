@@ -827,7 +827,7 @@ export function MediaViewer({
     }),
   };
   const sidebarActionButtonClassName =
-    'h-10 justify-start border-white/10 bg-white/5 text-white hover:bg-white/10 hover:text-white xl:h-11';
+    'h-10 min-w-0 justify-start border-white/10 bg-white/5 px-3 text-[13px] text-white hover:bg-white/10 hover:text-white xl:h-11 xl:text-sm';
   const mobileActionMenuItemClassName =
     'gap-2 rounded-md px-2 py-2 text-sm text-white focus:bg-white/10 focus:text-white';
   const showMobileActionMenu =
@@ -840,7 +840,7 @@ export function MediaViewer({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent
-        className="!fixed !inset-0 !translate-x-0 !translate-y-0 max-w-none max-h-none w-screen h-screen p-0 bg-black/95 backdrop-blur-md border-0 rounded-none [&>button:last-child]:hidden"
+        className="!fixed !inset-0 !translate-x-0 !translate-y-0 max-w-none max-h-none w-screen h-screen overflow-hidden p-0 bg-black/95 backdrop-blur-md border-0 rounded-none [&>button:last-child]:hidden"
         style={{
           top: 0,
           left: 0,
@@ -1040,13 +1040,13 @@ export function MediaViewer({
             <X className="h-5 w-5 sm:h-6 sm:w-6" />
           </Button>
 
-          <div className="flex h-full w-full min-h-0 flex-col px-1.5 pb-1.5 pt-1.5 sm:px-3 sm:pb-3 sm:pt-2 lg:px-4 lg:pb-4 lg:pt-3 2xl:px-6 2xl:pb-6 2xl:pt-4">
-            <div className="grid min-h-0 flex-1 grid-cols-1 gap-2.5 lg:grid-cols-[minmax(0,1fr)_minmax(280px,22rem)] xl:grid-cols-[minmax(0,1fr)_minmax(300px,24rem)] 2xl:grid-cols-[minmax(0,68fr)_minmax(340px,32fr)] lg:gap-3 2xl:gap-4">
+          <div className="flex h-full w-full min-h-0 flex-col px-1.5 pb-1.5 pt-1.5 sm:px-3 sm:pb-3 sm:pt-2 lg:px-3 lg:pb-3 lg:pt-2 2xl:px-4 2xl:pb-4 2xl:pt-3">
+            <div className="grid min-h-0 flex-1 grid-cols-1 gap-2.5 lg:grid-cols-[minmax(0,1fr)_minmax(300px,20rem)] xl:grid-cols-[minmax(0,1fr)_minmax(320px,21rem)] 2xl:grid-cols-[minmax(0,1fr)_minmax(340px,22.5rem)] lg:gap-2.5 2xl:gap-3">
               <div className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md">
                 {/* Top Metadata Bar */}
-                <div className="flex flex-wrap items-start justify-between gap-2 border-b border-white/10 px-2.5 py-2 sm:px-3 sm:py-2.5 2xl:px-4 2xl:py-3">
+                <div className="flex flex-wrap items-start justify-between gap-2 border-b border-white/10 px-2.5 py-2 sm:px-3 sm:py-2.5 lg:px-3 lg:py-2 2xl:px-3.5 2xl:py-2.5">
                   <div className="min-w-0">
-                    <p className="truncate text-[13px] font-semibold text-white sm:text-sm xl:text-base">{displayFilename}</p>
+                    <p className="truncate text-[13px] font-semibold text-white sm:text-sm lg:text-[15px] xl:text-base">{displayFilename}</p>
                     <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-white/60 sm:text-[11px]">
                       <span>{currentIndex + 1} of {files.length}</span>
                       {currentFile.width && currentFile.height && <span>{currentFile.width} × {currentFile.height}</span>}
@@ -1118,8 +1118,8 @@ export function MediaViewer({
                 </div>
 
                 <div className="flex min-h-0 flex-1 flex-col">
-                  <div className="flex min-h-0 flex-1 items-stretch justify-center px-1.5 pb-1.5 pt-1.5 sm:px-2.5 sm:pb-2.5 sm:pt-2">
-                    <div className="relative flex h-full min-h-[48dvh] w-full flex-1 items-center justify-center overflow-auto bg-black/75 p-0 sm:min-h-[56dvh] sm:rounded-lg sm:p-1.5 lg:min-h-0 lg:rounded-lg lg:bg-black/55 lg:p-1.5 xl:rounded-xl xl:p-2.5">
+                  <div className="flex min-h-0 flex-1 items-stretch justify-center px-1.5 pb-1.5 pt-1.5 sm:px-2.5 sm:pb-2.5 sm:pt-2 lg:px-2 lg:pb-2 lg:pt-1.5">
+                    <div className="relative flex h-full min-h-[48dvh] w-full flex-1 items-center justify-center overflow-auto bg-black/75 p-0 sm:min-h-[56dvh] sm:rounded-lg sm:p-1.5 lg:min-h-0 lg:rounded-lg lg:bg-black/50 lg:p-1 xl:rounded-xl xl:p-1.5">
                       {currentIndex > 0 && (
                         <Button
                           variant="ghost"
@@ -1226,13 +1226,13 @@ export function MediaViewer({
                   </div>
 
                   {/* Bottom Filmstrip */}
-                  <div className="border-t border-white/10 px-2.5 py-2 sm:px-3 sm:py-2.5 2xl:px-4 2xl:py-3">
-                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                      <div>
-                        <p className="text-[13px] font-medium text-white sm:text-sm">All media</p>
-                        <p className="text-[10px] text-white/55 sm:text-[11px]">
-                          {isImg ? 'Use ← → to navigate • + - to zoom • ESC to close' : 'Use ← → to navigate • ESC to close'}
-                        </p>
+                    <div className="border-t border-white/10 px-2.5 py-2 sm:px-3 sm:py-2.5 lg:px-3 lg:py-2 2xl:px-3.5 2xl:py-2.5">
+                      <div className="mb-2 flex flex-wrap items-center justify-between gap-2 lg:mb-1.5">
+                        <div>
+                          <p className="text-[13px] font-medium text-white sm:text-sm">All media</p>
+                          <p className="text-[10px] text-white/55 sm:text-[11px]">
+                            {isImg ? 'Use ← → to navigate • + - to zoom • ESC to close' : 'Use ← → to navigate • ESC to close'}
+                          </p>
                       </div>
                       <p className="text-[10px] text-white/50 sm:text-[11px]">{currentIndex + 1} of {files.length}</p>
                     </div>
@@ -1256,7 +1256,7 @@ export function MediaViewer({
                               onIndexChange(index);
                               setZoom(1);
                             }}
-                            className={`relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg border-2 transition-all sm:h-14 sm:w-14 sm:rounded-xl 2xl:h-16 2xl:w-16 ${
+                            className={`relative h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg border-2 transition-all sm:h-12 sm:w-12 sm:rounded-xl xl:h-14 xl:w-14 2xl:h-16 2xl:w-16 ${
                               isActive
                                 ? 'border-white ring-2 ring-white/50 scale-[1.03]'
                                 : 'border-white/20 hover:border-white/60 opacity-70 hover:opacity-100'
@@ -1358,7 +1358,7 @@ export function MediaViewer({
                           {canRequestModification && (
                             <Button
                               variant="destructive"
-                              className={`h-10 justify-start xl:h-11 ${slideshowAvailable ? '' : 'sm:col-span-2'}`}
+                              className={`h-10 min-w-0 justify-start px-3 text-[13px] xl:h-11 xl:text-sm ${slideshowAvailable ? '' : 'sm:col-span-2'}`}
                               onClick={() => {
                                 blurActiveElement();
                                 setShowRequestComposer((current) => !current);
@@ -1382,7 +1382,7 @@ export function MediaViewer({
                               value={flagReason}
                               onChange={(event) => setFlagReason(event.target.value)}
                               placeholder="Request any changes in this image..."
-                              className="mt-3 min-h-[80px] resize-none border-white/10 bg-black/30 text-white placeholder:text-white/45 xl:min-h-[96px]"
+                              className="mt-3 min-h-[80px] resize-none border-white/10 bg-black/30 text-white placeholder:text-white/45 lg:min-h-[72px] xl:min-h-[88px]"
                             />
                             <div className="mt-3 flex items-center justify-end gap-2">
                               <Button
@@ -1503,7 +1503,7 @@ export function MediaViewer({
                             value={commentDraft}
                             onChange={(event) => setCommentDraft(event.target.value)}
                             placeholder="Add a comment for this image..."
-                            className="min-h-[76px] resize-none border-white/10 bg-black/30 text-white placeholder:text-white/45 xl:min-h-[88px]"
+                              className="min-h-[76px] resize-none border-white/10 bg-black/30 text-white placeholder:text-white/45 lg:min-h-[68px] xl:min-h-[82px]"
                           />
                           <div className="flex items-center justify-end gap-2">
                             <Button
