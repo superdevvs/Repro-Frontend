@@ -69,6 +69,7 @@ const ShootHistory: React.FC = () => {
   const isSuperAdmin = role === 'superadmin'
   const isEditingManager = role === 'editing_manager'
   const isAdmin = role === 'admin'
+  const isClient = role === 'client'
   const isPhotographer = role === 'photographer'
   const isEditor = role === 'editor'
   const shouldHideClientDetails = isEditor
@@ -367,6 +368,28 @@ const ShootHistory: React.FC = () => {
       .filter(Boolean) as MapMarker[]
   }, [activeTab, historyFilters.viewAs, historyFilters.groupBy, historyRecords, geoCache, shouldHideClientDetails])
 
+  const handleCreatePaymentLink = React.useCallback(async (shoot: ShootData) => {
+    try {
+      const response = await apiClient.post(`/shoots/${shoot.id}/create-checkout-link`)
+      const url = response.data?.url || response.data?.checkout_url || response.data?.checkoutUrl
+      if (!url) {
+        throw new Error('Checkout URL not returned')
+      }
+
+      window.open(url, '_blank')
+      toast({
+        title: 'Payment window opened',
+        description: 'Complete payment in the new window.',
+      })
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to create payment link',
+        variant: 'destructive',
+      })
+    }
+  }, [toast])
+
   const mapAddresses = useMemo(() => {
     if (activeTab === 'history') {
       if (historyFilters.viewAs !== 'map' || historyFilters.groupBy === 'services') return []
@@ -509,9 +532,11 @@ const ShootHistory: React.FC = () => {
             onSelect={handleShootSelect} 
             isSuperAdmin={isSuperAdmin}
             isAdmin={isAdmin}
+            isClient={isClient}
             isEditingManager={isEditingManager}
             isEditor={isEditor}
             onViewInvoice={canViewInvoice ? handleViewInvoice : undefined}
+            onPayNow={isClient ? handleCreatePaymentLink : undefined}
             onApprove={(s) => setApprovalModalShoot(s)}
             onDecline={(s) => setDeclineModalShoot(s)}
             onModify={(s) => setEditModalShoot(s)}
@@ -522,7 +547,7 @@ const ShootHistory: React.FC = () => {
         ))}
       </div>
     )
-  }, [loading, activeTab, filteredOperationalData, operationalMeta, viewMode, role, operationalMarkers, handleShootSelect, handlePrimaryAction, navigate, isSuperAdmin, scheduledSubTab, isAdmin, isEditingManager, isEditor, canViewInvoice, canSendToEditing, handleViewInvoice, handleDeleteShoot, handleSendToEditing, shouldHideClientDetails])
+  }, [loading, activeTab, filteredOperationalData, operationalMeta, viewMode, role, operationalMarkers, handleShootSelect, handlePrimaryAction, navigate, isSuperAdmin, scheduledSubTab, isAdmin, isClient, isEditingManager, isEditor, canViewInvoice, canSendToEditing, handleViewInvoice, handleCreatePaymentLink, handleDeleteShoot, handleSendToEditing, shouldHideClientDetails])
 
     // Completed shoots content
   const completedContent = useMemo(() => {
@@ -602,10 +627,13 @@ const ShootHistory: React.FC = () => {
                   onDownload={handleDownloadShoot}
                   isSuperAdmin={isSuperAdmin}
                   isAdmin={isAdmin}
+                  isClient={isClient}
+                  showPaymentStatus={isSuperAdmin || isAdmin || isClient}
                   isEditingManager={isEditingManager}
                   isEditor={isEditor}
                   onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
                   onViewInvoice={canViewInvoice ? handleViewInvoice : undefined}
+                  onPayNow={isClient ? handleCreatePaymentLink : undefined}
                   onSendToEditing={canSendToEditing ? handleSendToEditing : undefined}
                   shouldHideClientDetails={shouldHideClientDetails}
                 />
@@ -630,17 +658,20 @@ const ShootHistory: React.FC = () => {
             onDownload={handleDownloadShoot}
             isSuperAdmin={isSuperAdmin}
             isAdmin={isAdmin}
+            isClient={isClient}
+            showPaymentStatus={isSuperAdmin || isAdmin || isClient}
             isEditingManager={isEditingManager}
             isEditor={isEditor}
             onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
             onViewInvoice={canViewInvoice ? handleViewInvoice : undefined}
+            onPayNow={isClient ? handleCreatePaymentLink : undefined}
             onSendToEditing={canSendToEditing ? handleSendToEditing : undefined}
             shouldHideClientDetails={shouldHideClientDetails}
           />
         ))}
       </div>
     )
-  }, [loading, activeTab, filteredOperationalData, operationalMeta, viewMode, operationalMarkers, handleShootSelect, handleDownloadShoot, isSuperAdmin, isAdmin, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleSendToEditing, inProgressSubTab, deliveredSubTab, canViewInvoice, canSendToEditing, shouldHideClientDetails])
+  }, [loading, activeTab, filteredOperationalData, operationalMeta, viewMode, operationalMarkers, handleShootSelect, handleDownloadShoot, isSuperAdmin, isAdmin, isClient, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleCreatePaymentLink, handleSendToEditing, inProgressSubTab, deliveredSubTab, canViewInvoice, canSendToEditing, shouldHideClientDetails])
 
   // Hold-on shoots content
   const holdOnContent = useMemo(() => {
@@ -692,10 +723,12 @@ const ShootHistory: React.FC = () => {
                   onSelect={handleShootSelect}
                   isSuperAdmin={isSuperAdmin}
                   isAdmin={isAdmin}
+                  isClient={isClient}
                   isEditingManager={isEditingManager}
                   isEditor={isEditor}
                   onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
                   onViewInvoice={canViewInvoice ? handleViewInvoice : undefined}
+                  onPayNow={isClient ? handleCreatePaymentLink : undefined}
                   onSendToEditing={canSendToEditing ? handleSendToEditing : undefined}
                   shouldHideClientDetails={shouldHideClientDetails}
                 />
@@ -719,17 +752,19 @@ const ShootHistory: React.FC = () => {
             onSelect={handleShootSelect}
             isSuperAdmin={isSuperAdmin}
             isAdmin={isAdmin}
+            isClient={isClient}
             isEditingManager={isEditingManager}
             isEditor={isEditor}
             onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
             onViewInvoice={canViewInvoice ? handleViewInvoice : undefined}
+            onPayNow={isClient ? handleCreatePaymentLink : undefined}
             onSendToEditing={canSendToEditing ? handleSendToEditing : undefined}
             shouldHideClientDetails={shouldHideClientDetails}
           />
         ))}
       </div>
     )
-  }, [loading, activeTab, filteredOperationalData, operationalMeta, viewMode, operationalMarkers, handleShootSelect, isSuperAdmin, isAdmin, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleSendToEditing, canViewInvoice, canSendToEditing, shouldHideClientDetails])
+  }, [loading, activeTab, filteredOperationalData, operationalMeta, viewMode, operationalMarkers, handleShootSelect, isSuperAdmin, isAdmin, isClient, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleCreatePaymentLink, handleSendToEditing, canViewInvoice, canSendToEditing, shouldHideClientDetails])
 
   // Legacy operationalContent for backward compatibility
   const operationalContent = useMemo(() => {

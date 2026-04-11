@@ -17,6 +17,9 @@ export interface ImageUrlFields {
   placeholder_path?: string;
   thumbnail_path?: string;
   web_path?: string;
+  watermarked_thumbnail_path?: string;
+  watermarked_web_path?: string;
+  watermarked_placeholder_path?: string;
 }
 
 const STORAGE_PREFIXES = ['shoots/', 'avatars/', 'branding/', 'share-links/', 'watermark-logos/'];
@@ -153,12 +156,15 @@ export function getImageUrl(
       'thumb',
       'thumbnail_url',
       'thumbnail_path',
+      'watermarked_thumbnail_path',
       'web_url',
       'web_path',
+      'watermarked_web_path',
       'medium_url',
       'medium',
       'placeholder_url',
       'placeholder_path',
+      'watermarked_placeholder_path',
     ], [
       'original_url',
       'original',
@@ -173,14 +179,17 @@ export function getImageUrl(
     return firstResolvedUrl(file, [
       'web_url',
       'web_path',
+      'watermarked_web_path',
       'medium_url',
       'medium',
       'thumb_url',
       'thumb',
       'thumbnail_url',
       'thumbnail_path',
+      'watermarked_thumbnail_path',
       'placeholder_url',
       'placeholder_path',
+      'watermarked_placeholder_path',
     ], [
       'original_url',
       'original',
@@ -197,14 +206,17 @@ export function getImageUrl(
       'large',
       'web_url',
       'web_path',
+      'watermarked_web_path',
       'medium_url',
       'medium',
       'thumb_url',
       'thumb',
       'thumbnail_url',
       'thumbnail_path',
+      'watermarked_thumbnail_path',
       'placeholder_url',
       'placeholder_path',
+      'watermarked_placeholder_path',
     ], [
       'original_url',
       'original',

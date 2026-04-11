@@ -16,6 +16,7 @@ import { useToast } from '@/hooks/use-toast'
 import { useUserPreferences } from '@/contexts/UserPreferencesContext'
 import { getStateFullName } from '@/utils/stateUtils'
 import { formatWorkflowStatus } from '@/utils/status'
+import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary'
 import { getEditingNotes, formatCurrency, getShootPlaceholderSrc, resolveShootThumbnail } from './shootHistoryUtils'
 import {
   AlertCircle,
@@ -159,10 +160,12 @@ export const HoldOnShootCard = ({
   onSelect,
   isSuperAdmin = false,
   isAdmin = false,
+  isClient = false,
   isEditingManager = false,
   isEditor = false,
   onDelete,
   onViewInvoice,
+  onPayNow,
   onSendToEditing,
   shouldHideClientDetails = false,
 }: {
@@ -170,10 +173,12 @@ export const HoldOnShootCard = ({
   onSelect: (shoot: ShootData) => void
   isSuperAdmin?: boolean
   isAdmin?: boolean
+  isClient?: boolean
   isEditingManager?: boolean
   isEditor?: boolean
   onDelete?: (shoot: ShootData) => void
   onViewInvoice?: (shoot: ShootData) => void
+  onPayNow?: (shoot: ShootData) => void
   onSendToEditing?: (shoot: ShootData) => void
   shouldHideClientDetails?: boolean
 }) => {
@@ -196,6 +201,8 @@ export const HoldOnShootCard = ({
   const canShowEditingNotes = Boolean(editingNotes) && (isSuperAdmin || isAdmin || isEditingManager || isEditor)
   const shootStatus = String(shoot.status ?? shoot.workflowStatus ?? '').toLowerCase()
   const canSendToEditing = Boolean(onSendToEditing) && shootStatus === 'uploaded'
+  const paymentSummary = normalizeShootPaymentSummary(shoot)
+  const clientHasPendingPayment = isClient && paymentSummary.balance > 0.01 && paymentSummary.paymentStatus !== 'paid'
 
   return (
     <Card
@@ -240,6 +247,20 @@ export const HoldOnShootCard = ({
               title="View Invoice"
             >
               <FileText className="h-3.5 w-3.5" />
+            </Button>
+          )}
+          {clientHasPendingPayment && onPayNow && (
+            <Button
+              size="sm"
+              className="h-8 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+              onClick={(e) => {
+                e.stopPropagation()
+                onPayNow(shoot)
+              }}
+              title="Pay now"
+            >
+              <CreditCard className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Pay ${paymentSummary.balance.toFixed(2)}</span>
             </Button>
           )}
           {/* Delete button - Only for admin/superadmin */}

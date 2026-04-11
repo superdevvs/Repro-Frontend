@@ -57,6 +57,7 @@ import { WeatherInfo } from '@/services/weatherService';
 import { useToast } from '@/hooks/use-toast';
 import { useEditorRates } from '@/hooks/useEditorRates';
 import { API_BASE_URL } from '@/config/env';
+import { apiClient } from '@/services/api';
 import { useAuth } from '@/components/auth';
 import { calculateDistance, getCoordinatesFromAddress } from '@/utils/distanceUtils';
 import { cn } from '@/lib/utils';
@@ -331,6 +332,7 @@ export function ShootDetailsOverviewTab({
   const { formatTemperature, formatTime: formatTimePreference, formatDate: formatDatePreference } = useUserPreferences();
   const [isFeaturedShoot, setIsFeaturedShoot] = useState<boolean>(() => resolveFeaturedShootState(shoot));
   const [isSavingFeaturedShoot, setIsSavingFeaturedShoot] = useState(false);
+  const [creatingPayment, setCreatingPayment] = useState(false);
 
   const {
     state: {
@@ -466,6 +468,34 @@ export function ShootDetailsOverviewTab({
       });
     } finally {
       setIsSavingFeaturedShoot(false);
+    }
+  };
+
+  const handleCreatePaymentLink = async () => {
+    if (!isClient) return;
+
+    setCreatingPayment(true);
+    try {
+      const response = await apiClient.post(`/shoots/${shoot.id}/create-checkout-link`);
+      const url = response.data?.url || response.data?.checkout_url || response.data?.checkoutUrl;
+
+      if (!url) {
+        throw new Error('Checkout URL not returned');
+      }
+
+      window.open(url, '_blank');
+      toast({
+        title: 'Payment window opened',
+        description: 'Complete payment in the new window.',
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to create payment link',
+        variant: 'destructive',
+      });
+    } finally {
+      setCreatingPayment(false);
     }
   };
 
@@ -898,6 +928,8 @@ export function ShootDetailsOverviewTab({
           editedPaymentBalance={editedPaymentBalance}
           setTaxAmountDirty={setTaxAmountDirty}
           updateField={updateField}
+          onPayNow={isClient ? () => { void handleCreatePaymentLink(); } : undefined}
+          isPaying={creatingPayment}
         />
       )}
 

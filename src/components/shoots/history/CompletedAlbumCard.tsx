@@ -152,10 +152,13 @@ export const CompletedAlbumCard = ({
   onDownload,
   isSuperAdmin = false,
   isAdmin = false,
+  isClient = false,
+  showPaymentStatus = false,
   isEditingManager = false,
   isEditor = false,
   onDelete,
   onViewInvoice,
+  onPayNow,
   onSendToEditing,
   shouldHideClientDetails = false,
 }: {
@@ -164,10 +167,13 @@ export const CompletedAlbumCard = ({
   onDownload?: (shoot: ShootData, type: 'full' | 'web') => void
   isSuperAdmin?: boolean
   isAdmin?: boolean
+  isClient?: boolean
+  showPaymentStatus?: boolean
   isEditingManager?: boolean
   isEditor?: boolean
   onDelete?: (shoot: ShootData) => void
   onViewInvoice?: (shoot: ShootData) => void
+  onPayNow?: (shoot: ShootData) => void
   onSendToEditing?: (shoot: ShootData) => void
   shouldHideClientDetails?: boolean
 }) => {
@@ -190,7 +196,7 @@ export const CompletedAlbumCard = ({
   const showPlaceholder = hasNoImages || imgErrored
   const hasTour = shoot.tourPurchased || Boolean(shoot.tourLinks?.branded || shoot.tourLinks?.mls)
   const paymentSummary = normalizeShootPaymentSummary(shoot)
-  const canShowPaymentStatus = Boolean(onViewInvoice) && (
+  const canShowPaymentStatus = showPaymentStatus && Boolean(onViewInvoice) && (
     paymentSummary.paymentStatus !== null ||
     paymentSummary.totalQuote > 0 ||
     paymentSummary.totalPaid > 0
@@ -199,6 +205,8 @@ export const CompletedAlbumCard = ({
   const paymentBadgeLabel = isPaid
     ? `Paid: ${formatCurrency(paymentSummary.totalPaid)}`
     : 'Unpaid'
+  const balanceDue = paymentSummary.balance
+  const hasPendingPayment = isClient && balanceDue > 0.01 && paymentSummary.paymentStatus !== 'paid'
   const statusValue = shoot.workflowStatus ?? shoot.status ?? ''
   const statusLabel = formatWorkflowStatus(statusValue)
   const editingNotes = getEditingNotes(shoot.notes)
@@ -436,6 +444,22 @@ export const CompletedAlbumCard = ({
             </div>
           )}
         </div>
+
+        {hasPendingPayment && onPayNow && (
+          <div className="pt-3 border-t border-border/50">
+            <Button
+              size="sm"
+              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+              onClick={(e) => {
+                e.stopPropagation()
+                onPayNow(shoot)
+              }}
+            >
+              <CreditCard className="mr-2 h-4 w-4" />
+              Pay now ${balanceDue.toFixed(2)}
+            </Button>
+          </div>
+        )}
 
       </div>
       {/* Editing Notes - full-width bottom banner */}

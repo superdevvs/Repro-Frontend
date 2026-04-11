@@ -1,6 +1,8 @@
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
+import { Button } from '@/components/ui/button';
 import { ShootData } from '@/types/shoots';
+import { CreditCard, Loader2 } from 'lucide-react';
 
 type OverviewPaymentSummarySectionProps = {
   isEditMode: boolean;
@@ -13,6 +15,8 @@ type OverviewPaymentSummarySectionProps = {
   editedPaymentBalance: number;
   setTaxAmountDirty: (value: boolean) => void;
   updateField: (field: string, value: unknown) => void;
+  onPayNow?: () => void;
+  isPaying?: boolean;
 };
 
 export function OverviewPaymentSummarySection({
@@ -26,6 +30,8 @@ export function OverviewPaymentSummarySection({
   editedPaymentBalance,
   setTaxAmountDirty,
   updateField,
+  onPayNow,
+  isPaying = false,
 }: OverviewPaymentSummarySectionProps) {
   return (
     <div className="p-2.5 border rounded-lg bg-card">
@@ -122,6 +128,24 @@ export function OverviewPaymentSummarySection({
                   ${paymentBalance.toFixed(2)}
                 </span>
               </div>
+              {paymentBalance > 0.01 && onPayNow && (
+                <div className="pt-3">
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="w-full justify-center bg-emerald-600 hover:bg-emerald-700 text-white"
+                    onClick={onPayNow}
+                    disabled={isPaying}
+                  >
+                    {isPaying ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <CreditCard className="mr-2 h-4 w-4" />
+                    )}
+                    Pay now
+                  </Button>
+                </div>
+              )}
             </>
           ) : (
             <div className="text-muted-foreground">Not available</div>

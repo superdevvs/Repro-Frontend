@@ -386,8 +386,11 @@ export function useShootDetailsMediaTab({
       medium: f.medium,
       large: f.large,
       original: f.original,
+      web_url: f.web_url,
       thumbnail_path: f.thumbnail_path,
       web_path: f.web_path,
+      watermarked_thumbnail_path: f.watermarked_thumbnail_path,
+      watermarked_web_path: f.watermarked_web_path,
       placeholder_path: f.placeholder_path,
       processed_at: f.processed_at,
     }))

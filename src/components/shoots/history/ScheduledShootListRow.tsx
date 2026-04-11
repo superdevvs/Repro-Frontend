@@ -16,6 +16,7 @@ import { useToast } from '@/hooks/use-toast'
 import { useUserPreferences } from '@/contexts/UserPreferencesContext'
 import { getStateFullName } from '@/utils/stateUtils'
 import { formatWorkflowStatus } from '@/utils/status'
+import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary'
 import { getApprovalNotes, getEditingNotes, formatCurrency, getShootPlaceholderSrc, resolveShootThumbnail } from './shootHistoryUtils'
 import {
   AlertCircle,
@@ -136,10 +137,12 @@ export const ScheduledShootListRow = ({
   onSelect,
   isSuperAdmin = false,
   isAdmin = false,
+  isClient = false,
   isEditingManager = false,
   isEditor = false,
   onDelete,
   onViewInvoice,
+  onPayNow,
   onApprove,
   onDecline,
   onModify,
@@ -150,10 +153,12 @@ export const ScheduledShootListRow = ({
   onSelect: (shoot: ShootData) => void
   isSuperAdmin?: boolean
   isAdmin?: boolean
+  isClient?: boolean
   isEditingManager?: boolean
   isEditor?: boolean
   onDelete?: (shoot: ShootData) => void
   onViewInvoice?: (shoot: ShootData) => void
+  onPayNow?: (shoot: ShootData) => void
   onApprove?: (shoot: ShootData) => void
   onDecline?: (shoot: ShootData) => void
   onModify?: (shoot: ShootData) => void
@@ -172,6 +177,8 @@ export const ScheduledShootListRow = ({
   const statusLabel = formatWorkflowStatus(displayStatus)
   const config = statusConfig[statusKey] ?? statusConfig[displayStatus] ?? statusConfig.scheduled
   const StatusIcon = config.icon
+  const paymentSummary = normalizeShootPaymentSummary(shoot)
+  const clientHasPendingPayment = isClient && paymentSummary.balance > 0.01 && paymentSummary.paymentStatus !== 'paid'
   const paymentStatus = isSuperAdmin && shoot.payment?.totalPaid && shoot.payment?.totalQuote
     ? shoot.payment.totalPaid >= shoot.payment.totalQuote
       ? 'Paid'
@@ -391,6 +398,19 @@ export const ScheduledShootListRow = ({
                       <p className="text-xs text-muted-foreground/70 italic">No services assigned</p>
                     )}
                   </div>
+                  {clientHasPendingPayment && onPayNow && (
+                    <Button
+                      size="sm"
+                      className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white flex-shrink-0"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onPayNow(shoot)
+                      }}
+                    >
+                      <CreditCard className="mr-1 h-3.5 w-3.5" />
+                      Pay ${paymentSummary.balance.toFixed(2)}
+                    </Button>
+                  )}
                   {/* Action buttons for requested shoots - bottom right */}
                   {displayStatus === 'requested' && (isAdmin || isSuperAdmin) && (onApprove || onDecline || onModify) && (
                     <div className="flex flex-wrap gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
