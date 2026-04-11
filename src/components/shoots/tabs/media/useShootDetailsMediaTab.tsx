@@ -299,6 +299,14 @@ export function useShootDetailsMediaTab({
     toggleSelection,
     clearSelection,
   } = useShootMediaSelectionState({ onSelectionChange });
+  const [viewerSourceTab, setViewerSourceTab] = useState<'uploaded' | 'edited'>('uploaded');
+  const openViewerWithSource = useCallback(
+    (index: number, files: MediaFile[], source: 'uploaded' | 'edited' = displayTab) => {
+      setViewerSourceTab(source);
+      openViewer(index, files);
+    },
+    [displayTab, openViewer],
+  );
 
   useEffect(() => {
     if (!viewerOpen || viewerFiles.length === 0) {
@@ -914,7 +922,7 @@ export function useShootDetailsMediaTab({
         <div className={`h-full overflow-y-auto p-1 sm:p-2.5 ${canUploadInDisplayTab ? 'pb-20 sm:pb-2.5' : ''}`}>
           <MediaGrid
             files={files}
-            onFileClick={(index, sorted) => openViewer(index, sorted)}
+            onFileClick={(index, sorted) => openViewerWithSource(index, sorted, displayTab)}
             selectedFiles={selectedFiles}
             onSelectionChange={toggleSelection}
             onSelectAll={() => {
@@ -1144,7 +1152,7 @@ export function useShootDetailsMediaTab({
         editedTwilight={editedTwilight}
         editedDrone={editedDrone}
         editedExtras={editedExtras}
-        openViewer={openViewer}
+        openViewer={openViewerWithSource}
         toggleSelection={toggleSelection}
         setSelectedFiles={setSelectedFiles}
         manualOrder={manualOrder}
@@ -1168,8 +1176,8 @@ export function useShootDetailsMediaTab({
         isAdmin={isAdmin}
         isClient={isClient}
         canViewFullSize={canViewFullSizeMedia}
-        canStartSlideshow={canStartSlideshowMedia}
-        slideshowFiles={editedSlideshowFiles}
+        canStartSlideshow={canStartSlideshowMedia && viewerSourceTab === 'edited'}
+        slideshowFiles={viewerSourceTab === 'edited' ? editedSlideshowFiles : []}
         onShootUpdate={onShootUpdate}
         canInteractSingleMedia={canInteractSingleMedia}
         canDownloadSingleMedia={canDownloadSingleMedia}

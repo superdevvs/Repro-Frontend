@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState } from 'react';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -829,7 +830,7 @@ export function ShootDetailsMediaTabView(props: any) {
                         <div className="m-0 sm:m-2.5 border-0 sm:border rounded-none sm:rounded-lg bg-card p-1 sm:p-2.5">
                           <MediaGrid
                             files={uploadedFloorplans}
-                            onFileClick={(index, sorted) => openViewer(index, sorted)}
+                            onFileClick={(index, sorted) => openViewer(index, sorted, 'uploaded')}
                             selectedFiles={selectedFiles}
                             onSelectionChange={toggleSelection}
                             onSelectAll={() => {
@@ -1078,7 +1079,7 @@ export function ShootDetailsMediaTabView(props: any) {
                         <div className="m-0 sm:m-2.5 border-0 sm:border rounded-none sm:rounded-lg bg-card p-1 sm:p-2.5">
                           <MediaGrid
                             files={editedFloorplans}
-                            onFileClick={(index, sorted) => openViewer(index, sorted)}
+                            onFileClick={(index, sorted) => openViewer(index, sorted, 'edited')}
                             selectedFiles={selectedFiles}
                             onSelectionChange={toggleSelection}
                             onSelectAll={() => {

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
@@ -18,7 +19,7 @@ import {
   triggerShootDetailRefresh,
 } from '@/realtime/realtimeRefreshBus';
 import { blurActiveElement } from '../../dialogFocusUtils';
-import { AlertCircle, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Download, Eye, EyeOff, FileIcon, Heart, Loader2, Pause, Play, X } from 'lucide-react';
+import { AlertCircle, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Download, Eye, EyeOff, FileIcon, Heart, Loader2, MoreHorizontal, Pause, Play, X } from 'lucide-react';
 
 // Media Viewer Component
 interface MediaViewerProps {
@@ -310,10 +311,27 @@ export function MediaViewer({
 
     return Boolean(getMediaViewerImageUrl(file));
   });
-  const slideshowStartIndex = useMemo(
-    () => eligibleSlideshowFiles.findIndex((file) => file.id === currentFile?.id),
-    [currentFile?.id, eligibleSlideshowFiles],
-  );
+  const slideshowStartIndex = useMemo(() => {
+    const currentId = String(currentFile?.id || '');
+    if (currentId) {
+      const matchedById = eligibleSlideshowFiles.findIndex((file) => String(file.id) === currentId);
+      if (matchedById >= 0) {
+        return matchedById;
+      }
+    }
+
+    const currentName = currentFile ? getDisplayMediaFilename(currentFile).trim().toLowerCase() : '';
+    if (currentName) {
+      const matchedByName = eligibleSlideshowFiles.findIndex(
+        (file) => getDisplayMediaFilename(file).trim().toLowerCase() === currentName,
+      );
+      if (matchedByName >= 0) {
+        return matchedByName;
+      }
+    }
+
+    return eligibleSlideshowFiles.length > 0 ? 0 : -1;
+  }, [currentFile, eligibleSlideshowFiles]);
   const slideshowCurrentFile =
     viewerMode === 'slideshow' && slideshowIndex >= 0
       ? eligibleSlideshowFiles[slideshowIndex] ?? null
@@ -738,6 +756,7 @@ export function MediaViewer({
     previewMode === 'full' && fullSizeAvailable
       ? fullSizeImageUrl
       : previewImageUrl;
+  const canRequestModification = Boolean(shoot) && isImg && (isAdmin || isClient);
   const canSetHero =
     Boolean(shoot) &&
     isImg &&
@@ -809,6 +828,14 @@ export function MediaViewer({
   };
   const sidebarActionButtonClassName =
     'h-10 justify-start border-white/10 bg-white/5 text-white hover:bg-white/10 hover:text-white xl:h-11';
+  const mobileActionMenuItemClassName =
+    'gap-2 rounded-md px-2 py-2 text-sm text-white focus:bg-white/10 focus:text-white';
+  const showMobileActionMenu =
+    canSetHero ||
+    (canInteractSingleMedia && Boolean(onToggleFavorite)) ||
+    (canDownloadSingleMedia && Boolean(onDownloadSingle)) ||
+    Boolean(onToggleHidden) ||
+    slideshowAvailable;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -835,7 +862,7 @@ export function MediaViewer({
         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 
         {viewerMode === 'slideshow' && slideshowCurrentFile ? (
-          <div className="relative z-10 flex h-full w-full items-center justify-center overflow-hidden px-3 py-3 sm:px-5 sm:py-5">
+          <div className="relative z-10 flex h-full w-full items-center justify-center overflow-hidden">
             <Button
               variant="ghost"
               size="icon"
@@ -862,7 +889,7 @@ export function MediaViewer({
 
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.12),_transparent_35%),radial-gradient(circle_at_bottom,_rgba(255,255,255,0.08),_transparent_30%)]" />
 
-            <div className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-[28px] border border-white/8 bg-black/45 px-4 py-6 shadow-[0_30px_120px_rgba(0,0,0,0.65)] sm:px-8 sm:py-8">
+            <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-black">
               {!currentSlideReady && (
                 <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/45 backdrop-blur-sm">
                   <Loader2 className="h-8 w-8 animate-spin text-white/70" />
@@ -882,7 +909,7 @@ export function MediaViewer({
                   exit="exit"
                   src={slideshowCurrentImageUrl}
                   alt={getDisplayMediaFilename(slideshowCurrentFile) || slideshowCurrentFile.filename}
-                  className="max-h-full max-w-full select-none rounded-[24px] object-contain shadow-[0_30px_80px_rgba(0,0,0,0.55)]"
+                  className="absolute inset-0 h-full w-full select-none object-cover"
                   draggable={false}
                   loading="eager"
                   onLoad={() => markSlideshowUrlReady(slideshowCurrentImageUrl)}
@@ -939,6 +966,71 @@ export function MediaViewer({
           </div>
         ) : (
         <div className="relative z-10 flex h-full w-full items-stretch justify-stretch">
+          {showMobileActionMenu && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-12 top-2 z-20 h-9 w-9 rounded-full border border-white/10 bg-black/40 text-white hover:bg-white/20 lg:hidden"
+                >
+                  <MoreHorizontal className="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                sideOffset={8}
+                className="z-[120] min-w-[220px] border-white/10 bg-neutral-950/95 text-white backdrop-blur-md"
+              >
+                {canSetHero && (
+                  <DropdownMenuItem
+                    className={mobileActionMenuItemClassName}
+                    onSelect={handleSetHeroImage}
+                  >
+                    <CheckCircle2 className="h-4 w-4" />
+                    Make hero
+                  </DropdownMenuItem>
+                )}
+                {canInteractSingleMedia && onToggleFavorite && (
+                  <DropdownMenuItem
+                    className={mobileActionMenuItemClassName}
+                    onSelect={() => onToggleFavorite(currentFile.id)}
+                  >
+                    <Heart className={`h-4 w-4 ${currentFile.is_favorite ? 'fill-current' : ''}`} />
+                    {currentFile.is_favorite ? 'Liked' : 'Like'}
+                  </DropdownMenuItem>
+                )}
+                {canDownloadSingleMedia && onDownloadSingle && (
+                  <DropdownMenuItem
+                    className={mobileActionMenuItemClassName}
+                    onSelect={() => onDownloadSingle(currentFile.id)}
+                  >
+                    <Download className="h-4 w-4" />
+                    Download
+                  </DropdownMenuItem>
+                )}
+                {onToggleHidden && (
+                  <DropdownMenuItem
+                    className={mobileActionMenuItemClassName}
+                    onSelect={() => onToggleHidden(currentFile.id, !currentFile.is_hidden)}
+                  >
+                    {currentFile.is_hidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                    {currentFile.is_hidden ? 'Unhide image' : 'Hide image'}
+                  </DropdownMenuItem>
+                )}
+                {slideshowAvailable && (
+                  <DropdownMenuItem
+                    className={mobileActionMenuItemClassName}
+                    onSelect={handleEnterSlideshow}
+                  >
+                    <Play className="h-4 w-4 fill-current" />
+                    Slideshow
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+
           <Button
             variant="ghost"
             size="icon"
@@ -963,7 +1055,7 @@ export function MediaViewer({
                   </div>
                   {/* Viewer Controls */}
                   {isImg ? (
-                    <div className="flex flex-wrap items-center justify-end gap-1.5">
+                    <div className="hidden flex-wrap items-center justify-end gap-1.5 lg:flex">
                       {canViewFullSize && (
                         <div className="flex items-center gap-1 rounded-lg bg-black/30 p-1">
                           <Button
@@ -1027,7 +1119,7 @@ export function MediaViewer({
 
                 <div className="flex min-h-0 flex-1 flex-col">
                   <div className="flex min-h-0 flex-1 items-stretch justify-center px-1.5 pb-1.5 pt-1.5 sm:px-2.5 sm:pb-2.5 sm:pt-2">
-                    <div className="relative flex h-full min-h-0 w-full flex-1 items-center justify-center overflow-auto rounded-lg bg-black/55 p-1.5 sm:rounded-xl sm:p-2.5">
+                    <div className="relative flex h-full min-h-[48dvh] w-full flex-1 items-center justify-center overflow-auto bg-black/75 p-0 sm:min-h-[56dvh] sm:rounded-lg sm:p-1.5 lg:min-h-0 lg:rounded-lg lg:bg-black/55 lg:p-1.5 xl:rounded-xl xl:p-2.5">
                       {currentIndex > 0 && (
                         <Button
                           variant="ghost"
@@ -1049,11 +1141,68 @@ export function MediaViewer({
                           <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6" />
                         </Button>
                       )}
+                      {isImg && canViewFullSize && (
+                        <div className="absolute left-2 top-2 z-10 flex items-center gap-1 rounded-full border border-white/10 bg-black/55 p-1 backdrop-blur-md lg:hidden">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className={`h-7 rounded-full px-2.5 text-[11px] text-white hover:bg-white/15 ${previewMode === 'web' ? 'bg-white/10' : ''}`}
+                            onClick={() => setPreviewMode('web')}
+                            title="Use web-sized preview"
+                          >
+                            Web
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className={`h-7 rounded-full px-2.5 text-[11px] text-white hover:bg-white/15 ${previewMode === 'full' ? 'bg-white/10' : ''}`}
+                            onClick={() => setPreviewMode('full')}
+                            disabled={!fullSizeAvailable}
+                            title={fullSizeAvailable ? 'Use full-size preview' : 'Full-size preview unavailable'}
+                          >
+                            Full
+                          </Button>
+                        </div>
+                      )}
+                      {isImg && (
+                        <div className="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1 rounded-full border border-white/10 bg-black/55 p-1 text-white backdrop-blur-md lg:hidden">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 rounded-full text-white hover:bg-white/15"
+                            onClick={handleZoomOut}
+                            disabled={zoom <= 0.5}
+                            title="Zoom out"
+                          >
+                            <span className="text-sm">−</span>
+                          </Button>
+                          <span className="min-w-[2.75rem] text-center text-[11px] font-medium">{Math.round(zoom * 100)}%</span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 rounded-full text-white hover:bg-white/15"
+                            onClick={handleZoomIn}
+                            disabled={zoom >= 3}
+                            title="Zoom in"
+                          >
+                            <span className="text-sm">+</span>
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 rounded-full px-2.5 text-[11px] text-white hover:bg-white/15"
+                            onClick={handleResetZoom}
+                            title="Reset zoom"
+                          >
+                            Reset
+                          </Button>
+                        </div>
+                      )}
                       {isImg ? (
                         <img
                           src={imageUrl}
                           alt={displayFilename}
-                          className="max-h-full max-w-full select-none rounded-xl object-contain shadow-2xl transition-transform duration-200"
+                          className="h-full w-full select-none object-contain transition-transform duration-200 rounded-none shadow-none lg:h-auto lg:w-auto lg:max-h-full lg:max-w-full lg:rounded-xl lg:shadow-2xl"
                           style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
                           loading="eager"
                           draggable={false}
@@ -1064,7 +1213,7 @@ export function MediaViewer({
                           src={videoUrl}
                           controls
                           autoPlay
-                          className="max-h-full max-w-full rounded-xl object-contain shadow-2xl"
+                          className="h-full w-full rounded-none object-contain shadow-none lg:h-auto lg:w-auto lg:max-h-full lg:max-w-full lg:rounded-xl lg:shadow-2xl"
                           style={{ outline: 'none' }}
                         />
                       ) : (
@@ -1153,7 +1302,7 @@ export function MediaViewer({
               <div className="min-h-0 overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md">
                 <ScrollArea className="h-full">
                   <div className="space-y-3 p-2.5 text-white sm:p-3 xl:p-3.5 2xl:space-y-4 2xl:p-4">
-                    <div className="grid gap-2 sm:grid-cols-2">
+                    <div className="hidden gap-2 sm:grid-cols-2 lg:grid">
                       {canSetHero && (
                         <Button
                           variant="outline"
@@ -1194,71 +1343,124 @@ export function MediaViewer({
                           {currentFile.is_hidden ? 'Unhide image' : 'Hide image'}
                         </Button>
                       )}
-                      {slideshowAvailable && (
-                        <div className="sm:col-span-2">
-                          <Button
-                            variant="outline"
-                            className={`${sidebarActionButtonClassName} w-full`}
-                            onClick={handleEnterSlideshow}
-                          >
-                            <Play className="mr-2 h-4 w-4 fill-current" />
-                            Slideshow
-                          </Button>
-                        </div>
-                      )}
-                      {/* Inline modification request composer */}
-                      {isAdmin && isImg && shoot && (
-                        <div className="sm:col-span-2 space-y-2">
-                          <Button
-                            variant="destructive"
-                            className="h-10 justify-start xl:h-11"
-                            onClick={() => {
-                              blurActiveElement();
-                              setShowRequestComposer((current) => !current);
-                            }}
-                          >
-                            <AlertCircle className="mr-2 h-4 w-4" />
-                            Request modification
-                          </Button>
-                          {showRequestComposer && (
-                            <div className="rounded-xl border border-rose-500/25 bg-rose-500/10 p-3">
-                              <p className="text-sm font-medium text-white">Create request</p>
-                              <p className="mt-1 text-xs text-white/65">
-                                Request any changes for this image.
-                              </p>
-                              <Textarea
-                                value={flagReason}
-                                onChange={(event) => setFlagReason(event.target.value)}
-                                placeholder="Request any changes in this image..."
-                                className="mt-3 min-h-[80px] resize-none border-white/10 bg-black/30 text-white placeholder:text-white/45 xl:min-h-[96px]"
-                              />
-                              <div className="mt-3 flex items-center justify-end gap-2">
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  className="text-white hover:bg-white/10 hover:text-white"
-                                  onClick={() => {
-                                    setShowRequestComposer(false);
-                                    setFlagReason('');
-                                  }}
-                                  disabled={flagging}
-                                >
-                                  Cancel
-                                </Button>
-                                <Button
-                                  type="button"
-                                  onClick={handleFlagImage}
-                                  disabled={!flagReason.trim() || flagging}
-                                  variant="destructive"
-                                >
-                                  {flagging ? 'Creating request...' : 'Create request'}
-                                </Button>
-                              </div>
-                            </div>
+                      {(slideshowAvailable || canRequestModification) && (
+                        <div className="sm:col-span-2 grid gap-2 sm:grid-cols-2">
+                          {slideshowAvailable && (
+                            <Button
+                              variant="outline"
+                              className={`${sidebarActionButtonClassName} w-full ${canRequestModification ? '' : 'sm:col-span-2'}`}
+                              onClick={handleEnterSlideshow}
+                            >
+                              <Play className="mr-2 h-4 w-4 fill-current" />
+                              Slideshow
+                            </Button>
+                          )}
+                          {canRequestModification && (
+                            <Button
+                              variant="destructive"
+                              className={`h-10 justify-start xl:h-11 ${slideshowAvailable ? '' : 'sm:col-span-2'}`}
+                              onClick={() => {
+                                blurActiveElement();
+                                setShowRequestComposer((current) => !current);
+                              }}
+                            >
+                              <AlertCircle className="mr-2 h-4 w-4" />
+                              Request modification
+                            </Button>
                           )}
                         </div>
                       )}
+                      {/* Inline modification request composer */}
+                      {canRequestModification && showRequestComposer && (
+                        <div className="sm:col-span-2">
+                          <div className="rounded-xl border border-rose-500/25 bg-rose-500/10 p-3">
+                            <p className="text-sm font-medium text-white">Create request</p>
+                            <p className="mt-1 text-xs text-white/65">
+                              Request any changes for this image.
+                            </p>
+                            <Textarea
+                              value={flagReason}
+                              onChange={(event) => setFlagReason(event.target.value)}
+                              placeholder="Request any changes in this image..."
+                              className="mt-3 min-h-[80px] resize-none border-white/10 bg-black/30 text-white placeholder:text-white/45 xl:min-h-[96px]"
+                            />
+                            <div className="mt-3 flex items-center justify-end gap-2">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                className="text-white hover:bg-white/10 hover:text-white"
+                                onClick={() => {
+                                  setShowRequestComposer(false);
+                                  setFlagReason('');
+                                }}
+                                disabled={flagging}
+                              >
+                                Cancel
+                              </Button>
+                              <Button
+                                type="button"
+                                onClick={handleFlagImage}
+                                disabled={!flagReason.trim() || flagging}
+                                variant="destructive"
+                              >
+                                {flagging ? 'Creating request...' : 'Create request'}
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
+                    {canRequestModification && (
+                      <div className="space-y-2 lg:hidden">
+                        <Button
+                          variant="destructive"
+                          className="h-10 w-full justify-start"
+                          onClick={() => {
+                            blurActiveElement();
+                            setShowRequestComposer((current) => !current);
+                          }}
+                        >
+                          <AlertCircle className="mr-2 h-4 w-4" />
+                          Request modification
+                        </Button>
+                        {showRequestComposer && (
+                          <div className="rounded-xl border border-rose-500/25 bg-rose-500/10 p-3">
+                            <p className="text-sm font-medium text-white">Create request</p>
+                            <p className="mt-1 text-xs text-white/65">
+                              Request any changes for this image.
+                            </p>
+                            <Textarea
+                              value={flagReason}
+                              onChange={(event) => setFlagReason(event.target.value)}
+                              placeholder="Request any changes in this image..."
+                              className="mt-3 min-h-[80px] resize-none border-white/10 bg-black/30 text-white placeholder:text-white/45"
+                            />
+                            <div className="mt-3 flex items-center justify-end gap-2">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                className="text-white hover:bg-white/10 hover:text-white"
+                                onClick={() => {
+                                  setShowRequestComposer(false);
+                                  setFlagReason('');
+                                }}
+                                disabled={flagging}
+                              >
+                                Cancel
+                              </Button>
+                              <Button
+                                type="button"
+                                onClick={handleFlagImage}
+                                disabled={!flagReason.trim() || flagging}
+                                variant="destructive"
+                              >
+                                {flagging ? 'Creating request...' : 'Create request'}
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     <div className="rounded-xl border border-white/10 bg-black/20 p-3">
                       <button
