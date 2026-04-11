@@ -24,7 +24,7 @@ interface MediaViewerProps {
   files: MediaFile[];
   currentIndex: number;
   onIndexChange: (index: number) => void;
-  getImageUrl: (file: MediaFile, size?: 'thumb' | 'medium' | 'large' | 'original') => string;
+  getImageUrl: (file: MediaFile, size?: 'thumb' | 'web' | 'medium' | 'large' | 'original') => string;
   getSrcSet: (file: MediaFile) => string;
   shoot?: ShootData;
   isAdmin?: boolean;
@@ -398,7 +398,7 @@ export function MediaViewer({
 
   if (!isOpen || !currentFile) return null;
 
-  const previewImageUrl = getImageUrl(currentFile, 'medium') || getImageUrl(currentFile, 'thumb');
+  const previewImageUrl = getImageUrl(currentFile, 'web') || getImageUrl(currentFile, 'medium') || getImageUrl(currentFile, 'thumb');
   const originalImageUrl = getImageUrl(currentFile, 'original');
   const imageUrl = showFullSizePreview ? (originalImageUrl || previewImageUrl) : previewImageUrl;
   const srcSet = showFullSizePreview ? '' : getSrcSet(currentFile);

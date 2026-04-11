@@ -1,7 +1,7 @@
 import { type MediaFile } from '@/hooks/useShootFiles';
 import { getImageUrl } from '@/utils/imageUrl';
 
-export type MediaImageSize = 'thumb' | 'medium' | 'large' | 'original';
+export type MediaImageSize = 'thumb' | 'web' | 'medium' | 'large' | 'original';
 
 const RAW_EXTENSIONS = /\.(nef|cr2|cr3|arw|dng|raf|rw2|orf|pef|srw|3fr|iiq)$/;
 
@@ -54,7 +54,7 @@ export const getMediaImageUrl = (
 export const getMediaSrcSet = (file: MediaFile): string => {
   const sizes: string[] = [];
   const thumbUrl = getMediaImageUrl(file, 'thumb');
-  const previewUrl = getMediaImageUrl(file, 'medium');
+  const previewUrl = getMediaImageUrl(file, 'web');
 
   if (thumbUrl && thumbUrl !== previewUrl) sizes.push(`${thumbUrl} 300w`);
   if (previewUrl) sizes.push(`${previewUrl} 1600w`);

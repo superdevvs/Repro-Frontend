@@ -153,7 +153,7 @@ const shouldUseWatermarkedFallbacks = (file: ImageUrlFields): boolean =>
  */
 export function getImageUrl(
   file: ImageUrlFields,
-  size: 'thumb' | 'medium' | 'large' | 'original' = 'medium'
+  size: 'thumb' | 'web' | 'medium' | 'large' | 'original' = 'medium'
 ): string {
   const watermarkThumbKeys: Array<keyof ImageUrlFields> = shouldUseWatermarkedFallbacks(file)
     ? ['watermarked_thumbnail_path', 'watermarked_web_path', 'watermarked_placeholder_path']
@@ -180,6 +180,23 @@ export function getImageUrl(
       'original',
       'url',
       'path',
+      'large_url',
+      'large',
+    ]);
+  }
+
+  if (size === 'web') {
+    return firstResolvedUrl(file, [
+      'web_url',
+      'web_path',
+      'medium_url',
+      'medium',
+      'placeholder_url',
+      'placeholder_path',
+      ...watermarkMediumKeys,
+    ], [
+      'original_url',
+      'original',
       'large_url',
       'large',
     ]);
