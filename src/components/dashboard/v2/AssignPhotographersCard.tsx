@@ -99,7 +99,7 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
 }) => {
   const { openModal } = usePhotographerAssignment();
   const sectionGutter = 'px-3 sm:px-5';
-  const listGutter = 'px-2 sm:px-5';
+  const listGutter = 'px-0.5 sm:px-3';
   const [tab, setTab] = useState<Tab>('available');
   const [sortBy, setSortBy] = useState<SortBy>('availability');
   const [preset, setPreset] = useState<WindowPreset>('today');
@@ -296,7 +296,7 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
                   handlePhotographerClick(photographer);
                 }
               }}
-              className="assign-photographer-row mx-auto w-full flex flex-col gap-2 px-4 sm:px-4 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl border border-transparent hover:border-primary/40 hover:bg-primary/5 transition-all text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              className="assign-photographer-row mx-auto w-full flex flex-col gap-2 px-2 sm:px-3 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl border border-transparent hover:border-primary/40 hover:bg-primary/5 transition-all text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
             >
               <div className="flex items-start gap-2 sm:gap-3">
                 <Avatar
@@ -306,8 +306,8 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
                   status={availabilitySet.has(photographer.id) || !hasAvailabilityData ? 'free' : photographer.status}
                 />
                 <div className="min-w-0 flex-1">
-                  <div className="flex flex-col gap-2">
-                    <div className="min-w-0 max-w-full">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
                       <h3 className="text-sm font-semibold leading-tight text-foreground">
                         <HoverMarqueeText text={photographer.name} />
                       </h3>
@@ -323,8 +323,8 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
                         )}
                       </div>
                     </div>
-                    <div className="min-w-0">
-                      <span className="block text-[10px] sm:text-[11px] text-muted-foreground">
+                    <div className="w-[6.5rem] flex-shrink-0 text-right sm:w-[7.25rem]">
+                      <span className="block text-[10px] sm:text-[11px] text-muted-foreground break-words">
                         {photographer.region}
                       </span>
                       <span className="mt-1 block text-[10px] sm:text-[11px] text-muted-foreground/70">
