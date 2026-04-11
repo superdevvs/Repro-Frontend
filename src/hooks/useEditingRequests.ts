@@ -43,23 +43,15 @@ export function useEditingRequests(enabled: boolean) {
   }, [enabled, refresh]);
 
   const updateRequest = useCallback(async (id: number, payload: EditingRequestUpdatePayload): Promise<void> => {
-    try {
-      const updated = await updateEditingRequest(id, payload);
-      setRequests((prev) =>
-        prev.map((r) => (r.id === id ? { ...r, ...updated } : r))
-      );
-    } catch (err) {
-      throw err;
-    }
+    const updated = await updateEditingRequest(id, payload);
+    setRequests((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, ...updated } : r))
+    );
   }, []);
 
   const removeRequest = useCallback(async (id: number) => {
-    try {
-      await deleteEditingRequest(id);
-      setRequests((prev) => prev.filter((r) => r.id !== id));
-    } catch (err) {
-      throw err;
-    }
+    await deleteEditingRequest(id);
+    setRequests((prev) => prev.filter((r) => r.id !== id));
   }, []);
 
   return {

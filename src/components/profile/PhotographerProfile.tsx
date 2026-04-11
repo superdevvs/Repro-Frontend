@@ -24,6 +24,7 @@ import { MapPin, Calendar, ExternalLink, FileText, Camera, Loader2 } from "lucid
 import { useNavigate } from 'react-router-dom';
 import { useUserPreferences } from "@/contexts/UserPreferencesContext";
 import { useSelfProfileSave } from "@/hooks/useSelfProfileSave";
+import { API_BASE_URL } from "@/config/env";
 
 export function PhotographerProfile() {
   const { user, setUser } = useAuth();

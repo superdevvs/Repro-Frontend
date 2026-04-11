@@ -1,20 +1,13 @@
 
 import React from 'react';
-import { useTheme } from "../../hooks/useTheme";
+import { useOptionalTheme } from "../../hooks/useTheme";
 import { Toaster as Sonner } from "sonner";
 
 type ToasterProps = React.ComponentProps<typeof Sonner>;
 
 const Toaster = ({ ...props }: ToasterProps) => {
-  // Safely access theme - with default value in case ThemeProvider isn't available yet
-  let themeValue = "system";
-  
-  try {
-    const { theme } = useTheme();
-    themeValue = theme;
-  } catch (error) {
-    console.log("Theme provider not available, using system theme");
-  }
+  const themeContext = useOptionalTheme();
+  const themeValue = themeContext?.theme ?? "system";
 
   return (
     <Sonner

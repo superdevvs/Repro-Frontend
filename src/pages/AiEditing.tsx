@@ -67,6 +67,10 @@ interface ShootWithEditing {
   address: string;
   status: string;
   workflowStatus?: string;
+  editor_id?: number | null;
+  editor?: {
+    id: number;
+  } | null;
   photo_count?: number;
   created_by?: string;
   created_at: string;
@@ -152,7 +156,7 @@ const AiEditing = () => {
     loadEditingTypes();
     loadListings();
     if (user) {
-      setIsAdmin(user.role === 'admin' || user.role === 'superadmin');
+      setIsAdmin(user.role === 'admin' || user.role === 'superadmin' || user.role === 'editing_manager');
       setIsEditor(user.role === 'editor');
       setIsPhotographer(user.role === 'photographer');
     }
@@ -574,13 +578,28 @@ const AiEditing = () => {
     if (!selectedShoot) return;
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/api/shoots/${selectedShoot.id}/send-to-editing`, {
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      };
+
+      if (selectedShoot.editor?.id) {
+        const assignResponse = await fetch(`${API_BASE_URL}/api/shoots/${selectedShoot.id}/assign-editor`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ editor_id: selectedShoot.editor.id }),
+        });
+
+        if (!assignResponse.ok) {
+          const errorData = await assignResponse.json().catch(() => ({}));
+          throw new Error(errorData.message || 'Failed to assign editor');
+        }
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/shoots/${selectedShoot.id}/start-editing`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers,
       });
       if (response.ok) {
         toast({

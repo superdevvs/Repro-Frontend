@@ -1127,7 +1127,7 @@ export default function Availability() {
       : backendSlots.filter(s => Number(s.photographer_id) === Number(selectedPhotographer));
 
     // Filter slots based on date or day of week
-    let relevantSlots = rows.filter(slot => {
+    const relevantSlots = rows.filter(slot => {
       // Exclude the slot being edited
       if (excludeSlotId && String(slot.id) === excludeSlotId) return false;
 

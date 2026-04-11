@@ -580,9 +580,6 @@ function usePhotographerDistanceAvailability(
           return {
             ...photographer,
             distance: Number.isFinite(parsedDistance) ? parsedDistance : photographer.distance,
-            distanceFrom: match.distance_from ?? photographer.distanceFrom,
-            previousShootId: match.previous_shoot_id ?? photographer.previousShootId,
-            originAddress: match.origin_address ?? photographer.originAddress,
             availabilitySlots: match.availability_slots ?? photographer.availabilitySlots,
             netAvailableSlots: match.net_available_slots ?? photographer.netAvailableSlots,
             hasAvailability: match.has_availability ?? photographer.hasAvailability,

@@ -60,10 +60,23 @@ const getStatusTone = (status: string) => {
   return 'bg-muted text-muted-foreground border-border';
 };
 
-const getPayoutTone = (status: 'paid' | 'pending') =>
-  status === 'paid'
-    ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
-    : 'bg-amber-500/10 text-amber-500 border-amber-500/20';
+const getPayoutTone = (status: 'paid' | 'pending' | 'upcoming') => {
+  if (status === 'paid') {
+    return 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20';
+  }
+
+  if (status === 'upcoming') {
+    return 'bg-sky-500/10 text-sky-500 border-sky-500/20';
+  }
+
+  return 'bg-amber-500/10 text-amber-500 border-amber-500/20';
+};
+
+const getPayoutLabel = (status: 'paid' | 'pending' | 'upcoming') => {
+  if (status === 'paid') return 'Paid';
+  if (status === 'upcoming') return 'Upcoming';
+  return 'Pending';
+};
 
 const getSortTimestamp = (shoot: ShootData) =>
   getShootCompletedDate(shoot)?.getTime() ??
@@ -259,7 +272,7 @@ function ShootEarningsGridCard({
               {status}
             </Badge>
             <Badge className={cn('border', getPayoutTone(payoutStatus))}>
-              {payoutStatus === 'paid' ? 'Paid' : 'Pending'}
+              {getPayoutLabel(payoutStatus)}
             </Badge>
           </div>
         </div>
@@ -354,7 +367,7 @@ function ShootEarningsListRow({
           <p className="truncate text-base font-semibold">{shoot.location.address}</p>
           <Badge className={cn('border', getStatusTone(status))}>{status}</Badge>
           <Badge className={cn('border', getPayoutTone(payoutStatus))}>
-            {payoutStatus === 'paid' ? 'Paid' : 'Pending'}
+            {getPayoutLabel(payoutStatus)}
           </Badge>
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">

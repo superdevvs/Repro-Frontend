@@ -67,15 +67,13 @@ const MlsPublishingQueue = () => {
   const [manifestDialogOpen, setManifestDialogOpen] = useState(false);
   const [retryingId, setRetryingId] = useState<number | null>(null);
   const [brightMlsRedirectUrl, setBrightMlsRedirectUrl] = useState<string | null>(null);
-
-  // Only allow admin and superadmin to access this page
-  if (!['admin', 'superadmin', 'editing_manager'].includes(role)) {
-    return <Navigate to="/dashboard" replace />;
-  }
+  const isAuthorized = ['admin', 'superadmin', 'editing_manager'].includes(role);
 
   useEffect(() => {
-    loadQueue();
-  }, []);
+    if (isAuthorized) {
+      void loadQueue();
+    }
+  }, [isAuthorized]);
 
   const loadQueue = async () => {
     setLoading(true);
@@ -97,6 +95,10 @@ const MlsPublishingQueue = () => {
       setLoading(false);
     }
   };
+
+  if (!isAuthorized) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   const handleRetry = async (shootId: number) => {
     setRetryingId(shootId);

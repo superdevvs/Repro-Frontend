@@ -57,7 +57,10 @@ export function OverviewScheduleWeatherSection({
                   <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent align="start" className="w-auto border-border bg-popover p-0">
+              <PopoverContent
+                align="start"
+                className="z-[100] w-auto border-border bg-popover p-0"
+              >
                 <Calendar
                   mode="single"
                   selected={selectedDate}

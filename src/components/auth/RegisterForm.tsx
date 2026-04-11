@@ -370,9 +370,6 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
         state: values.state,
         zip: values.zip,
         country: values.country,
-        role: 'client',
-        avatar: 'https://example.com/avatar.jpg',
-        bio: 'No bio provided',
       });
 
       const apiUser = response.data.user;

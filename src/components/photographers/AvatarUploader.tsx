@@ -64,7 +64,7 @@ export function AvatarUploader({
   const handleExternalUpload = (source: 'google-drive' | 'dropbox') => {
     // In a real app, this would launch the respective picker
     // For demo purposes, we'll just show a toast and use a placeholder
-    let serviceName = source === 'google-drive' ? 'Google Drive' : 'Dropbox';
+    const serviceName = source === 'google-drive' ? 'Google Drive' : 'Dropbox';
     
     // Simulate loading state
     toast({

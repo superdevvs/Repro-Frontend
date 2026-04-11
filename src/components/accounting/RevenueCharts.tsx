@@ -414,8 +414,8 @@ export function RevenueCharts({
     
     // Extract date - look for common date formats
     const datePatterns = [
-      /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/,
-      /(\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2})/,
+      /(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})/,
+      /(\d{4}[/-]\d{1,2}[/-]\d{1,2})/,
       /((?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{1,2},?\s+\d{4})/i,
       /(\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{4})/i,
     ];
@@ -438,7 +438,7 @@ export function RevenueCharts({
     const vendorCandidates = lines.slice(0, 5).filter(l => 
       l.length > 2 && 
       l.length < 50 && 
-      !/^[\d\s\-\/\.\$]+$/.test(l) && // not just numbers/symbols
+      !/^[\d\s/.$-]+$/.test(l) && // not just numbers/symbols
       !/receipt|invoice|order|date|time|total|subtotal|tax/i.test(l)
     );
     if (vendorCandidates.length > 0) {
@@ -1244,7 +1244,6 @@ export function RevenueCharts({
                       }}
                     >
                       {selectedExpense._uploadedPreview ? (
-                        // eslint-disable-next-line @next/next/no-img-element
                         <img src={String(selectedExpense._uploadedPreview)} alt="uploaded" className="h-12 w-12 object-cover rounded-md" />
                       ) : (
                         <div className="h-12 w-12 rounded-md bg-primary/10 flex items-center justify-center">
@@ -1504,7 +1503,6 @@ export function RevenueCharts({
             >
               ✕
             </button>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img 
               src={previewImage} 
               alt="Receipt preview" 

@@ -300,23 +300,38 @@ const ShootDetails: React.FC = () => {
     if (!shoot) return;
     try {
       const headers = getApiHeaders();
-      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/send-to-editing`, {
+      if (shoot.editor?.id) {
+        const assignRes = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/assign-editor`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ editor_id: shoot.editor.id }),
+        });
+
+        if (!assignRes.ok) {
+          const errorData = await assignRes.json().catch(() => ({ message: 'Failed to assign editor' }));
+          throw new Error(errorData.message || 'Failed to assign editor');
+        }
+      }
+
+      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/start-editing`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ editor_id: shoot.editor?.id }),
       });
 
-      if (!res.ok) throw new Error('Failed to send to editing');
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ message: 'Failed to send to editing' }));
+        throw new Error(errorData.message || 'Failed to send to editing');
+      }
 
       toast({
         title: 'Success',
         description: 'Shoot sent to editing',
       });
       loadShoot();
-    } catch (error) {
+    } catch (error: unknown) {
       toast({
         title: 'Error',
-        description: 'Failed to send to editing',
+        description: getShootDetailsErrorMessage(error, 'Failed to send to editing'),
         variant: 'destructive',
       });
     }

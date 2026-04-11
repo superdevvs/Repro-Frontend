@@ -35,6 +35,24 @@ import API_ROUTES from '@/lib/api';
 import { CheckCircle2, Check, Clock } from "lucide-react";
 import { getAvatarUrl } from '@/utils/defaultAvatars';
 
+interface SchedulingPhotographer {
+  id: string;
+  name: string;
+  avatar?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  metadata?: {
+    specialties?: Array<string | number>;
+    travel_range?: number;
+    travel_range_unit?: string;
+  };
+  specialties?: Array<string | number>;
+  travel_range?: number;
+  travel_range_unit?: string;
+}
+
 interface SchedulingFormProps {
   date: Date | undefined;
   setDate: React.Dispatch<React.SetStateAction<Date | undefined>>;
@@ -56,7 +74,7 @@ interface SchedulingFormProps {
   setState?: React.Dispatch<React.SetStateAction<string>>;
   setZip?: React.Dispatch<React.SetStateAction<string>>;
   photographer?: string;
-  photographers?: Array<{ id: string; name: string; avatar?: string }>;
+  photographers?: SchedulingPhotographer[];
   setPhotographer?: React.Dispatch<React.SetStateAction<string>>;
   servicePhotographers?: Record<string, string>;
   setServicePhotographers?: React.Dispatch<React.SetStateAction<Record<string, string>>>;
@@ -132,7 +150,7 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
     distanceFrom?: 'home' | 'previous_shoot';
     previousShootId?: number;
     availabilitySlots?: Array<{ start_time: string; end_time: string }>;
-    bookedSlots?: Array<{ shoot_id: number; start_time: string; end_time: string; title: string }>;
+    bookedSlots?: Array<{ start_time: string; end_time: string; status?: string }>;
     netAvailableSlots?: Array<{ start_time: string; end_time: string }>;
     isAvailableAtTime?: boolean;
     hasAvailability?: boolean;
@@ -789,29 +807,23 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
             : p.distance
             ? Number.parseFloat(String(p.distance))
             : undefined;
-          const originAddress = p.origin_address?.address || p.home_address?.address || '';
-          const originCity = p.origin_address?.city || p.home_address?.city || '';
-          const originState = p.origin_address?.state || p.home_address?.state || '';
-          const originZip = p.origin_address?.zip || p.home_address?.zip || '';
           return {
             id: String(p.id),
             name: p.name || photographer?.name || '',
             avatar: p.avatar || p.profile_image || p.photo || photographer?.avatar,
             distance: Number.isFinite(parsedDistance as number) ? parsedDistance : undefined,
-            address: originAddress,
-            city: originCity,
-            state: originState,
-            zip: originZip,
-            distanceFrom: p.distance_from as 'home' | 'previous_shoot',
-            previousShootId: p.previous_shoot_id,
+            address: photographer?.address,
+            city: photographer?.city,
+            state: photographer?.state,
+            zip: photographer?.zip,
             availabilitySlots: p.availability_slots,
             bookedSlots: p.booked_slots,
             netAvailableSlots: p.net_available_slots,
             isAvailableAtTime: p.is_available_at_time,
             hasAvailability: p.has_availability,
             shootsCountToday: p.shoots_count_today,
-            travel_range: p.travel_range ?? null,
-            travel_range_unit: p.travel_range_unit ?? 'miles',
+            travel_range: (photographer as any)?.travel_range ?? null,
+            travel_range_unit: (photographer as any)?.travel_range_unit ?? 'miles',
           };
         });
 
@@ -928,10 +940,20 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
         // Calculate distances one by one and update state progressively
         for (const p of photographerData) {
           if (isCancelled) return; // Stop if cancelled
-          const originAddress = p.origin_address?.address || p.home_address?.address || '';
-          const originCity = p.origin_address?.city || p.home_address?.city || '';
-          const originState = p.origin_address?.state || p.home_address?.state || '';
-          const originZip = p.origin_address?.zip || p.home_address?.zip || '';
+          const photographer = photographers.find(ph => String(ph.id) === String(p.id));
+          const parsedDistance = typeof p.distance === 'number'
+            ? p.distance
+            : p.distance
+            ? Number.parseFloat(String(p.distance))
+            : undefined;
+          if (Number.isFinite(parsedDistance as number)) {
+            continue;
+          }
+
+          const originAddress = photographer?.address || '';
+          const originCity = photographer?.city || '';
+          const originState = photographer?.state || '';
+          const originZip = photographer?.zip || '';
           const hasOriginAddress = [originAddress, originCity, originState, originZip].some(value => Boolean(value && String(value).trim()));
           if (hasOriginAddress) {
             const originCoords = await getCoordinatesFromAddress(

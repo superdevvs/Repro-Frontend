@@ -49,8 +49,6 @@ const CANVAS_HEIGHT = 360;
 const clampValue = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
 export function InteractionCloud({ accounts, showCloud, onToggle, headline, subline, contextLabel, metric = 'bookings' }: InteractionCloudProps) {
-  if (!accounts.length) return null;
-
   const topAccount = accounts[0];
   const leastAccount = accounts[accounts.length - 1];
   const displayedAccounts = accounts.slice(0, MAX_RENDERED_ACCOUNTS);
@@ -236,6 +234,8 @@ export function InteractionCloud({ accounts, showCloud, onToggle, headline, subl
       </button>
     );
   };
+
+  if (!topAccount || !leastAccount) return null;
 
   const topPrimaryValue = Math.max(getPrimaryValue(topAccount), 0);
   const leastPrimaryValue = Math.max(getPrimaryValue(leastAccount), 0);

@@ -117,7 +117,7 @@ export const ClientForm: React.FC<ClientFormProps> = ({
   };
 
   const handleExternalUpload = (source: 'google-drive' | 'dropbox') => {
-    let serviceName = source === 'google-drive' ? 'Google Drive' : 'Dropbox';
+    const serviceName = source === 'google-drive' ? 'Google Drive' : 'Dropbox';
 
     toast({
       title: `Connecting to ${serviceName}`,

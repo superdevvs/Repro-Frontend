@@ -332,7 +332,7 @@ type DonutChartProps = {
   category: string;
   index: string;
   colors?: string[];
-  valueFormatter?: (value: number) => string;
+  valueFormatter?: (value: number, category?: string) => string;
   showLabel?: boolean;
   className?: string;
   themeMode?: 'auto' | 'light' | 'dark';

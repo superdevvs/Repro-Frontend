@@ -9,7 +9,7 @@ interface ThemeContextType {
 }
 
 // Initialize with undefined
-const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
+export const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>(() => {
@@ -60,4 +60,8 @@ export function useTheme() {
     throw new Error('useTheme must be used within a ThemeProvider');
   }
   return context;
+}
+
+export function useOptionalTheme() {
+  return useContext(ThemeContext);
 }

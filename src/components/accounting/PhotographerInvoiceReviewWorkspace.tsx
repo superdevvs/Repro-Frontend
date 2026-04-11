@@ -90,11 +90,21 @@ const formatCurrency = (amount: number | string | undefined) =>
 const formatBillingPeriod = (start?: string, end?: string) => {
   if (!start || !end) return 'Billing period unavailable';
 
-  return new Intl.DateTimeFormat('en-US', {
+  const formatter = new Intl.DateTimeFormat('en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
-  }).formatRange(new Date(start), new Date(end));
+  });
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+    return 'Billing period unavailable';
+  }
+
+  const startLabel = formatter.format(startDate);
+  const endLabel = formatter.format(endDate);
+  return startLabel === endLabel ? startLabel : `${startLabel} - ${endLabel}`;
 };
 
 const formatTimestamp = (value?: string | null) => {

@@ -32,7 +32,7 @@ interface ShootDetails {
 }
 
 export default function PaymentPage() {
-  const { id } = useParams<{ id: string }>();
+  const { token } = useParams<{ token: string }>();
   const [searchParams] = useSearchParams();
   const initialSessionId = searchParams.get('session_id');
   const [shoot, setShoot] = useState<ShootDetails | null>(null);
@@ -53,11 +53,11 @@ export default function PaymentPage() {
   const checkoutSessionIdRef = useRef<string | null>(initialSessionId);
 
   const fetchShootDetails = useCallback(async () => {
-    if (!id) return;
+    if (!token) return;
 
     try {
       setLoading(true);
-      const response = await axios.get(`${API_BASE_URL}/api/shoots/${id}/payment-details`);
+      const response = await axios.get(`${API_BASE_URL}/api/public/payments/${token}`);
       setShoot(response.data.data || response.data);
     } catch (err: any) {
       console.error('Failed to fetch shoot details:', err);
@@ -65,25 +65,37 @@ export default function PaymentPage() {
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [token]);
 
-  const confirmStripeSession = useCallback(async (sessionId: string) => {
-    if (!id || !sessionId) return;
+  const destroyEmbeddedCheckout = useCallback(() => {
+    if (!embeddedCheckoutRef.current) return;
 
     try {
-      await axios.post(`${API_BASE_URL}/api/shoots/${id}/confirm-stripe-session`, {
+      embeddedCheckoutRef.current.destroy();
+    } catch (destroyError) {
+      console.warn('Failed to destroy embedded checkout cleanly:', destroyError);
+    } finally {
+      embeddedCheckoutRef.current = null;
+    }
+  }, []);
+
+  const confirmStripeSession = useCallback(async (sessionId: string) => {
+    if (!token || !sessionId) return;
+
+    try {
+      await axios.post(`${API_BASE_URL}/api/public/payments/${token}/confirm`, {
         session_id: sessionId,
       });
     } catch {
       // Ignore confirmation errors and let polling/webhooks continue
     }
-  }, [id]);
+  }, [token]);
 
   useEffect(() => {
-    if (id) {
+    if (token) {
       fetchShootDetails();
     }
-  }, [id, fetchShootDetails]);
+  }, [token, fetchShootDetails]);
 
   useEffect(() => {
     if (searchParams.get('success') === 'true' && initialSessionId) {
@@ -162,20 +174,18 @@ export default function PaymentPage() {
   useEffect(() => {
     return () => {
       if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
-      if (embeddedCheckoutRef.current) {
-        try { embeddedCheckoutRef.current.destroy(); } catch {}
-      }
+      destroyEmbeddedCheckout();
     };
-  }, []);
+  }, [destroyEmbeddedCheckout]);
 
   const handleStripeCheckout = async () => {
-    if (!id) return;
+    if (!token) return;
     setStripeLoading(true);
     setStripeError(null);
 
     try {
       const response = await axios.post(
-        `${API_BASE_URL}/api/shoots/${id}/create-stripe-embedded-checkout`,
+        `${API_BASE_URL}/api/public/payments/${token}/checkout`,
         { amount: effectivePaymentAmount },
       );
 
@@ -234,25 +244,22 @@ export default function PaymentPage() {
           await confirmStripeSession(activeSessionId);
         }
 
-        const statusRes = await axios.get(`${API_BASE_URL}/api/shoots/${id}/payment-details`);
+        const statusRes = await axios.get(`${API_BASE_URL}/api/public/payments/${token}`);
         const shootData = statusRes.data?.data || statusRes.data;
         const paidSoFar = shootData?.payments
           ?.filter((p: any) => p.status === 'completed')
           .reduce((sum: number, p: any) => sum + (p.amount || 0), 0) || 0;
         const currentDue = (shootData?.total_quote || 0) - paidSoFar;
 
-        if (currentDue < amountDue) {
-          if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
-          pollingIntervalRef.current = null;
-          if (embeddedCheckoutRef.current) {
-            try { embeddedCheckoutRef.current.destroy(); } catch {}
-            embeddedCheckoutRef.current = null;
+          if (currentDue < amountDue) {
+            if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+            pollingIntervalRef.current = null;
+            destroyEmbeddedCheckout();
+            setShowEmbeddedCheckout(false);
+            setStripeLoading(false);
+            checkoutSessionIdRef.current = null;
+            handlePaymentSuccess();
           }
-          setShowEmbeddedCheckout(false);
-          setStripeLoading(false);
-          checkoutSessionIdRef.current = null;
-          handlePaymentSuccess();
-        }
       } catch {
         // Ignore polling errors
       }
@@ -262,10 +269,7 @@ export default function PaymentPage() {
   const handleCancelCheckout = () => {
     setShowEmbeddedCheckout(false);
     setStripeLoading(false);
-    if (embeddedCheckoutRef.current) {
-      try { embeddedCheckoutRef.current.destroy(); } catch {}
-      embeddedCheckoutRef.current = null;
-    }
+    destroyEmbeddedCheckout();
     // Keep polling for 10s in case webhook is processing
     setTimeout(() => {
       if (pollingIntervalRef.current) {
@@ -305,7 +309,11 @@ export default function PaymentPage() {
     // Auto-close popup after 3 seconds
     if (isPopup) {
       setTimeout(() => {
-        try { window.close(); } catch {}
+        try {
+          window.close();
+        } catch (closeError) {
+          console.warn('Unable to auto-close payment popup:', closeError);
+        }
       }, 3000);
     }
 

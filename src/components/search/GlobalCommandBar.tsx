@@ -236,15 +236,6 @@ export const GlobalCommandBar: React.FC<GlobalCommandBarProps> = ({ open, onOpen
 
   const handleSendToEditing = useCallback(
     async (shoot: ShootData) => {
-      if (!shoot.editor?.id) {
-        toast({
-          title: "Editor required",
-          description: "Assign an editor before sending this shoot to editing.",
-          variant: "destructive",
-        });
-        return;
-      }
-
       const token = localStorage.getItem("authToken") || localStorage.getItem("token");
       if (!token) {
         toast({
@@ -256,18 +247,33 @@ export const GlobalCommandBar: React.FC<GlobalCommandBarProps> = ({ open, onOpen
       }
 
       try {
-        const response = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/send-to-editing`, {
+        const headers = {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        };
+
+        if (shoot.editor?.id) {
+          const assignResponse = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/assign-editor`, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ editor_id: shoot.editor.id }),
+          });
+
+          if (!assignResponse.ok) {
+            const errorData = await assignResponse.json().catch(() => ({}));
+            throw new Error(errorData.message || "Failed to assign editor");
+          }
+        }
+
+        const response = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/start-editing`, {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          body: JSON.stringify({ editor_id: shoot.editor.id }),
+          headers,
         });
 
         if (!response.ok) {
-          throw new Error("Failed to send to editing");
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || "Failed to send to editing");
         }
 
         toast({

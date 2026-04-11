@@ -79,9 +79,8 @@ export function UserProfileDialog({
   recentScheduledShoots = [],
   recentCompletedShoots = [],
 }: UserProfileDialogProps) {
-  if (!user) return null;
-
   const { role: viewerRole } = useAuth();
+  if (!user) return null;
   const canSeeSensitiveRepData = viewerRole === 'superadmin';
   const canSeeActivityLog = ['admin', 'superadmin', 'editing_manager', 'salesRep'].includes(viewerRole);
   const repDetails = (user.metadata?.repDetails as RepDetails | undefined) || undefined;

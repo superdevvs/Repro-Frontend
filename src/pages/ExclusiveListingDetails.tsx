@@ -122,7 +122,7 @@ export default function ExclusiveListingDetails() {
       if (!res.ok) throw new Error('Failed to fetch listing');
 
       const json = await res.json();
-      let shootData = (json.data || json) as any;
+      const shootData = (json.data || json) as any;
 
       if (shootData) {
         // Normalize location

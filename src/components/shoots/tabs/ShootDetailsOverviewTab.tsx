@@ -64,6 +64,7 @@ import API_ROUTES from '@/lib/api';
 import { getStateFullName } from '@/utils/stateUtils';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import { getServicePricingForSqft } from '@/utils/servicePricing';
+import type { ServiceWithPricing } from '@/utils/servicePricing';
 import {
   getShootPhotographerAssignmentGroups,
   normalizeShootServiceCategoryKey,
@@ -653,9 +654,10 @@ export function ShootDetailsOverviewTab({
     return quantity * matchedRate.rate;
   };
 
-  const getServiceDisplayPrice = (service: ServiceOption | Record<string, unknown>) => {
-    const serviceWithPrice = { ...service, price: service.price ?? 0 };
-    const pricingInfo = effectiveSqft && service.pricing_type === 'variable' && service.sqft_ranges?.length
+  const getServiceDisplayPrice = (service: ServiceOption) => {
+    const serviceWithPrice: ServiceWithPricing = { ...service, price: service.price ?? 0 };
+    const hasSqftRanges = Array.isArray(service.sqft_ranges) && service.sqft_ranges.length > 0;
+    const pricingInfo = effectiveSqft && service.pricing_type === 'variable' && hasSqftRanges
       ? getServicePricingForSqft(serviceWithPrice, effectiveSqft)
       : null;
     const amount = isEditor

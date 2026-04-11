@@ -338,7 +338,7 @@ const AppRoutes = () => {
         </PageTransition>
       } />
       {/* Public payment page */}
-      <Route path="/payment/:id" element={
+      <Route path="/payment/:token" element={
         <PageTransition>
           <PaymentPage />
         </PageTransition>
@@ -348,7 +348,7 @@ const AppRoutes = () => {
           <TermsAndConditions />
         </PageTransition>
       } />
-      <Route path="/:shootId/:shareId" element={
+      <Route path="/share/:token" element={
         <PageTransition>
           <ShootShareRedirect />
         </PageTransition>

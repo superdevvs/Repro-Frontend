@@ -159,7 +159,7 @@ const normalizeActivity = (activity: DashboardActivityItem, readIds: Set<string>
 
   // Generate a better title based on activity type — never fall back to generic "Dashboard activity"
   const activityType = activity.action || typeHint;
-  let title = SHOOT_ACTIVITY_TITLES[activityType]
+  const title = SHOOT_ACTIVITY_TITLES[activityType]
     || titleFromMessage(activity.message)
     || (activity.userName ? `${activity.userName} update` : 'Activity');
 

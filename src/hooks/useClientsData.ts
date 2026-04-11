@@ -32,8 +32,8 @@ export const useClientsData = () => {
         const list = Array.isArray(json.data) ? json.data : (json.users || []);
 
         // Fetch shoots to compute per-client counts and last activity
-        let counts: Record<string, number> = {};
-        let last: Record<string, string> = {};
+        const counts: Record<string, number> = {};
+        const last: Record<string, string> = {};
         try {
           const shootsRes = await fetch(`${API_BASE_URL}/api/shoots`, {
             headers: {
@@ -57,7 +57,9 @@ export const useClientsData = () => {
               }
             }
           }
-        } catch (_) {}
+        } catch (_) {
+          // Fall back to client list data when related shoot stats are unavailable.
+        }
 
         const mapped: Client[] = list.map((u: any) => {
           const id = String(u.id);
@@ -75,7 +77,9 @@ export const useClientsData = () => {
           };
         });
         setClientsData(mapped);
-      } catch (_) {}
+      } catch (_) {
+        // Leave the last known client dataset in place if the refresh fails.
+      }
     };
     load();
   }, []);

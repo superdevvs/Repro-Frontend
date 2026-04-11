@@ -232,7 +232,7 @@ export function TimeSelect({
         }
         return { hour: "", minute: "", ampm: hour24 ? "" : "AM" };
       }
-      let hh = parseInt(m[1], 10);
+      const hh = parseInt(m[1], 10);
       const mm = pad(parseInt(m[2], 10));
       const ap = (m[3] || "").toUpperCase();
       if (hour24) {
@@ -295,7 +295,7 @@ export function TimeSelect({
     }
     if (!hour) {
       const now = new Date();
-      let h = now.getHours();
+      const h = now.getHours();
       if (hour24) setHour(pad(h));
       else {
         const hh12 = h % 12 === 0 ? 12 : h % 12;

@@ -3,14 +3,12 @@ import { useParams } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { API_BASE_URL } from '@/config/env';
 
-const isNumericSegment = (value?: string) => Boolean(value && /^\d+$/.test(value));
-
 export default function ShootShareRedirect() {
-  const { shootId, shareId } = useParams();
+  const { token } = useParams<{ token: string }>();
   const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    if (!isNumericSegment(shootId) || !isNumericSegment(shareId)) {
+    if (!token || token.trim().length < 16) {
       setError('This share link is invalid.');
       return;
     }
@@ -20,7 +18,7 @@ export default function ShootShareRedirect() {
     const resolveShareLink = async () => {
       try {
         const response = await fetch(
-          `${API_BASE_URL}/api/public/share-links/${shootId}/${shareId}`,
+          `${API_BASE_URL}/api/public/share-links/${token}`,
           {
             headers: {
               Accept: 'application/json',
@@ -57,7 +55,7 @@ export default function ShootShareRedirect() {
     return () => {
       cancelled = true;
     };
-  }, [shareId, shootId]);
+  }, [token]);
 
   return (
     <div className="min-h-screen bg-background text-foreground flex items-center justify-center px-6">

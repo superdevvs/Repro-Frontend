@@ -683,7 +683,7 @@ export function useShootHistoryData({
   }, [historyPage, activeTab, canViewHistory, historyFilters, fetchHistoryData])
 
   useEffect(() => {
-    if (activeTab !== 'history' && activeTab !== 'linked') {
+    if (activeTab !== 'history') {
       fetchOperationalData()
     }
   }, [operationalPage, activeTab, operationalFilters, fetchOperationalData])

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { CircularProgress } from './CircularProgress';
 import { MoreVertical, Edit, Power, Trash } from 'lucide-react';
-import { Infinity } from 'lucide-react';
+import { Infinity as InfinityIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import {
   DropdownMenu,
@@ -94,14 +94,14 @@ export function CouponCard({ coupon }: CouponCardProps) {
               {coupon.valid_until ? (
                 formatDate(coupon.valid_until)
               ) : (
-                <Infinity className="h-4 w-4" />
+                <InfinityIcon className="h-4 w-4" />
               )}
             </div>
           </div>
           <div>
             <div className="font-medium">Uses</div>
             <div className="flex items-center gap-1">
-              {coupon.current_uses ?? 0} / {coupon.max_uses ?? <Infinity className="h-4 w-4" />}
+              {coupon.current_uses ?? 0} / {coupon.max_uses ?? <InfinityIcon className="h-4 w-4" />}
             </div>
           </div>
         </div>
