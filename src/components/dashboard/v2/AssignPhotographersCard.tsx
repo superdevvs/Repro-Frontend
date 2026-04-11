@@ -28,6 +28,64 @@ type Tab = 'available' | 'booked' | 'all';
 type SortBy = 'availability' | 'load' | 'alpha';
 type WindowPreset = 'today' | 'week' | 'month';
 
+const HoverMarqueeText: React.FC<{ text: string; className?: string }> = ({ text, className }) => {
+  const containerRef = React.useRef<HTMLSpanElement>(null);
+  const textRef = React.useRef<HTMLSpanElement>(null);
+  const [scrollDistance, setScrollDistance] = useState(0);
+
+  useEffect(() => {
+    const updateScrollDistance = () => {
+      const container = containerRef.current;
+      const textElement = textRef.current;
+
+      if (!container || !textElement) return;
+
+      const nextDistance = Math.max(textElement.scrollWidth - container.clientWidth, 0);
+      setScrollDistance(nextDistance);
+    };
+
+    updateScrollDistance();
+
+    const resizeObserver =
+      typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateScrollDistance) : null;
+
+    if (resizeObserver && containerRef.current && textRef.current) {
+      resizeObserver.observe(containerRef.current);
+      resizeObserver.observe(textRef.current);
+    }
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('resize', updateScrollDistance);
+    }
+
+    return () => {
+      resizeObserver?.disconnect();
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('resize', updateScrollDistance);
+      }
+    };
+  }, [text]);
+
+  return (
+    <span ref={containerRef} className={cn('assign-photographer-name block', className)} title={text}>
+      <span
+        ref={textRef}
+        className={cn(
+          'assign-photographer-name__text',
+          scrollDistance > 0 && 'assign-photographer-name__text--scroll',
+        )}
+        style={
+          scrollDistance > 0
+            ? ({ '--name-scroll-distance': `-${scrollDistance}px` } as React.CSSProperties)
+            : undefined
+        }
+      >
+        {text}
+      </span>
+    </span>
+  );
+};
+
 export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = ({
   photographers,
   onPhotographerSelect,
@@ -147,7 +205,44 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
   }, [photographers, tab, sortBy, hasAvailabilityData, availabilitySet]);
 
   return (
-    <Card className="p-0 sm:p-0 h-full flex-1 flex flex-col overflow-hidden min-h-0">
+    <>
+      <style>{`
+        .assign-photographer-name {
+          overflow: hidden;
+          white-space: nowrap;
+        }
+
+        .assign-photographer-name__text {
+          display: inline-block;
+          max-width: 100%;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        @media (hover: hover) {
+          .assign-photographer-row:hover .assign-photographer-name__text--scroll,
+          .assign-photographer-row:focus-visible .assign-photographer-name__text--scroll {
+            overflow: visible;
+            text-overflow: clip;
+            will-change: transform;
+            animation: photographer-name-marquee 3.8s ease-in-out infinite alternate;
+          }
+        }
+
+        @keyframes photographer-name-marquee {
+          0%,
+          18% {
+            transform: translateX(0);
+          }
+
+          82%,
+          100% {
+            transform: translateX(var(--name-scroll-distance, 0px));
+          }
+        }
+      `}</style>
+      <Card className="p-0 sm:p-0 h-full flex-1 flex flex-col overflow-hidden min-h-0">
       <div className={cn(sectionGutter, "py-3 sm:py-5 border-b border-border/60 space-y-2 sm:space-y-3")}>
         <div className="flex items-center justify-between">
           <h2 className="text-base sm:text-lg font-bold text-foreground">Assign Photographers</h2>
@@ -201,7 +296,7 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
                   handlePhotographerClick(photographer);
                 }
               }}
-              className="mx-auto w-full flex flex-col gap-2 px-4 sm:px-4 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl border border-transparent hover:border-primary/40 hover:bg-primary/5 transition-all text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              className="assign-photographer-row mx-auto w-full flex flex-col gap-2 px-4 sm:px-4 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl border border-transparent hover:border-primary/40 hover:bg-primary/5 transition-all text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
             >
               <div className="flex items-start gap-2 sm:gap-3">
                 <Avatar
@@ -214,7 +309,7 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
                   <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between md:gap-3">
                     <div className="min-w-0">
                       <h3 className="text-sm font-semibold leading-tight text-foreground">
-                        {photographer.name}
+                        <HoverMarqueeText text={photographer.name} />
                       </h3>
                       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] sm:text-[11px] text-muted-foreground">
                         {(photographer.loadToday ?? 0) > 0 && (
@@ -312,6 +407,7 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
           <ChevronRight size={12} className="sm:w-3.5 sm:h-3.5" />
         </button>
       </div>
-    </Card>
+      </Card>
+    </>
   );
 };
