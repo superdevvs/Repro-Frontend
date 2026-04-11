@@ -731,8 +731,7 @@ export function useShootDetailsMediaTab({
   }, [editedFiles, isVideoFile, manualOrder, sortOrder]);
   const canStartSlideshowMedia =
     (isAdmin || isEditor || isPhotographer || (isClient && !isClientReleaseLocked)) &&
-    editedSlideshowFiles.length > 1 &&
-    displayTab === 'edited';
+    editedSlideshowFiles.length > 1;
 
   const mediaShoot = shoot as ShootMediaTabSource;
   const normalizedShootStatus = String(shoot?.workflowStatus || mediaShoot.status || '').toLowerCase();
