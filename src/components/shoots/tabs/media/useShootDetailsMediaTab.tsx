@@ -69,6 +69,7 @@ import { MediaViewer } from './MediaViewer';
 import {
   getMediaImageUrl as getImageUrl,
   getMediaSrcSet as getSrcSet,
+  getMediaViewerImageUrl,
   isPreviewableImage,
 } from './mediaPreviewUtils';
 import VideoThumbnail from '../../VideoThumbnail';
@@ -76,7 +77,7 @@ import { getServicePricingForSqft } from '@/utils/servicePricing';
 import { EditedUploadSection, RawUploadSection } from './MediaUploadSections';
 import { useShootMediaSelectionState } from './useShootMediaSelectionState';
 import { useShootMediaDerivedData } from './useShootMediaDerivedData';
-import { getSortedMediaIds, normalizeManualOrder, type MediaSortOrder } from './mediaSort';
+import { getSortedMediaIds, normalizeManualOrder, sortMediaFiles, type MediaSortOrder } from './mediaSort';
 import { getPreferredMlsTourLink } from '@/utils/shootTourData';
 import { markMenuOptions, useShootMediaActions, type DownloadPopupState } from './useShootMediaActions';
 import { ShootDetailsMediaTabView } from './ShootDetailsMediaTabView';
@@ -717,6 +718,21 @@ export function useShootDetailsMediaTab({
     isAdmin || isEditor || isPhotographer || (isClient && !isClientReleaseLocked);
   const canViewFullSizeMedia =
     isAdmin || isEditor || isPhotographer || (isClient && !isClientReleaseLocked);
+  const editedSlideshowFiles = useMemo(() => {
+    const eligibleFiles = editedFiles.filter((file) => {
+      if (!isPreviewableImage(file) || isVideoFile(file)) {
+        return false;
+      }
+
+      return Boolean(getMediaViewerImageUrl(file));
+    });
+
+    return sortMediaFiles(eligibleFiles, sortOrder, manualOrder);
+  }, [editedFiles, isVideoFile, manualOrder, sortOrder]);
+  const canStartSlideshowMedia =
+    (isAdmin || isEditor || isPhotographer || (isClient && !isClientReleaseLocked)) &&
+    editedSlideshowFiles.length > 1 &&
+    displayTab === 'edited';
 
   const mediaShoot = shoot as ShootMediaTabSource;
   const normalizedShootStatus = String(shoot?.workflowStatus || mediaShoot.status || '').toLowerCase();
@@ -1146,12 +1162,15 @@ export function useShootDetailsMediaTab({
         viewerFiles={viewerFiles}
         viewerIndex={viewerIndex}
         setViewerIndex={setViewerIndex}
+        setViewerFiles={setViewerFiles}
         getImageUrl={getImageUrl}
         getSrcSet={getSrcSet}
         shoot={shoot}
         isAdmin={isAdmin}
         isClient={isClient}
         canViewFullSize={canViewFullSizeMedia}
+        canStartSlideshow={canStartSlideshowMedia}
+        slideshowFiles={editedSlideshowFiles}
         onShootUpdate={onShootUpdate}
         canInteractSingleMedia={canInteractSingleMedia}
         canDownloadSingleMedia={canDownloadSingleMedia}

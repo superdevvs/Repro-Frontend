@@ -492,6 +492,7 @@ export function ShootDetailsIssuesTab({
         isAdmin={isAdmin}
         isClient={isClient}
         canViewFullSize={canViewFullSizeMedia}
+        canStartSlideshow={false}
         canInteractSingleMedia={false}
         onShootUpdate={onShootUpdate}
       />

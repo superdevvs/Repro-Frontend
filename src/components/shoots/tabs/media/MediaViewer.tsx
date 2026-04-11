@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { API_BASE_URL } from '@/config/env';
 import { getApiHeaders } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
@@ -17,7 +18,7 @@ import {
   triggerShootDetailRefresh,
 } from '@/realtime/realtimeRefreshBus';
 import { blurActiveElement } from '../../dialogFocusUtils';
-import { AlertCircle, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Download, Eye, EyeOff, FileIcon, Heart, Play, X } from 'lucide-react';
+import { AlertCircle, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Download, Eye, EyeOff, FileIcon, Heart, Loader2, Pause, Play, X } from 'lucide-react';
 
 // Media Viewer Component
 interface MediaViewerProps {
@@ -32,8 +33,11 @@ interface MediaViewerProps {
   isAdmin?: boolean;
   isClient?: boolean;
   canViewFullSize?: boolean;
+  canStartSlideshow?: boolean;
   canInteractSingleMedia?: boolean;
   canDownloadSingleMedia?: boolean;
+  slideshowFiles?: MediaFile[];
+  onViewerContextChange?: (index: number, files: MediaFile[]) => void;
   onToggleFavorite?: (fileId: string) => void;
   onAddComment?: (fileId: string, comment: string) => void;
   onToggleHidden?: (fileId: string, hidden: boolean) => void;
@@ -97,8 +101,11 @@ export function MediaViewer({
   isAdmin = false,
   isClient = false,
   canViewFullSize = false,
+  canStartSlideshow = false,
   canInteractSingleMedia = false,
   canDownloadSingleMedia = false,
+  slideshowFiles = [],
+  onViewerContextChange,
   onToggleFavorite,
   onAddComment,
   onToggleHidden,
@@ -106,6 +113,7 @@ export function MediaViewer({
   onShootUpdate,
 }: MediaViewerProps) {
   const { toast } = useToast();
+  const prefersReducedMotion = useReducedMotion();
 
   const isImageFile = (file: MediaFile): boolean => {
     // If RAW file has processed thumbnail, it's displayable
@@ -150,6 +158,13 @@ export function MediaViewer({
   };
   const [zoom, setZoom] = useState(1);
   const [previewMode, setPreviewMode] = useState<'web' | 'full'>('web');
+  const [viewerMode, setViewerMode] = useState<'standard' | 'slideshow'>('standard');
+  const [slideshowIndex, setSlideshowIndex] = useState(0);
+  const [slideshowDirection, setSlideshowDirection] = useState<1 | -1>(1);
+  const [slideshowPaused, setSlideshowPaused] = useState(false);
+  const [showSlideshowHint, setShowSlideshowHint] = useState(false);
+  const [waitingForNextSlide, setWaitingForNextSlide] = useState(false);
+  const [slideshowReadyVersion, setSlideshowReadyVersion] = useState(0);
   const [showRequestComposer, setShowRequestComposer] = useState(false);
   const [flagReason, setFlagReason] = useState('');
   const [flagging, setFlagging] = useState(false);
@@ -158,6 +173,8 @@ export function MediaViewer({
   const [viewerRequests, setViewerRequests] = useState<MediaIssueRequest[]>([]);
   const [requestsLoading, setRequestsLoading] = useState(false);
   const [requestRefreshKey, setRequestRefreshKey] = useState(0);
+  const slideshowPreloadRefs = useRef<Map<string, HTMLImageElement>>(new Map());
+  const slideshowReadyUrlsRef = useRef<Set<string>>(new Set());
   const currentFile = files[currentIndex];
   const fileComments = useMemo(
     () => {
@@ -260,6 +277,272 @@ export function MediaViewer({
     };
   }, [isOpen, requestRefreshKey, shoot?.id]);
 
+  const markSlideshowUrlReady = useCallback((url: string) => {
+    if (!url || slideshowReadyUrlsRef.current.has(url)) {
+      return;
+    }
+
+    slideshowReadyUrlsRef.current.add(url);
+    setSlideshowReadyVersion((current) => current + 1);
+  }, []);
+
+  const preloadSlideshowUrl = useCallback((url: string) => {
+    if (!url || slideshowReadyUrlsRef.current.has(url) || slideshowPreloadRefs.current.has(url)) {
+      return;
+    }
+
+    const image = new Image();
+    image.onload = () => markSlideshowUrlReady(url);
+    image.onerror = () => markSlideshowUrlReady(url);
+    image.src = url;
+
+    if (image.complete) {
+      markSlideshowUrlReady(url);
+    }
+
+    slideshowPreloadRefs.current.set(url, image);
+  }, [markSlideshowUrlReady]);
+
+  const eligibleSlideshowFiles = slideshowFiles.filter((file) => {
+    if (!isPreviewableImage(file) || isVideoFile(file)) {
+      return false;
+    }
+
+    return Boolean(getMediaViewerImageUrl(file));
+  });
+  const slideshowStartIndex = useMemo(
+    () => eligibleSlideshowFiles.findIndex((file) => file.id === currentFile?.id),
+    [currentFile?.id, eligibleSlideshowFiles],
+  );
+  const slideshowCurrentFile =
+    viewerMode === 'slideshow' && slideshowIndex >= 0
+      ? eligibleSlideshowFiles[slideshowIndex] ?? null
+      : null;
+  const slideshowCurrentImageUrl = slideshowCurrentFile ? getMediaViewerImageUrl(slideshowCurrentFile) : '';
+  const nextSlideshowFile =
+    viewerMode === 'slideshow' && slideshowIndex < eligibleSlideshowFiles.length - 1
+      ? eligibleSlideshowFiles[slideshowIndex + 1]
+      : null;
+  const nextSlideshowImageUrl = nextSlideshowFile ? getMediaViewerImageUrl(nextSlideshowFile) : '';
+  const currentSlideReady =
+    viewerMode !== 'slideshow' ||
+    !slideshowCurrentImageUrl ||
+    (slideshowReadyVersion >= 0 && slideshowReadyUrlsRef.current.has(slideshowCurrentImageUrl));
+  const nextSlideReady =
+    !nextSlideshowImageUrl ||
+    (slideshowReadyVersion >= 0 && slideshowReadyUrlsRef.current.has(nextSlideshowImageUrl));
+  const slideshowAvailable =
+    canStartSlideshow &&
+    eligibleSlideshowFiles.length > 1 &&
+    slideshowStartIndex >= 0 &&
+    isPreviewableImage(currentFile);
+  const isLastSlideshowSlide =
+    viewerMode === 'slideshow' && slideshowIndex >= eligibleSlideshowFiles.length - 1;
+
+  const updateViewerContextForSlideshow = useCallback(
+    (nextIndex: number) => {
+      onViewerContextChange?.(nextIndex, eligibleSlideshowFiles);
+    },
+    [eligibleSlideshowFiles, onViewerContextChange],
+  );
+
+  const exitSlideshow = useCallback(() => {
+    if (viewerMode !== 'slideshow') {
+      return;
+    }
+
+    if (slideshowCurrentFile) {
+      const nextIndex = eligibleSlideshowFiles.findIndex((file) => file.id === slideshowCurrentFile.id);
+      if (nextIndex >= 0) {
+        updateViewerContextForSlideshow(nextIndex);
+      }
+    }
+
+    setViewerMode('standard');
+    setSlideshowPaused(false);
+    setWaitingForNextSlide(false);
+    setShowSlideshowHint(false);
+    setPreviewMode('web');
+    setZoom(1);
+    slideshowPreloadRefs.current.forEach((image) => {
+      image.onload = null;
+      image.onerror = null;
+    });
+    slideshowPreloadRefs.current.clear();
+    slideshowReadyUrlsRef.current.clear();
+    setSlideshowReadyVersion(0);
+  }, [eligibleSlideshowFiles, slideshowCurrentFile, updateViewerContextForSlideshow, viewerMode]);
+
+  const moveSlideshowToIndex = useCallback(
+    (nextIndex: number, direction: 1 | -1) => {
+      if (nextIndex < 0 || nextIndex >= eligibleSlideshowFiles.length) {
+        return;
+      }
+
+      setSlideshowDirection(direction);
+      setWaitingForNextSlide(false);
+      setSlideshowIndex(nextIndex);
+    },
+    [eligibleSlideshowFiles.length],
+  );
+
+  const handleEnterSlideshow = useCallback(() => {
+    if (!slideshowAvailable) {
+      return;
+    }
+
+    setViewerMode('slideshow');
+    setSlideshowIndex(slideshowStartIndex);
+    setSlideshowDirection(1);
+    setSlideshowPaused(false);
+    setWaitingForNextSlide(false);
+    setShowSlideshowHint(true);
+    setShowRequestComposer(false);
+    setShowFileDetails(false);
+    setPreviewMode('web');
+    setZoom(1);
+    slideshowPreloadRefs.current.forEach((image) => {
+      image.onload = null;
+      image.onerror = null;
+    });
+    slideshowPreloadRefs.current.clear();
+    slideshowReadyUrlsRef.current.clear();
+    setSlideshowReadyVersion(0);
+  }, [slideshowAvailable, slideshowStartIndex]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setViewerMode('standard');
+      setSlideshowPaused(false);
+      setWaitingForNextSlide(false);
+      setShowSlideshowHint(false);
+      slideshowPreloadRefs.current.forEach((image) => {
+        image.onload = null;
+        image.onerror = null;
+      });
+      slideshowPreloadRefs.current.clear();
+      slideshowReadyUrlsRef.current.clear();
+      setSlideshowReadyVersion(0);
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (viewerMode !== 'slideshow') {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setShowSlideshowHint(false);
+    }, 2200);
+
+    return () => window.clearTimeout(timer);
+  }, [viewerMode]);
+
+  useEffect(() => {
+    if (viewerMode !== 'slideshow') {
+      return;
+    }
+
+    if (!slideshowCurrentFile) {
+      setViewerMode('standard');
+      return;
+    }
+
+    const keepUrls = [slideshowCurrentImageUrl, nextSlideshowImageUrl].filter(Boolean);
+    keepUrls.forEach(preloadSlideshowUrl);
+
+    let removedUrl = false;
+    Array.from(slideshowPreloadRefs.current.entries()).forEach(([url, image]) => {
+      if (keepUrls.includes(url)) {
+        return;
+      }
+
+      image.onload = null;
+      image.onerror = null;
+      slideshowPreloadRefs.current.delete(url);
+      removedUrl = slideshowReadyUrlsRef.current.delete(url) || removedUrl;
+    });
+
+    if (removedUrl) {
+      setSlideshowReadyVersion((current) => current + 1);
+    }
+  }, [
+    nextSlideshowImageUrl,
+    preloadSlideshowUrl,
+    slideshowCurrentFile,
+    slideshowCurrentImageUrl,
+    viewerMode,
+  ]);
+
+  useEffect(() => {
+    if (viewerMode !== 'slideshow') {
+      return;
+    }
+
+    setWaitingForNextSlide(false);
+  }, [slideshowIndex, viewerMode]);
+
+  useEffect(() => {
+    if (!isLastSlideshowSlide) {
+      return;
+    }
+
+    setSlideshowPaused(true);
+    setWaitingForNextSlide(false);
+  }, [isLastSlideshowSlide]);
+
+  useEffect(() => {
+    if (
+      viewerMode !== 'slideshow' ||
+      slideshowPaused ||
+      !currentSlideReady ||
+      !slideshowCurrentImageUrl ||
+      isLastSlideshowSlide
+    ) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      if (nextSlideReady) {
+        moveSlideshowToIndex(slideshowIndex + 1, 1);
+        return;
+      }
+
+      setWaitingForNextSlide(true);
+    }, 5000);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    currentSlideReady,
+    isLastSlideshowSlide,
+    moveSlideshowToIndex,
+    nextSlideReady,
+    slideshowCurrentImageUrl,
+    slideshowIndex,
+    slideshowPaused,
+    viewerMode,
+  ]);
+
+  useEffect(() => {
+    if (
+      viewerMode !== 'slideshow' ||
+      !waitingForNextSlide ||
+      !nextSlideReady ||
+      isLastSlideshowSlide
+    ) {
+      return;
+    }
+
+    moveSlideshowToIndex(slideshowIndex + 1, 1);
+  }, [
+    isLastSlideshowSlide,
+    moveSlideshowToIndex,
+    nextSlideReady,
+    slideshowIndex,
+    viewerMode,
+    waitingForNextSlide,
+  ]);
+
   const handleFlagImage = async () => {
     if (!shoot || !currentFile || !flagReason.trim()) return;
     
@@ -353,6 +636,11 @@ export function MediaViewer({
   };
 
   const handlePrevious = () => {
+    if (viewerMode === 'slideshow') {
+      moveSlideshowToIndex(slideshowIndex - 1, -1);
+      return;
+    }
+
     if (currentIndex > 0) {
       onIndexChange(currentIndex - 1);
       setZoom(1); // Reset zoom when navigating
@@ -360,6 +648,11 @@ export function MediaViewer({
   };
 
   const handleNext = () => {
+    if (viewerMode === 'slideshow') {
+      moveSlideshowToIndex(slideshowIndex + 1, 1);
+      return;
+    }
+
     if (currentIndex < files.length - 1) {
       onIndexChange(currentIndex + 1);
       setZoom(1); // Reset zoom when navigating
@@ -371,6 +664,25 @@ export function MediaViewer({
     if (!isOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (viewerMode === 'slideshow') {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          exitSlideshow();
+        } else if (e.key === 'ArrowLeft' && slideshowIndex > 0) {
+          e.preventDefault();
+          moveSlideshowToIndex(slideshowIndex - 1, -1);
+        } else if (e.key === 'ArrowRight' && slideshowIndex < eligibleSlideshowFiles.length - 1) {
+          e.preventDefault();
+          moveSlideshowToIndex(slideshowIndex + 1, 1);
+        } else if (e.key === ' ' || e.key === 'Spacebar') {
+          e.preventDefault();
+          if (!isLastSlideshowSlide) {
+            setSlideshowPaused((current) => !current);
+          }
+        }
+        return;
+      }
+
       if (e.key === 'ArrowLeft' && currentIndex > 0) {
         onIndexChange(currentIndex - 1);
         setZoom(1);
@@ -393,7 +705,19 @@ export function MediaViewer({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, currentIndex, files.length, onClose, onIndexChange]);
+  }, [
+    currentIndex,
+    eligibleSlideshowFiles.length,
+    exitSlideshow,
+    files.length,
+    isLastSlideshowSlide,
+    isOpen,
+    moveSlideshowToIndex,
+    onClose,
+    onIndexChange,
+    slideshowIndex,
+    viewerMode,
+  ]);
 
   if (!isOpen || !currentFile) return null;
 
@@ -452,6 +776,37 @@ export function MediaViewer({
       value: !isClient ? formatViewerFileSize(currentFile.fileSize) : '—',
     },
   ];
+  const slideshowMotionVariants = {
+    initial: (direction: 1 | -1) => ({
+      opacity: 0,
+      scale: prefersReducedMotion ? 1 : 1.025,
+      x: prefersReducedMotion ? 0 : direction > 0 ? 28 : -28,
+      y: prefersReducedMotion ? 0 : 6,
+      filter: prefersReducedMotion ? 'none' : 'blur(8px)',
+    }),
+    animate: {
+      opacity: 1,
+      scale: 1,
+      x: 0,
+      y: 0,
+      filter: 'blur(0px)',
+      transition: {
+        duration: prefersReducedMotion ? 0.2 : 0.72,
+        ease: [0.22, 1, 0.36, 1],
+      },
+    },
+    exit: (direction: 1 | -1) => ({
+      opacity: 0,
+      scale: prefersReducedMotion ? 1 : 0.985,
+      x: prefersReducedMotion ? 0 : direction > 0 ? -22 : 22,
+      y: prefersReducedMotion ? 0 : -4,
+      filter: prefersReducedMotion ? 'none' : 'blur(6px)',
+      transition: {
+        duration: prefersReducedMotion ? 0.18 : 0.5,
+        ease: [0.4, 0, 0.2, 1],
+      },
+    }),
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -476,7 +831,111 @@ export function MediaViewer({
         </DialogHeader>
         {/* Glass blur overlay background */}
         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-        
+
+        {viewerMode === 'slideshow' && slideshowCurrentFile ? (
+          <div className="relative z-10 flex h-full w-full items-center justify-center overflow-hidden px-3 py-3 sm:px-5 sm:py-5">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute right-3 top-3 z-20 h-8 w-8 rounded-full border border-white/10 bg-black/40 text-white/85 hover:bg-white/10 sm:right-5 sm:top-5"
+              onClick={exitSlideshow}
+              title="Exit slideshow"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+
+            <AnimatePresence>
+              {showSlideshowHint && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.24 }}
+                  className="absolute left-1/2 top-4 z-20 -translate-x-1/2 rounded-full border border-white/10 bg-black/45 px-3 py-1.5 text-[11px] font-medium tracking-wide text-white/75 backdrop-blur-md sm:top-5"
+                >
+                  ESC to exit slideshow
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.12),_transparent_35%),radial-gradient(circle_at_bottom,_rgba(255,255,255,0.08),_transparent_30%)]" />
+
+            <div className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-[28px] border border-white/8 bg-black/45 px-4 py-6 shadow-[0_30px_120px_rgba(0,0,0,0.65)] sm:px-8 sm:py-8">
+              {!currentSlideReady && (
+                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/45 backdrop-blur-sm">
+                  <Loader2 className="h-8 w-8 animate-spin text-white/70" />
+                  <p className="text-sm text-white/60">
+                    {waitingForNextSlide ? 'Loading next image…' : 'Preparing slideshow…'}
+                  </p>
+                </div>
+              )}
+
+              <AnimatePresence mode="wait" custom={slideshowDirection}>
+                <motion.img
+                  key={slideshowCurrentFile.id}
+                  custom={slideshowDirection}
+                  variants={slideshowMotionVariants}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                  src={slideshowCurrentImageUrl}
+                  alt={getDisplayMediaFilename(slideshowCurrentFile) || slideshowCurrentFile.filename}
+                  className="max-h-full max-w-full select-none rounded-[24px] object-contain shadow-[0_30px_80px_rgba(0,0,0,0.55)]"
+                  draggable={false}
+                  loading="eager"
+                  onLoad={() => markSlideshowUrlReady(slideshowCurrentImageUrl)}
+                  onError={() => markSlideshowUrlReady(slideshowCurrentImageUrl)}
+                />
+              </AnimatePresence>
+            </div>
+
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex justify-center px-4 pb-4 sm:pb-6">
+              <div className="pointer-events-auto flex flex-wrap items-center justify-center gap-1.5 rounded-full border border-white/10 bg-black/50 px-3 py-2 text-white/80 shadow-[0_12px_40px_rgba(0,0,0,0.45)] backdrop-blur-md">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-full text-white hover:bg-white/10"
+                  onClick={handlePrevious}
+                  disabled={slideshowIndex === 0}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-full text-white hover:bg-white/10"
+                  onClick={() => setSlideshowPaused((current) => !current)}
+                  disabled={isLastSlideshowSlide}
+                >
+                  {slideshowPaused || isLastSlideshowSlide ? (
+                    <Play className="h-4 w-4 fill-current" />
+                  ) : (
+                    <Pause className="h-4 w-4" />
+                  )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-full text-white hover:bg-white/10"
+                  onClick={handleNext}
+                  disabled={isLastSlideshowSlide}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+                <div className="mx-2 min-w-[4.5rem] text-center text-xs font-medium text-white">
+                  {slideshowIndex + 1} / {eligibleSlideshowFiles.length}
+                </div>
+                {waitingForNextSlide ? (
+                  <span className="text-[11px] text-white/55">Loading next…</span>
+                ) : isLastSlideshowSlide ? (
+                  <span className="text-[11px] text-white/55">End of slideshow</span>
+                ) : (
+                  <span className="text-[11px] text-white/55">{slideshowPaused ? 'Paused' : 'Auto-advancing every 5s'}</span>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : (
         <div className="relative z-10 flex h-full w-full items-stretch justify-stretch">
           <Button
             variant="ghost"
@@ -733,6 +1192,18 @@ export function MediaViewer({
                           {currentFile.is_hidden ? 'Unhide image' : 'Hide image'}
                         </Button>
                       )}
+                      {slideshowAvailable && (
+                        <div className="sm:col-span-2">
+                          <Button
+                            variant="outline"
+                            className="w-full justify-start border-white/10 bg-white/5 text-white hover:bg-white/10 hover:text-white"
+                            onClick={handleEnterSlideshow}
+                          >
+                            <Play className="mr-2 h-4 w-4 fill-current" />
+                            Slideshow
+                          </Button>
+                        </div>
+                      )}
                       {/* Inline modification request composer */}
                       {isAdmin && isImg && shoot && (
                         <div className="sm:col-span-2 space-y-2">
@@ -821,6 +1292,9 @@ export function MediaViewer({
                       </div>
                       {canInteractSingleMedia && onAddComment && (
                         <div className="mt-3 flex flex-col gap-2">
+                          {fileComments.length === 0 && (
+                            <p className="text-sm text-white/55">No comments yet. Use the composer below to add one.</p>
+                          )}
                           <Textarea
                             value={commentDraft}
                             onChange={(event) => setCommentDraft(event.target.value)}
@@ -864,11 +1338,11 @@ export function MediaViewer({
                             </div>
                           ))}
                         </div>
-                      ) : (
+                      ) : !canInteractSingleMedia || !onAddComment ? (
                         <p className="mt-3 text-sm text-white/55">
-                          {canInteractSingleMedia && onAddComment ? 'No comments yet. Use the composer above to add one.' : 'No comments on this image yet.'}
+                          No comments on this image yet.
                         </p>
-                      )}
+                      ) : null}
                     </div>
 
                     {(relatedRequests.length > 0 || requestsLoading) && (
@@ -921,9 +1395,10 @@ export function MediaViewer({
                   </div>
                 </ScrollArea>
               </div>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </DialogContent>
     </Dialog>
   );

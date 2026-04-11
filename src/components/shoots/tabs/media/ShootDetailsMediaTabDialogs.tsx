@@ -13,11 +13,14 @@ export function ShootDetailsMediaTabDialogs(props: any) {
     viewerFiles,
     viewerIndex,
     setViewerIndex,
+    setViewerFiles,
     getImageUrl,
     shoot,
     isAdmin,
     isClient,
     canViewFullSize,
+    canStartSlideshow,
+    slideshowFiles,
     onShootUpdate,
     canInteractSingleMedia,
     canDownloadSingleMedia,
@@ -48,6 +51,12 @@ export function ShootDetailsMediaTabDialogs(props: any) {
         isAdmin={isAdmin}
         isClient={isClient}
         canViewFullSize={canViewFullSize}
+        canStartSlideshow={canStartSlideshow}
+        slideshowFiles={slideshowFiles}
+        onViewerContextChange={(index: number, files: any[]) => {
+          setViewerFiles(files);
+          setViewerIndex(index);
+        }}
         onShootUpdate={onShootUpdate}
         canInteractSingleMedia={canInteractSingleMedia}
         canDownloadSingleMedia={canDownloadSingleMedia}
