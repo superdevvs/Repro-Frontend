@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   ChevronRight,
   Clock3,
+  DollarSign,
   Download,
   FileText,
   Loader2,
@@ -487,6 +488,32 @@ export function PhotographerInvoiceReviewWorkspace({
     [statusFilter],
   );
 
+  const summaryCards = useMemo(
+    () => [
+      {
+        label: 'Filtered invoices',
+        value: summary.invoice_count,
+        icon: FileText,
+      },
+      {
+        label: 'Filtered payout',
+        value: formatCurrency(summary.total_amount),
+        icon: DollarSign,
+      },
+      {
+        label: 'Needs review',
+        value: summary.needs_review_count,
+        icon: Clock3,
+      },
+      {
+        label: 'Returned',
+        value: summary.returned_count,
+        icon: MessageSquareMore,
+      },
+    ],
+    [summary.invoice_count, summary.needs_review_count, summary.returned_count, summary.total_amount],
+  );
+
   const loadQueue = useCallback(async () => {
     setQueueLoading(true);
 
@@ -694,16 +721,16 @@ export function PhotographerInvoiceReviewWorkspace({
     <Tabs
       value={workspaceTab}
       onValueChange={(value) => setWorkspaceTab(value as ReviewWorkspaceTab)}
-      className="flex flex-col gap-4"
+      className="flex flex-col gap-5"
     >
-      <div className="flex items-center justify-between gap-3">
-        <TabsList className="grid w-full max-w-[26rem] grid-cols-2">
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <TabsList className="grid w-full grid-cols-2 xl:max-w-[26rem]">
           <TabsTrigger value="review-queue">Review Queue</TabsTrigger>
           <TabsTrigger value="payout-report">Payout Report</TabsTrigger>
         </TabsList>
 
         {workspaceTab === 'review-queue' ? (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 xl:justify-end">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm">
@@ -725,77 +752,95 @@ export function PhotographerInvoiceReviewWorkspace({
         ) : null}
       </div>
 
-      <TabsContent value="review-queue" className="flex flex-col gap-4">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-          <Card className="border-border/70 bg-card/80">
-            <CardContent className="flex flex-col gap-2 px-4 py-4">
-              <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Filtered invoices</div>
-              <div className="text-2xl font-semibold">{summary.invoice_count}</div>
-            </CardContent>
-          </Card>
-          <Card className="border-border/70 bg-card/80">
-            <CardContent className="flex flex-col gap-2 px-4 py-4">
-              <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Filtered payout</div>
-              <div className="text-2xl font-semibold">{formatCurrency(summary.total_amount)}</div>
-            </CardContent>
-          </Card>
-          <Card className="border-border/70 bg-card/80">
-            <CardContent className="flex flex-col gap-2 px-4 py-4">
-              <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Needs review</div>
-              <div className="text-2xl font-semibold">{summary.needs_review_count}</div>
-            </CardContent>
-          </Card>
-          <Card className="border-border/70 bg-card/80">
-            <CardContent className="flex flex-col gap-2 px-4 py-4">
-              <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Returned</div>
-              <div className="text-2xl font-semibold">{summary.returned_count}</div>
-            </CardContent>
-          </Card>
+      <TabsContent value="review-queue" className="mt-0 flex flex-col gap-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {summaryCards.map((card) => {
+            const Icon = card.icon;
+
+            return (
+              <Card key={card.label} className="border-border/70 bg-card/80 shadow-sm">
+                <CardContent className="flex items-start justify-between gap-3 px-4 py-4">
+                  <div className="min-w-0">
+                    <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                      {card.label}
+                    </div>
+                    <div className="mt-2 text-2xl font-semibold">{card.value}</div>
+                  </div>
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-muted/25">
+                    <Icon className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
 
-        <Card className="border-border/70 bg-card/80">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">{resolvedTitle}</CardTitle>
-            <CardDescription>
-              Filter {resolvedPluralLabel.toLowerCase()} weekly invoices by review state, week, or {resolvedShortLabel.toLowerCase()}.
-            </CardDescription>
+        <Card className="overflow-hidden border-border/70 bg-card/80 shadow-sm">
+          <CardHeader className="gap-3 border-b border-border/70 pb-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+              <div className="space-y-1">
+                <CardTitle className="text-base">{resolvedTitle}</CardTitle>
+                <CardDescription>
+                  Filter {resolvedPluralLabel.toLowerCase()} weekly invoices by review state, week, or {resolvedShortLabel.toLowerCase()}.
+                </CardDescription>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="outline" className="rounded-full border-border/70 bg-background/70 px-3 py-1 text-xs font-medium">
+                  {summary.invoice_count} filtered
+                </Badge>
+                <Badge variant="outline" className="rounded-full border-border/70 bg-background/70 px-3 py-1 text-xs font-medium">
+                  {selectedStatusLabel}
+                </Badge>
+              </div>
+            </div>
           </CardHeader>
-          <CardContent className="grid gap-3 md:grid-cols-[minmax(0,1.2fr)_minmax(12rem,0.7fr)_minmax(0,1fr)]">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder={`Search ${resolvedShortLabel.toLowerCase()} name or email`}
-                className="pl-9"
+          <CardContent className="flex flex-col gap-4 pt-5">
+            <div className="grid gap-3 xl:grid-cols-[minmax(0,1.3fr)_minmax(15rem,0.85fr)]">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder={`Search ${resolvedShortLabel.toLowerCase()} name or email`}
+                  className="h-11 rounded-xl border-border/70 bg-background pl-9"
+                />
+              </div>
+
+              <DateRangePicker
+                value={{ startDate, endDate }}
+                onChange={({ startDate: nextStartDate, endDate: nextEndDate }) => {
+                  setStartDate(nextStartDate);
+                  setEndDate(nextEndDate);
+                }}
+                triggerClassName="h-11 rounded-xl border-border/70 bg-background"
               />
             </div>
 
-            <div className="grid grid-cols-3 gap-2 rounded-xl border border-border/70 bg-muted/20 p-1">
-              {STATUS_OPTIONS.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => setStatusFilter(option.value)}
-                  className={cn(
-                    'rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-                    statusFilter === option.value
-                      ? 'bg-background text-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground',
-                  )}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="inline-flex flex-wrap items-center gap-2 rounded-2xl border border-border/70 bg-muted/20 p-1.5">
+                {STATUS_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setStatusFilter(option.value)}
+                    aria-pressed={statusFilter === option.value}
+                    className={cn(
+                      'rounded-xl px-4 py-2 text-sm font-medium whitespace-nowrap transition-all',
+                      statusFilter === option.value
+                        ? 'bg-background text-foreground shadow-sm ring-1 ring-border/60'
+                        : 'text-muted-foreground hover:bg-background/70 hover:text-foreground',
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
 
-            <DateRangePicker
-              value={{ startDate, endDate }}
-              onChange={({ startDate: nextStartDate, endDate: nextEndDate }) => {
-                setStartDate(nextStartDate);
-                setEndDate(nextEndDate);
-              }}
-            />
+              <div className="text-sm text-muted-foreground">
+                Reviewing <span className="font-medium text-foreground">{resolvedPluralLabel.toLowerCase()}</span> with{' '}
+                <span className="font-medium text-foreground">{selectedStatusLabel.toLowerCase()}</span> status.
+              </div>
+            </div>
           </CardContent>
         </Card>
 
