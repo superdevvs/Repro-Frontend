@@ -675,7 +675,7 @@ const AccountingPage = () => {
                     )}
                   </div>
                   {(config.showPaymentsSummary || config.showLatestTransactions || accountingMode === 'editor' || accountingMode === 'photographer' || accountingMode === 'rep') && (
-                    <div className="lg:col-span-1 flex flex-col gap-3 h-full">
+                    <div className="lg:col-span-1 flex min-h-0 flex-col gap-3">
                       {accountingMode === 'admin' ? (
                         <PaymentsSummary invoices={adminWindowInvoices} />
                       ) : accountingMode === 'client' ? (
@@ -685,7 +685,7 @@ const AccountingPage = () => {
                         />
                       ) : accountingMode === 'editor' ? (
                         <>
-                          <EditorRateSettings className="h-full" />
+                          <EditorRateSettings className="min-h-0 max-h-[min(72vh,44rem)]" />
                           <RoleBasedSidePanel
                             invoices={filteredInvoices}
                             mode={accountingMode}

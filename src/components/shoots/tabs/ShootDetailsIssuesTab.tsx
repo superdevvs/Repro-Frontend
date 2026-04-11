@@ -80,8 +80,14 @@ export function ShootDetailsIssuesTab({
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerIndex, setViewerIndex] = useState(0);
   const [viewerFiles, setViewerFiles] = useState<MediaFile[]>([]);
+  const shootFilesCacheKey = [
+    shoot.payment?.paymentStatus ?? 'unknown',
+    shoot.payment?.totalPaid ?? shoot.totalPaid ?? 0,
+    shoot.updatedAt ?? '',
+  ].join(':');
   const { data: shootFiles = [] } = useShootFiles(shoot.id, 'all', {
     enabled: Boolean(shoot.id),
+    cacheKey: shootFilesCacheKey,
   });
   
   // Check if shoot has requests that can be marked as resolved

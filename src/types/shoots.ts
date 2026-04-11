@@ -83,6 +83,7 @@ export interface ShootFileData {
   watermarked_thumbnail_path?: string;
   watermarked_web_path?: string;
   watermarked_placeholder_path?: string;
+  uses_watermark?: boolean;
   processing_failed_at?: string;
   processing_error?: string;
   comments?: Array<{

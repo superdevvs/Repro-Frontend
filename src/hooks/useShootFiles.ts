@@ -39,6 +39,7 @@ export interface MediaFile {
   watermarked_thumbnail_path?: string;
   watermarked_web_path?: string;
   watermarked_placeholder_path?: string;
+  uses_watermark?: boolean;
   processed_at?: string;
   media_type?: string;
   // Size info
@@ -124,6 +125,7 @@ const fetchShootFiles = async (
         watermarked_thumbnail_path: f.watermarked_thumbnail_path,
         watermarked_web_path: f.watermarked_web_path,
         watermarked_placeholder_path: f.watermarked_placeholder_path,
+        uses_watermark: Boolean(f.uses_watermark ?? f.usesWatermark),
         processed_at: f.processed_at,
         media_type: f.media_type,
         width: f.width,
@@ -175,6 +177,7 @@ const fetchShootFiles = async (
       watermarked_thumbnail_path: f.watermarked_thumbnail_path,
       watermarked_web_path: f.watermarked_web_path,
       watermarked_placeholder_path: f.watermarked_placeholder_path,
+      uses_watermark: Boolean(f.uses_watermark ?? f.usesWatermark),
       processed_at: f.processed_at,
       media_type: f.media_type,
       width: f.width,
@@ -196,7 +199,7 @@ const fetchShootFiles = async (
 export const useShootFiles = (
   shootId: string | number | null | undefined,
   type: 'raw' | 'edited' | 'all' = 'all',
-  options?: { enabled?: boolean }
+  options?: { enabled?: boolean; cacheKey?: string | number | null }
 ) => {
   const { session, user, isImpersonating } = useAuth();
   
@@ -204,7 +207,7 @@ export const useShootFiles = (
   const impersonatedUserId = getImpersonatedUserId();
 
   return useQuery({
-    queryKey: ['shootFiles', shootId, type, impersonatedUserId, isImpersonating ? user?.id : null],
+    queryKey: ['shootFiles', shootId, type, impersonatedUserId, isImpersonating ? user?.id : null, options?.cacheKey ?? null],
     queryFn: () => fetchShootFiles(shootId!, type, getToken(session?.accessToken)),
     enabled: Boolean(shootId) && (options?.enabled !== false),
     staleTime: 30 * 1000, // 30 seconds

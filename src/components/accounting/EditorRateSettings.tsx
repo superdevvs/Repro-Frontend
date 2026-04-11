@@ -180,12 +180,12 @@ export function EditorRateSettings({ className }: EditorRateSettingsProps = {}) 
 
   if (isLoading && rates.length === 0) {
     return (
-      <Card className={cn('h-full', className)}>
-        <CardHeader>
+      <Card className={cn('flex h-full min-h-0 flex-col overflow-hidden', className)}>
+        <CardHeader className="flex-shrink-0">
           <CardTitle>Editing Rates</CardTitle>
           <CardDescription>Choose services and set the editor rate for each one.</CardDescription>
         </CardHeader>
-        <CardContent className="flex-1">
+        <CardContent className="flex min-h-0 flex-1 flex-col">
           <div className="text-center py-4 text-muted-foreground">Loading rates...</div>
         </CardContent>
       </Card>
@@ -193,8 +193,8 @@ export function EditorRateSettings({ className }: EditorRateSettingsProps = {}) 
   }
 
   return (
-    <Card className={cn('h-full flex flex-col', className)}>
-      <CardHeader>
+    <Card className={cn('flex h-full min-h-0 flex-col overflow-hidden', className)}>
+      <CardHeader className="flex-shrink-0">
         <CardTitle className="flex items-center gap-2">
           <DollarSign className="h-5 w-5" />
           Editing Rates
@@ -203,8 +203,8 @@ export function EditorRateSettings({ className }: EditorRateSettingsProps = {}) 
           Choose services and set a rate for each one. Remove any row you do not need.
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-1 flex-col">
-        <div className="flex flex-1 flex-col gap-4">
+      <CardContent className="flex min-h-0 flex-1 flex-col">
+        <div className="flex min-h-0 flex-1 flex-col gap-4">
           {isRatesError && (
             <div className="rounded-lg border border-dashed px-4 py-3 text-sm text-muted-foreground">
               {ratesError instanceof Error
@@ -266,46 +266,52 @@ export function EditorRateSettings({ className }: EditorRateSettingsProps = {}) 
               Add a service to start setting editing rates.
             </div>
           ) : (
-            <div className="space-y-4">
-              {rates.map((rate) => {
-                const serviceKey =
-                  rate.serviceId || normalizeEditorServiceName(rate.serviceName);
+            <div className="min-h-0 flex-1 overflow-y-auto pr-2">
+              <div className="space-y-4">
+                {rates.map((rate) => {
+                  const serviceKey =
+                    rate.serviceId || normalizeEditorServiceName(rate.serviceName);
 
-                return (
-                  <div key={serviceKey} className="rounded-lg border p-4">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-                      <div className="flex-1 space-y-2">
-                        <Label htmlFor={`rate-${serviceKey}`}>
-                          {rate.serviceName} Rate ($ per item)
-                        </Label>
-                        <Input
-                          id={`rate-${serviceKey}`}
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={rate.rate}
-                          onChange={(event) => handleRateChange(serviceKey, event.target.value)}
-                          placeholder="0.00"
-                        />
+                  return (
+                    <div key={serviceKey} className="rounded-lg border p-4">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                        <div className="flex-1 space-y-2">
+                          <Label htmlFor={`rate-${serviceKey}`}>
+                            {rate.serviceName} Rate ($ per item)
+                          </Label>
+                          <Input
+                            id={`rate-${serviceKey}`}
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={rate.rate}
+                            onChange={(event) => handleRateChange(serviceKey, event.target.value)}
+                            placeholder="0.00"
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => handleRemoveService(serviceKey)}
+                          className="sm:min-w-[120px]"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Remove
+                        </Button>
                       </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => handleRemoveService(serviceKey)}
-                        className="sm:min-w-[120px]"
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Remove
-                      </Button>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>
 
-        <Button onClick={handleSave} disabled={isSaving || !hasChanges} className="mt-4 w-full">
+        <Button
+          onClick={handleSave}
+          disabled={isSaving || !hasChanges}
+          className="mt-4 w-full flex-shrink-0"
+        >
           <Save className="h-4 w-4 mr-2" />
           {isSaving ? 'Saving...' : 'Save Rates'}
         </Button>

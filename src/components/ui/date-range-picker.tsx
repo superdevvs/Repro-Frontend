@@ -167,7 +167,7 @@ export function DateRangePicker({
                 <SelectTrigger className="h-10 rounded-xl border-border/70 bg-muted/30 px-3 text-sm font-medium text-foreground [&>svg]:-translate-x-[3px]">
                   <SelectValue placeholder="Month" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[140]">
                   <SelectGroup>
                     {monthOptions.map((month) => (
                       <SelectItem key={month.value} value={String(month.value)}>
@@ -191,7 +191,7 @@ export function DateRangePicker({
                 <SelectTrigger className="h-10 rounded-xl border-border/70 bg-muted/30 px-3 text-sm font-medium text-foreground [&>svg]:-translate-x-[3px]">
                   <SelectValue placeholder="Year" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[140]">
                   <SelectGroup>
                     {yearOptions.map((year) => (
                       <SelectItem key={year} value={String(year)}>

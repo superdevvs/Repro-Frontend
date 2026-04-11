@@ -132,6 +132,11 @@ export function useShootDetailsMediaTab({
   const { trackUpload, uploads } = useUpload();
   // Default tab based on role: clients see edited, others see uploaded
   const defaultTab = isClient ? 'edited' : 'uploaded';
+  const shootFilesCacheKey = [
+    shoot.payment?.paymentStatus ?? 'unknown',
+    shoot.payment?.totalPaid ?? shoot.totalPaid ?? 0,
+    shoot.updatedAt ?? '',
+  ].join(':');
   const [activeSubTab, setActiveSubTab] = useState<'uploaded' | 'edited' | 'upload'>(defaultTab);
   const [displayTab, setDisplayTab] = useState<'uploaded' | 'edited'>(defaultTab);
   const [uploadedMediaTab, setUploadedMediaTab] = useState<MediaSubTab>('photos');
@@ -370,9 +375,11 @@ export function useShootDetailsMediaTab({
   const rawFilesEnabled = Boolean(shoot.id) && !isClient;
   const { data: rawFilesData = [], isLoading: rawLoading } = useShootFiles(shoot.id, 'raw', {
     enabled: rawFilesEnabled,
+    cacheKey: shootFilesCacheKey,
   });
   const { data: editedFilesData = [], isLoading: editedLoading } = useShootFiles(shoot.id, 'edited', {
     enabled: Boolean(shoot.id),
+    cacheKey: shootFilesCacheKey,
   });
 
   const buildFilesFingerprint = (files: MediaFile[]) => JSON.stringify(

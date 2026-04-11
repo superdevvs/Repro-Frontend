@@ -124,6 +124,7 @@ const formatRelativeTimestamp = (value?: string | null) => {
 
 const getStatusLabel = (status: string) => {
   switch (status) {
+    case 'pending':
     case 'pending_approval':
       return 'Needs Review';
     case 'approved':
@@ -137,6 +138,7 @@ const getStatusLabel = (status: string) => {
 
 const getStatusBadgeClassName = (status: string) => {
   switch (status) {
+    case 'pending':
     case 'pending_approval':
       return 'border-primary/20 bg-primary/10 text-primary';
     case 'approved':
@@ -215,7 +217,7 @@ const DetailShell = ({
 
   const charges = (invoice.items || []).filter((item) => item.type === 'charge');
   const expenses = (invoice.items || []).filter((item) => item.type === 'expense');
-  const canReview = invoice.approval_status === 'pending_approval';
+  const canReview = ['pending', 'pending_approval'].includes(invoice.approval_status);
   const payee = role === 'salesRep' ? invoice.salesRep : invoice.photographer;
 
   return (
@@ -863,7 +865,7 @@ export function PhotographerInvoiceReviewWorkspace({
               ) : (
                 queue.map((invoice) => {
                   const isSelected = invoice.id === selectedInvoiceId;
-                  const isNeedsReview = invoice.approval_status === 'pending_approval';
+                  const isNeedsReview = ['pending', 'pending_approval'].includes(invoice.approval_status);
                   const payee = role === 'salesRep' ? invoice.salesRep : invoice.photographer;
 
                   return (

@@ -20,6 +20,8 @@ export interface ImageUrlFields {
   watermarked_thumbnail_path?: string;
   watermarked_web_path?: string;
   watermarked_placeholder_path?: string;
+  uses_watermark?: boolean;
+  usesWatermark?: boolean;
 }
 
 const STORAGE_PREFIXES = ['shoots/', 'avatars/', 'branding/', 'share-links/', 'watermark-logos/'];
@@ -142,6 +144,9 @@ const firstResolvedUrl = (
   return '';
 };
 
+const shouldUseWatermarkedFallbacks = (file: ImageUrlFields): boolean =>
+  Boolean(file.uses_watermark ?? file.usesWatermark);
+
 /**
  * Resolve an image URL from a media file object with proper fallback chain.
  * Extracted from AiEditing.tsx for reuse across components.
@@ -150,21 +155,26 @@ export function getImageUrl(
   file: ImageUrlFields,
   size: 'thumb' | 'medium' | 'large' | 'original' = 'medium'
 ): string {
+  const watermarkThumbKeys: Array<keyof ImageUrlFields> = shouldUseWatermarkedFallbacks(file)
+    ? ['watermarked_thumbnail_path', 'watermarked_web_path', 'watermarked_placeholder_path']
+    : [];
+  const watermarkMediumKeys: Array<keyof ImageUrlFields> = shouldUseWatermarkedFallbacks(file)
+    ? ['watermarked_web_path', 'watermarked_thumbnail_path', 'watermarked_placeholder_path']
+    : [];
+
   if (size === 'thumb') {
     return firstResolvedUrl(file, [
       'thumb_url',
       'thumb',
       'thumbnail_url',
       'thumbnail_path',
-      'watermarked_thumbnail_path',
       'web_url',
       'web_path',
-      'watermarked_web_path',
       'medium_url',
       'medium',
       'placeholder_url',
       'placeholder_path',
-      'watermarked_placeholder_path',
+      ...watermarkThumbKeys,
     ], [
       'original_url',
       'original',
@@ -179,17 +189,15 @@ export function getImageUrl(
     return firstResolvedUrl(file, [
       'web_url',
       'web_path',
-      'watermarked_web_path',
       'medium_url',
       'medium',
       'thumb_url',
       'thumb',
       'thumbnail_url',
       'thumbnail_path',
-      'watermarked_thumbnail_path',
       'placeholder_url',
       'placeholder_path',
-      'watermarked_placeholder_path',
+      ...watermarkMediumKeys,
     ], [
       'original_url',
       'original',
@@ -206,17 +214,15 @@ export function getImageUrl(
       'large',
       'web_url',
       'web_path',
-      'watermarked_web_path',
       'medium_url',
       'medium',
       'thumb_url',
       'thumb',
       'thumbnail_url',
       'thumbnail_path',
-      'watermarked_thumbnail_path',
       'placeholder_url',
       'placeholder_path',
-      'watermarked_placeholder_path',
+      ...watermarkMediumKeys,
     ], [
       'original_url',
       'original',

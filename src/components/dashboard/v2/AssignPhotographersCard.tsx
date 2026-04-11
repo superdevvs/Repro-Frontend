@@ -200,31 +200,39 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
                   handlePhotographerClick(photographer);
                 }
               }}
-              className="w-full -mx-2.5 sm:-mx-3 flex flex-col gap-2 px-2.5 sm:px-3 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl border border-transparent hover:border-primary/40 hover:bg-primary/5 transition-all text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              className="w-full -ml-2.5 -mr-4 sm:-mx-3 flex flex-col gap-2 pl-2.5 pr-4 sm:px-3 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl border border-transparent hover:border-primary/40 hover:bg-primary/5 transition-all text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
             >
-              <div className="flex items-center gap-2 sm:gap-3">
+              <div className="flex items-start gap-2 sm:gap-3">
                 <Avatar
                   src={photographer.avatar}
                   initials={photographer.name.split(' ').map((n) => n[0]).join('')}
                   className="w-10 h-10 sm:w-12 sm:h-12 flex-shrink-0"
                   status={availabilitySet.has(photographer.id) || !hasAvailabilityData ? 'free' : photographer.status}
                 />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <h3 className="text-xs sm:text-sm font-semibold text-foreground truncate">{photographer.name}</h3>
-                    <span className="text-[10px] sm:text-[11px] text-muted-foreground flex-shrink-0">{photographer.region}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-muted-foreground mt-1 gap-2">
-                    <span>{photographer.loadToday}/5 jobs</span>
-                    {photographer.travelRange != null && (
-                      <span className="inline-flex items-center gap-0.5 text-muted-foreground/70">
-                        <MapPin size={10} className="sm:w-3 sm:h-3" />
-                        {photographer.travelRange} {photographer.travelRangeUnit === 'km' ? 'km' : 'mi'}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-xs sm:text-sm font-semibold text-foreground truncate">
+                        {photographer.name}
+                      </h3>
+                      <div className="mt-1 flex items-center gap-2 text-[10px] sm:text-[11px] text-muted-foreground">
+                        <span>{photographer.loadToday}/5 jobs</span>
+                        {photographer.travelRange != null && (
+                          <span className="inline-flex items-center gap-0.5 text-muted-foreground/70">
+                            <MapPin size={10} className="sm:w-3 sm:h-3" />
+                            {photographer.travelRange} {photographer.travelRangeUnit === 'km' ? 'km' : 'mi'}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="w-[7.5rem] flex-shrink-0 text-right">
+                      <span className="block truncate text-[10px] sm:text-[11px] text-muted-foreground">
+                        {photographer.region}
                       </span>
-                    )}
-                    <span className="text-muted-foreground/70 truncate">
-                      Next slot {photographer.nextSlot ? photographer.nextSlot : 'N/A'}
-                    </span>
+                      <span className="mt-1 block truncate text-[10px] sm:text-[11px] text-muted-foreground/70">
+                        Next slot {photographer.nextSlot ? photographer.nextSlot : 'N/A'}
+                      </span>
+                    </div>
                   </div>
                   {showContactActions && (
                     <div className="flex flex-wrap gap-1.5 sm:gap-2 text-[10px] sm:text-[11px] text-muted-foreground mt-2">
