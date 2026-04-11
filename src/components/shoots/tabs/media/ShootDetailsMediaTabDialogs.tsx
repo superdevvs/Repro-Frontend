@@ -14,6 +14,7 @@ export function ShootDetailsMediaTabDialogs(props: any) {
     viewerIndex,
     setViewerIndex,
     getImageUrl,
+    getImageUrlCandidates,
     getSrcSet,
     shoot,
     isAdmin,
@@ -45,6 +46,7 @@ export function ShootDetailsMediaTabDialogs(props: any) {
         currentIndex={viewerIndex}
         onIndexChange={setViewerIndex}
         getImageUrl={getImageUrl}
+        getImageUrlCandidates={getImageUrlCandidates}
         getSrcSet={getSrcSet}
         shoot={shoot}
         isAdmin={isAdmin}

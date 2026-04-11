@@ -121,13 +121,15 @@ const collectResolvedUrls = (
   return resolvedUrls;
 };
 
-const firstResolvedUrl = (
+const resolvedUrlList = (
   file: ImageUrlFields,
   keys: Array<keyof ImageUrlFields>,
   excludeMatchingKeys: Array<keyof ImageUrlFields> = [],
-): string => {
+): string[] => {
   const excludedUrls =
     excludeMatchingKeys.length > 0 ? collectResolvedUrls(file, excludeMatchingKeys) : null;
+  const resolvedUrls: string[] = [];
+  const seen = new Set<string>();
 
   for (const key of keys) {
     const candidate = file[key];
@@ -136,13 +138,20 @@ const firstResolvedUrl = (
     }
 
     const resolved = normalizeImageUrl(String(candidate));
-    if (resolved && !excludedUrls?.has(resolved)) {
-      return resolved;
+    if (resolved && !excludedUrls?.has(resolved) && !seen.has(resolved)) {
+      seen.add(resolved);
+      resolvedUrls.push(resolved);
     }
   }
 
-  return '';
+  return resolvedUrls;
 };
+
+const firstResolvedUrl = (
+  file: ImageUrlFields,
+  keys: Array<keyof ImageUrlFields>,
+  excludeMatchingKeys: Array<keyof ImageUrlFields> = [],
+): string => resolvedUrlList(file, keys, excludeMatchingKeys)[0] || '';
 
 const shouldUseWatermarkedFallbacks = (file: ImageUrlFields): boolean =>
   Boolean(file.uses_watermark ?? file.usesWatermark);
@@ -155,6 +164,13 @@ export function getImageUrl(
   file: ImageUrlFields,
   size: 'thumb' | 'web' | 'medium' | 'large' | 'original' = 'medium'
 ): string {
+  return getImageUrlCandidates(file, size)[0] || '';
+}
+
+export function getImageUrlCandidates(
+  file: ImageUrlFields,
+  size: 'thumb' | 'web' | 'medium' | 'large' | 'original' = 'medium'
+): string[] {
   const watermarkThumbKeys: Array<keyof ImageUrlFields> = shouldUseWatermarkedFallbacks(file)
     ? ['watermarked_thumbnail_path', 'watermarked_web_path', 'watermarked_placeholder_path']
     : [];
@@ -163,18 +179,19 @@ export function getImageUrl(
     : [];
 
   if (size === 'thumb') {
-    return firstResolvedUrl(file, [
+    return resolvedUrlList(file, [
       'thumb_url',
       'thumb',
       'thumbnail_url',
       'thumbnail_path',
+      ...watermarkThumbKeys,
       'web_url',
       'web_path',
+      ...watermarkMediumKeys,
       'medium_url',
       'medium',
       'placeholder_url',
       'placeholder_path',
-      ...watermarkThumbKeys,
     ], [
       'original_url',
       'original',
@@ -186,35 +203,43 @@ export function getImageUrl(
   }
 
   if (size === 'web') {
-    return firstResolvedUrl(file, [
+    return resolvedUrlList(file, [
       'web_url',
       'web_path',
-      'medium_url',
-      'medium',
-      'placeholder_url',
-      'placeholder_path',
       ...watermarkMediumKeys,
-    ], [
-      'original_url',
-      'original',
-      'large_url',
-      'large',
-    ]);
-  }
-
-  if (size === 'medium') {
-    return firstResolvedUrl(file, [
-      'web_url',
-      'web_path',
       'medium_url',
       'medium',
       'thumb_url',
       'thumb',
       'thumbnail_url',
       'thumbnail_path',
+      ...watermarkThumbKeys,
       'placeholder_url',
       'placeholder_path',
+    ], [
+      'original_url',
+      'original',
+      'large_url',
+      'large',
+      'url',
+      'path',
+    ]);
+  }
+
+  if (size === 'medium') {
+    return resolvedUrlList(file, [
+      'web_url',
+      'web_path',
       ...watermarkMediumKeys,
+      'medium_url',
+      'medium',
+      'thumb_url',
+      'thumb',
+      'thumbnail_url',
+      'thumbnail_path',
+      ...watermarkThumbKeys,
+      'placeholder_url',
+      'placeholder_path',
     ], [
       'original_url',
       'original',
@@ -226,20 +251,21 @@ export function getImageUrl(
   }
 
   if (size === 'large') {
-    return firstResolvedUrl(file, [
+    return resolvedUrlList(file, [
       'large_url',
       'large',
       'web_url',
       'web_path',
+      ...watermarkMediumKeys,
       'medium_url',
       'medium',
       'thumb_url',
       'thumb',
       'thumbnail_url',
       'thumbnail_path',
+      ...watermarkThumbKeys,
       'placeholder_url',
       'placeholder_path',
-      ...watermarkMediumKeys,
     ], [
       'original_url',
       'original',
@@ -248,7 +274,7 @@ export function getImageUrl(
     ]);
   }
 
-  return firstResolvedUrl(file, [
+  return resolvedUrlList(file, [
     'original_url',
     'original',
     'url',

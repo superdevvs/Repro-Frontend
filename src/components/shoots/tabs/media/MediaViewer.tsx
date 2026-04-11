@@ -25,6 +25,7 @@ interface MediaViewerProps {
   currentIndex: number;
   onIndexChange: (index: number) => void;
   getImageUrl: (file: MediaFile, size?: 'thumb' | 'web' | 'medium' | 'large' | 'original') => string;
+  getImageUrlCandidates: (file: MediaFile, size?: 'thumb' | 'web' | 'medium' | 'large' | 'original') => string[];
   getSrcSet: (file: MediaFile) => string;
   shoot?: ShootData;
   isAdmin?: boolean;
@@ -90,6 +91,7 @@ export function MediaViewer({
   currentIndex, 
   onIndexChange,
   getImageUrl,
+  getImageUrlCandidates,
   getSrcSet,
   shoot,
   isAdmin = false,
@@ -156,6 +158,7 @@ export function MediaViewer({
   const [requestsLoading, setRequestsLoading] = useState(false);
   const [requestRefreshKey, setRequestRefreshKey] = useState(0);
   const [showFullSizePreview, setShowFullSizePreview] = useState(false);
+  const [imageCandidateIndex, setImageCandidateIndex] = useState(0);
   const currentFile = files[currentIndex];
   const fileComments = useMemo(
     () => {
@@ -205,13 +208,19 @@ export function MediaViewer({
     setShowRequestComposer(false);
     setFlagReason('');
     setShowFullSizePreview(false);
+    setImageCandidateIndex(0);
   }, [currentFile?.id]);
 
   useEffect(() => {
     if (!isOpen) {
       setShowFullSizePreview(false);
+      setImageCandidateIndex(0);
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    setImageCandidateIndex(0);
+  }, [showFullSizePreview]);
 
   useEffect(() => {
     if (!isOpen || !shoot?.id) {
@@ -398,10 +407,15 @@ export function MediaViewer({
 
   if (!isOpen || !currentFile) return null;
 
-  const previewImageUrl = getImageUrl(currentFile, 'web') || getImageUrl(currentFile, 'medium') || getImageUrl(currentFile, 'thumb');
-  const originalImageUrl = getImageUrl(currentFile, 'original');
-  const imageUrl = showFullSizePreview ? (originalImageUrl || previewImageUrl) : previewImageUrl;
-  const srcSet = showFullSizePreview ? '' : getSrcSet(currentFile);
+  const previewImageCandidates = getImageUrlCandidates(currentFile, 'web');
+  const originalImageCandidates = getImageUrlCandidates(currentFile, 'original');
+  const previewImageUrl = previewImageCandidates[0] || '';
+  const originalImageUrl = originalImageCandidates[0] || '';
+  const activeImageCandidates = showFullSizePreview
+    ? (originalImageCandidates.length > 0 ? originalImageCandidates : previewImageCandidates)
+    : previewImageCandidates;
+  const imageUrl = activeImageCandidates[imageCandidateIndex] || '';
+  const srcSet = !showFullSizePreview && imageCandidateIndex === 0 ? getSrcSet(currentFile) : '';
   const isImg = isPreviewableImage(currentFile);
   const isVid = isVideoFile(currentFile);
   const videoUrl = isVid ? (getImageUrl(currentFile, 'original') || getImageUrl(currentFile, 'large')) : '';
@@ -583,6 +597,11 @@ export function MediaViewer({
                           style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
                           loading="eager"
                           draggable={false}
+                          onError={() => {
+                            if (imageCandidateIndex < activeImageCandidates.length - 1) {
+                              setImageCandidateIndex((current) => current + 1);
+                            }
+                          }}
                         />
                       ) : isVid ? (
                         <video

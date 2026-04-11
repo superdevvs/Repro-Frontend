@@ -1,5 +1,5 @@
 import { type MediaFile } from '@/hooks/useShootFiles';
-import { getImageUrl } from '@/utils/imageUrl';
+import { getImageUrl, getImageUrlCandidates } from '@/utils/imageUrl';
 
 export type MediaImageSize = 'thumb' | 'web' | 'medium' | 'large' | 'original';
 
@@ -49,6 +49,13 @@ export const getMediaImageUrl = (
   size: MediaImageSize = 'medium',
 ): string => {
   return getImageUrl(file, size);
+};
+
+export const getMediaImageUrlCandidates = (
+  file: MediaFile,
+  size: MediaImageSize = 'medium',
+): string[] => {
+  return getImageUrlCandidates(file, size);
 };
 
 export const getMediaSrcSet = (file: MediaFile): string => {

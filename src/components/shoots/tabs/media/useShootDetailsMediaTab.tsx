@@ -66,7 +66,12 @@ import { useQueryClient } from '@tanstack/react-query';
 import { UploadDropzone, UploadProgressCard } from './MediaUploadPanels';
 import { MediaGrid } from './MediaGrid';
 import { MediaViewer } from './MediaViewer';
-import { getMediaImageUrl as getImageUrl, getMediaSrcSet as getSrcSet, isPreviewableImage } from './mediaPreviewUtils';
+import {
+  getMediaImageUrl as getImageUrl,
+  getMediaImageUrlCandidates as getImageUrlCandidates,
+  getMediaSrcSet as getSrcSet,
+  isPreviewableImage,
+} from './mediaPreviewUtils';
 import VideoThumbnail from '../../VideoThumbnail';
 import { getServicePricingForSqft } from '@/utils/servicePricing';
 import { EditedUploadSection, RawUploadSection } from './MediaUploadSections';
@@ -1143,6 +1148,7 @@ export function useShootDetailsMediaTab({
         viewerIndex={viewerIndex}
         setViewerIndex={setViewerIndex}
         getImageUrl={getImageUrl}
+        getImageUrlCandidates={getImageUrlCandidates}
         getSrcSet={getSrcSet}
         shoot={shoot}
         isAdmin={isAdmin}
