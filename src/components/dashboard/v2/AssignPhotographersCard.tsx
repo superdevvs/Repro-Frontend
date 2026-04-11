@@ -306,8 +306,8 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
                   status={availabilitySet.has(photographer.id) || !hasAvailabilityData ? 'free' : photographer.status}
                 />
                 <div className="min-w-0 flex-1">
-                  <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between lg:gap-3">
-                    <div className="min-w-[8.5rem] flex-1">
+                  <div className="flex flex-col gap-2">
+                    <div className="min-w-0 max-w-full">
                       <h3 className="text-sm font-semibold leading-tight text-foreground">
                         <HoverMarqueeText text={photographer.name} />
                       </h3>
@@ -323,7 +323,7 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
                         )}
                       </div>
                     </div>
-                    <div className="min-w-0 lg:w-[7.5rem] lg:flex-shrink-0 lg:text-right xl:w-[8.5rem]">
+                    <div className="min-w-0">
                       <span className="block text-[10px] sm:text-[11px] text-muted-foreground">
                         {photographer.region}
                       </span>
