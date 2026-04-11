@@ -62,6 +62,9 @@ export function ServiceCard({ service, availableServiceGroups, onUpdate }: Servi
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const isPhotoCategory = (service.category || '').toLowerCase().includes('photo');
+  const editRangeGridClass = editedService.photographer_required
+    ? 'grid-cols-[0.75fr_0.75fr_0.6fr_0.6fr_0.8fr_0.9fr_auto]'
+    : 'grid-cols-[0.8fr_0.8fr_0.6fr_0.6fr_0.8fr_auto]';
   const serviceGroupOptions = React.useMemo(
     () =>
       availableServiceGroups.map((group) => ({
@@ -86,7 +89,7 @@ export function ServiceCard({ service, availableServiceGroups, onUpdate }: Servi
     const newFrom = lastRange ? lastRange.sqft_to + 1 : 1;
     setSqftRanges([
       ...sqftRanges,
-      { sqft_from: newFrom, sqft_to: newFrom + 1499, duration: 60, price: 0, photographer_pay: null }
+      { sqft_from: newFrom, sqft_to: newFrom + 1499, duration: 60, price: 0, photographer_pay: null, photo_count: null }
     ]);
   };
 
@@ -137,10 +140,14 @@ export function ServiceCard({ service, availableServiceGroups, onUpdate }: Servi
       price: parseFloat(editedService.price),
       pricing_type: editedService.pricing_type || 'fixed',
       allow_multiple: editedService.allow_multiple || false,
-      delivery_time: parseInt(editedService.delivery_time),
+      delivery_time: parseInt(String(editedService.delivery_time), 10),
       icon: editedService.icon,
       photographer_required: editedService.photographer_required || false,
-      photographer_pay: editedService.photographer_pay ? parseFloat(String(editedService.photographer_pay)) : null,
+      photographer_pay: editedService.photographer_required
+        && editedService.photographer_pay !== ''
+        && editedService.photographer_pay != null
+        ? parseFloat(String(editedService.photographer_pay))
+        : null,
       photo_count: (isPhotoCategory && editedService.photo_count != null)
         ? editedService.photo_count
         : null,
@@ -154,7 +161,8 @@ export function ServiceCard({ service, availableServiceGroups, onUpdate }: Servi
         sqft_to: range.sqft_to,
         duration: range.duration,
         price: range.price,
-        photographer_pay: range.photographer_pay,
+        photographer_pay: editedService.photographer_required ? range.photographer_pay : null,
+        photo_count: range.photo_count ?? null,
       })) : [],
     };
   
@@ -311,6 +319,13 @@ export function ServiceCard({ service, availableServiceGroups, onUpdate }: Servi
                 )}
               </span>
             </div>
+
+            {service.photographer_required && service.photographer_pay != null && (
+              <div className="flex justify-between">
+                <span className="text-sm font-medium">Photographer Pay:</span>
+                <span>${Number(service.photographer_pay).toFixed(2)}</span>
+              </div>
+            )}
             
             {isPhotoCategory && service.photo_count != null && (
               <div className="flex justify-between">
@@ -483,18 +498,19 @@ export function ServiceCard({ service, availableServiceGroups, onUpdate }: Servi
                 </div>
 
                 {/* Header row */}
-                <div className="grid grid-cols-[0.8fr_0.8fr_0.6fr_0.6fr_0.8fr_auto] gap-2 text-xs font-medium text-muted-foreground">
+                <div className={`grid ${editRangeGridClass} gap-2 text-xs font-medium text-muted-foreground`}>
                   <div>From</div>
                   <div>To</div>
                   <div>Count</div>
                   <div>Dur (min)</div>
                   <div>Price ($)</div>
+                  {editedService.photographer_required && <div>Photographer Pay ($)</div>}
                   <div className="w-8"></div>
                 </div>
 
                 {/* Range rows */}
                 {sqftRanges.map((range, index) => (
-                  <div key={index} className="grid grid-cols-[0.8fr_0.8fr_0.6fr_0.6fr_0.8fr_auto] gap-2 items-center">
+                  <div key={index} className={`grid ${editRangeGridClass} gap-2 items-center`}>
                     <Input
                       type="number"
                       min="0"
@@ -536,6 +552,26 @@ export function ServiceCard({ service, availableServiceGroups, onUpdate }: Servi
                         className="h-8 text-sm pl-5"
                       />
                     </div>
+                    {editedService.photographer_required && (
+                      <div className="relative">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={range.photographer_pay ?? ''}
+                          onChange={(e) =>
+                            updateSqftRange(
+                              index,
+                              'photographer_pay',
+                              e.target.value === '' ? null : parseFloat(e.target.value),
+                            )
+                          }
+                          className="h-8 text-sm pl-5"
+                          placeholder="0.00"
+                        />
+                      </div>
+                    )}
                     <Button
                       type="button"
                       variant="ghost"
@@ -609,7 +645,7 @@ export function ServiceCard({ service, availableServiceGroups, onUpdate }: Servi
                   name="photographer_pay"
                   type="number"
                   step="0.01"
-                  value={editedService.photographer_pay || ''}
+                  value={editedService.photographer_pay ?? ''}
                   onChange={handleInputChange}
                   placeholder="0.00"
                 />

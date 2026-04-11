@@ -45,6 +45,7 @@ type Service = {
   allow_multiple?: boolean;
   delivery_time?: string;
   photographer_required?: boolean;
+  photographer_pay?: string | number;
   photo_count?: number;
   quantity?: number;
   active: boolean;
@@ -263,7 +264,9 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
       category_id: Number(newService.category),
       icon: newService.icon || null,
       photographer_required: newService.photographer_required || false,
-      photographer_pay: newService.photographer_pay
+      photographer_pay: newService.photographer_required
+        && newService.photographer_pay !== ''
+        && newService.photographer_pay != null
         ? parseFloat(String(newService.photographer_pay))
         : null,
       photo_count: isNewServicePhotoCategory && newService.photo_count != null
@@ -279,7 +282,7 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
             sqft_to: range.sqft_to,
             duration: range.duration,
             price: range.price,
-            photographer_pay: range.photographer_pay,
+            photographer_pay: newService.photographer_required ? range.photographer_pay : null,
             photo_count: range.photo_count ?? null,
           }))
         : [],
@@ -482,6 +485,17 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
       const mappedServices: Service[] = data.data.map((item) => {
         const categoryName = item.category?.name || '';
         const isPhotoCategory = categoryName.toLowerCase().includes('photo');
+        const sqftRanges = Array.isArray(item.sqft_ranges || item.sqftRanges)
+          ? (item.sqft_ranges || item.sqftRanges).map((range: any) => ({
+              id: range.id,
+              sqft_from: range.sqft_from,
+              sqft_to: range.sqft_to,
+              duration: range.duration ?? null,
+              price: range.price,
+              photographer_pay: range.photographer_pay ?? null,
+              photo_count: range.photo_count ?? null,
+            }))
+          : [];
 
         let photoCount = item.photo_count;
         if (photoCount == null && isPhotoCategory) {
@@ -498,6 +512,7 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
           delivery_time: item.delivery_time,
           category: categoryName,
           photographer_required: item.photographer_required ?? false,
+          photographer_pay: item.photographer_pay ?? null,
           photo_count: photoCount,
           quantity: item.quantity,
           icon: item.icon,
@@ -513,7 +528,7 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
                 description: group.description ?? '',
               }))
             : [],
-          sqft_ranges: item.sqft_ranges || item.sqftRanges || [],
+          sqft_ranges: sqftRanges,
           active: true,
         };
       });
@@ -539,6 +554,9 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
   const filteredServices = selectedCategory && normalizedSelectedCategory
     ? services.filter(service => normalizeCategoryName(service.category || '') === normalizedSelectedCategory)
     : services;
+  const addRangeGridClass = newService.photographer_required
+    ? 'grid-cols-[0.75fr_0.75fr_0.6fr_0.6fr_0.8fr_0.9fr_auto]'
+    : 'grid-cols-[0.8fr_0.8fr_0.6fr_0.6fr_0.8fr_auto]';
 
   const CATEGORY_ORDER = [
     'photo',
@@ -811,18 +829,19 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
                 </div>
 
                 {/* Header row */}
-                <div className="grid grid-cols-[0.8fr_0.8fr_0.6fr_0.6fr_0.8fr_auto] gap-2 text-xs font-medium text-muted-foreground">
+                <div className={`grid ${addRangeGridClass} gap-2 text-xs font-medium text-muted-foreground`}>
                   <div>From</div>
                   <div>To</div>
                   <div>Count</div>
                   <div>Dur (min)</div>
                   <div>Price ($)</div>
+                  {newService.photographer_required && <div>Photographer Pay ($)</div>}
                   <div className="w-8"></div>
                 </div>
 
                 {/* Range rows */}
                 {newSqftRanges.map((range, index) => (
-                  <div key={index} className="grid grid-cols-[0.8fr_0.8fr_0.6fr_0.6fr_0.8fr_auto] gap-2 items-center">
+                  <div key={index} className={`grid ${addRangeGridClass} gap-2 items-center`}>
                     <Input
                       type="number"
                       min="0"
@@ -864,6 +883,26 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
                         className="h-8 text-sm pl-5"
                       />
                     </div>
+                    {newService.photographer_required && (
+                      <div className="relative">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={range.photographer_pay ?? ''}
+                          onChange={(e) =>
+                            updateNewSqftRange(
+                              index,
+                              'photographer_pay',
+                              e.target.value === '' ? null : parseFloat(e.target.value),
+                            )
+                          }
+                          className="h-8 text-sm pl-5"
+                          placeholder="0.00"
+                        />
+                      </div>
+                    )}
                     <Button
                       type="button"
                       variant="ghost"

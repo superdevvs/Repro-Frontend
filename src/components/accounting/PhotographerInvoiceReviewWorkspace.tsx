@@ -113,6 +113,11 @@ const formatTimestamp = (value?: string | null) => {
   return new Date(value).toLocaleString();
 };
 
+const getSubmittedTimestamp = (invoice: WeeklyInvoice | null) => {
+  if (!invoice) return undefined;
+  return invoice.modified_at || invoice.created_at || invoice.last_activity_at || null;
+};
+
 const formatRelativeTimestamp = (value?: string | null) => {
   if (!value) return 'No recent activity';
 
@@ -276,7 +281,7 @@ const DetailShell = ({
           </div>
           <div className="rounded-xl border border-border/70 bg-muted/20 px-4 py-3">
             <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Submitted</div>
-            <div className="mt-2 text-sm font-medium">{formatTimestamp(invoice.modified_at)}</div>
+            <div className="mt-2 text-sm font-medium">{formatTimestamp(getSubmittedTimestamp(invoice))}</div>
           </div>
         </div>
       </CardHeader>

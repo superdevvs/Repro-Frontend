@@ -210,26 +210,28 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
                   status={availabilitySet.has(photographer.id) || !hasAvailabilityData ? 'free' : photographer.status}
                 />
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                    <div className="min-w-0">
                       <h3 className="text-xs sm:text-sm font-semibold text-foreground truncate">
                         {photographer.name}
                       </h3>
-                      <div className="mt-1 flex items-center gap-2 text-[10px] sm:text-[11px] text-muted-foreground">
-                        <span>{photographer.loadToday}/5 jobs</span>
+                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] sm:text-[11px] text-muted-foreground">
+                        {(photographer.loadToday ?? 0) > 0 && (
+                          <span>{photographer.loadToday} jobs</span>
+                        )}
                         {photographer.travelRange != null && (
-                          <span className="inline-flex items-center gap-0.5 text-muted-foreground/70">
+                          <span className="inline-flex items-center gap-0.5 whitespace-nowrap text-muted-foreground/70">
                             <MapPin size={10} className="sm:w-3 sm:h-3" />
                             {photographer.travelRange} {photographer.travelRangeUnit === 'km' ? 'km' : 'mi'}
                           </span>
                         )}
                       </div>
                     </div>
-                    <div className="w-[7.5rem] flex-shrink-0 text-right">
-                      <span className="block truncate text-[10px] sm:text-[11px] text-muted-foreground">
+                    <div className="min-w-0 sm:w-[8.5rem] sm:flex-shrink-0 sm:text-right">
+                      <span className="block text-[10px] sm:text-[11px] text-muted-foreground">
                         {photographer.region}
                       </span>
-                      <span className="mt-1 block truncate text-[10px] sm:text-[11px] text-muted-foreground/70">
+                      <span className="mt-1 block text-[10px] sm:text-[11px] text-muted-foreground/70">
                         Next slot {photographer.nextSlot ? photographer.nextSlot : 'N/A'}
                       </span>
                     </div>
