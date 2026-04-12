@@ -827,7 +827,7 @@ export function MediaViewer({
     }),
   };
   const sidebarActionButtonClassName =
-    'h-10 min-w-0 justify-start border-white/10 bg-white/5 px-3 text-[13px] text-white hover:bg-white/10 hover:text-white lg:h-9 lg:px-2.5 lg:text-[12px] xl:h-10 xl:px-3 xl:text-sm';
+    'h-auto min-h-10 min-w-0 justify-start whitespace-normal break-words px-3 py-2 text-left text-[13px] leading-snug text-white hover:bg-white/10 hover:text-white lg:min-h-9 lg:px-2.5 lg:py-1.5 lg:text-[12px] xl:min-h-10 xl:px-3 xl:py-2 xl:text-sm';
   const mobileActionMenuItemClassName =
     'gap-2 rounded-md px-2 py-2 text-sm text-white focus:bg-white/10 focus:text-white';
   const showMobileActionMenu =
@@ -1300,7 +1300,7 @@ export function MediaViewer({
               <div className="min-h-0 min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md lg:flex lg:min-h-0 lg:flex-col">
                 <ScrollArea className="h-full lg:min-h-0 lg:flex-1">
                   <div className="space-y-3 p-2.5 text-white sm:p-3 lg:space-y-2.5 lg:p-2.5 xl:p-3 2xl:space-y-3 2xl:p-3.5">
-                    <div className="hidden gap-2 sm:grid-cols-2 lg:grid">
+                    <div className="hidden min-w-0 gap-2 sm:grid-cols-2 lg:grid">
                       {canSetHero && (
                         <Button
                           variant="outline"
@@ -1342,7 +1342,7 @@ export function MediaViewer({
                         </Button>
                       )}
                       {(slideshowAvailable || canRequestModification) && (
-                        <div className="sm:col-span-2 grid gap-2 sm:grid-cols-2">
+                        <div className="sm:col-span-2 grid min-w-0 gap-2 sm:grid-cols-2">
                           {slideshowAvailable && (
                             <Button
                               variant="outline"
@@ -1356,7 +1356,7 @@ export function MediaViewer({
                           {canRequestModification && (
                             <Button
                               variant="destructive"
-                              className={`h-10 min-w-0 justify-start px-3 text-[13px] xl:h-11 xl:text-sm ${slideshowAvailable ? '' : 'sm:col-span-2'}`}
+                              className={`h-auto min-h-10 min-w-0 justify-start whitespace-normal break-words px-3 py-2 text-left text-[13px] leading-snug xl:min-h-11 xl:text-sm ${slideshowAvailable ? '' : 'sm:col-span-2'}`}
                               onClick={() => {
                                 blurActiveElement();
                                 setShowRequestComposer((current) => !current);
