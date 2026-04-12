@@ -965,7 +965,7 @@ export function MediaViewer({
             </div>
           </div>
         ) : (
-        <div className="relative z-10 flex h-full w-full items-stretch justify-stretch">
+        <div className="relative z-10 flex h-full w-full min-h-0 overflow-hidden items-stretch justify-stretch">
           {showMobileActionMenu && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
