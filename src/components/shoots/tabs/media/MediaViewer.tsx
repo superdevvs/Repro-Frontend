@@ -1041,7 +1041,7 @@ export function MediaViewer({
           </Button>
 
           <div className="flex h-full w-full min-h-0 flex-col px-1.5 pb-1.5 pt-1.5 sm:px-3 sm:pb-3 sm:pt-2 lg:px-3 lg:pb-3 lg:pt-2 2xl:px-4 2xl:pb-4 2xl:pt-3">
-            <div className="grid min-h-0 flex-1 grid-cols-1 gap-2.5 lg:grid-cols-[minmax(0,1fr)_minmax(300px,20rem)] xl:grid-cols-[minmax(0,1fr)_minmax(320px,21rem)] 2xl:grid-cols-[minmax(0,1fr)_minmax(340px,22.5rem)] lg:gap-2.5 2xl:gap-3">
+            <div className="grid min-h-0 flex-1 grid-cols-1 gap-2.5 lg:grid-cols-[minmax(0,1fr)_18.5rem] xl:grid-cols-[minmax(0,1fr)_19.5rem] 2xl:grid-cols-[minmax(0,1fr)_21rem] lg:gap-2.5 2xl:gap-3">
               <div className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md">
                 {/* Top Metadata Bar */}
                 <div className="flex flex-wrap items-start justify-between gap-2 border-b border-white/10 px-2.5 py-2 sm:px-3 sm:py-2.5 lg:px-3 lg:py-2 2xl:px-3.5 2xl:py-2.5">
@@ -1117,9 +1117,9 @@ export function MediaViewer({
                   )}
                 </div>
 
-                <div className="flex min-h-0 flex-1 flex-col">
-                  <div className="flex min-h-0 flex-1 items-stretch justify-center px-1.5 pb-1.5 pt-1.5 sm:px-2.5 sm:pb-2.5 sm:pt-2 lg:px-2 lg:pb-2 lg:pt-1.5">
-                    <div className="relative flex h-full min-h-[48dvh] w-full flex-1 items-center justify-center overflow-auto bg-black/75 p-0 sm:min-h-[56dvh] sm:rounded-lg sm:p-1.5 lg:min-h-0 lg:rounded-lg lg:bg-black/50 lg:p-1 xl:rounded-xl xl:p-1.5">
+                <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_auto]">
+                  <div className="min-h-0 px-1.5 pb-1.5 pt-1.5 sm:px-2.5 sm:pb-2.5 sm:pt-2 lg:px-2 lg:pb-2 lg:pt-1.5">
+                    <div className="relative flex h-full min-h-0 w-full items-center justify-center overflow-auto bg-black/75 p-0 sm:min-h-[56dvh] sm:rounded-lg sm:p-1.5 lg:rounded-lg lg:bg-black/50 lg:p-1 xl:rounded-xl xl:p-1.5">
                       {currentIndex > 0 && (
                         <Button
                           variant="ghost"
