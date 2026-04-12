@@ -27,6 +27,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Client } from "@/types/clients";
 import type { RepDetails } from "@/types/auth";
+import { EmailHealthBadge } from "@/components/accounts/EmailHealthBadge";
 
 interface AccountCardProps {
   user: User;
@@ -112,7 +113,10 @@ export function AccountCard({
             </Avatar>
             <div>
               <h3 className="font-medium text-base">{user.name}</h3>
-              <p className="text-sm text-muted-foreground">{user.email}</p>
+              <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                <span>{user.email}</span>
+                <EmailHealthBadge emailHealth={user.email_health} />
+              </div>
             </div>
           </div>
           
@@ -221,6 +225,11 @@ export function AccountCard({
             <div className="flex items-center gap-2 text-sm">
               <span className="font-medium">Phone:</span>
               <span className="text-muted-foreground">{user.phone}</span>
+            </div>
+          )}
+          {user.email_health?.warning_message && (
+            <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+              {user.email_health.warning_message}
             </div>
           )}
           {user.role === 'salesRep' && repDetails && (

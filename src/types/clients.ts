@@ -1,6 +1,6 @@
 
 import type { ServiceGroupSummary } from '@/types/serviceGroups';
-import type { ClientDiscountType } from '@/types/auth';
+import type { ClientDiscountType, EmailHealth } from '@/types/auth';
 
 /**
  * Client type definition
@@ -31,6 +31,7 @@ export interface Client {
   client_discount_type?: ClientDiscountType;
   clientDiscountValue?: number | null;
   client_discount_value?: number | null;
+  email_health?: EmailHealth;
 }
 
 /**

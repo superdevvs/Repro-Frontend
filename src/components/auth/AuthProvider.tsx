@@ -1,6 +1,7 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import type { UserData, UserRole, AuthSession } from '@/types/auth';
 import { API_BASE_URL } from '@/config/env';
+import { normalizeEmailHealth } from '@/utils/emailHealth';
 
 // Define the Role type via shared types
 export type Role = UserRole;
@@ -142,6 +143,7 @@ const normalizeApiUser = (apiUser: any, base?: UserData | null): UserData => {
     createdAt: apiUser?.created_at ?? apiUser?.createdAt ?? base?.createdAt,
     isActive: apiUser?.account_status ? apiUser?.account_status === 'active' : base?.isActive,
     metadata: apiUser?.metadata ?? base?.metadata ?? {},
+    email_health: normalizeEmailHealth(apiUser?.email_health ?? base?.email_health),
   };
 };
 

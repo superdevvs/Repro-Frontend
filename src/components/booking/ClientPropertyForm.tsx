@@ -68,6 +68,7 @@ import AddressLookupField, { buildNormalizedPropertyDetails } from '@/components
 import { normalizeState, STATE_OPTIONS } from '@/utils/stateUtils';
 // add near other imports at top
 import { AccountForm } from '@/components/accounts/AccountForm';
+import { EmailHealthBadge } from '@/components/accounts/EmailHealthBadge';
 import type { AccountFormValues } from '@/components/accounts/AccountForm';
 import type { User } from '@/components/auth/AuthProvider';
 import {
@@ -90,6 +91,7 @@ import type { ServiceWithPricing, SqftRange } from '@/utils/servicePricing';
 import { formatPrice, getServicePricingForSqft } from '@/utils/servicePricing';
 import { getAvatarUrl } from '@/utils/defaultAvatars';
 import { cn } from '@/lib/utils';
+import type { EmailHealth } from '@/types/auth';
 
 
 interface PackageCategory {
@@ -228,6 +230,57 @@ const getClientServiceGroupIds = (client?: Client | null) => {
     return client.service_groups.map((group) => String(group.id));
   }
   return [];
+};
+
+const getClientEmailHealthAlert = (emailHealth?: EmailHealth | null) => {
+  const status = emailHealth?.status;
+  if (!status || status === 'verified') {
+    return null;
+  }
+
+  if (status === 'bounced' || status === 'invalid') {
+    return {
+      containerClassName:
+        'border-rose-200 bg-rose-50/95 text-rose-950 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-100',
+      iconClassName: 'text-rose-600 dark:text-rose-300',
+      eyebrowClassName: 'text-rose-700/90 dark:text-rose-200/90',
+      title: 'Client email needs correction',
+      description:
+        emailHealth.warning_message ||
+        'Portal invites and automated booking updates are blocked until this email is corrected.',
+      detail:
+        emailHealth.bounce_reason ||
+        'Update the client email before relying on booking, delivery, or invoice notifications.',
+    };
+  }
+
+  if (status === 'risky') {
+    return {
+      containerClassName:
+        'border-orange-200 bg-orange-50/95 text-orange-950 dark:border-orange-500/40 dark:bg-orange-500/10 dark:text-orange-100',
+      iconClassName: 'text-orange-600 dark:text-orange-300',
+      eyebrowClassName: 'text-orange-700/90 dark:text-orange-200/90',
+      title: 'Client email may be risky',
+      description:
+        emailHealth.warning_message ||
+        'Review this address before relying on automated emails for this booking.',
+      detail:
+        'Important automated sends may be suppressed until the email is corrected or verified.',
+    };
+  }
+
+  return {
+    containerClassName:
+      'border-amber-200 bg-amber-50/95 text-amber-950 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100',
+    iconClassName: 'text-amber-600 dark:text-amber-300',
+    eyebrowClassName: 'text-amber-700/90 dark:text-amber-200/90',
+    title: 'Client email is unverified',
+    description:
+      emailHealth.warning_message ||
+      'This client email has not been verified yet.',
+    detail:
+      'Important automated sends may be suppressed until the client verifies the address.',
+  };
 };
 
 const getPackageServiceGroupIds = (pkg?: PackageOption | null) => {
@@ -812,6 +865,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
         id: String(data.id),
         name: data.name || `${data.firstName} ${data.lastName}`.trim(),
         email: data.email,
+        email_health: (data as any).email_health,
         phone: data.phone || '',
         company: data.company || '',
         status: 'active',
@@ -1096,6 +1150,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                 name="clientId"
                 render={({ field }) => {
                   const selectedClient = allClients.find((client) => client.id === field.value);
+                  const selectedClientEmailAlert = getClientEmailHealthAlert(selectedClient?.email_health);
                   const selectedLabel = selectedClient?.name || 'Choose client';
                   const emptyLabel = isSearching ? 'No clients found for this search.' : 'No clients available.';
                   const handleSelectClient = (clientId: string) => {
@@ -1143,9 +1198,12 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center justify-between gap-2">
                                   <span className="font-medium truncate">{client.name}</span>
-                                  {field.value === client.id && (
-                                    <Check className="h-4 w-4 text-primary" />
-                                  )}
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    <EmailHealthBadge emailHealth={client.email_health} />
+                                    {field.value === client.id && (
+                                      <Check className="h-4 w-4 text-primary" />
+                                    )}
+                                  </div>
                                 </div>
                                 {client.company && (
                                   <div className="text-xs text-muted-foreground truncate">{client.company}</div>
@@ -1210,6 +1268,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                                         </Avatar>
                                       )}
                                       <span className="truncate">{selectedLabel}</span>
+                                      <EmailHealthBadge emailHealth={selectedClient?.email_health} />
                                     </span>
                                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                   </Button>
@@ -1254,6 +1313,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                                           </Avatar>
                                         )}
                                         <span className="truncate">{selectedLabel}</span>
+                                        <EmailHealthBadge emailHealth={selectedClient?.email_health} />
                                       </span>
                                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                     </Button>
@@ -1280,6 +1340,40 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                             New Client
                           </Button>
                         </div>
+                        {selectedClientEmailAlert && selectedClient && (
+                          <div
+                            className={cn(
+                              'rounded-xl border px-4 py-3 shadow-sm',
+                              selectedClientEmailAlert.containerClassName,
+                            )}
+                          >
+                            <div className="flex items-start gap-3">
+                              <AlertCircle className={cn('mt-0.5 h-4 w-4 shrink-0', selectedClientEmailAlert.iconClassName)} />
+                              <div className="min-w-0 space-y-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em]">
+                                    Email health
+                                  </p>
+                                  <EmailHealthBadge emailHealth={selectedClient.email_health} />
+                                </div>
+                                <p className="text-sm font-semibold leading-snug">
+                                  {selectedClientEmailAlert.title}
+                                </p>
+                                <p className="text-sm leading-snug">
+                                  {selectedClientEmailAlert.description}
+                                </p>
+                                <p className={cn('text-xs leading-snug', selectedClientEmailAlert.eyebrowClassName)}>
+                                  Current email: {selectedClient.email}
+                                </p>
+                                {selectedClientEmailAlert.detail && (
+                                  <p className={cn('text-xs leading-snug', selectedClientEmailAlert.eyebrowClassName)}>
+                                    {selectedClientEmailAlert.detail}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                       <FormMessage />
                     </FormItem>

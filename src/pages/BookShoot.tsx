@@ -23,6 +23,7 @@ import API_ROUTES from '@/lib/api';
 import { API_BASE_URL } from '@/config/env';
 import { normalizeState, isValidState } from '@/utils/stateUtils';
 import { calculatePricingBreakdown, getTaxRateForState, type PricingBreakdown } from '@/utils/pricing';
+import { normalizeEmailHealth } from '@/utils/emailHealth';
 
 type SqftRange = {
   id?: number;
@@ -461,6 +462,7 @@ const BookShoot = () => {
           return {
             ...client,
             id: client.id.toString(),
+            email_health: normalizeEmailHealth(client.email_health),
             companyNotes: client.companyNotes ?? client.company_notes ?? '',
             shootCcEmails: client.shootCcEmails ?? client.shoot_cc_emails ?? [],
             shoot_cc_emails: client.shoot_cc_emails ?? client.shootCcEmails ?? [],

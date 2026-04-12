@@ -1,7 +1,16 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, Upload, ImageIcon } from 'lucide-react';
+import { Loader2, Upload, ImageIcon, AlertTriangle, RefreshCcw } from 'lucide-react';
+
+export interface UploadIssue {
+  id: string;
+  fileName: string;
+  errorType: string;
+  message: string;
+  retryable: boolean;
+  nextStep?: string | null;
+}
 
 interface UploadProgressCardProps {
   fileCount: number;
@@ -132,6 +141,70 @@ export function UploadDropzone({
         <Upload className="h-4 w-4 text-muted-foreground" />
         <div className="text-xs text-muted-foreground">{browseLabel}</div>
       </label>
+    </div>
+  );
+}
+
+interface UploadResultsPanelProps {
+  title: string;
+  issues: UploadIssue[];
+  limitHint?: string;
+  onRetryAll?: () => void;
+  onRetryIssue?: (issueId: string) => void;
+}
+
+export function UploadResultsPanel({
+  title,
+  issues,
+  limitHint,
+  onRetryAll,
+  onRetryIssue,
+}: UploadResultsPanelProps) {
+  if (issues.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="space-y-3 rounded-lg border border-rose-200 bg-rose-50 p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 text-sm font-semibold text-rose-900">
+            <AlertTriangle className="h-4 w-4" />
+            <span>{title}</span>
+          </div>
+          <p className="text-xs text-rose-700">
+            {issues.length} file{issues.length === 1 ? '' : 's'} need attention.
+          </p>
+          {limitHint && <p className="text-xs text-rose-700">{limitHint}</p>}
+        </div>
+        {onRetryAll && issues.some((issue) => issue.retryable) && (
+          <Button type="button" size="sm" variant="outline" onClick={onRetryAll}>
+            <RefreshCcw className="mr-2 h-4 w-4" />
+            Retry Failed
+          </Button>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        {issues.map((issue) => (
+          <div key={issue.id} className="rounded-md border border-rose-200 bg-white p-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-slate-900">{issue.fileName}</p>
+                <p className="mt-1 text-sm text-slate-700">{issue.message}</p>
+                {issue.nextStep && (
+                  <p className="mt-1 text-xs text-slate-500">{issue.nextStep}</p>
+                )}
+              </div>
+              {issue.retryable && onRetryIssue && (
+                <Button type="button" size="sm" variant="ghost" onClick={() => onRetryIssue(issue.id)}>
+                  Retry
+                </Button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

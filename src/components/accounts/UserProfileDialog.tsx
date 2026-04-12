@@ -21,6 +21,7 @@ import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
 import { ShootData } from "@/types/shoots";
 import type { RepDetails } from "@/types/auth";
+import { EmailHealthBadge } from "@/components/accounts/EmailHealthBadge";
 
 interface UserActivity {
   id: string;
@@ -149,6 +150,7 @@ export function UserProfileDialog({
               <p className="text-sm text-muted-foreground">{user.email}</p>
               <div className="mt-2 flex flex-wrap justify-center gap-1">
                 <Badge>{formatRoleLabel(user.role)}</Badge>
+                <EmailHealthBadge emailHealth={user.email_health} />
                 {secondaryRoleList.map((role: string) => (
                   <Badge key={`${user.id}-${role}`} variant="outline" className="text-xs px-2 py-0.5 opacity-80">
                     {formatRoleLabel(role)}
@@ -180,6 +182,23 @@ export function UserProfileDialog({
                     <div>
                       <p className="text-sm text-muted-foreground">Company</p>
                       <p className="font-medium">{user.company}</p>
+                    </div>
+                  )}
+
+                  {user.email_health?.status && (
+                    <div className="md:col-span-2 rounded-lg border border-border/70 p-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm text-muted-foreground">Email Health</p>
+                        <EmailHealthBadge emailHealth={user.email_health} />
+                      </div>
+                      {user.email_health.warning_message && (
+                        <p className="mt-2 text-sm">{user.email_health.warning_message}</p>
+                      )}
+                      {user.email_health.bounce_reason && (
+                        <p className="mt-2 text-sm text-muted-foreground">
+                          Last bounce: {user.email_health.bounce_reason}
+                        </p>
+                      )}
                     </div>
                   )}
 

@@ -16,6 +16,7 @@ import { User, Role } from "@/components/auth/AuthProvider";
 import { useAuth } from "@/components/auth";
 import { Camera, ExternalLink, Trash2, LogIn } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { EmailHealthBadge } from "@/components/accounts/EmailHealthBadge";
 
 interface AccountListProps {
   users: Array<User & { active?: boolean; accountRep?: string; lastShootDate?: string }>;
@@ -124,7 +125,10 @@ export function AccountList({
                   </Avatar>
                   <div>
                     <div className="font-medium">{user.name}</div>
-                    <div className="text-sm text-muted-foreground">{user.email}</div>
+                    <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                      <span>{user.email}</span>
+                      <EmailHealthBadge emailHealth={user.email_health} />
+                    </div>
                   </div>
                 </div>
               </TableCell>

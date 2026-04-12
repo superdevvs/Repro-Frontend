@@ -30,7 +30,7 @@ interface MediaViewerProps {
   currentIndex: number;
   onIndexChange: (index: number) => void;
   getImageUrl: (file: MediaFile, size?: 'thumb' | 'web' | 'medium' | 'large' | 'original') => string;
-  getSrcSet: (file: MediaFile) => string;
+  getSrcSet?: (file: MediaFile) => string;
   shoot?: ShootData;
   isAdmin?: boolean;
   isClient?: boolean;

@@ -14,7 +14,7 @@ import {
   triggerShootHistoryRefresh,
   triggerShootListRefresh,
 } from '@/realtime/realtimeRefreshBus';
-import { UploadDropzone, UploadProgressCard } from './MediaUploadPanels';
+import { UploadDropzone, UploadProgressCard, UploadResultsPanel, type UploadIssue } from './MediaUploadPanels';
 
 type ShootMediaServiceObject = {
   name?: string;
@@ -65,6 +65,13 @@ const TRACKED_MEDIA_TYPES: UploadQueueMediaType[] = [
   'drone',
   'floorplan',
 ];
+
+const DEFAULT_UPLOAD_LIMITS = {
+  perFileBytes: 500 * 1024 * 1024,
+  totalRequestBytes: 550 * 1024 * 1024,
+  perFileLabel: '500MB',
+  totalRequestLabel: '550MB',
+} as const;
 
 const UPLOAD_CLASSIFICATION_OPTIONS: UploadClassificationOption[] = [
   {
@@ -131,15 +138,183 @@ const triggerUploadRefreshes = (shootId: string | number) => {
   triggerDashboardOverviewRefresh();
 };
 
-function buildUploadWarningDescription(errors: string[], totalCount: number): string {
-  const failedCount = errors.length;
-  const failedNames = errors
-    .slice(0, 3)
-    .map((error) => error.split(':')[0]?.trim())
-    .filter(Boolean);
-  const remainingCount = failedCount - failedNames.length;
+function formatUploadFileSize(bytes?: number): string {
+  if (!bytes) return '0 B';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
 
-  return `${failedCount} of ${totalCount} file${failedCount === 1 ? '' : 's'} failed to upload.${failedNames.length > 0 ? ` Failed: ${failedNames.join(', ')}` : ''}${remainingCount > 0 ? `, plus ${remainingCount} more.` : ''}`;
+function parseUploadLimitToBytes(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+    return value;
+  }
+
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const match = value.trim().match(/^([\d.]+)\s*(b|kb|mb|gb)?$/i);
+  if (!match) {
+    return null;
+  }
+
+  const amount = Number(match[1]);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return null;
+  }
+
+  const unit = (match[2] || 'b').toLowerCase();
+  const multiplierMap: Record<string, number> = {
+    b: 1,
+    kb: 1024,
+    mb: 1024 * 1024,
+    gb: 1024 * 1024 * 1024,
+  };
+
+  return Math.round(amount * (multiplierMap[unit] || 1));
+}
+
+function resolveUploadLimits(uploadLimits?: any) {
+  return {
+    perFileBytes: parseUploadLimitToBytes(uploadLimits?.per_file) ?? DEFAULT_UPLOAD_LIMITS.perFileBytes,
+    totalRequestBytes:
+      parseUploadLimitToBytes(uploadLimits?.total_request) ?? DEFAULT_UPLOAD_LIMITS.totalRequestBytes,
+    perFileLabel: String(uploadLimits?.per_file || DEFAULT_UPLOAD_LIMITS.perFileLabel),
+    totalRequestLabel: String(uploadLimits?.total_request || DEFAULT_UPLOAD_LIMITS.totalRequestLabel),
+  };
+}
+
+function buildUploadLimitDescription(uploadLimits?: any): string | undefined {
+  const resolved = resolveUploadLimits(uploadLimits);
+  return `Limits: up to ${resolved.perFileLabel} per file, ${resolved.totalRequestLabel} per request. RAW formats like .NEF are supported.`;
+}
+
+function buildUploadSummary(issues: UploadIssue[]): string {
+  if (issues.length === 0) {
+    return 'Upload failed.';
+  }
+
+  const groupedCounts = issues.reduce<Record<string, number>>((acc, issue) => {
+    acc[issue.errorType] = (acc[issue.errorType] || 0) + 1;
+    return acc;
+  }, {});
+  const [primaryErrorType] = Object.entries(groupedCounts).sort((a, b) => b[1] - a[1])[0] || ['server_error'];
+  const labelMap: Record<string, string> = {
+    oversize: 'upload size limit exceeded',
+    invalid_file: 'the files were rejected before upload completed',
+    unsupported_format: 'unsupported file format',
+    forbidden: 'you do not have permission to upload these files',
+    invalid_workflow_stage: 'this shoot is not in an uploadable stage',
+    storage_failure: 'storage processing failed after transfer',
+    network_failure: 'the upload connection was interrupted',
+    server_error: 'the server could not finish processing the files',
+  };
+
+  return `${issues.length} file${issues.length === 1 ? '' : 's'} failed: ${labelMap[primaryErrorType] || 'upload failed'}.`;
+}
+
+function parseUploadIssues(
+  file: File,
+  index: number,
+  responseText?: string,
+  fallbackMessage = 'Upload failed',
+): { issues: UploadIssue[]; uploadLimits?: any } {
+  let parsedPayload: any = null;
+  if (responseText) {
+    try {
+      parsedPayload = JSON.parse(responseText);
+    } catch {
+      parsedPayload = null;
+    }
+  }
+
+  const uploadLimits = parsedPayload?.upload_limits;
+  const structuredErrors = Array.isArray(parsedPayload?.errors) ? parsedPayload.errors : [];
+
+  if (structuredErrors.length > 0) {
+    return {
+      issues: structuredErrors.map((error: any, errorIndex: number) => ({
+        id: `${getQueueFileKey(file, index)}::${errorIndex}`,
+        fileName: error?.file_name || error?.filename || file.name,
+        errorType: error?.error_type || parsedPayload?.error_type || 'server_error',
+        message: error?.message || error?.error || parsedPayload?.message || fallbackMessage,
+        retryable: Boolean(error?.retryable),
+        nextStep: error?.next_step || null,
+      })),
+      uploadLimits,
+    };
+  }
+
+  return {
+    issues: [
+      {
+        id: getQueueFileKey(file, index),
+        fileName: file.name,
+        errorType: parsedPayload?.error_type || 'server_error',
+        message: parsedPayload?.message || fallbackMessage,
+        retryable: !['oversize', 'invalid_file', 'unsupported_format', 'forbidden', 'invalid_workflow_stage'].includes(
+          parsedPayload?.error_type || '',
+        ),
+        nextStep: parsedPayload?.error_type === 'oversize'
+          ? 'Reduce the file size or split the upload into smaller batches before retrying.'
+          : parsedPayload?.error_type === 'invalid_workflow_stage'
+            ? 'Move the shoot to an uploadable workflow stage before retrying.'
+            : null,
+      },
+    ],
+    uploadLimits,
+  };
+}
+
+function mergeUploadIssueLists(existingIssues: UploadIssue[], nextIssues: UploadIssue[]): UploadIssue[] {
+  const merged = new Map<string, UploadIssue>();
+  existingIssues.forEach((issue) => merged.set(issue.id, issue));
+  nextIssues.forEach((issue) => merged.set(issue.id, issue));
+  return Array.from(merged.values());
+}
+
+function validateFilesAgainstUploadLimits(
+  files: File[],
+  existingFiles: File[] = [],
+  uploadLimits?: any,
+): { acceptedFiles: File[]; rejectedIssues: UploadIssue[] } {
+  const resolved = resolveUploadLimits(uploadLimits);
+  const acceptedFiles: File[] = [];
+  const rejectedIssues: UploadIssue[] = [];
+  let runningTotal = existingFiles.reduce((sum, file) => sum + (file.size || 0), 0);
+
+  files.forEach((file, index) => {
+    if ((file.size || 0) > resolved.perFileBytes) {
+      rejectedIssues.push({
+        id: getQueueFileKey(file, index),
+        fileName: file.name,
+        errorType: 'oversize',
+        message: `${file.name} is ${formatUploadFileSize(file.size)} and exceeds the ${resolved.perFileLabel} per-file limit.`,
+        retryable: false,
+        nextStep: `Reduce the file size or split the work into smaller exports before retrying. The current per-file limit is ${resolved.perFileLabel}.`,
+      });
+      return;
+    }
+
+    if (runningTotal + (file.size || 0) > resolved.totalRequestBytes) {
+      rejectedIssues.push({
+        id: getQueueFileKey(file, index),
+        fileName: file.name,
+        errorType: 'oversize',
+        message: `Adding ${file.name} would push this upload above the ${resolved.totalRequestLabel} total request limit.`,
+        retryable: false,
+        nextStep: `Split the upload into smaller batches that stay under ${resolved.totalRequestLabel} total per request.`,
+      });
+      return;
+    }
+
+    acceptedFiles.push(file);
+    runningTotal += file.size || 0;
+  });
+
+  return { acceptedFiles, rejectedIssues };
 }
 
 function isVideoUpload(file: File): boolean {
@@ -472,6 +647,11 @@ export function EditedUploadSection({
   const { trackUpload } = useUpload();
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [queueClassifications, setQueueClassifications] = useState<QueueClassificationMap>({});
+  const [uploadIssues, setUploadIssues] = useState<UploadIssue[]>([]);
+  const [uploadLimitHint, setUploadLimitHint] = useState<string | undefined>(buildUploadLimitDescription({
+    per_file: '500MB',
+    total_request: '550MB',
+  }));
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [notes, setNotes] = useState('');
@@ -487,9 +667,14 @@ export function EditedUploadSection({
   useEffect(() => {
     setSelectedFiles([]);
     setQueueClassifications({});
+    setUploadIssues([]);
     setUploadProgress(0);
     setIsUploading(false);
     setNotes('');
+    setUploadLimitHint(buildUploadLimitDescription({
+      per_file: '500MB',
+      total_request: '550MB',
+    }));
   }, [shoot.id]);
 
   const combinedCounts = useMemo(() => {
@@ -506,15 +691,28 @@ export function EditedUploadSection({
   const mergeSelectedFiles = (incomingFiles: File[]) => {
     if (incomingFiles.length === 0) return;
 
-    setSelectedFiles((currentFiles) => {
-      const nextFiles = [...currentFiles, ...incomingFiles];
-      setQueueClassifications((currentMap) =>
-        addFilesToClassificationMap(currentFiles, nextFiles, currentMap, (file) =>
-          !isVideoUpload(file) && isEditedFloorplanByName(file.name) ? 'floorplan' : undefined,
-        ),
-      );
-      return nextFiles;
-    });
+    const validation = validateFilesAgainstUploadLimits(incomingFiles, selectedFiles);
+
+    if (validation.rejectedIssues.length > 0) {
+      setUploadIssues((currentIssues) => mergeUploadIssueLists(currentIssues, validation.rejectedIssues));
+      toast({
+        title: validation.acceptedFiles.length > 0 ? 'Some files were skipped' : 'Files skipped',
+        description: buildUploadSummary(validation.rejectedIssues),
+        variant: 'destructive',
+      });
+    }
+
+    if (validation.acceptedFiles.length === 0) {
+      return;
+    }
+
+    const nextFiles = [...selectedFiles, ...validation.acceptedFiles];
+    setSelectedFiles(nextFiles);
+    setQueueClassifications((currentMap) =>
+      addFilesToClassificationMap(selectedFiles, nextFiles, currentMap, (file) =>
+        !isVideoUpload(file) && isEditedFloorplanByName(file.name) ? 'floorplan' : undefined,
+      ),
+    );
   };
 
   const removeSelectedFile = (indexToRemove: number) => {
@@ -525,8 +723,27 @@ export function EditedUploadSection({
     });
   };
 
-  const handleUpload = () => {
-    if (selectedFiles.length === 0 || isUploading) {
+  const startUpload = (overrideFiles?: File[], overrideClassifications?: QueueClassificationMap) => {
+    const nextFiles = overrideFiles ?? selectedFiles;
+    if (nextFiles.length === 0 || isUploading) {
+      return;
+    }
+
+    const preflightValidation = validateFilesAgainstUploadLimits(nextFiles);
+    if (preflightValidation.rejectedIssues.length > 0) {
+      setUploadIssues((currentIssues) => mergeUploadIssueLists(currentIssues, preflightValidation.rejectedIssues));
+      toast({
+        title: preflightValidation.acceptedFiles.length > 0 ? 'Some files were skipped' : 'Upload blocked',
+        description: buildUploadSummary(preflightValidation.rejectedIssues),
+        variant: 'destructive',
+      });
+    }
+
+    if (preflightValidation.acceptedFiles.length === 0) {
+      setSelectedFiles([]);
+      setQueueClassifications({});
+      setIsUploading(false);
+      setUploadProgress(0);
       return;
     }
 
@@ -536,14 +753,18 @@ export function EditedUploadSection({
 
     toast({
       title: 'Edited upload started',
-      description: `${selectedFiles.length} file${selectedFiles.length !== 1 ? 's are' : ' is'} uploading in background.`,
+      description: `${nextFiles.length} file${nextFiles.length !== 1 ? 's are' : ' is'} uploading in background.`,
     });
 
     setIsUploading(true);
     setUploadProgress(0);
+    setUploadIssues([]);
 
-    const filesForUpload = [...selectedFiles];
-    const classificationsForUpload = { ...queueClassifications };
+    const filesForUpload = [...preflightValidation.acceptedFiles];
+    const classificationsForUpload = reindexClassificationMap(
+      filesForUpload,
+      { ...(overrideClassifications ?? queueClassifications) },
+    );
     const uploadNote = notes.trim();
 
     trackUpload({
@@ -554,7 +775,7 @@ export function EditedUploadSection({
       uploadType: 'edited',
       uploadFn: async (onProgress) => {
         try {
-          const uploadOne = (file: File, index: number): Promise<{ success: boolean; error?: string; file: File; originalIndex: number }> =>
+          const uploadOne = (file: File, index: number): Promise<{ success: boolean; issues: UploadIssue[]; file: File; originalIndex: number; uploadLimits?: any }> =>
             new Promise((resolve) => {
               const formData = new FormData();
               const mediaType = getQueueClassification(file, index, classificationsForUpload);
@@ -576,19 +797,37 @@ export function EditedUploadSection({
               const xhr = new XMLHttpRequest();
               xhr.addEventListener('load', () => {
                 if (xhr.status >= 200 && xhr.status < 300) {
-                  resolve({ success: true, file, originalIndex: index });
+                  let payload: any = {};
+                  if (xhr.responseText) {
+                    try {
+                      payload = JSON.parse(xhr.responseText || '{}');
+                    } catch {
+                      payload = {};
+                    }
+                  }
+                  setUploadLimitHint((currentHint) => buildUploadLimitDescription(payload?.upload_limits) || currentHint);
+                  resolve({ success: true, issues: [], file, originalIndex: index, uploadLimits: payload?.upload_limits });
                   return;
                 }
 
-                let message = 'Upload failed';
-                try {
-                  message = JSON.parse(xhr.responseText).message || message;
-                } catch {
-                  // Keep generic message when server response is not JSON.
-                }
-                resolve({ success: false, error: `${file.name}: ${message}`, file, originalIndex: index });
+                const parsed = parseUploadIssues(file, index, xhr.responseText, 'Upload failed');
+                resolve({ success: false, issues: parsed.issues, file, originalIndex: index, uploadLimits: parsed.uploadLimits });
               });
-              xhr.addEventListener('error', () => resolve({ success: false, error: `${file.name}: Network error`, file, originalIndex: index }));
+              xhr.addEventListener('error', () => resolve({
+                success: false,
+                issues: [
+                  {
+                    id: getQueueFileKey(file, index),
+                    fileName: file.name,
+                    errorType: 'network_failure',
+                    message: 'The upload connection was interrupted before this file finished transferring.',
+                    retryable: true,
+                    nextStep: 'Retry this file after checking the network connection.',
+                  },
+                ],
+                file,
+                originalIndex: index,
+              }));
               xhr.open('POST', `${API_BASE_URL}/api/shoots/${shoot.id}/upload`);
               if (authHeader) xhr.setRequestHeader('Authorization', authHeader);
               if (impersonateHeader) xhr.setRequestHeader('X-Impersonate-User-Id', impersonateHeader);
@@ -597,16 +836,20 @@ export function EditedUploadSection({
 
           const concurrentUploads = 1;
           let completed = 0;
-          const errors: string[] = [];
+          const issues: UploadIssue[] = [];
           const failedFileEntries: Array<{ file: File; originalIndex: number }> = [];
+          let latestUploadLimits: any = null;
 
           for (let index = 0; index < filesForUpload.length; index += concurrentUploads) {
             const batch = filesForUpload.slice(index, index + concurrentUploads);
             const results = await Promise.all(batch.map((file, batchIndex) => uploadOne(file, index + batchIndex)));
             results.forEach((result) => {
               completed += 1;
-              if (!result.success && result.error) {
-                errors.push(result.error);
+              if (result.uploadLimits) {
+                latestUploadLimits = result.uploadLimits;
+              }
+              if (!result.success && result.issues.length > 0) {
+                issues.push(...result.issues);
                 failedFileEntries.push({ file: result.file, originalIndex: result.originalIndex });
               }
             });
@@ -616,20 +859,25 @@ export function EditedUploadSection({
             onProgress(progressValue);
           }
 
-          if (errors.length === filesForUpload.length) {
+          const limitHint = buildUploadLimitDescription(latestUploadLimits) || uploadLimitHint;
+          setUploadLimitHint(limitHint);
+
+          if (failedFileEntries.length === filesForUpload.length) {
+            setUploadIssues(issues);
             toast({
               title: 'Upload failed',
-              description: buildUploadWarningDescription(errors, filesForUpload.length),
+              description: buildUploadSummary(issues),
               variant: 'destructive',
             });
-            throw new Error(errors[0] || 'All files failed to upload');
+            throw new Error(issues[0]?.message || 'All files failed to upload');
           }
 
           triggerUploadRefreshes(shoot.id);
           if (failedFileEntries.length > 0) {
+            setUploadIssues(issues);
             toast({
-              title: 'Some files did not upload',
-              description: buildUploadWarningDescription(errors, filesForUpload.length),
+              title: 'Upload needs attention',
+              description: buildUploadSummary(issues),
               variant: 'destructive',
             });
             const failedFiles = failedFileEntries.map((entry) => entry.file);
@@ -652,6 +900,7 @@ export function EditedUploadSection({
 
           setSelectedFiles([]);
           setQueueClassifications({});
+          setUploadIssues([]);
           setNotes('');
           onUploadComplete();
         } finally {
@@ -659,6 +908,10 @@ export function EditedUploadSection({
         }
       },
     });
+  };
+
+  const handleUpload = () => {
+    startUpload();
   };
 
   const progressValue = expectedCount > 0 ? Math.min(100, Math.round((uploadedCount / expectedCount) * 100)) : 0;
@@ -703,6 +956,10 @@ export function EditedUploadSection({
         />
       )}
 
+      <div className="rounded-lg border border-dashed border-border/70 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+        {uploadLimitHint}
+      </div>
+
       <UploadDropzone
         empty={selectedFiles.length === 0}
         accept={FULL_UPLOAD_ACCEPT}
@@ -720,6 +977,38 @@ export function EditedUploadSection({
         onFileSelect={(event) => {
           mergeSelectedFiles(Array.from(event.target.files || []));
           event.target.value = '';
+        }}
+      />
+
+      <UploadResultsPanel
+        title="Edited upload results"
+        issues={uploadIssues}
+        limitHint={uploadLimitHint}
+        onRetryAll={selectedFiles.length > 0 ? handleUpload : undefined}
+        onRetryIssue={(issueId) => {
+          const matchingEntry = selectedFiles
+            .map((file, index) => ({ file, index, key: getQueueFileKey(file, index) }))
+            .find((entry) => issueId.startsWith(entry.key));
+
+          if (!matchingEntry) {
+            return;
+          }
+
+          const singleFile = [matchingEntry.file];
+          const nextMap: QueueClassificationMap = {};
+          const existingClassification = getQueueClassification(
+            matchingEntry.file,
+            matchingEntry.index,
+            queueClassifications,
+          );
+          if (existingClassification) {
+            nextMap[getQueueFileKey(matchingEntry.file, 0)] = existingClassification;
+          }
+
+          setSelectedFiles(singleFile);
+          setQueueClassifications(nextMap);
+          setUploadIssues((currentIssues) => currentIssues.filter((issue) => !issue.id.startsWith(matchingEntry.key)));
+          startUpload(singleFile, nextMap);
         }}
       />
 
@@ -802,6 +1091,11 @@ export function RawUploadSection({
   const { trackUpload, uploads } = useUpload();
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [queueClassifications, setQueueClassifications] = useState<QueueClassificationMap>({});
+  const [uploadIssues, setUploadIssues] = useState<UploadIssue[]>([]);
+  const [uploadLimitHint, setUploadLimitHint] = useState<string | undefined>(buildUploadLimitDescription({
+    per_file: '500MB',
+    total_request: '550MB',
+  }));
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [notes, setNotes] = useState('');
@@ -856,24 +1150,42 @@ export function RawUploadSection({
   useEffect(() => {
     setSelectedFiles([]);
     setQueueClassifications({});
+    setUploadIssues([]);
     setUploadProgress(0);
     setIsUploading(false);
     setNotes('');
+    setUploadLimitHint(buildUploadLimitDescription({
+      per_file: '500MB',
+      total_request: '550MB',
+    }));
     setBracketMultiplier(Math.max(1, defaultBracketMultiplier));
   }, [defaultBracketMultiplier, shoot.id]);
 
   const mergeSelectedFiles = (incomingFiles: File[]) => {
     if (incomingFiles.length === 0) return;
 
-    setSelectedFiles((currentFiles) => {
-      const nextFiles = [...currentFiles, ...incomingFiles];
-      setQueueClassifications((currentMap) =>
-        addFilesToClassificationMap(currentFiles, nextFiles, currentMap, (file) =>
-          !isVideoUpload(file) && isEditedFloorplanByName(file.name) ? 'floorplan' : undefined,
-        ),
-      );
-      return nextFiles;
-    });
+    const validation = validateFilesAgainstUploadLimits(incomingFiles, selectedFiles);
+
+    if (validation.rejectedIssues.length > 0) {
+      setUploadIssues((currentIssues) => mergeUploadIssueLists(currentIssues, validation.rejectedIssues));
+      toast({
+        title: validation.acceptedFiles.length > 0 ? 'Some files were skipped' : 'Files skipped',
+        description: buildUploadSummary(validation.rejectedIssues),
+        variant: 'destructive',
+      });
+    }
+
+    if (validation.acceptedFiles.length === 0) {
+      return;
+    }
+
+    const nextFiles = [...selectedFiles, ...validation.acceptedFiles];
+    setSelectedFiles(nextFiles);
+    setQueueClassifications((currentMap) =>
+      addFilesToClassificationMap(selectedFiles, nextFiles, currentMap, (file) =>
+        !isVideoUpload(file) && isEditedFloorplanByName(file.name) ? 'floorplan' : undefined,
+      ),
+    );
   };
 
   const removeSelectedFile = (indexToRemove: number) => {
@@ -884,25 +1196,48 @@ export function RawUploadSection({
     });
   };
 
-  const handleUpload = () => {
-    if (selectedFiles.length === 0 || isUploading) {
+  const startUpload = (overrideFiles?: File[], overrideClassifications?: QueueClassificationMap) => {
+    const nextFiles = overrideFiles ?? selectedFiles;
+    if (nextFiles.length === 0 || isUploading) {
+      return;
+    }
+
+    const preflightValidation = validateFilesAgainstUploadLimits(nextFiles);
+    if (preflightValidation.rejectedIssues.length > 0) {
+      setUploadIssues((currentIssues) => mergeUploadIssueLists(currentIssues, preflightValidation.rejectedIssues));
+      toast({
+        title: preflightValidation.acceptedFiles.length > 0 ? 'Some files were skipped' : 'Upload blocked',
+        description: buildUploadSummary(preflightValidation.rejectedIssues),
+        variant: 'destructive',
+      });
+    }
+
+    if (preflightValidation.acceptedFiles.length === 0) {
+      setSelectedFiles([]);
+      setQueueClassifications({});
+      setIsUploading(false);
+      setUploadProgress(0);
       return;
     }
 
     const apiHeaders = getApiHeaders();
     const authHeader = apiHeaders.Authorization;
     const impersonateHeader = apiHeaders['X-Impersonate-User-Id'];
-    const filesForUpload = [...selectedFiles];
-    const classificationsForUpload = { ...queueClassifications };
+    const filesForUpload = [...preflightValidation.acceptedFiles];
+    const classificationsForUpload = reindexClassificationMap(
+      filesForUpload,
+      { ...(overrideClassifications ?? queueClassifications) },
+    );
     const noteValue = notes.trim();
 
     toast({
       title: 'Raw upload started',
-      description: `${selectedFiles.length} file${selectedFiles.length !== 1 ? 's are' : ' is'} uploading in background.`,
+      description: `${nextFiles.length} file${nextFiles.length !== 1 ? 's are' : ' is'} uploading in background.`,
     });
 
     setIsUploading(true);
     setUploadProgress(0);
+    setUploadIssues([]);
 
     trackUpload({
       shootId: String(shoot.id),
@@ -912,7 +1247,7 @@ export function RawUploadSection({
       uploadType: 'raw',
       uploadFn: async (onProgress) => {
         try {
-          const uploadOne = (file: File, index: number): Promise<{ success: boolean; error?: string; file: File; originalIndex: number }> =>
+          const uploadOne = (file: File, index: number): Promise<{ success: boolean; issues: UploadIssue[]; file: File; originalIndex: number; uploadLimits?: any }> =>
             new Promise((resolve) => {
               const formData = new FormData();
               const mediaType = getQueueClassification(file, index, classificationsForUpload);
@@ -935,19 +1270,37 @@ export function RawUploadSection({
               const xhr = new XMLHttpRequest();
               xhr.addEventListener('load', () => {
                 if (xhr.status >= 200 && xhr.status < 300) {
-                  resolve({ success: true, file, originalIndex: index });
+                  let payload: any = {};
+                  if (xhr.responseText) {
+                    try {
+                      payload = JSON.parse(xhr.responseText || '{}');
+                    } catch {
+                      payload = {};
+                    }
+                  }
+                  setUploadLimitHint((currentHint) => buildUploadLimitDescription(payload?.upload_limits) || currentHint);
+                  resolve({ success: true, issues: [], file, originalIndex: index, uploadLimits: payload?.upload_limits });
                   return;
                 }
 
-                let message = 'Upload failed';
-                try {
-                  message = JSON.parse(xhr.responseText).message || message;
-                } catch {
-                  // Keep the generic message when the upload response is not JSON.
-                }
-                resolve({ success: false, error: `${file.name}: ${message}`, file, originalIndex: index });
+                const parsed = parseUploadIssues(file, index, xhr.responseText, 'Upload failed');
+                resolve({ success: false, issues: parsed.issues, file, originalIndex: index, uploadLimits: parsed.uploadLimits });
               });
-              xhr.addEventListener('error', () => resolve({ success: false, error: `${file.name}: Network error`, file, originalIndex: index }));
+              xhr.addEventListener('error', () => resolve({
+                success: false,
+                issues: [
+                  {
+                    id: getQueueFileKey(file, index),
+                    fileName: file.name,
+                    errorType: 'network_failure',
+                    message: 'The upload connection was interrupted before this file finished transferring.',
+                    retryable: true,
+                    nextStep: 'Retry this file after checking the network connection.',
+                  },
+                ],
+                file,
+                originalIndex: index,
+              }));
               xhr.open('POST', `${API_BASE_URL}/api/shoots/${shoot.id}/upload`);
               if (authHeader) xhr.setRequestHeader('Authorization', authHeader);
               if (impersonateHeader) xhr.setRequestHeader('X-Impersonate-User-Id', impersonateHeader);
@@ -956,16 +1309,20 @@ export function RawUploadSection({
 
           const concurrentUploads = 1;
           let completed = 0;
-          const errors: string[] = [];
+          const issues: UploadIssue[] = [];
           const failedFileEntries: Array<{ file: File; originalIndex: number }> = [];
+          let latestUploadLimits: any = null;
 
           for (let index = 0; index < filesForUpload.length; index += concurrentUploads) {
             const batch = filesForUpload.slice(index, index + concurrentUploads);
             const results = await Promise.all(batch.map((file, batchIndex) => uploadOne(file, index + batchIndex)));
             results.forEach((result) => {
               completed += 1;
-              if (!result.success && result.error) {
-                errors.push(result.error);
+              if (result.uploadLimits) {
+                latestUploadLimits = result.uploadLimits;
+              }
+              if (!result.success && result.issues.length > 0) {
+                issues.push(...result.issues);
                 failedFileEntries.push({ file: result.file, originalIndex: result.originalIndex });
               }
             });
@@ -975,20 +1332,25 @@ export function RawUploadSection({
             onProgress(progressValue);
           }
 
-          if (errors.length === filesForUpload.length) {
+          const limitHint = buildUploadLimitDescription(latestUploadLimits) || uploadLimitHint;
+          setUploadLimitHint(limitHint);
+
+          if (failedFileEntries.length === filesForUpload.length) {
+            setUploadIssues(issues);
             toast({
               title: 'Upload failed',
-              description: buildUploadWarningDescription(errors, filesForUpload.length),
+              description: buildUploadSummary(issues),
               variant: 'destructive',
             });
-            throw new Error(errors[0] || 'All files failed to upload');
+            throw new Error(issues[0]?.message || 'All files failed to upload');
           }
 
           triggerUploadRefreshes(shoot.id);
           if (failedFileEntries.length > 0) {
+            setUploadIssues(issues);
             toast({
-              title: 'Some files did not upload',
-              description: buildUploadWarningDescription(errors, filesForUpload.length),
+              title: 'Upload needs attention',
+              description: buildUploadSummary(issues),
               variant: 'destructive',
             });
             const failedFiles = failedFileEntries.map((entry) => entry.file);
@@ -1011,6 +1373,7 @@ export function RawUploadSection({
 
           setSelectedFiles([]);
           setQueueClassifications({});
+          setUploadIssues([]);
           setNotes('');
           onUploadComplete();
         } finally {
@@ -1018,6 +1381,10 @@ export function RawUploadSection({
         }
       },
     });
+  };
+
+  const handleUpload = () => {
+    startUpload();
   };
 
   return (
@@ -1107,6 +1474,10 @@ export function RawUploadSection({
             />
           ))}
 
+      <div className="rounded-lg border border-dashed border-border/70 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+        {uploadLimitHint}
+      </div>
+
       <UploadDropzone
         empty={selectedFiles.length === 0}
         accept={FULL_UPLOAD_ACCEPT}
@@ -1126,6 +1497,38 @@ export function RawUploadSection({
         onFileSelect={(event) => {
           mergeSelectedFiles(Array.from(event.target.files || []));
           event.target.value = '';
+        }}
+      />
+
+      <UploadResultsPanel
+        title="Raw upload results"
+        issues={uploadIssues}
+        limitHint={uploadLimitHint}
+        onRetryAll={selectedFiles.length > 0 ? handleUpload : undefined}
+        onRetryIssue={(issueId) => {
+          const matchingEntry = selectedFiles
+            .map((file, index) => ({ file, index, key: getQueueFileKey(file, index) }))
+            .find((entry) => issueId.startsWith(entry.key));
+
+          if (!matchingEntry) {
+            return;
+          }
+
+          const singleFile = [matchingEntry.file];
+          const nextMap: QueueClassificationMap = {};
+          const existingClassification = getQueueClassification(
+            matchingEntry.file,
+            matchingEntry.index,
+            queueClassifications,
+          );
+          if (existingClassification) {
+            nextMap[getQueueFileKey(matchingEntry.file, 0)] = existingClassification;
+          }
+
+          setSelectedFiles(singleFile);
+          setQueueClassifications(nextMap);
+          setUploadIssues((currentIssues) => currentIssues.filter((issue) => !issue.id.startsWith(matchingEntry.key)));
+          startUpload(singleFile, nextMap);
         }}
       />
 

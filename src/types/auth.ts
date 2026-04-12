@@ -13,6 +13,20 @@ export type UserRole =
 export type RepPayoutFrequency = 'weekly' | 'biweekly' | 'monthly';
 export type ClientDiscountType = 'fixed' | 'percent' | null;
 export type AccountLinkStatus = 'active' | 'inactive' | 'suspended';
+export type EmailHealthStatus = 'verified' | 'unverified' | 'risky' | 'bounced' | 'invalid' | null;
+
+export interface EmailHealth {
+  status: EmailHealthStatus;
+  verification_sent_at?: string | null;
+  email_verified_at?: string | null;
+  last_delivery_attempt_at?: string | null;
+  last_bounce_at?: string | null;
+  bounce_reason?: string | null;
+  warning_code?: string | null;
+  warning_message?: string | null;
+  suggested_correction?: string | null;
+  requires_confirmation?: boolean;
+}
 
 export interface SharedDetails {
   shoots: boolean;
@@ -82,6 +96,7 @@ export interface UserData {
   createdAt?: string;
   isActive?: boolean;
   metadata?: UserMetadata;
+  email_health?: EmailHealth;
   session?: AuthSession;
   // Account linking properties
   linkedAccounts?: LinkedAccountSummary[];

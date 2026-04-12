@@ -37,7 +37,7 @@ import { AvatarPicker } from "@/components/profile/AvatarPicker";
 import { FileUploadModal } from "@/components/accounts/FileUploadModal";
 import { useToast } from "@/hooks/use-toast";
 import { API_BASE_URL } from "@/config/env";
-import type { RepDetails } from "@/types/auth";
+import type { EmailHealth, RepDetails } from "@/types/auth";
 import { STATE_OPTIONS } from "@/utils/stateUtils";
 import { Upload, FileText, X, Camera, Loader2, MapPin } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
@@ -53,6 +53,7 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { useQueryClient } from "@tanstack/react-query";
+import { analyzeEmailInput, normalizeEmailHealth } from "@/utils/emailHealth";
 
 // Define allowed roles for the form
 type FormRole = 'superadmin' | 'admin' | 'editing_manager' | 'photographer' | 'client' | 'editor' | 'salesRep';
@@ -223,6 +224,10 @@ export function AccountForm({
   const [pilotLicenseModalOpen, setPilotLicenseModalOpen] = useState(false);
   const [insuranceModalOpen, setInsuranceModalOpen] = useState(false);
   const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
+  const [emailWarningOverride, setEmailWarningOverride] = useState(false);
+  const [serverEmailHealth, setServerEmailHealth] = useState<EmailHealth | undefined>(
+    normalizeEmailHealth(initialData?.email_health),
+  );
   const { toast } = useToast();
   const { role: viewerRole, user: currentUser } = useAuth();
   const permission = usePermission();
@@ -414,7 +419,48 @@ export function AccountForm({
   const formCreatedById = form.watch("created_by_id");
   const formCreatedByName = form.watch("created_by_name");
   const currentRole = form.watch("role");
+  const currentEmail = form.watch("email");
   const isClientRole = currentRole === "client";
+  const localEmailHint = React.useMemo(() => analyzeEmailInput(currentEmail || ""), [currentEmail]);
+  const emailHelpState = React.useMemo(() => {
+    if (!isClientRole) {
+      return null;
+    }
+
+    if (localEmailHint.level !== 'none') {
+      return {
+        level: localEmailHint.level,
+        message: localEmailHint.message,
+        suggestedCorrection: localEmailHint.suggestedCorrection,
+        requiresConfirmation: localEmailHint.requiresConfirmation,
+      };
+    }
+
+    if (serverEmailHealth?.warning_message || serverEmailHealth?.status) {
+      return {
+        level: serverEmailHealth?.status === 'bounced' || serverEmailHealth?.status === 'invalid' ? 'error' : 'info',
+        message: serverEmailHealth?.warning_message || 'This email will stay limited until it is verified.',
+        suggestedCorrection: serverEmailHealth?.suggested_correction || undefined,
+        requiresConfirmation: serverEmailHealth?.requires_confirmation,
+      };
+    }
+
+    return null;
+  }, [isClientRole, localEmailHint, serverEmailHealth]);
+
+  useEffect(() => {
+    setEmailWarningOverride(false);
+    setServerEmailHealth(normalizeEmailHealth(initialData?.email_health));
+  }, [initialData?.email_health, open]);
+
+  useEffect(() => {
+    setEmailWarningOverride(false);
+    if (!initialData || currentEmail === initialData.email) {
+      return;
+    }
+
+    setServerEmailHealth(undefined);
+  }, [currentEmail, initialData]);
 
   useEffect(() => {
     if (!open || viewerRole !== 'salesRep') return;
@@ -647,6 +693,7 @@ export function AccountForm({
     }
 
     const canAssignRepForPayload = canEditCreatedBy || (canAssignClientRep && values.role === 'client');
+    const shouldSendEmailOverride = values.role === 'client' && emailWarningOverride;
 
     // If editing, include created_by fields if superadmin or permitted admin is assigning a rep
     if (initialData && canAssignRepForPayload) {
@@ -671,6 +718,7 @@ export function AccountForm({
         formData.append('_method', 'PUT');
         formData.append('name', fullName || '');
         formData.append('email', values.email || '');
+        if (shouldSendEmailOverride) formData.append('email_warning_override', '1');
         if (values.phone) formData.append('phone_number', values.phone);
         if (values.company) formData.append('company_name', values.company);
         if (values.address) formData.append('address', values.address);
@@ -730,12 +778,40 @@ export function AccountForm({
         });
 
         if (!res.ok) {
-          const errTxt = await res.text();
-          throw new Error(errTxt || 'Failed to update user');
+          const bodyText = await res.text();
+          let message = 'Failed to update user';
+          try {
+            const errorPayload = JSON.parse(bodyText);
+            const nextEmailHealth = normalizeEmailHealth(errorPayload?.email_health);
+            if (nextEmailHealth) {
+              setServerEmailHealth(nextEmailHealth);
+            }
+
+            const emailMessage = Array.isArray(errorPayload?.errors?.email)
+              ? errorPayload.errors.email[0]
+              : errorPayload?.message;
+
+            if (emailMessage) {
+              form.setError('email', {
+                type: 'server',
+                message: emailMessage,
+              });
+              message = emailMessage;
+            } else if (bodyText) {
+              message = bodyText;
+            }
+          } catch {
+            if (bodyText) {
+              message = bodyText;
+            }
+          }
+
+          throw new Error(message);
         }
 
         const json = await res.json();
         const updated = json.user;
+        setServerEmailHealth(normalizeEmailHealth(updated?.email_health));
 
         onSubmit({
           ...values,
@@ -758,6 +834,7 @@ export function AccountForm({
           client_discount_type: normalizedDiscountType,
           clientDiscountValue: normalizedDiscountValue,
           client_discount_value: normalizedDiscountValue,
+          email_health: normalizeEmailHealth(updated?.email_health),
           serviceGroupIds: values.serviceGroupIds,
           service_group_ids: values.serviceGroupIds,
           service_groups: serviceGroups.filter((group) => values.serviceGroupIds?.includes(group.id)).map((group) => ({
@@ -792,6 +869,7 @@ export function AccountForm({
       const formData = new FormData();
       formData.append('name', fullName || '');
       formData.append('email', values.email || '');
+      if (shouldSendEmailOverride) formData.append('email_warning_override', '1');
       if (values.phone) formData.append('phone_number', values.phone);
       if (values.company) formData.append('company_name', values.company);
       if (values.address) formData.append('address', values.address);
@@ -851,12 +929,40 @@ export function AccountForm({
       });
 
       if (!res.ok) {
-        const errTxt = await res.text();
-        throw new Error(errTxt || 'Failed to create user');
+        const bodyText = await res.text();
+        let message = 'Failed to create user';
+        try {
+          const errorPayload = JSON.parse(bodyText);
+          const nextEmailHealth = normalizeEmailHealth(errorPayload?.email_health);
+          if (nextEmailHealth) {
+            setServerEmailHealth(nextEmailHealth);
+          }
+
+          const emailMessage = Array.isArray(errorPayload?.errors?.email)
+            ? errorPayload.errors.email[0]
+            : errorPayload?.message;
+
+          if (emailMessage) {
+            form.setError('email', {
+              type: 'server',
+              message: emailMessage,
+            });
+            message = emailMessage;
+          } else if (bodyText) {
+            message = bodyText;
+          }
+        } catch {
+          if (bodyText) {
+            message = bodyText;
+          }
+        }
+
+        throw new Error(message);
       }
 
       const json = await res.json();
       const created = json.user;
+      setServerEmailHealth(normalizeEmailHealth(created?.email_health));
 
       // Inform parent so it can update local list (include id)
       onSubmit({
@@ -880,6 +986,7 @@ export function AccountForm({
         client_discount_type: normalizedDiscountType,
         clientDiscountValue: normalizedDiscountValue,
         client_discount_value: normalizedDiscountValue,
+        email_health: normalizeEmailHealth(created?.email_health),
         serviceGroupIds: values.serviceGroupIds,
         service_group_ids: values.serviceGroupIds,
         service_groups: serviceGroups.filter((group) => values.serviceGroupIds?.includes(group.id)).map((group) => ({
@@ -1162,6 +1269,54 @@ export function AccountForm({
                         <FormControl>
                           <Input placeholder="user@example.com" type="email" {...field} />
                         </FormControl>
+                        {isClientRole && emailHelpState?.message && (
+                          <div
+                            className={cn(
+                              "rounded-lg border p-3 text-sm",
+                              emailHelpState.level === "error" && "border-rose-200 bg-rose-50 text-rose-800",
+                              emailHelpState.level === "warning" && "border-amber-200 bg-amber-50 text-amber-800",
+                              emailHelpState.level === "info" && "border-sky-200 bg-sky-50 text-sky-800",
+                            )}
+                          >
+                            <p>{emailHelpState.message}</p>
+                            {emailHelpState.suggestedCorrection && !emailWarningOverride && (
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    form.setValue('email', emailHelpState.suggestedCorrection || '', {
+                                      shouldDirty: true,
+                                      shouldValidate: true,
+                                    });
+                                    setEmailWarningOverride(false);
+                                    setServerEmailHealth(undefined);
+                                    form.clearErrors('email');
+                                  }}
+                                >
+                                  Use suggested email
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    setEmailWarningOverride(true);
+                                    form.clearErrors('email');
+                                  }}
+                                >
+                                  Keep anyway
+                                </Button>
+                              </div>
+                            )}
+                            {emailWarningOverride && (
+                              <p className="mt-2 text-xs font-medium">
+                                Warning override enabled. This email will save with a delivery-risk warning.
+                              </p>
+                            )}
+                          </div>
+                        )}
                         <FormMessage />
                       </FormItem>
                     )}

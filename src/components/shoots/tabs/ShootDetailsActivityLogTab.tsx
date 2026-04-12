@@ -17,6 +17,7 @@ import {
 import { ShootData } from '@/types/shoots';
 import { format } from 'date-fns';
 import { API_BASE_URL } from '@/config/env';
+import { useToast } from '@/hooks/use-toast';
 import {
   Collapsible,
   CollapsibleContent,
@@ -69,9 +70,11 @@ export function ShootDetailsActivityLogTab({
   isAdmin,
   onShootUpdate,
 }: ShootDetailsActivityLogTabProps) {
+  const { toast } = useToast();
   const [activities, setActivities] = useState<ActivityLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set());
+  const [refundingEntryId, setRefundingEntryId] = useState<string | null>(null);
 
   useEffect(() => {
     // Check if activity logs are already in shoot data
@@ -191,14 +194,95 @@ export function ShootDetailsActivityLogTab({
     return groups;
   };
 
-  const handleRefundCharge = (entry: ActivityLogEntry) => {
-    // Implementation for refund charge
-    console.log('Refund charge for entry:', entry);
+  const getRefundablePaymentDetails = (entry: ActivityLogEntry) => {
+    const containers = [entry.details, entry.metadata].filter(Boolean) as Array<Record<string, any>>;
+
+    for (const container of containers) {
+      const paymentId = container?.payment_id ?? container?.paymentId;
+      const provider = String(container?.provider ?? container?.payment_method ?? '').toLowerCase();
+
+      if (paymentId && (provider === '' || provider === 'stripe')) {
+        return {
+          paymentId: String(paymentId),
+          provider: provider || 'stripe',
+        };
+      }
+    }
+
+    return null;
+  };
+
+  const handleRefundCharge = async (entry: ActivityLogEntry) => {
+    const refundablePayment = getRefundablePaymentDetails(entry);
+    if (!refundablePayment) {
+      toast({
+        title: 'Refund unavailable',
+        description: 'This activity entry is not linked to a refundable Stripe payment.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const shouldContinue = window.confirm('Refund this charge in full? This cannot be undone.');
+    if (!shouldContinue) {
+      return;
+    }
+
+    try {
+      setRefundingEntryId(entry.id);
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/api/payments/stripe-refund`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          payment_id: refundablePayment.paymentId,
+        }),
+      });
+
+      const bodyText = await response.text();
+      let payload: any = null;
+      try {
+        payload = bodyText ? JSON.parse(bodyText) : null;
+      } catch {
+        payload = null;
+      }
+
+      if (!response.ok) {
+        throw new Error(payload?.error || payload?.message || bodyText || 'Refund failed.');
+      }
+
+      toast({
+        title: 'Refund processed',
+        description: 'The Stripe refund was submitted successfully.',
+      });
+
+      await loadActivities();
+      onShootUpdate();
+    } catch (error: any) {
+      toast({
+        title: 'Refund failed',
+        description: error?.message || 'Unable to process the refund.',
+        variant: 'destructive',
+      });
+    } finally {
+      setRefundingEntryId(null);
+    }
   };
 
   const handleViewCharge = (entry: ActivityLogEntry) => {
-    // Implementation for view charge
-    console.log('View charge for entry:', entry);
+    const refundablePayment = getRefundablePaymentDetails(entry);
+    if (!refundablePayment) {
+      return;
+    }
+
+    toast({
+      title: 'Charge details',
+      description: `Stripe payment ID ${refundablePayment.paymentId}`,
+    });
   };
 
   if (loading) {
@@ -245,6 +329,7 @@ export function ShootDetailsActivityLogTab({
                     const isExpanded = expandedEntries.has(entry.id);
                     const icon = activityTypeIcons[entry.type] || activityTypeIcons.other;
                     const colorClass = activityTypeColors[entry.type] || activityTypeColors.other;
+                    const refundablePayment = getRefundablePaymentDetails(entry);
                     
                     return (
                       <div
@@ -302,20 +387,25 @@ export function ShootDetailsActivityLogTab({
                                 <div className="mt-3 p-4 bg-muted/30 rounded-lg border text-xs space-y-3">
                                   {entry.type === 'payment' && isAdmin && (
                                     <div className="flex gap-2">
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => handleViewCharge(entry)}
-                                      >
-                                        View Charge
-                                      </Button>
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => handleRefundCharge(entry)}
-                                      >
-                                        Refund Charge
-                                      </Button>
+                                      {refundablePayment && (
+                                        <>
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => handleViewCharge(entry)}
+                                          >
+                                            View Charge
+                                          </Button>
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            disabled={refundingEntryId === entry.id}
+                                            onClick={() => handleRefundCharge(entry)}
+                                          >
+                                            {refundingEntryId === entry.id ? 'Refunding...' : 'Refund Charge'}
+                                          </Button>
+                                        </>
+                                      )}
                                     </div>
                                   )}
                                   {entry.details && (
@@ -353,4 +443,3 @@ export function ShootDetailsActivityLogTab({
     </div>
   );
 }
-
