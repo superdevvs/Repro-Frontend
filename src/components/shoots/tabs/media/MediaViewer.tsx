@@ -827,7 +827,7 @@ export function MediaViewer({
     }),
   };
   const sidebarActionButtonClassName =
-    'h-auto min-h-10 min-w-0 justify-start whitespace-normal break-words px-3 py-2 text-left text-[13px] leading-snug text-white hover:bg-white/10 hover:text-white lg:min-h-9 lg:px-2.5 lg:py-1.5 lg:text-[12px] xl:min-h-10 xl:px-3 xl:py-2 xl:text-sm';
+    'h-auto min-h-10 min-w-0 justify-start whitespace-normal break-words !border-white/10 !bg-black/40 px-3 py-2 text-left text-[13px] leading-snug !text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] hover:!border-white/20 hover:!bg-black/55 hover:!text-white focus-visible:ring-white/30 lg:min-h-9 lg:px-2.5 lg:py-1.5 lg:text-[12px] xl:min-h-10 xl:px-3 xl:py-2 xl:text-sm';
   const mobileActionMenuItemClassName =
     'gap-2 rounded-md px-2 py-2 text-sm text-white focus:bg-white/10 focus:text-white';
   const showMobileActionMenu =

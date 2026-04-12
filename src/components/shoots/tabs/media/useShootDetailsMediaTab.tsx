@@ -69,6 +69,7 @@ import { MediaViewer } from './MediaViewer';
 import {
   getMediaImageUrl as getImageUrl,
   getMediaSrcSet as getSrcSet,
+  getDisplayMediaFilename,
   getMediaViewerImageUrl,
   isPreviewableImage,
 } from './mediaPreviewUtils';
@@ -740,6 +741,27 @@ export function useShootDetailsMediaTab({
   const canStartSlideshowMedia =
     (isAdmin || isEditor || isPhotographer || (isClient && !isClientReleaseLocked)) &&
     editedSlideshowFiles.length > 1;
+  const currentViewerFile = viewerFiles[viewerIndex] ?? null;
+  const viewerMatchesEditedSlideshow = useMemo(() => {
+    if (!currentViewerFile) {
+      return false;
+    }
+
+    const currentId = String(currentViewerFile.id || '');
+    if (currentId && editedSlideshowFiles.some((file) => String(file.id) === currentId)) {
+      return true;
+    }
+
+    const currentName = getDisplayMediaFilename(currentViewerFile).trim().toLowerCase();
+    if (!currentName) {
+      return false;
+    }
+
+    return editedSlideshowFiles.some(
+      (file) => getDisplayMediaFilename(file).trim().toLowerCase() === currentName,
+    );
+  }, [currentViewerFile, editedSlideshowFiles]);
+  const viewerHasEditedSlideshowContext = viewerSourceTab === 'edited' || viewerMatchesEditedSlideshow;
 
   const mediaShoot = shoot as ShootMediaTabSource;
   const normalizedShootStatus = String(shoot?.workflowStatus || mediaShoot.status || '').toLowerCase();
@@ -1176,8 +1198,8 @@ export function useShootDetailsMediaTab({
         isAdmin={isAdmin}
         isClient={isClient}
         canViewFullSize={canViewFullSizeMedia}
-        canStartSlideshow={canStartSlideshowMedia && viewerSourceTab === 'edited'}
-        slideshowFiles={viewerSourceTab === 'edited' ? editedSlideshowFiles : []}
+        canStartSlideshow={canStartSlideshowMedia && viewerHasEditedSlideshowContext}
+        slideshowFiles={viewerHasEditedSlideshowContext ? editedSlideshowFiles : []}
         onShootUpdate={onShootUpdate}
         canInteractSingleMedia={canInteractSingleMedia}
         canDownloadSingleMedia={canDownloadSingleMedia}
