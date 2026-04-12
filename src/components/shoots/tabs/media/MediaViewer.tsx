@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { PointerEvent as ReactPointerEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -91,6 +92,7 @@ const getRequestStatusClassName = (status?: string) => {
 };
 
 const SLIDESHOW_INTERVAL_OPTIONS = [5, 7, 10, 3] as const;
+const MAX_MEDIA_VIEWER_ZOOM = 10;
 
 export function MediaViewer({
   isOpen,
@@ -181,6 +183,17 @@ export function MediaViewer({
   const [requestRefreshKey, setRequestRefreshKey] = useState(0);
   const slideshowPreloadRefs = useRef<Map<string, HTMLImageElement>>(new Map());
   const slideshowReadyUrlsRef = useRef<Set<string>>(new Set());
+  const zoomStageRef = useRef<HTMLDivElement | null>(null);
+  const previousZoomRef = useRef(1);
+  const previousZoomContextRef = useRef('');
+  const panStateRef = useRef({
+    pointerId: null as number | null,
+    startX: 0,
+    startY: 0,
+    scrollLeft: 0,
+    scrollTop: 0,
+  });
+  const [isPanningZoomStage, setIsPanningZoomStage] = useState(false);
   const currentFile = files[currentIndex];
   const fileComments = useMemo(
     () => {
@@ -667,7 +680,7 @@ export function MediaViewer({
   };
 
   const handleZoomIn = () => {
-    setZoom(prev => Math.min(prev + 0.25, 3));
+    setZoom(prev => Math.min(prev + 0.25, MAX_MEDIA_VIEWER_ZOOM));
   };
 
   const handleZoomOut = () => {
@@ -677,6 +690,83 @@ export function MediaViewer({
   const handleResetZoom = () => {
     setZoom(1);
   };
+
+  const stopZoomPan = useCallback((pointerId?: number | null) => {
+    const stage = zoomStageRef.current;
+    const activePointerId = pointerId ?? panStateRef.current.pointerId;
+
+    if (stage && typeof activePointerId === 'number' && stage.hasPointerCapture?.(activePointerId)) {
+      stage.releasePointerCapture(activePointerId);
+    }
+
+    panStateRef.current.pointerId = null;
+    setIsPanningZoomStage(false);
+  }, []);
+
+  const handleZoomStagePointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (!isPreviewableImage(currentFile) || zoom <= 1 || event.button !== 0) {
+        return;
+      }
+
+      if (event.target instanceof HTMLElement && event.target.closest('button')) {
+        return;
+      }
+
+      const stage = zoomStageRef.current;
+      if (!stage) {
+        return;
+      }
+
+      if (stage.scrollWidth <= stage.clientWidth && stage.scrollHeight <= stage.clientHeight) {
+        return;
+      }
+
+      panStateRef.current = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        scrollLeft: stage.scrollLeft,
+        scrollTop: stage.scrollTop,
+      };
+
+      stage.setPointerCapture?.(event.pointerId);
+      setIsPanningZoomStage(true);
+      event.preventDefault();
+    },
+    [currentFile, zoom],
+  );
+
+  const handleZoomStagePointerMove = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (panStateRef.current.pointerId !== event.pointerId) {
+        return;
+      }
+
+      const stage = zoomStageRef.current;
+      if (!stage) {
+        return;
+      }
+
+      const deltaX = event.clientX - panStateRef.current.startX;
+      const deltaY = event.clientY - panStateRef.current.startY;
+
+      stage.scrollLeft = panStateRef.current.scrollLeft - deltaX;
+      stage.scrollTop = panStateRef.current.scrollTop - deltaY;
+    },
+    [],
+  );
+
+  const handleZoomStagePointerUp = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (panStateRef.current.pointerId !== event.pointerId) {
+        return;
+      }
+
+      stopZoomPan(event.pointerId);
+    },
+    [stopZoomPan],
+  );
 
   const handlePrevious = () => {
     if (viewerMode === 'slideshow') {
@@ -736,7 +826,7 @@ export function MediaViewer({
         onClose();
       } else if (e.key === '+' || e.key === '=') {
         e.preventDefault();
-        setZoom(prev => Math.min(prev + 0.25, 3));
+        setZoom(prev => Math.min(prev + 0.25, MAX_MEDIA_VIEWER_ZOOM));
       } else if (e.key === '-') {
         e.preventDefault();
         setZoom(prev => Math.max(prev - 0.25, 0.5));
@@ -762,6 +852,39 @@ export function MediaViewer({
     viewerMode,
   ]);
 
+  useEffect(() => {
+    const stage = zoomStageRef.current;
+    const zoomContextKey = `${currentFile?.id ?? ''}:${previewMode}`;
+    const zoomChangedFromFit = previousZoomRef.current <= 1 && zoom > 1;
+    const zoomContextChanged = previousZoomContextRef.current !== zoomContextKey;
+
+    previousZoomRef.current = zoom;
+    previousZoomContextRef.current = zoomContextKey;
+
+    if (!stage) {
+      return;
+    }
+
+    if (zoom <= 1) {
+      stage.scrollTo({ left: 0, top: 0 });
+      stopZoomPan();
+      return;
+    }
+
+    if (!zoomChangedFromFit && !zoomContextChanged) {
+      return;
+    }
+
+    const animationFrame = window.requestAnimationFrame(() => {
+      stage.scrollTo({
+        left: Math.max((stage.scrollWidth - stage.clientWidth) / 2, 0),
+        top: Math.max((stage.scrollHeight - stage.clientHeight) / 2, 0),
+      });
+    });
+
+    return () => window.cancelAnimationFrame(animationFrame);
+  }, [currentFile?.id, previewMode, stopZoomPan, zoom]);
+
   if (!isOpen || !currentFile) return null;
 
   const previewImageUrl = getMediaViewerImageUrl(currentFile);
@@ -781,6 +904,13 @@ export function MediaViewer({
     previewMode === 'full' && fullSizeAvailable
       ? fullSizeImageUrl
       : previewImageUrl;
+  const zoomedImageViewportStyle =
+    zoom > 1
+      ? {
+          width: `${zoom * 100}%`,
+          height: `${zoom * 100}%`,
+        }
+      : undefined;
   const canRequestModification = Boolean(shoot) && isImg && (isAdmin || isClient);
   const canSetHero =
     Boolean(shoot) &&
@@ -1135,13 +1265,13 @@ export function MediaViewer({
                         >
                           <span className="text-sm">−</span>
                         </Button>
-                        <span className="min-w-[2.5rem] text-center text-[11px] font-medium text-white sm:min-w-[3rem] sm:text-xs">{Math.round(zoom * 100)}%</span>
+                        <span className="min-w-[3.5rem] text-center text-[11px] font-medium text-white sm:min-w-[4rem] sm:text-xs">{Math.round(zoom * 100)}%</span>
                         <Button
                           variant="ghost"
                           size="icon"
                           className="h-7 w-7 text-white hover:bg-white/15 sm:h-8 sm:w-8"
                           onClick={handleZoomIn}
-                          disabled={zoom >= 3}
+                          disabled={zoom >= MAX_MEDIA_VIEWER_ZOOM}
                           title="Zoom in"
                         >
                           <span className="text-sm">+</span>
@@ -1163,7 +1293,19 @@ export function MediaViewer({
                 </div>
 
                   <div className="min-h-0 min-w-0 px-1.5 pb-1.5 pt-1.5 sm:px-2.5 sm:pb-2.5 sm:pt-2 lg:px-1.5 lg:pb-1.5 lg:pt-1.5 2xl:px-2 2xl:pb-2">
-                    <div className={`relative flex h-full min-h-0 min-w-0 w-full items-center justify-center bg-black/75 p-0 sm:min-h-[56dvh] sm:rounded-lg sm:p-1.5 lg:min-h-0 lg:rounded-lg lg:bg-black/50 lg:p-1 xl:rounded-xl xl:p-1.5 ${zoom > 1 ? 'overflow-auto' : 'overflow-hidden'}`}>
+                    <div
+                      ref={zoomStageRef}
+                      className={`relative flex h-full min-h-0 min-w-0 w-full bg-black/75 p-0 sm:min-h-[56dvh] sm:rounded-lg sm:p-1.5 lg:min-h-0 lg:rounded-lg lg:bg-black/50 lg:p-1 xl:rounded-xl xl:p-1.5 ${
+                        zoom > 1
+                          ? `${isPanningZoomStage ? 'cursor-grabbing' : 'cursor-grab'} touch-none items-start justify-start overflow-auto`
+                          : 'items-center justify-center overflow-hidden'
+                      }`}
+                      onPointerDown={handleZoomStagePointerDown}
+                      onPointerMove={handleZoomStagePointerMove}
+                      onPointerUp={handleZoomStagePointerUp}
+                      onPointerCancel={handleZoomStagePointerUp}
+                      onLostPointerCapture={() => stopZoomPan()}
+                    >
                       {currentIndex > 0 && (
                         <Button
                           variant="ghost"
@@ -1220,13 +1362,13 @@ export function MediaViewer({
                           >
                             <span className="text-sm">−</span>
                           </Button>
-                          <span className="min-w-[2.75rem] text-center text-[11px] font-medium">{Math.round(zoom * 100)}%</span>
+                          <span className="min-w-[3.5rem] text-center text-[11px] font-medium">{Math.round(zoom * 100)}%</span>
                           <Button
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 rounded-full text-white hover:bg-white/15"
                             onClick={handleZoomIn}
-                            disabled={zoom >= 3}
+                            disabled={zoom >= MAX_MEDIA_VIEWER_ZOOM}
                             title="Zoom in"
                           >
                             <span className="text-sm">+</span>
@@ -1243,14 +1385,18 @@ export function MediaViewer({
                         </div>
                       )}
                       {isImg ? (
-                        <img
-                          src={imageUrl}
-                          alt={displayFilename}
-                          className="h-full w-full max-h-full max-w-full select-none object-contain transition-transform duration-200 rounded-none shadow-none lg:rounded-xl lg:shadow-2xl"
-                          style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
-                          loading="eager"
-                          draggable={false}
-                        />
+                        <div
+                          className={`flex shrink-0 items-center justify-center ${zoom > 1 ? 'relative' : 'h-full w-full'}`}
+                          style={zoomedImageViewportStyle}
+                        >
+                          <img
+                            src={imageUrl}
+                            alt={displayFilename}
+                            className="h-full w-full max-h-full max-w-full select-none object-contain rounded-none shadow-none lg:rounded-xl lg:shadow-2xl"
+                            loading="eager"
+                            draggable={false}
+                          />
+                        </div>
                       ) : isVid ? (
                         <video
                           key={currentFile.id}
