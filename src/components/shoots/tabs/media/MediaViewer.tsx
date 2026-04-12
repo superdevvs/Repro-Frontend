@@ -1041,8 +1041,8 @@ export function MediaViewer({
           </Button>
 
           <div className="flex h-full w-full min-h-0 flex-col px-1.5 pb-1.5 pt-1.5 sm:px-3 sm:pb-3 sm:pt-2 lg:px-2.5 lg:pb-2.5 lg:pt-2 2xl:px-3 2xl:pb-3 2xl:pt-2.5">
-            <div className="grid min-h-0 flex-1 grid-cols-1 gap-2.5 lg:grid-cols-[minmax(0,1fr)_17.5rem] xl:grid-cols-[minmax(0,1fr)_18.5rem] 2xl:grid-cols-[minmax(0,1fr)_19.5rem] lg:gap-2 2xl:gap-2.5">
-              <div className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md">
+            <div className="grid min-h-0 min-w-0 flex-1 grid-cols-1 gap-2.5 lg:grid-cols-[minmax(0,1fr)_17.5rem] xl:grid-cols-[minmax(0,1fr)_18.5rem] 2xl:grid-cols-[minmax(0,1fr)_19.5rem] lg:gap-2 2xl:gap-2.5">
+              <div className="grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md">
                 {/* Top Metadata Bar */}
                 <div className="flex flex-wrap items-start justify-between gap-2 border-b border-white/10 px-2.5 py-2 sm:px-3 sm:py-2.5 lg:px-2.5 lg:py-1.5 2xl:px-3 2xl:py-2">
                   <div className="min-w-0">
@@ -1117,8 +1117,8 @@ export function MediaViewer({
                   )}
                 </div>
 
-                  <div className="min-h-0 px-1.5 pb-1.5 pt-1.5 sm:px-2.5 sm:pb-2.5 sm:pt-2 lg:px-1.5 lg:pb-1.5 lg:pt-1.5 2xl:px-2 2xl:pb-2">
-                    <div className="relative flex h-full min-h-0 w-full items-center justify-center overflow-auto bg-black/75 p-0 sm:min-h-[56dvh] sm:rounded-lg sm:p-1.5 lg:min-h-0 lg:rounded-lg lg:bg-black/50 lg:p-1 xl:rounded-xl xl:p-1.5">
+                  <div className="min-h-0 min-w-0 px-1.5 pb-1.5 pt-1.5 sm:px-2.5 sm:pb-2.5 sm:pt-2 lg:px-1.5 lg:pb-1.5 lg:pt-1.5 2xl:px-2 2xl:pb-2">
+                    <div className={`relative flex h-full min-h-0 min-w-0 w-full items-center justify-center bg-black/75 p-0 sm:min-h-[56dvh] sm:rounded-lg sm:p-1.5 lg:min-h-0 lg:rounded-lg lg:bg-black/50 lg:p-1 xl:rounded-xl xl:p-1.5 ${zoom > 1 ? 'overflow-auto' : 'overflow-hidden'}`}>
                       {currentIndex > 0 && (
                         <Button
                           variant="ghost"
@@ -1201,7 +1201,7 @@ export function MediaViewer({
                         <img
                           src={imageUrl}
                           alt={displayFilename}
-                          className="h-full w-full select-none object-contain transition-transform duration-200 rounded-none shadow-none lg:h-auto lg:w-auto lg:max-h-full lg:max-w-full lg:rounded-xl lg:shadow-2xl"
+                          className="h-full w-full max-h-full max-w-full select-none object-contain transition-transform duration-200 rounded-none shadow-none lg:rounded-xl lg:shadow-2xl"
                           style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
                           loading="eager"
                           draggable={false}
@@ -1212,7 +1212,7 @@ export function MediaViewer({
                           src={videoUrl}
                           controls
                           autoPlay
-                          className="h-full w-full rounded-none object-contain shadow-none lg:h-auto lg:w-auto lg:max-h-full lg:max-w-full lg:rounded-xl lg:shadow-2xl"
+                          className="h-full w-full max-h-full max-w-full rounded-none object-contain shadow-none lg:rounded-xl lg:shadow-2xl"
                           style={{ outline: 'none' }}
                         />
                       ) : (
@@ -1297,7 +1297,7 @@ export function MediaViewer({
                   </div>
                 </div>
 
-              <div className="min-h-0 overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md lg:flex lg:min-h-0 lg:flex-col">
+              <div className="min-h-0 min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md lg:flex lg:min-h-0 lg:flex-col">
                 <ScrollArea className="h-full lg:min-h-0 lg:flex-1">
                   <div className="space-y-3 p-2.5 text-white sm:p-3 lg:space-y-2.5 lg:p-2.5 xl:p-3 2xl:space-y-3 2xl:p-3.5">
                     <div className="hidden gap-2 sm:grid-cols-2 lg:grid">
