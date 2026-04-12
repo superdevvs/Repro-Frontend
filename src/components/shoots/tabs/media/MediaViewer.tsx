@@ -90,6 +90,8 @@ const getRequestStatusClassName = (status?: string) => {
   return 'border-rose-500/30 bg-rose-500/15 text-rose-100';
 };
 
+const SLIDESHOW_INTERVAL_OPTIONS = [5, 7, 10, 3] as const;
+
 export function MediaViewer({
   isOpen,
   onClose,
@@ -163,6 +165,9 @@ export function MediaViewer({
   const [slideshowIndex, setSlideshowIndex] = useState(0);
   const [slideshowDirection, setSlideshowDirection] = useState<1 | -1>(1);
   const [slideshowPaused, setSlideshowPaused] = useState(false);
+  const [slideshowIntervalSeconds, setSlideshowIntervalSeconds] = useState<number>(
+    SLIDESHOW_INTERVAL_OPTIONS[0],
+  );
   const [showSlideshowHint, setShowSlideshowHint] = useState(false);
   const [waitingForNextSlide, setWaitingForNextSlide] = useState(false);
   const [slideshowReadyVersion, setSlideshowReadyVersion] = useState(0);
@@ -378,6 +383,7 @@ export function MediaViewer({
 
     setViewerMode('standard');
     setSlideshowPaused(false);
+    setSlideshowIntervalSeconds(SLIDESHOW_INTERVAL_OPTIONS[0]);
     setWaitingForNextSlide(false);
     setShowSlideshowHint(false);
     setPreviewMode('web');
@@ -413,6 +419,7 @@ export function MediaViewer({
     setSlideshowIndex(slideshowStartIndex);
     setSlideshowDirection(1);
     setSlideshowPaused(false);
+    setSlideshowIntervalSeconds(SLIDESHOW_INTERVAL_OPTIONS[0]);
     setWaitingForNextSlide(false);
     setShowSlideshowHint(true);
     setShowRequestComposer(false);
@@ -428,10 +435,27 @@ export function MediaViewer({
     setSlideshowReadyVersion(0);
   }, [slideshowAvailable, slideshowStartIndex]);
 
+  const handleCycleSlideshowInterval = useCallback(() => {
+    setSlideshowIntervalSeconds((current) => {
+      const currentIndex = SLIDESHOW_INTERVAL_OPTIONS.indexOf(
+        current as (typeof SLIDESHOW_INTERVAL_OPTIONS)[number],
+      );
+
+      if (currentIndex < 0) {
+        return SLIDESHOW_INTERVAL_OPTIONS[0];
+      }
+
+      return SLIDESHOW_INTERVAL_OPTIONS[
+        (currentIndex + 1) % SLIDESHOW_INTERVAL_OPTIONS.length
+      ];
+    });
+  }, []);
+
   useEffect(() => {
     if (!isOpen) {
       setViewerMode('standard');
       setSlideshowPaused(false);
+      setSlideshowIntervalSeconds(SLIDESHOW_INTERVAL_OPTIONS[0]);
       setWaitingForNextSlide(false);
       setShowSlideshowHint(false);
       slideshowPreloadRefs.current.forEach((image) => {
@@ -527,7 +551,7 @@ export function MediaViewer({
       }
 
       setWaitingForNextSlide(true);
-    }, 5000);
+    }, slideshowIntervalSeconds * 1000);
 
     return () => window.clearTimeout(timer);
   }, [
@@ -536,6 +560,7 @@ export function MediaViewer({
     moveSlideshowToIndex,
     nextSlideReady,
     slideshowCurrentImageUrl,
+    slideshowIntervalSeconds,
     slideshowIndex,
     slideshowPaused,
     viewerMode,
@@ -957,9 +982,29 @@ export function MediaViewer({
                 {waitingForNextSlide ? (
                   <span className="text-[11px] text-white/55">Loading next…</span>
                 ) : isLastSlideshowSlide ? (
-                  <span className="text-[11px] text-white/55">End of slideshow</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] text-white/55">End of slideshow</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 rounded-full px-2.5 text-[11px] font-medium text-white/75 hover:bg-white/10 hover:text-white"
+                      onClick={exitSlideshow}
+                    >
+                      Close
+                    </Button>
+                  </div>
                 ) : (
-                  <span className="text-[11px] text-white/55">{slideshowPaused ? 'Paused' : 'Auto-advancing every 5s'}</span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 rounded-full px-2.5 text-[11px] font-medium text-white/75 hover:bg-white/10 hover:text-white"
+                    onClick={handleCycleSlideshowInterval}
+                    title="Change slideshow speed"
+                  >
+                    {slideshowIntervalSeconds} sec
+                  </Button>
                 )}
               </div>
             </div>
