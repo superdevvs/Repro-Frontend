@@ -1,10 +1,11 @@
-import React, { useEffect, useMemo } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { StripePaymentDialog } from '@/components/payments/StripePaymentDialog'
 import { useToast } from '@/components/ui/use-toast'
 import { withErrorBoundary } from '@/components/ui/ErrorBoundary'
 import { SharedShootCard } from '@/components/shoots/SharedShootCard'
@@ -29,10 +30,6 @@ import {
   formatCurrency,
 } from '@/components/shoots/history/shootHistoryUtils'
 import { ShootAction, ShootData, ShootFileData, ShootHistoryRecord, ShootHistoryServiceAggregate } from '@/types/shoots'
-import { apiClient } from '@/services/api'
-import API_ROUTES from '@/lib/api'
-import { registerShootHistoryRefresh } from '@/realtime/realtimeRefreshBus'
-import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary'
 
 const READY_STATUS_KEYS = [
   'ready',
@@ -50,11 +47,38 @@ const DELIVERED_STATUS_KEYS = [
   'finalized',
 ]
 
+const normalizeShootServices = (services: unknown): string[] => {
+  if (!Array.isArray(services)) {
+    return []
+  }
+
+  return services
+    .map((service) => {
+      if (typeof service === 'string') {
+        return service
+      }
+
+      if (service && typeof service === 'object') {
+        const serviceRecord = service as { name?: unknown; label?: unknown }
+        if (typeof serviceRecord.name === 'string') {
+          return serviceRecord.name
+        }
+        if (typeof serviceRecord.label === 'string') {
+          return serviceRecord.label
+        }
+      }
+
+      return ''
+    })
+    .filter((service): service is string => Boolean(service))
+}
+
 const ShootHistory: React.FC = () => {
   const navigate = useNavigate()
   const { toast } = useToast()
   const { role, user } = useAuth()
   const { formatTime, formatDate: formatDatePref } = useUserPreferences()
+  const [paymentShoot, setPaymentShoot] = useState<ShootData | null>(null)
   
   // Local formatDisplayDate that uses user preference
   const formatDisplayDatePref = (value?: string | null) => {
@@ -369,27 +393,17 @@ const ShootHistory: React.FC = () => {
       .filter(Boolean) as MapMarker[]
   }, [activeTab, historyFilters.viewAs, historyFilters.groupBy, historyRecords, geoCache, shouldHideClientDetails])
 
-  const handleCreatePaymentLink = React.useCallback(async (shoot: ShootData) => {
-    try {
-      const response = await apiClient.post(`/shoots/${shoot.id}/create-checkout-link`)
-      const url = response.data?.url || response.data?.checkout_url || response.data?.checkoutUrl
-      if (!url) {
-        throw new Error('Checkout URL not returned')
-      }
+  const handleOpenPaymentDialog = React.useCallback((shoot: ShootData) => {
+    setPaymentShoot(shoot)
+  }, [])
 
-      window.open(url, '_blank')
-      toast({
-        title: 'Payment window opened',
-        description: 'Complete payment in the new window.',
-      })
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to create payment link',
-        variant: 'destructive',
-      })
-    }
-  }, [toast])
+  const handleClosePaymentDialog = React.useCallback(() => {
+    setPaymentShoot(null)
+  }, [])
+
+  const handlePaymentSuccess = React.useCallback(() => {
+    refreshActiveTabData()
+  }, [refreshActiveTabData])
 
   const mapAddresses = useMemo(() => {
     if (activeTab === 'history') {
@@ -537,7 +551,7 @@ const ShootHistory: React.FC = () => {
             isEditingManager={isEditingManager}
             isEditor={isEditor}
             onViewInvoice={canViewInvoice ? handleViewInvoice : undefined}
-            onPayNow={isClient ? handleCreatePaymentLink : undefined}
+            onPayNow={isClient ? handleOpenPaymentDialog : undefined}
             onApprove={(s) => setApprovalModalShoot(s)}
             onDecline={(s) => setDeclineModalShoot(s)}
             onModify={(s) => setEditModalShoot(s)}
@@ -548,7 +562,7 @@ const ShootHistory: React.FC = () => {
         ))}
       </div>
     )
-  }, [loading, activeTab, filteredOperationalData, operationalMeta, viewMode, role, operationalMarkers, handleShootSelect, handlePrimaryAction, navigate, isSuperAdmin, scheduledSubTab, isAdmin, isClient, isEditingManager, isEditor, canViewInvoice, canSendToEditing, handleViewInvoice, handleCreatePaymentLink, handleDeleteShoot, handleSendToEditing, shouldHideClientDetails])
+  }, [loading, activeTab, filteredOperationalData, operationalMeta, viewMode, role, operationalMarkers, handleShootSelect, handlePrimaryAction, navigate, isSuperAdmin, scheduledSubTab, isAdmin, isClient, isEditingManager, isEditor, canViewInvoice, canSendToEditing, handleViewInvoice, handleOpenPaymentDialog, handleDeleteShoot, handleSendToEditing, shouldHideClientDetails])
 
     // Completed shoots content
   const completedContent = useMemo(() => {
@@ -634,7 +648,7 @@ const ShootHistory: React.FC = () => {
                   isEditor={isEditor}
                   onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
                   onViewInvoice={canViewInvoice ? handleViewInvoice : undefined}
-                  onPayNow={isClient ? handleCreatePaymentLink : undefined}
+                  onPayNow={isClient ? handleOpenPaymentDialog : undefined}
                   onSendToEditing={canSendToEditing ? handleSendToEditing : undefined}
                   shouldHideClientDetails={shouldHideClientDetails}
                 />
@@ -665,14 +679,14 @@ const ShootHistory: React.FC = () => {
             isEditor={isEditor}
             onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
             onViewInvoice={canViewInvoice ? handleViewInvoice : undefined}
-            onPayNow={isClient ? handleCreatePaymentLink : undefined}
+            onPayNow={isClient ? handleOpenPaymentDialog : undefined}
             onSendToEditing={canSendToEditing ? handleSendToEditing : undefined}
             shouldHideClientDetails={shouldHideClientDetails}
           />
         ))}
       </div>
     )
-  }, [loading, activeTab, filteredOperationalData, operationalMeta, viewMode, operationalMarkers, handleShootSelect, handleDownloadShoot, isSuperAdmin, isAdmin, isClient, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleCreatePaymentLink, handleSendToEditing, inProgressSubTab, deliveredSubTab, canViewInvoice, canSendToEditing, shouldHideClientDetails])
+  }, [loading, activeTab, filteredOperationalData, operationalMeta, viewMode, operationalMarkers, handleShootSelect, handleDownloadShoot, isSuperAdmin, isAdmin, isClient, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleOpenPaymentDialog, handleSendToEditing, inProgressSubTab, deliveredSubTab, canViewInvoice, canSendToEditing, shouldHideClientDetails])
 
   // Hold-on shoots content
   const holdOnContent = useMemo(() => {
@@ -729,7 +743,7 @@ const ShootHistory: React.FC = () => {
                   isEditor={isEditor}
                   onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
                   onViewInvoice={canViewInvoice ? handleViewInvoice : undefined}
-                  onPayNow={isClient ? handleCreatePaymentLink : undefined}
+                  onPayNow={isClient ? handleOpenPaymentDialog : undefined}
                   onSendToEditing={canSendToEditing ? handleSendToEditing : undefined}
                   shouldHideClientDetails={shouldHideClientDetails}
                 />
@@ -758,14 +772,14 @@ const ShootHistory: React.FC = () => {
             isEditor={isEditor}
             onDelete={isAdmin || isSuperAdmin ? handleDeleteShoot : undefined}
             onViewInvoice={canViewInvoice ? handleViewInvoice : undefined}
-            onPayNow={isClient ? handleCreatePaymentLink : undefined}
+            onPayNow={isClient ? handleOpenPaymentDialog : undefined}
             onSendToEditing={canSendToEditing ? handleSendToEditing : undefined}
             shouldHideClientDetails={shouldHideClientDetails}
           />
         ))}
       </div>
     )
-  }, [loading, activeTab, filteredOperationalData, operationalMeta, viewMode, operationalMarkers, handleShootSelect, isSuperAdmin, isAdmin, isClient, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleCreatePaymentLink, handleSendToEditing, canViewInvoice, canSendToEditing, shouldHideClientDetails])
+  }, [loading, activeTab, filteredOperationalData, operationalMeta, viewMode, operationalMarkers, handleShootSelect, isSuperAdmin, isAdmin, isClient, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleOpenPaymentDialog, handleSendToEditing, canViewInvoice, canSendToEditing, shouldHideClientDetails])
 
   // Legacy operationalContent for backward compatibility
   const operationalContent = useMemo(() => {
@@ -1034,6 +1048,31 @@ const ShootHistory: React.FC = () => {
         brightMlsRedirectUrl={brightMlsRedirectUrl}
         onBrightMlsRedirectUrlChange={setBrightMlsRedirectUrl}
       />
+      {paymentShoot && (
+        <StripePaymentDialog
+          isOpen={!!paymentShoot}
+          onClose={handleClosePaymentDialog}
+          amount={Math.max(
+            (paymentShoot.payment?.totalQuote ?? paymentShoot.totalQuote ?? 0) -
+              (paymentShoot.payment?.totalPaid ?? paymentShoot.totalPaid ?? 0),
+            0,
+          )}
+          shootId={paymentShoot.id}
+          shootAddress={paymentShoot.location?.fullAddress || paymentShoot.location?.address}
+          shootServices={normalizeShootServices(paymentShoot.services)}
+          shootDate={paymentShoot.scheduledDate}
+          shootTime={
+            paymentShoot.time && paymentShoot.time !== 'TBD'
+              ? formatTime(paymentShoot.time)
+              : undefined
+          }
+          clientName={shouldHideClientDetails ? undefined : paymentShoot.client?.name}
+          clientEmail={shouldHideClientDetails ? undefined : paymentShoot.client?.email}
+          totalQuote={paymentShoot.payment?.totalQuote ?? paymentShoot.totalQuote}
+          totalPaid={paymentShoot.payment?.totalPaid ?? paymentShoot.totalPaid}
+          onPaymentSuccess={handlePaymentSuccess}
+        />
+      )}
     </>
   )
 }

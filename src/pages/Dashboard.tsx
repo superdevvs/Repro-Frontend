@@ -121,6 +121,7 @@ import { usePermission } from "@/hooks/usePermission";
 import { SHOOT_MEDIA_DOWNLOAD_STARTED_EVENT } from "@/utils/shootMediaDownload";
 import { ClientEmailHealthNotice } from "@/components/email/ClientEmailHealthNotice";
 import { normalizeEmailHealth } from "@/utils/emailHealth";
+import { normalizeImageUrl } from "@/utils/imageUrl";
 
 const LazyAssignPhotographersCard = lazy(() =>
   import("@/components/dashboard/v2/AssignPhotographersCard").then((module) => ({
@@ -241,6 +242,195 @@ const buildShootHistoryPath = (
     searchParams.set("range", options.range);
   }
   return `/shoot-history?${searchParams.toString()}`;
+};
+
+const CLIENT_DELIVERED_FLOORPLAN_PATTERNS = [
+  "floorplan",
+  "floor-plan",
+  "floor_plan",
+  "fp_",
+  "fp-",
+  "layout",
+  "blueprint",
+];
+
+const CLIENT_DELIVERED_FINAL_STAGE_KEYWORDS = [
+  "verified",
+  "completed",
+  "edited",
+  "delivered",
+  "ready",
+];
+
+const CLIENT_DELIVERED_EXCLUDED_STAGE_KEYWORDS = ["todo", "raw", "uploaded", "capture"];
+
+const matchesClientDeliveredPattern = (value: unknown) => {
+  if (typeof value !== "string") {
+    return false;
+  }
+
+  const normalized = value.toLowerCase();
+  return CLIENT_DELIVERED_FLOORPLAN_PATTERNS.some((pattern) => normalized.includes(pattern));
+};
+
+const isClientDeliveredFloorplanLike = (item: unknown) => {
+  if (typeof item === "string") {
+    return matchesClientDeliveredPattern(item);
+  }
+
+  if (!item || typeof item !== "object") {
+    return false;
+  }
+
+  const asset = item as Record<string, unknown>;
+  const mediaType = String(asset.media_type ?? asset.mediaType ?? asset.type ?? "").toLowerCase();
+  if (mediaType === "floorplan") {
+    return true;
+  }
+
+  return [
+    asset.filename,
+    asset.stored_filename,
+    asset.name,
+    asset.path,
+    asset.url,
+    asset.thumbnail_url,
+    asset.web_url,
+    asset.large_url,
+    asset.original_url,
+  ].some(matchesClientDeliveredPattern);
+};
+
+const getClientDeliveredWorkflowStage = (item: unknown) => {
+  if (!item || typeof item !== "object") {
+    return "";
+  }
+
+  const asset = item as Record<string, unknown>;
+  return String(asset.workflow_stage ?? asset.workflowStage ?? "").toLowerCase();
+};
+
+const isClientDeliveredFinalAsset = (item: unknown) => {
+  const stage = getClientDeliveredWorkflowStage(item);
+  if (!stage) {
+    return false;
+  }
+
+  if (CLIENT_DELIVERED_EXCLUDED_STAGE_KEYWORDS.some((keyword) => stage.includes(keyword))) {
+    return false;
+  }
+
+  return CLIENT_DELIVERED_FINAL_STAGE_KEYWORDS.some((keyword) => stage.includes(keyword));
+};
+
+const resolveClientDeliveredAssetUrl = (item: unknown) => {
+  if (typeof item === "string") {
+    const resolved = normalizeImageUrl(item);
+    return resolved || null;
+  }
+
+  if (!item || typeof item !== "object") {
+    return null;
+  }
+
+  const asset = item as Record<string, unknown>;
+  const candidates = [
+    asset.thumbnail,
+    asset.thumbnail_url,
+    asset.thumbnail_path,
+    asset.thumb,
+    asset.thumb_url,
+    asset.web_url,
+    asset.web_path,
+    asset.medium_url,
+    asset.medium,
+    asset.large_url,
+    asset.large,
+    asset.placeholder_url,
+    asset.placeholder_path,
+    asset.url,
+    asset.path,
+    asset.original_url,
+    asset.original,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate !== "string") {
+      continue;
+    }
+
+    const resolved = normalizeImageUrl(candidate);
+    if (resolved) {
+      return resolved;
+    }
+  }
+
+  return null;
+};
+
+const getClientDeliveredMedia = (shoot: ShootData) => {
+  const editedFiles = (shoot.files ?? [])
+    .filter((file) => !(file.is_hidden ?? false))
+    .filter((file) => !isClientDeliveredFloorplanLike(file))
+    .filter((file) => isClientDeliveredFinalAsset(file));
+
+  const orderedEditedFiles = [
+    ...editedFiles.filter((file) => Boolean(file.is_cover ?? file.isCover)),
+    ...editedFiles.filter((file) => !(file.is_cover ?? file.isCover)),
+  ];
+
+  const filePhotos = Array.from(
+    new Set(
+      orderedEditedFiles
+        .map((file) => resolveClientDeliveredAssetUrl(file))
+        .filter((url): url is string => Boolean(url)),
+    ),
+  );
+
+  const mediaPhotos = Array.from(
+    new Set(
+      (shoot.media?.images ?? [])
+        .filter((image) => !isClientDeliveredFloorplanLike(image))
+        .map((image) => resolveClientDeliveredAssetUrl(image))
+        .filter((url): url is string => Boolean(url)),
+    ),
+  );
+
+  const deliveredPhotoSource = Array.isArray((shoot as ShootData & { deliveredPhotos?: unknown[] }).deliveredPhotos)
+    ? (shoot as ShootData & { deliveredPhotos?: unknown[] }).deliveredPhotos ?? []
+    : [];
+
+  const legacyDeliveredPhotos = Array.from(
+    new Set(
+      deliveredPhotoSource
+        .filter((image) => !isClientDeliveredFloorplanLike(image))
+        .map((image) => resolveClientDeliveredAssetUrl(image))
+        .filter((url): url is string => Boolean(url)),
+    ),
+  );
+
+  const photos =
+    filePhotos.length > 0
+      ? filePhotos
+      : mediaPhotos.length > 0
+        ? mediaPhotos
+        : legacyDeliveredPhotos;
+
+  const countFallbacks = [
+    shoot.editedPhotoCount,
+    shoot.mediaSummary?.editedUploaded,
+    shoot.mediaSummary?.delivered,
+  ];
+
+  const explicitCount = countFallbacks.find(
+    (value): value is number => typeof value === "number" && Number.isFinite(value) && value > 0,
+  );
+
+  return {
+    photos,
+    coverPhoto: photos[0] ?? null,
+    count: explicitCount ?? photos.length,
+  };
 };
 
 const ACTIVE_CLIENT_REQUEST_STATUSES = new Set(["open", "in-progress", "in_progress"]);
@@ -3433,34 +3623,9 @@ const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {list.map((record) => {
                     const summary = shootDataToSummary(record.data);
-                    const deliveredPhotos = (() => {
-                      const d = record.data as any;
-                      const urls: string[] = [];
-                      const fpPatterns = ['floorplan', 'floor-plan', 'floor_plan', 'fp_', 'fp-', 'layout', 'blueprint'];
-                      const isFP = (item: any) => {
-                        const mt = (item?.media_type || item?.mediaType || '').toLowerCase();
-                        if (mt === 'floorplan') return true;
-                        const nm = (item?.filename || item?.name || item?.path || '').toLowerCase();
-                        return fpPatterns.some(p => nm.includes(p));
-                      };
-                      if (d.files && Array.isArray(d.files)) {
-                        d.files.forEach((f: any) => {
-                          if (isFP(f)) return;
-                          const u = f.large_url || f.medium_url || f.url || f.original_url || f.thumb_url || f.path;
-                          if (u) urls.push(u);
-                        });
-                      }
-                      if (urls.length === 0 && d.deliveredPhotos) {
-                        (Array.isArray(d.deliveredPhotos) ? d.deliveredPhotos : []).forEach((p: any) => {
-                          if (typeof p !== 'string' && isFP(p)) return;
-                          const u = typeof p === 'string' ? p : (p?.large_url || p?.medium_url || p?.url || p?.path);
-                          if (u) urls.push(u);
-                        });
-                      }
-                      return urls;
-                    })();
-                    const coverPhoto = deliveredPhotos[0] || null;
-                    const photoCount = deliveredPhotos.length;
+                    const deliveredMedia = getClientDeliveredMedia(record.data);
+                    const coverPhoto = deliveredMedia.coverPhoto;
+                    const photoCount = deliveredMedia.count;
                     const dateLabel = summary.startTime
                       ? format(new Date(summary.startTime), "d MMM yyyy")
                       : "No date";
@@ -3630,62 +3795,10 @@ const ClientShootTile: React.FC<ClientShootTileProps> = React.memo(({
   const serviceBadges = services.slice(0, 4);
   const overflow = services.length - serviceBadges.length;
 
-  // Get photos for delivered shoots (excludes floorplans, prioritizes hero image)
-  const getDeliveredPhotos = () => {
-    const allPhotos: string[] = [];
-    const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
-    const FP_PATTERNS = ['floorplan', 'floor-plan', 'floor_plan', 'fp_', 'fp-', 'layout', 'blueprint'];
-    
-    const isFloorplan = (item: any): boolean => {
-      const mediaType = (item.media_type || item.mediaType || '').toLowerCase();
-      if (mediaType === 'floorplan') return true;
-      const name = (item.filename || item.name || item.path || '').toLowerCase();
-      return FP_PATTERNS.some(p => name.includes(p));
-    };
-
-    // Helper to resolve URL - prefix with API URL if relative path
-    const resolveUrl = (url: string | null | undefined): string | null => {
-      if (!url) return null;
-      // Already absolute URL
-      if (url.startsWith('http://') || url.startsWith('https://')) return url;
-      // Relative path - prefix with API URL
-      if (url.startsWith('/')) return `${API_URL}${url}`;
-      return `${API_URL}/${url}`;
-    };
-
-    // First priority: explicitly set hero image from backend
-    const heroUrl = resolveUrl(data.heroImage || (data as any).hero_image);
-    if (heroUrl && !FP_PATTERNS.some(p => heroUrl.toLowerCase().includes(p))) {
-      allPhotos.push(heroUrl);
-    }
-    
-    // Check media.images
-    if (data.media?.images) {
-      data.media.images.forEach((img: any) => {
-        if (isFloorplan(img)) return;
-        const url = img.thumbnail_url || img.web_url || resolveUrl(img.thumbnail_path || img.web_path || img.url || img.path);
-        if (url && !allPhotos.includes(url)) allPhotos.push(url);
-      });
-    }
-    // Fallback to files - only include edited/final files (not raw, not floorplans)
-    if (allPhotos.length <= 1 && data.files) {
-      data.files.forEach((file: any) => {
-        if (isFloorplan(file)) return;
-        const stage = (file.workflow_stage || file.workflowStage || '').toLowerCase();
-        if (stage === 'raw' || stage === 'todo' || stage === 'uploaded') return;
-        
-        const url = file.thumbnail_url || file.web_url || file.placeholder_url || 
-                    resolveUrl(file.thumbnail_path || file.web_path || file.url || file.path);
-        if (url && !allPhotos.includes(url)) allPhotos.push(url);
-      });
-    }
-    return allPhotos;
-  };
-
   if (variant === "completed") {
-    const allPhotos = getDeliveredPhotos();
-    const coverPhoto = allPhotos[0] || null;
-    const totalCount = allPhotos.length;
+    const deliveredMedia = getClientDeliveredMedia(data);
+    const coverPhoto = deliveredMedia.coverPhoto;
+    const totalCount = deliveredMedia.count;
 
     return (
       <div

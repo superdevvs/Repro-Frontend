@@ -244,6 +244,10 @@ export default function PaymentPage() {
   const hasRemainingBalance = amountDue > 0.009;
   const receiptStatusLabel = receipt?.status === 'completed' ? 'Paid' : 'Pending';
   const subtotalAmount = shoot?.service_subtotal ?? ((shoot?.base_quote || 0) + (shoot?.discount_amount || 0));
+  const pageMaxWidthClass = showEmbeddedCheckout ? 'max-w-[1480px]' : 'max-w-[1180px]';
+  const paymentLayoutClass = showEmbeddedCheckout
+    ? 'xl:grid-cols-[minmax(320px,380px)_minmax(0,1fr)]'
+    : 'xl:grid-cols-[minmax(320px,420px)_minmax(0,1fr)]';
 
   const handleTogglePartial = () => {
     setIsPartialOpen((prev) => {
@@ -807,11 +811,11 @@ export default function PaymentPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#060a0e] text-white overflow-y-auto">
-      <div className={`mx-auto w-full px-4 py-6 sm:py-10 ${showEmbeddedCheckout ? 'max-w-6xl' : 'max-w-5xl'} transition-all duration-300`}>
-        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="min-h-screen overflow-x-hidden bg-[#060a0e] text-white">
+      <div className={`mx-auto w-full px-4 py-5 sm:px-6 sm:py-8 lg:px-8 lg:py-10 ${pageMaxWidthClass} transition-all duration-300`}>
+        <div className="mb-6 flex flex-col gap-3 lg:mb-8 lg:flex-row lg:items-center lg:justify-between">
           <Logo variant="light" className="h-8 w-auto" />
-          <div className="flex items-center gap-2 text-sm text-gray-400">
+          <div className="flex flex-wrap items-center gap-2 text-sm text-gray-400">
             <span>Secure payment powered by</span>
             <svg className="h-5" viewBox="0 0 60 25" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M5 10.2c0-.7.6-1 1.5-1 1.4 0 3 .4 4.4 1.2V6.3c-1.5-.6-3-.8-4.4-.8C3.3 5.5.8 7.4.8 10.4c0 4.7 6.4 3.9 6.4 5.9 0 .8-.7 1.1-1.7 1.1-1.5 0-3.4-.6-4.9-1.4v4.2c1.7.7 3.3 1 4.9 1 3.3 0 5.6-1.6 5.6-4.7C11.1 11.6 5 12.5 5 10.2z" fill="#635BFF"/>
@@ -822,41 +826,33 @@ export default function PaymentPage() {
           </div>
         </div>
 
-        <Card className="bg-[#0a0f1a] border-gray-800 shadow-xl">
+        <Card className="overflow-hidden border border-gray-800/90 bg-[#0a0f1a]/95 shadow-[0_28px_70px_rgba(0,0,0,0.35)]">
           <CardContent className="p-0">
-            <div className={`grid gap-6 md:gap-8 ${showEmbeddedCheckout ? 'md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1.5fr)]' : 'md:grid-cols-[1fr_auto_1fr]'} transition-all duration-300`}>
-              <div className="p-6 md:p-8 space-y-6">
+            <div className={`grid ${paymentLayoutClass} transition-all duration-300`}>
+              <div className="order-2 space-y-6 border-t border-gray-800 bg-[#0b111d] p-5 sm:p-6 xl:order-1 xl:border-r xl:border-t-0 xl:p-8">
                 <div className="space-y-1">
                   <p className="text-xs uppercase tracking-[0.3em] text-gray-500">Shoot Details</p>
                   <h1 className="text-2xl font-semibold text-white">Review & pay</h1>
-                  <p className="text-sm text-gray-400">Confirm shoot details and settle the balance.</p>
+                  <p className="max-w-sm text-sm text-gray-400">Confirm the shoot summary, then complete your payment on the right.</p>
                 </div>
 
                 <div className="space-y-4">
                   {fullAddress && (
                     <div className="flex items-start gap-3">
                       <MapPin className="h-5 w-5 text-blue-400 mt-0.5" />
-                      <div>
+                      <div className="min-w-0">
                         <p className="text-xs uppercase tracking-wide text-gray-500">Location</p>
-                        <p className="text-white">{fullAddress}</p>
+                        <p className="break-words text-white">{fullAddress}</p>
                       </div>
                     </div>
                   )}
 
-                  {shoot?.scheduled_date && (
+                  {scheduledAtLabel && (
                     <div className="flex items-start gap-3">
                       <Calendar className="h-5 w-5 text-blue-400 mt-0.5" />
-                      <div>
+                      <div className="min-w-0">
                         <p className="text-xs uppercase tracking-wide text-gray-500">Scheduled</p>
-                        <p className="text-white">
-                          {new Date(shoot.scheduled_date).toLocaleDateString('en-US', {
-                            weekday: 'long',
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric',
-                          })}
-                          {shoot.time && ` at ${shoot.time}`}
-                        </p>
+                        <p className="break-words text-white">{scheduledAtLabel}</p>
                       </div>
                     </div>
                   )}
@@ -864,11 +860,11 @@ export default function PaymentPage() {
                   {shoot?.services && shoot.services.length > 0 && (
                     <div className="flex items-start gap-3">
                       <Camera className="h-5 w-5 text-blue-400 mt-0.5" />
-                      <div>
+                      <div className="min-w-0">
                         <p className="text-xs uppercase tracking-wide text-gray-500">Services</p>
-                        <ul className="text-white space-y-1">
+                        <ul className="space-y-2 text-white">
                           {shoot.services.map((service, idx) => (
-                            <li key={idx}>{service.name}</li>
+                            <li key={idx} className="break-words">{service.name}</li>
                           ))}
                         </ul>
                       </div>
@@ -876,7 +872,7 @@ export default function PaymentPage() {
                   )}
                 </div>
 
-                <div className="rounded-xl border border-gray-800 bg-[#0f1524] p-4 space-y-3">
+                <div className="rounded-2xl border border-gray-800 bg-[#10192a] p-4 sm:p-5 space-y-3">
                   <div className="flex justify-between text-sm text-gray-400">
                     <span>Subtotal</span>
                     <span>${(shoot?.service_subtotal ?? ((shoot?.base_quote || 0) + (shoot?.discount_amount || 0))).toFixed(2)}</span>
@@ -911,22 +907,20 @@ export default function PaymentPage() {
 
               </div>
 
-              <div className="hidden md:block w-px bg-gray-800" />
-
-              <div className="p-6 md:p-8 space-y-6">
+              <div className="order-1 min-w-0 space-y-6 p-5 sm:p-6 xl:order-2 xl:p-8">
                 {!showEmbeddedCheckout ? (
                   <>
                     <div className="space-y-1">
                       <p className="text-xs uppercase tracking-[0.3em] text-gray-500">Payment Details</p>
-                      <h2 className="text-xl font-semibold text-white">Pay securely with Stripe</h2>
-                      <p className="text-sm text-gray-400">Complete your payment securely below.</p>
+                      <h2 className="text-xl font-semibold text-white sm:text-2xl">Pay securely with Stripe</h2>
+                      <p className="max-w-2xl text-sm text-gray-400">Choose full or partial payment, then continue to the secure Stripe checkout.</p>
                     </div>
 
-                    <div className="space-y-4">
-                      <div className="rounded-xl border border-gray-800 bg-[#0f1524] p-4 space-y-2">
+                    <div className="space-y-4 sm:space-y-5">
+                      <div className="rounded-2xl border border-gray-800 bg-[#0f1524] p-4 sm:p-5 space-y-3">
                         <div className="flex items-center justify-between">
                           <span className="text-sm text-gray-400">Payment Amount</span>
-                          <span className="text-2xl font-bold text-white">${effectivePaymentAmount.toFixed(2)}</span>
+                          <span className="text-2xl font-bold text-white sm:text-3xl">${effectivePaymentAmount.toFixed(2)}</span>
                         </div>
                         {isPartialOpen && effectivePaymentAmount < amountDue && (
                           <p className="text-xs text-gray-500">
@@ -944,18 +938,23 @@ export default function PaymentPage() {
                       </button>
 
                       {isPartialOpen && (
-                        <div className="rounded-xl border border-dashed border-blue-500/40 bg-[#0f1524] p-4">
+                        <div className="rounded-2xl border border-dashed border-blue-500/40 bg-[#0f1524] p-4 sm:p-5">
                           <p className="text-xs uppercase tracking-wide text-gray-500">Partial payment</p>
-                          <div className="mt-3 flex items-center gap-3">
-                            <span className="text-2xl font-semibold text-white">$</span>
-                            <Input
-                              type="text"
-                              inputMode="decimal"
-                              value={paymentAmountInput}
-                              onChange={(e) => handlePartialAmountChange(e.target.value)}
-                              onBlur={handlePartialAmountBlur}
-                              className="h-12 w-40 bg-[#0a0f1a] border-gray-700 text-white text-xl font-semibold"
-                            />
+                          <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
+                            <div className="flex items-center gap-3">
+                              <span className="text-2xl font-semibold text-white">$</span>
+                              <Input
+                                type="text"
+                                inputMode="decimal"
+                                value={paymentAmountInput}
+                                onChange={(e) => handlePartialAmountChange(e.target.value)}
+                                onBlur={handlePartialAmountBlur}
+                                className="h-12 w-full min-w-0 sm:w-48 bg-[#0a0f1a] border-gray-700 text-white text-xl font-semibold"
+                              />
+                            </div>
+                            <div className="rounded-xl border border-gray-700 bg-[#0a0f1a] px-3 py-2 text-xs text-gray-400 sm:ml-auto">
+                              Max available: ${amountDue.toFixed(2)}
+                            </div>
                           </div>
                           <p className="mt-2 text-xs text-gray-500">Pay any amount up to ${amountDue.toFixed(2)}.</p>
                           {paymentAmount > 0 && paymentAmount < amountDue && (
@@ -966,6 +965,21 @@ export default function PaymentPage() {
                         </div>
                       )}
 
+                      <div className="rounded-2xl border border-gray-800 bg-[#0f1524] p-4 sm:p-5">
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                          <div className="space-y-1">
+                            <p className="text-xs uppercase tracking-[0.3em] text-gray-500">Checkout readiness</p>
+                            <p className="text-sm text-gray-300">Stripe will open inline below, optimized for card and wallet payments.</p>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                            <Lock className="h-3 w-3" />
+                            <span>256-bit SSL encrypted</span>
+                            <span className="hidden sm:inline">·</span>
+                            <span>Powered by Stripe</span>
+                          </div>
+                        </div>
+                      </div>
+
                       {stripeError && (
                         <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3">
                           <p className="text-sm text-red-400">{stripeError}</p>
@@ -975,7 +989,7 @@ export default function PaymentPage() {
                       <Button
                         onClick={handleStripeCheckout}
                         disabled={stripeLoading || effectivePaymentAmount <= 0}
-                        className="w-full h-12 bg-[#635BFF] hover:bg-[#5851DB] text-white font-semibold text-base rounded-lg transition-colors"
+                        className="h-12 w-full rounded-xl bg-[#635BFF] text-base font-semibold text-white transition-colors hover:bg-[#5851DB] sm:h-13"
                       >
                         {stripeLoading ? (
                           <>
@@ -989,43 +1003,37 @@ export default function PaymentPage() {
                           </>
                         )}
                       </Button>
-
-                      <div className="flex items-center justify-center gap-2 text-gray-500">
-                        <Lock className="h-3 w-3" />
-                        <span className="text-xs">256-bit SSL encrypted</span>
-                        <span className="text-xs">·</span>
-                        <span className="text-xs">Powered by</span>
-                        <svg className="h-3" viewBox="0 0 60 25" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M5 10.2c0-.7.6-1 1.5-1 1.4 0 3 .4 4.4 1.2V6.3c-1.5-.6-3-.8-4.4-.8C3.3 5.5.8 7.4.8 10.4c0 4.7 6.4 3.9 6.4 5.9 0 .8-.7 1.1-1.7 1.1-1.5 0-3.4-.6-4.9-1.4v4.2c1.7.7 3.3 1 4.9 1 3.3 0 5.6-1.6 5.6-4.7C11.1 11.6 5 12.5 5 10.2z" fill="#635BFF"/>
-                          <path d="M19.5 3.5l-4 .9V8h-1.7v3.7h1.7v4.7c0 3.2 1.5 4.3 4 4.3 1.2 0 2-.3 2-.3v-3.6s-.7.3-1.3.3c-.7 0-1.2-.3-1.2-1.2v-4.2h2.5V8h-2.5V3.5h.5z" fill="#635BFF"/>
-                          <path d="M27.2 5.5c-1.4 0-2.3.7-2.8 1.1l-.2-.9h-3.7v14.9l4.2-.9V17c.5.4 1.3.9 2.5.9 2.5 0 4.8-2 4.8-6.5-.1-4.1-2.4-5.9-4.8-5.9zm-.8 9.3c-.8 0-1.3-.3-1.7-.7v-5.3c.4-.4.9-.7 1.7-.7 1.3 0 2.2 1.4 2.2 3.4 0 2-.9 3.3-2.2 3.3z" fill="#635BFF"/>
-                          <path d="M35.7 5.5c-2.8 0-4.5 2.7-4.5 6.4 0 4.2 2 6.3 5.4 6.3 1.6 0 2.8-.4 3.7-.9v-3.3c-.9.5-1.9.7-3.2.7-1.3 0-2.4-.5-2.5-2h6.1c0-.2 0-.9 0-.9.1-3.9-1.8-6.3-5-6.3zm-1.2 5.2c0-1.5.9-2.1 1.7-2.1.8 0 1.6.6 1.6 2.1h-3.3z" fill="#635BFF"/>
-                        </svg>
-                      </div>
                     </div>
                   </>
                 ) : (
                   <>
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-1">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="space-y-1 min-w-0">
                         <p className="text-xs uppercase tracking-[0.3em] text-gray-500">Checkout</p>
-                        <h2 className="text-xl font-semibold text-white">Complete Payment</h2>
+                        <h2 className="text-xl font-semibold text-white sm:text-2xl">Complete Payment</h2>
+                        <p className="max-w-2xl text-sm text-gray-400">Finish the payment securely below. The shoot summary stays available on the left on larger screens.</p>
                       </div>
                       <button
                         type="button"
-                        className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition-colors"
+                        className="inline-flex items-center gap-1 self-start rounded-full border border-gray-700 px-3 py-1.5 text-sm text-gray-400 transition-colors hover:border-gray-500 hover:text-white"
                         onClick={handleCancelCheckout}
                       >
                         <XCircle className="h-4 w-4" /> Cancel
                       </button>
                     </div>
-                    <div className="rounded-xl border border-gray-800 bg-white overflow-hidden min-h-[400px]">
-                      {embeddedCheckoutLoading && (
-                        <div className="flex items-center justify-center py-12">
-                          <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-                        </div>
-                      )}
-                      <div ref={checkoutMountRef} className="w-full" />
+
+                    <div className="rounded-2xl border border-gray-800 bg-[#0b111d] p-2 sm:p-3 lg:p-4">
+                      <div className="mx-auto w-full max-w-[860px] overflow-hidden rounded-[22px] border border-gray-200/80 bg-white shadow-[0_20px_60px_rgba(15,23,42,0.18)]">
+                        {embeddedCheckoutLoading && (
+                          <div className="flex items-center justify-center py-12">
+                            <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                          </div>
+                        )}
+                        <div
+                          ref={checkoutMountRef}
+                          className="w-full min-h-[68svh] sm:min-h-[760px]"
+                        />
+                      </div>
                     </div>
                   </>
                 )}

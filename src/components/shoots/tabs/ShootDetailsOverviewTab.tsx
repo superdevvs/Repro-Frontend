@@ -57,7 +57,6 @@ import { WeatherInfo } from '@/services/weatherService';
 import { useToast } from '@/hooks/use-toast';
 import { useEditorRates } from '@/hooks/useEditorRates';
 import { API_BASE_URL } from '@/config/env';
-import { apiClient } from '@/services/api';
 import { useAuth } from '@/components/auth';
 import { calculateDistance, getCoordinatesFromAddress } from '@/utils/distanceUtils';
 import { cn } from '@/lib/utils';
@@ -82,6 +81,7 @@ import { OverviewPhotographerSection } from './overview/OverviewPhotographerSect
 import { OverviewPropertyLocationSection } from './overview/OverviewPropertyLocationSection';
 import { OverviewScheduleWeatherSection } from './overview/OverviewScheduleWeatherSection';
 import { OverviewServicesSection } from './overview/OverviewServicesSection';
+import { StripePaymentDialog } from '@/components/payments/StripePaymentDialog';
 import {
   extractPhotoCountFromServiceName,
   findMatchingEditorRate,
@@ -332,7 +332,7 @@ export function ShootDetailsOverviewTab({
   const { formatTemperature, formatTime: formatTimePreference, formatDate: formatDatePreference } = useUserPreferences();
   const [isFeaturedShoot, setIsFeaturedShoot] = useState<boolean>(() => resolveFeaturedShootState(shoot));
   const [isSavingFeaturedShoot, setIsSavingFeaturedShoot] = useState(false);
-  const [creatingPayment, setCreatingPayment] = useState(false);
+  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
 
   const {
     state: {
@@ -471,32 +471,13 @@ export function ShootDetailsOverviewTab({
     }
   };
 
-  const handleCreatePaymentLink = async () => {
+  const handleOpenPaymentDialog = () => {
     if (!isClient) return;
+    setIsPaymentDialogOpen(true);
+  };
 
-    setCreatingPayment(true);
-    try {
-      const response = await apiClient.post(`/shoots/${shoot.id}/create-checkout-link`);
-      const url = response.data?.url || response.data?.checkout_url || response.data?.checkoutUrl;
-
-      if (!url) {
-        throw new Error('Checkout URL not returned');
-      }
-
-      window.open(url, '_blank');
-      toast({
-        title: 'Payment window opened',
-        description: 'Complete payment in the new window.',
-      });
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to create payment link',
-        variant: 'destructive',
-      });
-    } finally {
-      setCreatingPayment(false);
-    }
+  const handlePaymentSuccess = () => {
+    onShootUpdate();
   };
 
   const formatDate = (dateString?: string | null) => {
@@ -650,6 +631,19 @@ export function ShootDetailsOverviewTab({
   };
 
   const services = getServices();
+  const paymentShootServices = services
+    .map((service) => {
+      if (typeof service === 'string') {
+        return service;
+      }
+
+      if (service && typeof service === 'object') {
+        return service.name || service.label || String(service);
+      }
+
+      return String(service);
+    })
+    .filter((service): service is string => Boolean(service));
 
   const { rates: editorRates } = useEditorRates(user?.id, {
     enabled: isEditor && Boolean(user?.id),
@@ -928,10 +922,25 @@ export function ShootDetailsOverviewTab({
           editedPaymentBalance={editedPaymentBalance}
           setTaxAmountDirty={setTaxAmountDirty}
           updateField={updateField}
-          onPayNow={isClient ? () => { void handleCreatePaymentLink(); } : undefined}
-          isPaying={creatingPayment}
+          onPayNow={isClient ? handleOpenPaymentDialog : undefined}
         />
       )}
+
+      <StripePaymentDialog
+        isOpen={isPaymentDialogOpen}
+        onClose={() => setIsPaymentDialogOpen(false)}
+        amount={paymentBalance}
+        shootId={shoot.id}
+        shootAddress={shoot.location?.fullAddress || shoot.location?.address}
+        shootServices={paymentShootServices}
+        shootDate={shoot.scheduledDate}
+        shootTime={shoot.time ? formatTime(shoot.time) : undefined}
+        clientName={shouldHideClientDetails ? undefined : shoot.client?.name}
+        clientEmail={shouldHideClientDetails ? undefined : shoot.client?.email}
+        totalQuote={shoot.payment?.totalQuote}
+        totalPaid={shoot.payment?.totalPaid}
+        onPaymentSuccess={handlePaymentSuccess}
+      />
 
       {/* Notes section - visible in overview for photographer and editing manager */}
       {(isPhotographer || role === 'editing_manager') && (
