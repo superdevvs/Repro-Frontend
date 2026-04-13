@@ -83,6 +83,11 @@ export function EmailHealthInlineHint({
   );
   const status = serverEmailHealth?.status ?? localHint?.status ?? undefined;
   const level = localHint?.level ?? 'none';
+
+  if (variant === 'floating' && !requiresConfirmation && (status === 'unverified' || level === 'info')) {
+    return null;
+  }
+
   const displayMessage =
     variant === 'floating'
       ? getCompactMessage({
@@ -101,7 +106,7 @@ export function EmailHealthInlineHint({
     <div
       className={cn(
         variant === 'floating'
-          ? 'absolute left-0 right-0 top-[calc(100%+0.5rem)] z-30 rounded-2xl border px-3 py-3 text-sm shadow-2xl backdrop-blur supports-[backdrop-filter]:bg-background/95 md:left-auto md:right-0 md:w-[19rem]'
+          ? 'absolute bottom-[calc(100%+0.5rem)] left-0 right-0 z-30 rounded-2xl border px-3 py-3 text-sm shadow-2xl backdrop-blur supports-[backdrop-filter]:bg-background/95 md:left-auto md:right-0 md:w-[19rem]'
           : 'rounded-2xl border px-4 py-3 text-sm shadow-sm',
         getToneClasses(status ?? undefined, level),
         className,
