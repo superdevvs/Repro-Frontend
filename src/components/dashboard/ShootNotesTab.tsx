@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { PenLine, Save, X } from "lucide-react";
@@ -15,17 +15,42 @@ interface ShootNotesTabProps {
   hideEmptySections?: boolean;
 }
 
+const noteTypes = [
+  'shootNotes',
+  'approvalNotes',
+  'photographerNotes',
+  'companyNotes',
+  'editingNotes',
+] as const;
+
+type NoteType = (typeof noteTypes)[number];
+type EditableNotesState = Record<NoteType, string>;
+type ActiveEditsState = Record<NoteType, boolean>;
+type StructuredShootNotes = NonNullable<Exclude<ShootData['notes'], string>> & {
+  approval_notes?: string;
+};
+type ShootNotesSource = {
+  shoot_notes?: string;
+  approval_notes?: string;
+  approvalNotes?: string;
+  company_notes?: string;
+  photographer_notes?: string;
+  editor_notes?: string;
+  notes?: string | StructuredShootNotes;
+};
+
 export function ShootNotesTab({ 
   shoot, 
-  isAdmin, 
-  isPhotographer,
   role,
   hideEmptySections = false,
 }: ShootNotesTabProps) {
   const { toast } = useToast();
+  const isSuperAdmin = role === 'superadmin';
+  const isRealAdmin = role === 'admin' || isSuperAdmin;
+  const isEditingManager = role === 'editing_manager';
   const isEditor = role === 'editor';
   
-  const [editableNotes, setEditableNotes] = useState({
+  const [editableNotes, setEditableNotes] = useState<EditableNotesState>({
     shootNotes: '',
     approvalNotes: '',
     photographerNotes: '',
@@ -33,7 +58,7 @@ export function ShootNotesTab({
     editingNotes: ''
   });
   
-  const [activeEdits, setActiveEdits] = useState({
+  const [activeEdits, setActiveEdits] = useState<ActiveEditsState>({
     shootNotes: false,
     approvalNotes: false,
     photographerNotes: false,
@@ -57,20 +82,6 @@ export function ShootNotesTab({
       approval_notes?: string;
     };
   } | null>(null);
-
-  // Initialize notes from the shoot data when component mounts or shoot changes
-  useEffect(() => {
-    if (shoot) {
-      console.log("Notes from shoot:", shoot.notes);
-      setEditableNotes({
-        shootNotes: getNotes('shootNotes'),
-        approvalNotes: getNotes('approvalNotes'),
-        photographerNotes: getNotes('photographerNotes'),
-        companyNotes: getNotes('companyNotes'),
-        editingNotes: getNotes('editingNotes')
-      });
-    }
-  }, [shoot]);
 
   // Fetch canonical shoot notes from backend API so we can display new top-level fields even if context lacks them
   useEffect(() => {
@@ -99,17 +110,8 @@ export function ShootNotesTab({
     loadServerNotes();
   }, [shoot?.id]);
 
-  // Helper function to read notes from API response (supports legacy object and new top-level fields)
-  function getNotes(key: string): string {
-    const resolveApprovalNote = (source?: {
-      approval_notes?: string;
-      approvalNotes?: string;
-      shoot_notes?: string;
-      company_notes?: string;
-      photographer_notes?: string;
-      editor_notes?: string;
-      notes?: unknown;
-    } | null): string => {
+  const getNotes = useCallback((key: NoteType): string => {
+    const resolveApprovalNote = (source?: ShootNotesSource | null): string => {
       if (!source) return '';
 
       if (typeof source.approval_notes === 'string' && source.approval_notes.trim()) {
@@ -121,7 +123,7 @@ export function ShootNotesTab({
       }
 
       if (source.notes && typeof source.notes === 'object') {
-        const structuredApproval = (source.notes as any)?.approvalNotes ?? (source.notes as any)?.approval_notes;
+        const structuredApproval = source.notes.approvalNotes ?? source.notes.approval_notes;
         if (typeof structuredApproval === 'string' && structuredApproval.trim()) {
           return structuredApproval;
         }
@@ -165,25 +167,25 @@ export function ShootNotesTab({
       }
     }
     // Fallback: check any existing top-level fields on the local shoot object
-    const anyShoot: any = shoot as any;
-    if (anyShoot) {
+    const localShoot: ShootData & Partial<ShootNotesSource> = shoot as ShootData & Partial<ShootNotesSource>;
+    if (localShoot) {
       switch (key) {
         case 'shootNotes':
-          if (anyShoot.shoot_notes) return String(anyShoot.shoot_notes);
+          if (localShoot.shoot_notes) return String(localShoot.shoot_notes);
           break;
         case 'approvalNotes': {
-          const resolved = resolveApprovalNote(anyShoot);
+          const resolved = resolveApprovalNote(localShoot);
           if (resolved) return resolved;
           break;
         }
         case 'photographerNotes':
-          if (anyShoot.photographer_notes) return String(anyShoot.photographer_notes);
+          if (localShoot.photographer_notes) return String(localShoot.photographer_notes);
           break;
         case 'companyNotes':
-          if (anyShoot.company_notes) return String(anyShoot.company_notes);
+          if (localShoot.company_notes) return String(localShoot.company_notes);
           break;
         case 'editingNotes':
-          if (anyShoot.editor_notes) return String(anyShoot.editor_notes);
+          if (localShoot.editor_notes) return String(localShoot.editor_notes);
           break;
       }
     }
@@ -192,10 +194,34 @@ export function ShootNotesTab({
     if (typeof shoot.notes === 'string') return shoot.notes;
     const notes = shoot.notes[key as keyof typeof shoot.notes];
     return notes ? String(notes) : '';
-  }
+  }, [serverNotes, shoot]);
+
+  // Sync editable note state when the loaded shoot or server-backed notes change,
+  // while preserving any field the user is actively editing.
+  useEffect(() => {
+    if (!shoot) {
+      return;
+    }
+
+    setEditableNotes((previous) => {
+      const next = { ...previous };
+
+      noteTypes.forEach((noteType) => {
+        if (!activeEdits[noteType]) {
+          next[noteType] = getNotes(noteType);
+        }
+      });
+
+      return next;
+    });
+  }, [activeEdits, getNotes, shoot]);
   
-  function handleEditToggle(noteType: string) {
-    const currentlyEditing = !!activeEdits[noteType as keyof typeof activeEdits];
+  function handleEditToggle(noteType: NoteType) {
+    if (!canEdit(noteType)) {
+      return;
+    }
+
+    const currentlyEditing = activeEdits[noteType];
     const nextEditing = !currentlyEditing;
 
     // When entering edit mode, prefill with current displayed note
@@ -213,39 +239,22 @@ export function ShootNotesTab({
     }));
   }
   
-  function handleNoteChange(e: React.ChangeEvent<HTMLTextAreaElement>, noteType: string) {
+  function handleNoteChange(e: React.ChangeEvent<HTMLTextAreaElement>, noteType: NoteType) {
     setEditableNotes(prev => ({
       ...prev,
       [noteType]: e.target.value
     }));
   }
   
-  async function handleSaveNotes(noteType: string) {
-    if (isEditor) {
+  async function handleSaveNotes(noteType: NoteType) {
+    if (!canEdit(noteType)) {
       return;
     }
-    console.log(`Saving ${noteType} with content: ${editableNotes[noteType as keyof typeof editableNotes]}`);
-    
-    // Create a new notes object based on existing notes
-    let updatedNotes: any = {};
-    
-    // If notes is a string, convert to object first
-    if (typeof shoot.notes === 'string') {
-      updatedNotes = { shootNotes: shoot.notes };
-    } else if (shoot.notes) {
-      updatedNotes = { ...shoot.notes };
-    }
-    
-    // Update the specific note type
-    updatedNotes[noteType] = editableNotes[noteType as keyof typeof editableNotes];
-    
-    console.log("Updated notes object:", updatedNotes);
-    console.log("Shoot ID:", shoot.id);
     
     try {
       // Save to Laravel backend
       const token = localStorage.getItem('token') || localStorage.getItem('authToken');
-      const apiKeyMap: Record<string, string> = {
+      const apiKeyMap: Partial<Record<NoteType, string>> = {
         shootNotes: 'shoot_notes',
         photographerNotes: 'photographer_notes',
         companyNotes: 'company_notes',
@@ -255,7 +264,7 @@ export function ShootNotesTab({
       if (!apiKey) return;
 
       const payload: Record<string, string> = {};
-      payload[apiKey] = String(editableNotes[noteType as keyof typeof editableNotes] || '');
+      payload[apiKey] = String(editableNotes[noteType] || '');
 
       const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/notes`, {
         method: 'PATCH',
@@ -300,10 +309,10 @@ export function ShootNotesTab({
     }
   }
 
-  // Updated to allow admin and superadmin to edit all types of notes
-  function canEdit(noteType: string): boolean {
-    if (isAdmin || role === 'superadmin') {
-      return true; // Admin and superadmin can edit all note types
+  // Only real admins can edit all note types. Editing managers are read-only here.
+  function canEdit(noteType: NoteType): boolean {
+    if (isRealAdmin) {
+      return true;
     }
 
     switch (noteType) {
@@ -316,17 +325,22 @@ export function ShootNotesTab({
 
   // Visibility rules based on the permissions matrix:
   // - Super Admin & Admin: Can see all notes
-  // - Editor: Can see shoot notes, editing notes, photographer notes (NOT company notes)
-  // - Photographer: Can see shoot notes, photographer notes (NOT company notes, NOT editing notes)
-  // - Client: Can see shoot notes only (NOT company notes, NOT editing notes, NOT photographer notes)
-  function canView(noteType: string): boolean {
+  // - Editing Manager: Can see all notes, but cannot edit them from this tab
+  // - Editor: Can see only shoot notes and editing notes
+  // - Photographer: Can see shoot notes, approval notes, photographer notes, editing notes
+  // - Client: Can see shoot notes only
+  function canView(noteType: NoteType): boolean {
     // Super Admin and Admin can see everything
-    if (isAdmin || role === 'superadmin') {
+    if (isRealAdmin) {
       return true;
     }
-    
+
+    if (isEditingManager) {
+      return true;
+    }
+
     if (isEditor) {
-      return noteType === 'editingNotes';
+      return noteType === 'shootNotes' || noteType === 'editingNotes';
     }
 
     // Shoot notes: visible to all roles
@@ -340,42 +354,42 @@ export function ShootNotesTab({
     }
 
     if (noteType === 'approvalNotes') {
-      return role === 'editing_manager' || role === 'editor' || role === 'admin' || role === 'superadmin' || role === 'photographer';
+      return role === 'photographer';
     }
     
-    // Editing notes: Super Admin, Admin, Editor, Photographer (NOT Client)
+    // Editing notes: visible to editor and photographer (admins handled above)
     if (noteType === 'editingNotes') {
-      return role === 'editing_manager' || role === 'editor' || role === 'admin' || role === 'superadmin' || role === 'photographer';
+      return role === 'editor' || role === 'photographer';
     }
     
-    // Photographer notes: Super Admin, Admin, Photographer (NOT Client)
+    // Photographer notes: visible to photographer only (admins handled above)
     if (noteType === 'photographerNotes') {
-      return role === 'editing_manager' || role === 'photographer' || role === 'admin' || role === 'superadmin';
+      return role === 'photographer';
     }
     
     return false;
   }
 
   // Function to display the current note value, respecting the edit state
-  function displayNoteValue(noteType: string): string {
-    if (activeEdits[noteType as keyof typeof activeEdits]) {
-      return editableNotes[noteType as keyof typeof editableNotes];
+  function displayNoteValue(noteType: NoteType): string {
+    if (activeEdits[noteType]) {
+      return editableNotes[noteType];
     }
     
     return getNotes(noteType);
   }
 
-  function hasNoteContent(noteType: string): boolean {
+  function hasNoteContent(noteType: NoteType): boolean {
     return getNotes(noteType).trim().length > 0;
   }
 
-  function shouldRenderNoteSection(noteType: string): boolean {
-    const isEditing = activeEdits[noteType as keyof typeof activeEdits];
+  function shouldRenderNoteSection(noteType: NoteType): boolean {
+    const isEditing = activeEdits[noteType];
     return canView(noteType) && (!hideEmptySections || isEditing || hasNoteContent(noteType));
   }
 
   // Helper functions for styled notes with updated colors to match dashboard
-  const getNoteBackgroundClass = (noteType: string) => {
+  const getNoteBackgroundClass = (noteType: NoteType) => {
     switch (noteType) {
       case 'photographerNotes': 
         return 'bg-blue-50/60 dark:bg-blue-900/10';
@@ -391,7 +405,7 @@ export function ShootNotesTab({
     }
   };
   
-  const getNoteTextClass = (noteType: string) => {
+  const getNoteTextClass = (noteType: NoteType) => {
     switch (noteType) {
       case 'photographerNotes': 
         return 'text-blue-800 dark:text-blue-300';
@@ -407,7 +421,7 @@ export function ShootNotesTab({
     }
   };
   
-  const getNoteBorderClass = (noteType: string) => {
+  const getNoteBorderClass = (noteType: NoteType) => {
     switch (noteType) {
       case 'photographerNotes': 
         return 'border-blue-200 dark:border-blue-700';
@@ -422,28 +436,6 @@ export function ShootNotesTab({
         return 'border-green-200 dark:border-green-700';
     }
   };
-
-  if (isEditor) {
-    return (
-      <div className="space-y-3 w-full mt-0">
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-medium text-purple-700 dark:text-purple-400">Editing Notes</h3>
-          </div>
-          <Textarea
-            placeholder="No editing notes available"
-            value={getNotes('editingNotes')}
-            readOnly
-            className={`resize-none min-h-[60px] ${getNoteBackgroundClass('editingNotes')} ${getNoteTextClass('editingNotes')} border-2 ${getNoteBorderClass('editingNotes')}`}
-            style={{
-              boxShadow: "inset 0 1px 3px rgba(0,0,0,0.04)",
-              transition: "all 0.2s ease"
-            }}
-          />
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-3 w-full mt-0">

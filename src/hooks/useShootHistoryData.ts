@@ -28,15 +28,50 @@ import {
   ShootHistoryRecord,
   ShootHistoryServiceAggregate,
 } from '@/types/shoots'
+import type { UserData } from '@/types/auth'
 import { shootHasEditorAssignment } from '@/utils/shootEditorAssignments'
+import { doesShootBelongToClient } from '@/utils/dashboardDerivedUtils'
 
 type ToastFn = (args: { title: string; description?: string; variant?: 'default' | 'destructive' }) => void
+type InvoicePayload = Record<string, unknown>
+type ApiErrorResponse = { message?: string; error?: string }
+type OperationalMeta = { current_page: number; per_page: number; total: number }
+type PhotographerOption = { id: string | number; name: string; avatar?: string }
+type ShootHistoryRecordWithMls = ShootHistoryRecord & { mls_id?: string | number | null }
+
+const ACTIVE_OPERATIONAL_TABS = ['scheduled', 'completed', 'delivered', 'hold', 'editing', 'edited'] as const
+
+const isActiveOperationalTab = (value: AvailableTab): value is ActiveOperationalTab =>
+  ACTIVE_OPERATIONAL_TABS.includes(value as ActiveOperationalTab)
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (axios.isAxiosError<ApiErrorResponse>(error)) {
+    return error.response?.data?.message || error.response?.data?.error || error.message || fallback
+  }
+  if (error instanceof Error) {
+    return error.message || fallback
+  }
+  return fallback
+}
+
+const toPhotographerOption = (value: unknown): PhotographerOption | null => {
+  if (!value || typeof value !== 'object') return null
+
+  const photographer = value as { id?: string | number; name?: string; avatar?: string }
+  if (photographer.id === undefined || photographer.name === undefined) return null
+
+  return {
+    id: photographer.id,
+    name: photographer.name,
+    avatar: photographer.avatar,
+  }
+}
 
 export interface UseShootHistoryDataArgs {
   toast: ToastFn
   navigate: (path: string) => void
   role: string | null | undefined
-  user: { id?: string | number; email?: string; name?: string } | null | undefined
+  user: UserData | null | undefined
   activeTab: AvailableTab
   operationalFilters: OperationalFiltersState
   historyFilters: HistoryFiltersState
@@ -57,20 +92,31 @@ export interface UseShootHistoryDataArgs {
 const filterShootByRole = (
   shoot: ShootData,
   role: string | null | undefined,
-  user: { id?: string | number; email?: string; name?: string } | null | undefined,
+  user: UserData | null | undefined,
 ) => {
   if (role === 'client') {
+    if (!user?.id && !user?.email && !user?.name) return true
+    if (doesShootBelongToClient(shoot, user)) return true
+
     const userId = user?.id ? String(user.id) : ''
-    const clientId = shoot.client?.id ? String(shoot.client.id) : ''
-    if (userId && clientId) return userId === clientId
+    const userMetadata = (user?.metadata as Record<string, unknown> | undefined) ?? {}
+    const scopedClientIds = new Set(
+      [
+        userMetadata.clientId,
+        userMetadata.client_id,
+        ...(Array.isArray(userMetadata.clientIds) ? userMetadata.clientIds : []),
+        ...(Array.isArray(userMetadata.managedClientIds) ? userMetadata.managedClientIds : []),
+      ]
+        .map((value) => (value == null ? '' : String(value).trim()))
+        .filter(Boolean),
+    )
 
-    const userEmail = user?.email?.toLowerCase() || ''
-    const userName = user?.name?.toLowerCase() || ''
-    const shootClientEmail = shoot.client?.email?.toLowerCase() || ''
-    const shootClientName = shoot.client?.name?.toLowerCase() || ''
+    if (shoot.client?.id && scopedClientIds.has(String(shoot.client.id))) {
+      return true
+    }
 
-    if (!userId && !userEmail && !userName) return true
-    return shootClientEmail === userEmail || shootClientName === userName
+    if (shoot.isGhostVisibleForUser) return true
+    return Boolean(userId && (shoot.ghostUserIds ?? []).includes(userId))
   }
 
   if (role === 'photographer') {
@@ -149,9 +195,9 @@ export function useShootHistoryData({
   const [approvalModalShoot, setApprovalModalShoot] = useState<ShootData | null>(null)
   const [declineModalShoot, setDeclineModalShoot] = useState<ShootData | null>(null)
   const [editModalShoot, setEditModalShoot] = useState<ShootData | null>(null)
-  const [photographers, setPhotographers] = useState<Array<{ id: string | number; name: string; avatar?: string }>>([])
+  const [photographers, setPhotographers] = useState<PhotographerOption[]>([])
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false)
-  const [selectedInvoice, setSelectedInvoice] = useState<any>(null)
+  const [selectedInvoice, setSelectedInvoice] = useState<InvoicePayload | null>(null)
   const [invoiceLoading, setInvoiceLoading] = useState(false)
   const [brightMlsRedirectUrl, setBrightMlsRedirectUrl] = useState<string | null>(null)
   const gridContainerRef = useRef<HTMLDivElement>(null)
@@ -220,7 +266,13 @@ export function useShootHistoryData({
           headers: { Authorization: `Bearer ${token}` },
         })
         const data = response.data?.data || response.data || []
-        setPhotographers(data.map((p: any) => ({ id: p.id, name: p.name, avatar: p.avatar })))
+        setPhotographers(
+          Array.isArray(data)
+            ? data
+                .map(toPhotographerOption)
+                .filter((photographer): photographer is PhotographerOption => Boolean(photographer))
+            : [],
+        )
       } catch (error) {
         console.error('Error fetching photographers:', error)
       }
@@ -337,11 +389,11 @@ export function useShootHistoryData({
           variant: 'destructive',
         })
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error fetching invoice:', error)
       toast({
         title: 'Error loading invoice',
-        description: error.response?.data?.message || 'Unable to load invoice. Please try again.',
+        description: getErrorMessage(error, 'Unable to load invoice. Please try again.'),
         variant: 'destructive',
       })
     } finally {
@@ -393,8 +445,8 @@ export function useShootHistoryData({
 
     setLoading(true)
     try {
-      let backendTab = (['scheduled', 'completed', 'delivered', 'hold', 'editing', 'edited'] as const).includes(currentTab as any)
-        ? (currentTab as ActiveOperationalTab)
+      let backendTab = isActiveOperationalTab(currentTab)
+        ? currentTab
         : 'scheduled'
 
       if (currentIsEditor) {
@@ -438,7 +490,7 @@ export function useShootHistoryData({
 
       setOperationalData(roleFilteredShoots)
 
-      const meta = payload.meta as any
+      const meta = payload.meta as (Partial<OperationalMeta> & { count?: number }) | undefined
       if (meta && (meta.current_page !== undefined || meta.total !== undefined || meta.count !== undefined)) {
         setOperationalMeta({
           current_page: meta.current_page ?? currentPage,
@@ -523,11 +575,11 @@ export function useShootHistoryData({
       const mapped = combined.map(mapShootApiToShootData)
       const unique = Array.from(new Map(mapped.map((shoot) => [shoot.id, shoot])).values())
       setBulkShoots(unique)
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error fetching bulk shoots:', error)
       toast({
         title: 'Unable to load bulk shoots',
-        description: error?.response?.data?.message || 'Please try again.',
+        description: getErrorMessage(error, 'Please try again.'),
         variant: 'destructive',
       })
     } finally {
@@ -722,11 +774,11 @@ export function useShootHistoryData({
         if (selectedShoot?.id && String(selectedShoot.id) === String(shoot.id)) {
           await loadShootById(selectedShoot.id, { openDetail: isDetailOpen, quiet: true })
         }
-      } catch (error: any) {
+      } catch (error) {
         console.error('Send to editing error:', error)
         toast({
           title: 'Error',
-          description: error?.response?.data?.message || error?.message || 'Failed to send to editing',
+          description: getErrorMessage(error, 'Failed to send to editing'),
           variant: 'destructive',
         })
       }
@@ -765,10 +817,10 @@ export function useShootHistoryData({
       setOperationalData((prev) => prev.filter((shoot) => String(shoot.id) !== deletedId))
 
       await refreshActiveTabData()
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: 'Error',
-        description: error?.response?.data?.message || error.message || 'Failed to delete shoot',
+        description: getErrorMessage(error, 'Failed to delete shoot'),
         variant: 'destructive',
       })
     } finally {
@@ -907,7 +959,9 @@ export function useShootHistoryData({
 
   const handlePublishMls = useCallback(
     async (record: ShootHistoryRecord) => {
-      if (!record?.id || !(record as any).mls_id) {
+      const mlsRecord = record as ShootHistoryRecordWithMls
+
+      if (!record?.id || !mlsRecord.mls_id) {
         toast({
           title: 'Cannot publish',
           description: 'This shoot does not have an MLS ID.',
@@ -946,11 +1000,10 @@ export function useShootHistoryData({
         } else {
           throw new Error(response.data.message || 'Publishing failed')
         }
-      } catch (error: any) {
+      } catch (error) {
         toast({
           title: 'Publish failed',
-          description:
-            error.response?.data?.message || error.message || 'Failed to publish to Bright MLS.',
+          description: getErrorMessage(error, 'Failed to publish to Bright MLS.'),
           variant: 'destructive',
         })
       }

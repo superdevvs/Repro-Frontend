@@ -1,6 +1,7 @@
 import { getStateFullName } from '@/utils/stateUtils'
 import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary'
 import {
+  BracketMode,
   ShootAction,
   ShootData,
   ShootEditorAssignment,
@@ -39,6 +40,18 @@ const toOptionalIdString = (value: unknown): string | undefined => {
 const toOptionalIsoString = (value: unknown): string | undefined => {
   if (typeof value === 'string' && value.trim()) return value
   return undefined
+}
+const toServiceObjectValue = (value: unknown) =>
+  toObjectValue<{ name?: string; label?: string; service_name?: string }>(value)
+const getServiceLabel = (value: unknown): string => {
+  if (typeof value === 'string') return value
+
+  const service = toServiceObjectValue(value)
+  return service?.name ?? service?.label ?? service?.service_name ?? String(value)
+}
+const normalizeBracketMode = (value: unknown): BracketMode => {
+  if (value === 3 || value === 5) return value
+  return null
 }
 
 const normalizeServicePerson = (value: unknown): ShootServiceEditor | null => {
@@ -127,7 +140,7 @@ export const deriveFilterOptionsFromShoots = (shoots: ShootData[]): FilterCollec
     if (shoot.photographer?.name) photographerMap.set(String(shoot.photographer.id ?? shoot.photographer.name), shoot.photographer.name)
     const services = Array.isArray(shoot.services) ? shoot.services : []
     services.forEach((service) => {
-      const normalized = typeof service === 'string' ? service : (service as any)?.name ?? (service as any)?.label ?? (service as any)?.service_name ?? String(service)
+      const normalized = getServiceLabel(service)
       if (normalized) serviceSet.add(normalized)
     })
   })
@@ -144,8 +157,11 @@ export const mapShootApiToShootData = (item: Record<string, unknown>): ShootData
   if (item.services) {
     if (Array.isArray(item.services)) {
       servicesArray = item.services
-    } else if (typeof item.services === 'object' && (item.services as any).data) {
-      servicesArray = Array.isArray((item.services as any).data) ? (item.services as any).data : []
+    } else {
+      const nestedServices = toObjectValue<{ data?: unknown }>(item.services)
+      if (nestedServices && Array.isArray(nestedServices.data)) {
+        servicesArray = nestedServices.data
+      }
     }
   }
   if (servicesArray.length === 0) {
@@ -156,11 +172,7 @@ export const mapShootApiToShootData = (item: Record<string, unknown>): ShootData
   }
 
   const serviceValues = servicesArray.map((service) => {
-    if (typeof service === 'string') return service
-    if (service && typeof service === 'object') {
-      return (service as any).name ?? (service as any).label ?? (service as any).service_name ?? String(service)
-    }
-    return String(service)
+    return getServiceLabel(service)
   }).filter(Boolean) as string[]
 
   const address = toStringValue(item.address)
@@ -175,6 +187,22 @@ export const mapShootApiToShootData = (item: Record<string, unknown>): ShootData
   const client = toObjectValue<{ id?: number | string; name?: string; email?: string; company_name?: string; phonenumber?: string; totalShoots?: number; total_shoots?: number }>(item.client)
   const photographer = toObjectValue<{ id?: number | string; name?: string; avatar?: string }>(item.photographer)
   const editor = toObjectValue<{ id?: number | string; name?: string; avatar?: string }>(item.editor)
+  const ghostUsers = toArrayValue<Record<string, unknown>>(item.ghost_users ?? item.ghostUsers)
+    .map((ghostUser) => ({
+      id: toOptionalIdString(ghostUser.id) ?? '',
+      name: toOptionalString(ghostUser.name) ?? 'Client',
+      email: toOptionalString(ghostUser.email),
+      company: toOptionalString(ghostUser.company) ?? toOptionalString(ghostUser.company_name),
+    }))
+    .filter((ghostUser) => Boolean(ghostUser.id))
+  const ghostUserIds = (() => {
+    const rawIds = toArrayValue<unknown>(item.ghost_user_ids ?? item.ghostUserIds)
+      .map((value) => toOptionalIdString(value))
+      .filter((value): value is string => Boolean(value))
+
+    if (rawIds.length > 0) return rawIds
+    return ghostUsers.map((ghostUser) => ghostUser.id)
+  })()
   const editorAssignments = normalizeEditorAssignments(item.editor_assignments ?? item.editorAssignments)
   const serviceObjects = servicesArray
     .filter((service): service is Record<string, unknown> => Boolean(service) && typeof service === 'object')
@@ -348,7 +376,7 @@ export const mapShootApiToShootData = (item: Record<string, unknown>): ShootData
     package: {
       name: packageDetails.name ?? toStringValue(item.package_name) ?? serviceValues?.[0],
       expectedDeliveredCount: packageDetails.expectedDeliveredCount ?? (item.expected_final_count as number | undefined),
-      bracketMode: (packageDetails.bracketMode ?? item.bracket_mode) as any,
+      bracketMode: normalizeBracketMode(packageDetails.bracketMode ?? item.bracket_mode),
       servicesIncluded: packageDetails.servicesIncluded ?? serviceValues,
     },
     expectedRawCount: item.expected_raw_count as number | undefined,
@@ -361,6 +389,9 @@ export const mapShootApiToShootData = (item: Record<string, unknown>): ShootData
     mediaSummary: item.media_summary as ShootData['mediaSummary'],
     heroImage: item.hero_image as string | undefined,
     weather: item.weather as ShootData['weather'],
+    ghostUsers: ghostUsers.length ? ghostUsers : undefined,
+    ghostUserIds: ghostUserIds.length ? ghostUserIds : undefined,
+    isGhostVisibleForUser: toBooleanValue(item.is_ghost_visible_for_user ?? item.isGhostVisibleForUser),
     holdStatus: resolveHoldStatusValue(item),
     primaryAction: primaryAction ?? undefined,
     files: toArrayValue<ShootFileData>(item.files),

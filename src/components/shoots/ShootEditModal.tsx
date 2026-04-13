@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   CalendarIcon, 
   Edit, 
@@ -37,6 +38,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/auth/AuthProvider';
+import { useMediaQuery } from '@/hooks/use-media-query';
 import { API_BASE_URL } from '@/config/env';
 import API_ROUTES from '@/lib/api';
 import AddressLookupField, { type AddressDetails } from '@/components/AddressLookupField';
@@ -234,6 +236,8 @@ type PhotographerPickerContext = {
   categoryName?: string;
 } | null;
 
+type MobileEditPanel = 'details' | 'schedule' | 'services';
+
 const normalizeCategoryKey = (value?: string) =>
   (value || 'other').trim().toLowerCase().replace(/s$/, '') || 'other';
 
@@ -416,6 +420,14 @@ export function ShootEditModal({
   const [propertyDetails, setPropertyDetails] = useState<PropertyDetails | null>(null);
   const [propertySqft, setPropertySqft] = useState<number | null>(null);
   const [taxPercent, setTaxPercent] = useState<number>(0);
+  const [activeMobilePanel, setActiveMobilePanel] = useState<MobileEditPanel>('details');
+  const isDesktopLayout = useMediaQuery('(min-width: 768px)');
+
+  useEffect(() => {
+    if (isOpen) {
+      setActiveMobilePanel('details');
+    }
+  }, [isOpen, shootId]);
 
   // Fetch shoot details, services, and photographers when modal opens
   useEffect(() => {
@@ -1107,12 +1119,521 @@ export function ShootEditModal({
     [scheduledDate],
   );
 
+  const renderDetailsPanel = () => (
+    <div className="space-y-3 md:min-h-0 md:overflow-y-auto md:pr-1">
+      <div className="rounded-xl border border-border bg-muted/30 p-4">
+        <div className="mb-3 flex items-center gap-2">
+          <User className="h-4 w-4 text-blue-500" />
+          <p className="text-sm font-semibold">Client</p>
+        </div>
+        <p className="font-medium">{clientName}</p>
+        {clientEmail && (
+          <p className="text-sm text-muted-foreground">{clientEmail}</p>
+        )}
+        {clientPhone && (
+          <p className="text-sm text-muted-foreground">{clientPhone}</p>
+        )}
+      </div>
+
+      <div className="space-y-2 rounded-lg border border-border p-3">
+        <div className="flex items-center gap-2">
+          <MapPin className="h-4 w-4 text-primary" />
+          <p className="text-xs font-semibold">Property Address</p>
+        </div>
+
+        <AddressLookupField
+          value={address}
+          onChange={setAddress}
+          onSelectionReset={clearAddressDerivedState}
+          onSelectionStarted={() => {
+            setAddress('');
+            clearAddressDerivedState();
+          }}
+          onAddressSelect={handleAddressSelect}
+          placeholder="Search address..."
+        />
+
+        <div className="grid grid-cols-3 gap-1.5">
+          <Input
+            value={city}
+            onChange={(e) => setCity(e.target.value)}
+            placeholder="City"
+            className="h-8 text-xs"
+          />
+          <Input
+            value={state}
+            onChange={(e) => setState(e.target.value)}
+            placeholder="ST"
+            className="h-8 text-xs"
+            maxLength={2}
+          />
+          <Input
+            value={zip}
+            onChange={(e) => setZip(e.target.value)}
+            placeholder="ZIP"
+            className="h-8 text-xs"
+          />
+        </div>
+      </div>
+
+      <div className="space-y-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3">
+        <div className="flex items-center gap-2">
+          <Home className="h-4 w-4 text-emerald-600" />
+          <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+            Property Details
+          </span>
+        </div>
+        <div className="grid grid-cols-3 gap-1.5">
+          <div className="space-y-1">
+            <Label className="flex items-center gap-1 text-[10px]">
+              <BedDouble className="h-3 w-3" /> Beds
+            </Label>
+            <Input
+              type="number"
+              value={propertyDetails?.bedrooms || ''}
+              onChange={(e) => setPropertyDetails((prev) => ({
+                ...prev,
+                bedrooms: e.target.value ? Number(e.target.value) : undefined,
+              }))}
+              placeholder="0"
+              className="h-7 text-xs"
+              min={0}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="flex items-center gap-1 text-[10px]">
+              <Bath className="h-3 w-3" /> Baths
+            </Label>
+            <Input
+              type="number"
+              step="0.5"
+              value={propertyDetails?.bathrooms || ''}
+              onChange={(e) => setPropertyDetails((prev) => ({
+                ...prev,
+                bathrooms: e.target.value ? Number(e.target.value) : undefined,
+              }))}
+              placeholder="0"
+              className="h-7 text-xs"
+              min={0}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="flex items-center gap-1 text-[10px]">
+              <Ruler className="h-3 w-3" /> Sqft
+            </Label>
+            <Input
+              type="number"
+              value={propertySqft || ''}
+              onChange={(e) => setPropertySqft(e.target.value ? Number(e.target.value) : null)}
+              placeholder="0"
+              className="h-7 text-xs"
+              min={0}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-2 rounded-lg border border-border p-3">
+        <div className="flex items-center gap-2">
+          <FileText className="h-4 w-4 text-amber-500" />
+          <Label className="text-xs font-semibold">Shoot Notes</Label>
+        </div>
+        <Textarea
+          value={shootNotes}
+          onChange={(e) => setShootNotes(e.target.value)}
+          placeholder="Access codes, instructions..."
+          rows={2}
+          className="resize-none text-xs"
+        />
+      </div>
+
+      {showInternalNotes && (
+        <div className="space-y-2 rounded-lg border border-border p-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <FileText className="h-4 w-4 text-blue-500" />
+              <Label className="text-xs font-semibold">Company Notes</Label>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs"
+              onClick={() => setCompanyNotesOpen((v) => !v)}
+            >
+              {companyNotesOpen ? 'Hide' : 'Show'}
+            </Button>
+          </div>
+          {companyNotesOpen && (
+            <Textarea
+              value={companyNotes}
+              onChange={(e) => setCompanyNotes(e.target.value)}
+              placeholder="Internal notes..."
+              rows={2}
+              className="resize-none text-xs"
+            />
+          )}
+        </div>
+      )}
+    </div>
+  );
+
+  const renderSchedulePanel = () => (
+    <div className="space-y-3 md:min-h-0 md:overflow-y-auto md:pr-1">
+      <div className="space-y-2 rounded-lg border border-border p-3">
+        <div className="flex items-center gap-2">
+          <Clock className="h-4 w-4 text-muted-foreground" />
+          <p className="text-xs font-semibold">Schedule</p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1">
+            <Label className="text-[10px]">Date *</Label>
+            <div className="relative">
+              <CalendarIcon className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="date"
+                min={minSelectableDate}
+                value={scheduledDateInputValue}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  if (!value) {
+                    setScheduledDate(undefined);
+                    return;
+                  }
+                  const nextDate = new Date(`${value}T12:00:00`);
+                  if (!Number.isNaN(nextDate.getTime())) {
+                    setScheduledDate(nextDate);
+                  }
+                }}
+                className={cn(
+                  'h-8 pl-8 text-xs',
+                  !scheduledDate && 'text-muted-foreground',
+                )}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-[10px]">Time</Label>
+            <Select value={scheduledTime} onValueChange={setScheduledTime}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Select" />
+              </SelectTrigger>
+              <SelectContent>
+                {timeOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {isAdminOrRep && (() => {
+          if (hasMultiplePhotographerCategories) {
+            return (
+              <div className="space-y-2">
+                <Label className="text-[10px]">Photographers (per category)</Label>
+                {selectedServiceCategoryGroups.map((group) => {
+                  const selectedPhotographer = resolvePhotographerDetails(
+                    perCategoryPhotographers[group.key] || photographerId,
+                  );
+
+                  return (
+                    <div
+                      key={group.key}
+                      className="flex items-start justify-between gap-3 rounded-lg border bg-background/50 px-3 py-2.5"
+                    >
+                      <div className="min-w-0 space-y-1 text-xs">
+                        <div className="text-[9px] font-medium uppercase text-muted-foreground">
+                          {group.name}
+                        </div>
+                        <div className="font-medium">
+                          {selectedPhotographer?.name || 'Unassigned'}
+                        </div>
+                        {selectedPhotographer?.email && (
+                          <div className="truncate text-muted-foreground">
+                            {selectedPhotographer.email}
+                          </div>
+                        )}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 shrink-0 text-xs"
+                        onClick={() =>
+                          openPhotographerPicker({
+                            categoryKey: group.key,
+                            categoryName: group.name,
+                          })
+                        }
+                      >
+                        {selectedPhotographer ? 'Edit photographer' : 'Select photographer'}
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          }
+
+          const selectedPhotographer = resolvePhotographerDetails(photographerId);
+
+          return (
+            <div className="space-y-2">
+              <Label className="text-[10px]">Photographer</Label>
+              <div className="flex items-start justify-between gap-3 rounded-lg border bg-background/50 px-3 py-2.5">
+                <div className="min-w-0 space-y-1 text-xs">
+                  <div className="font-medium">
+                    {selectedPhotographer?.name || 'Unassigned'}
+                  </div>
+                  {selectedPhotographer?.email && (
+                    <div className="truncate text-muted-foreground">
+                      {selectedPhotographer.email}
+                    </div>
+                  )}
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 shrink-0 text-xs"
+                  onClick={() => openPhotographerPicker(null)}
+                >
+                  {selectedPhotographer ? 'Edit photographer' : 'Select photographer'}
+                </Button>
+              </div>
+            </div>
+          );
+        })()}
+      </div>
+
+      {showInternalNotes && (
+        <div className="space-y-3">
+          <div className="space-y-2 rounded-lg border border-border p-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-indigo-500" />
+                <Label className="text-xs font-semibold">Photographer Notes</Label>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs"
+                onClick={() => setPhotographerNotesOpen((v) => !v)}
+              >
+                {photographerNotesOpen ? 'Hide' : 'Show'}
+              </Button>
+            </div>
+            {photographerNotesOpen && (
+              <Textarea
+                value={photographerNotes}
+                onChange={(e) => setPhotographerNotes(e.target.value)}
+                placeholder="Notes for the photographer"
+                rows={2}
+                className="resize-none text-xs"
+              />
+            )}
+          </div>
+
+          <div className="space-y-2 rounded-lg border border-border p-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-purple-500" />
+                <Label className="text-xs font-semibold">Editor Notes</Label>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs"
+                onClick={() => setEditorNotesOpen((v) => !v)}
+              >
+                {editorNotesOpen ? 'Hide' : 'Show'}
+              </Button>
+            </div>
+            {editorNotesOpen && (
+              <Textarea
+                value={editorNotes}
+                onChange={(e) => setEditorNotes(e.target.value)}
+                placeholder="Notes for the editor"
+                rows={2}
+                className="resize-none text-xs"
+              />
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderServicesPanel = () => (
+    <div className="space-y-3 md:flex md:min-h-0 md:flex-col md:overflow-hidden">
+      <div className="flex min-h-[360px] flex-col rounded-lg border border-border p-3 md:min-h-0 md:flex-1 md:overflow-hidden">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Layers className="h-4 w-4 text-violet-500" />
+            <p className="text-xs font-semibold">Services *</p>
+          </div>
+          {propertySqft && (
+            <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
+              {propertySqft.toLocaleString()} sqft
+            </Badge>
+          )}
+        </div>
+
+        <div className="mt-2 min-h-0 flex-1 overflow-visible pr-1 md:max-h-full md:overflow-y-auto">
+          <Accordion
+            type="multiple"
+            value={expandedServiceCategoryKeys}
+            onValueChange={setExpandedServiceCategoryKeys}
+            className="space-y-2"
+          >
+            {availableServiceCategoryGroups.map((group) => {
+              const selectedCount = group.serviceIds.filter((serviceId) =>
+                selectedServiceIds.has(serviceId),
+              ).length;
+
+              return (
+                <AccordionItem
+                  key={group.key}
+                  value={group.key}
+                  className="rounded-md border border-border px-2"
+                >
+                  <AccordionTrigger className="py-2 text-xs hover:no-underline">
+                    <div className="flex min-w-0 flex-1 items-center justify-between gap-3 pr-2">
+                      <span className="truncate font-semibold">{group.name}</span>
+                      <Badge variant="outline" className="shrink-0 text-[10px]">
+                        {selectedCount} selected
+                      </Badge>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="pb-2">
+                    <div className="space-y-1.5">
+                      {group.services.map((service) => {
+                        const serviceId = String(service.id);
+                        const isSelected = selectedServiceIds.has(serviceId);
+                        const price = getServicePrice(service);
+                        const isVariablePricing =
+                          service.pricing_type === 'variable' && service.sqft_ranges?.length;
+                        const showVariablePlaceholder = isVariablePricing && !propertySqft;
+
+                        return (
+                          <div
+                            key={serviceId}
+                            className={cn(
+                              'flex items-center justify-between rounded-md border p-2 transition-colors',
+                              isSelected
+                                ? 'border-primary bg-primary/5'
+                                : 'border-border hover:border-primary/50',
+                            )}
+                            onClick={() => toggleService(serviceId)}
+                          >
+                            <div className="flex min-w-0 items-center gap-1.5">
+                              <Checkbox
+                                checked={isSelected}
+                                onCheckedChange={() => toggleService(serviceId)}
+                                onClick={(event) => event.stopPropagation()}
+                                className="h-3.5 w-3.5"
+                              />
+                              <span className="truncate text-xs font-medium">{service.name}</span>
+                            </div>
+                            <span
+                              className={cn(
+                                'shrink-0 text-xs font-medium',
+                                isVariablePricing && propertySqft
+                                  ? 'text-emerald-600'
+                                  : 'text-muted-foreground',
+                              )}
+                            >
+                              {showVariablePlaceholder ? 'Varies' : `$${price.toFixed(0)}`}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              );
+            })}
+          </Accordion>
+        </div>
+
+        {selectedServiceIds.size > 0 && (() => {
+          const servicesTotal = hasVariablePricingWithoutSqft
+            ? 0
+            : Array.from(selectedServiceIds).reduce((sum, id) => {
+              const service = availableServices.find((s) => s.id?.toString() === id);
+              return sum + (service ? getServicePrice(service) : 0);
+            }, 0);
+          const normalizedTaxRate = taxPercent > 1 ? taxPercent / 100 : taxPercent;
+          const pricing = calculatePricingBreakdown({
+            serviceSubtotal: servicesTotal,
+            discountType: activeDiscountType,
+            discountValue: activeDiscountValue,
+            taxRate: normalizedTaxRate,
+          });
+          const discountLabel = pricing.discountType === 'fixed'
+            ? `Discount ($${pricing.discountValue?.toFixed?.(2) ?? Number(pricing.discountValue || 0).toFixed(2)})`
+            : `Discount (${Number(pricing.discountValue || 0)}%)`;
+          return (
+            <div className="mt-3 space-y-1 border-t pt-3">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">Selected:</span>
+                <span className="font-semibold">{selectedServiceIds.size} service(s)</span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">Base:</span>
+                <span className={cn(
+                  'font-semibold',
+                  hasVariablePricingWithoutSqft ? 'text-amber-600' : '',
+                )}>
+                  {hasVariablePricingWithoutSqft ? 'TBD' : `$${servicesTotal.toFixed(2)}`}
+                </span>
+              </div>
+              {!hasVariablePricingWithoutSqft && pricing.discountAmount > 0 && (
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">{discountLabel}:</span>
+                  <span className="font-medium text-emerald-600">
+                    -${pricing.discountAmount.toFixed(2)}
+                  </span>
+                </div>
+              )}
+              {!hasVariablePricingWithoutSqft && taxPercent > 0 && (
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">
+                    Tax ({taxPercent > 1 ? taxPercent : (taxPercent * 100).toFixed(1)}%):
+                  </span>
+                  <span className="font-medium">${pricing.taxAmount.toFixed(2)}</span>
+                </div>
+              )}
+              <div className="flex items-center justify-between text-xs font-semibold">
+                <span className="text-muted-foreground">Total:</span>
+                <span className={cn(
+                  hasVariablePricingWithoutSqft ? 'text-amber-600' : 'text-emerald-600',
+                )}>
+                  {hasVariablePricingWithoutSqft ? 'TBD' : `$${pricing.totalQuote.toFixed(2)}`}
+                </span>
+              </div>
+              {hasVariablePricingWithoutSqft && (
+                <p className="text-[10px] text-muted-foreground">
+                  Sqft required for accurate variable pricing.
+                </p>
+              )}
+            </div>
+          );
+        })()}
+      </div>
+    </div>
+  );
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="flex max-h-[90vh] flex-col overflow-hidden p-0 text-slate-900 dark:text-slate-100 sm:max-w-[900px] md:max-w-[1100px] lg:max-w-[1200px]">
-        <DialogHeader className="shrink-0 px-6 pt-6 pb-4">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-500/10">
+      <DialogContent className="flex max-h-[92vh] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] flex-col overflow-hidden p-0 text-slate-900 dark:text-slate-100 sm:max-w-[900px] md:max-w-[1100px] lg:max-w-[1200px]">
+        <DialogHeader className="shrink-0 px-4 pb-4 pt-5 sm:px-6 sm:pt-6">
+          <div className="flex items-center gap-3 pr-10">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-500/10">
               <Edit className="h-5 w-5 text-blue-500" />
             </div>
             <div>
@@ -1125,535 +1646,61 @@ export function ShootEditModal({
         </DialogHeader>
 
         {isLoading ? (
-          <div className="grid grid-cols-3 gap-4 px-6 pb-4">
+          <div className="grid grid-cols-1 gap-4 px-4 pb-4 sm:px-6 md:grid-cols-3">
             <Skeleton className="h-48 rounded-xl" />
             <Skeleton className="h-48 rounded-xl" />
             <Skeleton className="h-48 rounded-xl" />
           </div>
         ) : (
-          <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-4 md:overflow-hidden">
-            <div className="grid grid-cols-1 gap-4 md:h-full md:min-h-0 md:grid-cols-3 md:items-stretch">
-              {/* Column 1 - Client, Address & Primary Notes */}
-              <div className="space-y-3 md:min-h-0 md:overflow-y-auto md:pr-1">
-              {/* Client Info (read-only) */}
-              <div className="rounded-xl border border-border bg-muted/30 p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <User className="h-4 w-4 text-blue-500" />
-                  <p className="font-semibold text-sm">Client</p>
-                </div>
-                <p className="font-medium">{clientName}</p>
-                {clientEmail && (
-                  <p className="text-sm text-muted-foreground">{clientEmail}</p>
-                )}
-                {clientPhone && (
-                  <p className="text-sm text-muted-foreground">{clientPhone}</p>
-                )}
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 sm:px-6 md:overflow-hidden">
+            {isDesktopLayout ? (
+              <div className="grid grid-cols-1 gap-4 md:h-full md:min-h-0 md:grid-cols-3 md:items-stretch">
+                {renderDetailsPanel()}
+                {renderSchedulePanel()}
+                {renderServicesPanel()}
               </div>
-
-              {/* Address */}
-              <div className="rounded-lg border border-border p-3 space-y-2">
-                <div className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-primary" />
-                  <p className="font-semibold text-xs">Property Address</p>
+            ) : (
+              <Tabs
+                value={activeMobilePanel}
+                onValueChange={(value) => setActiveMobilePanel(value as MobileEditPanel)}
+                className="space-y-3"
+              >
+                <div className="sticky top-0 z-10 bg-background pb-1">
+                  <TabsList className="grid h-auto w-full grid-cols-3 rounded-xl bg-muted/60 p-1">
+                    <TabsTrigger value="details" className="h-9 rounded-lg text-xs font-semibold">
+                      Details
+                    </TabsTrigger>
+                    <TabsTrigger value="schedule" className="h-9 rounded-lg text-xs font-semibold">
+                      Schedule
+                    </TabsTrigger>
+                    <TabsTrigger value="services" className="h-9 rounded-lg text-xs font-semibold">
+                      Services
+                    </TabsTrigger>
+                  </TabsList>
                 </div>
-                
-                <AddressLookupField
-                  value={address}
-                  onChange={setAddress}
-                  onSelectionReset={clearAddressDerivedState}
-                  onSelectionStarted={() => {
-                    setAddress('');
-                    clearAddressDerivedState();
-                  }}
-                  onAddressSelect={handleAddressSelect}
-                  placeholder="Search address..."
-                />
-
-                <div className="grid grid-cols-3 gap-1.5">
-                  <Input
-                    value={city}
-                    onChange={(e) => setCity(e.target.value)}
-                    placeholder="City"
-                    className="h-8 text-xs"
-                  />
-                  <Input
-                    value={state}
-                    onChange={(e) => setState(e.target.value)}
-                    placeholder="ST"
-                    className="h-8 text-xs"
-                    maxLength={2}
-                  />
-                  <Input
-                    value={zip}
-                    onChange={(e) => setZip(e.target.value)}
-                    placeholder="ZIP"
-                    className="h-8 text-xs"
-                  />
-                </div>
-              </div>
-
-              {/* Property Details */}
-              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 space-y-2">
-                <div className="flex items-center gap-2">
-                  <Home className="h-4 w-4 text-emerald-600" />
-                  <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">Property Details</span>
-                </div>
-                <div className="grid grid-cols-3 gap-1.5">
-                  <div className="space-y-1">
-                    <Label className="text-[10px] flex items-center gap-1">
-                      <BedDouble className="h-3 w-3" /> Beds
-                    </Label>
-                    <Input
-                      type="number"
-                      value={propertyDetails?.bedrooms || ''}
-                      onChange={(e) => setPropertyDetails(prev => ({ 
-                        ...prev, 
-                        bedrooms: e.target.value ? Number(e.target.value) : undefined 
-                      }))}
-                      placeholder="0"
-                      className="h-7 text-xs"
-                      min={0}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-[10px] flex items-center gap-1">
-                      <Bath className="h-3 w-3" /> Baths
-                    </Label>
-                    <Input
-                      type="number"
-                      step="0.5"
-                      value={propertyDetails?.bathrooms || ''}
-                      onChange={(e) => setPropertyDetails(prev => ({ 
-                        ...prev, 
-                        bathrooms: e.target.value ? Number(e.target.value) : undefined 
-                      }))}
-                      placeholder="0"
-                      className="h-7 text-xs"
-                      min={0}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-[10px] flex items-center gap-1">
-                      <Ruler className="h-3 w-3" /> Sqft
-                    </Label>
-                    <Input
-                      type="number"
-                      value={propertySqft || ''}
-                      onChange={(e) => setPropertySqft(e.target.value ? Number(e.target.value) : null)}
-                      placeholder="0"
-                      className="h-7 text-xs"
-                      min={0}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Shoot Notes */}
-              <div className="rounded-lg border border-border p-3 space-y-2">
-                <div className="flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-amber-500" />
-                  <Label className="text-xs font-semibold">Shoot Notes</Label>
-                </div>
-                <Textarea
-                  value={shootNotes}
-                  onChange={(e) => setShootNotes(e.target.value)}
-                  placeholder="Access codes, instructions..."
-                  rows={2}
-                  className="resize-none text-xs"
-                />
-              </div>
-
-              {/* Company Notes */}
-              {showInternalNotes && (
-                <div className="rounded-lg border border-border p-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-4 w-4 text-blue-500" />
-                      <Label className="text-xs font-semibold">Company Notes</Label>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 px-2 text-xs"
-                      onClick={() => setCompanyNotesOpen((v) => !v)}
-                    >
-                      {companyNotesOpen ? 'Hide' : 'Show'}
-                    </Button>
-                  </div>
-                  {companyNotesOpen && (
-                    <Textarea
-                      value={companyNotes}
-                      onChange={(e) => setCompanyNotes(e.target.value)}
-                      placeholder="Internal notes..."
-                      rows={2}
-                      className="resize-none text-xs"
-                    />
-                  )}
-                </div>
-              )}
-
-              </div>
-
-              {/* Column 2 - Schedule & Team Notes */}
-              <div className="space-y-3 md:min-h-0 md:overflow-y-auto md:pr-1">
-              {/* Schedule */}
-              <div className="rounded-lg border border-border p-3 space-y-2">
-                <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                  <p className="font-semibold text-xs">Schedule</p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-1">
-                    <Label className="text-[10px]">Date *</Label>
-                    <div className="relative">
-                      <CalendarIcon className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                      <Input
-                        type="date"
-                        min={minSelectableDate}
-                        value={scheduledDateInputValue}
-                        onChange={(event) => {
-                          const value = event.target.value;
-                          if (!value) {
-                            setScheduledDate(undefined);
-                            return;
-                          }
-                          const nextDate = new Date(`${value}T12:00:00`);
-                          if (!Number.isNaN(nextDate.getTime())) {
-                            setScheduledDate(nextDate);
-                          }
-                        }}
-                        className={cn(
-                          'h-8 pl-8 text-xs',
-                          !scheduledDate && 'text-muted-foreground',
-                        )}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-[10px]">Time</Label>
-                    <Select value={scheduledTime} onValueChange={setScheduledTime}>
-                      <SelectTrigger className="h-8 text-xs">
-                        <SelectValue placeholder="Select" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {timeOptions.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {/* Photographer — per-category or single */}
-                {isAdminOrRep && (() => {
-                  if (hasMultiplePhotographerCategories) {
-                    return (
-                      <div className="space-y-2">
-                        <Label className="text-[10px]">Photographers (per category)</Label>
-                        {selectedServiceCategoryGroups.map((group) => {
-                          const selectedPhotographer = resolvePhotographerDetails(
-                            perCategoryPhotographers[group.key] || photographerId,
-                          );
-
-                          return (
-                            <div
-                              key={group.key}
-                              className="flex items-start justify-between gap-3 rounded-lg border bg-background/50 px-3 py-2.5"
-                            >
-                              <div className="min-w-0 space-y-1 text-xs">
-                                <div className="text-[9px] font-medium uppercase text-muted-foreground">
-                                  {group.name}
-                                </div>
-                                <div className="font-medium">
-                                  {selectedPhotographer?.name || 'Unassigned'}
-                                </div>
-                                {selectedPhotographer?.email && (
-                                  <div className="truncate text-muted-foreground">
-                                    {selectedPhotographer.email}
-                                  </div>
-                                )}
-                              </div>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                className="h-8 shrink-0 text-xs"
-                                onClick={() =>
-                                  openPhotographerPicker({
-                                    categoryKey: group.key,
-                                    categoryName: group.name,
-                                  })
-                                }
-                              >
-                                {selectedPhotographer ? 'Edit photographer' : 'Select photographer'}
-                              </Button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    );
-                  }
-
-                  const selectedPhotographer = resolvePhotographerDetails(photographerId);
-
-                  return (
-                    <div className="space-y-2">
-                      <Label className="text-[10px]">Photographer</Label>
-                      <div className="flex items-start justify-between gap-3 rounded-lg border bg-background/50 px-3 py-2.5">
-                        <div className="min-w-0 space-y-1 text-xs">
-                          <div className="font-medium">
-                            {selectedPhotographer?.name || 'Unassigned'}
-                          </div>
-                          {selectedPhotographer?.email && (
-                            <div className="truncate text-muted-foreground">
-                              {selectedPhotographer.email}
-                            </div>
-                          )}
-                        </div>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="h-8 shrink-0 text-xs"
-                          onClick={() => openPhotographerPicker(null)}
-                        >
-                          {selectedPhotographer ? 'Edit photographer' : 'Select photographer'}
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })()}
-              </div>
-
-              {/* Internal Notes (Admin/Rep) */}
-              {showInternalNotes && (
-                <div className="space-y-3">
-                  <div className="rounded-lg border border-border p-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <FileText className="h-4 w-4 text-indigo-500" />
-                        <Label className="text-xs font-semibold">Photographer Notes</Label>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-2 text-xs"
-                        onClick={() => setPhotographerNotesOpen((v) => !v)}
-                      >
-                        {photographerNotesOpen ? 'Hide' : 'Show'}
-                      </Button>
-                    </div>
-                    {photographerNotesOpen && (
-                      <Textarea
-                        value={photographerNotes}
-                        onChange={(e) => setPhotographerNotes(e.target.value)}
-                        placeholder="Notes for the photographer"
-                        rows={2}
-                        className="resize-none text-xs"
-                      />
-                    )}
-                  </div>
-
-                  <div className="rounded-lg border border-border p-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <FileText className="h-4 w-4 text-purple-500" />
-                        <Label className="text-xs font-semibold">Editor Notes</Label>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-2 text-xs"
-                        onClick={() => setEditorNotesOpen((v) => !v)}
-                      >
-                        {editorNotesOpen ? 'Hide' : 'Show'}
-                      </Button>
-                    </div>
-                    {editorNotesOpen && (
-                      <Textarea
-                        value={editorNotes}
-                        onChange={(e) => setEditorNotes(e.target.value)}
-                        placeholder="Notes for the editor"
-                        rows={2}
-                        className="resize-none text-xs"
-                      />
-                    )}
-                  </div>
-                </div>
-              )}
-              </div>
-
-              {/* Column 3 - Services */}
-              <div className="space-y-3 md:flex md:min-h-0 md:flex-col md:overflow-hidden">
-                <div className="flex h-full min-h-[420px] flex-col rounded-lg border border-border p-3 md:min-h-0 md:flex-1 md:overflow-hidden">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Layers className="h-4 w-4 text-violet-500" />
-                    <p className="font-semibold text-xs">Services *</p>
-                  </div>
-                  {propertySqft && (
-                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                      {propertySqft.toLocaleString()} sqft
-                    </Badge>
-                  )}
-                </div>
-
-                <div className="mt-2 min-h-0 flex-1 overflow-y-auto pr-1 md:max-h-full">
-                  <Accordion
-                    type="multiple"
-                    value={expandedServiceCategoryKeys}
-                    onValueChange={setExpandedServiceCategoryKeys}
-                    className="space-y-2"
-                  >
-                    {availableServiceCategoryGroups.map((group) => {
-                      const selectedCount = group.serviceIds.filter((serviceId) =>
-                        selectedServiceIds.has(serviceId),
-                      ).length;
-
-                      return (
-                        <AccordionItem
-                          key={group.key}
-                          value={group.key}
-                          className="rounded-md border border-border px-2"
-                        >
-                          <AccordionTrigger className="py-2 text-xs hover:no-underline">
-                            <div className="flex min-w-0 flex-1 items-center justify-between gap-3 pr-2">
-                              <span className="truncate font-semibold">{group.name}</span>
-                              <Badge variant="outline" className="shrink-0 text-[10px]">
-                                {selectedCount} selected
-                              </Badge>
-                            </div>
-                          </AccordionTrigger>
-                          <AccordionContent className="pb-2">
-                            <div className="space-y-1.5">
-                              {group.services.map((service) => {
-                                const serviceId = String(service.id);
-                                const isSelected = selectedServiceIds.has(serviceId);
-                                const price = getServicePrice(service);
-                                const isVariablePricing =
-                                  service.pricing_type === 'variable' && service.sqft_ranges?.length;
-                                const showVariablePlaceholder = isVariablePricing && !propertySqft;
-
-                                return (
-                                  <div
-                                    key={serviceId}
-                                    className={cn(
-                                      'flex items-center justify-between rounded-md border p-2 transition-colors',
-                                      isSelected
-                                        ? 'border-primary bg-primary/5'
-                                        : 'border-border hover:border-primary/50',
-                                    )}
-                                    onClick={() => toggleService(serviceId)}
-                                  >
-                                    <div className="flex min-w-0 items-center gap-1.5">
-                                      <Checkbox
-                                        checked={isSelected}
-                                        onCheckedChange={() => toggleService(serviceId)}
-                                        onClick={(event) => event.stopPropagation()}
-                                        className="h-3.5 w-3.5"
-                                      />
-                                      <span className="truncate text-xs font-medium">{service.name}</span>
-                                    </div>
-                                    <span
-                                      className={cn(
-                                        'shrink-0 text-xs font-medium',
-                                        isVariablePricing && propertySqft
-                                          ? 'text-emerald-600'
-                                          : 'text-muted-foreground',
-                                      )}
-                                    >
-                                      {showVariablePlaceholder ? 'Varies' : `$${price.toFixed(0)}`}
-                                    </span>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </AccordionContent>
-                        </AccordionItem>
-                      );
-                    })}
-                  </Accordion>
-                </div>
-
-                {selectedServiceIds.size > 0 && (() => {
-                  const servicesTotal = hasVariablePricingWithoutSqft
-                    ? 0
-                    : Array.from(selectedServiceIds).reduce((sum, id) => {
-                        const service = availableServices.find((s) => s.id?.toString() === id);
-                        return sum + (service ? getServicePrice(service) : 0);
-                      }, 0);
-                  const normalizedTaxRate = taxPercent > 1 ? taxPercent / 100 : taxPercent;
-                  const pricing = calculatePricingBreakdown({
-                    serviceSubtotal: servicesTotal,
-                    discountType: activeDiscountType,
-                    discountValue: activeDiscountValue,
-                    taxRate: normalizedTaxRate,
-                  });
-                  const discountLabel = pricing.discountType === 'fixed'
-                    ? `Discount ($${pricing.discountValue?.toFixed?.(2) ?? Number(pricing.discountValue || 0).toFixed(2)})`
-                    : `Discount (${Number(pricing.discountValue || 0)}%)`;
-                  return (
-                    <div className="mt-3 border-t pt-3 space-y-1">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-muted-foreground">Selected:</span>
-                        <span className="font-semibold">{selectedServiceIds.size} service(s)</span>
-                      </div>
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-muted-foreground">Base:</span>
-                        <span className={cn(
-                          "font-semibold",
-                          hasVariablePricingWithoutSqft ? "text-amber-600" : ""
-                        )}>
-                          {hasVariablePricingWithoutSqft ? 'TBD' : `$${servicesTotal.toFixed(2)}`}
-                        </span>
-                      </div>
-                      {!hasVariablePricingWithoutSqft && pricing.discountAmount > 0 && (
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-muted-foreground">{discountLabel}:</span>
-                          <span className="font-medium text-emerald-600">-${pricing.discountAmount.toFixed(2)}</span>
-                        </div>
-                      )}
-                      {!hasVariablePricingWithoutSqft && taxPercent > 0 && (
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-muted-foreground">Tax ({taxPercent > 1 ? taxPercent : (taxPercent * 100).toFixed(1)}%):</span>
-                          <span className="font-medium">${pricing.taxAmount.toFixed(2)}</span>
-                        </div>
-                      )}
-                      <div className="flex items-center justify-between text-xs font-semibold">
-                        <span className="text-muted-foreground">Total:</span>
-                        <span className={cn(
-                          hasVariablePricingWithoutSqft ? "text-amber-600" : "text-emerald-600"
-                        )}>
-                          {hasVariablePricingWithoutSqft ? 'TBD' : `$${pricing.totalQuote.toFixed(2)}`}
-                        </span>
-                      </div>
-                      {hasVariablePricingWithoutSqft && (
-                        <p className="text-[10px] text-muted-foreground">
-                          Sqft required for accurate variable pricing.
-                        </p>
-                      )}
-                    </div>
-                  );
-                })()}
-              </div>
-            </div>
-          </div>
+                <TabsContent value="details" className="mt-0">
+                  {renderDetailsPanel()}
+                </TabsContent>
+                <TabsContent value="schedule" className="mt-0">
+                  {renderSchedulePanel()}
+                </TabsContent>
+                <TabsContent value="services" className="mt-0">
+                  {renderServicesPanel()}
+                </TabsContent>
+              </Tabs>
+            )}
           </div>
         )}
 
-        <DialogFooter className="mt-1 shrink-0 gap-2 border-t border-border/60 px-6 py-5">
-          <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
+        <DialogFooter className="mt-1 shrink-0 gap-2 border-t border-border/60 px-4 py-4 sm:px-6 sm:py-5">
+          <Button variant="outline" onClick={onClose} disabled={isSubmitting} className="w-full sm:w-auto">
             Cancel
           </Button>
           <Button
             variant="outline"
             onClick={handleApproveWithoutNotification}
             disabled={isSubmitting || isLoading}
-            className="min-w-[220px]"
+            className="w-full sm:min-w-[220px]"
           >
             {isSubmitting ? (
               <>
@@ -1670,7 +1717,7 @@ export function ShootEditModal({
           <Button 
             onClick={handleApprove} 
             disabled={isSubmitting || isLoading} 
-            className="bg-blue-600 hover:bg-blue-700 min-w-[140px]"
+            className="w-full bg-blue-600 hover:bg-blue-700 sm:min-w-[140px]"
           >
             {isSubmitting ? (
               <>
