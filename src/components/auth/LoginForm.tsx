@@ -37,6 +37,7 @@ import {
 } from '@/components/ui/dialog';
 import RegisterForm, { type RegisterSuccessPayload } from './RegisterForm';
 import { API_BASE_URL } from '@/config/env';
+import { normalizeEmailHealth } from '@/utils/emailHealth';
 
 
 const loginSchema = z.object({
@@ -121,13 +122,17 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
       zip: apiUser?.zip,
       country: apiUser?.country,
     },
+    email_health: normalizeEmailHealth(apiUser?.email_health),
   });
 
   const handleRegisterSuccess = ({ user, token }: RegisterSuccessPayload) => {
     login(user, token);
     toast({
       title: 'Account created',
-      description: 'You have successfully registered and logged in!',
+      description:
+        user.email_health?.status && user.email_health.status !== 'verified'
+          ? 'You have successfully registered. Check your email to verify your address.'
+          : 'You have successfully registered and logged in!',
     });
     navigate('/dashboard');
   };

@@ -7,22 +7,31 @@ import { withApiBase } from '@/config/env';
 
 type SaveProfilePayload = Record<string, unknown>;
 
+interface SaveProfileErrorPayload {
+  message?: string;
+  errors?: Record<string, string[]>;
+  email_health?: Record<string, unknown>;
+}
+
 interface SaveProfileResponse {
   message?: string;
   reauth_required?: boolean;
   user?: Record<string, unknown>;
 }
 
-const extractErrorMessage = async (response: Response) => {
+const extractErrorPayload = async (response: Response): Promise<{ message: string; payload?: SaveProfileErrorPayload }> => {
   try {
-    const data = (await response.json()) as { message?: string; errors?: Record<string, string[]> };
+    const data = (await response.json()) as SaveProfileErrorPayload;
     const firstError = data.errors
       ? Object.values(data.errors).flat().find(Boolean)
       : null;
 
-    return firstError || data.message || 'Failed to update profile';
+    return {
+      message: firstError || data.message || 'Failed to update profile',
+      payload: data,
+    };
   } catch {
-    return 'Failed to update profile';
+    return { message: 'Failed to update profile' };
   }
 };
 
@@ -52,7 +61,8 @@ export function useSelfProfileSave() {
       });
 
       if (!response.ok) {
-        throw new Error(await extractErrorMessage(response));
+        const { message, payload } = await extractErrorPayload(response);
+        throw Object.assign(new Error(message), { payload });
       }
 
       const data = (await response.json()) as SaveProfileResponse;

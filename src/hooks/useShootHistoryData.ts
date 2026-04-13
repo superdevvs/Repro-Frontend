@@ -124,6 +124,7 @@ export function useShootHistoryData({
   formatTime,
 }: UseShootHistoryDataArgs) {
   const [deleteShootId, setDeleteShootId] = useState<string | number | null>(null)
+  const [deleteShootTarget, setDeleteShootTarget] = useState<ShootData | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [operationalData, setOperationalData] = useState<ShootData[]>([])
   const [historyRecords, setHistoryRecords] = useState<ShootHistoryRecord[]>([])
@@ -228,6 +229,12 @@ export function useShootHistoryData({
     fetchPhotographers()
   }, [approvalModalShoot, isAdmin, isSuperAdmin, photographers.length])
 
+  useEffect(() => {
+    if (deleteShootId === null) {
+      setDeleteShootTarget(null)
+    }
+  }, [deleteShootId])
+
   const handleDetailDialogToggle = useCallback((open: boolean) => {
     setIsDetailOpen(open)
     if (!open && !isUploadDialogOpen) {
@@ -300,13 +307,19 @@ export function useShootHistoryData({
 
   const handleDeleteShoot = useCallback((shoot: ShootData) => {
     setDeleteShootId(shoot.id)
+    setDeleteShootTarget(shoot)
   }, [])
 
   const handleDeleteHistoryRecord = useCallback((record: ShootHistoryRecord) => {
     if (record.id) {
       setDeleteShootId(record.id)
+      const matchedShoot =
+        (selectedShoot?.id && String(selectedShoot.id) === String(record.id) ? selectedShoot : null) ??
+        operationalData.find((shoot) => String(shoot.id) === String(record.id)) ??
+        null
+      setDeleteShootTarget(matchedShoot)
     }
-  }, [])
+  }, [selectedShoot, operationalData])
 
   const handleViewInvoice = useCallback(async (shoot: ShootData | { id: string | number }) => {
     setInvoiceLoading(true)
@@ -721,28 +734,26 @@ export function useShootHistoryData({
     [toast, refreshActiveTabData, selectedShoot, loadShootById, isDetailOpen],
   )
 
-  const confirmDeleteShoot = useCallback(async () => {
-    if (!deleteShootId) return
+  const confirmDeleteShoot = useCallback(async (options?: { deleteMedia?: boolean }) => {
+    if (deleteShootId === null) return
+
+    const deleteMedia = options?.deleteMedia === true
 
     setIsDeleting(true)
     try {
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token')
-      const response = await fetch(`${API_BASE_URL}/api/shoots/${deleteShootId}`, {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: 'application/json',
+      const response = await apiClient.delete(`/shoots/${deleteShootId}`, {
+        data: {
+          delete_media: deleteMedia,
         },
       })
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Failed to delete shoot' }))
-        throw new Error(errorData.message || 'Failed to delete shoot')
-      }
-
       toast({
         title: 'Success',
-        description: 'Shoot deleted successfully',
+        description:
+          response.data?.message ||
+          (deleteMedia
+            ? 'Shoot and uploaded media deleted successfully.'
+            : 'Shoot deleted from the dashboard. Uploaded media was left in storage.'),
       })
 
       if (selectedShoot?.id && String(selectedShoot.id) === String(deleteShootId)) {
@@ -753,11 +764,11 @@ export function useShootHistoryData({
       const deletedId = String(deleteShootId)
       setOperationalData((prev) => prev.filter((shoot) => String(shoot.id) !== deletedId))
 
-      refreshActiveTabData()
+      await refreshActiveTabData()
     } catch (error: any) {
       toast({
         title: 'Error',
-        description: error.message || 'Failed to delete shoot',
+        description: error?.response?.data?.message || error.message || 'Failed to delete shoot',
         variant: 'destructive',
       })
     } finally {
@@ -1002,6 +1013,7 @@ export function useShootHistoryData({
 
   return {
     deleteShootId,
+    deleteShootTarget,
     setDeleteShootId,
     isDeleting,
     operationalData,

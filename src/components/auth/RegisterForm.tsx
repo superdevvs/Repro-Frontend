@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
@@ -26,6 +26,8 @@ import { toast } from '@/components/ui/use-toast';
 import type { UserData } from '@/types/auth';
 import { API_BASE_URL } from '@/config/env';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { EmailHealthInlineHint } from '@/components/email/EmailHealthInlineHint';
+import { analyzeEmailInput, normalizeEmailHealth } from '@/utils/emailHealth';
 
 const termsSections = [
   {
@@ -280,6 +282,8 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [serverEmailHealth, setServerEmailHealth] = useState<any>(undefined);
+  const [emailWarningOverride, setEmailWarningOverride] = useState(false);
   const [termsOpen, setTermsOpen] = useState(false);
   const [termsScrollProgress, setTermsScrollProgress] = useState(0);
   const [termsScrolledToEnd, setTermsScrolledToEnd] = useState(false);
@@ -312,7 +316,9 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
       terms: false,
     },
   });
+  const emailValue = form.watch('email');
   const hasAcceptedTerms = form.watch('terms');
+  const localEmailHint = useMemo(() => analyzeEmailInput(emailValue ?? ''), [emailValue]);
   const canDismissTermsDialog = hasAcceptedTerms || termsScrolledToEnd;
 
   useEffect(() => {
@@ -338,6 +344,11 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
     setTermsScrolledToEnd(false);
   }, [hasAcceptedTerms, termsOpen]);
 
+  useEffect(() => {
+    setEmailWarningOverride(false);
+    setServerEmailHealth(undefined);
+  }, [emailValue]);
+
   const updateTermsScrollState = () => {
     const scrollElement = termsScrollRef.current;
     if (!scrollElement) return;
@@ -359,6 +370,15 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
   const handleRegister = async (values: RegisterFormValues) => {
     setIsSubmitting(true);
     try {
+      if (localEmailHint.requiresConfirmation && !emailWarningOverride) {
+        form.setError('email', {
+          type: 'manual',
+          message: localEmailHint.message || 'Please confirm this email address before continuing.',
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
       const response = await axios.post(`${API_BASE_URL}/api/register`, {
         name: values.name,
         email: values.email,
@@ -370,6 +390,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
         state: values.state,
         zip: values.zip,
         country: values.country,
+        email_warning_override: emailWarningOverride,
       });
 
       const apiUser = response.data.user;
@@ -395,15 +416,35 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
           zip: apiUser.zip,
           country: apiUser.country,
         },
+        email_health: normalizeEmailHealth(apiUser.email_health),
       };
 
       onSuccess({ user: newUser, token });
       form.reset();
+      setEmailWarningOverride(false);
+      setServerEmailHealth(undefined);
     } catch (error: any) {
       console.error('Registration error:', error);
+      const errorPayload = error?.response?.data;
+      const nextEmailHealth = normalizeEmailHealth(errorPayload?.email_health);
+      if (nextEmailHealth) {
+        setServerEmailHealth(nextEmailHealth);
+      }
+
+      const emailMessage = Array.isArray(errorPayload?.errors?.email)
+        ? errorPayload.errors.email[0]
+        : errorPayload?.message;
+
+      if (emailMessage) {
+        form.setError('email', {
+          type: 'server',
+          message: emailMessage,
+        });
+      }
+
       toast({
         title: 'Registration Failed',
-        description: error.response?.data?.message || 'An unexpected error occurred. Please try again.',
+        description: emailMessage || error.response?.data?.message || 'An unexpected error occurred. Please try again.',
         variant: 'destructive',
       });
     } finally {
@@ -475,9 +516,30 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
                   <Input
                     placeholder="you@company.com"
                     {...field}
+                    onChange={(event) => {
+                      field.onChange(event);
+                      form.clearErrors('email');
+                    }}
                     className={inputClass}
                   />
                 </FormControl>
+                <EmailHealthInlineHint
+                  email={field.value}
+                  localHint={localEmailHint}
+                  serverEmailHealth={serverEmailHealth}
+                  warningOverride={emailWarningOverride}
+                  onUseSuggestion={(nextEmail) => {
+                    form.setValue('email', nextEmail, { shouldDirty: true, shouldValidate: true });
+                    setEmailWarningOverride(false);
+                    setServerEmailHealth(undefined);
+                    form.clearErrors('email');
+                  }}
+                  onKeepAnyway={() => {
+                    setEmailWarningOverride(true);
+                    form.clearErrors('email');
+                  }}
+                  className="mt-3"
+                />
                 <FormMessage />
               </FormItem>
             )}

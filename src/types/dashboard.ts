@@ -33,6 +33,8 @@ export interface DashboardActivityResponse {
   action?: string;
   type: string;
   timestamp: string | null;
+  actionUrl?: string | null;
+  actionLabel?: string | null;
   user?: {
     id: number;
     name: string;
@@ -150,6 +152,8 @@ export interface DashboardActivityItem {
   action?: string;
   type: string;
   timestamp: string | null;
+  actionUrl?: string | null;
+  actionLabel?: string | null;
   userName?: string | null;
   shootId?: number | null;
   address?: string | null;

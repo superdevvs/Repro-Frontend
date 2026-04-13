@@ -1,8 +1,20 @@
-import { Loader2, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  CalendarClock,
+  Camera,
+  Image as ImageIcon,
+  Layers,
+  Loader2,
+  MapPin,
+  Trash2,
+  User,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -18,6 +30,39 @@ import { ShootDetailsModal } from '@/components/shoots/ShootDetailsModal';
 import { ShootEditModal } from '@/components/shoots/ShootEditModal';
 import { BrightMlsImportDialog } from '@/components/integrations/BrightMlsImportDialog';
 import { ShootData } from '@/types/shoots';
+import { formatWorkflowStatus } from '@/utils/status';
+
+const formatDeleteDate = (value?: string) => {
+  if (!value) return 'Not scheduled';
+
+  try {
+    return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(value));
+  } catch {
+    return value;
+  }
+};
+
+const formatDeleteLabel = (value?: string | null) => {
+  if (!value) return 'Not available';
+
+  return value
+    .split('_')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+};
+
+const resolveDeleteMediaCount = (shoot: ShootData | null) => {
+  if (!shoot) return null;
+  if (Array.isArray(shoot.files) && shoot.files.length > 0) return shoot.files.length;
+
+  const hasLoadedCounts = [shoot.rawPhotoCount, shoot.editedPhotoCount, shoot.extraPhotoCount].some(
+    (value) => typeof value === 'number',
+  );
+  if (!hasLoadedCounts) return null;
+
+  return (shoot.rawPhotoCount ?? 0) + (shoot.editedPhotoCount ?? 0) + (shoot.extraPhotoCount ?? 0);
+};
 
 interface ShootHistoryModalHostProps {
   selectedShoot: ShootData | null;
@@ -43,9 +88,10 @@ interface ShootHistoryModalHostProps {
   onEditSaved: () => void;
   photographers: Array<{ id: string | number; name: string; avatar?: string }>;
   deleteShootId: string | number | null;
+  deleteShootTarget: ShootData | null;
   onDeleteShootIdChange: (value: string | number | null) => void;
   isDeleting: boolean;
-  onConfirmDelete: () => void;
+  onConfirmDelete: (options?: { deleteMedia?: boolean }) => void;
   selectedInvoice: any;
   invoiceDialogOpen: boolean;
   onInvoiceClose: () => void;
@@ -77,6 +123,7 @@ export function ShootHistoryModalHost({
   onEditSaved,
   photographers,
   deleteShootId,
+  deleteShootTarget,
   onDeleteShootIdChange,
   isDeleting,
   onConfirmDelete,
@@ -86,6 +133,31 @@ export function ShootHistoryModalHost({
   brightMlsRedirectUrl,
   onBrightMlsRedirectUrlChange,
 }: ShootHistoryModalHostProps) {
+  const [deleteMedia, setDeleteMedia] = useState(false);
+
+  const mediaCount = useMemo(() => resolveDeleteMediaCount(deleteShootTarget), [deleteShootTarget]);
+  const hasKnownMediaCount = typeof mediaCount === 'number';
+  const disableMediaDelete = hasKnownMediaCount && mediaCount === 0;
+  const statusLabel = deleteShootTarget
+    ? formatWorkflowStatus(deleteShootTarget.workflowStatus ?? deleteShootTarget.status ?? '')
+    : '';
+  const deleteButtonLabel = deleteMedia ? 'Delete Shoot + Media' : 'Delete From Dashboard';
+  const primaryAddress =
+    deleteShootTarget?.location?.fullAddress ||
+    deleteShootTarget?.location?.address ||
+    (deleteShootId !== null ? `Shoot #${deleteShootId}` : 'Selected shoot');
+
+  useEffect(() => {
+    if (deleteShootId === null) {
+      setDeleteMedia(false);
+      return;
+    }
+
+    if (disableMediaDelete) {
+      setDeleteMedia(false);
+    }
+  }, [deleteShootId, disableMediaDelete]);
+
   return (
     <>
       {selectedShoot?.id && (
@@ -141,20 +213,129 @@ export function ShootHistoryModalHost({
 
       <AlertDialog
         open={deleteShootId !== null}
-        onOpenChange={(open) => !open && onDeleteShootIdChange(null)}
+        onOpenChange={(open) => {
+          if (!open && !isDeleting) {
+            onDeleteShootIdChange(null);
+          }
+        }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Shoot</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this shoot? This action cannot be
-              undone and will permanently delete all associated files and data.
+              Choose whether this should remove only the shoot from the dashboard
+              or also purge uploaded media from storage.
             </AlertDialogDescription>
           </AlertDialogHeader>
+
+          {deleteShootTarget && (
+            <div className="rounded-xl border border-border/60 bg-muted/30 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    <MapPin className="h-3.5 w-3.5" />
+                    Property
+                  </div>
+                  <p className="text-sm font-semibold text-foreground">{primaryAddress}</p>
+                </div>
+                {statusLabel ? <Badge variant="outline">{statusLabel}</Badge> : null}
+              </div>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    <CalendarClock className="h-3.5 w-3.5" />
+                    Schedule
+                  </div>
+                  <p className="text-sm text-foreground">
+                    {formatDeleteDate(deleteShootTarget.scheduledDate)}
+                    {deleteShootTarget.time ? ` at ${deleteShootTarget.time}` : ''}
+                  </p>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    <ImageIcon className="h-3.5 w-3.5" />
+                    Uploaded Media
+                  </div>
+                  <p className="text-sm text-foreground">
+                    {mediaCount === null ? 'Check will remove media if any exists' : `${mediaCount} file${mediaCount === 1 ? '' : 's'}`}
+                  </p>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    <User className="h-3.5 w-3.5" />
+                    Client
+                  </div>
+                  <p className="text-sm text-foreground">{deleteShootTarget.client?.name || 'Unknown client'}</p>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    <Camera className="h-3.5 w-3.5" />
+                    Photographer
+                  </div>
+                  <p className="text-sm text-foreground">{deleteShootTarget.photographer?.name || 'Unassigned'}</p>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    <Layers className="h-3.5 w-3.5" />
+                    Services
+                  </div>
+                  <p className="text-sm text-foreground">
+                    {deleteShootTarget.services?.length ? `${deleteShootTarget.services.length} service${deleteShootTarget.services.length === 1 ? '' : 's'}` : 'No services'}
+                  </p>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Payment Status
+                  </div>
+                  <p className="text-sm text-foreground">
+                    {formatDeleteLabel(deleteShootTarget.payment?.paymentStatus)}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="rounded-xl border border-red-200/70 bg-red-50/60 p-4 dark:border-red-950/60 dark:bg-red-950/20">
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id="delete-shoot-media"
+                checked={deleteMedia}
+                onCheckedChange={(checked) => setDeleteMedia(checked === true)}
+                disabled={isDeleting || disableMediaDelete}
+                className="mt-0.5"
+              />
+              <div className="space-y-1.5">
+                <Label htmlFor="delete-shoot-media" className="text-sm font-semibold text-foreground">
+                  Also delete uploaded shoot media
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  {disableMediaDelete
+                    ? 'No uploaded media was found for this shoot.'
+                    : hasKnownMediaCount
+                      ? `Delete ${mediaCount} uploaded media file${mediaCount === 1 ? '' : 's'} from storage before the shoot record is removed.`
+                      : 'If media exists for this shoot, it will be deleted from storage before the shoot record is removed.'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="text-sm text-muted-foreground">
+            Notes, messages, share links, and album records tied to this shoot are cleaned up automatically when the
+            shoot is deleted. Leave the checkbox off if you only want to remove the shoot entry from the dashboard.
+          </div>
+
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={onConfirmDelete}
+            <Button
+              type="button"
+              onClick={() => onConfirmDelete({ deleteMedia })}
               disabled={isDeleting}
               className="bg-red-600 hover:bg-red-700"
             >
@@ -166,10 +347,10 @@ export function ShootHistoryModalHost({
               ) : (
                 <>
                   <Trash2 className="h-4 w-4 mr-2" />
-                  Delete
+                  {deleteButtonLabel}
                 </>
               )}
-            </AlertDialogAction>
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

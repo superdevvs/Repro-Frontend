@@ -94,6 +94,11 @@ const saveReadIds = (ids: Set<string>, storageKey: string) => {
 };
 
 const SHOOT_ACTIVITY_TITLES: Record<string, string> = {
+  account_created: 'New Account Registered',
+  email_verification_requested: 'Email Verification Pending',
+  email_bounced: 'Email Bounced',
+  email_delivery_risky: 'Email Delivery Warning',
+  email_corrected_after_bounce: 'Email Updated',
   shoot_requested: 'New Shoot Request',
   shoot_created: 'Shoot Created',
   shoot_approved: 'Shoot Approved',
@@ -126,6 +131,14 @@ const SHOOT_ACTIVITY_TITLES: Record<string, string> = {
   email_sent: 'Email Sent',
 };
 
+const SYSTEM_NOTIFICATION_ACTIONS = new Set([
+  'account_created',
+  'email_verification_requested',
+  'email_bounced',
+  'email_delivery_risky',
+  'email_corrected_after_bounce',
+]);
+
 /**
  * Derive a human-readable title from the activity message when no action mapping exists.
  * Capitalizes the first letter and truncates to a reasonable length.
@@ -143,7 +156,9 @@ const normalizeActivity = (activity: DashboardActivityItem, readIds: Set<string>
   const actionHint = (activity.action || '').toLowerCase();
   
   let type: NotificationCategory = 'system';
-  if (typeHint.includes('message') || actionHint.includes('sms') || actionHint.includes('email')) {
+  if (SYSTEM_NOTIFICATION_ACTIONS.has(actionHint)) {
+    type = 'system';
+  } else if (typeHint.includes('message') || actionHint.includes('sms') || actionHint.includes('email')) {
     type = 'messages';
   } else if (
     typeHint.includes('shoot') ||
@@ -172,8 +187,8 @@ const normalizeActivity = (activity: DashboardActivityItem, readIds: Set<string>
     type,
     isRead: readIds.has(id),
     date: activity.timestamp || new Date().toISOString(),
-    actionUrl: activity.shootId ? `/shoots/${activity.shootId}` : undefined,
-    actionLabel: activity.shootId ? 'View' : undefined,
+    actionUrl: activity.shootId ? `/shoots/${activity.shootId}` : activity.actionUrl || undefined,
+    actionLabel: activity.shootId ? 'View' : activity.actionLabel || undefined,
     shootId: activity.shootId ?? undefined,
     action: activity.action || undefined,
   };

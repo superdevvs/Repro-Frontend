@@ -119,6 +119,8 @@ import { emptyClientBillingSummary } from "@/services/clientBillingService";
 import type { ClientBillingSummary } from "@/types/clientBilling";
 import { usePermission } from "@/hooks/usePermission";
 import { SHOOT_MEDIA_DOWNLOAD_STARTED_EVENT } from "@/utils/shootMediaDownload";
+import { ClientEmailHealthNotice } from "@/components/email/ClientEmailHealthNotice";
+import { normalizeEmailHealth } from "@/utils/emailHealth";
 
 const LazyAssignPhotographersCard = lazy(() =>
   import("@/components/dashboard/v2/AssignPhotographersCard").then((module) => ({
@@ -312,7 +314,7 @@ type OpenShootInModalOptions = {
 };
 
 const Dashboard = () => {
-  const { role, session, user } = useAuth();
+  const { role, session, user, setUser } = useAuth();
   const { can } = usePermission();
   const { shoots, fetchShoots } = useShoots();
   const isMobile = useIsMobile();
@@ -355,10 +357,52 @@ const Dashboard = () => {
   const [mobileDashboardTab, setMobileDashboardTab] = useState<MobileDashboardTab>("shoots");
   const [mobileClientTab, setMobileClientTab] = useState<MobileClientDashboardTab>("shoots");
   const [mobileEditingManagerTab, setMobileEditingManagerTab] = useState<MobileEditingManagerTab>("shoots");
+  const [clientEmailActionPending, setClientEmailActionPending] = useState(false);
   const clientDesktopLeftColumnRef = useRef<HTMLDivElement | null>(null);
   const [clientDesktopShootsHeight, setClientDesktopShootsHeight] = useState<number | null>(null);
   const currentMonthStart = startOfMonth(new Date());
   const currentMonthEnd = endOfMonth(new Date());
+
+  useEffect(() => {
+    if (role !== "client" || !user?.id) {
+      return;
+    }
+
+    const token = getToken(session?.accessToken);
+    if (!token) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const refreshCurrentUser = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/user`, {
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok || cancelled) {
+          return;
+        }
+
+        const nextUser = await response.json();
+        if (!cancelled) {
+          setUser(nextUser as any);
+        }
+      } catch {
+        // Keep the dashboard responsive even if the profile refresh fails.
+      }
+    };
+
+    refreshCurrentUser();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [role, session?.accessToken, user?.id]);
 
   // Handler for selecting a shoot with optional weather data - memoized to prevent child re-renders
   const handleSelectShoot = useCallback((shoot: DashboardShootSummary, weather?: WeatherInfo | null) => {
@@ -1941,6 +1985,61 @@ const Dashboard = () => {
         }
         openSupportEmail("Shoot assistance needed");
       };
+      const handleManageClientEmail = () => navigate("/settings?tab=profile");
+      const handleResendClientVerification = async () => {
+        const token = getToken(session?.accessToken);
+        if (!token) {
+          toast({
+            title: "Sign in required",
+            description: "Please sign in again to resend verification.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        setClientEmailActionPending(true);
+
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/profile/email-verification/resend`, {
+            method: "POST",
+            headers: {
+              Accept: "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          });
+
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            throw new Error(payload?.message || "Unable to send a verification email right now.");
+          }
+
+          if (payload?.user) {
+            setUser(payload.user as any);
+          }
+
+          toast({
+            title: "Verification email sent",
+            description: payload?.message || "Check your inbox to verify your email address.",
+          });
+        } catch (error) {
+          toast({
+            title: "Unable to send verification",
+            description: error instanceof Error ? error.message : "Unable to send a verification email right now.",
+            variant: "destructive",
+          });
+        } finally {
+          setClientEmailActionPending(false);
+        }
+      };
+      const clientEmailNotice = (
+        <ClientEmailHealthNotice
+          email={user?.email}
+          emailHealth={normalizeEmailHealth(user?.email_health)}
+          onManageEmail={handleManageClientEmail}
+          onResendVerification={handleResendClientVerification}
+          resendPending={clientEmailActionPending}
+        />
+      );
 
       const clientShootsContent = (
         <ClientMyShoots
@@ -1985,6 +2084,7 @@ const Dashboard = () => {
       const clientMobileContent = (
         <div className="space-y-4">
           {clientMetricsContent}
+          {clientEmailNotice}
           <Tabs
             value={mobileClientTab}
             onValueChange={(val) => setMobileClientTab(val as MobileClientDashboardTab)}
@@ -2026,15 +2126,18 @@ const Dashboard = () => {
             {clientInvoicesContent}
           </div>
           <div className="md:col-span-9 md:min-h-0">
-            <div
-              className="min-h-0"
-              style={
-                clientDesktopShootsHeight
-                  ? { height: `${clientDesktopShootsHeight}px`, maxHeight: `${clientDesktopShootsHeight}px` }
-                  : undefined
-              }
-            >
-              {clientShootsContent}
+            <div className="space-y-4 sm:space-y-6">
+              {clientEmailNotice}
+              <div
+                className="min-h-0"
+                style={
+                  clientDesktopShootsHeight
+                    ? { height: `${clientDesktopShootsHeight}px`, maxHeight: `${clientDesktopShootsHeight}px` }
+                    : undefined
+                }
+              >
+                {clientShootsContent}
+              </div>
             </div>
           </div>
         </div>

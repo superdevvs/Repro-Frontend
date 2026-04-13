@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -12,13 +12,21 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, AlertCircle, Loader2, Facebook, Twitter, Linkedin } from "lucide-react";
+import { Facebook, Linkedin, Loader2, Twitter } from "lucide-react";
 import { useUserPreferences } from "@/contexts/UserPreferencesContext";
 import { useSelfProfileSave } from "@/hooks/useSelfProfileSave";
+import { EmailHealthBadge } from "@/components/accounts/EmailHealthBadge";
+import { ClientEmailHealthNotice } from "@/components/email/ClientEmailHealthNotice";
+import { EmailHealthInlineHint } from "@/components/email/EmailHealthInlineHint";
+import { analyzeEmailInput, normalizeEmailHealth } from "@/utils/emailHealth";
+import { API_BASE_URL } from "@/config/env";
 
 export function ClientProfile() {
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isResendingVerification, setIsResendingVerification] = useState(false);
+  const [serverEmailHealth, setServerEmailHealth] = useState(normalizeEmailHealth(user?.email_health));
+  const [emailWarningOverride, setEmailWarningOverride] = useState(false);
   const { preferences: displayPreferences, setTemperatureUnit, setTimeFormat } = useUserPreferences();
   const { saveProfile } = useSelfProfileSave();
   const savedPreferences = ((user?.metadata as Record<string, any> | undefined)?.preferences ?? {}) as Record<string, any>;
@@ -43,6 +51,14 @@ export function ClientProfile() {
     billingZip: user?.zipcode || "",
     currentPassword: "",
   });
+  const localEmailHint = useMemo(
+    () => (formData.email !== user?.email ? analyzeEmailInput(formData.email) : { level: 'none' as const }),
+    [formData.email, user?.email],
+  );
+
+  useEffect(() => {
+    setServerEmailHealth(normalizeEmailHealth(user?.email_health));
+  }, [user?.email_health]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -61,14 +77,32 @@ export function ClientProfile() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  useEffect(() => {
+    if (formData.email === user?.email) {
+      setEmailWarningOverride(false);
+      setServerEmailHealth(normalizeEmailHealth(user?.email_health));
+      return;
+    }
+
+    setEmailWarningOverride(false);
+    setServerEmailHealth(undefined);
+  }, [formData.email, user?.email, user?.email_health]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     
     try {
+      if (formData.email !== user?.email && localEmailHint.requiresConfirmation && !emailWarningOverride) {
+        toast.error(localEmailHint.message || "Please confirm this email address before saving.");
+        setIsSubmitting(false);
+        return;
+      }
+
       const result = await saveProfile({
           name: formData.name,
           email: formData.email,
+          email_warning_override: formData.email !== user?.email ? emailWarningOverride : undefined,
           current_password: formData.email !== user?.email ? formData.currentPassword : undefined,
           phone_number: formData.phone,
           company_name: formData.company,
@@ -90,13 +124,57 @@ export function ClientProfile() {
       });
       if (!result.reauthRequired) {
         setFormData((prev) => ({ ...prev, currentPassword: "" }));
+        setEmailWarningOverride(false);
+        setServerEmailHealth(normalizeEmailHealth((result.user as any)?.email_health));
         toast.success(result.message);
       }
-    } catch (error) {
+    } catch (error: any) {
+      const nextEmailHealth = normalizeEmailHealth(error?.payload?.email_health);
+      if (nextEmailHealth) {
+        setServerEmailHealth(nextEmailHealth);
+      }
       console.error('Error updating profile:', error);
       toast.error(error instanceof Error ? error.message : "Failed to update profile");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    const token =
+      localStorage.getItem('authToken') ||
+      localStorage.getItem('token') ||
+      localStorage.getItem('access_token');
+
+    if (!token) {
+      toast.error('Please sign in again to resend verification.');
+      return;
+    }
+
+    setIsResendingVerification(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/profile/email-verification/resend`, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload?.message || 'Unable to send a verification email right now.');
+      }
+
+      if (payload?.user) {
+        setUser(payload.user as any);
+      }
+
+      toast.success(payload?.message || 'Verification email sent. Check your inbox.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Unable to send a verification email right now.');
+    } finally {
+      setIsResendingVerification(false);
     }
   };
 
@@ -117,15 +195,26 @@ export function ClientProfile() {
             Manage your account information and preferences
           </p>
         </div>
-        <Badge className="bg-blue-500 hover:bg-blue-600">
-          <div className="flex items-center gap-1">
-            <CheckCircle className="h-3 w-3" />
-            <span>Verified Client</span>
-          </div>
-        </Badge>
+        {user?.email_health?.status ? (
+          <EmailHealthBadge emailHealth={user.email_health} />
+        ) : (
+          <Badge variant="outline">Client account</Badge>
+        )}
       </div>
 
       <Separator />
+
+      <ClientEmailHealthNotice
+        email={user?.email}
+        emailHealth={normalizeEmailHealth(user?.email_health)}
+        onManageEmail={() => {
+          const emailField = document.getElementById('email');
+          emailField?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          emailField?.focus();
+        }}
+        onResendVerification={handleResendVerification}
+        resendPending={isResendingVerification}
+      />
 
       <form onSubmit={handleSubmit} className="space-y-8">
         <Card>
@@ -159,6 +248,21 @@ export function ClientProfile() {
                       value={formData.email}
                       onChange={handleChange}
                       placeholder="you@example.com"
+                    />
+                    <EmailHealthInlineHint
+                      email={formData.email}
+                      localHint={localEmailHint}
+                      serverEmailHealth={serverEmailHealth}
+                      warningOverride={emailWarningOverride}
+                      onUseSuggestion={(nextEmail) => {
+                        setFormData((prev) => ({ ...prev, email: nextEmail }));
+                        setEmailWarningOverride(false);
+                        setServerEmailHealth(undefined);
+                      }}
+                      onKeepAnyway={() => {
+                        setEmailWarningOverride(true);
+                      }}
+                      className="mt-3"
                     />
                     <p className="text-xs text-muted-foreground">Changing your email requires your current password.</p>
                   </div>

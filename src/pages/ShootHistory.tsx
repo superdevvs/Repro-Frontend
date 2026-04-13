@@ -150,6 +150,7 @@ const ShootHistory: React.FC = () => {
 
   const {
     deleteShootId,
+    deleteShootTarget,
     setDeleteShootId,
     isDeleting,
     operationalData,
@@ -1020,6 +1021,7 @@ const ShootHistory: React.FC = () => {
         }}
         photographers={photographers}
         deleteShootId={deleteShootId}
+        deleteShootTarget={deleteShootTarget}
         onDeleteShootIdChange={setDeleteShootId}
         isDeleting={isDeleting}
         onConfirmDelete={confirmDeleteShoot}

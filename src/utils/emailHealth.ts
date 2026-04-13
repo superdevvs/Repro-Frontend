@@ -5,6 +5,7 @@ const DOMAIN_SUGGESTIONS: Record<string, string> = {
   'gmail.co': 'gmail.com',
   'gmial.com': 'gmail.com',
   'gmal.com': 'gmail.com',
+  'gail.com': 'gmail.com',
   'gnail.com': 'gmail.com',
   'outlok.com': 'outlook.com',
   'outlook.con': 'outlook.com',
@@ -54,6 +55,69 @@ export interface LocalEmailHealthHint {
   requiresConfirmation?: boolean;
 }
 
+const levenshteinDistance = (left: string, right: string): number => {
+  if (left === right) return 0;
+  if (!left.length) return right.length;
+  if (!right.length) return left.length;
+
+  const previous = Array.from({ length: right.length + 1 }, (_, index) => index);
+
+  for (let row = 1; row <= left.length; row += 1) {
+    let diagonal = row - 1;
+    previous[0] = row;
+
+    for (let column = 1; column <= right.length; column += 1) {
+      const temp = previous[column];
+      const substitutionCost = left[row - 1] === right[column - 1] ? 0 : 1;
+      previous[column] = Math.min(
+        previous[column] + 1,
+        previous[column - 1] + 1,
+        diagonal + substitutionCost,
+      );
+      diagonal = temp;
+    }
+  }
+
+  return previous[right.length];
+};
+
+const detectClosestCommonDomain = (domain: string): string | null => {
+  if (!domain || COMMON_DOMAINS.has(domain)) {
+    return null;
+  }
+
+  const candidateParts = domain.split('.');
+  if (candidateParts.length !== 2) {
+    return null;
+  }
+
+  const [candidateRoot, candidateTld] = candidateParts;
+  if (!candidateRoot || !candidateTld) {
+    return null;
+  }
+
+  for (const commonDomain of COMMON_DOMAINS) {
+    const [commonRoot, commonTld] = commonDomain.split('.');
+    if (!commonRoot || !commonTld || candidateTld !== commonTld) {
+      continue;
+    }
+
+    if (candidateRoot[0] !== commonRoot[0]) {
+      continue;
+    }
+
+    if (Math.abs(candidateRoot.length - commonRoot.length) > 1) {
+      continue;
+    }
+
+    if (levenshteinDistance(candidateRoot, commonRoot) <= 1) {
+      return commonDomain;
+    }
+  }
+
+  return null;
+};
+
 export function normalizeEmailHealth(value: any): EmailHealth | undefined {
   if (!value || typeof value !== 'object') {
     return undefined;
@@ -102,6 +166,18 @@ export function analyzeEmailInput(email: string): LocalEmailHealthHint {
       level: 'warning',
       status: 'risky',
       message: `${domain} looks like a typo. Use ${DOMAIN_SUGGESTIONS[domain]} instead?`,
+      suggestedCorrection,
+      requiresConfirmation: true,
+    };
+  }
+
+  const closestCommonDomain = detectClosestCommonDomain(domain);
+  if (closestCommonDomain) {
+    const suggestedCorrection = `${local}@${closestCommonDomain}`;
+    return {
+      level: 'warning',
+      status: 'risky',
+      message: `${domain} looks like a typo. Use ${closestCommonDomain} instead?`,
       suggestedCorrection,
       requiresConfirmation: true,
     };
