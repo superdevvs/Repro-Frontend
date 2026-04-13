@@ -2038,6 +2038,7 @@ const Dashboard = () => {
           onManageEmail={handleManageClientEmail}
           onResendVerification={handleResendClientVerification}
           resendPending={clientEmailActionPending}
+          variant="banner"
         />
       );
 
@@ -2084,7 +2085,6 @@ const Dashboard = () => {
       const clientMobileContent = (
         <div className="space-y-4">
           {clientMetricsContent}
-          {clientEmailNotice}
           <Tabs
             value={mobileClientTab}
             onValueChange={(val) => setMobileClientTab(val as MobileClientDashboardTab)}
@@ -2126,18 +2126,15 @@ const Dashboard = () => {
             {clientInvoicesContent}
           </div>
           <div className="md:col-span-9 md:min-h-0">
-            <div className="space-y-4 sm:space-y-6">
-              {clientEmailNotice}
-              <div
-                className="min-h-0"
-                style={
-                  clientDesktopShootsHeight
-                    ? { height: `${clientDesktopShootsHeight}px`, maxHeight: `${clientDesktopShootsHeight}px` }
-                    : undefined
-                }
-              >
-                {clientShootsContent}
-              </div>
+            <div
+              className="min-h-0"
+              style={
+                clientDesktopShootsHeight
+                  ? { height: `${clientDesktopShootsHeight}px`, maxHeight: `${clientDesktopShootsHeight}px` }
+                  : undefined
+              }
+            >
+              {clientShootsContent}
             </div>
           </div>
         </div>
@@ -2147,7 +2144,11 @@ const Dashboard = () => {
         <>
           <DashboardLayout>
             <div className="px-2 pt-3 pb-3 sm:p-6 flex flex-col gap-4 sm:gap-6">
-              <PageHeader title={greetingTitle} description={DASHBOARD_DESCRIPTION} />
+              <PageHeader
+                title={greetingTitle}
+                description={DASHBOARD_DESCRIPTION}
+                action={clientEmailNotice}
+              />
               {isMobile ? clientMobileContent : clientDesktopContent}
             </div>
           </DashboardLayout>
