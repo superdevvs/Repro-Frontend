@@ -481,62 +481,64 @@ export function PermissionsManager() {
                 </ScrollArea>
 
                 <div className="hidden h-[68vh] min-h-[520px] flex-col gap-3 lg:flex">
-                  <Card className="flex flex-1 flex-col border-border/60 shadow-none">
+                  <Card className="flex min-h-0 flex-1 flex-col border-border/60 shadow-none">
                     <CardHeader className="pb-3">
                       <CardTitle className="text-base">Role Snapshot</CardTitle>
                       <CardDescription>Quick compare the saved state across every role.</CardDescription>
                     </CardHeader>
-                    <CardContent className="flex flex-1 flex-col">
-                      <div className="flex h-full flex-col justify-between gap-3">
-                        {roles.map((role) => {
-                          const draftCount = draftPermissions[role.id]?.length ?? 0;
-                          const savedCount = savedPermissions[role.id]?.length ?? 0;
-                          const dirty = !samePermissionList(
-                            draftPermissions[role.id] ?? [],
-                            savedPermissions[role.id] ?? [],
-                          );
-                          const Icon = ROLE_ICONS[role.id] ?? Shield;
+                    <CardContent className="min-h-0 flex-1">
+                      <ScrollArea className="h-full pr-1">
+                        <div className="flex flex-col gap-3 pb-1">
+                          {roles.map((role) => {
+                            const draftCount = draftPermissions[role.id]?.length ?? 0;
+                            const savedCount = savedPermissions[role.id]?.length ?? 0;
+                            const dirty = !samePermissionList(
+                              draftPermissions[role.id] ?? [],
+                              savedPermissions[role.id] ?? [],
+                            );
+                            const Icon = ROLE_ICONS[role.id] ?? Shield;
 
-                          return (
-                            <button
-                              key={role.id}
-                              type="button"
-                              onClick={() => setActiveRole(role.id)}
-                              className={`flex w-full items-center justify-between rounded-xl border px-3 py-3 text-left transition-colors ${
-                                activeRole === role.id
-                                  ? 'border-primary bg-primary/5'
-                                  : 'border-border/60 hover:bg-muted/30'
-                              }`}
-                            >
-                              <div className="flex items-center gap-3">
-                                <div className="rounded-full bg-muted p-2">
-                                  <Icon className="h-4 w-4" />
+                            return (
+                              <button
+                                key={role.id}
+                                type="button"
+                                onClick={() => setActiveRole(role.id)}
+                                className={`flex w-full items-center justify-between rounded-xl border px-3 py-3 text-left transition-colors ${
+                                  activeRole === role.id
+                                    ? 'border-primary bg-primary/5'
+                                    : 'border-border/60 hover:bg-muted/30'
+                                }`}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div className="rounded-full bg-muted p-2">
+                                    <Icon className="h-4 w-4" />
+                                  </div>
+                                  <div>
+                                    <p className="font-medium">{role.label}</p>
+                                    <p className="text-xs text-muted-foreground">{draftCount} enabled</p>
+                                  </div>
                                 </div>
-                                <div>
-                                  <p className="font-medium">{role.label}</p>
-                                  <p className="text-xs text-muted-foreground">{draftCount} enabled</p>
+                                <div className="flex flex-col items-end gap-1">
+                                  {role.locked ? (
+                                    <Badge variant="secondary" className="rounded-full">Locked</Badge>
+                                  ) : dirty ? (
+                                    <Badge className="rounded-full">Unsaved</Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="rounded-full">Saved</Badge>
+                                  )}
+                                  <span className="text-[11px] text-muted-foreground">
+                                    baseline {savedCount}
+                                  </span>
                                 </div>
-                              </div>
-                              <div className="flex flex-col items-end gap-1">
-                                {role.locked ? (
-                                  <Badge variant="secondary" className="rounded-full">Locked</Badge>
-                                ) : dirty ? (
-                                  <Badge className="rounded-full">Unsaved</Badge>
-                                ) : (
-                                  <Badge variant="outline" className="rounded-full">Saved</Badge>
-                                )}
-                                <span className="text-[11px] text-muted-foreground">
-                                  baseline {savedCount}
-                                </span>
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </ScrollArea>
                     </CardContent>
                   </Card>
 
-                  <Card className="border-border/60 shadow-none">
+                  <Card className="shrink-0 border-border/60 shadow-none">
                     <CardHeader className="pb-3">
                       <CardTitle className="text-base">Editing Rules</CardTitle>
                     </CardHeader>

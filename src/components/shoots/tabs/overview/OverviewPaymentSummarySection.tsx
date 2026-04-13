@@ -33,6 +33,9 @@ export function OverviewPaymentSummarySection({
   onPayNow,
   isPaying = false,
 }: OverviewPaymentSummarySectionProps) {
+  const formattedPaymentBalance = `$${paymentBalance.toFixed(2)}`;
+  const payNowLabel = `Pay ${formattedPaymentBalance}`;
+
   return (
     <div className="p-2.5 border rounded-lg bg-card">
       <span className="text-[11px] font-semibold text-muted-foreground uppercase mb-1.5 block">Payment</span>
@@ -125,15 +128,15 @@ export function OverviewPaymentSummarySection({
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Outstanding:</span>
                 <span className={paymentBalance > 0 ? 'text-orange-600 font-medium' : 'text-green-600'}>
-                  ${paymentBalance.toFixed(2)}
+                  {formattedPaymentBalance}
                 </span>
               </div>
               {paymentBalance > 0.01 && onPayNow && (
-                <div className="pt-3">
+                <div className="mt-3 border-t pt-3">
                   <Button
                     type="button"
                     size="sm"
-                    className="w-full justify-center bg-emerald-600 hover:bg-emerald-700 text-white"
+                    className="w-full justify-center bg-emerald-600 text-white hover:bg-emerald-700"
                     onClick={onPayNow}
                     disabled={isPaying}
                   >
@@ -142,7 +145,7 @@ export function OverviewPaymentSummarySection({
                     ) : (
                       <CreditCard className="mr-2 h-4 w-4" />
                     )}
-                    Pay now
+                    {payNowLabel}
                   </Button>
                 </div>
               )}
