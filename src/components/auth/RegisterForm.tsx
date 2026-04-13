@@ -371,10 +371,12 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
     setIsSubmitting(true);
     try {
       if (localEmailHint.requiresConfirmation && !emailWarningOverride) {
-        form.setError('email', {
-          type: 'manual',
-          message: localEmailHint.message || 'Please confirm this email address before continuing.',
+        toast({
+          title: 'Check your email',
+          description: localEmailHint.message || 'Please confirm this email address before continuing.',
+          variant: 'destructive',
         });
+        form.setFocus('email');
         setIsSubmitting(false);
         return;
       }
@@ -435,7 +437,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
         ? errorPayload.errors.email[0]
         : errorPayload?.message;
 
-      if (emailMessage) {
+      if (emailMessage && !nextEmailHealth) {
         form.setError('email', {
           type: 'server',
           message: emailMessage,
@@ -511,7 +513,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
             control={form.control}
             name="email"
             render={({ field }) => (
-              <FormItem className="relative">
+              <FormItem className="relative overflow-visible">
                 <FormControl>
                   <Input
                     placeholder="you@company.com"
@@ -528,6 +530,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
                   localHint={localEmailHint}
                   serverEmailHealth={serverEmailHealth}
                   warningOverride={emailWarningOverride}
+                  variant="floating"
                   onUseSuggestion={(nextEmail) => {
                     form.setValue('email', nextEmail, { shouldDirty: true, shouldValidate: true });
                     setEmailWarningOverride(false);
@@ -538,7 +541,6 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
                     setEmailWarningOverride(true);
                     form.clearErrors('email');
                   }}
-                  className="mt-3"
                 />
                 <FormMessage />
               </FormItem>
