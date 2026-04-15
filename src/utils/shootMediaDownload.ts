@@ -10,6 +10,12 @@ export type ShootMediaArchivePreparingState = {
 export type ShootMediaArchiveDownloadResult =
   | { mode: 'redirect'; url: string; waited: boolean }
   | { mode: 'blob'; filename: string; waited: boolean };
+export type ShootRawMediaDownloadResult =
+  | { mode: 'redirect'; url: string; message?: string; fileCount?: number }
+  | { mode: 'blob'; filename: string; message?: string; fileCount?: number };
+export type ShootSingleMediaDownloadResult =
+  | { mode: 'redirect'; url: string }
+  | { mode: 'blob'; filename: string };
 
 type ResolveShootMediaArchiveRequestOptions = {
   address?: string | null;
@@ -32,6 +38,11 @@ type PreparingResponse = {
 type RedirectResponse = {
   type?: 'redirect';
   url?: string;
+};
+
+type RawRedirectResponse = RedirectResponse & {
+  message?: string;
+  file_count?: number;
 };
 
 export const SHOOT_MEDIA_DOWNLOAD_STARTED_EVENT = 'shoot-media-download-started';
@@ -157,6 +168,19 @@ const extractJsonResponse = async (response: Response) => {
     error?: string;
     message?: string;
   }>;
+};
+
+const extractRawJsonResponse = async (response: Response) => {
+  return response.json().catch(() => ({})) as Promise<RawRedirectResponse & {
+    error?: string;
+  }>;
+};
+
+const buildRawDownloadFilename = (
+  shootId: string | number,
+  contentDisposition: string | null,
+) => {
+  return getFilenameFromDisposition(contentDisposition) || `shoot-${shootId}-raw-files.zip`;
 };
 
 export const buildShootDownloadFilename = (
@@ -292,4 +316,129 @@ export const downloadShootMediaArchive = async ({
     size,
     type,
   });
+};
+
+export const downloadShootRawFiles = async ({
+  shootId,
+  fileIds,
+}: {
+  shootId: string | number;
+  fileIds?: Array<string | number>;
+}): Promise<ShootRawMediaDownloadResult> => {
+  const headers = getApiHeaders();
+  headers.Accept = 'application/json, application/zip, application/octet-stream';
+  delete headers['Content-Type'];
+
+  const queryParams = new URLSearchParams();
+  if (Array.isArray(fileIds) && fileIds.length > 0) {
+    queryParams.set(
+      'file_ids',
+      fileIds.map((fileId) => String(fileId)).join(','),
+    );
+  }
+
+  const queryString = queryParams.toString();
+  const response = await fetch(
+    `${API_BASE_URL}/api/shoots/${shootId}/editor-download-raw${queryString ? `?${queryString}` : ''}`,
+    {
+      method: 'GET',
+      headers,
+    },
+  );
+
+  const contentType = response.headers.get('content-type') || '';
+
+  if (!response.ok) {
+    if (contentType.includes('application/json')) {
+      const errorData = await extractRawJsonResponse(response);
+      throw new Error(errorData.error || errorData.message || 'Download failed');
+    }
+
+    throw new Error('Download failed');
+  }
+
+  if (contentType.includes('application/json')) {
+    const data = await extractRawJsonResponse(response);
+
+    if (data.type === 'redirect' && data.url) {
+      startSameWindowDownload(data.url);
+      emitShootMediaDownloadStarted({ shootId, type: 'raw', size: 'original' });
+      return {
+        mode: 'redirect',
+        url: data.url,
+        message: data.message,
+        fileCount: data.file_count,
+      };
+    }
+
+    throw new Error(data.message || 'Download failed');
+  }
+
+  const blob = await response.blob();
+  const filename = buildRawDownloadFilename(
+    shootId,
+    response.headers.get('content-disposition'),
+  );
+  downloadBlob(blob, filename);
+  emitShootMediaDownloadStarted({ shootId, type: 'raw', size: 'original' });
+
+  return {
+    mode: 'blob',
+    filename,
+  };
+};
+
+export const downloadShootMediaFile = async ({
+  shootId,
+  fileId,
+}: {
+  shootId: string | number;
+  fileId: string | number;
+}): Promise<ShootSingleMediaDownloadResult> => {
+  const headers = getApiHeaders();
+  headers.Accept = 'application/json, application/octet-stream';
+  delete headers['Content-Type'];
+
+  const response = await fetch(
+    `${API_BASE_URL}/api/shoots/${shootId}/media/${fileId}/download`,
+    {
+      method: 'GET',
+      headers,
+    },
+  );
+
+  const contentType = response.headers.get('content-type') || '';
+
+  if (!response.ok) {
+    if (contentType.includes('application/json')) {
+      const errorData = await extractJsonResponse(response);
+      throw new Error(errorData.message || errorData.error || 'Failed to download file');
+    }
+
+    throw new Error('Failed to download file');
+  }
+
+  if (contentType.includes('application/json')) {
+    const data = await extractJsonResponse(response);
+    if (!data.url) {
+      throw new Error(data.message || 'Download link not available');
+    }
+
+    startSameWindowDownload(data.url);
+    return {
+      mode: 'redirect',
+      url: data.url,
+    };
+  }
+
+  const blob = await response.blob();
+  const filename =
+    getFilenameFromDisposition(response.headers.get('content-disposition')) ||
+    `shoot-${shootId}-file-${fileId}`;
+  downloadBlob(blob, filename);
+
+  return {
+    mode: 'blob',
+    filename,
+  };
 };

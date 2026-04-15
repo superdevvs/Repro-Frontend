@@ -6,8 +6,10 @@ import { StripePaymentDialog } from '@/components/payments/StripePaymentDialog';
 import type { StripePaymentSuccessPayload } from '@/components/payments/StripePaymentForm';
 import { MarkAsPaidDialog, MarkAsPaidPayload } from '@/components/payments/MarkAsPaidDialog';
 import { RescheduleDialog } from '@/components/dashboard/RescheduleDialog';
+import { HorizontalLoader } from '@/components/ui/horizontal-loader';
 import { PauseCircle, Loader2 } from 'lucide-react';
 import { ShootData } from '@/types/shoots';
+import { ShootMediaDownloadSize } from '@/utils/shootMediaDownload';
 
 type ShootWithLegacyScheduledAt = ShootData & {
   scheduled_at?: string | null;
@@ -28,6 +30,9 @@ interface ShootDetailsPageDialogsProps {
   isRescheduleDialogOpen: boolean;
   isOnHoldDialogOpen: boolean;
   isHoldApprovalDialogOpen: boolean;
+  isDownloadDialogOpen: boolean;
+  isDownloading: boolean;
+  downloadStatusMessage: string;
   onHoldReason: string;
   holdDialogTitle: string;
   holdDialogDescription: string;
@@ -38,12 +43,14 @@ interface ShootDetailsPageDialogsProps {
   onRescheduleClose: () => void;
   onOnHoldDialogChange: (open: boolean) => void;
   onHoldApprovalDialogChange: (open: boolean) => void;
+  onDownloadDialogChange: (open: boolean) => void;
   onOnHoldReasonChange: (value: string) => void;
   onPaymentSuccess: (payment: StripePaymentSuccessPayload) => void;
   onMarkPaidConfirm: (payload: MarkAsPaidPayload) => void | Promise<void>;
   onSubmitHold: () => void;
   onRejectHold: () => void;
   onApproveHold: () => void;
+  onDownloadMedia: (size: ShootMediaDownloadSize) => void;
 }
 
 export function ShootDetailsPageDialogs({
@@ -57,6 +64,9 @@ export function ShootDetailsPageDialogs({
   isRescheduleDialogOpen,
   isOnHoldDialogOpen,
   isHoldApprovalDialogOpen,
+  isDownloadDialogOpen,
+  isDownloading,
+  downloadStatusMessage,
   onHoldReason,
   holdDialogTitle,
   holdDialogDescription,
@@ -67,12 +77,14 @@ export function ShootDetailsPageDialogs({
   onRescheduleClose,
   onOnHoldDialogChange,
   onHoldApprovalDialogChange,
+  onDownloadDialogChange,
   onOnHoldReasonChange,
   onPaymentSuccess,
   onMarkPaidConfirm,
   onSubmitHold,
   onRejectHold,
   onApproveHold,
+  onDownloadMedia,
 }: ShootDetailsPageDialogsProps) {
   const legacyScheduledAt = hasLegacyScheduledAt(shoot) ? shoot.scheduled_at : undefined;
   const shootTime = legacyScheduledAt
@@ -80,6 +92,22 @@ export function ShootDetailsPageDialogs({
     : shoot.time
       ? formatTime(shoot.time)
       : undefined;
+  const clientDownloadOptions: Array<{
+    size: ShootMediaDownloadSize;
+    label: string;
+    description: string;
+  }> = [
+    {
+      size: 'original',
+      label: 'Full Size',
+      description: 'Original-resolution export',
+    },
+    {
+      size: 'small',
+      label: 'MLS',
+      description: '1800x1200px, MLS-ready export',
+    },
+  ];
 
   return (
     <>
@@ -123,6 +151,53 @@ export function ShootDetailsPageDialogs({
         isOpen={isRescheduleDialogOpen}
         onClose={onRescheduleClose}
       />
+
+      <Dialog open={isDownloadDialogOpen} onOpenChange={onDownloadDialogChange}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Download Media</DialogTitle>
+            <DialogDescription>
+              {isDownloading
+                ? 'Your download will start automatically when it is ready.'
+                : 'Select the image size you want to download'}
+            </DialogDescription>
+          </DialogHeader>
+          {isDownloading ? (
+            <div className="space-y-4 py-4">
+              <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 px-4 py-3">
+                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                <div className="space-y-1">
+                  <div className="font-medium">Preparing your files</div>
+                  <div className="text-sm text-muted-foreground">{downloadStatusMessage}</div>
+                </div>
+              </div>
+              <HorizontalLoader message="Your download will start automatically when the archive is ready." />
+            </div>
+          ) : (
+            <div className="space-y-3 py-4">
+              {clientDownloadOptions.map(({ size, label, description }) => (
+                <Button
+                  key={size}
+                  variant="outline"
+                  className="w-full justify-start h-auto py-4"
+                  onClick={() => onDownloadMedia(size)}
+                  disabled={isDownloading}
+                >
+                  <div className="flex flex-col items-start">
+                    <div className="font-medium">{label}</div>
+                    <div className="text-xs text-muted-foreground">{description}</div>
+                  </div>
+                </Button>
+              ))}
+            </div>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => onDownloadDialogChange(false)}>
+              {isDownloading ? 'Close' : 'Cancel'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isOnHoldDialogOpen} onOpenChange={onOnHoldDialogChange}>
         <DialogContent className="sm:max-w-[500px]">

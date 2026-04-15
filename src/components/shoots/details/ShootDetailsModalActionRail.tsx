@@ -157,6 +157,10 @@ export function ShootDetailsModalActionRail({
     (activeMediaDisplayTab === 'uploaded'
       ? !hasRawDownloadSelection
       : editedMediaCount === 0);
+  const isEditorDownloadDisabled =
+    isDownloading || (rawFileCount === 0 && selectedFileIds.length === 0);
+  const isEditorShareDisabled =
+    isGeneratingShareLink || (rawFileCount === 0 && selectedFileIds.length === 0);
 
   return (
     <>
@@ -370,32 +374,20 @@ export function ShootDetailsModalActionRail({
                     size="sm"
                     className="h-7 text-xs px-3 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 dark:bg-green-950 dark:hover:bg-green-900 dark:text-green-300 dark:border-green-800"
                     onClick={handleEditorDownloadRaw}
-                    disabled={isDownloading || (rawFileCount === 0 && selectedFileIds.length === 0)}
+                    disabled={isEditorDownloadDisabled}
                   >
                     <Download className="h-3 w-3 mr-1" />
-                    <span>
-                      {isDownloading
-                        ? 'Downloading...'
-                        : selectedFileIds.length > 0
-                          ? `Download Selected (${selectedFileIds.length})`
-                          : `Download All (${rawFileCount})`}
-                    </span>
+                    <span>{isDownloading ? 'Downloading...' : 'Download'}</span>
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
                     className="h-7 text-xs px-3 bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-950 dark:hover:bg-purple-900 dark:text-purple-300 dark:border-purple-800"
                     onClick={handleGenerateShareLink}
-                    disabled={isGeneratingShareLink || (rawFileCount === 0 && selectedFileIds.length === 0)}
+                    disabled={isEditorShareDisabled}
                   >
                     <Share2 className="h-3 w-3 mr-1" />
-                    <span>
-                      {isGeneratingShareLink
-                        ? 'Generating...'
-                        : selectedFileIds.length > 0
-                          ? `Share Selected (${selectedFileIds.length})`
-                          : `Share All (${rawFileCount})`}
-                    </span>
+                    <span>{isGeneratingShareLink ? 'Generating...' : 'Share Link'}</span>
                   </Button>
                 </>
               )}
@@ -496,7 +488,7 @@ export function ShootDetailsModalActionRail({
                 <div className="flex items-center justify-center h-9 w-9 rounded-full bg-green-100 dark:bg-green-900/40">
                   <Download className="h-4 w-4 text-green-600 dark:text-green-400" />
                 </div>
-                {isDownloading ? 'Downloading...' : 'Download media'}
+                {isDownloading ? 'Downloading...' : 'Download'}
               </button>
             )}
             {canPrivilegedProgressDownload && !isEditMode && (
@@ -512,6 +504,36 @@ export function ShootDetailsModalActionRail({
                   <Download className="h-4 w-4 text-green-600 dark:text-green-400" />
                 </div>
                 {isDownloading ? 'Downloading...' : 'Download'}
+              </button>
+            )}
+            {isEditor && !isEditMode && (
+              <button
+                className="flex items-center gap-3 w-full rounded-xl px-3 py-3 text-sm font-medium hover:bg-muted transition-colors disabled:opacity-60"
+                onClick={() => {
+                  setIsMobileActionsOpen(false);
+                  handleEditorDownloadRaw();
+                }}
+                disabled={isEditorDownloadDisabled}
+              >
+                <div className="flex items-center justify-center h-9 w-9 rounded-full bg-green-100 dark:bg-green-900/40">
+                  <Download className="h-4 w-4 text-green-600 dark:text-green-400" />
+                </div>
+                {isDownloading ? 'Downloading...' : 'Download'}
+              </button>
+            )}
+            {isEditor && !isEditMode && (
+              <button
+                className="flex items-center gap-3 w-full rounded-xl px-3 py-3 text-sm font-medium hover:bg-muted transition-colors disabled:opacity-60"
+                onClick={() => {
+                  setIsMobileActionsOpen(false);
+                  handleGenerateShareLink();
+                }}
+                disabled={isEditorShareDisabled}
+              >
+                <div className="flex items-center justify-center h-9 w-9 rounded-full bg-purple-100 dark:bg-purple-900/40">
+                  <Share2 className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                </div>
+                {isGeneratingShareLink ? 'Generating...' : 'Share Link'}
               </button>
             )}
           </div>

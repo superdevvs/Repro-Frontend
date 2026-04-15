@@ -215,6 +215,7 @@ export function useShootDetailsMediaTab({
     isEditor,
     isClient,
     isClientReleaseLocked,
+    role,
   });
   const clientEditedMediaTabs = useMemo(
     () =>
@@ -750,9 +751,22 @@ export function useShootDetailsMediaTab({
     dragCounterRef,
     setDragOverTab,
   });
+  const normalizedRole = String(role || '').trim().toLowerCase();
+  const isSalesRep = ['salesrep', 'rep', 'representative'].includes(normalizedRole);
   const canInteractSingleMedia = isClient || ['admin', 'superadmin', 'editing_manager', 'salesRep', 'rep', 'representative'].includes(role || '');
   const canDownloadSingleMedia =
-    isAdmin || isEditor || isPhotographer || (isClient && !isClientReleaseLocked);
+    isAdmin ||
+    isPhotographer ||
+    (isEditor && displayTab === 'uploaded') ||
+    (isClient && !isClientReleaseLocked);
+  const canDownloadSingleMediaInActiveTab =
+    canDownloadSingleMedia || (isSalesRep && displayTab === 'edited');
+  const canDownloadViewerSingleMedia =
+    isAdmin ||
+    isPhotographer ||
+    (isEditor && viewerSourceTab === 'uploaded') ||
+    (isClient && !isClientReleaseLocked) ||
+    (isSalesRep && viewerSourceTab === 'edited');
   const canViewFullSizeMedia =
     isAdmin || isEditor || isPhotographer || (isClient && !isClientReleaseLocked);
   const editedSlideshowFiles = useMemo(() => {
@@ -1000,10 +1014,10 @@ export function useShootDetailsMediaTab({
             toggleFileHidden={toggleFileHidden}
             separateExtras={separateExtras}
             canInteractSingleMedia={canInteractSingleMedia}
-            canDownloadSingleMedia={canDownloadSingleMedia}
+            canDownloadSingleMedia={canDownloadSingleMediaInActiveTab}
             onToggleFavorite={handleToggleFavorite}
             onAddComment={handleAddComment}
-            onDownloadSingle={canDownloadSingleMedia ? handleDownloadSingleFile : undefined}
+            onDownloadSingle={canDownloadSingleMediaInActiveTab ? handleDownloadSingleFile : undefined}
           />
         </div>
         {canUploadInDisplayTab && (
@@ -1230,11 +1244,11 @@ export function useShootDetailsMediaTab({
         slideshowFiles={viewerHasEditedSlideshowContext ? editedSlideshowFiles : []}
         onShootUpdate={onShootUpdate}
         canInteractSingleMedia={canInteractSingleMedia}
-        canDownloadSingleMedia={canDownloadSingleMedia}
+        canDownloadSingleMedia={canDownloadViewerSingleMedia}
         onToggleFavorite={handleToggleFavorite}
         onAddComment={handleAddComment}
         onToggleHidden={toggleFileHidden}
-        onDownloadSingle={canDownloadSingleMedia ? handleDownloadSingleFile : undefined}
+        onDownloadSingle={canDownloadViewerSingleMedia ? handleDownloadSingleFile : undefined}
         showAiEditDialog={showAiEditDialog}
         setShowAiEditDialog={setShowAiEditDialog}
         selectedFiles={selectedFiles}

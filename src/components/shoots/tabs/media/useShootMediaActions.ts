@@ -15,6 +15,10 @@ import {
 import type { ShootData } from '@/types/shoots';
 import type { MediaFile } from '@/hooks/useShootFiles';
 import {
+  downloadShootMediaFile,
+  downloadShootRawFiles,
+} from '@/utils/shootMediaDownload';
+import {
   dispatchShootShareLinksUpdated,
   type ShootShareLinkEntry,
 } from '../overview/shareLinksEvents';
@@ -109,6 +113,7 @@ const buildUploadWarningDescription = (errors: string[], totalCount: number): st
 export function useShootMediaActions({
   shoot,
   isAdmin,
+  role,
   displayTab,
   selectedFiles,
   setSelectedFiles,
@@ -131,6 +136,9 @@ export function useShootMediaActions({
   dragCounterRef,
   setDragOverTab,
 }: UseShootMediaActionsParams) {
+  const normalizedRole = String(role || '').trim().toLowerCase();
+  const isEditorRole = normalizedRole === 'editor';
+
   const handleDirectDrop = async (event: React.DragEvent<HTMLDivElement>, uploadType: 'raw' | 'edited') => {
     event.preventDefault();
     event.stopPropagation();
@@ -332,6 +340,20 @@ export function useShootMediaActions({
       return;
     }
 
+    if (isEditorRole) {
+      if (displayTab !== 'uploaded') {
+        toast({
+          title: 'Download unavailable',
+          description: 'Editors can only download raw files from the Raw Uploads tab.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      await handleEditorDownloadRaw(false);
+      return;
+    }
+
     const fileCount = selectedFiles.size;
     const sizeLabel = size === 'small' ? 'Small (1800x1200)' : 'Full Size';
     const filename = `shoot-${shoot.id}-${size === 'small' ? 'small' : 'full'}-${Date.now()}.zip`;
@@ -415,57 +437,18 @@ export function useShootMediaActions({
 
     setDownloading(true);
     try {
-      const headers = getApiHeaders();
-      headers.Accept = 'application/json, application/zip';
-      delete headers['Content-Type'];
-
-      const queryParams = new URLSearchParams();
-      if (!downloadAll && fileIds.length > 0) {
-        queryParams.append('file_ids', fileIds.join(','));
-      }
-
-      const response = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/editor-download-raw?${queryParams.toString()}`, {
-        method: 'GET',
-        headers,
+      const result = await downloadShootRawFiles({
+        shootId: shoot.id,
+        fileIds: downloadAll ? undefined : fileIds,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Download failed' }));
-        throw new Error(errorData.error || 'Download failed');
-      }
-
-      const contentType = response.headers.get('content-type');
-      if (contentType && contentType.includes('application/json')) {
-        const data = await response.json();
-        if (data.type === 'redirect' && data.url) {
-          window.open(data.url, '_blank');
-          toast({
-            title: 'Download started',
-            description:
-              data.message ||
-              `Downloading ${data.file_count || 'all'} raw files. Switch to Edited tab to upload your edits.`,
-          });
-        }
-      } else {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const anchor = document.createElement('a');
-        anchor.href = url;
-        anchor.download = `shoot-${shoot.id}-raw-files-${Date.now()}.zip`;
-        document.body.appendChild(anchor);
-        anchor.click();
-        document.body.removeChild(anchor);
-        window.URL.revokeObjectURL(url);
-
-        toast({
-          title: 'Download started',
-          description: 'Raw files downloaded. Switch to Edited tab to upload your edits.',
-        });
-      }
+      toast({
+        title: 'Download started',
+        description:
+          result.message || `Downloading ${result.fileCount || 'all'} raw files.`,
+      });
 
       setSelectedFiles(new Set());
-      setActiveSubTab('edited');
-      setDisplayTab('edited');
     } catch (error: unknown) {
       toast({
         title: 'Download failed',
@@ -478,12 +461,25 @@ export function useShootMediaActions({
   };
 
   const handleGenerateShareLink = async (shareAll = true) => {
-    const currentTabFiles = displayTab === 'edited' ? editedFiles : rawFiles;
+    if (isEditorRole && displayTab !== 'uploaded') {
+      toast({
+        title: 'Share unavailable',
+        description: 'Editors can only generate share links from the Raw Uploads tab.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const currentTabFiles = isEditorRole
+      ? rawFiles
+      : displayTab === 'edited'
+        ? editedFiles
+        : rawFiles;
     const currentTabFileIds = new Set(currentTabFiles.map((file) => file.id));
     const fileIds = shareAll
       ? []
       : Array.from(selectedFiles).filter((fileId) => currentTabFileIds.has(fileId));
-    const mediaStage = displayTab === 'edited' ? 'edited' : 'raw';
+    const mediaStage = isEditorRole ? 'raw' : displayTab === 'edited' ? 'edited' : 'raw';
 
     if (!shareAll && fileIds.length === 0) {
       toast({
@@ -760,25 +756,24 @@ export function useShootMediaActions({
   };
 
   const handleDownloadSingleFile = async (fileId: string) => {
+    if (isEditorRole) {
+      const rawFileIds = new Set(rawFiles.map((file) => file.id));
+
+      if (!rawFileIds.has(fileId)) {
+        toast({
+          title: 'Download unavailable',
+          description: 'Editors can only download raw files.',
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+
     try {
-      const headers = getApiHeaders();
-      delete headers['Content-Type'];
-      const response = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/media/${fileId}/download`, {
-        method: 'GET',
-        headers,
+      await downloadShootMediaFile({
+        shootId: shoot.id,
+        fileId,
       });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Failed to download file' }));
-        throw new Error(errorData.message || 'Failed to download file');
-      }
-
-      const data = await response.json();
-      if (!data?.url) {
-        throw new Error('Download link not available');
-      }
-
-      window.open(data.url, '_blank', 'noopener,noreferrer');
     } catch (error: unknown) {
       toast({
         title: 'Download failed',

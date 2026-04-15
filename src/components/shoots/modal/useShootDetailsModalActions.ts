@@ -4,8 +4,8 @@ import { API_BASE_URL } from '@/config/env';
 import { getApiHeaders } from '@/services/api';
 import {
   downloadShootMediaArchive,
+  downloadShootRawFiles,
   getShootMediaDownloadSizeLabel,
-  startSameWindowDownload,
 } from '@/utils/shootMediaDownload';
 import {
   buildBrightMlsPublishPayloadWithFallback,
@@ -109,54 +109,16 @@ export function useShootDetailsModalActions({
 
     try {
       setIsDownloading(true);
-      const headers = getApiHeaders();
-      headers.Accept = 'application/json, application/zip';
-      const queryParams = new URLSearchParams();
-      if (selectedFileIds.length > 0) {
-        queryParams.set('file_ids', selectedFileIds.join(','));
-      }
-      const queryString = queryParams.toString();
+      const result = await downloadShootRawFiles({
+        shootId: shoot.id,
+        fileIds: selectedFileIds,
+      });
 
-      const res = await fetch(
-        `${API_BASE_URL}/api/shoots/${shoot.id}/editor-download-raw${queryString ? `?${queryString}` : ''}`,
-        {
-          method: 'GET',
-          headers,
-        },
-      );
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ error: 'Download failed' }));
-        throw new Error(errorData.error || 'Download failed');
-      }
-
-      const contentType = res.headers.get('content-type');
-      if (contentType && contentType.includes('application/json')) {
-        const data = await res.json();
-        if (data.type === 'redirect' && data.url) {
-          startSameWindowDownload(data.url);
-          toast({
-            title: 'Download started',
-            description:
-              data.message || 'Raw files downloading. Switch to Edited tab to upload your edits.',
-          });
-        }
-      } else {
-        const blob = await res.blob();
-        const url = window.URL.createObjectURL(blob);
-        const anchor = document.createElement('a');
-        anchor.href = url;
-        anchor.download = `shoot-${shoot.id}-raw-files-${Date.now()}.zip`;
-        document.body.appendChild(anchor);
-        anchor.click();
-        document.body.removeChild(anchor);
-        window.URL.revokeObjectURL(url);
-
-        toast({
-          title: 'Download started',
-          description: 'Raw files downloaded. Switch to Edited tab to upload your edits.',
-        });
-      }
+      toast({
+        title: 'Download started',
+        description:
+          result.message || 'Raw files downloading. Switch to Edited tab to upload your edits.',
+      });
     } catch (error) {
       console.error('Error downloading raw files:', error);
       toast({

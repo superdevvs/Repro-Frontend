@@ -143,28 +143,6 @@ export function RoleBasedCharts({
         });
       }
 
-      case 'rep': {
-        // Sales Overview: revenue, commission
-        const myClientInvoices = invoices; // Would filter by rep_id in production
-        return months.map((m, index) => {
-          const monthInvoices = myClientInvoices.filter((i) => {
-            const date = i.date || i.dueDate;
-            if (!date) return false;
-            const d = new Date(date);
-            return d.getMonth() === index;
-          });
-          const revenue = monthInvoices
-            .filter(i => i.status === 'paid')
-            .reduce((sum, i) => sum + Number(i.amount || 0), 0);
-          const commission = revenue * 0.1; // 10% placeholder
-          return { 
-            month: m, 
-            revenue,
-            commission: Math.round(commission),
-          };
-        });
-      }
-
       default:
         return months.map((m) => ({ month: m, value: 0 }));
     }
@@ -211,16 +189,6 @@ export function RoleBasedCharts({
           series: [
             { dataKey: 'amountBilled', name: 'Amount Billed', color: '#f59e0b' },
             { dataKey: 'amountPaid', name: 'Amount Paid', color: '#10b981' },
-          ],
-        };
-      case 'rep':
-        return {
-          title: 'Sales Overview',
-          description: 'Track revenue from your clients and commission earned',
-          dataKey: 'month',
-          series: [
-            { dataKey: 'revenue', name: 'Revenue', color: '#3b82f6' },
-            { dataKey: 'commission', name: 'Commission', color: '#10b981' },
           ],
         };
       default:

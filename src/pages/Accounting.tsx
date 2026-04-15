@@ -44,10 +44,12 @@ import { PhotographerInvoiceReviewWorkspace } from '@/components/accounting/Phot
 import { SalesRepInvoiceReviewWorkspace } from '@/components/accounting/SalesRepInvoiceReviewWorkspace';
 import { EditorEarningsWorkspace } from '@/components/accounting/EditorEarningsWorkspace';
 import { EditingManagerVerificationView } from '@/components/accounting/EditingManagerVerificationView';
+import { SalesRepSummarySection } from '@/components/accounting/sales/SalesRepSummarySection';
 import { ShootDetailsModalWrapper } from '@/components/dashboard/v2/ShootDetailsModalWrapper';
 import type { DashboardShootSummary } from '@/types/dashboard';
 import { shootDataToSummary } from '@/utils/dashboardDerivedUtils';
 import { useServices } from '@/hooks/useServices';
+import { useSalesRepSummary } from '@/hooks/useSalesRepSummary';
 import {
   extractPhotoCountFromServiceName,
   findMatchingEditorRate,
@@ -68,6 +70,27 @@ const parseAccountingInvoiceDate = (value: unknown) => {
   if (!value) return null;
   const parsed = new Date(String(value));
   return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const formatAccountingApiDate = (value: Date) => {
+  const year = value.getFullYear();
+  const month = `${value.getMonth() + 1}`.padStart(2, '0');
+  const day = `${value.getDate()}`.padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+};
+
+const buildSalesRepSummaryWindow = (daysWindow: number) => {
+  const endDate = new Date();
+  endDate.setHours(0, 0, 0, 0);
+
+  const startDate = new Date(endDate);
+  startDate.setDate(startDate.getDate() - (daysWindow - 1));
+
+  return {
+    startDate: formatAccountingApiDate(startDate),
+    endDate: formatAccountingApiDate(endDate),
+  };
 };
 
 const getInvoiceWindowDate = (invoice: InvoiceData) => {
@@ -291,6 +314,15 @@ const AccountingPage = () => {
 
   const clientBillingSummary = clientBillingData?.summary ?? emptyClientBillingSummary;
   const clientBillingItems = clientBillingData?.items ?? [];
+  const salesRepSummaryWindow = useMemo(
+    () => buildSalesRepSummaryWindow(daysWindow),
+    [daysWindow],
+  );
+  const salesRepSummary = useSalesRepSummary({
+    startDate: salesRepSummaryWindow.startDate,
+    endDate: salesRepSummaryWindow.endDate,
+    enabled: accountingMode === 'rep',
+  });
 
   useEffect(() => {
     if (!clientBillingError || accountingMode !== 'client') {
@@ -587,7 +619,7 @@ const AccountingPage = () => {
               accountingMode === 'photographer' ? 'View your earnings and payout status' :
               accountingMode === 'editor' ? 'Track your editing jobs and pay' :
               accountingMode === 'client' ? 'View your invoices and payment history' :
-              accountingMode === 'rep' ? 'Track revenue from your clients' :
+              accountingMode === 'rep' ? 'Track client growth, paid revenue, and commission performance across your accounts' :
               'Manage your finances, invoices, and payments'
             }
             badge={config.sidebarLabel}
@@ -613,136 +645,180 @@ const AccountingPage = () => {
             <>
               {/* Home Tab Content */}
               {(activeTab === 'home' || accountingMode !== 'admin') && (
-                <>
-              {config.showOverviewCards && (
-                accountingMode === 'admin' ? (
-                  <OverviewCards 
-                    invoices={adminWindowInvoices} 
-                    timeFilter={timeFilter}
-                    daysWindow={daysWindow}
-                  />
-                ) : accountingMode === 'client' ? (
-                  <ClientBillingOverviewCards
-                    summary={clientBillingSummary}
-                    items={clientBillingItems}
-                    daysWindow={daysWindow}
-                  />
-                ) : (
-                  <RoleBasedOverviewCards
-                    invoices={filteredInvoices}
-                    mode={accountingMode}
-                    timeFilter={timeFilter}
-                    shoots={shoots}
-                    editingJobs={editingJobs}
-                  />
-                )
-              )}
+                accountingMode === 'rep' ? (
+                  <div className="space-y-6">
+                    <SalesRepSummarySection
+                      data={salesRepSummary.data}
+                      loading={salesRepSummary.loading}
+                      error={salesRepSummary.error}
+                      daysWindow={daysWindow}
+                      onRetry={salesRepSummary.refresh}
+                    />
 
-              {/* For client: show invoice list BEFORE spending overview */}
-              {accountingMode === 'client' && config.showInvoiceTable && (
-                <ClientBillingList
-                  items={clientBillingItems}
-                  loading={clientBillingLoading}
-                  onView={handleViewClientBillingItem}
-                />
-              )}
+                    <section className="space-y-3">
+                      <div className="space-y-1">
+                        <h2 className="text-lg font-semibold tracking-tight">Weekly commission review</h2>
+                        <p className="text-sm text-muted-foreground">
+                          Review each weekly commission packet before it moves further through the payout workflow.
+                        </p>
+                      </div>
+                      <WeeklyInvoiceReview />
+                    </section>
 
-              {config.showRevenueChart && (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 items-stretch">
-                  <div className="lg:col-span-2">
-                    {accountingMode === 'admin' ? (
-                      <RevenueCharts
-                        invoices={adminWindowInvoices}
-                        timeFilter={timeFilter}
-                        onTimeFilterChange={setTimeFilter}
-                        role={role}
-                      />
-                    ) : accountingMode === 'client' ? (
-                      <ClientBillingCharts
-                        items={clientBillingItems}
-                        timeFilter={timeFilter}
-                        onTimeFilterChange={setTimeFilter}
-                      />
-                    ) : (
-                      <RoleBasedCharts
-                        invoices={filteredInvoices}
-                        mode={accountingMode}
-                        timeFilter={timeFilter}
-                        onTimeFilterChange={setTimeFilter}
-                        shoots={shoots}
-                        editingJobs={editingJobs}
-                      />
+                    {config.showInvoiceTable && (
+                      <section className="space-y-3">
+                        <div className="space-y-1">
+                          <h2 className="text-lg font-semibold tracking-tight">Client invoice activity</h2>
+                          <p className="text-sm text-muted-foreground">
+                            Stay on top of balances, reminders, and recent payments across the accounts you manage.
+                          </p>
+                        </div>
+                        <InvoiceList
+                          data={{ invoices: filteredInvoices }}
+                          onView={handleViewInvoice}
+                          onEdit={handleEditInvoice}
+                          onDownload={handleDownloadInvoice}
+                          onPay={handlePayInvoice}
+                          onSendReminder={handleSendReminder}
+                          isAdmin={isAdmin}
+                          isSuperAdmin={isSuperAdmin}
+                          role={role || ''}
+                        />
+                      </section>
                     )}
                   </div>
-                  {(config.showPaymentsSummary || config.showLatestTransactions || accountingMode === 'editor' || accountingMode === 'photographer' || accountingMode === 'rep') && (
-                    <div className="lg:col-span-1 flex min-h-0 flex-col gap-3">
-                      {accountingMode === 'admin' ? (
-                        <PaymentsSummary invoices={adminWindowInvoices} />
-                      ) : accountingMode === 'client' ? (
-                        <ClientBillingSidePanel
-                          items={clientBillingItems}
-                          summary={clientBillingSummary}
+                ) : (
+                  <>
+                    {config.showOverviewCards && (
+                      accountingMode === 'admin' ? (
+                        <OverviewCards
+                          invoices={adminWindowInvoices}
+                          timeFilter={timeFilter}
+                          daysWindow={daysWindow}
                         />
-                      ) : accountingMode === 'editor' ? (
-                        <>
-                          <EditorRateSettings className="min-h-0 max-h-[min(72vh,44rem)]" />
-                          <RoleBasedSidePanel
-                            invoices={filteredInvoices}
-                            mode={accountingMode}
-                            shoots={shoots}
-                            editingJobs={editingJobs}
-                            timeFilter={timeFilter}
-                          />
-                        </>
+                      ) : accountingMode === 'client' ? (
+                        <ClientBillingOverviewCards
+                          summary={clientBillingSummary}
+                          items={clientBillingItems}
+                          daysWindow={daysWindow}
+                        />
                       ) : (
-                        <RoleBasedSidePanel
+                        <RoleBasedOverviewCards
                           invoices={filteredInvoices}
                           mode={accountingMode}
+                          timeFilter={timeFilter}
                           shoots={shoots}
                           editingJobs={editingJobs}
-                          timeFilter={timeFilter}
                         />
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
+                      )
+                    )}
 
-              {/* Weekly Invoice Review for Photographers and Sales Reps */}
-              {(accountingMode === 'photographer' || accountingMode === 'rep') && (
-                <WeeklyInvoiceReview />
-              )}
-
-              {accountingMode === 'editor' && (
-                <EditorEarningsWorkspace mode="self" />
-              )}
-
-              {/* For non-client: show invoice table in original position (after charts) */}
-              {accountingMode !== 'client' && config.showInvoiceTable && (
-                <>
-                  {accountingMode === 'photographer' ? (
-                    <PhotographerShootsTable
-                      shoots={shoots}
-                      onViewShoot={handleViewPhotographerShoot}
-                    />
-                  ) : (
-                    accountingMode === 'editor' ? null : (
-                      <InvoiceList
-                        data={{ invoices: filteredInvoices }}
-                        onView={handleViewInvoice}
-                        onEdit={handleEditInvoice}
-                        onDownload={handleDownloadInvoice}
-                        onPay={handlePayInvoice}
-                        onSendReminder={handleSendReminder}
-                        isAdmin={isAdmin}
-                        isSuperAdmin={isSuperAdmin}
-                        role={role || ''}
+                    {/* For client: show invoice list BEFORE spending overview */}
+                    {accountingMode === 'client' && config.showInvoiceTable && (
+                      <ClientBillingList
+                        items={clientBillingItems}
+                        loading={clientBillingLoading}
+                        onView={handleViewClientBillingItem}
                       />
-                    )
-                  )}
-                </>
-              )}
-                </>
+                    )}
+
+                    {config.showRevenueChart && (
+                      <div className="grid grid-cols-1 gap-3 items-stretch lg:grid-cols-3">
+                        <div className="lg:col-span-2">
+                          {accountingMode === 'admin' ? (
+                            <RevenueCharts
+                              invoices={adminWindowInvoices}
+                              timeFilter={timeFilter}
+                              onTimeFilterChange={setTimeFilter}
+                              role={role}
+                            />
+                          ) : accountingMode === 'client' ? (
+                            <ClientBillingCharts
+                              items={clientBillingItems}
+                              timeFilter={timeFilter}
+                              onTimeFilterChange={setTimeFilter}
+                            />
+                          ) : (
+                            <RoleBasedCharts
+                              invoices={filteredInvoices}
+                              mode={accountingMode}
+                              timeFilter={timeFilter}
+                              onTimeFilterChange={setTimeFilter}
+                              shoots={shoots}
+                              editingJobs={editingJobs}
+                            />
+                          )}
+                        </div>
+                        {(config.showPaymentsSummary || config.showLatestTransactions || accountingMode === 'editor' || accountingMode === 'photographer') && (
+                          <div className="flex min-h-0 flex-col gap-3 lg:col-span-1">
+                            {accountingMode === 'admin' ? (
+                              <PaymentsSummary invoices={adminWindowInvoices} />
+                            ) : accountingMode === 'client' ? (
+                              <ClientBillingSidePanel
+                                items={clientBillingItems}
+                                summary={clientBillingSummary}
+                              />
+                            ) : accountingMode === 'editor' ? (
+                              <>
+                                <EditorRateSettings className="min-h-0 max-h-[min(72vh,44rem)]" />
+                                <RoleBasedSidePanel
+                                  invoices={filteredInvoices}
+                                  mode={accountingMode}
+                                  shoots={shoots}
+                                  editingJobs={editingJobs}
+                                  timeFilter={timeFilter}
+                                />
+                              </>
+                            ) : (
+                              <RoleBasedSidePanel
+                                invoices={filteredInvoices}
+                                mode={accountingMode}
+                                shoots={shoots}
+                                editingJobs={editingJobs}
+                                timeFilter={timeFilter}
+                              />
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Weekly Invoice Review for Photographers */}
+                    {accountingMode === 'photographer' && (
+                      <WeeklyInvoiceReview />
+                    )}
+
+                    {accountingMode === 'editor' && (
+                      <EditorEarningsWorkspace mode="self" />
+                    )}
+
+                    {/* For non-client: show invoice table in original position (after charts) */}
+                    {accountingMode !== 'client' && config.showInvoiceTable && (
+                      <>
+                        {accountingMode === 'photographer' ? (
+                          <PhotographerShootsTable
+                            shoots={shoots}
+                            onViewShoot={handleViewPhotographerShoot}
+                          />
+                        ) : (
+                          accountingMode === 'editor' ? null : (
+                            <InvoiceList
+                              data={{ invoices: filteredInvoices }}
+                              onView={handleViewInvoice}
+                              onEdit={handleEditInvoice}
+                              onDownload={handleDownloadInvoice}
+                              onPay={handlePayInvoice}
+                              onSendReminder={handleSendReminder}
+                              isAdmin={isAdmin}
+                              isSuperAdmin={isSuperAdmin}
+                              role={role || ''}
+                            />
+                          )
+                        )}
+                      </>
+                    )}
+                  </>
+                )
               )}
 
               {/* Photographers Tab Content */}

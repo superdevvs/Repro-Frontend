@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { InvoiceData } from '@/utils/invoiceUtils';
-import { ArrowUpRight, ChevronDown, ChevronUp, CreditCard, Clock, TrendingUp, Calendar, Users, DollarSign, CheckCircle2, MapPin } from 'lucide-react';
+import { ArrowUpRight, ChevronDown, ChevronUp, CreditCard, Clock, TrendingUp, Calendar, DollarSign, CheckCircle2, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AccountingMode } from '@/config/accountingConfig';
 import { useAuth } from '@/components/auth/AuthProvider';
@@ -152,11 +152,6 @@ export function RoleBasedSidePanel({
   // For editor mode, show jobs in progress and turnaround performance
   if (mode === 'editor') {
     return <EditorSidePanel editingJobs={editingJobs} user={user} />;
-  }
-
-  // For rep mode, show top clients and pipeline snapshot
-  if (mode === 'rep') {
-    return <RepSidePanel invoices={invoices} user={user} />;
   }
 
   return null;
@@ -653,73 +648,4 @@ function PhotographerSidePanel({
 function EditorSidePanel({ editingJobs, user }: { editingJobs: any[]; user: any }) {
   // Jobs in progress and turnaround time have been removed per user request
   return null;
-}
-
-// Rep Side Panel
-function RepSidePanel({ invoices, user }: { invoices: InvoiceData[]; user: any }) {
-  // Filter invoices for clients assigned to this rep
-  const myClientInvoices = invoices; // Placeholder - would filter by rep_id
-  
-  const clientRevenue = myClientInvoices
-    .filter(i => i.status === 'paid')
-    .reduce((acc, i) => {
-      const client = i.client;
-      acc[client] = (acc[client] || 0) + i.amount;
-      return acc;
-    }, {} as Record<string, number>);
-
-  const topClients = Object.entries(clientRevenue)
-    .map(([client, revenue]) => ({ client, revenue }))
-    .sort((a, b) => b.revenue - a.revenue)
-    .slice(0, 5);
-
-  return (
-    <div className="flex flex-col gap-6 h-full">
-      <Card className="overflow-hidden border flex-shrink-0">
-        <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-primary" />
-            Top Clients
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {topClients.length > 0 ? (
-              topClients.map(({ client, revenue }, index) => (
-                <div key={client} className="flex justify-between items-center">
-                  <div className="flex items-center gap-2">
-                    <div className="h-6 w-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-medium">
-                      {index + 1}
-                    </div>
-                    <p className="text-sm">{client}</p>
-                  </div>
-                  <p className="text-sm font-medium">${revenue.toLocaleString()}</p>
-                </div>
-              ))
-            ) : (
-              <p className="text-sm text-muted-foreground">No client data available</p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="border overflow-hidden flex-1 flex flex-col">
-        <CardHeader className="flex-shrink-0">
-          <CardTitle>Pipeline Snapshot</CardTitle>
-        </CardHeader>
-        <CardContent className="flex-1 flex flex-col min-h-0">
-          <div className="space-y-4">
-            <div className="p-3 rounded-md bg-blue-500/10 border border-blue-500/20">
-              <h4 className="text-xs font-medium text-muted-foreground mb-1">New Leads</h4>
-              <p className="text-2xl font-semibold">0</p>
-            </div>
-            <div className="p-3 rounded-md bg-amber-500/10 border border-amber-500/20">
-              <h4 className="text-xs font-medium text-muted-foreground mb-1">Opportunities</h4>
-              <p className="text-2xl font-semibold">0</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
 }

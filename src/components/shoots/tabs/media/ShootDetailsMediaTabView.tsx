@@ -423,34 +423,52 @@ export function ShootDetailsMediaTabView(props: any) {
                     <span>Create Request ({selectedFiles.size})</span>
                   </Button>
                 )}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button size="icon" className="h-7 w-7 relative" disabled={downloading} title={`Download ${selectedFiles.size} file(s)`}>
-                      <Download className="h-3.5 w-3.5" />
-                      {selectedFiles.size > 0 && (
-                        <span className="absolute -top-1.5 -right-1.5 bg-primary text-primary-foreground text-[9px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
-                          {selectedFiles.size}
-                        </span>
-                      )}
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => handleDownload('original')}>
-                      <Download className="h-4 w-4 mr-2" />
-                      <div>
-                        <div className="font-medium text-sm">Full Size</div>
-                        <div className="text-xs text-muted-foreground">Original resolution</div>
-                      </div>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleDownload('small')}>
-                      <Download className="h-4 w-4 mr-2" />
-                      <div>
-                        <div className="font-medium text-sm">Small Size</div>
-                        <div className="text-xs text-muted-foreground">1800x1200px (optimized)</div>
-                      </div>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                {isEditor && displayTab === 'uploaded' ? (
+                  <Button
+                    size="sm"
+                    className="h-7 text-[11px] px-2"
+                    disabled={downloading}
+                    onClick={() => handleEditorDownloadRaw(false)}
+                    title={`Download ${selectedFiles.size} raw file(s)`}
+                  >
+                    <Download className="h-3.5 w-3.5 mr-1" />
+                    <span>Download</span>
+                    {selectedFiles.size > 0 && (
+                      <span className="inline-flex min-w-[16px] h-4 items-center justify-center rounded-full bg-primary-foreground/20 px-1 text-[9px] font-bold leading-none text-current ml-1">
+                        {selectedFiles.size}
+                      </span>
+                    )}
+                  </Button>
+                ) : (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="icon" className="h-7 w-7 relative" disabled={downloading} title={`Download ${selectedFiles.size} file(s)`}>
+                        <Download className="h-3.5 w-3.5" />
+                        {selectedFiles.size > 0 && (
+                          <span className="absolute -top-1.5 -right-1.5 bg-primary text-primary-foreground text-[9px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
+                            {selectedFiles.size}
+                          </span>
+                        )}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleDownload('original')}>
+                        <Download className="h-4 w-4 mr-2" />
+                        <div>
+                          <div className="font-medium text-sm">Full Size</div>
+                          <div className="text-xs text-muted-foreground">Original resolution</div>
+                        </div>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleDownload('small')}>
+                        <Download className="h-4 w-4 mr-2" />
+                        <div>
+                          <div className="font-medium text-sm">Small Size</div>
+                          <div className="text-xs text-muted-foreground">1800x1200px (optimized)</div>
+                        </div>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
                 {canDelete && (
                   <Button
                     size="icon"
@@ -526,40 +544,58 @@ export function ShootDetailsMediaTabView(props: any) {
                 <span>Create Request</span>
               </Button>
             )}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  size="sm"
-                  className="h-7 px-2 text-[11px] gap-1.5 flex-shrink-0"
-                  disabled={downloading}
-                  title={`Download ${selectedFiles.size} file(s)`}
-                >
-                  <Download className="h-3.5 w-3.5" />
-                  <span>Download</span>
-                  {selectedFiles.size > 0 && (
-                    <span className="inline-flex min-w-[16px] h-4 items-center justify-center rounded-full bg-primary-foreground/20 px-1 text-[9px] font-bold leading-none text-current">
-                      {selectedFiles.size}
-                    </span>
-                  )}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => handleDownload('original')}>
-                  <Download className="h-4 w-4 mr-2" />
-                  <div>
-                    <div className="font-medium text-sm">Full Size</div>
-                    <div className="text-xs text-muted-foreground">Original resolution</div>
-                  </div>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleDownload('small')}>
-                  <Download className="h-4 w-4 mr-2" />
-                  <div>
-                    <div className="font-medium text-sm">Small Size</div>
-                    <div className="text-xs text-muted-foreground">1800x1200px (optimized)</div>
-                  </div>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {isEditor && displayTab === 'uploaded' ? (
+              <Button
+                size="sm"
+                className="h-7 px-2 text-[11px] gap-1.5 flex-shrink-0"
+                disabled={downloading}
+                onClick={() => handleEditorDownloadRaw(false)}
+                title={`Download ${selectedFiles.size} raw file(s)`}
+              >
+                <Download className="h-3.5 w-3.5" />
+                <span>Download</span>
+                {selectedFiles.size > 0 && (
+                  <span className="inline-flex min-w-[16px] h-4 items-center justify-center rounded-full bg-primary-foreground/20 px-1 text-[9px] font-bold leading-none text-current">
+                    {selectedFiles.size}
+                  </span>
+                )}
+              </Button>
+            ) : (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="sm"
+                    className="h-7 px-2 text-[11px] gap-1.5 flex-shrink-0"
+                    disabled={downloading}
+                    title={`Download ${selectedFiles.size} file(s)`}
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    <span>Download</span>
+                    {selectedFiles.size > 0 && (
+                      <span className="inline-flex min-w-[16px] h-4 items-center justify-center rounded-full bg-primary-foreground/20 px-1 text-[9px] font-bold leading-none text-current">
+                        {selectedFiles.size}
+                      </span>
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => handleDownload('original')}>
+                    <Download className="h-4 w-4 mr-2" />
+                    <div>
+                      <div className="font-medium text-sm">Full Size</div>
+                      <div className="text-xs text-muted-foreground">Original resolution</div>
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleDownload('small')}>
+                    <Download className="h-4 w-4 mr-2" />
+                    <div>
+                      <div className="font-medium text-sm">Small Size</div>
+                      <div className="text-xs text-muted-foreground">1800x1200px (optimized)</div>
+                    </div>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
             {canDelete && (
               <Button
                 size="icon"

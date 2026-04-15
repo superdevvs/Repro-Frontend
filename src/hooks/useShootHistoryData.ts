@@ -11,6 +11,7 @@ import {
   deriveFilterOptionsFromShoots,
   mapShootApiToShootData,
 } from '@/components/shoots/history/shootHistoryTransforms'
+import { normalizeShootDetailsStatus } from '@/components/shoots/modal/shootDetailsCapabilities'
 import {
   ActiveOperationalTab,
   AvailableTab,
@@ -28,8 +29,10 @@ import {
   ShootHistoryServiceAggregate,
 } from '@/types/shoots'
 import type { UserData } from '@/types/auth'
+import { downloadShootRawFiles } from '@/utils/shootMediaDownload'
 import { shootHasEditorAssignment } from '@/utils/shootEditorAssignments'
 import { doesShootBelongToClient } from '@/utils/dashboardDerivedUtils'
+import { getApiHeaders } from '@/services/api'
 
 type ToastFn = (args: { title: string; description?: string; variant?: 'default' | 'destructive' }) => void
 type InvoicePayload = Record<string, unknown>
@@ -145,6 +148,31 @@ const downloadBlob = (filename: string, blob: Blob) => {
   link.click()
   link.parentNode?.removeChild(link)
   window.URL.revokeObjectURL(url)
+}
+
+const getHistoryDownloadMode = (
+  shoot: ShootData,
+  activeTab: AvailableTab,
+): 'delivered' | 'raw' => {
+  const normalizedStatus = normalizeShootDetailsStatus(
+    shoot.workflowStatus || shoot.status,
+  )
+
+  if (
+    activeTab === 'delivered' ||
+    normalizedStatus === 'delivered' ||
+    normalizedStatus === 'ready'
+  ) {
+    return 'delivered'
+  }
+
+  return 'raw'
+}
+
+const isSalesRepRole = (role: string | null | undefined) => {
+  const normalizedRole = String(role ?? '').trim().toLowerCase()
+
+  return ['salesrep', 'rep', 'representative'].includes(normalizedRole)
 }
 
 export function useShootHistoryData({
@@ -942,11 +970,48 @@ export function useShootHistoryData({
     }
   }, [historyRecords, isSuperAdmin, shouldHideClientDetails, toast, formatDatePref])
 
+  const canDownloadHistoryShoot = useCallback((shoot: ShootData) => {
+    const downloadMode = getHistoryDownloadMode(shoot, activeTab)
+
+    if (downloadMode === 'delivered') {
+      return true
+    }
+
+    return !isSalesRepRole(role)
+  }, [activeTab, role])
+
   const handleDownloadShoot = useCallback((shoot: ShootData, _type: 'full' | 'web') => {
-    setSelectedShoot(shoot)
-    setOpenDownloadDialog(true)
-    setIsDetailOpen(true)
-  }, [])
+    if (!canDownloadHistoryShoot(shoot)) {
+      return
+    }
+
+    const downloadMode = getHistoryDownloadMode(shoot, activeTab)
+
+    if (downloadMode === 'delivered' && !isEditor) {
+      setSelectedShoot(shoot)
+      setOpenDownloadDialog(true)
+      setIsDetailOpen(true)
+      return
+    }
+
+    void (async () => {
+      try {
+        const result = await downloadShootRawFiles({
+          shootId: shoot.id,
+        })
+        toast({
+          title: 'Download started',
+          description: result.message || 'Raw files downloading now.',
+        })
+      } catch (error) {
+        toast({
+          title: 'Download failed',
+          description: error instanceof Error ? error.message : 'Please try again.',
+          variant: 'destructive',
+        })
+      }
+    })()
+  }, [activeTab, canDownloadHistoryShoot, isEditor, toast])
 
   const handlePublishMls = useCallback(
     async (record: ShootHistoryRecord) => {
@@ -1141,6 +1206,7 @@ export function useShootHistoryData({
     handleExportHistory,
     handleCopyHistory,
     handlePublishMls,
+    canDownloadHistoryShoot,
     handleDownloadShoot,
   }
 }

@@ -60,10 +60,12 @@ interface ShootDetailsPageHeaderProps {
   onSendToEditing: () => void;
   onFinalise: () => void;
   onProcessPayment: () => void;
-  onDownloadRaw: () => void;
+  canShowDownloadButton: boolean;
+  onDownload: () => void;
+  isDownloadDisabled: boolean;
   onGenerateShareLink: () => void;
   rawFileCount: number;
-  isEditorDownloading: boolean;
+  isDownloading: boolean;
   isGeneratingShareLink: boolean;
 }
 
@@ -103,10 +105,12 @@ export function ShootDetailsPageHeader({
   onSendToEditing,
   onFinalise,
   onProcessPayment,
-  onDownloadRaw,
+  canShowDownloadButton,
+  onDownload,
+  isDownloadDisabled,
   onGenerateShareLink,
   rawFileCount,
-  isEditorDownloading,
+  isDownloading,
   isGeneratingShareLink,
 }: ShootDetailsPageHeaderProps) {
   return (
@@ -287,27 +291,31 @@ export function ShootDetailsPageHeader({
                 <span className="sm:hidden">Payment</span>
               </Button>
             )}
-            {isEditor && (
+            {canShowDownloadButton && (
               <>
                 <Button
                   variant="default"
                   size="sm"
                   className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
-                  onClick={onDownloadRaw}
-                  disabled={isEditorDownloading || rawFileCount === 0}
+                  onClick={onDownload}
+                  disabled={isDownloadDisabled}
                 >
-                  {isEditorDownloading ? (
+                  {isDownloading ? (
                     <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
                   ) : (
                     <Download className="h-3 w-3 mr-1.5" />
                   )}
                   <span className="hidden sm:inline">
-                    {isEditorDownloading ? 'Downloading...' : `Download RAW (${rawFileCount})`}
+                    {isDownloading ? 'Downloading...' : 'Download'}
                   </span>
                   <span className="sm:hidden">
-                    {isEditorDownloading ? '...' : `RAW (${rawFileCount})`}
+                    {isDownloading ? '...' : 'Download'}
                   </span>
                 </Button>
+              </>
+            )}
+            {isEditor && (
+              <>
                 <Button
                   variant="default"
                   size="sm"

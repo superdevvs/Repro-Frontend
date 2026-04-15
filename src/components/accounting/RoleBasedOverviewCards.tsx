@@ -9,7 +9,6 @@ import {
   Camera,
   TrendingUp,
   Calendar,
-  Users,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { InvoiceData } from "@/utils/invoiceUtils";
@@ -257,38 +256,6 @@ export function RoleBasedOverviewCards({
         };
       }
 
-      case 'rep': {
-        // Filter invoices for clients assigned to this rep
-        const myClientInvoices = invoices.filter((i) => {
-          // This would need to check rep assignment - for now, using a simple filter
-          // In real implementation, you'd check i.rep_id === user?.id
-          return true; // Placeholder
-        });
-
-        const totalRevenue = myClientInvoices
-          .filter((i) => {
-            const d = getInvoiceDate(i);
-            return d && d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-          })
-          .reduce((s, i) => s + Number(i.amount || 0), 0);
-
-        const outstanding = myClientInvoices
-          .filter((i) => i.status === "pending" || i.status === "overdue")
-          .reduce((s, i) => s + Number(i.amount || 0), 0);
-
-        // Commission calculation (placeholder - would need actual commission rate)
-        const commission = totalRevenue * 0.1; // 10% placeholder
-
-        const newClients = 0; // Would need to calculate from client data
-
-        return {
-          totalRevenue: { value: totalRevenue, count: 0 },
-          outstanding: { value: outstanding, count: 0 },
-          commission: { value: commission, count: 0 },
-          newClients: { value: newClients, count: 0 },
-        };
-      }
-
       default:
         return {};
     }
@@ -461,48 +428,6 @@ export function RoleBasedOverviewCards({
               icon={<Calendar className="h-4 w-4" />}
               trend={trends.pending}
               color="rose"
-              animated={true}
-            />
-          </>
-        );
-
-      case 'rep':
-        return (
-          <>
-            <OverviewCard
-              title="Total Revenue (This Month - My Clients)"
-              value={`$${metrics.totalRevenue?.value.toLocaleString() || 0}`}
-              description="From my clients"
-              icon={<DollarSign className="h-4 w-4" />}
-              trend={trends.revenue}
-              color="blue"
-              animated={true}
-            />
-            <OverviewCard
-              title="Outstanding Invoices (My Clients)"
-              value={`$${metrics.outstanding?.value.toLocaleString() || 0}`}
-              description="Unpaid"
-              icon={<CreditCard className="h-4 w-4" />}
-              trend={trends.pending}
-              color="amber"
-              animated={true}
-            />
-            <OverviewCard
-              title="Commission (This Month)"
-              value={`$${metrics.commission?.value.toLocaleString() || 0}`}
-              description="Earned"
-              icon={<TrendingUp className="h-4 w-4" />}
-              trend={trends.paid}
-              color="emerald"
-              animated={true}
-            />
-            <OverviewCard
-              title="New Clients (This Month)"
-              value={`${metrics.newClients?.value || 0}`}
-              description="Added"
-              icon={<Users className="h-4 w-4" />}
-              trend={trends.revenue}
-              color="blue"
               animated={true}
             />
           </>

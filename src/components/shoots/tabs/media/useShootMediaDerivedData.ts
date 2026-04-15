@@ -16,13 +16,19 @@ const normalizeFilename = (value?: string | null): string =>
 const isVideoFile = (file: MediaFile): boolean => {
   if (!file) return false;
 
+  const fileRecord = file as MediaFile & {
+    file_type?: string | null;
+    mime_type?: string | null;
+    stored_filename?: string | null;
+  };
+
   const mediaType = (file.media_type || '').toLowerCase();
   if (mediaType === 'video') return true;
 
   const mimeCandidates = [
     file.fileType,
-    (file as any)?.file_type,
-    (file as any)?.mime_type,
+    fileRecord.file_type,
+    fileRecord.mime_type,
   ]
     .filter(Boolean)
     .map((m) => (m || '').toLowerCase());
@@ -33,7 +39,7 @@ const isVideoFile = (file: MediaFile): boolean => {
 
   const nameCandidates = [
     file.filename,
-    (file as any)?.stored_filename,
+    fileRecord.stored_filename,
     file.original,
     file.url,
     file.path,
@@ -100,6 +106,7 @@ interface UseShootMediaDerivedDataParams {
   isEditor: boolean;
   isClient: boolean;
   isClientReleaseLocked?: boolean;
+  role?: string | null;
 }
 
 export function useShootMediaDerivedData({
@@ -114,6 +121,7 @@ export function useShootMediaDerivedData({
   isEditor,
   isClient,
   isClientReleaseLocked = false,
+  role,
 }: UseShootMediaDerivedDataParams) {
   const uploadedPhotos = useMemo(() => filterPhotoFiles(rawFiles), [rawFiles]);
   const uploadedVideos = useMemo(() => filterVideoFiles(rawFiles), [rawFiles]);
@@ -143,7 +151,14 @@ export function useShootMediaDerivedData({
     return services.some((service) => /video/i.test(String(service)));
   }, [shoot]);
 
-  const canDownload = isAdmin || isEditor || isPhotographer || (isClient && !isClientReleaseLocked);
+  const normalizedRole = String(role || '').trim().toLowerCase();
+  const isSalesRep = ['salesrep', 'rep', 'representative'].includes(normalizedRole);
+  const canDownload =
+    isAdmin ||
+    isPhotographer ||
+    (isEditor && displayTab === 'uploaded') ||
+    (isClient && !isClientReleaseLocked) ||
+    (isSalesRep && displayTab === 'edited');
   const showUploadTab = isAdmin || isPhotographer || isEditor;
 
   const currentDisplayedFiles = useMemo(() => {

@@ -110,6 +110,63 @@ export const WeeklyInvoiceReview: React.FC = () => {
   const [totalInvoices, setTotalInvoices] = useState(0);
 
   const invoiceRole: 'photographer' | 'salesRep' = role === 'salesRep' ? 'salesRep' : 'photographer';
+  const reviewCopy = invoiceRole === 'salesRep'
+    ? {
+        loading: 'Loading commission reviews...',
+        emptyTitle: 'No Weekly Reviews Yet',
+        emptyDescription: 'Weekly commission reviews are generated every Monday morning for the previous completed week.',
+        sectionTitle: 'Weekly Commission Reviews',
+        sectionDescription: 'Commission review packets are auto-generated every Monday for the previous completed week (Sun-Sat).',
+        cardDescription: 'Compact weekly commission summary with line items and review actions tucked into details.',
+        totalLabel: 'Weekly Total',
+        chargeLabel: 'Commission',
+        expenseLabel: 'Adjustments',
+        chargeCountLabel: 'Commission Lines',
+        expenseCountLabel: 'Adjustment Items',
+        breakdownTitle: 'Commission Breakdown',
+        breakdownItemDescription: 'Commission line item',
+        breakdownEmpty: 'No commission line items for this week.',
+        expensesTitle: 'Adjustments & Notes',
+        expensesEmpty: 'No adjustments added for this review.',
+        footerSummary: (charges: number, expenses: number) =>
+          `${charges} commission line${charges !== 1 ? 's' : ''} and ${expenses} adjustment${expenses !== 1 ? 's' : ''} in this review.`,
+        addExpenseLabel: 'Add Adjustment',
+        reviewDialogTitle: 'Review Commission Summary',
+        reviewDialogDescription: 'Choose how you want to review this commission summary. You can accept it or request a modification with notes. The review status will update immediately.',
+        reviewNotesPlaceholder: 'Add an optional note for this commission review...',
+        addExpenseDialogTitle: 'Add Adjustment',
+        addExpenseDialogDescription: 'Add a manual adjustment or reimbursable expense to this commission review.',
+        fileName: 'sales-rep-weekly-commission-reviews',
+        pdfTitle: 'Weekly Commission Review Report',
+      }
+    : {
+        loading: 'Loading invoices...',
+        emptyTitle: 'No Invoices Yet',
+        emptyDescription: 'Weekly invoices are generated every Monday morning for the previous completed week.',
+        sectionTitle: 'Weekly Invoices',
+        sectionDescription: 'Invoices are auto-generated every Monday for the previous completed week (Sun-Sat)',
+        cardDescription: 'Compact weekly payout summary with line items and review actions tucked into details.',
+        totalLabel: 'Invoice Total',
+        chargeLabel: 'Shoot Pay',
+        expenseLabel: 'Expenses',
+        chargeCountLabel: 'Shoots',
+        expenseCountLabel: 'Expense Items',
+        breakdownTitle: 'Service Breakdown',
+        breakdownItemDescription: 'Shoot payout item',
+        breakdownEmpty: 'No payout line items for this week.',
+        expensesTitle: 'Expenses & Notes',
+        expensesEmpty: 'No expenses added for this invoice.',
+        footerSummary: (charges: number, expenses: number) =>
+          `${charges} shoot${charges !== 1 ? 's' : ''} and ${expenses} expense${expenses !== 1 ? 's' : ''} in this invoice.`,
+        addExpenseLabel: 'Add Expense',
+        reviewDialogTitle: 'Review Invoice',
+        reviewDialogDescription: 'Choose how you want to review this invoice. You can accept it or request a modification with notes. The invoice status will update immediately.',
+        reviewNotesPlaceholder: 'Add an optional note for this review...',
+        addExpenseDialogTitle: 'Add Expense',
+        addExpenseDialogDescription: 'Add an expense item to this invoice (e.g., mileage, equipment rental).',
+        fileName: 'photographer-weekly-invoices',
+        pdfTitle: 'Weekly Invoice Report',
+      };
 
   const shootLookup = React.useMemo(() => {
     const map = new Map<string, (typeof shoots)[number]>();
@@ -310,7 +367,7 @@ export const WeeklyInvoiceReview: React.FC = () => {
       { key: 'notes', label: 'Notes' },
     ] as const;
 
-    const fileName = invoiceRole === 'salesRep' ? 'sales-rep-weekly-invoices' : 'photographer-weekly-invoices';
+    const fileName = reviewCopy.fileName;
 
     if (format === 'csv') {
       exportRowsAsCsv(fileName, columns, rows);
@@ -322,7 +379,7 @@ export const WeeklyInvoiceReview: React.FC = () => {
       return;
     }
 
-    exportRowsAsPdf(fileName, 'Weekly Invoice Report', columns, rows);
+    exportRowsAsPdf(fileName, reviewCopy.pdfTitle, columns, rows);
   };
 
   const openReviewDialog = (invoice: WeeklyInvoice) => {
@@ -335,7 +392,7 @@ export const WeeklyInvoiceReview: React.FC = () => {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-        <span className="ml-2 text-muted-foreground">Loading invoices...</span>
+        <span className="ml-2 text-muted-foreground">{reviewCopy.loading}</span>
       </div>
     );
   }
@@ -345,9 +402,9 @@ export const WeeklyInvoiceReview: React.FC = () => {
       <Card>
         <CardContent className="flex flex-col items-center justify-center py-12">
           <FileText className="w-12 h-12 text-muted-foreground mb-4" />
-          <h3 className="text-lg font-semibold">No Invoices Yet</h3>
+          <h3 className="text-lg font-semibold">{reviewCopy.emptyTitle}</h3>
           <p className="text-muted-foreground text-sm mt-1">
-            Weekly invoices are generated every Monday morning for the previous completed week.
+            {reviewCopy.emptyDescription}
           </p>
         </CardContent>
       </Card>
@@ -358,9 +415,9 @@ export const WeeklyInvoiceReview: React.FC = () => {
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="flex flex-col gap-1">
-          <h2 className="text-lg font-semibold">Weekly Invoices</h2>
+          <h2 className="text-lg font-semibold">{reviewCopy.sectionTitle}</h2>
           <p className="text-sm text-muted-foreground">
-            Invoices are auto-generated every Monday for the previous completed week (Sun-Sat)
+            {reviewCopy.sectionDescription}
           </p>
         </div>
         <DropdownMenu>
@@ -409,13 +466,13 @@ export const WeeklyInvoiceReview: React.FC = () => {
                       </Badge>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      Compact weekly payout summary with line items and review actions tucked into details.
+                      {reviewCopy.cardDescription}
                     </p>
                   </div>
 
                   <div className="flex items-center gap-2 rounded-xl border border-primary/20 bg-primary/10 px-3 py-2">
                     <div className="text-right">
-                      <p className="text-[11px] uppercase tracking-[0.18em] text-primary/80">Invoice Total</p>
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-primary/80">{reviewCopy.totalLabel}</p>
                       <p className="mt-1 text-xl font-semibold">{formatCurrency(invoiceDisplayTotal)}</p>
                     </div>
                     {isExpanded ? (
@@ -444,19 +501,19 @@ export const WeeklyInvoiceReview: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
                 <div className="rounded-xl border border-border/60 bg-muted/25 px-3 py-2.5">
-                  <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Shoot Pay</p>
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">{reviewCopy.chargeLabel}</p>
                   <p className="mt-1.5 text-base font-semibold">{formatCurrency(totalCharges)}</p>
                 </div>
                 <div className="rounded-xl border border-border/60 bg-muted/25 px-3 py-2.5">
-                  <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Expenses</p>
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">{reviewCopy.expenseLabel}</p>
                   <p className="mt-1.5 text-base font-semibold">{formatCurrency(totalExpenses)}</p>
                 </div>
                 <div className="rounded-xl border border-border/60 bg-muted/25 px-3 py-2.5">
-                  <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Shoots</p>
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">{reviewCopy.chargeCountLabel}</p>
                   <p className="mt-1.5 text-base font-semibold">{charges.length}</p>
                 </div>
                 <div className="rounded-xl border border-border/60 bg-muted/25 px-3 py-2.5">
-                  <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Expense Items</p>
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">{reviewCopy.expenseCountLabel}</p>
                   <p className="mt-1.5 text-base font-semibold">{expenses.length}</p>
                 </div>
               </div>
@@ -478,7 +535,7 @@ export const WeeklyInvoiceReview: React.FC = () => {
                   <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
                     <div className="flex items-center gap-2">
                       <ReceiptText className="h-4 w-4 text-primary" />
-                      <h4 className="text-sm font-semibold">Service Breakdown</h4>
+                      <h4 className="text-sm font-semibold">{reviewCopy.breakdownTitle}</h4>
                     </div>
                     <div className="mt-4 flex flex-col gap-2">
                       {charges.map((item) => (
@@ -489,7 +546,7 @@ export const WeeklyInvoiceReview: React.FC = () => {
                           <div className="min-w-0">
                             <p className="text-sm font-medium">{item.description}</p>
                             <p className="mt-1 text-xs text-muted-foreground">
-                              Shoot payout item
+                              {reviewCopy.breakdownItemDescription}
                             </p>
                           </div>
                           <p className="text-sm font-semibold whitespace-nowrap">
@@ -499,7 +556,7 @@ export const WeeklyInvoiceReview: React.FC = () => {
                       ))}
                       {charges.length === 0 && (
                         <div className="rounded-2xl border border-dashed border-border/60 px-4 py-6 text-center text-sm text-muted-foreground">
-                          No payout line items for this week.
+                          {reviewCopy.breakdownEmpty}
                         </div>
                       )}
                     </div>
@@ -509,7 +566,7 @@ export const WeeklyInvoiceReview: React.FC = () => {
                     <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
                       <div className="flex items-center gap-2">
                         <DollarSign className="h-4 w-4 text-primary" />
-                        <h4 className="text-sm font-semibold">Expenses & Notes</h4>
+                        <h4 className="text-sm font-semibold">{reviewCopy.expensesTitle}</h4>
                       </div>
                       <div className="mt-4 flex flex-col gap-2">
                         {expenses.length > 0 ? (
@@ -542,7 +599,7 @@ export const WeeklyInvoiceReview: React.FC = () => {
                           ))
                         ) : (
                           <div className="rounded-2xl border border-dashed border-border/60 px-4 py-6 text-center text-sm text-muted-foreground">
-                            No expenses added for this invoice.
+                            {reviewCopy.expensesEmpty}
                           </div>
                         )}
                       </div>
@@ -575,7 +632,7 @@ export const WeeklyInvoiceReview: React.FC = () => {
 
                 <div className="flex flex-col gap-3 rounded-2xl border border-border/60 bg-muted/15 p-4 lg:flex-row lg:items-center lg:justify-between">
                   <div className="text-sm text-muted-foreground">
-                    {charges.length} shoot{charges.length !== 1 ? 's' : ''} and {expenses.length} expense{expenses.length !== 1 ? 's' : ''} in this invoice.
+                    {reviewCopy.footerSummary(charges.length, expenses.length)}
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     {canModify(invoice) && (
@@ -588,7 +645,7 @@ export const WeeklyInvoiceReview: React.FC = () => {
                         }}
                       >
                         <Plus className="mr-1 h-3.5 w-3.5" />
-                        Add Expense
+                        {reviewCopy.addExpenseLabel}
                       </Button>
                     )}
                     {canReview(invoice) && (
@@ -651,16 +708,16 @@ export const WeeklyInvoiceReview: React.FC = () => {
       <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Review Invoice</DialogTitle>
+            <DialogTitle>{reviewCopy.reviewDialogTitle}</DialogTitle>
             <DialogDescription>
-              Choose how you want to review this invoice. You can accept it or request a modification with notes. The invoice status will update immediately.
+              {reviewCopy.reviewDialogDescription}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
               <Label>Notes</Label>
               <Textarea
-                placeholder="Add an optional note for this review..."
+                placeholder={reviewCopy.reviewNotesPlaceholder}
                 value={reviewNotes}
                 onChange={(e) => setReviewNotes(e.target.value)}
                 rows={4}
@@ -685,9 +742,9 @@ export const WeeklyInvoiceReview: React.FC = () => {
       <Dialog open={expenseOpen} onOpenChange={setExpenseOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add Expense</DialogTitle>
+            <DialogTitle>{reviewCopy.addExpenseDialogTitle}</DialogTitle>
             <DialogDescription>
-              Add an expense item to this invoice (e.g., mileage, equipment rental).
+              {reviewCopy.addExpenseDialogDescription}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -715,7 +772,7 @@ export const WeeklyInvoiceReview: React.FC = () => {
             <Button variant="outline" onClick={() => setExpenseOpen(false)}>Cancel</Button>
             <Button onClick={handleAddExpense} disabled={actionLoading || !expenseDesc || !expenseAmount}>
               {actionLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Add Expense
+              {reviewCopy.addExpenseLabel}
             </Button>
           </DialogFooter>
         </DialogContent>

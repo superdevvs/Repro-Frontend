@@ -227,6 +227,7 @@ const ShootHistory: React.FC = () => {
     handleExportHistory,
     handleCopyHistory,
     handlePublishMls,
+    canDownloadHistoryShoot,
     handleDownloadShoot,
     setApprovalModalShoot,
     setDeclineModalShoot,
@@ -640,7 +641,7 @@ const ShootHistory: React.FC = () => {
                   key={shoot.id}
                   shoot={shoot}
                   onSelect={handleShootSelect}
-                  onDownload={handleDownloadShoot}
+                  onDownload={canDownloadHistoryShoot(shoot) ? handleDownloadShoot : undefined}
                   isSuperAdmin={isSuperAdmin}
                   isAdmin={isAdmin}
                   isClient={isClient}
@@ -671,7 +672,7 @@ const ShootHistory: React.FC = () => {
             key={shoot.id}
             shoot={shoot}
             onSelect={handleShootSelect}
-            onDownload={handleDownloadShoot}
+            onDownload={canDownloadHistoryShoot(shoot) ? handleDownloadShoot : undefined}
             isSuperAdmin={isSuperAdmin}
             isAdmin={isAdmin}
             isClient={isClient}
@@ -687,7 +688,7 @@ const ShootHistory: React.FC = () => {
         ))}
       </div>
     )
-  }, [loading, activeTab, filteredOperationalData, operationalMeta, viewMode, operationalMarkers, handleShootSelect, handleDownloadShoot, isSuperAdmin, isAdmin, isClient, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleOpenPaymentDialog, handleSendToEditing, inProgressSubTab, deliveredSubTab, canViewInvoice, canSendToEditing, shouldHideClientDetails])
+  }, [loading, activeTab, filteredOperationalData, operationalMeta, viewMode, operationalMarkers, handleShootSelect, canDownloadHistoryShoot, handleDownloadShoot, isSuperAdmin, isAdmin, isClient, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleOpenPaymentDialog, handleSendToEditing, inProgressSubTab, deliveredSubTab, canViewInvoice, canSendToEditing, shouldHideClientDetails])
 
   // Hold-on shoots content
   const holdOnContent = useMemo(() => {

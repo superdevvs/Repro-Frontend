@@ -49,8 +49,10 @@ import {
   getShootDetailsServiceNames,
   getShootDetailsWorkflowBadge,
 } from '@/components/shoots/details/shootDetailsPresentation';
+import { getShootClientReleaseAccess } from '@/components/shoots/details/shootClientReleaseAccess';
 import { ShootDetailsPageHeader } from '@/components/shoots/details/ShootDetailsPageHeader';
 import { ShootDetailsPageDialogs } from '@/components/shoots/details/ShootDetailsPageDialogs';
+import { useShootDetailsModalActions } from '@/components/shoots/modal/useShootDetailsModalActions';
 
 // Import tab components
 import { ShootDetailsMediaTab } from '@/components/shoots/tabs/ShootDetailsMediaTab';
@@ -73,6 +75,10 @@ type ShootWorkflowLog = {
 type ShootWithWorkflowLogs = ShootData & {
   workflowLogs?: ShootWorkflowLog[];
   workflow_logs?: ShootWorkflowLog[];
+};
+
+type ShootWithLegacyEditedCount = ShootData & {
+  edited_photo_count?: number;
 };
 
 const getShootDetailsErrorMessage = (error: unknown, fallback: string) => {
@@ -109,6 +115,15 @@ const getShootWorkflowLogs = (shoot: ShootData | null | undefined): ShootWorkflo
   return shootWithWorkflowLogs.workflowLogs ?? shootWithWorkflowLogs.workflow_logs ?? [];
 };
 
+const getLegacyEditedPhotoCount = (shoot?: ShootData | null) => {
+  if (!shoot || typeof shoot !== 'object') {
+    return undefined;
+  }
+
+  const legacyShoot = shoot as ShootWithLegacyEditedCount;
+  return legacyShoot.edited_photo_count;
+};
+
 const ShootDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -124,8 +139,7 @@ const ShootDetails: React.FC = () => {
   const [isHoldApprovalDialogOpen, setIsHoldApprovalDialogOpen] = useState(false);
   const [holdProcessing, setHoldProcessing] = useState(false);
   const [isRescheduleDialogOpen, setIsRescheduleDialogOpen] = useState(false);
-  const [isEditorDownloading, setIsEditorDownloading] = useState(false);
-  const [isGeneratingShareLink, setIsGeneratingShareLink] = useState(false);
+  const [activeMediaDisplayTab, setActiveMediaDisplayTab] = useState<'uploaded' | 'edited'>('uploaded');
   const {
     shoot,
     shootLoading: loading,
@@ -170,6 +184,27 @@ const ShootDetails: React.FC = () => {
   const workflowBadge = getShootDetailsWorkflowBadge(shoot?.workflowStatus || shoot?.status);
   const paymentBadge = getShootDetailsPaymentBadge(shoot?.payment);
   const shootServices = getShootDetailsServiceNames(shoot);
+  const clientReleaseAccess = useMemo(
+    () => getShootClientReleaseAccess(shoot, isClient),
+    [isClient, shoot],
+  );
+  const {
+    isDownloadDialogOpen,
+    setIsDownloadDialogOpen,
+    isDownloading,
+    downloadStatusMessage,
+    isGeneratingShareLink,
+    selectedFileIds,
+    setSelectedFileIds,
+    handleEditorDownloadRaw,
+    handleGenerateShareLink,
+    handleDownloadMedia,
+  } = useShootDetailsModalActions({
+    shoot,
+    isPhotographer,
+    refreshShoot: loadShoot,
+    toast,
+  });
 
   useEffect(() => {
     if (!shootError) return;
@@ -208,74 +243,9 @@ const ShootDetails: React.FC = () => {
     }
   }, [location.hash, visibleTabs]);
 
-  // Editor download raw files
-  const handleEditorDownloadRaw = async () => {
-    if (!shoot) return;
-    try {
-      setIsEditorDownloading(true);
-      const headers = getApiHeaders();
-      headers.Accept = 'application/json, application/zip';
-      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/editor-download-raw`, {
-        headers,
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ error: 'Download failed' }));
-        throw new Error(errorData.error || 'Download failed');
-      }
-
-      const contentType = res.headers.get('content-type');
-      if (contentType && contentType.includes('application/json')) {
-        const data = await res.json();
-        if (data.type === 'redirect' && data.url) {
-          window.open(data.url, '_blank');
-          toast({ title: 'Download started', description: data.message || 'Raw files downloading.' });
-        }
-      } else {
-        const blob = await res.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `shoot-${shoot.id}-raw-files.zip`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-        toast({ title: 'Download started', description: 'Raw files downloaded.' });
-      }
-    } catch (error: unknown) {
-      toast({ title: 'Error', description: getShootDetailsErrorMessage(error, 'Failed to download raw files.'), variant: 'destructive' });
-    } finally {
-      setIsEditorDownloading(false);
-    }
-  };
-
-  // Editor generate share link
-  const handleGenerateShareLink = async () => {
-    if (!shoot) return;
-    try {
-      setIsGeneratingShareLink(true);
-      const headers = getApiHeaders();
-      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/generate-share-link`, {
-        method: 'POST',
-        headers,
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ error: 'Failed to generate share link' }));
-        throw new Error(errorData.error || 'Failed to generate share link');
-      }
-
-      const data = await res.json();
-      await navigator.clipboard.writeText(data.share_link);
-      toast({ title: 'Share link generated!', description: 'Link copied to clipboard. Lifetime link.' });
-      loadShoot();
-    } catch (error: unknown) {
-      toast({ title: 'Error', description: getShootDetailsErrorMessage(error, 'Failed to generate share link.'), variant: 'destructive' });
-    } finally {
-      setIsGeneratingShareLink(false);
-    }
-  };
+  useEffect(() => {
+    setActiveMediaDisplayTab(isClient ? 'edited' : 'uploaded');
+  }, [isClient, id]);
 
   const handleCreatePaymentLink = async () => {
     if (!shoot) return;
@@ -647,6 +617,78 @@ const ShootDetails: React.FC = () => {
     canShowSettingsTab,
     canShowNotesTab,
   } = pageTabState;
+  const deliveredDownloadStatuses = new Set([
+    'delivered',
+    'ready',
+    'ready_for_client',
+    'admin_verified',
+    'client_delivered',
+    'workflow_completed',
+    'finalized',
+  ]);
+  const isDeliveredShoot = deliveredDownloadStatuses.has(workflowStatusKey);
+  const editedMediaCount = Number(
+    shoot?.editedPhotoCount ??
+      getLegacyEditedPhotoCount(shoot) ??
+      shoot?.mediaSummary?.editedUploaded ??
+      0,
+  );
+  const hasRawDownloadSelection = rawFileCount > 0 || selectedFileIds.length > 0;
+  const canOpenDeliveredDownloadDialog =
+    isDeliveredShoot &&
+    !isEditor &&
+    !isPhotographer &&
+    (!isClient || clientReleaseAccess.canClientDownload);
+  const canPrivilegedProgressDownload =
+    !isDeliveredShoot &&
+    isAdminOrSuperAdmin &&
+    !isEditor &&
+    !isPhotographer &&
+    !isClient &&
+    (
+      (activeMediaDisplayTab === 'uploaded' && hasRawDownloadSelection) ||
+      (activeMediaDisplayTab === 'edited' && editedMediaCount > 0)
+    );
+  const canShowDownloadButton =
+    canOpenDeliveredDownloadDialog ||
+    canPrivilegedProgressDownload ||
+    isEditor;
+  const isDownloadDisabled =
+    isDownloading ||
+    (isEditor
+      ? !hasRawDownloadSelection
+      : canPrivilegedProgressDownload
+        ? activeMediaDisplayTab === 'uploaded'
+          ? !hasRawDownloadSelection
+          : editedMediaCount === 0
+        : false);
+
+  const handlePageDownload = useCallback(() => {
+    if (canOpenDeliveredDownloadDialog) {
+      setIsDownloadDialogOpen(true);
+      return;
+    }
+
+    if (!isEditor && activeMediaDisplayTab === 'edited') {
+      void handleDownloadMedia('original');
+      return;
+    }
+
+    void handleEditorDownloadRaw();
+  }, [
+    activeMediaDisplayTab,
+    canOpenDeliveredDownloadDialog,
+    handleDownloadMedia,
+    handleEditorDownloadRaw,
+    isEditor,
+    setIsDownloadDialogOpen,
+  ]);
+
+  useEffect(() => {
+    if (!canOpenDeliveredDownloadDialog && isDownloadDialogOpen) {
+      setIsDownloadDialogOpen(false);
+    }
+  }, [canOpenDeliveredDownloadDialog, isDownloadDialogOpen, setIsDownloadDialogOpen]);
 
   useEffect(() => {
     if (activeTab === 'tour' && isToursTabDisabled) {
@@ -726,10 +768,12 @@ const ShootDetails: React.FC = () => {
           onSendToEditing={handleSendToEditing}
           onFinalise={handleFinalise}
           onProcessPayment={handleProcessPayment}
-          onDownloadRaw={handleEditorDownloadRaw}
+          canShowDownloadButton={canShowDownloadButton}
+          onDownload={handlePageDownload}
+          isDownloadDisabled={isDownloadDisabled}
           onGenerateShareLink={handleGenerateShareLink}
           rawFileCount={rawFileCount}
-          isEditorDownloading={isEditorDownloading}
+          isDownloading={isDownloading}
           isGeneratingShareLink={isGeneratingShareLink}
         />
 
@@ -811,6 +855,9 @@ const ShootDetails: React.FC = () => {
                       isClient={isClient}
                       role={role}
                       onShootUpdate={loadShoot}
+                      onSelectionChange={setSelectedFileIds}
+                      displayTab={activeMediaDisplayTab}
+                      onDisplayTabChange={setActiveMediaDisplayTab}
                     />
                   </TabsContent>
 
@@ -919,6 +966,9 @@ const ShootDetails: React.FC = () => {
           isRescheduleDialogOpen={isRescheduleDialogOpen}
           isOnHoldDialogOpen={isOnHoldDialogOpen}
           isHoldApprovalDialogOpen={isHoldApprovalDialogOpen}
+          isDownloadDialogOpen={isDownloadDialogOpen}
+          isDownloading={isDownloading}
+          downloadStatusMessage={downloadStatusMessage}
           onHoldReason={onHoldReason}
           holdDialogTitle={holdDialogTitle}
           holdDialogDescription={holdDialogDescription}
@@ -932,12 +982,14 @@ const ShootDetails: React.FC = () => {
           }}
           onOnHoldDialogChange={setIsOnHoldDialogOpen}
           onHoldApprovalDialogChange={setIsHoldApprovalDialogOpen}
+          onDownloadDialogChange={setIsDownloadDialogOpen}
           onOnHoldReasonChange={setOnHoldReason}
           onPaymentSuccess={handlePaymentSuccess}
           onMarkPaidConfirm={handleMarkPaidConfirm}
           onSubmitHold={handleMarkOnHold}
           onRejectHold={handleRejectHold}
           onApproveHold={handleApproveHold}
+          onDownloadMedia={handleDownloadMedia}
         />
       )}
     </DashboardLayout>
