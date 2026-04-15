@@ -4,7 +4,6 @@ import { API_BASE_URL } from '@/config/env'
 import { apiClient } from '@/services/api'
 import { registerShootHistoryRefresh } from '@/realtime/realtimeRefreshBus'
 import API_ROUTES from '@/lib/api'
-import { downloadShootMediaArchive } from '@/utils/shootMediaDownload'
 import {
   buildBrightMlsPublishPayloadWithFallback,
 } from '@/utils/brightMls'
@@ -188,6 +187,7 @@ export function useShootHistoryData({
   const [geoCache, setGeoCache] = useState<Record<string, { lat: number; lng: number }>>({})
   const [selectedShoot, setSelectedShoot] = useState<ShootData | null>(null)
   const [isDetailOpen, setIsDetailOpen] = useState(false)
+  const [openDownloadDialog, setOpenDownloadDialog] = useState(false)
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
   const [isBulkActionsOpen, setIsBulkActionsOpen] = useState(false)
   const [bulkShoots, setBulkShoots] = useState<ShootData[]>([])
@@ -289,6 +289,9 @@ export function useShootHistoryData({
 
   const handleDetailDialogToggle = useCallback((open: boolean) => {
     setIsDetailOpen(open)
+    if (!open) {
+      setOpenDownloadDialog(false)
+    }
     if (!open && !isUploadDialogOpen) {
       setSelectedShoot(null)
     }
@@ -303,6 +306,7 @@ export function useShootHistoryData({
 
   const handleShootSelect = useCallback((shoot: ShootData) => {
     setSelectedShoot(shoot)
+    setOpenDownloadDialog(false)
     setIsDetailOpen(true)
   }, [])
 
@@ -938,24 +942,11 @@ export function useShootHistoryData({
     }
   }, [historyRecords, isSuperAdmin, shouldHideClientDetails, toast, formatDatePref])
 
-  const handleDownloadShoot = useCallback(async (shoot: ShootData, type: 'full' | 'web') => {
-    try {
-      toast({ title: 'Preparing download...', description: `Generating ${type === 'full' ? 'full size' : 'web size'} archive.` })
-      await downloadShootMediaArchive({
-        shootId: shoot.id,
-        type: type === 'full' ? 'raw' : 'edited',
-        address: shoot.location?.address,
-      })
-      toast({ title: 'Download started', description: 'Your download should begin shortly.' })
-    } catch (error) {
-      console.error('Download error:', error)
-      toast({
-        title: 'Download failed',
-        description: error instanceof Error ? error.message : 'Please try again.',
-        variant: 'destructive',
-      })
-    }
-  }, [toast])
+  const handleDownloadShoot = useCallback((shoot: ShootData, _type: 'full' | 'web') => {
+    setSelectedShoot(shoot)
+    setOpenDownloadDialog(true)
+    setIsDetailOpen(true)
+  }, [])
 
   const handlePublishMls = useCallback(
     async (record: ShootHistoryRecord) => {
@@ -1102,6 +1093,7 @@ export function useShootHistoryData({
     setSelectedShoot,
     isDetailOpen,
     setIsDetailOpen,
+    openDownloadDialog,
     isUploadDialogOpen,
     setIsUploadDialogOpen,
     isBulkActionsOpen,

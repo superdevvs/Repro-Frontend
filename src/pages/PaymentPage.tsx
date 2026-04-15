@@ -244,6 +244,7 @@ export default function PaymentPage() {
   const hasRemainingBalance = amountDue > 0.009;
   const receiptStatusLabel = receipt?.status === 'completed' ? 'Paid' : 'Pending';
   const subtotalAmount = shoot?.service_subtotal ?? ((shoot?.base_quote || 0) + (shoot?.discount_amount || 0));
+  const mobileServiceCount = shoot?.services?.length ?? 0;
   const pageMaxWidthClass = showEmbeddedCheckout ? 'max-w-[1480px]' : 'max-w-[1180px]';
   const paymentLayoutClass = showEmbeddedCheckout
     ? 'xl:grid-cols-[minmax(320px,380px)_minmax(0,1fr)]'
@@ -829,11 +830,11 @@ export default function PaymentPage() {
         <Card className="overflow-hidden border border-gray-800/90 bg-[#0a0f1a]/95 shadow-[0_28px_70px_rgba(0,0,0,0.35)]">
           <CardContent className="p-0">
             <div className={`grid ${paymentLayoutClass} transition-all duration-300`}>
-              <div className="order-2 space-y-6 border-t border-gray-800 bg-[#0b111d] p-5 sm:p-6 xl:order-1 xl:border-r xl:border-t-0 xl:p-8">
+              <div className={`order-2 space-y-6 border-t border-gray-800 bg-[#0b111d] p-5 sm:p-6 xl:order-1 xl:border-r xl:border-t-0 xl:p-8 ${showEmbeddedCheckout ? 'hidden xl:block' : ''}`}>
                 <div className="space-y-1">
                   <p className="text-xs uppercase tracking-[0.3em] text-gray-500">Shoot Details</p>
                   <h1 className="text-2xl font-semibold text-white">Review & pay</h1>
-                  <p className="max-w-sm text-sm text-gray-400">Confirm the shoot summary, then complete your payment on the right.</p>
+                  <p className="max-w-sm text-sm text-gray-400">Confirm the shoot summary, then continue to the secure payment section.</p>
                 </div>
 
                 <div className="space-y-4">
@@ -1011,19 +1012,75 @@ export default function PaymentPage() {
                       <div className="space-y-1 min-w-0">
                         <p className="text-xs uppercase tracking-[0.3em] text-gray-500">Checkout</p>
                         <h2 className="text-xl font-semibold text-white sm:text-2xl">Complete Payment</h2>
-                        <p className="max-w-2xl text-sm text-gray-400">Finish the payment securely below. The shoot summary stays available on the left on larger screens.</p>
+                        <p className="max-w-2xl text-sm text-gray-400">Finish the payment securely below. On mobile, the shoot summary stays above this form; on larger screens it stays on the left.</p>
                       </div>
                       <button
                         type="button"
-                        className="inline-flex items-center gap-1 self-start rounded-full border border-gray-700 px-3 py-1.5 text-sm text-gray-400 transition-colors hover:border-gray-500 hover:text-white"
+                        className="inline-flex w-full items-center justify-center gap-1 rounded-full border border-gray-700 px-3 py-1.5 text-sm text-gray-400 transition-colors hover:border-gray-500 hover:text-white sm:w-auto sm:self-start"
                         onClick={handleCancelCheckout}
                       >
                         <XCircle className="h-4 w-4" /> Cancel
                       </button>
                     </div>
 
-                    <div className="rounded-2xl border border-gray-800 bg-[#0b111d] p-2 sm:p-3 lg:p-4">
-                      <div className="mx-auto w-full max-w-[860px] overflow-hidden rounded-[22px] border border-gray-200/80 bg-white shadow-[0_20px_60px_rgba(15,23,42,0.18)]">
+                    <div className="xl:hidden rounded-2xl border border-gray-800 bg-[#0f1524] p-4">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0 space-y-1">
+                          <p className="text-xs uppercase tracking-[0.3em] text-gray-500">Shoot Summary</p>
+                          {fullAddress && (
+                            <p className="break-words text-sm font-medium text-white">{fullAddress}</p>
+                          )}
+                          {scheduledAtLabel && (
+                            <p className="text-xs text-gray-400">{scheduledAtLabel}</p>
+                          )}
+                        </div>
+                        <div className="rounded-2xl border border-blue-500/30 bg-blue-500/10 px-4 py-3 sm:min-w-[180px]">
+                          <p className="text-[11px] uppercase tracking-[0.28em] text-blue-200/80">Amount due</p>
+                          <p className="mt-1 text-xl font-semibold text-white">{formatCurrency(effectivePaymentAmount)}</p>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 grid gap-2 text-sm text-gray-300 sm:grid-cols-2">
+                        <div className="flex items-center justify-between rounded-xl border border-gray-800/90 bg-[#0b111d] px-3 py-2">
+                          <span className="text-gray-500">Subtotal</span>
+                          <span>{formatCurrency(subtotalAmount)}</span>
+                        </div>
+                        {(shoot?.tax_amount || 0) > 0 && (
+                          <div className="flex items-center justify-between rounded-xl border border-gray-800/90 bg-[#0b111d] px-3 py-2">
+                            <span className="text-gray-500">Tax</span>
+                            <span>{formatCurrency(shoot?.tax_amount || 0)}</span>
+                          </div>
+                        )}
+                        {totalPaid > 0 && (
+                          <div className="flex items-center justify-between rounded-xl border border-gray-800/90 bg-[#0b111d] px-3 py-2">
+                            <span className="text-gray-500">Paid</span>
+                            <span className="text-emerald-400">-{formatCurrency(totalPaid)}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between rounded-xl border border-gray-800/90 bg-[#0b111d] px-3 py-2">
+                          <span className="text-gray-500">Total</span>
+                          <span>{formatCurrency(shoot?.total_quote || 0)}</span>
+                        </div>
+                      </div>
+
+                      {mobileServiceCount > 0 && (
+                        <details className="mt-4 rounded-xl border border-gray-800/90 bg-[#0b111d] px-3 py-3">
+                          <summary className="cursor-pointer text-sm font-medium text-white">
+                            Services ({mobileServiceCount})
+                          </summary>
+                          <ul className="mt-3 space-y-2 text-sm text-gray-300">
+                            {shoot?.services?.map((service, idx) => (
+                              <li key={idx} className="break-words">
+                                {service.name}
+                              </li>
+                            ))}
+                          </ul>
+                        </details>
+                      )}
+                    </div>
+
+                    <div className="overflow-hidden rounded-2xl border border-gray-800 bg-[#0b111d] p-1.5 sm:p-3 lg:p-4">
+                      <div className="mx-auto min-w-0 w-full max-w-[860px] overflow-hidden rounded-[18px] border border-gray-200/80 bg-white shadow-[0_20px_60px_rgba(15,23,42,0.18)] sm:rounded-[22px]">
                         {embeddedCheckoutLoading && (
                           <div className="flex items-center justify-center py-12">
                             <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
@@ -1031,7 +1088,7 @@ export default function PaymentPage() {
                         )}
                         <div
                           ref={checkoutMountRef}
-                          className="w-full min-h-[68svh] sm:min-h-[760px]"
+                          className="min-h-[72svh] w-full min-w-0 sm:min-h-[760px]"
                         />
                       </div>
                     </div>

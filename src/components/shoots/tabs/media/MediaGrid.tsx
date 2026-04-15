@@ -1120,8 +1120,8 @@ export function MediaGrid({
         <div className="flex-1">Filename</div>
         {!isClient && (
           <>
-            <div className="w-36 flex-shrink-0 text-right">Shot Time</div>
-            <div className="w-20 flex-shrink-0 text-right">Size</div>
+            <div className="w-36 flex-shrink-0" aria-hidden="true"></div>
+            <div className="w-20 flex-shrink-0" aria-hidden="true"></div>
           </>
         )}
         <div className="w-6 flex-shrink-0"></div>

@@ -42,6 +42,7 @@ import { format } from 'date-fns';
 import { API_BASE_URL } from '@/config/env';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import { registerShootDetailRefresh } from '@/realtime/realtimeRefreshBus';
+import { getCheckoutLaunchToastCopy, openCheckoutLink } from '@/utils/checkoutLaunch';
 import { useShootDetailsScreen } from '@/components/shoots/modal/useShootDetailsScreen';
 import {
   getShootDetailsPaymentBadge,
@@ -283,8 +284,8 @@ const ShootDetails: React.FC = () => {
       const response = await apiClient.post(`/shoots/${shoot.id}/create-checkout-link`);
       const url = response.data?.url || response.data?.checkout_url || response.data?.checkoutUrl;
       if (url) {
-        window.open(url, '_blank');
-        toast({ title: 'Payment Link Created', description: 'Payment window opened. Complete payment to update status.' });
+        const launchMode = openCheckoutLink(url);
+        toast(getCheckoutLaunchToastCopy(launchMode));
       } else {
         throw new Error('Checkout URL not returned');
       }

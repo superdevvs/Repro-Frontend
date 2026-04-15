@@ -193,6 +193,7 @@ const ShootHistory: React.FC = () => {
     setGeoCache,
     selectedShoot,
     isDetailOpen,
+    openDownloadDialog,
     isUploadDialogOpen,
     isBulkActionsOpen,
     bulkShoots,
@@ -1005,6 +1006,7 @@ const ShootHistory: React.FC = () => {
       <ShootHistoryModalHost
         selectedShoot={selectedShoot}
         isDetailOpen={isDetailOpen}
+        openDownloadDialog={openDownloadDialog}
         onDetailClose={() => handleDetailDialogToggle(false)}
         onShootUpdate={refreshActiveTabData}
         shouldHideClientDetails={shouldHideClientDetails}

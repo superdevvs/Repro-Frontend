@@ -571,11 +571,16 @@ export function useShootHistoryActions(args: UseShootHistoryActionsArgs) {
   }, [historyRecords, isSuperAdmin, shouldHideClientDetails, toast, formatDatePref])
 
   const handleDownloadShoot = useCallback(async (shoot: ShootData, type: 'full' | 'web') => {
+    const archiveConfig = type === 'full'
+      ? { mediaType: 'edited' as const, size: 'original' as const, label: 'original size' }
+      : { mediaType: 'edited' as const, size: 'small' as const, label: 'MLS-ready' }
+
     try {
-      toast({ title: 'Preparing download...', description: `Generating ${type === 'full' ? 'full size' : 'web size'} archive.` })
+      toast({ title: 'Preparing download...', description: `Generating ${archiveConfig.label} archive.` })
       await downloadShootMediaArchive({
         shootId: shoot.id,
-        type: type === 'full' ? 'raw' : 'edited',
+        type: archiveConfig.mediaType,
+        size: archiveConfig.size,
         address: shoot.location?.address,
       })
       toast({ title: 'Download started', description: 'Your download should begin shortly.' })

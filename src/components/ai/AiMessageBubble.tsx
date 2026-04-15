@@ -9,6 +9,7 @@ import { Check, Copy, ExternalLink } from 'lucide-react';
 import type { AiMessage } from '@/types/ai';
 import { apiClient } from '@/services/api';
 import { toast } from '@/components/ui/use-toast';
+import { openCheckoutLink } from '@/utils/checkoutLaunch';
 
 interface AiMessageBubbleProps {
   message: AiMessage;
@@ -81,7 +82,7 @@ export function AiMessageBubble({ message, className }: AiMessageBubbleProps) {
             const response = await apiClient.post(`/shoots/${action.shootId}/create-checkout-link`);
             const checkoutUrl = response.data?.checkoutUrl;
             if (checkoutUrl) {
-              window.open(checkoutUrl, '_blank');
+              openCheckoutLink(checkoutUrl);
             } else {
               throw new Error('No checkout URL returned');
             }
@@ -94,7 +95,7 @@ export function AiMessageBubble({ message, className }: AiMessageBubbleProps) {
             });
             const checkoutUrl = response.data?.checkoutUrl;
             if (checkoutUrl) {
-              window.open(checkoutUrl, '_blank');
+              openCheckoutLink(checkoutUrl);
             } else {
               throw new Error('No checkout URL returned');
             }

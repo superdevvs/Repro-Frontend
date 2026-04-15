@@ -16,13 +16,13 @@ import { StripePaymentDialog } from '@/components/payments/StripePaymentDialog';
 import { InvoiceViewDialog } from '@/components/invoices/InvoiceViewDialog';
 import { InvoiceData } from '@/utils/invoiceUtils';
 import { BrightMlsImportDialog } from '@/components/integrations/BrightMlsImportDialog';
+import { HorizontalLoader } from '@/components/ui/horizontal-loader';
 import { ShootApprovalModal } from '../ShootApprovalModal';
 import { ShootDeclineModal } from '../ShootDeclineModal';
 import { FileText, Loader2, PauseCircle, Printer, XCircle } from 'lucide-react';
 import { ShootData } from '@/types/shoots';
 import {
   ShootMediaDownloadSize,
-  getShootMediaDownloadSizeLabel,
 } from '@/utils/shootMediaDownload';
 
 interface ShootDetailsModalDialogsProps {
@@ -56,6 +56,7 @@ interface ShootDetailsModalDialogsProps {
   isClient: boolean;
   isDownloadDialogOpen: boolean;
   isDownloading: boolean;
+  downloadStatusMessage: string;
   isApprovalModalOpen: boolean;
   isDeclineModalOpen: boolean;
   selectedInvoice: InvoiceData | null;
@@ -83,7 +84,7 @@ interface ShootDetailsModalDialogsProps {
   setSelectedInvoice: (invoice: InvoiceData | null) => void;
   setBrightMlsRedirectUrl: (url: string | null) => void;
   setPrintComingSoonOpen: (open: boolean) => void;
-  handlePaymentSuccess: (payment: any) => void;
+  handlePaymentSuccess: () => void;
   handleMarkPaidConfirm: (payload: MarkAsPaidPayload) => Promise<void>;
   handleConfirmSave: () => void;
   handleCancellationFeeConfirm: () => void;
@@ -126,6 +127,7 @@ export function ShootDetailsModalDialogs({
   isClient,
   isDownloadDialogOpen,
   isDownloading,
+  downloadStatusMessage,
   isApprovalModalOpen,
   isDeclineModalOpen,
   selectedInvoice,
@@ -164,22 +166,32 @@ export function ShootDetailsModalDialogs({
   onClose,
   formatTime,
 }: ShootDetailsModalDialogsProps) {
+  type ShootServiceOption = string | { name?: string; label?: string };
   const clientDownloadOptions: Array<{
     size: ShootMediaDownloadSize;
     label: string;
     description: string;
   }> = [
     {
-      size: 'large',
-      label: getShootMediaDownloadSizeLabel('large'),
-      description: 'High quality, optimized for printing',
+      size: 'original',
+      label: 'Full Size',
+      description: 'Original-resolution export',
     },
     {
       size: 'small',
-      label: getShootMediaDownloadSizeLabel('small'),
+      label: 'MLS',
       description: '1800x1200px, MLS-ready export',
     },
   ];
+  const shootServices = Array.isArray(shoot?.services)
+    ? (shoot.services as ShootServiceOption[])
+        .map((service) =>
+          typeof service === 'string'
+            ? service
+            : service.name || service.label || String(service)
+        )
+        .filter(Boolean)
+    : [];
 
   return (
     <>
@@ -190,7 +202,7 @@ export function ShootDetailsModalDialogs({
           amount={amountDue || Number(shoot.payment?.totalQuote || 0)}
           shootId={shoot.id}
           shootAddress={shoot.location?.fullAddress || shoot.location?.address}
-          shootServices={Array.isArray(shoot.services) ? shoot.services.map((s: any) => typeof s === 'string' ? s : s?.name || s?.label || String(s)).filter(Boolean) : []}
+          shootServices={shootServices}
           shootDate={shoot.scheduledDate}
           shootTime={shoot.time ? formatTime(shoot.time) : undefined}
           clientName={shouldHideClientDetails ? undefined : shoot.client?.name}
@@ -444,28 +456,43 @@ export function ShootDetailsModalDialogs({
           <DialogHeader>
             <DialogTitle>Download Media</DialogTitle>
             <DialogDescription>
-              Select the image size you want to download
+              {isDownloading
+                ? 'Your download will open automatically when it is ready.'
+                : 'Select the image size you want to download'}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-3 py-4">
-            {clientDownloadOptions.map(({ size, label, description }) => (
-              <Button
-                key={size}
-                variant="outline"
-                className="w-full justify-start h-auto py-4"
-                onClick={() => handleDownloadMedia(size)}
-                disabled={isDownloading}
-              >
-                <div className="flex flex-col items-start">
-                  <div className="font-medium">{label}</div>
-                  <div className="text-xs text-muted-foreground">{description}</div>
+          {isDownloading ? (
+            <div className="space-y-4 py-4">
+              <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 px-4 py-3">
+                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                <div className="space-y-1">
+                  <div className="font-medium">Preparing your files</div>
+                  <div className="text-sm text-muted-foreground">{downloadStatusMessage}</div>
                 </div>
-              </Button>
-            ))}
-          </div>
+              </div>
+              <HorizontalLoader message="A new tab will open automatically when the archive is ready." />
+            </div>
+          ) : (
+            <div className="space-y-3 py-4">
+              {clientDownloadOptions.map(({ size, label, description }) => (
+                <Button
+                  key={size}
+                  variant="outline"
+                  className="w-full justify-start h-auto py-4"
+                  onClick={() => handleDownloadMedia(size)}
+                  disabled={isDownloading}
+                >
+                  <div className="flex flex-col items-start">
+                    <div className="font-medium">{label}</div>
+                    <div className="text-xs text-muted-foreground">{description}</div>
+                  </div>
+                </Button>
+              ))}
+            </div>
+          )}
           <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setIsDownloadDialogOpen(false)} disabled={isDownloading}>
-              Cancel
+            <Button variant="outline" onClick={() => setIsDownloadDialogOpen(false)}>
+              {isDownloading ? 'Close' : 'Cancel'}
             </Button>
           </div>
         </DialogContent>
@@ -476,7 +503,7 @@ export function ShootDetailsModalDialogs({
           isOpen={isApprovalModalOpen}
           onClose={() => setIsApprovalModalOpen(false)}
           shootId={shoot.id}
-          shootAddress={(shoot as any).addressLine || shoot.location?.address || ''}
+          shootAddress={shoot.location?.address || ''}
           currentScheduledAt={shoot.scheduledDate}
           onApproved={() => {
             setIsApprovalModalOpen(false);
@@ -492,7 +519,7 @@ export function ShootDetailsModalDialogs({
           isOpen={isDeclineModalOpen}
           onClose={() => setIsDeclineModalOpen(false)}
           shootId={shoot.id}
-          shootAddress={(shoot as any).addressLine || shoot.location?.address || ''}
+          shootAddress={shoot.location?.address || ''}
           onDeclined={() => {
             setIsDeclineModalOpen(false);
             onShootUpdate?.();

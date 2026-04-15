@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { API_BASE_URL } from '@/config/env';
+import { finalizeRawUploadQueue } from '@/services/dropboxMediaService';
 
 export interface ShootUpload {
   id: string;
@@ -183,6 +184,13 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       if (errors.length === params.files.length) {
         throw new Error(errors[0] || 'Upload failed');
+      }
+
+      if (params.uploadType === 'raw' && errors.length < params.files.length && processedFiles > 0) {
+        await finalizeRawUploadQueue(params.shootId, {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          'Content-Type': 'application/json',
+        });
       }
 
       if (errors.length > 0) {

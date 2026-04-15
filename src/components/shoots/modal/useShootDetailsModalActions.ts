@@ -35,6 +35,7 @@ export function useShootDetailsModalActions({
   const [brightMlsRedirectUrl, setBrightMlsRedirectUrl] = useState<string | null>(null);
   const [isDownloadDialogOpen, setIsDownloadDialogOpen] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadStatusMessage, setDownloadStatusMessage] = useState('Preparing your files...');
   const [isGeneratingShareLink, setIsGeneratingShareLink] = useState(false);
   const [printComingSoonOpen, setPrintComingSoonOpen] = useState(false);
   const [selectedFileIds, setSelectedFileIds] = useState<string[]>([]);
@@ -216,19 +217,29 @@ export function useShootDetailsModalActions({
 
     try {
       setIsDownloading(true);
-      setIsDownloadDialogOpen(false);
+      setDownloadStatusMessage(
+        size === 'original'
+          ? 'Preparing your full-size files. This can take a minute.'
+          : `Preparing ${getShootMediaDownloadSizeLabel(size)} files...`
+      );
       const downloadType = isPhotographer ? 'raw' : 'edited';
       const result = await downloadShootMediaArchive({
         shootId: shoot.id,
         type: downloadType,
         size,
         address: shoot.location?.address,
+        onPreparing: ({ message }) => {
+          setDownloadStatusMessage(message);
+        },
       });
+      setIsDownloadDialogOpen(false);
       toast({
-        title: 'Download started',
+        title: result.waited ? 'Download ready' : 'Download started',
         description:
           result.mode === 'redirect'
-            ? 'Opening download link in new tab...'
+            ? result.waited
+              ? 'Your files are ready and opening in a new tab.'
+              : 'Opening download link in new tab...'
             : `Downloading media files in ${getShootMediaDownloadSizeLabel(size)}...`,
       });
     } catch (error) {
@@ -251,6 +262,7 @@ export function useShootDetailsModalActions({
     isDownloadDialogOpen,
     setIsDownloadDialogOpen,
     isDownloading,
+    downloadStatusMessage,
     isGeneratingShareLink,
     printComingSoonOpen,
     setPrintComingSoonOpen,

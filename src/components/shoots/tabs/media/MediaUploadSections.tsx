@@ -7,6 +7,7 @@ import type { MediaFile } from '@/hooks/useShootFiles';
 import { useToast } from '@/hooks/use-toast';
 import { API_BASE_URL } from '@/config/env';
 import { getApiHeaders } from '@/services/api';
+import { finalizeRawUploadQueue } from '@/services/dropboxMediaService';
 import { useUpload } from '@/context/UploadContext';
 import {
   triggerDashboardOverviewRefresh,
@@ -870,6 +871,15 @@ export function EditedUploadSection({
               variant: 'destructive',
             });
             throw new Error(issues[0]?.message || 'All files failed to upload');
+          }
+
+          if (failedFileEntries.length < filesForUpload.length && filesForUpload.length > 0) {
+            const finalizeHeaders: Record<string, string> = {
+              'Content-Type': 'application/json',
+            };
+            if (authHeader) finalizeHeaders.Authorization = authHeader;
+            if (impersonateHeader) finalizeHeaders['X-Impersonate-User-Id'] = impersonateHeader;
+            await finalizeRawUploadQueue(shoot.id, finalizeHeaders);
           }
 
           triggerUploadRefreshes(shoot.id);

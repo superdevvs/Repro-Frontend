@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { type ComponentProps, useEffect, useMemo, useState } from 'react';
 import {
   CalendarClock,
   Camera,
@@ -67,6 +67,7 @@ const resolveDeleteMediaCount = (shoot: ShootData | null) => {
 interface ShootHistoryModalHostProps {
   selectedShoot: ShootData | null;
   isDetailOpen: boolean;
+  openDownloadDialog: boolean;
   onDetailClose: () => void;
   onShootUpdate: () => void;
   shouldHideClientDetails: boolean;
@@ -92,7 +93,7 @@ interface ShootHistoryModalHostProps {
   onDeleteShootIdChange: (value: string | number | null) => void;
   isDeleting: boolean;
   onConfirmDelete: (options?: { deleteMedia?: boolean }) => void;
-  selectedInvoice: any;
+  selectedInvoice: ComponentProps<typeof InvoiceViewDialog>['invoice'] | null;
   invoiceDialogOpen: boolean;
   onInvoiceClose: () => void;
   brightMlsRedirectUrl: string | null;
@@ -102,6 +103,7 @@ interface ShootHistoryModalHostProps {
 export function ShootHistoryModalHost({
   selectedShoot,
   isDetailOpen,
+  openDownloadDialog,
   onDetailClose,
   onShootUpdate,
   shouldHideClientDetails,
@@ -166,6 +168,7 @@ export function ShootHistoryModalHost({
           isOpen={isDetailOpen}
           onClose={onDetailClose}
           onShootUpdate={onShootUpdate}
+          openDownloadDialog={openDownloadDialog}
           shouldHideClientDetails={shouldHideClientDetails}
         />
       )}

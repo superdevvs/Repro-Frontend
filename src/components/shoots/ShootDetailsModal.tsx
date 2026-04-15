@@ -478,6 +478,7 @@ export function ShootDetailsModal({
     isDownloadDialogOpen,
     setIsDownloadDialogOpen,
     isDownloading,
+    downloadStatusMessage,
     isGeneratingShareLink,
     printComingSoonOpen,
     setPrintComingSoonOpen,
@@ -820,6 +821,7 @@ export function ShootDetailsModal({
         isClient={isClient}
         isDownloadDialogOpen={clientReleaseAccess.canClientDownload ? isDownloadDialogOpen : false}
         isDownloading={isDownloading}
+        downloadStatusMessage={downloadStatusMessage}
         isApprovalModalOpen={isApprovalModalOpen}
         isDeclineModalOpen={isDeclineModalOpen}
         selectedInvoice={selectedInvoice}

@@ -38,6 +38,7 @@ import { useShoots } from '@/context/ShootsContext';
 import { useToast } from '@/hooks/use-toast';
 import { API_BASE_URL } from '@/config/env';
 import { InvoiceData } from '@/utils/invoiceUtils';
+import { getCheckoutLaunchToastCopy, openCheckoutLink } from '@/utils/checkoutLaunch';
 import { PaymentDialog } from "@/components/invoices/PaymentDialog";
 
 type LegacyShootStatusFields = ShootData & {
@@ -166,8 +167,8 @@ export function ShootDetail({ shoot, isOpen, onClose, onPay, invoice }: ShootDet
       if (!res.ok) throw new Error(json?.message || 'Failed to create checkout');
       const url = json?.url || json?.checkout_url || json?.data?.url;
       if (!url) throw new Error('Checkout URL not returned');
-      window.open(url, '_blank');
-      toast({ title: 'Redirecting to payment', description: 'Secure checkout opened in a new tab.' });
+      const launchMode = openCheckoutLink(url);
+      toast(getCheckoutLaunchToastCopy(launchMode));
     } catch (error: unknown) {
       toast({ title: 'Payment error', description: getErrorMessage(error, 'Could not initialize payment'), variant: 'destructive' });
     }

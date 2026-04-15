@@ -47,6 +47,18 @@ export interface MediaUploadResponse {
   workflow_status_changed?: boolean;
 }
 
+export interface FinalizeRawUploadResponse {
+  message?: string;
+  shoot_status?: string;
+  workflow_status_changed?: boolean;
+  raw_photo_count?: number;
+  edited_photo_count?: number;
+  raw_missing_count?: number;
+  edited_missing_count?: number;
+  missing_raw?: boolean;
+  missing_final?: boolean;
+}
+
 export const getMediaUploadErrorMessage = (
   error: unknown,
   fallback: string,
@@ -85,6 +97,19 @@ export const getMediaUploadErrorMessage = (
   }
 
   return baseMessage;
+};
+
+export const finalizeRawUploadQueue = async (
+  shootId: string | number,
+  headers?: Record<string, string>,
+): Promise<FinalizeRawUploadResponse> => {
+  const response = await axios.post<FinalizeRawUploadResponse>(
+    `${API_BASE_URL}/api/shoots/${shootId}/upload/finalize-raw`,
+    {},
+    headers ? { headers } : undefined,
+  );
+
+  return response.data;
 };
 
 interface UploadFilesIndividuallyConfig {
@@ -230,7 +255,7 @@ export const uploadRawPhotos = async (
   token: string,
   onProgress?: (progress: number) => void
 ): Promise<MediaUploadResponse> => {
-  return uploadFilesIndividually({
+  const result = await uploadFilesIndividually({
     endpoint: `${API_BASE_URL}/api/shoots/${shootId}/upload`,
     files,
     token,
@@ -242,6 +267,18 @@ export const uploadRawPhotos = async (
       }
     },
   });
+
+  if (result.success_count > 0) {
+    const finalizeResult = await finalizeRawUploadQueue(shootId, {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    });
+
+    result.workflow_status = finalizeResult.shoot_status ?? result.workflow_status;
+    result.workflow_status_changed = Boolean(finalizeResult.workflow_status_changed);
+  }
+
+  return result;
 };
 
 /**

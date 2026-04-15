@@ -2,6 +2,7 @@ import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 import type { QueryClient } from '@tanstack/react-query';
 import { API_BASE_URL } from '@/config/env';
 import { getApiHeaders } from '@/services/api';
+import { finalizeRawUploadQueue } from '@/services/dropboxMediaService';
 import { useToast } from '@/hooks/use-toast';
 import { useUpload } from '@/context/UploadContext';
 import { fotelloService } from '@/services/fotelloService';
@@ -216,6 +217,15 @@ export function useShootMediaActions({
             description: buildUploadWarningDescription(errors, files.length),
             variant: 'destructive',
           });
+        }
+
+        if (uploadType === 'raw' && errors.length < files.length && files.length > 0) {
+          const finalizeHeaders: Record<string, string> = {
+            'Content-Type': 'application/json',
+          };
+          if (authHeader) finalizeHeaders.Authorization = authHeader;
+          if (impersonateHeader) finalizeHeaders['X-Impersonate-User-Id'] = impersonateHeader;
+          await finalizeRawUploadQueue(shoot.id, finalizeHeaders);
         }
 
         queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'raw'] });

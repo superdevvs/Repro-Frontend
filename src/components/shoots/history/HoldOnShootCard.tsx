@@ -16,6 +16,7 @@ import { useToast } from '@/hooks/use-toast'
 import { useUserPreferences } from '@/contexts/UserPreferencesContext'
 import { getStateFullName } from '@/utils/stateUtils'
 import { formatWorkflowStatus } from '@/utils/status'
+import { getCheckoutLaunchToastCopy, openCheckoutLink } from '@/utils/checkoutLaunch'
 import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary'
 import { getEditingNotes, formatCurrency, getShootPlaceholderSrc, resolveShootThumbnail } from './shootHistoryUtils'
 import {
@@ -68,11 +69,8 @@ const PaymentButton = ({ shoot, onViewInvoice }: { shoot: ShootData; onViewInvoi
       )
 
       if (response.data?.checkoutUrl) {
-        window.open(response.data.checkoutUrl, '_blank')
-        toast({
-          title: 'Payment window opened',
-          description: 'Complete payment in the new window.',
-        })
+        const launchMode = openCheckoutLink(response.data.checkoutUrl)
+        toast(getCheckoutLaunchToastCopy(launchMode))
       }
     } catch (error: any) {
       toast({

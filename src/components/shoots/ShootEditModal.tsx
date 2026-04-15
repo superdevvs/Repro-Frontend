@@ -1120,7 +1120,7 @@ export function ShootEditModal({
   );
 
   const renderDetailsPanel = () => (
-    <div className="space-y-3 md:min-h-0 md:overflow-y-auto md:pr-1">
+    <div className="space-y-3 md:pr-1">
       <div className="rounded-xl border border-border bg-muted/30 p-4">
         <div className="mb-3 flex items-center gap-2">
           <User className="h-4 w-4 text-blue-500" />
@@ -1278,7 +1278,7 @@ export function ShootEditModal({
   );
 
   const renderSchedulePanel = () => (
-    <div className="space-y-3 md:min-h-0 md:overflow-y-auto md:pr-1">
+    <div className="space-y-3 md:pr-1">
       <div className="space-y-2 rounded-lg border border-border p-3">
         <div className="flex items-center gap-2">
           <Clock className="h-4 w-4 text-muted-foreground" />
@@ -1469,8 +1469,8 @@ export function ShootEditModal({
   );
 
   const renderServicesPanel = () => (
-    <div className="space-y-3 md:flex md:min-h-0 md:flex-col md:overflow-hidden">
-      <div className="flex min-h-[360px] flex-col rounded-lg border border-border p-3 md:min-h-0 md:flex-1 md:overflow-hidden">
+    <div className="space-y-3 md:flex md:flex-col">
+      <div className="flex min-h-[360px] flex-col rounded-lg border border-border p-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Layers className="h-4 w-4 text-violet-500" />
@@ -1483,7 +1483,7 @@ export function ShootEditModal({
           )}
         </div>
 
-        <div className="mt-2 min-h-0 flex-1 overflow-visible pr-1 md:max-h-full md:overflow-y-auto">
+        <div className="mt-2 pr-1">
           <Accordion
             type="multiple"
             value={expandedServiceCategoryKeys}
@@ -1652,9 +1652,9 @@ export function ShootEditModal({
             <Skeleton className="h-48 rounded-xl" />
           </div>
         ) : (
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 sm:px-6 md:overflow-hidden">
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 sm:px-6">
             {isDesktopLayout ? (
-              <div className="grid grid-cols-1 gap-4 md:h-full md:min-h-0 md:grid-cols-3 md:items-stretch">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:items-start">
                 {renderDetailsPanel()}
                 {renderSchedulePanel()}
                 {renderServicesPanel()}

@@ -70,6 +70,7 @@ const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const PaymentPage = lazy(() => import('./pages/PaymentPage'));
 const AuthenticatedPaymentReturnPage = lazy(() => import('./pages/AuthenticatedPaymentReturnPage'));
 const TermsAndConditions = lazy(() => import('./pages/TermsAndConditions'));
+const ShootArchiveRedirect = lazy(() => import('./pages/ShootArchiveRedirect'));
 const ShootShareRedirect = lazy(() => import('./pages/ShootShareRedirect'));
 
 // Messaging pages
@@ -359,6 +360,11 @@ const AppRoutes = () => {
       <Route path="/share/:token" element={
         <PageTransition>
           <ShootShareRedirect />
+        </PageTransition>
+      } />
+      <Route path="/download/media" element={
+        <PageTransition>
+          <ShootArchiveRedirect />
         </PageTransition>
       } />
        <Route path="/tours/branded" element={

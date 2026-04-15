@@ -21,6 +21,7 @@ import { API_BASE_URL } from '@/config/env';
 import axios from 'axios';
 import { MarkAsPaidDialog, MarkAsPaidPayload } from '@/components/payments/MarkAsPaidDialog';
 import { blurActiveElement } from '@/components/shoots/dialogFocusUtils';
+import { getCheckoutLaunchToastCopy, openCheckoutLink } from '@/utils/checkoutLaunch';
 
 interface PayMultipleShootsDialogProps {
   isOpen: boolean;
@@ -129,11 +130,8 @@ export function PayMultipleShootsDialog({
         );
 
         if (response.data?.checkoutUrl) {
-          window.open(response.data.checkoutUrl, '_blank');
-          toast({
-            title: 'Payment window opened',
-            description: 'Complete payment in the new window.',
-          });
+          const launchMode = openCheckoutLink(response.data.checkoutUrl);
+          toast(getCheckoutLaunchToastCopy(launchMode));
           onClose();
         }
       }
