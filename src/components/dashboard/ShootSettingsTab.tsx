@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { InvoiceData } from '@/utils/invoiceUtils';
 import { useAuth } from "@/components/auth";
 import { MultiSelectChecklist } from "@/components/ui/multi-select-checklist";
@@ -153,6 +154,7 @@ export function ShootSettingsTab({
   const [localInvoice, setLocalInvoice] = useState<InvoiceData | null>(currentInvoice ?? null);
   const [ghostClientOptions, setGhostClientOptions] = useState<GhostClientOption[]>([]);
   const [selectedGhostUserIds, setSelectedGhostUserIds] = useState<string[]>(() => normalizeGhostUserIds(shoot));
+  const [ghostUserPickerOpen, setGhostUserPickerOpen] = useState(false);
 
   // initialize from prop
   useEffect(() => {
@@ -745,16 +747,33 @@ export function ShootSettingsTab({
       )}
 
       {canManageGhostUsersResolved && (
-        <div className="border rounded-lg p-3.5 space-y-3">
-          <div className="space-y-1">
-            <div className="text-sm font-medium">Ghost User(s)</div>
-            <div className="text-xs text-muted-foreground">
-              Grant delivered-view access for this shoot and its tours to selected clients.
+        <div className="border rounded-lg p-3.5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 space-y-1">
+              <div className="flex items-center gap-2">
+                <div className="text-sm font-medium">Ghost User(s)</div>
+                <Badge variant="outline" className="px-1.5 text-[10px]">
+                  {selectedGhostClients.length}
+                </Badge>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Grant delivered-view access for this shoot and its tours to selected clients.
+              </div>
             </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="shrink-0"
+              onClick={() => setGhostUserPickerOpen(true)}
+              disabled={savingToggleKey === 'ghost_user_ids'}
+            >
+              Add new ghost user
+            </Button>
           </div>
 
           {selectedGhostClients.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
+            <div className="mt-3 flex flex-wrap gap-2">
               {selectedGhostClients.map((client) => (
                 <Badge key={client.id} variant="secondary" className="gap-1 pr-1">
                   <span>{client.name}</span>
@@ -770,18 +789,32 @@ export function ShootSettingsTab({
                 </Badge>
               ))}
             </div>
-          ) : null}
+          ) : (
+            <div className="mt-3 text-xs text-muted-foreground">
+              No ghost users selected.
+            </div>
+          )}
 
-          <MultiSelectChecklist
-            options={ghostClientChecklistOptions}
-            value={selectedGhostUserIds}
-            onChange={handleGhostUsersChange}
-            placeholder="No ghost users selected."
-            searchPlaceholder="Search clients..."
-            emptyMessage="No client accounts available."
-            disabled={savingToggleKey === 'ghost_user_ids'}
-            maxHeightClassName="max-h-64"
-          />
+          <Dialog open={ghostUserPickerOpen} onOpenChange={setGhostUserPickerOpen}>
+            <DialogContent className="sm:max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Choose client</DialogTitle>
+                <DialogDescription>
+                  Search and select clients for delivered-view access. Changes save automatically.
+                </DialogDescription>
+              </DialogHeader>
+              <MultiSelectChecklist
+                options={ghostClientChecklistOptions}
+                value={selectedGhostUserIds}
+                onChange={handleGhostUsersChange}
+                placeholder="No ghost users selected."
+                searchPlaceholder="Search clients..."
+                emptyMessage="No client accounts available."
+                disabled={savingToggleKey === 'ghost_user_ids'}
+                maxHeightClassName="max-h-[55vh]"
+              />
+            </DialogContent>
+          </Dialog>
         </div>
       )}
 
