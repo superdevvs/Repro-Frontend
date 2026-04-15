@@ -301,6 +301,7 @@ interface ShootDetailsOverviewTabProps {
   isPhotographer: boolean;
   isEditor: boolean;
   isClient: boolean;
+  isClientReleaseLocked?: boolean;
   shouldHideClientDetails?: boolean;
   role: string;
   onShootUpdate: () => void;
@@ -318,6 +319,7 @@ export function ShootDetailsOverviewTab({
   isPhotographer,
   isEditor,
   isClient,
+  isClientReleaseLocked = false,
   shouldHideClientDetails = false,
   role,
   onShootUpdate,
@@ -915,6 +917,7 @@ export function ShootDetailsOverviewTab({
           isEditMode={isEditMode}
           isAdmin={isAdmin}
           isClient={isClient}
+          isClientReleaseLocked={isClientReleaseLocked}
           editedShoot={editedShoot}
           shoot={shoot}
           paymentTotalPaid={paymentTotalPaid}

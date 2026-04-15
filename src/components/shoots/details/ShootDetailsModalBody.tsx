@@ -161,6 +161,7 @@ export function ShootDetailsModalBody({
                   isPhotographer={isPhotographer}
                   isEditor={isEditor}
                   isClient={isClient}
+                  isClientReleaseLocked={isClientReleaseLocked}
                   shouldHideClientDetails={shouldHideClientDetails}
                   role={currentUserRole}
                   onShootUpdate={refreshShootAndParent}

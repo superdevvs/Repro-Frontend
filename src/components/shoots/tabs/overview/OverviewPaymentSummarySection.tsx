@@ -8,6 +8,7 @@ type OverviewPaymentSummarySectionProps = {
   isEditMode: boolean;
   isAdmin: boolean;
   isClient: boolean;
+  isClientReleaseLocked: boolean;
   editedShoot: Partial<ShootData>;
   shoot: ShootData;
   paymentTotalPaid: number;
@@ -23,6 +24,7 @@ export function OverviewPaymentSummarySection({
   isEditMode,
   isAdmin,
   isClient,
+  isClientReleaseLocked,
   editedShoot,
   shoot,
   paymentTotalPaid,
@@ -131,6 +133,11 @@ export function OverviewPaymentSummarySection({
                   {formattedPaymentBalance}
                 </span>
               </div>
+              {isClientReleaseLocked && (
+                <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-4 text-amber-800">
+                  Downloads unlock after full payment is received.
+                </div>
+              )}
               {paymentBalance > 0.01 && onPayNow && (
                 <div className="mt-3 border-t pt-3">
                   <Button

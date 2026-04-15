@@ -32,6 +32,7 @@ import type { UserData } from '@/types/auth'
 import { downloadShootRawFiles } from '@/utils/shootMediaDownload'
 import { shootHasEditorAssignment } from '@/utils/shootEditorAssignments'
 import { doesShootBelongToClient } from '@/utils/dashboardDerivedUtils'
+import { getShootClientReleaseAccess } from '@/components/shoots/details/shootClientReleaseAccess'
 import { getApiHeaders } from '@/services/api'
 
 type ToastFn = (args: { title: string; description?: string; variant?: 'default' | 'destructive' }) => void
@@ -174,6 +175,9 @@ const isSalesRepRole = (role: string | null | undefined) => {
 
   return ['salesrep', 'rep', 'representative'].includes(normalizedRole)
 }
+
+const isClientRole = (role: string | null | undefined) =>
+  String(role ?? '').trim().toLowerCase() === 'client'
 
 export function useShootHistoryData({
   toast,
@@ -972,6 +976,14 @@ export function useShootHistoryData({
 
   const canDownloadHistoryShoot = useCallback((shoot: ShootData) => {
     const downloadMode = getHistoryDownloadMode(shoot, activeTab)
+
+    if (isClientRole(role)) {
+      if (downloadMode !== 'delivered') {
+        return false
+      }
+
+      return getShootClientReleaseAccess(shoot, true).canClientDownload
+    }
 
     if (downloadMode === 'delivered') {
       return true
