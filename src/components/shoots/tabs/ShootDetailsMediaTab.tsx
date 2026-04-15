@@ -14,6 +14,8 @@ interface ShootDetailsMediaTabProps {
   isExpanded?: boolean;
   onToggleExpand?: () => void;
   onSelectionChange?: (selectedIds: string[]) => void;
+  displayTab?: 'uploaded' | 'edited';
+  onDisplayTabChange?: (tab: 'uploaded' | 'edited') => void;
 }
 
 export function ShootDetailsMediaTab(props: ShootDetailsMediaTabProps) {

@@ -170,6 +170,7 @@ export function ShootDetailsModal({
   const [weather, setWeather] = useState<WeatherInfo | null>(null);
   const [providerVersion, setProviderVersion] = useState(0);
   const [isMediaExpanded, setIsMediaExpanded] = useState(false);
+  const [activeMediaDisplayTab, setActiveMediaDisplayTab] = useState<'uploaded' | 'edited'>('uploaded');
   const [showTourAnalytics, setShowTourAnalytics] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editActions, setEditActions] = useState<{ save: () => void; cancel: () => void } | null>(null);
@@ -199,6 +200,7 @@ export function ShootDetailsModal({
     visibleTabs,
     capabilities: {
       normalizedStatus,
+      editedMediaCount,
       isDelivered,
       isUploadedStatus,
       isEditingStatus,
@@ -325,6 +327,14 @@ export function ShootDetailsModal({
     if (!isOpen) return;
     setActiveTab(initialTab);
   }, [isOpen, initialTab]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    setActiveMediaDisplayTab(isClient ? 'edited' : 'uploaded');
+  }, [isClient, isOpen, shootId]);
 
   const clientReleaseAccess = useMemo(
     () => getShootClientReleaseAccess(shoot, isClient),
@@ -494,6 +504,15 @@ export function ShootDetailsModal({
     refreshShoot,
     toast,
   });
+
+  const handleProgressMediaDownload = useCallback(() => {
+    if (activeMediaDisplayTab === 'edited') {
+      void handleDownloadMedia('original');
+      return;
+    }
+
+    void handleEditorDownloadRaw();
+  }, [activeMediaDisplayTab, handleDownloadMedia, handleEditorDownloadRaw]);
 
   useEffect(() => {
     if (!isOpen || !openDownloadDialog || !clientReleaseAccess.canClientDownload) return;
@@ -700,6 +719,7 @@ export function ShootDetailsModal({
           mmmRedirectUrl={mmmRedirectUrl}
           isDelivered={isDelivered}
           isAdmin={isAdmin}
+          isEditingManager={isEditingManager}
           isClient={isClient}
           isEditor={isEditor}
           isPhotographer={isPhotographer}
@@ -707,6 +727,8 @@ export function ShootDetailsModal({
           isDownloading={isDownloading}
           isGeneratingShareLink={isGeneratingShareLink}
           rawFileCount={rawFileCount}
+          editedMediaCount={editedMediaCount}
+          activeMediaDisplayTab={activeMediaDisplayTab}
           selectedFileIds={selectedFileIds}
           isPublishingToBrightMls={isPublishingToBrightMls}
           holdActionLabel={holdActionLabel}
@@ -727,6 +749,7 @@ export function ShootDetailsModal({
           handleDownloadMedia={handleDownloadMedia}
           handleSendToBrightMls={handleSendToBrightMls}
           handleEditorDownloadRaw={handleEditorDownloadRaw}
+          handleProgressMediaDownload={handleProgressMediaDownload}
           handleGenerateShareLink={handleGenerateShareLink}
           onClose={onClose}
         />
@@ -749,6 +772,7 @@ export function ShootDetailsModal({
         <ShootDetailsModalBody
           shoot={shoot}
           activeTab={activeTab}
+          activeMediaDisplayTab={activeMediaDisplayTab}
           visibleTabs={visibleTabs}
           currentUserRole={currentUserRole}
           weather={weather || null}
@@ -774,6 +798,7 @@ export function ShootDetailsModal({
           isLoadingInvoice={isLoadingInvoice}
           setShowTourAnalytics={setShowTourAnalytics}
           setIsMediaExpanded={setIsMediaExpanded}
+          setActiveMediaDisplayTab={setActiveMediaDisplayTab}
           setSelectedFileIds={setSelectedFileIds}
           setEditActions={setEditActions}
           setIsMarkPaidDialogOpen={setIsMarkPaidDialogOpen}

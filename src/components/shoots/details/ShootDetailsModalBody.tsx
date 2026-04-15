@@ -32,6 +32,7 @@ type VisibleTabId =
 interface ShootDetailsModalBodyProps {
   shoot: ShootData;
   activeTab: VisibleTabId;
+  activeMediaDisplayTab: 'uploaded' | 'edited';
   visibleTabs: Array<{ id: string; label: string; disabled?: boolean }>;
   currentUserRole: string;
   weather: WeatherInfo | null;
@@ -57,6 +58,7 @@ interface ShootDetailsModalBodyProps {
   isLoadingInvoice: boolean;
   setShowTourAnalytics: (open: boolean) => void;
   setIsMediaExpanded: (open: boolean) => void;
+  setActiveMediaDisplayTab: (tab: 'uploaded' | 'edited') => void;
   setSelectedFileIds: (ids: string[]) => void;
   setEditActions: (actions: { save: () => void; cancel: () => void } | null) => void;
   setIsMarkPaidDialogOpen: (open: boolean) => void;
@@ -74,6 +76,7 @@ interface ShootDetailsModalBodyProps {
 export function ShootDetailsModalBody({
   shoot,
   activeTab,
+  activeMediaDisplayTab,
   visibleTabs,
   currentUserRole,
   weather,
@@ -99,6 +102,7 @@ export function ShootDetailsModalBody({
   isLoadingInvoice,
   setShowTourAnalytics,
   setIsMediaExpanded,
+  setActiveMediaDisplayTab,
   setSelectedFileIds,
   setEditActions,
   setIsMarkPaidDialogOpen,
@@ -273,6 +277,8 @@ export function ShootDetailsModalBody({
               role={currentUserRole}
               onShootUpdate={refreshShootAndParent}
               onSelectionChange={setSelectedFileIds}
+              displayTab={activeMediaDisplayTab}
+              onDisplayTabChange={setActiveMediaDisplayTab}
               isExpanded
             />
           </div>
@@ -293,6 +299,8 @@ export function ShootDetailsModalBody({
                 role={currentUserRole}
                 onShootUpdate={refreshShootAndParent}
                 onSelectionChange={setSelectedFileIds}
+                displayTab={activeMediaDisplayTab}
+                onDisplayTabChange={setActiveMediaDisplayTab}
                 isExpanded={isMediaExpanded}
                 onToggleExpand={() => setIsMediaExpanded(!isMediaExpanded)}
               />

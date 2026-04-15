@@ -96,6 +96,8 @@ interface ShootDetailsMediaTabProps {
   isExpanded?: boolean;
   onToggleExpand?: () => void;
   onSelectionChange?: (selectedIds: string[]) => void;
+  displayTab?: 'uploaded' | 'edited';
+  onDisplayTabChange?: (tab: 'uploaded' | 'edited') => void;
 }
 
 type MediaSubTab =
@@ -131,6 +133,8 @@ export function useShootDetailsMediaTab({
   isExpanded = false,
   onToggleExpand,
   onSelectionChange,
+  displayTab: controlledDisplayTab,
+  onDisplayTabChange,
 }: ShootDetailsMediaTabProps) {
   const aiEditEventName = 'shoot-ai-edit-open';
   const { toast } = useToast();
@@ -144,9 +148,17 @@ export function useShootDetailsMediaTab({
     shoot.updatedAt ?? '',
   ].join(':');
   const [activeSubTab, setActiveSubTab] = useState<'uploaded' | 'edited' | 'upload'>(defaultTab);
-  const [displayTab, setDisplayTab] = useState<'uploaded' | 'edited'>(defaultTab);
+  const [internalDisplayTab, setInternalDisplayTab] = useState<'uploaded' | 'edited'>(defaultTab);
   const [uploadedMediaTab, setUploadedMediaTab] = useState<MediaSubTab>('photos');
   const [editedMediaTab, setEditedMediaTab] = useState<MediaSubTab>('photos');
+  const displayTab = controlledDisplayTab ?? internalDisplayTab;
+  const setDisplayTab = useCallback(
+    (nextTab: 'uploaded' | 'edited') => {
+      setInternalDisplayTab(nextTab);
+      onDisplayTabChange?.(nextTab);
+    },
+    [onDisplayTabChange],
+  );
   const [downloading, setDownloading] = useState(false);
   const [downloadPopup, setDownloadPopup] = useState<DownloadPopupState>({
     visible: false,
@@ -308,6 +320,22 @@ export function useShootDetailsMediaTab({
     },
     [displayTab, openViewer],
   );
+
+  useEffect(() => {
+    if (controlledDisplayTab) {
+      setInternalDisplayTab(controlledDisplayTab);
+    }
+  }, [controlledDisplayTab]);
+
+  useEffect(() => {
+    if (activeSubTab !== 'upload' && activeSubTab !== displayTab) {
+      setActiveSubTab(displayTab);
+    }
+  }, [activeSubTab, displayTab]);
+
+  useEffect(() => {
+    clearSelection();
+  }, [clearSelection, displayTab]);
 
   useEffect(() => {
     if (!viewerOpen || viewerFiles.length === 0) {
