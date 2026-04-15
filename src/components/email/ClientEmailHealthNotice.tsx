@@ -52,7 +52,7 @@ const buildNoticeConfig = (email: string, emailHealth?: EmailHealth): NoticeConf
         emailHealth?.warning_message
           ? `${emailHealth.warning_message} We will keep important automated emails limited until the address is verified.`
           : `We flagged ${email} as risky. Review it now so booking, invoice, and delivery emails reach the right inbox.`,
-      compactTitle: 'Possible delivery risk',
+      compactTitle: 'Unverified email',
       compactDescription: 'Review this address now. Important automated emails stay limited until it is verified.',
       accentClasses:
         'border-amber-300/60 bg-gradient-to-br from-amber-500/15 via-background to-amber-400/5 text-foreground',

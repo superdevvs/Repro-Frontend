@@ -1,7 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   ChevronDown,
   ChevronUp,
@@ -45,6 +55,17 @@ interface ActivityLogEntry {
   metadata?: Record<string, unknown>;
 }
 
+type PaymentActionDetails = {
+  paymentId: string;
+  provider: string;
+  amount?: number;
+  currency?: string;
+  status?: string;
+  refundStatus?: string;
+  refundedAt?: string;
+  hostedReceiptUrl?: string;
+};
+
 const activityTypeIcons: Record<string, React.ReactNode> = {
   email: <Mail className="h-4 w-4" />,
   payment: <DollarSign className="h-4 w-4" />,
@@ -65,6 +86,98 @@ const activityTypeColors: Record<string, string> = {
   other: 'bg-slate-100 text-slate-700 border-slate-200',
 };
 
+const toRecord = (value: unknown): Record<string, unknown> | null => {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+};
+
+const toOptionalString = (value: unknown): string | undefined => {
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+
+  const normalized = String(value).trim();
+  return normalized ? normalized : undefined;
+};
+
+const toOptionalNumber = (value: unknown): number | undefined => {
+  if (value === null || value === undefined || value === '') {
+    return undefined;
+  }
+
+  const normalized = typeof value === 'string' ? Number.parseFloat(value) : Number(value);
+  return Number.isFinite(normalized) ? normalized : undefined;
+};
+
+const normalizeActivityEntry = (item: any): ActivityLogEntry => ({
+  id: item.id || `activity-${Date.now()}-${Math.random()}`,
+  timestamp: item.created_at || item.timestamp || item.createdAt || new Date().toISOString(),
+  actor: item.user ? {
+    id: item.user.id || item.user_id,
+    name: item.user.name || 'System',
+    role: item.user.role,
+  } : (item.actor || null),
+  action: item.action || 'unknown',
+  type: determineActivityType(item.action || ''),
+  description: item.description || item.message || item.details || 'Activity logged',
+  details: item.metadata || item.details,
+  metadata: item.metadata,
+});
+
+function determineActivityType(action: string): ActivityLogEntry['type'] {
+  const lower = action.toLowerCase();
+  if (lower.includes('email') || lower.includes('sent')) return 'email';
+  if (lower.includes('payment') || lower.includes('paid') || lower.includes('charge')) return 'payment';
+  if (lower.includes('upload') || lower.includes('file') || lower.includes('hero') || lower.includes('cover')) return 'upload';
+  if (lower.includes('finalize') || lower.includes('complete')) return 'finalize';
+  if (lower.includes('note')) return 'note';
+  if (lower.includes('status') || lower.includes('workflow')) return 'status_change';
+  return 'other';
+}
+
+const getPaymentActionDetails = (entry: ActivityLogEntry): PaymentActionDetails | null => {
+  const containers = [entry.details, entry.metadata]
+    .map(toRecord)
+    .filter((container): container is Record<string, unknown> => Boolean(container))
+    .flatMap((container) => {
+      const nestedDetails = [
+        toRecord(container.payment_details),
+        toRecord(container.paymentDetails),
+        toRecord(container.payment),
+      ].filter((nested): nested is Record<string, unknown> => Boolean(nested));
+
+      return [container, ...nestedDetails];
+    });
+
+  for (const container of containers) {
+    const paymentId = toOptionalString(container.payment_id ?? container.paymentId ?? container.id);
+    const provider = toOptionalString(container.provider ?? container.payment_method ?? container.paymentMethod)?.toLowerCase();
+
+    if (!paymentId || (provider && provider !== 'stripe')) {
+      continue;
+    }
+
+    return {
+      paymentId,
+      provider: provider || 'stripe',
+      amount: toOptionalNumber(container.amount),
+      currency: toOptionalString(container.currency),
+      status: toOptionalString(container.status)?.toLowerCase(),
+      refundStatus: toOptionalString(container.refund_status ?? container.refundStatus)?.toLowerCase(),
+      refundedAt: toOptionalString(container.refunded_at ?? container.refundedAt),
+      hostedReceiptUrl: toOptionalString(
+        container.hosted_receipt_url
+          ?? container.hostedReceiptUrl
+          ?? container.receipt_url
+          ?? container.receiptUrl,
+      ),
+    };
+  }
+
+  return null;
+};
+
 export function ShootDetailsActivityLogTab({
   shoot,
   isAdmin,
@@ -74,35 +187,23 @@ export function ShootDetailsActivityLogTab({
   const [activities, setActivities] = useState<ActivityLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set());
+  const [pendingRefundEntry, setPendingRefundEntry] = useState<ActivityLogEntry | null>(null);
   const [refundingEntryId, setRefundingEntryId] = useState<string | null>(null);
 
   useEffect(() => {
     // Check if activity logs are already in shoot data
     if ((shoot as any).activityLogs && Array.isArray((shoot as any).activityLogs)) {
       const activitiesData = (shoot as any).activityLogs;
-      const transformed = activitiesData.map((item: any) => ({
-        id: item.id || `activity-${Date.now()}-${Math.random()}`,
-        timestamp: item.created_at || item.timestamp || item.createdAt || new Date().toISOString(),
-        actor: item.user ? {
-          id: item.user.id || item.user_id,
-          name: item.user.name || 'System',
-          role: item.user.role,
-        } : null,
-        action: item.action || 'unknown',
-        type: determineActivityType(item.action || ''),
-        description: item.description || item.message || item.details || 'Activity logged',
-        details: item.metadata || item.details,
-        metadata: item.metadata,
-      }));
+      const transformed = activitiesData.map(normalizeActivityEntry);
       
       setActivities(transformed.sort((a: ActivityLogEntry, b: ActivityLogEntry) => 
         new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
       ));
       setLoading(false);
-    } else {
-      loadActivities();
     }
-  }, [shoot.id, shoot]);
+
+    void loadActivities();
+  }, [shoot.id, (shoot as any).activityLogs]);
 
   const loadActivities = async () => {
     setLoading(true);
@@ -132,20 +233,7 @@ export function ShootDetailsActivityLogTab({
       }
       
       // Transform API data to ActivityLogEntry format
-      const transformed = activitiesData.map((item: any) => ({
-        id: item.id || `activity-${Date.now()}-${Math.random()}`,
-        timestamp: item.created_at || item.timestamp || item.createdAt || new Date().toISOString(),
-        actor: item.user ? {
-          id: item.user.id || item.user_id,
-          name: item.user.name || 'System',
-          role: item.user.role,
-        } : (item.actor || null),
-        action: item.action || 'unknown',
-        type: determineActivityType(item.action || ''),
-        description: item.description || item.message || item.details || 'Activity logged',
-        details: item.metadata || item.details,
-        metadata: item.metadata,
-      }));
+      const transformed = activitiesData.map(normalizeActivityEntry);
       
       setActivities(transformed.sort((a: ActivityLogEntry, b: ActivityLogEntry) => 
         new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
@@ -157,17 +245,6 @@ export function ShootDetailsActivityLogTab({
     } finally {
       setLoading(false);
     }
-  };
-
-  const determineActivityType = (action: string): ActivityLogEntry['type'] => {
-    const lower = action.toLowerCase();
-    if (lower.includes('email') || lower.includes('sent')) return 'email';
-    if (lower.includes('payment') || lower.includes('paid') || lower.includes('charge')) return 'payment';
-    if (lower.includes('upload') || lower.includes('file') || lower.includes('hero') || lower.includes('cover')) return 'upload';
-    if (lower.includes('finalize') || lower.includes('complete')) return 'finalize';
-    if (lower.includes('note')) return 'note';
-    if (lower.includes('status') || lower.includes('workflow')) return 'status_change';
-    return 'other';
   };
 
   const toggleExpand = (entryId: string) => {
@@ -194,37 +271,36 @@ export function ShootDetailsActivityLogTab({
     return groups;
   };
 
-  const getRefundablePaymentDetails = (entry: ActivityLogEntry) => {
-    const containers = [entry.details, entry.metadata].filter(Boolean) as Array<Record<string, any>>;
+  const refundedPaymentIds = useMemo(() => {
+    return activities.reduce((paymentIds, entry) => {
+      const payment = getPaymentActionDetails(entry);
+      const isRefundEvent = entry.action.toLowerCase().includes('refund');
+      const isRefunded = Boolean(
+        payment?.paymentId
+        && (
+          isRefundEvent
+          || payment.status === 'refunded'
+          || payment.refundStatus
+          || payment.refundedAt
+        )
+      );
 
-    for (const container of containers) {
-      const paymentId = container?.payment_id ?? container?.paymentId;
-      const provider = String(container?.provider ?? container?.payment_method ?? '').toLowerCase();
-
-      if (paymentId && (provider === '' || provider === 'stripe')) {
-        return {
-          paymentId: String(paymentId),
-          provider: provider || 'stripe',
-        };
+      if (isRefunded && payment) {
+        paymentIds.add(payment.paymentId);
       }
-    }
 
-    return null;
-  };
+      return paymentIds;
+    }, new Set<string>());
+  }, [activities]);
 
   const handleRefundCharge = async (entry: ActivityLogEntry) => {
-    const refundablePayment = getRefundablePaymentDetails(entry);
+    const refundablePayment = getPaymentActionDetails(entry);
     if (!refundablePayment) {
       toast({
         title: 'Refund unavailable',
         description: 'This activity entry is not linked to a refundable Stripe payment.',
         variant: 'destructive',
       });
-      return;
-    }
-
-    const shouldContinue = window.confirm('Refund this charge in full? This cannot be undone.');
-    if (!shouldContinue) {
       return;
     }
 
@@ -240,6 +316,7 @@ export function ShootDetailsActivityLogTab({
         },
         body: JSON.stringify({
           payment_id: refundablePayment.paymentId,
+          amount: refundablePayment.amount,
         }),
       });
 
@@ -261,7 +338,8 @@ export function ShootDetailsActivityLogTab({
       });
 
       await loadActivities();
-      onShootUpdate();
+      await Promise.resolve(onShootUpdate());
+      setPendingRefundEntry(null);
     } catch (error: any) {
       toast({
         title: 'Refund failed',
@@ -274,15 +352,29 @@ export function ShootDetailsActivityLogTab({
   };
 
   const handleViewCharge = (entry: ActivityLogEntry) => {
-    const refundablePayment = getRefundablePaymentDetails(entry);
-    if (!refundablePayment) {
+    const paymentDetails = getPaymentActionDetails(entry);
+    if (!paymentDetails?.hostedReceiptUrl) {
+      toast({
+        title: 'Receipt unavailable',
+        description: 'No Stripe receipt URL is available for this payment yet.',
+        variant: 'destructive',
+      });
       return;
     }
 
-    toast({
-      title: 'Charge details',
-      description: `Stripe payment ID ${refundablePayment.paymentId}`,
-    });
+    const popup = window.open(
+      paymentDetails.hostedReceiptUrl,
+      'stripe-receipt',
+      'popup=yes,width=980,height=760,noopener,noreferrer',
+    );
+
+    if (!popup) {
+      toast({
+        title: 'Popup blocked',
+        description: 'Please allow popups for this site to view the Stripe receipt.',
+        variant: 'destructive',
+      });
+    }
   };
 
   if (loading) {
@@ -329,7 +421,17 @@ export function ShootDetailsActivityLogTab({
                     const isExpanded = expandedEntries.has(entry.id);
                     const icon = activityTypeIcons[entry.type] || activityTypeIcons.other;
                     const colorClass = activityTypeColors[entry.type] || activityTypeColors.other;
-                    const refundablePayment = getRefundablePaymentDetails(entry);
+                    const paymentDetails = getPaymentActionDetails(entry);
+                    const isRefundEvent = entry.action.toLowerCase().includes('refund');
+                    const canViewCharge = Boolean(paymentDetails?.hostedReceiptUrl);
+                    const canRefundCharge = Boolean(
+                      paymentDetails
+                      && !isRefundEvent
+                      && !refundedPaymentIds.has(paymentDetails.paymentId)
+                      && paymentDetails.status !== 'refunded'
+                      && !paymentDetails.refundStatus
+                      && !paymentDetails.refundedAt
+                    );
                     
                     return (
                       <div
@@ -385,26 +487,26 @@ export function ShootDetailsActivityLogTab({
                             <Collapsible open={isExpanded}>
                               <CollapsibleContent>
                                 <div className="mt-3 p-4 bg-muted/30 rounded-lg border text-xs space-y-3">
-                                  {entry.type === 'payment' && isAdmin && (
+                                  {entry.type === 'payment' && isAdmin && (canViewCharge || canRefundCharge) && (
                                     <div className="flex gap-2">
-                                      {refundablePayment && (
-                                        <>
-                                          <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => handleViewCharge(entry)}
-                                          >
-                                            View Charge
-                                          </Button>
-                                          <Button
-                                            variant="outline"
-                                            size="sm"
-                                            disabled={refundingEntryId === entry.id}
-                                            onClick={() => handleRefundCharge(entry)}
-                                          >
-                                            {refundingEntryId === entry.id ? 'Refunding...' : 'Refund Charge'}
-                                          </Button>
-                                        </>
+                                      {canViewCharge && (
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => handleViewCharge(entry)}
+                                        >
+                                          View Charge
+                                        </Button>
+                                      )}
+                                      {canRefundCharge && (
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          disabled={refundingEntryId === entry.id}
+                                          onClick={() => setPendingRefundEntry(entry)}
+                                        >
+                                          {refundingEntryId === entry.id ? 'Refunding...' : 'Refund Charge'}
+                                        </Button>
                                       )}
                                     </div>
                                   )}
@@ -440,6 +542,38 @@ export function ShootDetailsActivityLogTab({
           )}
         </CardContent>
       </Card>
+      <AlertDialog
+        open={Boolean(pendingRefundEntry)}
+        onOpenChange={(open) => {
+          if (!open && !refundingEntryId) {
+            setPendingRefundEntry(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Refund this Stripe charge?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will refund the recorded charge amount for this shoot. The payment total, receipt state, and available refund actions will update after the refund finishes.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={Boolean(refundingEntryId)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 text-white hover:bg-red-700 focus:ring-red-600"
+              disabled={!pendingRefundEntry || Boolean(refundingEntryId)}
+              onClick={(event) => {
+                event.preventDefault();
+                if (pendingRefundEntry) {
+                  void handleRefundCharge(pendingRefundEntry);
+                }
+              }}
+            >
+              {refundingEntryId ? 'Refunding...' : 'Refund charge'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

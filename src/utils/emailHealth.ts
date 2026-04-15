@@ -55,6 +55,14 @@ export interface LocalEmailHealthHint {
   requiresConfirmation?: boolean;
 }
 
+const EMAIL_HEALTH_STATUSES = new Set<Exclude<EmailHealthStatus, null>>([
+  'verified',
+  'unverified',
+  'risky',
+  'bounced',
+  'invalid',
+]);
+
 const levenshteinDistance = (left: string, right: string): number => {
   if (left === right) return 0;
   if (!left.length) return right.length;
@@ -118,22 +126,31 @@ const detectClosestCommonDomain = (domain: string): string | null => {
   return null;
 };
 
-export function normalizeEmailHealth(value: any): EmailHealth | undefined {
+const asNullableString = (value: unknown): string | null => (typeof value === 'string' ? value : null);
+
+const asEmailHealthStatus = (value: unknown): EmailHealthStatus =>
+  typeof value === 'string' && EMAIL_HEALTH_STATUSES.has(value as Exclude<EmailHealthStatus, null>)
+    ? (value as Exclude<EmailHealthStatus, null>)
+    : null;
+
+export function normalizeEmailHealth(value: unknown): EmailHealth | undefined {
   if (!value || typeof value !== 'object') {
     return undefined;
   }
 
+  const emailHealth = value as Record<string, unknown>;
+
   return {
-    status: (value.status ?? null) as EmailHealthStatus,
-    verification_sent_at: value.verification_sent_at ?? null,
-    email_verified_at: value.email_verified_at ?? null,
-    last_delivery_attempt_at: value.last_delivery_attempt_at ?? null,
-    last_bounce_at: value.last_bounce_at ?? null,
-    bounce_reason: value.bounce_reason ?? null,
-    warning_code: value.warning_code ?? null,
-    warning_message: value.warning_message ?? null,
-    suggested_correction: value.suggested_correction ?? null,
-    requires_confirmation: Boolean(value.requires_confirmation),
+    status: asEmailHealthStatus(emailHealth.status),
+    verification_sent_at: asNullableString(emailHealth.verification_sent_at),
+    email_verified_at: asNullableString(emailHealth.email_verified_at),
+    last_delivery_attempt_at: asNullableString(emailHealth.last_delivery_attempt_at),
+    last_bounce_at: asNullableString(emailHealth.last_bounce_at),
+    bounce_reason: asNullableString(emailHealth.bounce_reason),
+    warning_code: asNullableString(emailHealth.warning_code),
+    warning_message: asNullableString(emailHealth.warning_message),
+    suggested_correction: asNullableString(emailHealth.suggested_correction),
+    requires_confirmation: Boolean(emailHealth.requires_confirmation),
   };
 }
 
@@ -218,9 +235,8 @@ export function getEmailHealthLabel(status?: EmailHealthStatus): string {
     case 'verified':
       return 'Verified';
     case 'unverified':
-      return 'Unverified';
     case 'risky':
-      return 'Delivery Risk';
+      return 'Unverified';
     case 'bounced':
       return 'Bounced';
     case 'invalid':
@@ -233,15 +249,14 @@ export function getEmailHealthLabel(status?: EmailHealthStatus): string {
 export function getEmailHealthClasses(status?: EmailHealthStatus): string {
   switch (status) {
     case 'verified':
-      return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+      return 'border-emerald-200 bg-transparent text-emerald-700';
     case 'unverified':
-      return 'border-amber-200 bg-amber-50 text-amber-700';
     case 'risky':
-      return 'border-orange-200 bg-orange-50 text-orange-700';
+      return 'border-amber-200 bg-transparent text-amber-700';
     case 'bounced':
     case 'invalid':
-      return 'border-rose-200 bg-rose-50 text-rose-700';
+      return 'border-rose-200 bg-transparent text-rose-700';
     default:
-      return 'border-slate-200 bg-slate-50 text-slate-600';
+      return 'border-slate-200 bg-transparent text-slate-600';
   }
 }

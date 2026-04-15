@@ -10,14 +10,34 @@ import axios from 'axios';
 import { API_BASE_URL, STRIPE_PUBLISHABLE_KEY } from '@/config/env';
 import { loadStripe } from '@stripe/stripe-js';
 import { canUseSafeHistoryFallback, sanitizeRelativeReturnTo } from '@/utils/paymentReturn';
+import { sumCompletedPayments } from '@/utils/shootPaymentSummary';
 
 type ReceiptDetails = {
+  payment_id?: number;
   number: string;
   amount: number;
   currency: string;
   paid_at: string | null;
   provider: string;
   status: string;
+  hosted_receipt_url?: string | null;
+  receipt_url?: string | null;
+  refund_status?: string | null;
+  refunded_at?: string | null;
+  refund_amount?: number | null;
+};
+
+type ShootPaymentRecord = {
+  id?: number;
+  payment_id?: number;
+  amount: number;
+  status?: string;
+  refunded_at?: string | null;
+  refund_status?: string | null;
+  stripe_payment_id?: string | null;
+  stripe_session_id?: string | null;
+  hosted_receipt_url?: string | null;
+  receipt_url?: string | null;
 };
 
 interface ShootDetails {
@@ -38,7 +58,7 @@ interface ShootDetails {
   tax_amount: number;
   services: Array<{ name: string; pivot?: { price: number; quantity: number } }>;
   client?: { name: string; email: string };
-  payments?: Array<{ amount: number; status: string }>;
+  payments?: ShootPaymentRecord[];
   amount_due?: number;
   receipt?: ReceiptDetails | null;
 }
@@ -219,11 +239,9 @@ export default function PaymentPage() {
     };
   }, [confirmStripeSession, fetchShootDetails, initialReturnTo, initialSessionId, isSuccessRedirect]);
 
-  const totalPaid = shoot?.payments
-    ?.filter((p) => p.status === 'completed')
-    .reduce((sum, p) => sum + (p.amount || 0), 0) || 0;
+  const totalPaid = sumCompletedPayments(shoot?.payments);
 
-  const amountDue = (shoot?.total_quote || 0) - totalPaid;
+  const amountDue = Math.max((shoot?.total_quote || 0) - totalPaid, 0);
 
   const fullAddress = shoot
     ? [shoot.address, shoot.city, shoot.state, shoot.zip].filter(Boolean).join(', ')
@@ -242,7 +260,22 @@ export default function PaymentPage() {
   const amountPaid = lastPaymentAmount ?? receipt?.amount ?? effectivePaymentAmount;
   const receiptCurrency = receipt?.currency || 'USD';
   const hasRemainingBalance = amountDue > 0.009;
-  const receiptStatusLabel = receipt?.status === 'completed' ? 'Paid' : 'Pending';
+  const receiptStatusLabel =
+    receipt?.status === 'refunded' || receipt?.refund_status === 'refunded'
+      ? 'Refunded'
+      : receipt?.refund_status === 'pending'
+        ? 'Refund pending'
+        : receipt?.status === 'completed'
+          ? 'Paid'
+          : 'Pending';
+  const receiptStatusClass =
+    receiptStatusLabel === 'Refunded'
+      ? 'text-amber-300'
+      : receiptStatusLabel === 'Refund pending'
+        ? 'text-amber-200'
+        : receiptStatusLabel === 'Paid'
+          ? 'text-emerald-300'
+          : 'text-slate-300';
   const subtotalAmount = shoot?.service_subtotal ?? ((shoot?.base_quote || 0) + (shoot?.discount_amount || 0));
   const mobileServiceCount = shoot?.services?.length ?? 0;
   const pageMaxWidthClass = showEmbeddedCheckout ? 'max-w-[1480px]' : 'max-w-[1180px]';
@@ -383,10 +416,8 @@ export default function PaymentPage() {
         const statusRes = await axios.get(`${API_BASE_URL}/api/public/payments/${token}`);
         const shootData = statusRes.data?.data || statusRes.data;
         setShoot(shootData);
-        const paidSoFar = shootData?.payments
-          ?.filter((p: any) => p.status === 'completed')
-          .reduce((sum: number, p: any) => sum + (p.amount || 0), 0) || 0;
-        const currentDue = (shootData?.total_quote || 0) - paidSoFar;
+        const paidSoFar = sumCompletedPayments(shootData?.payments);
+        const currentDue = Math.max((shootData?.total_quote || 0) - paidSoFar, 0);
 
           if (currentDue < amountDue) {
             if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
@@ -664,7 +695,7 @@ export default function PaymentPage() {
 
                         <div>
                           <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Payment status</p>
-                          <p className="mt-1 text-base font-semibold text-emerald-300">{receiptStatusLabel}</p>
+                          <p className={`mt-1 text-base font-semibold ${receiptStatusClass}`}>{receiptStatusLabel}</p>
                         </div>
                       </div>
                     </section>

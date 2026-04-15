@@ -30,6 +30,13 @@ interface UserActivity {
   timestamp: string;
 }
 
+type UserProfileDialogUser = User & {
+  secondaryRoles?: string[];
+  secondary_roles?: string[];
+  created_by_name?: string;
+  createdBy?: string;
+};
+
 // Mock data for user activity
 const mockActivities: UserActivity[] = [
   {
@@ -82,6 +89,7 @@ export function UserProfileDialog({
 }: UserProfileDialogProps) {
   const { role: viewerRole } = useAuth();
   if (!user) return null;
+  const profileUser = user as UserProfileDialogUser;
   const canSeeSensitiveRepData = viewerRole === 'superadmin';
   const canSeeActivityLog = ['admin', 'superadmin', 'editing_manager', 'salesRep'].includes(viewerRole);
   const repDetails = (user.metadata?.repDetails as RepDetails | undefined) || undefined;
@@ -122,10 +130,10 @@ export function UserProfileDialog({
     lastShootDate,
   };
 
-  const secondaryRoles = Array.isArray((user as any).secondaryRoles)
-    ? (user as any).secondaryRoles
-    : Array.isArray((user as any).secondary_roles)
-      ? (user as any).secondary_roles
+  const secondaryRoles = Array.isArray(profileUser.secondaryRoles)
+    ? profileUser.secondaryRoles
+    : Array.isArray(profileUser.secondary_roles)
+      ? profileUser.secondary_roles
       : [];
   const secondaryRoleList = secondaryRoles
     .filter((role: string) => role && role !== user.role)
@@ -142,7 +150,7 @@ export function UserProfileDialog({
           <div className="flex flex-col gap-5 md:flex-row md:gap-6">
           <div className="flex flex-col items-center space-y-3">
             <Avatar className="h-24 w-24">
-              <AvatarImage src={getAvatarUrl(user.avatar, user.role, (user as any).gender, user.id)} alt={user.name} />
+              <AvatarImage src={getAvatarUrl(user.avatar, user.role, user.gender, user.id)} alt={user.name} />
               <AvatarFallback className="text-lg">{getInitials(user.name)}</AvatarFallback>
             </Avatar>
             <div className="text-center">
@@ -150,7 +158,6 @@ export function UserProfileDialog({
               <p className="text-sm text-muted-foreground">{user.email}</p>
               <div className="mt-2 flex flex-wrap justify-center gap-1">
                 <Badge>{formatRoleLabel(user.role)}</Badge>
-                <EmailHealthBadge emailHealth={user.email_health} />
                 {secondaryRoleList.map((role: string) => (
                   <Badge key={`${user.id}-${role}`} variant="outline" className="text-xs px-2 py-0.5 opacity-80">
                     {formatRoleLabel(role)}
@@ -207,10 +214,10 @@ export function UserProfileDialog({
                     <p className="font-medium">{accountRep || 'Unassigned'}</p>
                   </div>
 
-                  {user.role === 'client' && (user as any).created_by_name && (
+                  {user.role === 'client' && profileUser.created_by_name && (
                     <div>
                       <p className="text-sm text-muted-foreground">Created By</p>
-                      <p className="font-medium">{(user as any).created_by_name || (user as any).createdBy || 'N/A'}</p>
+                      <p className="font-medium">{profileUser.created_by_name || profileUser.createdBy || 'N/A'}</p>
                     </div>
                   )}
 
