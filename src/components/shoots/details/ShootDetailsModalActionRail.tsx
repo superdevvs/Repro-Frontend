@@ -131,6 +131,16 @@ export function ShootDetailsModalActionRail({
   handleGenerateShareLink,
   onClose,
 }: ShootDetailsModalActionRailProps) {
+  const hasRawDownloadSelection = rawFileCount > 0 || selectedFileIds.length > 0;
+  const canOpenDeliveredDownloadDialog =
+    isDelivered && !isEditor && !isPhotographer && (!isClient || canClientDownload);
+  const canAdminDownloadRawDuringProgress =
+    !isDelivered && isAdmin && !isEditor && !isPhotographer && !isClient && hasRawDownloadSelection;
+  const rawDownloadLabel =
+    selectedFileIds.length > 0
+      ? `Download Selected (${selectedFileIds.length})`
+      : `Download RAW (${rawFileCount})`;
+
   return (
     <>
       <div className="hidden sm:flex absolute top-4 z-[80] flex-col items-end right-14">
@@ -249,7 +259,7 @@ export function ShootDetailsModalActionRail({
                   <span>{cancelActionLabel}</span>
                 </Button>
               )}
-              {isDelivered && !isEditor && !isPhotographer && (!isClient || canClientDownload) && (
+              {canOpenDeliveredDownloadDialog && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -262,6 +272,18 @@ export function ShootDetailsModalActionRail({
                 >
                   <Download className="h-3 w-3 mr-1" />
                   <span>{isDownloading ? 'Downloading...' : 'Download'}</span>
+                </Button>
+              )}
+              {canAdminDownloadRawDuringProgress && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs px-3 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 dark:bg-green-950 dark:hover:bg-green-900 dark:text-green-300 dark:border-green-800"
+                  onClick={handleEditorDownloadRaw}
+                  disabled={isDownloading || !hasRawDownloadSelection}
+                >
+                  <Download className="h-3 w-3 mr-1" />
+                  <span>{isDownloading ? 'Downloading...' : rawDownloadLabel}</span>
                 </Button>
               )}
               {isDelivered && isPhotographer && (
@@ -442,6 +464,37 @@ export function ShootDetailsModalActionRail({
                   <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
                 </div>
                 {cancelActionLabel}
+              </button>
+            )}
+            {canOpenDeliveredDownloadDialog && !isEditMode && (
+              <button
+                className="flex items-center gap-3 w-full rounded-xl px-3 py-3 text-sm font-medium hover:bg-muted transition-colors"
+                onClick={() => {
+                  setIsMobileActionsOpen(false);
+                  blurActiveElement();
+                  setIsDownloadDialogOpen(true);
+                }}
+                disabled={isDownloading}
+              >
+                <div className="flex items-center justify-center h-9 w-9 rounded-full bg-green-100 dark:bg-green-900/40">
+                  <Download className="h-4 w-4 text-green-600 dark:text-green-400" />
+                </div>
+                {isDownloading ? 'Downloading...' : 'Download media'}
+              </button>
+            )}
+            {canAdminDownloadRawDuringProgress && !isEditMode && (
+              <button
+                className="flex items-center gap-3 w-full rounded-xl px-3 py-3 text-sm font-medium hover:bg-muted transition-colors"
+                onClick={() => {
+                  setIsMobileActionsOpen(false);
+                  handleEditorDownloadRaw();
+                }}
+                disabled={isDownloading || !hasRawDownloadSelection}
+              >
+                <div className="flex items-center justify-center h-9 w-9 rounded-full bg-green-100 dark:bg-green-900/40">
+                  <Download className="h-4 w-4 text-green-600 dark:text-green-400" />
+                </div>
+                {isDownloading ? 'Downloading...' : rawDownloadLabel}
               </button>
             )}
           </div>

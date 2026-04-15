@@ -5,6 +5,7 @@ import { getApiHeaders } from '@/services/api';
 import {
   downloadShootMediaArchive,
   getShootMediaDownloadSizeLabel,
+  startSameWindowDownload,
 } from '@/utils/shootMediaDownload';
 import {
   buildBrightMlsPublishPayloadWithFallback,
@@ -133,7 +134,7 @@ export function useShootDetailsModalActions({
       if (contentType && contentType.includes('application/json')) {
         const data = await res.json();
         if (data.type === 'redirect' && data.url) {
-          window.open(data.url, '_blank');
+          startSameWindowDownload(data.url);
           toast({
             title: 'Download started',
             description:
@@ -238,8 +239,8 @@ export function useShootDetailsModalActions({
         description:
           result.mode === 'redirect'
             ? result.waited
-              ? 'Your files are ready and opening in a new tab.'
-              : 'Opening download link in new tab...'
+              ? 'Your files are ready and the download is starting.'
+              : 'Starting your download...'
             : `Downloading media files in ${getShootMediaDownloadSizeLabel(size)}...`,
       });
     } catch (error) {

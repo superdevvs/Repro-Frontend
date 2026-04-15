@@ -61,7 +61,7 @@ export function useShootDetailsScreen({
 
   const rawFileCount = useShootRawFileCount(
     shoot?.id ?? shootId,
-    controller.roleFlags.isEditor,
+    controller.roleFlags.isEditor || controller.roleFlags.isAdmin || controller.roleFlags.isPhotographer,
     shoot,
   );
 

@@ -113,6 +113,17 @@ const sleep = (time: number) => new Promise((resolve) => {
   window.setTimeout(resolve, time);
 });
 
+export const startSameWindowDownload = (url: string) => {
+  const iframe = document.createElement('iframe');
+  iframe.style.display = 'none';
+  iframe.setAttribute('aria-hidden', 'true');
+  iframe.src = url;
+  document.body.appendChild(iframe);
+  window.setTimeout(() => {
+    iframe.remove();
+  }, 60_000);
+};
+
 const renderDownloadWindow = (
   downloadWindow: Window | null,
   title: string,
@@ -138,17 +149,7 @@ const navigateDownloadWindow = (
   redirectMode: 'new-tab' | 'same-tab',
   url: string,
 ) => {
-  if (redirectMode === 'same-tab') {
-    window.location.replace(url);
-    return;
-  }
-
-  if (downloadWindow && !downloadWindow.closed) {
-    downloadWindow.location.href = url;
-    return;
-  }
-
-  window.open(url, '_blank');
+  startSameWindowDownload(url);
 };
 
 const extractJsonResponse = async (response: Response) => {
@@ -191,11 +192,7 @@ export const resolveShootMediaArchiveRequest = async ({
 }: ResolveShootMediaArchiveRequestOptions): Promise<ShootMediaArchiveDownloadResult> => {
   let currentUrl = requestUrl;
   let waited = false;
-  const downloadWindow = redirectMode === 'new-tab' ? window.open('', '_blank') : null;
-
-  if (downloadWindow) {
-    renderDownloadWindow(downloadWindow, 'Preparing Download', 'Checking your files...');
-  }
+  const downloadWindow = null;
 
   while (true) {
     const response = await fetch(currentUrl, {
@@ -289,7 +286,7 @@ export const downloadShootMediaArchive = async ({
       Accept: 'application/json, application/zip, application/octet-stream',
     },
     onPreparing,
-    redirectMode: 'new-tab',
+    redirectMode: 'same-tab',
     requestUrl: `${API_BASE_URL}/api/shoots/${shootId}/media/download-zip?${params.toString()}`,
     shootId,
     size,

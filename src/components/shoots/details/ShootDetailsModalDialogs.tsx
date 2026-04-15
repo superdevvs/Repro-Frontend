@@ -457,7 +457,7 @@ export function ShootDetailsModalDialogs({
             <DialogTitle>Download Media</DialogTitle>
             <DialogDescription>
               {isDownloading
-                ? 'Your download will open automatically when it is ready.'
+                ? 'Your download will start automatically when it is ready.'
                 : 'Select the image size you want to download'}
             </DialogDescription>
           </DialogHeader>
@@ -470,7 +470,7 @@ export function ShootDetailsModalDialogs({
                   <div className="text-sm text-muted-foreground">{downloadStatusMessage}</div>
                 </div>
               </div>
-              <HorizontalLoader message="A new tab will open automatically when the archive is ready." />
+              <HorizontalLoader message="Your download will start automatically when the archive is ready." />
             </div>
           ) : (
             <div className="space-y-3 py-4">

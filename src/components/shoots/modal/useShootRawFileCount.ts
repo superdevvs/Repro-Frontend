@@ -3,6 +3,18 @@ import { API_BASE_URL } from '@/config/env';
 import { getApiHeaders } from '@/services/api';
 import { ShootData } from '@/types/shoots';
 
+const getLegacyRawPhotoCount = (shoot?: ShootData | null) => {
+  if (!shoot || typeof shoot !== 'object') {
+    return undefined;
+  }
+
+  const legacyShoot = shoot as ShootData & {
+    raw_photo_count?: number;
+  };
+
+  return legacyShoot.raw_photo_count;
+};
+
 export function useShootRawFileCount(
   shootId: string | number | null | undefined,
   enabled: boolean,
@@ -12,7 +24,17 @@ export function useShootRawFileCount(
 
   useEffect(() => {
     const fetchRawFileCount = async () => {
-      if (!shootId || !enabled) return;
+      const fallbackCount = Number(
+        shoot?.rawPhotoCount ??
+          getLegacyRawPhotoCount(shoot) ??
+          shoot?.mediaSummary?.rawUploaded ??
+          0,
+      );
+
+      if (!shootId || !enabled) {
+        setRawFileCount(fallbackCount);
+        return;
+      }
 
       try {
         const headers = getApiHeaders();
@@ -28,12 +50,6 @@ export function useShootRawFileCount(
         setRawFileCount(Array.isArray(files) ? files.length : 0);
       } catch (error) {
         console.error('Failed to fetch raw file count:', error);
-        const fallbackCount = Number(
-          shoot?.rawPhotoCount ??
-            (shoot as any)?.raw_photo_count ??
-            shoot?.mediaSummary?.rawUploaded ??
-            0,
-        );
         setRawFileCount(fallbackCount);
       }
     };
