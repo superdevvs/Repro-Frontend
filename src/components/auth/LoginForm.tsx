@@ -181,6 +181,7 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
   }, [activeTab]);
 
   const isRegister = activeTab === 'register';
+  const desktopFormWidthClass = isRegister ? 'max-w-[46rem]' : 'max-w-md';
 
   const registerContentClass = isMobile
     ? 'space-y-8 pb-10 pt-1 -mt-1'
@@ -191,7 +192,7 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
 
   return (
     <motion.div
-      className={`w-full max-w-md mx-auto ${
+      className={`w-full mx-auto ${isMobile ? 'max-w-md' : desktopFormWidthClass} ${
         isMobile
           ? `${isRegister ? 'rounded-[28px] overflow-hidden' : 'rounded-b-[28px] rounded-t-none'} shadow-[0_24px_60px_rgba(1,3,9,0.68)] bg-[#03060B]`
           : ''

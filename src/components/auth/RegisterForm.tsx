@@ -267,7 +267,8 @@ const smsConsentOptions = [
 
 const registerSchema = z
   .object({
-    name: z.string().min(1, 'Full name is required'),
+    firstName: z.string().min(1, 'First name is required'),
+    lastName: z.string().min(1, 'Last name is required'),
     company: z.string().optional(),
     phone: z.string().optional(),
     marketingSmsOptIn: z.boolean().optional(),
@@ -343,7 +344,8 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
-      name: '',
+      firstName: '',
+      lastName: '',
       company: '',
       phone: '',
       marketingSmsOptIn: false,
@@ -359,7 +361,8 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
     },
   });
   const stepOneFields: Array<keyof RegisterFormValues> = [
-    'name',
+    'firstName',
+    'lastName',
     'email',
     'company',
     'phone',
@@ -371,8 +374,58 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
     'confirmPassword',
   ];
   const emailValue = form.watch('email');
+  const [
+    firstNameValue,
+    lastNameValue,
+    cityValue,
+    stateValue,
+    zipValue,
+    countryValue,
+    passwordValue,
+    confirmPasswordValue,
+  ] = form.watch([
+    'firstName',
+    'lastName',
+    'city',
+    'state',
+    'zip',
+    'country',
+    'password',
+    'confirmPassword',
+  ]);
   const hasAcceptedTerms = form.watch('terms');
   const localEmailHint = useMemo(() => analyzeEmailInput(emailValue ?? ''), [emailValue]);
+  const stepOneProgressPercent = useMemo(() => {
+    const emailIsComplete =
+      z.string().email().safeParse((emailValue ?? '').trim()).success &&
+      (!localEmailHint.requiresConfirmation || emailWarningOverride);
+    const checks = [
+      (firstNameValue ?? '').trim().length > 0,
+      (lastNameValue ?? '').trim().length > 0,
+      emailIsComplete,
+      (cityValue ?? '').trim().length > 0,
+      (stateValue ?? '').trim().length > 0,
+      (zipValue ?? '').trim().length > 0,
+      (countryValue ?? '').trim().length > 0,
+      (passwordValue ?? '').length >= 6,
+      (confirmPasswordValue ?? '').length >= 6 && confirmPasswordValue === passwordValue,
+    ];
+
+    return Math.round((checks.filter(Boolean).length / checks.length) * 100);
+  }, [
+    cityValue,
+    confirmPasswordValue,
+    countryValue,
+    emailValue,
+    emailWarningOverride,
+    firstNameValue,
+    lastNameValue,
+    localEmailHint.requiresConfirmation,
+    passwordValue,
+    stateValue,
+    zipValue,
+  ]);
+  const stepOneProgressFill = stepOneProgressPercent === 0 ? 0 : Math.max(stepOneProgressPercent, 8);
   const canDismissTermsDialog = hasAcceptedTerms || termsScrolledToEnd;
 
   useEffect(() => {
@@ -478,9 +531,10 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
       const normalizedState = values.state?.trim() ? values.state.trim() : null;
       const normalizedZip = values.zip?.trim() ? values.zip.trim() : null;
       const normalizedCountry = values.country?.trim() ? values.country.trim() : null;
+      const fullName = [values.firstName.trim(), values.lastName.trim()].filter(Boolean).join(' ');
 
       const response = await axios.post(`${API_BASE_URL}/api/register`, {
-        name: values.name.trim(),
+        name: fullName,
         email: values.email.trim(),
         password: values.password,
         password_confirmation: values.confirmPassword,
@@ -594,12 +648,6 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
                 </div>
               </div>
 
-              <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/10">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-blue-500 to-cyan-400 transition-all duration-300"
-                  style={{ width: currentStep === 1 ? '50%' : '100%' }}
-                />
-              </div>
             </>
           ) : (
             <div className="flex items-center gap-4">
@@ -616,27 +664,39 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
               <div className="inline-flex shrink-0 items-center rounded-full bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary dark:bg-cyan-400/10 dark:text-cyan-300">
                 {currentStep === 1 ? 'Profile setup' : 'Final review'}
               </div>
-              <div className="h-1.5 w-28 shrink-0 overflow-hidden rounded-full bg-border/60 dark:bg-white/10">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-blue-500 to-cyan-400 transition-all duration-300"
-                  style={{ width: currentStep === 1 ? '50%' : '100%' }}
-                />
-              </div>
             </div>
           )}
         </div>
 
         {currentStep === 1 ? (
           <>
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
               <FormField
                 control={form.control}
-                name="name"
+                name="firstName"
                 render={({ field }) => (
                   <FormItem className="relative">
                     <FormControl>
                       <Input
-                        placeholder="First Name Last Name"
+                        placeholder="First Name"
+                        autoComplete="given-name"
+                        {...field}
+                        className={inputClass}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="lastName"
+                render={({ field }) => (
+                  <FormItem className="relative">
+                    <FormControl>
+                      <Input
+                        placeholder="Last Name"
+                        autoComplete="family-name"
                         {...field}
                         className={inputClass}
                       />
@@ -653,6 +713,8 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
                     <FormControl>
                       <Input
                         placeholder="you@company.com"
+                        type="email"
+                        autoComplete="email"
                         {...field}
                         onChange={(event) => {
                           field.onChange(event);
@@ -700,6 +762,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
                       <Input
                         id="register-company"
                         placeholder="Company"
+                        autoComplete="organization"
                         {...field}
                         className={inputClass}
                       />
@@ -725,6 +788,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
                         value={field.value}
                         onChange={field.onChange}
                         placeholder="+1 (555) 000-0000"
+                        autoComplete="tel"
                         className={inputClass}
                       />
                     </FormControl>
@@ -743,6 +807,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
                     <FormControl>
                       <Input
                         placeholder="San Francisco"
+                        autoComplete="address-level2"
                         {...field}
                         className={inputClass}
                       />
@@ -759,6 +824,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
                     <FormControl>
                       <Input
                         placeholder="CA"
+                        autoComplete="address-level1"
                         {...field}
                         className={inputClass}
                       />
@@ -775,6 +841,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
                     <FormControl>
                       <Input
                         placeholder="94107"
+                        autoComplete="postal-code"
                         {...field}
                         className={inputClass}
                       />
@@ -793,6 +860,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
                   <FormControl>
                     <Input
                       placeholder="United States"
+                      autoComplete="country-name"
                       {...field}
                       className={inputClass}
                     />
@@ -813,6 +881,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
                         <Input
                           type={showPassword ? 'text' : 'password'}
                           placeholder="Password"
+                          autoComplete="new-password"
                           {...field}
                           className={`${inputClass} pr-10`}
                         />
@@ -841,6 +910,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
                         <Input
                           type={showConfirm ? 'text' : 'password'}
                           placeholder="Confirm Password"
+                          autoComplete="new-password"
                           {...field}
                           className={`${inputClass} pr-10`}
                         />
@@ -861,27 +931,36 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
             </div>
 
             <div className={`border-t border-white/10 pt-2 ${isMobile ? 'flex flex-col gap-3' : 'flex items-center justify-between gap-6'}`}>
-              <p
-                className={
-                  isMobile
-                    ? smsBodyClass
-                    : 'min-w-0 flex-1 whitespace-nowrap text-sm text-muted-foreground dark:text-slate-300'
-                }
-              >
-                {isMobile
-                  ? 'Next, you can review optional SMS updates and accept the terms before creating your account.'
-                  : 'Next: review optional SMS updates and accept the terms.'}
+              <p className={isMobile ? smsBodyClass : 'max-w-[28rem] flex-1 text-sm leading-6 text-muted-foreground dark:text-slate-300'}>
+                {isMobile ? (
+                  'Next, you can review optional SMS updates and accept the terms before creating your account.'
+                ) : (
+                  <>
+                    <span className="block">Next, review optional SMS updates and accept the terms</span>
+                    <span className="block">before creating your account.</span>
+                  </>
+                )}
               </p>
               <Button
                 type="button"
                 onClick={() => {
                   void goToPreferencesStep();
                 }}
-                className={`h-12 rounded-full px-8 text-base font-semibold ${
+                className={`h-12 rounded-full border border-white/10 px-8 text-base font-semibold text-white transition-all duration-300 ${
                   isMobile
-                    ? 'w-full bg-gradient-to-r from-blue-500 to-cyan-400 text-white shadow-lg shadow-blue-500/25 hover:opacity-90'
-                    : 'min-w-[180px] bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-lg shadow-blue-600/25 hover:opacity-90'
+                    ? 'w-full hover:opacity-95'
+                    : 'min-w-[220px] hover:opacity-95'
                 }`}
+                style={{
+                  background:
+                    stepOneProgressFill === 0
+                      ? 'rgba(51, 65, 85, 0.58)'
+                      : `linear-gradient(90deg, rgb(37 99 235) 0%, rgb(34 211 238) ${stepOneProgressFill}%, rgba(51, 65, 85, 0.58) ${stepOneProgressFill}%, rgba(51, 65, 85, 0.58) 100%)`,
+                  boxShadow:
+                    stepOneProgressPercent >= 100
+                      ? '0 10px 30px rgba(37, 99, 235, 0.28)'
+                      : '0 10px 24px rgba(8, 47, 73, 0.16)',
+                }}
               >
                 Next
               </Button>
