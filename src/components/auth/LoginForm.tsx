@@ -181,11 +181,11 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
   }, [activeTab]);
 
   const isRegister = activeTab === 'register';
-  const desktopFormWidthClass = isRegister ? 'max-w-[46rem]' : 'max-w-md';
+  const desktopFormWidthClass = isRegister ? 'max-w-[42rem]' : 'max-w-md';
 
   const registerContentClass = isMobile
     ? 'space-y-8 pb-10 pt-1 -mt-1'
-    : 'space-y-8 pb-8 pt-2';
+    : 'space-y-6 pb-2 pt-0';
   const mobileRegisterPanelStyle = isMobile && isRegister
     ? { maxHeight: 'calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 1rem)' }
     : undefined;
@@ -209,9 +209,9 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
             : 'border-none bg-transparent'
         }`}
       >
-        <CardContent className={`${isMobile ? `${isRegister ? 'flex min-h-0 h-full flex-col overflow-hidden p-4 sm:p-6' : 'p-4 sm:p-6'} relative z-10` : isRegister ? 'px-0 py-4' : 'p-0'}`}>
+        <CardContent className={`${isMobile ? `${isRegister ? 'flex min-h-0 h-full flex-col overflow-hidden p-4 sm:p-6' : 'p-4 sm:p-6'} relative z-10` : isRegister ? 'px-0 py-2' : 'p-0'}`}>
           {/* Top header (logo + heading + subtext) */}
-          <div className={`${isMobile ? 'text-left mb-5 space-y-2.5' : isRegister ? 'text-center mb-10 pt-2' : 'text-center mb-8'}`}>
+          <div className={`${isMobile ? 'text-left mb-5 space-y-2.5' : isRegister ? 'text-center mb-8 pt-0' : 'text-center mb-8'}`}>
             <div className={`h-[34px] mb-4 flex items-center ${isMobile ? 'justify-start mt-[10px]' : 'justify-center'}`}>
               <Logo
                 className="h-[34px] w-auto"

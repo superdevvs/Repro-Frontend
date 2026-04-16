@@ -630,7 +630,6 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
             <>
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="space-y-2">
-                  <p className={metaLabelClass}>Step {currentStep} of 2</p>
                   <div className="space-y-1">
                     <h3 className="text-lg font-semibold text-white">
                       {currentStep === 1 ? 'Account details' : 'Alerts and agreements'}
@@ -651,8 +650,6 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
             </>
           ) : (
             <div className="flex items-center gap-4">
-              <p className={metaLabelClass}>Step {currentStep} of 2</p>
-              <div className="h-4 w-px bg-border/60 dark:bg-white/10" />
               <h3 className="text-base font-semibold text-foreground dark:text-white">
                 {currentStep === 1 ? 'Account details' : 'Alerts and agreements'}
               </h3>

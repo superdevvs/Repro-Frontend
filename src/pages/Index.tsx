@@ -174,8 +174,6 @@ const Index = () => {
 
   const activeSlide = LOGIN_SLIDES[displayIndex];
   const isRegisterView = activeTab === 'register';
-  const desktopMediaPaneWidthClass = isRegisterView ? 'w-[44%]' : 'w-1/2';
-  const desktopAuthPaneWidthClass = isRegisterView ? 'w-[56%]' : 'w-1/2';
 
   // Mobile layout: Login = no scroll, responsive height; Register = scrollable
   if (isMobile) {
@@ -272,7 +270,7 @@ const Index = () => {
       style={{ background: '#060a0e' }}
     >
       {/* Left Side - Slideshow */}
-      <div className={`relative flex h-full ${desktopMediaPaneWidthClass} items-center justify-center`}>
+      <div className="relative flex h-full w-1/2 items-center justify-center">
         <div className="relative w-full h-full overflow-hidden rounded-3xl bg-[#05080d]">
           <AnimatePresence mode="sync">
             <motion.img
@@ -302,7 +300,7 @@ const Index = () => {
 
       {/* Right Side - Login Section */}
       <motion.div
-        className={`flex h-full ${desktopAuthPaneWidthClass}`}
+        className="flex h-full w-1/2"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.05 }}
@@ -310,7 +308,7 @@ const Index = () => {
         <div
           className={`relative flex h-full w-full justify-center rounded-3xl bg-[#05080d] ${
             isRegisterView
-              ? 'items-start overflow-y-auto px-6 py-12 xl:px-8 xl:py-14'
+              ? 'items-center overflow-hidden px-8 py-8 xl:px-10 xl:py-10'
               : 'items-center overflow-hidden px-8 py-10 xl:px-12'
           }`}
         >
@@ -321,7 +319,7 @@ const Index = () => {
             transition={{ duration: 1.35, ease: [0.22, 1, 0.36, 1] }}
             style={{ background: DESKTOP_LOGIN_CARD_GRADIENT }}
           />
-          <div className={`relative z-10 w-full ${isRegisterView ? 'max-w-[46rem] min-h-full' : 'max-w-md'}`}>
+          <div className={`relative z-10 w-full ${isRegisterView ? 'max-w-[42rem]' : 'max-w-md'}`}>
             <LoginForm onTabChange={handleTabChange} />
           </div>
         </div>
