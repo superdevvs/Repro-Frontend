@@ -360,9 +360,9 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
   });
   const stepOneFields: Array<keyof RegisterFormValues> = [
     'name',
+    'email',
     'company',
     'phone',
-    'email',
     'city',
     'state',
     'zip',
@@ -569,41 +569,61 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
           className={
             isMobile
               ? 'rounded-[28px] border border-white/10 bg-white/[0.04] p-4'
-              : 'rounded-[28px] border border-border/60 bg-black/[0.02] p-5 dark:border-white/10 dark:bg-white/[0.03]'
+              : 'rounded-[24px] border border-border/60 bg-black/[0.02] px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]'
           }
         >
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="space-y-2">
+          {isMobile ? (
+            <>
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="space-y-2">
+                  <p className={metaLabelClass}>Step {currentStep} of 2</p>
+                  <div className="space-y-1">
+                    <h3 className="text-lg font-semibold text-white">
+                      {currentStep === 1 ? 'Account details' : 'Alerts and agreements'}
+                    </h3>
+                    <p className={smsBodyClass}>
+                      {currentStep === 1
+                        ? 'Start with your login and profile details. You will review SMS options and terms on the next step.'
+                        : 'Choose any optional text alerts you want, then accept the terms to finish creating your account.'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="inline-flex w-fit items-center rounded-full bg-cyan-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-cyan-200">
+                  {currentStep === 1 ? 'Profile setup' : 'Final review'}
+                </div>
+              </div>
+
+              <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/10">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-blue-500 to-cyan-400 transition-all duration-300"
+                  style={{ width: currentStep === 1 ? '50%' : '100%' }}
+                />
+              </div>
+            </>
+          ) : (
+            <div className="flex items-center gap-4">
               <p className={metaLabelClass}>Step {currentStep} of 2</p>
-              <div className="space-y-1">
-                <h3 className={`text-lg font-semibold ${isMobile ? 'text-white' : 'text-foreground dark:text-white'}`}>
-                  {currentStep === 1 ? 'Account details' : 'Alerts and agreements'}
-                </h3>
-                <p className={smsBodyClass}>
-                  {currentStep === 1
-                    ? 'Start with your login and profile details. You will review SMS options and terms on the next step.'
-                    : 'Choose any optional text alerts you want, then accept the terms to finish creating your account.'}
-                </p>
+              <div className="h-4 w-px bg-border/60 dark:bg-white/10" />
+              <h3 className="text-base font-semibold text-foreground dark:text-white">
+                {currentStep === 1 ? 'Account details' : 'Alerts and agreements'}
+              </h3>
+              <p className="min-w-0 flex-1 truncate text-sm text-muted-foreground dark:text-slate-300">
+                {currentStep === 1
+                  ? 'Add your details first, then review SMS preferences and terms.'
+                  : 'Review optional SMS preferences, accept the terms, and finish registration.'}
+              </p>
+              <div className="inline-flex shrink-0 items-center rounded-full bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary dark:bg-cyan-400/10 dark:text-cyan-300">
+                {currentStep === 1 ? 'Profile setup' : 'Final review'}
+              </div>
+              <div className="h-1.5 w-28 shrink-0 overflow-hidden rounded-full bg-border/60 dark:bg-white/10">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-blue-500 to-cyan-400 transition-all duration-300"
+                  style={{ width: currentStep === 1 ? '50%' : '100%' }}
+                />
               </div>
             </div>
-
-            <div
-              className={`inline-flex w-fit items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] ${
-                isMobile
-                  ? 'bg-cyan-400/10 text-cyan-200'
-                  : 'bg-primary/10 text-primary dark:bg-cyan-400/10 dark:text-cyan-300'
-              }`}
-            >
-              {currentStep === 1 ? 'Profile setup' : 'Final review'}
-            </div>
-          </div>
-
-          <div className={`mt-4 h-1.5 overflow-hidden rounded-full ${isMobile ? 'bg-white/10' : 'bg-border/60 dark:bg-white/10'}`}>
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-blue-500 to-cyan-400 transition-all duration-300"
-              style={{ width: currentStep === 1 ? '50%' : '100%' }}
-            />
-          </div>
+          )}
         </div>
 
         {currentStep === 1 ? (
@@ -616,51 +636,8 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
                   <FormItem className="relative">
                     <FormControl>
                       <Input
-                        placeholder="Full Name"
+                        placeholder="First Name Last Name"
                         {...field}
-                        className={inputClass}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="company"
-                render={({ field }) => (
-                  <FormItem className="relative">
-                    <FormControl>
-                      <Input
-                        placeholder="Company (Optional)"
-                        {...field}
-                        className={inputClass}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-              <FormField
-                control={form.control}
-                name="phone"
-                render={({ field }) => (
-                  <FormItem className="relative flex flex-col gap-3">
-                    <div className="flex items-center justify-between px-1">
-                      <label htmlFor="register-phone" className={metaLabelClass}>
-                        Phone Number
-                      </label>
-                      <span className={optionalLabelClass}>Optional</span>
-                    </div>
-                    <FormControl>
-                      <PhoneInput
-                        id="register-phone"
-                        value={field.value}
-                        onChange={field.onChange}
-                        placeholder="+1 (555) 000-0000"
                         className={inputClass}
                       />
                     </FormControl>
@@ -701,6 +678,56 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
                         form.clearErrors('email');
                       }}
                     />
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="company"
+                render={({ field }) => (
+                  <FormItem className="relative flex flex-col gap-3">
+                    <div className="flex items-center justify-between px-1">
+                      <label htmlFor="register-company" className={metaLabelClass}>
+                        Company
+                      </label>
+                      <span className={optionalLabelClass}>Optional</span>
+                    </div>
+                    <FormControl>
+                      <Input
+                        id="register-company"
+                        placeholder="Company"
+                        {...field}
+                        className={inputClass}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="phone"
+                render={({ field }) => (
+                  <FormItem className="relative flex flex-col gap-3">
+                    <div className="flex items-center justify-between px-1">
+                      <label htmlFor="register-phone" className={metaLabelClass}>
+                        Phone Number
+                      </label>
+                      <span className={optionalLabelClass}>Optional</span>
+                    </div>
+                    <FormControl>
+                      <PhoneInput
+                        id="register-phone"
+                        value={field.value}
+                        onChange={field.onChange}
+                        placeholder="+1 (555) 000-0000"
+                        className={inputClass}
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -775,7 +802,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
               )}
             />
 
-            <div className="space-y-6">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               <FormField
                 control={form.control}
                 name="password"
@@ -833,9 +860,17 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
               />
             </div>
 
-            <div className="flex flex-col gap-3 border-t border-white/10 pt-2 sm:flex-row sm:items-center sm:justify-between">
-              <p className={smsBodyClass}>
-                Next, you can review optional SMS updates and accept the terms before creating your account.
+            <div className={`border-t border-white/10 pt-2 ${isMobile ? 'flex flex-col gap-3' : 'flex items-center justify-between gap-6'}`}>
+              <p
+                className={
+                  isMobile
+                    ? smsBodyClass
+                    : 'min-w-0 flex-1 whitespace-nowrap text-sm text-muted-foreground dark:text-slate-300'
+                }
+              >
+                {isMobile
+                  ? 'Next, you can review optional SMS updates and accept the terms before creating your account.'
+                  : 'Next: review optional SMS updates and accept the terms.'}
               </p>
               <Button
                 type="button"
