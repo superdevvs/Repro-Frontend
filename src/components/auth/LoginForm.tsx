@@ -185,14 +185,18 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
   const registerContentClass = isMobile
     ? 'space-y-8 pb-10 pt-1 -mt-1'
     : 'space-y-8 pb-8 pt-2';
+  const mobileRegisterPanelStyle = isMobile && isRegister
+    ? { maxHeight: 'calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 1rem)' }
+    : undefined;
 
   return (
     <motion.div
       className={`w-full max-w-md mx-auto ${
         isMobile
-          ? `${isRegister ? 'rounded-[28px]' : 'rounded-b-[28px] rounded-t-none'} shadow-[0_24px_60px_rgba(1,3,9,0.68)] bg-[#03060B]`
+          ? `${isRegister ? 'rounded-[28px] overflow-hidden' : 'rounded-b-[28px] rounded-t-none'} shadow-[0_24px_60px_rgba(1,3,9,0.68)] bg-[#03060B]`
           : ''
       }`}
+      style={mobileRegisterPanelStyle}
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
@@ -200,11 +204,11 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
       <Card
         className={`shadow-none ${
           isMobile
-            ? `relative ${isRegister ? 'rounded-[26px]' : 'rounded-b-[26px] rounded-t-none'} border-none bg-gradient-to-b from-[#050815]/85 via-[#050f20]/55 to-[#0b1a36] backdrop-blur-2xl before:content-[''] before:absolute before:inset-x-0 before:top-0 before:h-[46px] before:bg-gradient-to-b before:from-[#050815]/85 before:via-[#050815]/35 before:to-transparent before:pointer-events-none`
+            ? `relative ${isRegister ? 'rounded-[26px] h-full overflow-hidden' : 'rounded-b-[26px] rounded-t-none'} border-none bg-gradient-to-b from-[#050815]/85 via-[#050f20]/55 to-[#0b1a36] backdrop-blur-2xl before:content-[''] before:absolute before:inset-x-0 before:top-0 before:h-[46px] before:bg-gradient-to-b before:from-[#050815]/85 before:via-[#050815]/35 before:to-transparent before:pointer-events-none`
             : 'border-none bg-transparent'
         }`}
       >
-        <CardContent className={`${isMobile ? 'p-4 sm:p-6 relative z-10' : isRegister ? 'px-0 py-4' : 'p-0'}`}>
+        <CardContent className={`${isMobile ? `${isRegister ? 'flex min-h-0 h-full flex-col overflow-hidden p-4 sm:p-6' : 'p-4 sm:p-6'} relative z-10` : isRegister ? 'px-0 py-4' : 'p-0'}`}>
           {/* Top header (logo + heading + subtext) */}
           <div className={`${isMobile ? 'text-left mb-5 space-y-2.5' : isRegister ? 'text-center mb-10 pt-2' : 'text-center mb-8'}`}>
             <div className={`h-[34px] mb-4 flex items-center ${isMobile ? 'justify-start mt-[10px]' : 'justify-center'}`}>
@@ -226,7 +230,7 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
             defaultValue="login"
             value={activeTab}
             onValueChange={setActiveTab}
-            className={isMobile ? 'flex flex-col space-y-0' : 'space-y-6'}
+            className={isMobile ? `${isRegister ? 'flex min-h-0 flex-1 flex-col space-y-0' : 'flex flex-col space-y-0'}` : 'space-y-6'}
           >
             <TabsList className={tabsListClass}>
               <TabsTrigger
@@ -361,7 +365,7 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
 
 
             {/* Register Form */}
-            <TabsContent value="register" className={registerContentClass}>
+            <TabsContent value="register" className={`${registerContentClass} ${isMobile ? 'min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1' : ''}`}>
               <RegisterForm onSuccess={handleRegisterSuccess} />
               <p
                 className={`text-center text-sm pt-2 ${isMobile ? 'text-slate-400' : 'text-muted-foreground dark:text-slate-400'}`}
