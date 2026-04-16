@@ -302,6 +302,7 @@ type RegisterFormProps = {
 const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [currentStep, setCurrentStep] = useState<1 | 2>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [serverEmailHealth, setServerEmailHealth] = useState<any>(undefined);
   const [emailWarningOverride, setEmailWarningOverride] = useState(false);
@@ -357,6 +358,18 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
       terms: false,
     },
   });
+  const stepOneFields: Array<keyof RegisterFormValues> = [
+    'name',
+    'company',
+    'phone',
+    'email',
+    'city',
+    'state',
+    'zip',
+    'country',
+    'password',
+    'confirmPassword',
+  ];
   const emailValue = form.watch('email');
   const hasAcceptedTerms = form.watch('terms');
   const localEmailHint = useMemo(() => analyzeEmailInput(emailValue ?? ''), [emailValue]);
@@ -408,16 +421,53 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
     setTermsScrolledToEnd(hasReachedBottom);
   };
 
+  const focusEmailField = () => {
+    window.setTimeout(() => {
+      form.setFocus('email');
+    }, 0);
+  };
+
+  const goToPreferencesStep = async () => {
+    const isStepOneValid = await form.trigger(stepOneFields, { shouldFocus: true });
+    if (!isStepOneValid) {
+      return;
+    }
+
+    if (localEmailHint.requiresConfirmation && !emailWarningOverride) {
+      toast({
+        title: 'Check your email',
+        description: localEmailHint.message || 'Please confirm this email address before continuing.',
+        variant: 'destructive',
+      });
+      focusEmailField();
+      return;
+    }
+
+    setCurrentStep(2);
+  };
+
+  const handleFormSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (currentStep === 1) {
+      await goToPreferencesStep();
+      return;
+    }
+
+    await form.handleSubmit(handleRegister)(event);
+  };
+
   const handleRegister = async (values: RegisterFormValues) => {
     setIsSubmitting(true);
     try {
       if (localEmailHint.requiresConfirmation && !emailWarningOverride) {
+        setCurrentStep(1);
         toast({
           title: 'Check your email',
           description: localEmailHint.message || 'Please confirm this email address before continuing.',
           variant: 'destructive',
         });
-        form.setFocus('email');
+        focusEmailField();
         setIsSubmitting(false);
         return;
       }
@@ -473,6 +523,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
 
       onSuccess({ user: newUser, token });
       form.reset();
+      setCurrentStep(1);
       setEmailWarningOverride(false);
       setServerEmailHealth(undefined);
     } catch (error: any) {
@@ -481,22 +532,29 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
       const nextEmailHealth = normalizeEmailHealth(errorPayload?.email_health);
       if (nextEmailHealth) {
         setServerEmailHealth(nextEmailHealth);
+        setCurrentStep(1);
+        focusEmailField();
       }
 
-      const emailMessage = Array.isArray(errorPayload?.errors?.email)
+      const emailFieldMessage = Array.isArray(errorPayload?.errors?.email)
         ? errorPayload.errors.email[0]
-        : errorPayload?.message;
+        : undefined;
 
-      if (emailMessage && !nextEmailHealth) {
+      if (emailFieldMessage && !nextEmailHealth) {
+        setCurrentStep(1);
         form.setError('email', {
           type: 'server',
-          message: emailMessage,
+          message: emailFieldMessage,
         });
+        focusEmailField();
       }
 
       toast({
         title: 'Registration Failed',
-        description: emailMessage || error.response?.data?.message || 'An unexpected error occurred. Please try again.',
+        description:
+          emailFieldMessage ||
+          error.response?.data?.message ||
+          'An unexpected error occurred. Please try again.',
         variant: 'destructive',
       });
     } finally {
@@ -506,337 +564,440 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleRegister)} className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <FormField
-            control={form.control}
-            name="name"
-            render={({ field }) => (
-              <FormItem className="relative">
-                <FormControl>
-                  <Input
-                    placeholder="Full Name"
-                    {...field}
-                    className={inputClass}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="company"
-            render={({ field }) => (
-              <FormItem className="relative">
-                <FormControl>
-                  <Input
-                    placeholder="Company (Optional)"
-                    {...field}
-                    className={inputClass}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+      <form onSubmit={handleFormSubmit} className="space-y-6">
+        <div
+          className={
+            isMobile
+              ? 'rounded-[28px] border border-white/10 bg-white/[0.04] p-4'
+              : 'rounded-[28px] border border-border/60 bg-black/[0.02] p-5 dark:border-white/10 dark:bg-white/[0.03]'
+          }
+        >
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-2">
+              <p className={metaLabelClass}>Step {currentStep} of 2</p>
+              <div className="space-y-1">
+                <h3 className={`text-lg font-semibold ${isMobile ? 'text-white' : 'text-foreground dark:text-white'}`}>
+                  {currentStep === 1 ? 'Account details' : 'Alerts and agreements'}
+                </h3>
+                <p className={smsBodyClass}>
+                  {currentStep === 1
+                    ? 'Start with your login and profile details. You will review SMS options and terms on the next step.'
+                    : 'Choose any optional text alerts you want, then accept the terms to finish creating your account.'}
+                </p>
+              </div>
+            </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <FormField
-            control={form.control}
-            name="phone"
-            render={({ field }) => (
-              <FormItem className="relative flex flex-col gap-3">
-                <div className="flex items-center justify-between px-1">
-                  <label htmlFor="register-phone" className={metaLabelClass}>
-                    Phone Number
-                  </label>
-                  <span className={optionalLabelClass}>Optional</span>
-                </div>
-                <FormControl>
-                  <PhoneInput
-                    id="register-phone"
-                    value={field.value}
-                    onChange={field.onChange}
-                    placeholder="+1 (555) 000-0000"
-                    className={inputClass}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="email"
-            render={({ field }) => (
-              <FormItem className="relative overflow-visible">
-                <FormControl>
-                  <Input
-                    placeholder="you@company.com"
-                    {...field}
-                    onChange={(event) => {
-                      field.onChange(event);
-                      form.clearErrors('email');
-                    }}
-                    className={inputClass}
-                  />
-                </FormControl>
-                <EmailHealthInlineHint
-                  email={field.value}
-                  localHint={localEmailHint}
-                  serverEmailHealth={serverEmailHealth}
-                  warningOverride={emailWarningOverride}
-                  variant="floating"
-                  onUseSuggestion={(nextEmail) => {
-                    form.setValue('email', nextEmail, { shouldDirty: true, shouldValidate: true });
-                    setEmailWarningOverride(false);
-                    setServerEmailHealth(undefined);
-                    form.clearErrors('email');
-                  }}
-                  onKeepAnyway={() => {
-                    setEmailWarningOverride(true);
-                    form.clearErrors('email');
-                  }}
-                />
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <FormField
-            control={form.control}
-            name="city"
-            render={({ field }) => (
-              <FormItem className="relative">
-                <FormControl>
-                  <Input
-                    placeholder="San Francisco"
-                    {...field}
-                    className={inputClass}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="state"
-            render={({ field }) => (
-              <FormItem className="relative">
-                <FormControl>
-                  <Input
-                    placeholder="CA"
-                    {...field}
-                    className={inputClass}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="zip"
-            render={({ field }) => (
-              <FormItem className="relative">
-                <FormControl>
-                  <Input
-                    placeholder="94107"
-                    {...field}
-                    className={inputClass}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        <FormField
-          control={form.control}
-          name="country"
-          render={({ field }) => (
-            <FormItem className="relative">
-              <FormControl>
-                <Input
-                  placeholder="United States"
-                  {...field}
-                  className={inputClass}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <div className="space-y-6">
-          <FormField
-            control={form.control}
-            name="password"
-            render={({ field }) => (
-              <FormItem>
-                <div className="relative">
-                  <FormControl>
-                    <Input
-                      type={showPassword ? 'text' : 'password'}
-                      placeholder="Password"
-                      {...field}
-                      className={`${inputClass} pr-10`}
-                    />
-                  </FormControl>
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((s) => !s)}
-                    className={toggleButtonClass}
-                    aria-label="Toggle password visibility"
-                  >
-                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                  </button>
-                </div>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="confirmPassword"
-            render={({ field }) => (
-              <FormItem>
-                <div className="relative">
-                  <FormControl>
-                    <Input
-                      type={showConfirm ? 'text' : 'password'}
-                      placeholder="Confirm Password"
-                      {...field}
-                      className={`${inputClass} pr-10`}
-                    />
-                  </FormControl>
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirm((s) => !s)}
-                    className={toggleButtonClass}
-                    aria-label="Toggle confirm password visibility"
-                  >
-                    {showConfirm ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                  </button>
-                </div>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        <div className={smsSectionClass}>
-          <div className="flex flex-col gap-2 px-1">
-            <p className={metaLabelClass}>SMS Opt-In</p>
-            <p className={smsBodyClass}>
-              Choose any text updates you want. You can leave both boxes unchecked and still create your account.
-            </p>
+            <div
+              className={`inline-flex w-fit items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] ${
+                isMobile
+                  ? 'bg-cyan-400/10 text-cyan-200'
+                  : 'bg-primary/10 text-primary dark:bg-cyan-400/10 dark:text-cyan-300'
+              }`}
+            >
+              {currentStep === 1 ? 'Profile setup' : 'Final review'}
+            </div>
           </div>
 
-          <div className="mt-4 flex flex-col gap-3">
-            {smsConsentOptions.map((option) => (
+          <div className={`mt-4 h-1.5 overflow-hidden rounded-full ${isMobile ? 'bg-white/10' : 'bg-border/60 dark:bg-white/10'}`}>
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-blue-500 to-cyan-400 transition-all duration-300"
+              style={{ width: currentStep === 1 ? '50%' : '100%' }}
+            />
+          </div>
+        </div>
+
+        {currentStep === 1 ? (
+          <>
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               <FormField
-                key={option.name}
                 control={form.control}
-                name={option.name}
+                name="name"
                 render={({ field }) => (
-                  <FormItem className={smsCardClass}>
-                    <div className="flex items-start gap-3">
+                  <FormItem className="relative">
+                    <FormControl>
+                      <Input
+                        placeholder="Full Name"
+                        {...field}
+                        className={inputClass}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="company"
+                render={({ field }) => (
+                  <FormItem className="relative">
+                    <FormControl>
+                      <Input
+                        placeholder="Company (Optional)"
+                        {...field}
+                        className={inputClass}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="phone"
+                render={({ field }) => (
+                  <FormItem className="relative flex flex-col gap-3">
+                    <div className="flex items-center justify-between px-1">
+                      <label htmlFor="register-phone" className={metaLabelClass}>
+                        Phone Number
+                      </label>
+                      <span className={optionalLabelClass}>Optional</span>
+                    </div>
+                    <FormControl>
+                      <PhoneInput
+                        id="register-phone"
+                        value={field.value}
+                        onChange={field.onChange}
+                        placeholder="+1 (555) 000-0000"
+                        className={inputClass}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem className="relative overflow-visible">
+                    <FormControl>
+                      <Input
+                        placeholder="you@company.com"
+                        {...field}
+                        onChange={(event) => {
+                          field.onChange(event);
+                          form.clearErrors('email');
+                        }}
+                        className={inputClass}
+                      />
+                    </FormControl>
+                    <EmailHealthInlineHint
+                      email={field.value}
+                      localHint={localEmailHint}
+                      serverEmailHealth={serverEmailHealth}
+                      warningOverride={emailWarningOverride}
+                      variant="floating"
+                      onUseSuggestion={(nextEmail) => {
+                        form.setValue('email', nextEmail, { shouldDirty: true, shouldValidate: true });
+                        setEmailWarningOverride(false);
+                        setServerEmailHealth(undefined);
+                        form.clearErrors('email');
+                      }}
+                      onKeepAnyway={() => {
+                        setEmailWarningOverride(true);
+                        form.clearErrors('email');
+                      }}
+                    />
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+              <FormField
+                control={form.control}
+                name="city"
+                render={({ field }) => (
+                  <FormItem className="relative">
+                    <FormControl>
+                      <Input
+                        placeholder="San Francisco"
+                        {...field}
+                        className={inputClass}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="state"
+                render={({ field }) => (
+                  <FormItem className="relative">
+                    <FormControl>
+                      <Input
+                        placeholder="CA"
+                        {...field}
+                        className={inputClass}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="zip"
+                render={({ field }) => (
+                  <FormItem className="relative">
+                    <FormControl>
+                      <Input
+                        placeholder="94107"
+                        {...field}
+                        className={inputClass}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <FormField
+              control={form.control}
+              name="country"
+              render={({ field }) => (
+                <FormItem className="relative">
+                  <FormControl>
+                    <Input
+                      placeholder="United States"
+                      {...field}
+                      className={inputClass}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="space-y-6">
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <div className="relative">
                       <FormControl>
-                        <Checkbox
-                          id={option.name}
-                          checked={field.value ?? false}
-                          onCheckedChange={(checked) => field.onChange(checked === true)}
-                          className={
-                            isMobile
-                              ? 'mt-1 border-white/30 bg-slate-950/70 data-[state=checked]:bg-cyan-400 data-[state=checked]:text-slate-950'
-                              : 'mt-1 dark:border-white/30 dark:bg-slate-950/50 dark:data-[state=checked]:bg-cyan-400 dark:data-[state=checked]:text-slate-950'
-                          }
+                        <Input
+                          type={showPassword ? 'text' : 'password'}
+                          placeholder="Password"
+                          {...field}
+                          className={`${inputClass} pr-10`}
                         />
                       </FormControl>
-                      <label htmlFor={option.name} className="flex-1 cursor-pointer">
-                        <span className={smsHeadingClass}>{option.title}</span>
-                        <span className={`mt-1 block ${smsBodyClass}`}>{option.description}</span>
-                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((s) => !s)}
+                        className={toggleButtonClass}
+                        aria-label="Toggle password visibility"
+                      >
+                        {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                      </button>
                     </div>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-            ))}
-          </div>
 
-          <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 px-1">
-            <Link
-              to="/privacy-policy"
-              className={`text-sm font-medium underline underline-offset-4 transition-colors ${
-                isMobile
-                  ? 'text-cyan-300 hover:text-cyan-200'
-                  : 'text-primary dark:text-cyan-400 dark:hover:text-cyan-300'
-              }`}
-            >
-              Privacy Policy
-            </Link>
-            <Link
-              to="/terms-and-conditions"
-              className={`text-sm font-medium underline underline-offset-4 transition-colors ${
-                isMobile
-                  ? 'text-cyan-300 hover:text-cyan-200'
-                  : 'text-primary dark:text-cyan-400 dark:hover:text-cyan-300'
-              }`}
-            >
-              Terms and Conditions
-            </Link>
-          </div>
-        </div>
+              <FormField
+                control={form.control}
+                name="confirmPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <div className="relative">
+                      <FormControl>
+                        <Input
+                          type={showConfirm ? 'text' : 'password'}
+                          placeholder="Confirm Password"
+                          {...field}
+                          className={`${inputClass} pr-10`}
+                        />
+                      </FormControl>
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirm((s) => !s)}
+                        className={toggleButtonClass}
+                        aria-label="Toggle confirm password visibility"
+                      >
+                        {showConfirm ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                      </button>
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
-        <FormField
-          control={form.control}
-          name="terms"
-          render={({ field }) => (
-            <FormItem>
-              <div className="flex items-start gap-2 pt-2">
-                <input
-                  id="terms"
-                  type="checkbox"
-                  checked={field.value ?? false}
-                  onChange={(e) => {
-                    const checked = e.target.checked;
-                    if (checked) {
-                      setTermsOpen(true);
-                      return;
-                    }
-                    field.onChange(false);
-                  }}
-                  className={`mt-0.5 h-4 w-4 rounded border ${isMobile ? 'border-white/30 bg-slate-900/60' : 'border-border dark:border-white/30 dark:bg-transparent'}`}
-                />
-                <div className={`text-sm leading-6 ${isMobile ? 'text-slate-300' : 'text-muted-foreground dark:text-slate-300'}`}>
-                  <label htmlFor="terms" className="select-none">
-                    I agree to the{' '}
-                  </label>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setTermsOpen(true);
-                    }}
-                    className={`font-medium underline underline-offset-4 transition-colors ${isMobile ? 'text-cyan-300 hover:text-cyan-200' : 'text-primary dark:text-cyan-400 dark:hover:text-cyan-300'}`}
-                  >
-                    Terms and Conditions
-                  </button>
-                </div>
+            <div className="flex flex-col gap-3 border-t border-white/10 pt-2 sm:flex-row sm:items-center sm:justify-between">
+              <p className={smsBodyClass}>
+                Next, you can review optional SMS updates and accept the terms before creating your account.
+              </p>
+              <Button
+                type="button"
+                onClick={() => {
+                  void goToPreferencesStep();
+                }}
+                className={`h-12 rounded-full px-8 text-base font-semibold ${
+                  isMobile
+                    ? 'w-full bg-gradient-to-r from-blue-500 to-cyan-400 text-white shadow-lg shadow-blue-500/25 hover:opacity-90'
+                    : 'min-w-[180px] bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-lg shadow-blue-600/25 hover:opacity-90'
+                }`}
+              >
+                Next
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className={smsSectionClass}>
+              <div className="flex flex-col gap-2 px-1">
+                <p className={metaLabelClass}>SMS Opt-In</p>
+                <p className={smsBodyClass}>
+                  Choose any text updates you want. You can leave both boxes unchecked and still create your account.
+                </p>
               </div>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+
+              <div className="mt-4 flex flex-col gap-3">
+                {smsConsentOptions.map((option) => (
+                  <FormField
+                    key={option.name}
+                    control={form.control}
+                    name={option.name}
+                    render={({ field }) => (
+                      <FormItem className={smsCardClass}>
+                        <div className="flex items-start gap-3">
+                          <FormControl>
+                            <Checkbox
+                              id={option.name}
+                              checked={field.value ?? false}
+                              onCheckedChange={(checked) => field.onChange(checked === true)}
+                              className={
+                                isMobile
+                                  ? 'mt-1 border-white/30 bg-slate-950/70 data-[state=checked]:bg-cyan-400 data-[state=checked]:text-slate-950'
+                                  : 'mt-1 dark:border-white/30 dark:bg-slate-950/50 dark:data-[state=checked]:bg-cyan-400 dark:data-[state=checked]:text-slate-950'
+                              }
+                            />
+                          </FormControl>
+                          <label htmlFor={option.name} className="flex-1 cursor-pointer">
+                            <span className={smsHeadingClass}>{option.title}</span>
+                            <span className={`mt-1 block ${smsBodyClass}`}>{option.description}</span>
+                          </label>
+                        </div>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                ))}
+              </div>
+
+              <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 px-1">
+                <Link
+                  to="/privacy-policy"
+                  className={`text-sm font-medium underline underline-offset-4 transition-colors ${
+                    isMobile
+                      ? 'text-cyan-300 hover:text-cyan-200'
+                      : 'text-primary dark:text-cyan-400 dark:hover:text-cyan-300'
+                  }`}
+                >
+                  Privacy Policy
+                </Link>
+                <Link
+                  to="/terms-and-conditions"
+                  className={`text-sm font-medium underline underline-offset-4 transition-colors ${
+                    isMobile
+                      ? 'text-cyan-300 hover:text-cyan-200'
+                      : 'text-primary dark:text-cyan-400 dark:hover:text-cyan-300'
+                  }`}
+                >
+                  Terms and Conditions
+                </Link>
+              </div>
+            </div>
+
+            <FormField
+              control={form.control}
+              name="terms"
+              render={({ field }) => (
+                <FormItem>
+                  <div className="flex items-start gap-2 pt-2">
+                    <input
+                      id="terms"
+                      type="checkbox"
+                      checked={field.value ?? false}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        if (checked) {
+                          setTermsOpen(true);
+                          return;
+                        }
+                        field.onChange(false);
+                      }}
+                      className={`mt-0.5 h-4 w-4 rounded border ${isMobile ? 'border-white/30 bg-slate-900/60' : 'border-border dark:border-white/30 dark:bg-transparent'}`}
+                    />
+                    <div className={`text-sm leading-6 ${isMobile ? 'text-slate-300' : 'text-muted-foreground dark:text-slate-300'}`}>
+                      <label htmlFor="terms" className="select-none">
+                        I agree to the{' '}
+                      </label>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setTermsOpen(true);
+                        }}
+                        className={`font-medium underline underline-offset-4 transition-colors ${isMobile ? 'text-cyan-300 hover:text-cyan-200' : 'text-primary dark:text-cyan-400 dark:hover:text-cyan-300'}`}
+                      >
+                        Terms and Conditions
+                      </button>
+                    </div>
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="flex flex-col gap-3 border-t border-white/10 pt-2 sm:flex-row sm:items-center sm:justify-between">
+              <Button
+                type="button"
+                onClick={() => setCurrentStep(1)}
+                className={`h-12 rounded-full px-8 text-base font-semibold ${
+                  isMobile
+                    ? 'w-full border border-white/15 bg-white/[0.03] text-white hover:bg-white/[0.06]'
+                    : 'min-w-[180px] border border-border/60 bg-transparent text-foreground hover:bg-accent dark:border-white/15 dark:text-white dark:hover:bg-white/[0.06]'
+                }`}
+              >
+                Back
+              </Button>
+
+              <Button
+                type="submit"
+                className={`h-12 rounded-full text-base font-semibold ${
+                  hasAcceptedTerms
+                    ? isMobile
+                      ? 'w-full bg-gradient-to-r from-blue-500 to-cyan-400 text-white shadow-lg shadow-blue-500/30 hover:opacity-90'
+                      : 'min-w-[220px] bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-lg shadow-blue-600/25 hover:opacity-90'
+                    : isMobile
+                      ? 'w-full bg-slate-500/40 text-slate-300 shadow-none cursor-not-allowed hover:opacity-100'
+                      : 'min-w-[220px] bg-slate-700/60 text-slate-400 shadow-none cursor-not-allowed hover:opacity-100'
+                }`}
+                disabled={isSubmitting || !hasAcceptedTerms}
+              >
+                {isSubmitting ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <div className="animate-spin h-4 w-4 border-2 border-t-transparent rounded-full" />
+                    <span>Creating Account...</span>
+                  </div>
+                ) : (
+                  'Register'
+                )}
+              </Button>
+            </div>
+          </>
+        )}
 
         <Dialog
           open={termsOpen}
@@ -971,27 +1132,6 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
             </div>
           </DialogContent>
         </Dialog>
-
-        <Button
-          type="submit"
-          className={`w-full h-12 rounded-full text-base font-semibold mb-4 ${
-            hasAcceptedTerms
-              ? isMobile
-                ? 'bg-gradient-to-r from-blue-500 to-cyan-400 text-white shadow-lg shadow-blue-500/30 hover:opacity-90'
-                : 'dark:bg-gradient-to-r dark:from-blue-600 dark:to-cyan-500 dark:text-white dark:shadow-lg dark:shadow-blue-600/25 dark:hover:opacity-90'
-              : 'bg-slate-500/40 text-slate-300 shadow-none cursor-not-allowed hover:opacity-100 dark:bg-slate-700/60 dark:text-slate-400'
-          }`}
-          disabled={isSubmitting || !hasAcceptedTerms}
-        >
-          {isSubmitting ? (
-            <div className="flex items-center justify-center gap-2">
-              <div className="animate-spin h-4 w-4 border-2 border-t-transparent rounded-full" />
-              <span>Creating Account...</span>
-            </div>
-          ) : (
-            'Register'
-          )}
-        </Button>
       </form>
     </Form>
   );
