@@ -199,10 +199,11 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
       : heroCopy[activeTab as 'login' | 'register'].subtitle;
 
   const registerContentClass = isMobile
-    ? 'space-y-8 pb-10 pt-1 -mt-1'
+    ? 'space-y-8 pb-14 pt-1 -mt-1'
     : 'space-y-6 pb-2 pt-0';
+  const mobileRegisterPanelHeight = 'calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 1rem)';
   const mobileRegisterPanelStyle = isMobile && isRegister
-    ? { maxHeight: 'calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 1rem)' }
+    ? { height: mobileRegisterPanelHeight, maxHeight: mobileRegisterPanelHeight }
     : undefined;
 
   return (

@@ -15,7 +15,7 @@ export default function PrivacyPolicy() {
                 <p className="text-sm uppercase tracking-[0.18em] text-cyan-300/80">Legal</p>
                 <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Privacy Policy</h1>
                 <p className="max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">
-                  This policy explains how R/E Pro Photos collects, uses, shares, and protects information across the booking flow, dashboard, client portal, media delivery, messaging, and support experience.
+                  This policy explains how LaDexon Photographie & Motion Films LLC dba R/E Pro Photos collects, uses, shares, and protects information across the booking flow, dashboard, client portal, media delivery, messaging, and support experience.
                 </p>
                 <p className="text-sm text-slate-400">Effective Date: {PRIVACY_EFFECTIVE_DATE}</p>
               </div>
@@ -40,7 +40,7 @@ export default function PrivacyPolicy() {
             <section className="space-y-3 border-b border-white/10 pb-5">
               <h2 className="text-2xl font-semibold text-white">R/E Pro Photos Privacy Policy</h2>
               <p>
-                R/E Pro Photos, LLC (&ldquo;R/E Pro Photos,&rdquo; &ldquo;we,&rdquo; &ldquo;our,&rdquo; or &ldquo;us&rdquo;) respects your privacy and is committed to protecting your personal information. This Privacy Policy applies to our website, booking experience, dashboard, client portal, messaging tools, and related services (collectively, the &ldquo;Platform&rdquo;).
+                R/E Pro Photos (&ldquo;R/E Pro Photos,&rdquo; &ldquo;we,&rdquo; &ldquo;our,&rdquo; or &ldquo;us&rdquo;) respects your privacy and is committed to protecting your personal information. This Privacy Policy applies to our website, booking experience, dashboard, client portal, messaging tools, and related services (collectively, the &ldquo;Platform&rdquo;).
               </p>
               <p>
                 By using the Platform, you agree to the terms of this Privacy Policy.
