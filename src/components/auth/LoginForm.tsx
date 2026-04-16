@@ -183,8 +183,8 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
   const isRegister = activeTab === 'register';
 
   const registerContentClass = isMobile
-    ? 'space-y-6 pb-8 -mt-1'
-    : 'space-y-6';
+    ? 'space-y-8 pb-10 pt-1 -mt-1'
+    : 'space-y-8 pb-8 pt-2';
 
   return (
     <motion.div
@@ -204,9 +204,9 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
             : 'border-none bg-transparent'
         }`}
       >
-        <CardContent className={`${isMobile ? 'p-4 sm:p-6 relative z-10' : 'p-0'}`}>
+        <CardContent className={`${isMobile ? 'p-4 sm:p-6 relative z-10' : isRegister ? 'px-0 py-4' : 'p-0'}`}>
           {/* Top header (logo + heading + subtext) */}
-          <div className={`${isMobile ? 'text-left mb-5 space-y-2.5' : 'text-center mb-8'}`}>
+          <div className={`${isMobile ? 'text-left mb-5 space-y-2.5' : isRegister ? 'text-center mb-10 pt-2' : 'text-center mb-8'}`}>
             <div className={`h-[34px] mb-4 flex items-center ${isMobile ? 'justify-start mt-[10px]' : 'justify-center'}`}>
               <Logo
                 className="h-[34px] w-auto"
@@ -364,8 +364,7 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
             <TabsContent value="register" className={registerContentClass}>
               <RegisterForm onSuccess={handleRegisterSuccess} />
               <p
-                className={`text-center text-sm ${isMobile ? 'text-slate-400' : 'text-muted-foreground dark:text-slate-400'}`}
-                style={{ marginTop: '15px', marginBottom: '-25px' }}
+                className={`text-center text-sm pt-2 ${isMobile ? 'text-slate-400' : 'text-muted-foreground dark:text-slate-400'}`}
               >
                 <span
                   onClick={() => setActiveTab('login')}

@@ -173,6 +173,7 @@ const Index = () => {
   }, []);
 
   const activeSlide = LOGIN_SLIDES[displayIndex];
+  const isRegisterView = activeTab === 'register';
 
   // Mobile layout: Login = no scroll, responsive height; Register = scrollable
   if (isMobile) {
@@ -252,7 +253,7 @@ const Index = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.05 }}
             >
-              <div className={`w-full max-w-md mx-auto space-y-6 text-[15px] ${isLogin ? '' : 'pb-2'}`}>
+              <div className={`w-full max-w-md mx-auto space-y-6 text-[15px] ${isLogin ? '' : 'pb-8 pt-2'}`}>
                 <LoginForm onTabChange={handleTabChange} />
               </div>
             </motion.div>
@@ -304,7 +305,13 @@ const Index = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.05 }}
       >
-        <div className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-3xl bg-[#05080d] px-8 py-10 xl:px-12">
+        <div
+          className={`relative flex h-full w-full justify-center rounded-3xl bg-[#05080d] px-8 xl:px-12 ${
+            isRegisterView
+              ? 'items-start overflow-y-auto py-14 xl:py-16'
+              : 'items-center overflow-hidden py-10'
+          }`}
+        >
           <motion.div
             className="pointer-events-none absolute inset-0"
             initial={false}
@@ -312,7 +319,7 @@ const Index = () => {
             transition={{ duration: 1.35, ease: [0.22, 1, 0.36, 1] }}
             style={{ background: DESKTOP_LOGIN_CARD_GRADIENT }}
           />
-          <div className="relative z-10 w-full max-w-md">
+          <div className={`relative z-10 w-full max-w-md ${isRegisterView ? 'min-h-full' : ''}`}>
             <LoginForm />
           </div>
         </div>

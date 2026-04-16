@@ -2,10 +2,12 @@ import { Link } from 'react-router-dom';
 import { Logo } from '@/components/layout/Logo';
 import { Button } from '@/components/ui/button';
 
+const TERMS_EFFECTIVE_DATE = 'April 16, 2026';
+
 const termsSections = [
   {
     title: 'R/E Pro Photos – Client Terms & Conditions (With SMS Consent)',
-    effectiveDate: '[Insert Date]',
+    effectiveDate: TERMS_EFFECTIVE_DATE,
     intro:
       'By booking, scheduling, or using the R/E Pro Photos platform (“Platform”), you agree to the following Terms & Conditions.',
     sections: [
@@ -257,6 +259,12 @@ export default function TermsAndConditions() {
               <Button asChild className="rounded-full bg-gradient-to-r from-blue-500 to-cyan-400 text-white hover:opacity-90">
                 <Link to="/">Back to Home</Link>
               </Button>
+              <Link
+                to="/privacy-policy"
+                className="text-sm font-medium text-cyan-300 transition-colors hover:text-cyan-200"
+              >
+                View Privacy Policy
+              </Link>
             </div>
           </div>
         </header>

@@ -4,8 +4,10 @@ import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Eye, EyeOff } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { PhoneInput } from '@/components/ui/phone-input';
 import {
@@ -29,10 +31,12 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { EmailHealthInlineHint } from '@/components/email/EmailHealthInlineHint';
 import { analyzeEmailInput, normalizeEmailHealth } from '@/utils/emailHealth';
 
+const TERMS_EFFECTIVE_DATE = 'April 16, 2026';
+
 const termsSections = [
   {
     title: 'R/E Pro Photos – Client Terms & Conditions (With SMS Consent)',
-    effectiveDate: '[Insert Date]',
+    effectiveDate: TERMS_EFFECTIVE_DATE,
     intro:
       'By booking, scheduling, or using the R/E Pro Photos platform (“Platform”), you agree to the following Terms & Conditions.',
     sections: [
@@ -246,11 +250,28 @@ const termsSections = [
   },
 ] as const;
 
+const smsConsentOptions = [
+  {
+    name: 'marketingSmsOptIn',
+    title: 'Marketing SMS',
+    description:
+      'By checking this box you agree to receive Marketing SMS from R/E Pro Photos. Message frequency varies. Message and data rates may apply. Reply HELP for help. Reply STOP to opt out.',
+  },
+  {
+    name: 'transactionalSmsOptIn',
+    title: 'Transactional SMS',
+    description:
+      'By checking this box you agree to receive Transactional SMS communication about bookings, account notifications, and 2FA from R/E Pro Photos. Message frequency varies. Message and data rates may apply. Reply HELP for help. Reply STOP to opt out.',
+  },
+] as const;
+
 const registerSchema = z
   .object({
     name: z.string().min(1, 'Full name is required'),
     company: z.string().optional(),
     phone: z.string().optional(),
+    marketingSmsOptIn: z.boolean().optional(),
+    transactionalSmsOptIn: z.boolean().optional(),
     email: z.string().email('Invalid email address'),
     city: z.string().optional(),
     state: z.string().optional(),
@@ -295,6 +316,24 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
   const desktopInputClass =
     'border-0 border-b border-border rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 focus:border-primary text-base placeholder:text-muted-foreground dark:bg-white/5 dark:border dark:border-white/10 dark:rounded-xl dark:px-4 dark:py-3 dark:text-white dark:placeholder:text-slate-400 dark:focus:border-cyan-400/40 dark:focus:ring-1 dark:focus:ring-cyan-400/20';
   const inputClass = isMobile ? mobileInputClass : desktopInputClass;
+  const metaLabelClass = isMobile
+    ? 'text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400'
+    : 'text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground dark:text-slate-400';
+  const optionalLabelClass = isMobile
+    ? 'text-[11px] font-medium uppercase tracking-[0.18em] text-cyan-300/90'
+    : 'text-[11px] font-medium uppercase tracking-[0.18em] text-cyan-500 dark:text-cyan-300/90';
+  const smsSectionClass = isMobile
+    ? 'rounded-[28px] border border-white/10 bg-white/[0.04] p-4'
+    : 'rounded-[28px] border border-border/60 bg-black/[0.02] p-5 dark:border-white/10 dark:bg-white/[0.03]';
+  const smsCardClass = isMobile
+    ? 'rounded-2xl border border-white/10 bg-slate-950/40 p-4'
+    : 'rounded-2xl border border-border/60 bg-background/60 p-4 dark:border-white/10 dark:bg-slate-950/35';
+  const smsBodyClass = isMobile
+    ? 'text-sm leading-6 text-slate-300'
+    : 'text-sm leading-6 text-muted-foreground dark:text-slate-300';
+  const smsHeadingClass = isMobile
+    ? 'text-sm font-semibold text-white'
+    : 'text-sm font-semibold text-foreground dark:text-white';
 
   const toggleButtonClass = isMobile
     ? 'absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-md text-slate-300 hover:text-white hover:bg-white/5'
@@ -306,6 +345,8 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
       name: '',
       company: '',
       phone: '',
+      marketingSmsOptIn: false,
+      transactionalSmsOptIn: false,
       email: '',
       city: '',
       state: '',
@@ -381,17 +422,26 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
         return;
       }
 
+      const normalizedPhone = values.phone?.trim() ? values.phone.trim() : null;
+      const normalizedCompany = values.company?.trim() ? values.company.trim() : null;
+      const normalizedCity = values.city?.trim() ? values.city.trim() : null;
+      const normalizedState = values.state?.trim() ? values.state.trim() : null;
+      const normalizedZip = values.zip?.trim() ? values.zip.trim() : null;
+      const normalizedCountry = values.country?.trim() ? values.country.trim() : null;
+
       const response = await axios.post(`${API_BASE_URL}/api/register`, {
-        name: values.name,
-        email: values.email,
+        name: values.name.trim(),
+        email: values.email.trim(),
         password: values.password,
         password_confirmation: values.confirmPassword,
-        phonenumber: values.phone,
-        company_name: values.company,
-        city: values.city,
-        state: values.state,
-        zip: values.zip,
-        country: values.country,
+        phonenumber: normalizedPhone,
+        company_name: normalizedCompany,
+        city: normalizedCity,
+        state: normalizedState,
+        zip: normalizedZip,
+        country: normalizedCountry,
+        marketing_sms_opt_in: values.marketingSmsOptIn ?? false,
+        transactional_sms_opt_in: values.transactionalSmsOptIn ?? false,
         email_warning_override: emailWarningOverride,
       });
 
@@ -497,11 +547,19 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
             control={form.control}
             name="phone"
             render={({ field }) => (
-              <FormItem className="relative">
+              <FormItem className="relative flex flex-col gap-3">
+                <div className="flex items-center justify-between px-1">
+                  <label htmlFor="register-phone" className={metaLabelClass}>
+                    Phone Number
+                  </label>
+                  <span className={optionalLabelClass}>Optional</span>
+                </div>
                 <FormControl>
                   <PhoneInput
+                    id="register-phone"
                     value={field.value}
                     onChange={field.onChange}
+                    placeholder="+1 (555) 000-0000"
                     className={inputClass}
                   />
                 </FormControl>
@@ -672,6 +730,71 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
               </FormItem>
             )}
           />
+        </div>
+
+        <div className={smsSectionClass}>
+          <div className="flex flex-col gap-2 px-1">
+            <p className={metaLabelClass}>SMS Opt-In</p>
+            <p className={smsBodyClass}>
+              Choose any text updates you want. You can leave both boxes unchecked and still create your account.
+            </p>
+          </div>
+
+          <div className="mt-4 flex flex-col gap-3">
+            {smsConsentOptions.map((option) => (
+              <FormField
+                key={option.name}
+                control={form.control}
+                name={option.name}
+                render={({ field }) => (
+                  <FormItem className={smsCardClass}>
+                    <div className="flex items-start gap-3">
+                      <FormControl>
+                        <Checkbox
+                          id={option.name}
+                          checked={field.value ?? false}
+                          onCheckedChange={(checked) => field.onChange(checked === true)}
+                          className={
+                            isMobile
+                              ? 'mt-1 border-white/30 bg-slate-950/70 data-[state=checked]:bg-cyan-400 data-[state=checked]:text-slate-950'
+                              : 'mt-1 dark:border-white/30 dark:bg-slate-950/50 dark:data-[state=checked]:bg-cyan-400 dark:data-[state=checked]:text-slate-950'
+                          }
+                        />
+                      </FormControl>
+                      <label htmlFor={option.name} className="flex-1 cursor-pointer">
+                        <span className={smsHeadingClass}>{option.title}</span>
+                        <span className={`mt-1 block ${smsBodyClass}`}>{option.description}</span>
+                      </label>
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            ))}
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 px-1">
+            <Link
+              to="/privacy-policy"
+              className={`text-sm font-medium underline underline-offset-4 transition-colors ${
+                isMobile
+                  ? 'text-cyan-300 hover:text-cyan-200'
+                  : 'text-primary dark:text-cyan-400 dark:hover:text-cyan-300'
+              }`}
+            >
+              Privacy Policy
+            </Link>
+            <Link
+              to="/terms-and-conditions"
+              className={`text-sm font-medium underline underline-offset-4 transition-colors ${
+                isMobile
+                  ? 'text-cyan-300 hover:text-cyan-200'
+                  : 'text-primary dark:text-cyan-400 dark:hover:text-cyan-300'
+              }`}
+            >
+              Terms and Conditions
+            </Link>
+          </div>
         </div>
 
         <FormField

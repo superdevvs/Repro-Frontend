@@ -67,7 +67,13 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
               >
                 Terms and Conditions
               </Link>{' '}
-              · Privacy Policy
+              ·{' '}
+              <Link
+                to="/privacy-policy"
+                className="transition-colors hover:text-foreground"
+              >
+                Privacy Policy
+              </Link>
             </footer>
           </main>
         </ErrorBoundary>
