@@ -190,7 +190,9 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
   const isRegister = activeTab === 'register';
   const desktopFormWidthClass = isRegister ? 'max-w-[42rem]' : 'max-w-md';
   const registerSubtitle =
-    registerStep === 1 ? '1. Profile details' : '2. Alerts and agreements';
+    registerStep === 1
+      ? '1. Profile details and account setup'
+      : '2. Alerts, consent, and agreements';
   const heroSubtitle =
     activeTab === 'register'
       ? registerSubtitle

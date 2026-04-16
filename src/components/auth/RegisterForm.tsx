@@ -668,7 +668,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange }) 
                   <FormItem className="relative overflow-visible">
                     <FormControl>
                       <Input
-                        placeholder="you@company.com"
+                        placeholder="Your email"
                         type="email"
                         autoComplete="email"
                         {...field}
@@ -754,7 +754,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange }) 
               />
             </div>
 
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               <FormField
                 control={form.control}
                 name="city"
@@ -789,6 +789,26 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange }) 
                   </FormItem>
                 )}
               />
+            </div>
+
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+              <FormField
+                control={form.control}
+                name="country"
+                render={({ field }) => (
+                  <FormItem className="relative md:col-span-2">
+                    <FormControl>
+                      <Input
+                        placeholder="United States"
+                        autoComplete="country-name"
+                        {...field}
+                        className={inputClass}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <FormField
                 control={form.control}
                 name="zip"
@@ -807,24 +827,6 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange }) 
                 )}
               />
             </div>
-
-            <FormField
-              control={form.control}
-              name="country"
-              render={({ field }) => (
-                <FormItem className="relative">
-                  <FormControl>
-                    <Input
-                      placeholder="United States"
-                      autoComplete="country-name"
-                      {...field}
-                      className={inputClass}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
 
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               <FormField
@@ -999,25 +1001,23 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange }) 
                         >
                           Terms and Conditions
                         </button>
+                        <span>{' '}and{' '}</span>
+                        <Link
+                          to="/privacy-policy"
+                          className={`font-medium underline underline-offset-4 transition-colors ${
+                            isMobile
+                              ? 'text-cyan-300 hover:text-cyan-200'
+                              : 'text-primary dark:text-cyan-400 dark:hover:text-cyan-300'
+                          }`}
+                        >
+                          Privacy Policy
+                        </Link>
                       </div>
                     </div>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-
-              <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 px-1">
-                <Link
-                  to="/privacy-policy"
-                  className={`text-sm font-medium underline underline-offset-4 transition-colors ${
-                    isMobile
-                      ? 'text-cyan-300 hover:text-cyan-200'
-                      : 'text-primary dark:text-cyan-400 dark:hover:text-cyan-300'
-                  }`}
-                >
-                  Privacy Policy
-                </Link>
-              </div>
             </div>
 
             <div className="flex flex-col gap-3 border-t border-white/10 pt-2 sm:flex-row sm:items-center sm:justify-between">
