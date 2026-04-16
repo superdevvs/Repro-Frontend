@@ -298,9 +298,10 @@ export type RegisterSuccessPayload = {
 
 type RegisterFormProps = {
   onSuccess: (payload: RegisterSuccessPayload) => void;
+  onStepChange?: (step: 1 | 2) => void;
 };
 
-const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
+const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [currentStep, setCurrentStep] = useState<1 | 2>(1);
@@ -455,6 +456,10 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
     setEmailWarningOverride(false);
     setServerEmailHealth(undefined);
   }, [emailValue]);
+
+  useEffect(() => {
+    onStepChange?.(currentStep);
+  }, [currentStep, onStepChange]);
 
   const updateTermsScrollState = () => {
     const scrollElement = termsScrollRef.current;
@@ -619,52 +624,6 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
   return (
     <Form {...form}>
       <form onSubmit={handleFormSubmit} className="space-y-6">
-        <div
-          className={
-            isMobile
-              ? 'rounded-[28px] border border-white/10 bg-white/[0.04] p-4'
-              : 'rounded-[24px] border border-border/60 bg-black/[0.02] px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]'
-          }
-        >
-          {isMobile ? (
-            <>
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div className="space-y-2">
-                  <div className="space-y-1">
-                    <h3 className="text-lg font-semibold text-white">
-                      {currentStep === 1 ? 'Account details' : 'Alerts and agreements'}
-                    </h3>
-                    <p className={smsBodyClass}>
-                      {currentStep === 1
-                        ? 'Start with your login and profile details. You will review SMS options and terms on the next step.'
-                        : 'Choose any optional text alerts you want, then accept the terms to finish creating your account.'}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="inline-flex w-fit items-center rounded-full bg-cyan-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-cyan-200">
-                  {currentStep === 1 ? 'Profile setup' : 'Final review'}
-                </div>
-              </div>
-
-            </>
-          ) : (
-            <div className="flex items-center gap-4">
-              <h3 className="text-base font-semibold text-foreground dark:text-white">
-                {currentStep === 1 ? 'Account details' : 'Alerts and agreements'}
-              </h3>
-              <p className="min-w-0 flex-1 truncate text-sm text-muted-foreground dark:text-slate-300">
-                {currentStep === 1
-                  ? 'Add your details first, then review SMS preferences and terms.'
-                  : 'Review optional SMS preferences, accept the terms, and finish registration.'}
-              </p>
-              <div className="inline-flex shrink-0 items-center rounded-full bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary dark:bg-cyan-400/10 dark:text-cyan-300">
-                {currentStep === 1 ? 'Profile setup' : 'Final review'}
-              </div>
-            </div>
-          )}
-        </div>
-
         {currentStep === 1 ? (
           <>
             <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
@@ -1006,6 +965,47 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
                 ))}
               </div>
 
+              <FormField
+                control={form.control}
+                name="terms"
+                render={({ field }) => (
+                  <FormItem className="mt-4 px-1">
+                    <div className="flex items-start gap-2">
+                      <input
+                        id="terms"
+                        type="checkbox"
+                        checked={field.value ?? false}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          if (checked) {
+                            setTermsOpen(true);
+                            return;
+                          }
+                          field.onChange(false);
+                        }}
+                        className={`mt-0.5 h-4 w-4 rounded border ${isMobile ? 'border-white/30 bg-slate-900/60' : 'border-border dark:border-white/30 dark:bg-transparent'}`}
+                      />
+                      <div className={`text-sm leading-6 ${isMobile ? 'text-slate-300' : 'text-muted-foreground dark:text-slate-300'}`}>
+                        <label htmlFor="terms" className="select-none">
+                          I agree to the{' '}
+                        </label>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setTermsOpen(true);
+                          }}
+                          className={`font-medium underline underline-offset-4 transition-colors ${isMobile ? 'text-cyan-300 hover:text-cyan-200' : 'text-primary dark:text-cyan-400 dark:hover:text-cyan-300'}`}
+                        >
+                          Terms and Conditions
+                        </button>
+                      </div>
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 px-1">
                 <Link
                   to="/privacy-policy"
@@ -1017,59 +1017,8 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
                 >
                   Privacy Policy
                 </Link>
-                <Link
-                  to="/terms-and-conditions"
-                  className={`text-sm font-medium underline underline-offset-4 transition-colors ${
-                    isMobile
-                      ? 'text-cyan-300 hover:text-cyan-200'
-                      : 'text-primary dark:text-cyan-400 dark:hover:text-cyan-300'
-                  }`}
-                >
-                  Terms and Conditions
-                </Link>
               </div>
             </div>
-
-            <FormField
-              control={form.control}
-              name="terms"
-              render={({ field }) => (
-                <FormItem>
-                  <div className="flex items-start gap-2 pt-2">
-                    <input
-                      id="terms"
-                      type="checkbox"
-                      checked={field.value ?? false}
-                      onChange={(e) => {
-                        const checked = e.target.checked;
-                        if (checked) {
-                          setTermsOpen(true);
-                          return;
-                        }
-                        field.onChange(false);
-                      }}
-                      className={`mt-0.5 h-4 w-4 rounded border ${isMobile ? 'border-white/30 bg-slate-900/60' : 'border-border dark:border-white/30 dark:bg-transparent'}`}
-                    />
-                    <div className={`text-sm leading-6 ${isMobile ? 'text-slate-300' : 'text-muted-foreground dark:text-slate-300'}`}>
-                      <label htmlFor="terms" className="select-none">
-                        I agree to the{' '}
-                      </label>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setTermsOpen(true);
-                        }}
-                        className={`font-medium underline underline-offset-4 transition-colors ${isMobile ? 'text-cyan-300 hover:text-cyan-200' : 'text-primary dark:text-cyan-400 dark:hover:text-cyan-300'}`}
-                      >
-                        Terms and Conditions
-                      </button>
-                    </div>
-                  </div>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
 
             <div className="flex flex-col gap-3 border-t border-white/10 pt-2 sm:flex-row sm:items-center sm:justify-between">
               <Button

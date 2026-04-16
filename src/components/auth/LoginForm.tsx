@@ -57,6 +57,7 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
   const [isLoginLoading, setIsLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>('login');
+  const [registerStep, setRegisterStep] = useState<1 | 2>(1);
   const isMobile = useIsMobile();
   const [loginShowPassword, setLoginShowPassword] = useState(false);
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
@@ -180,8 +181,20 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
     clearErrors();
   }, [activeTab]);
 
+  useEffect(() => {
+    if (activeTab !== 'register') {
+      setRegisterStep(1);
+    }
+  }, [activeTab]);
+
   const isRegister = activeTab === 'register';
   const desktopFormWidthClass = isRegister ? 'max-w-[42rem]' : 'max-w-md';
+  const registerSubtitle =
+    registerStep === 1 ? '1. Profile details' : '2. Alerts and agreements';
+  const heroSubtitle =
+    activeTab === 'register'
+      ? registerSubtitle
+      : heroCopy[activeTab as 'login' | 'register'].subtitle;
 
   const registerContentClass = isMobile
     ? 'space-y-8 pb-10 pt-1 -mt-1'
@@ -209,9 +222,9 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
             : 'border-none bg-transparent'
         }`}
       >
-        <CardContent className={`${isMobile ? `${isRegister ? 'flex min-h-0 h-full flex-col overflow-hidden p-4 sm:p-6' : 'p-4 sm:p-6'} relative z-10` : isRegister ? 'px-0 py-2' : 'p-0'}`}>
+        <CardContent className={`${isMobile ? `${isRegister ? 'flex min-h-0 h-full flex-col overflow-hidden p-4 sm:p-6' : 'p-4 sm:p-6'} relative z-10` : isRegister ? 'px-0 py-3' : 'p-0'}`}>
           {/* Top header (logo + heading + subtext) */}
-          <div className={`${isMobile ? 'text-left mb-5 space-y-2.5' : isRegister ? 'text-center mb-8 pt-0' : 'text-center mb-8'}`}>
+          <div className={`${isMobile ? 'text-left mb-5 space-y-2.5' : isRegister ? 'text-center mb-7 pt-2' : 'text-center mb-8'}`}>
             <div className={`h-[34px] mb-4 flex items-center ${isMobile ? 'justify-start mt-[10px]' : 'justify-center'}`}>
               <Logo
                 className="h-[34px] w-auto"
@@ -222,7 +235,7 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
               {heroCopy[activeTab as 'login' | 'register'].title}
             </h1>
             <p className={`text-sm mt-1 ${isMobile ? 'text-slate-300' : 'text-muted-foreground'}`}>
-              {heroCopy[activeTab as 'login' | 'register'].subtitle}
+              {heroSubtitle}
             </p>
           </div>
 
@@ -367,7 +380,7 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
 
             {/* Register Form */}
             <TabsContent value="register" className={`${registerContentClass} ${isMobile ? 'min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1' : ''}`}>
-              <RegisterForm onSuccess={handleRegisterSuccess} />
+              <RegisterForm onSuccess={handleRegisterSuccess} onStepChange={setRegisterStep} />
               <p
                 className={`text-center text-sm pt-2 ${isMobile ? 'text-slate-400' : 'text-muted-foreground dark:text-slate-400'}`}
               >
