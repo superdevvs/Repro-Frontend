@@ -4,7 +4,6 @@ import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Eye, EyeOff } from 'lucide-react';
-import { Link } from 'react-router-dom';
 
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -29,6 +28,7 @@ import type { UserData } from '@/types/auth';
 import { API_BASE_URL } from '@/config/env';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { EmailHealthInlineHint } from '@/components/email/EmailHealthInlineHint';
+import { PRIVACY_EFFECTIVE_DATE as PRIVACY_POLICY_EFFECTIVE_DATE, privacySections } from '@/content/privacyPolicy';
 import { analyzeEmailInput, normalizeEmailHealth } from '@/utils/emailHealth';
 
 const TERMS_EFFECTIVE_DATE = 'April 16, 2026';
@@ -309,6 +309,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange }) 
   const [serverEmailHealth, setServerEmailHealth] = useState<any>(undefined);
   const [emailWarningOverride, setEmailWarningOverride] = useState(false);
   const [termsOpen, setTermsOpen] = useState(false);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
   const [termsScrollProgress, setTermsScrollProgress] = useState(0);
   const [termsScrolledToEnd, setTermsScrolledToEnd] = useState(false);
   const isMobile = useIsMobile();
@@ -920,7 +921,12 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange }) 
                       : '0 10px 24px rgba(8, 47, 73, 0.16)',
                 }}
               >
-                Next
+                <span className="flex flex-col items-center leading-none">
+                  <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-white/65">
+                    1 of 2
+                  </span>
+                  <span className="mt-1">Next</span>
+                </span>
               </Button>
             </div>
           </>
@@ -1002,8 +1008,12 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange }) 
                           Terms and Conditions
                         </button>
                         <span>{' '}and{' '}</span>
-                        <Link
-                          to="/privacy-policy"
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            setPrivacyOpen(true);
+                          }}
                           className={`font-medium underline underline-offset-4 transition-colors ${
                             isMobile
                               ? 'text-cyan-300 hover:text-cyan-200'
@@ -1011,7 +1021,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange }) 
                           }`}
                         >
                           Privacy Policy
-                        </Link>
+                        </button>
                       </div>
                     </div>
                     <FormMessage />
@@ -1058,6 +1068,122 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange }) 
             </div>
           </>
         )}
+
+        <Dialog
+          open={privacyOpen}
+          onOpenChange={setPrivacyOpen}
+        >
+          <DialogContent
+            className={`border-white/10 bg-[#060a0e] text-white [&>button]:hidden ${isMobile ? 'w-[calc(100vw-1rem)] max-w-none rounded-2xl p-4' : 'max-w-3xl p-6'} max-h-[85vh] flex flex-col`}
+          >
+            <DialogHeader className="space-y-2 pr-8">
+              <DialogTitle className="text-left text-xl font-semibold text-white">
+                Privacy Policy
+              </DialogTitle>
+              <DialogDescription className="text-left text-sm text-slate-400">
+                Review how R/E Pro Photos collects, uses, and protects your information across the platform.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="overflow-y-auto pr-2 flex-1 min-h-0 space-y-8 text-sm leading-6 text-slate-200">
+              <section className="space-y-4">
+                <div className="space-y-2 border-b border-white/10 pb-4">
+                  <h2 className="text-lg font-semibold text-white">R/E Pro Photos Privacy Policy</h2>
+                  <p className="text-sm text-slate-400">
+                    Effective Date: {PRIVACY_POLICY_EFFECTIVE_DATE}
+                  </p>
+                  <p>
+                    R/E Pro Photos, LLC (&ldquo;R/E Pro Photos,&rdquo; &ldquo;we,&rdquo; &ldquo;our,&rdquo; or &ldquo;us&rdquo;) respects your privacy and is committed to protecting your personal information. This Privacy Policy applies to our website, booking experience, dashboard, client portal, messaging tools, and related services (collectively, the &ldquo;Platform&rdquo;).
+                  </p>
+                  <p>
+                    By using the Platform, you agree to the terms of this Privacy Policy.
+                  </p>
+                </div>
+
+                <div className="space-y-6">
+                  {privacySections.map((section) => (
+                    <div key={section.heading} className="space-y-3">
+                      <h3 className="text-base font-semibold text-white">{section.heading}</h3>
+
+                      {section.paragraphs?.map((paragraph) => (
+                        <p key={paragraph}>{paragraph}</p>
+                      ))}
+
+                      {section.bullets?.length ? (
+                        <ul className="space-y-2 pl-5">
+                          {section.bullets.map((bullet) => (
+                            <li key={bullet} className="list-disc">
+                              {bullet}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
+
+                      {section.subSections?.length ? (
+                        <div className="space-y-4 rounded-2xl border border-white/10 bg-black/10 p-4">
+                          {section.subSections.map((subSection) => (
+                            <div key={subSection.title} className="space-y-2">
+                              <h4 className="font-medium text-white">{subSection.title}</h4>
+
+                              {subSection.paragraphs?.map((paragraph) => (
+                                <p key={paragraph}>{paragraph}</p>
+                              ))}
+
+                              {subSection.bullets?.length ? (
+                                <ul className="space-y-2 pl-5">
+                                  {subSection.bullets.map((bullet) => (
+                                    <li key={bullet} className="list-disc">
+                                      {bullet}
+                                    </li>
+                                  ))}
+                                </ul>
+                              ) : null}
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+
+                      {section.calloutTitle && section.calloutBody ? (
+                        <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-4 text-slate-100">
+                          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-cyan-200">
+                            {section.calloutTitle}
+                          </p>
+                          <p className="mt-2">{section.calloutBody}</p>
+                        </div>
+                      ) : null}
+
+                      {section.contactItems?.length ? (
+                        <div className="space-y-2">
+                          {section.contactItems.map((item) => (
+                            <p key={item.label}>
+                              <span className="font-medium text-white">{item.label}: </span>
+                              <a
+                                href={item.href}
+                                className="text-cyan-300 underline underline-offset-4 transition-colors hover:text-cyan-200"
+                              >
+                                {item.value}
+                              </a>
+                            </p>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            </div>
+
+            <div className="mt-4 border-t border-white/10 pt-4">
+              <Button
+                type="button"
+                onClick={() => setPrivacyOpen(false)}
+                className="w-full rounded-full bg-gradient-to-r from-blue-500 to-cyan-400 text-white hover:opacity-90"
+              >
+                Close
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         <Dialog
           open={termsOpen}
