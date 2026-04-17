@@ -194,7 +194,7 @@ export const IntegrationsSettingsContent = () => {
     punchoutUrl: 'https://repro.mymarketingmatters.com/punchoutsetup.asp',
     templateExternalNumber: '',
     deploymentMode: 'test',
-    startPoint: 'Category',
+    startPoint: 'category',
     toIdentity: '',
     senderIdentity: '',
     urlReturn: '',
@@ -297,7 +297,7 @@ export const IntegrationsSettingsContent = () => {
           punchoutUrl: 'https://repro.mymarketingmatters.com/punchoutsetup.asp',
           templateExternalNumber: '',
           deploymentMode: 'test',
-          startPoint: 'Category',
+          startPoint: 'category',
           toIdentity: '',
           senderIdentity: '',
           urlReturn: '',
@@ -1258,7 +1258,7 @@ export const IntegrationsSettingsContent = () => {
                         onChange={(e) =>
                           setMmmSettings({ ...mmmSettings, startPoint: e.target.value })
                         }
-                        placeholder="Category"
+                        placeholder="category"
                       />
                     </div>
                     <div className="space-y-2">

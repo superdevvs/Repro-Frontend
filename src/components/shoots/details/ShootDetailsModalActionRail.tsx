@@ -56,6 +56,7 @@ interface ShootDetailsModalActionRailProps {
   canClientDownload: boolean;
   isDownloading: boolean;
   isGeneratingShareLink: boolean;
+  isStartingMmmPunchout: boolean;
   rawFileCount: number;
   editedMediaCount: number;
   activeMediaDisplayTab: 'uploaded' | 'edited';
@@ -69,7 +70,6 @@ interface ShootDetailsModalActionRailProps {
   setIsDeclineModalOpen: (open: boolean) => void;
   setIsEditMode: (open: boolean) => void;
   setIsDownloadDialogOpen: (open: boolean) => void;
-  setPrintComingSoonOpen: (open: boolean) => void;
   handleOpenAiEdit: () => void;
   handleMarkOnHoldClick: () => void;
   handleResumeFromHold: () => void;
@@ -78,6 +78,8 @@ interface ShootDetailsModalActionRailProps {
   handleFinalise: () => void;
   handleDownloadMedia: (size: 'original' | 'small' | 'medium' | 'large') => void;
   handleSendToBrightMls: () => void;
+  handleOpenMmm: () => void;
+  handleStartMmmPunchout: () => Promise<void>;
   handleEditorDownloadRaw: () => void;
   handleProgressMediaDownload: () => void;
   handleGenerateShareLink: () => void;
@@ -112,6 +114,7 @@ export function ShootDetailsModalActionRail({
   canClientDownload,
   isDownloading,
   isGeneratingShareLink,
+  isStartingMmmPunchout,
   rawFileCount,
   editedMediaCount,
   activeMediaDisplayTab,
@@ -125,7 +128,6 @@ export function ShootDetailsModalActionRail({
   setIsDeclineModalOpen,
   setIsEditMode,
   setIsDownloadDialogOpen,
-  setPrintComingSoonOpen,
   handleOpenAiEdit,
   handleMarkOnHoldClick,
   handleResumeFromHold,
@@ -134,6 +136,8 @@ export function ShootDetailsModalActionRail({
   handleFinalise,
   handleDownloadMedia,
   handleSendToBrightMls,
+  handleOpenMmm,
+  handleStartMmmPunchout,
   handleEditorDownloadRaw,
   handleProgressMediaDownload,
   handleGenerateShareLink,
@@ -348,7 +352,7 @@ export function ShootDetailsModalActionRail({
                       variant="outline"
                       size="sm"
                       className="h-7 text-xs px-3 bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-950 dark:hover:bg-slate-900 dark:text-slate-300 dark:border-slate-800"
-                      onClick={() => window.open(mmmRedirectUrl, '_blank', 'noopener,noreferrer')}
+                      onClick={handleOpenMmm}
                     >
                       <Link2 className="h-3 w-3 mr-1" />
                       <span>Open MMM</span>
@@ -359,10 +363,22 @@ export function ShootDetailsModalActionRail({
                       variant="outline"
                       size="sm"
                       className="h-7 text-xs px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:hover:bg-emerald-900 dark:text-emerald-300 dark:border-emerald-800"
-                      onClick={() => setPrintComingSoonOpen(true)}
+                      onClick={() => {
+                        void handleStartMmmPunchout();
+                      }}
+                      disabled={isStartingMmmPunchout}
                     >
-                      <Printer className="h-3 w-3 mr-1" />
-                      <span>Print</span>
+                      {isStartingMmmPunchout ? (
+                        <>
+                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                          <span>Preparing...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Printer className="h-3 w-3 mr-1" />
+                          <span>Print</span>
+                        </>
+                      )}
                     </Button>
                   )}
                 </>
@@ -504,6 +520,39 @@ export function ShootDetailsModalActionRail({
                   <Download className="h-4 w-4 text-green-600 dark:text-green-400" />
                 </div>
                 {isDownloading ? 'Downloading...' : 'Download'}
+              </button>
+            )}
+            {showMmmPunchoutButtons && !isEditMode && mmmRedirectUrl && (
+              <button
+                className="flex items-center gap-3 w-full rounded-xl px-3 py-3 text-sm font-medium hover:bg-muted transition-colors"
+                onClick={() => {
+                  setIsMobileActionsOpen(false);
+                  handleOpenMmm();
+                }}
+              >
+                <div className="flex items-center justify-center h-9 w-9 rounded-full bg-slate-100 dark:bg-slate-900/40">
+                  <Link2 className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+                </div>
+                Open MMM
+              </button>
+            )}
+            {showMmmPunchoutButtons && !isEditMode && canStartMmmPunchout && (
+              <button
+                className="flex items-center gap-3 w-full rounded-xl px-3 py-3 text-sm font-medium hover:bg-muted transition-colors disabled:opacity-60"
+                onClick={() => {
+                  setIsMobileActionsOpen(false);
+                  void handleStartMmmPunchout();
+                }}
+                disabled={isStartingMmmPunchout}
+              >
+                <div className="flex items-center justify-center h-9 w-9 rounded-full bg-emerald-100 dark:bg-emerald-900/40">
+                  {isStartingMmmPunchout ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-emerald-600 dark:text-emerald-400" />
+                  ) : (
+                    <Printer className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  )}
+                </div>
+                {isStartingMmmPunchout ? 'Preparing print...' : 'Print'}
               </button>
             )}
             {isEditor && !isEditMode && (

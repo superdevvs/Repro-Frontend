@@ -10,6 +10,12 @@ import {
 import {
   buildBrightMlsPublishPayloadWithFallback,
 } from '@/utils/brightMls';
+import { mmmService } from '@/services/mmmService';
+import {
+  navigateMmmWindow,
+  openPendingMmmWindow,
+  showMmmWindowError,
+} from '@/utils/mmm';
 
 interface ToastApi {
   toast: (options: {
@@ -38,7 +44,7 @@ export function useShootDetailsModalActions({
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadStatusMessage, setDownloadStatusMessage] = useState('Preparing your files...');
   const [isGeneratingShareLink, setIsGeneratingShareLink] = useState(false);
-  const [printComingSoonOpen, setPrintComingSoonOpen] = useState(false);
+  const [isStartingMmmPunchout, setIsStartingMmmPunchout] = useState(false);
   const [selectedFileIds, setSelectedFileIds] = useState<string[]>([]);
 
   const handleSendToBrightMls = async () => {
@@ -218,6 +224,67 @@ export function useShootDetailsModalActions({
     }
   };
 
+  const handleOpenMmm = () => {
+    const shootWithLegacyMmmUrl = shoot as (ShootData & { mmm_redirect_url?: string | null }) | null;
+    const redirectUrl = shoot?.mmmRedirectUrl ?? shootWithLegacyMmmUrl?.mmm_redirect_url ?? null;
+    if (!redirectUrl) {
+      return;
+    }
+
+    const didOpen = navigateMmmWindow(null, redirectUrl);
+    if (!didOpen) {
+      toast({
+        title: 'Popup blocked',
+        description: 'Allow popups in your browser, then use Open MMM again.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleStartMmmPunchout = async () => {
+    if (!shoot || isStartingMmmPunchout) return;
+
+    const popup = openPendingMmmWindow();
+
+    try {
+      setIsStartingMmmPunchout(true);
+
+      const result = await mmmService.startPunchout(shoot.id);
+      if (!result.success || !result.redirect_url) {
+        throw new Error(result.message || 'Failed to start the MMM print session.');
+      }
+
+      const didOpen = navigateMmmWindow(popup, result.redirect_url);
+      await refreshShoot();
+
+      if (!didOpen) {
+        throw new Error(
+          'Your MMM session is ready, but the popup was blocked. Allow popups and use Open MMM to continue.',
+        );
+      }
+
+      toast({
+        title: 'Print session ready',
+        description: 'MMM opened in a new window so you can continue the print order there.',
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Failed to open print materials. Please try again.';
+
+      console.error('Error starting MMM punchout:', error);
+      showMmmWindowError(popup, message);
+      toast({
+        title: 'Error',
+        description: message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsStartingMmmPunchout(false);
+    }
+  };
+
   return {
     isPublishingToBrightMls,
     brightMlsRedirectUrl,
@@ -227,11 +294,12 @@ export function useShootDetailsModalActions({
     isDownloading,
     downloadStatusMessage,
     isGeneratingShareLink,
-    printComingSoonOpen,
-    setPrintComingSoonOpen,
+    isStartingMmmPunchout,
     selectedFileIds,
     setSelectedFileIds,
     handleSendToBrightMls,
+    handleOpenMmm,
+    handleStartMmmPunchout,
     handleEditorDownloadRaw,
     handleGenerateShareLink,
     handleDownloadMedia,

@@ -19,7 +19,7 @@ import { BrightMlsImportDialog } from '@/components/integrations/BrightMlsImport
 import { HorizontalLoader } from '@/components/ui/horizontal-loader';
 import { ShootApprovalModal } from '../ShootApprovalModal';
 import { ShootDeclineModal } from '../ShootDeclineModal';
-import { FileText, Loader2, PauseCircle, Printer, XCircle } from 'lucide-react';
+import { Loader2, PauseCircle, XCircle } from 'lucide-react';
 import { ShootData } from '@/types/shoots';
 import {
   ShootMediaDownloadSize,
@@ -62,7 +62,6 @@ interface ShootDetailsModalDialogsProps {
   selectedInvoice: InvoiceData | null;
   isInvoiceDialogOpen: boolean;
   brightMlsRedirectUrl: string | null;
-  printComingSoonOpen: boolean;
   pendingUpdates: Partial<ShootData> | null;
   setIsPaymentDialogOpen: (open: boolean) => void;
   setIsMarkPaidDialogOpen: (open: boolean) => void;
@@ -83,7 +82,6 @@ interface ShootDetailsModalDialogsProps {
   setIsInvoiceDialogOpen: (open: boolean) => void;
   setSelectedInvoice: (invoice: InvoiceData | null) => void;
   setBrightMlsRedirectUrl: (url: string | null) => void;
-  setPrintComingSoonOpen: (open: boolean) => void;
   handlePaymentSuccess: () => void;
   handleMarkPaidConfirm: (payload: MarkAsPaidPayload) => Promise<void>;
   handleConfirmSave: () => void;
@@ -133,7 +131,6 @@ export function ShootDetailsModalDialogs({
   selectedInvoice,
   isInvoiceDialogOpen,
   brightMlsRedirectUrl,
-  printComingSoonOpen,
   pendingUpdates,
   setIsPaymentDialogOpen,
   setIsMarkPaidDialogOpen,
@@ -154,7 +151,6 @@ export function ShootDetailsModalDialogs({
   setIsInvoiceDialogOpen,
   setSelectedInvoice,
   setBrightMlsRedirectUrl,
-  setPrintComingSoonOpen,
   handlePaymentSuccess,
   handleMarkPaidConfirm,
   handleConfirmSave,
@@ -543,48 +539,6 @@ export function ShootDetailsModalDialogs({
         redirectUrl={brightMlsRedirectUrl}
         onRedirectUrlChange={setBrightMlsRedirectUrl}
       />
-
-      <Dialog open={printComingSoonOpen} onOpenChange={setPrintComingSoonOpen}>
-        <DialogContent className="max-w-lg w-[90vw] p-0 gap-0 overflow-hidden">
-          <DialogHeader className="px-4 py-3 border-b flex-row items-center justify-between space-y-0">
-            <div>
-              <DialogTitle className="text-base">Print Marketing Materials</DialogTitle>
-              <DialogDescription className="text-xs text-muted-foreground">Order professional print materials for your listing</DialogDescription>
-            </div>
-          </DialogHeader>
-          <div className="relative">
-            <div className="p-5 space-y-4 blur-[2px] opacity-60 pointer-events-none select-none" aria-hidden="true">
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  ['Property Flyer', '8.5" × 11" full color'],
-                  ['Postcards', '4" × 6" double-sided'],
-                  ['Brochure', 'Tri-fold, premium stock'],
-                  ['Yard Sign', '18" × 24" weatherproof'],
-                ].map(([title, description]) => (
-                  <div key={title} className="border rounded-lg p-3 space-y-1.5">
-                    <div className="h-20 bg-muted rounded flex items-center justify-center">
-                      <FileText className="h-8 w-8 text-muted-foreground/40" />
-                    </div>
-                    <p className="text-xs font-medium">{title}</p>
-                    <p className="text-[10px] text-muted-foreground">{description}</p>
-                  </div>
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <div className="flex-1 h-9 bg-muted rounded" />
-                <div className="w-24 h-9 bg-emerald-200 dark:bg-emerald-800 rounded" />
-              </div>
-            </div>
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/60 backdrop-blur-[1px]">
-              <div className="bg-card border shadow-lg rounded-xl px-6 py-4 text-center space-y-2">
-                <Printer className="h-8 w-8 mx-auto text-emerald-500" />
-                <h3 className="text-lg font-semibold">Coming Soon</h3>
-                <p className="text-sm text-muted-foreground max-w-[260px]">Print marketing materials will be available in a future update.</p>
-              </div>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }

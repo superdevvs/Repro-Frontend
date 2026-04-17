@@ -490,11 +490,12 @@ export function ShootDetailsModal({
     isDownloading,
     downloadStatusMessage,
     isGeneratingShareLink,
-    printComingSoonOpen,
-    setPrintComingSoonOpen,
+    isStartingMmmPunchout,
     selectedFileIds,
     setSelectedFileIds,
     handleSendToBrightMls,
+    handleOpenMmm,
+    handleStartMmmPunchout,
     handleEditorDownloadRaw,
     handleGenerateShareLink,
     handleDownloadMedia,
@@ -726,6 +727,7 @@ export function ShootDetailsModal({
           canClientDownload={clientReleaseAccess.canClientDownload}
           isDownloading={isDownloading}
           isGeneratingShareLink={isGeneratingShareLink}
+          isStartingMmmPunchout={isStartingMmmPunchout}
           rawFileCount={rawFileCount}
           editedMediaCount={editedMediaCount}
           activeMediaDisplayTab={activeMediaDisplayTab}
@@ -739,7 +741,6 @@ export function ShootDetailsModal({
           setIsDeclineModalOpen={setIsDeclineModalOpen}
           setIsEditMode={setIsEditMode}
           setIsDownloadDialogOpen={setIsDownloadDialogOpen}
-          setPrintComingSoonOpen={setPrintComingSoonOpen}
           handleOpenAiEdit={handleOpenAiEdit}
           handleMarkOnHoldClick={handleMarkOnHoldClick}
           handleResumeFromHold={handleResumeFromHold}
@@ -748,6 +749,8 @@ export function ShootDetailsModal({
           handleFinalise={handleFinalise}
           handleDownloadMedia={handleDownloadMedia}
           handleSendToBrightMls={handleSendToBrightMls}
+          handleOpenMmm={handleOpenMmm}
+          handleStartMmmPunchout={handleStartMmmPunchout}
           handleEditorDownloadRaw={handleEditorDownloadRaw}
           handleProgressMediaDownload={handleProgressMediaDownload}
           handleGenerateShareLink={handleGenerateShareLink}
@@ -852,7 +855,6 @@ export function ShootDetailsModal({
         selectedInvoice={selectedInvoice}
         isInvoiceDialogOpen={isInvoiceDialogOpen}
         brightMlsRedirectUrl={brightMlsRedirectUrl}
-        printComingSoonOpen={printComingSoonOpen}
         pendingUpdates={pendingUpdates}
         setIsPaymentDialogOpen={setIsPaymentDialogOpen}
         setIsMarkPaidDialogOpen={setIsMarkPaidDialogOpen}
@@ -873,7 +875,6 @@ export function ShootDetailsModal({
         setIsInvoiceDialogOpen={setIsInvoiceDialogOpen}
         setSelectedInvoice={setSelectedInvoice}
         setBrightMlsRedirectUrl={setBrightMlsRedirectUrl}
-        setPrintComingSoonOpen={setPrintComingSoonOpen}
         handlePaymentSuccess={handlePaymentSuccess}
         handleMarkPaidConfirm={handleMarkPaidConfirm}
         handleConfirmSave={handleConfirmSave}

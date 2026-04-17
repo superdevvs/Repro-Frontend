@@ -79,15 +79,8 @@ export const getShootDetailsCapabilities = ({
     (normalizedStatus === 'uploaded' || normalizedStatus === 'scheduled');
   const mmmRedirectUrl =
     shoot?.mmmRedirectUrl || (shoot as any)?.mmm_redirect_url || undefined;
-  const canStartMmmPunchout = [
-    'admin',
-    'superadmin',
-    'client',
-    'salesRep',
-    'sales_rep',
-    'rep',
-    'representative',
-  ].includes(currentUserRole || '');
+  const canStartMmmPunchout =
+    currentUserRole === 'superadmin' || isAdmin || isRep || isClient;
   const showMmmPunchoutButtons =
     isDelivered && (canStartMmmPunchout || Boolean(mmmRedirectUrl));
   const canNotifyClient = Boolean(shoot?.client?.email);

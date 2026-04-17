@@ -920,11 +920,11 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange }) 
                       : '0 10px 24px rgba(8, 47, 73, 0.16)',
                 }}
               >
-                <span className="flex flex-col items-center leading-none">
+                <span className="flex w-full items-center justify-between gap-4 leading-none">
                   <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-white/65">
                     1 of 2
                   </span>
-                  <span className="mt-1">Next</span>
+                  <span>Next</span>
                 </span>
               </Button>
             </div>
