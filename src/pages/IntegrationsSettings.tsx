@@ -34,6 +34,62 @@ type BrightMlsSettings = {
   enabled: boolean;
 };
 
+type MmmSettings = {
+  enabled: boolean;
+  duns: string;
+  sharedSecret: string;
+  userAgent: string;
+  punchoutUrl: string;
+  templateExternalNumber: string;
+  deploymentMode: string;
+  startPoint: string;
+  toIdentity: string;
+  senderIdentity: string;
+  urlReturn: string;
+  returnRedirectUrl: string;
+  timeout: number;
+};
+
+const DEFAULT_MMM_SETTINGS: MmmSettings = {
+  enabled: true,
+  duns: 'Wqsw5cPn3Neo9Blz',
+  sharedSecret: '',
+  userAgent: 'REPro Photos',
+  punchoutUrl: 'https://repro.mymarketingmatters.com/punchoutsetup.asp',
+  templateExternalNumber: '',
+  deploymentMode: 'test',
+  startPoint: 'category',
+  toIdentity: '',
+  senderIdentity: '',
+  urlReturn: '',
+  returnRedirectUrl: '',
+  timeout: 20,
+};
+
+const normalizeMmmSettings = (value?: Partial<MmmSettings> | null): MmmSettings => ({
+  enabled: value?.enabled ?? DEFAULT_MMM_SETTINGS.enabled,
+  duns: typeof value?.duns === 'string' ? value.duns.trim() : DEFAULT_MMM_SETTINGS.duns,
+  sharedSecret: typeof value?.sharedSecret === 'string' ? value.sharedSecret.trim() : DEFAULT_MMM_SETTINGS.sharedSecret,
+  userAgent: typeof value?.userAgent === 'string' ? value.userAgent.trim() : DEFAULT_MMM_SETTINGS.userAgent,
+  punchoutUrl: typeof value?.punchoutUrl === 'string' ? value.punchoutUrl.trim() : DEFAULT_MMM_SETTINGS.punchoutUrl,
+  templateExternalNumber: typeof value?.templateExternalNumber === 'string'
+    ? value.templateExternalNumber.trim()
+    : DEFAULT_MMM_SETTINGS.templateExternalNumber,
+  deploymentMode: value?.deploymentMode === 'production' ? 'production' : DEFAULT_MMM_SETTINGS.deploymentMode,
+  startPoint: typeof value?.startPoint === 'string' && value.startPoint.trim()
+    ? value.startPoint.trim().toLowerCase()
+    : DEFAULT_MMM_SETTINGS.startPoint,
+  toIdentity: typeof value?.toIdentity === 'string' ? value.toIdentity.trim() : DEFAULT_MMM_SETTINGS.toIdentity,
+  senderIdentity: typeof value?.senderIdentity === 'string' ? value.senderIdentity.trim() : DEFAULT_MMM_SETTINGS.senderIdentity,
+  urlReturn: typeof value?.urlReturn === 'string' ? value.urlReturn.trim() : DEFAULT_MMM_SETTINGS.urlReturn,
+  returnRedirectUrl: typeof value?.returnRedirectUrl === 'string'
+    ? value.returnRedirectUrl.trim()
+    : DEFAULT_MMM_SETTINGS.returnRedirectUrl,
+  timeout: Number.isFinite(Number(value?.timeout)) && Number(value?.timeout) > 0
+    ? Number(value?.timeout)
+    : DEFAULT_MMM_SETTINGS.timeout,
+});
+
 const BRIGHT_MLS_ENV_DEFAULTS = {
   legacy: {
     t1: {
@@ -186,21 +242,7 @@ export const IntegrationsSettingsContent = () => {
   const [dropboxTestResult, setDropboxTestResult] = useState<any>(null);
 
   // MMM Settings
-  const [mmmSettings, setMmmSettings] = useState({
-    enabled: true,
-    duns: 'Wqsw5cPn3Neo9Blz',
-    sharedSecret: '',
-    userAgent: 'REPro Photos',
-    punchoutUrl: 'https://repro.mymarketingmatters.com/punchoutsetup.asp',
-    templateExternalNumber: '',
-    deploymentMode: 'test',
-    startPoint: 'category',
-    toIdentity: '',
-    senderIdentity: '',
-    urlReturn: '',
-    returnRedirectUrl: '',
-    timeout: 20,
-  });
+  const [mmmSettings, setMmmSettings] = useState<MmmSettings>(normalizeMmmSettings());
   const [testingMmm, setTestingMmm] = useState(false);
   const [mmmTestResult, setMmmTestResult] = useState<any>(null);
 
@@ -246,11 +288,7 @@ export const IntegrationsSettingsContent = () => {
         }
 
         if (mmmRes?.data?.success && mmmRes.data.data?.value) {
-          setMmmSettings({
-            ...mmmSettings,
-            ...mmmRes.data.data.value,
-            enabled: mmmRes.data.data.value.enabled ?? true,
-          });
+          setMmmSettings(normalizeMmmSettings(mmmRes.data.data.value));
         }
 
         if (googleCalendarRes?.data?.success && googleCalendarRes.data.data) {
@@ -289,25 +327,39 @@ export const IntegrationsSettingsContent = () => {
       }
 
       if (!mmmSettings.duns && !mmmSettings.sharedSecret && !mmmSettings.punchoutUrl) {
-        setMmmSettings({
-          enabled: true,
-          duns: 'Wqsw5cPn3Neo9Blz',
-          sharedSecret: '',
-          userAgent: 'REPro Photos',
-          punchoutUrl: 'https://repro.mymarketingmatters.com/punchoutsetup.asp',
-          templateExternalNumber: '',
-          deploymentMode: 'test',
-          startPoint: 'category',
-          toIdentity: '',
-          senderIdentity: '',
-          urlReturn: '',
-          returnRedirectUrl: '',
-          timeout: 20,
-        });
+        setMmmSettings(normalizeMmmSettings());
       }
     } catch (error) {
       console.error('Error loading settings:', error);
     }
+  };
+
+  const storeAdminSetting = async (
+    key: string,
+    value: unknown,
+    description: string,
+    type: 'string' | 'json' | 'boolean' | 'integer' = 'json',
+  ) => {
+    await apiClient.post(API_ROUTES.admin.settings.store, {
+      key,
+      value,
+      type,
+      description,
+    });
+  };
+
+  const persistMmmSettings = async () => {
+    const normalizedSettings = normalizeMmmSettings(mmmSettings);
+    setMmmSettings(normalizedSettings);
+
+    await storeAdminSetting(
+      'integrations.mmm',
+      normalizedSettings,
+      'MyMarketingMatters (MMM) punchout integration',
+      'json',
+    );
+
+    return normalizedSettings;
   };
 
   const saveSettings = async () => {
@@ -328,52 +380,49 @@ export const IntegrationsSettingsContent = () => {
         return;
       }
 
-      // Save Zillow settings
-      await apiClient.post(API_ROUTES.admin.settings.store, {
-        key: 'integrations.zillow',
-        value: zillowSettings,
-        type: 'json',
-        description: 'Zillow/Bridge Data Output API credentials',
-      });
+      const normalizedMmmSettings = normalizeMmmSettings(mmmSettings);
+      setMmmSettings(normalizedMmmSettings);
 
-      await apiClient.post(API_ROUTES.admin.settings.store, {
-        key: 'integrations.zillow.address_overrides',
-        value: parsedZillowAddressOverrides,
-        type: 'json',
-        description: 'Manual property fact overrides keyed by address',
-      });
+      // Save Zillow settings
+      await storeAdminSetting(
+        'integrations.zillow',
+        zillowSettings,
+        'Zillow/Bridge Data Output API credentials',
+      );
+
+      await storeAdminSetting(
+        'integrations.zillow.address_overrides',
+        parsedZillowAddressOverrides,
+        'Manual property fact overrides keyed by address',
+      );
 
       // Save Bright MLS settings
-      await apiClient.post(API_ROUTES.admin.settings.store, {
-        key: 'integrations.bright_mls',
-        value: normalizeBrightMlsSettings(brightMlsSettings),
-        type: 'json',
-        description: 'Bright MLS API credentials',
-      });
+      await storeAdminSetting(
+        'integrations.bright_mls',
+        normalizeBrightMlsSettings(brightMlsSettings),
+        'Bright MLS API credentials',
+      );
 
       // Save iGUIDE settings
-      await apiClient.post(API_ROUTES.admin.settings.store, {
-        key: 'integrations.iguide',
-        value: iguideSettings,
-        type: 'json',
-        description: 'iGUIDE API credentials',
-      });
+      await storeAdminSetting(
+        'integrations.iguide',
+        iguideSettings,
+        'iGUIDE API credentials',
+      );
 
       // Save Dropbox settings
-      await apiClient.post(API_ROUTES.admin.settings.store, {
-        key: 'integrations.dropbox',
-        value: dropboxSettings,
-        type: 'json',
-        description: 'Dropbox storage integration',
-      });
+      await storeAdminSetting(
+        'integrations.dropbox',
+        dropboxSettings,
+        'Dropbox storage integration',
+      );
 
       // Save MMM settings
-      await apiClient.post(API_ROUTES.admin.settings.store, {
-        key: 'integrations.mmm',
-        value: mmmSettings,
-        type: 'json',
-        description: 'MyMarketingMatters (MMM) punchout integration',
-      });
+      await storeAdminSetting(
+        'integrations.mmm',
+        normalizedMmmSettings,
+        'MyMarketingMatters (MMM) punchout integration',
+      );
 
       toast({
         title: "Settings saved",
@@ -476,6 +525,8 @@ export const IntegrationsSettingsContent = () => {
     setTestingMmm(true);
     setMmmTestResult(null);
     try {
+      await persistMmmSettings();
+
       const response = await apiClient.post(API_ROUTES.integrations.testConnection, {
         service: 'mmm',
       });
@@ -1330,7 +1381,7 @@ export const IntegrationsSettingsContent = () => {
                     <div>
                       <p className="text-sm font-medium">Test Connection</p>
                       <p className="text-xs text-muted-foreground">
-                        Validate MMM configuration
+                        Validate MMM configuration. Current MMM values are saved before testing.
                       </p>
                     </div>
                     <Button
