@@ -16,6 +16,7 @@ import { StripePaymentDialog } from '@/components/payments/StripePaymentDialog';
 import { InvoiceViewDialog } from '@/components/invoices/InvoiceViewDialog';
 import { InvoiceData } from '@/utils/invoiceUtils';
 import { BrightMlsImportDialog } from '@/components/integrations/BrightMlsImportDialog';
+import { MmmPunchoutDialog } from '@/components/integrations/MmmPunchoutDialog';
 import { HorizontalLoader } from '@/components/ui/horizontal-loader';
 import { ShootApprovalModal } from '../ShootApprovalModal';
 import { ShootDeclineModal } from '../ShootDeclineModal';
@@ -62,6 +63,10 @@ interface ShootDetailsModalDialogsProps {
   selectedInvoice: InvoiceData | null;
   isInvoiceDialogOpen: boolean;
   brightMlsRedirectUrl: string | null;
+  isMmmDialogOpen: boolean;
+  isStartingMmmPunchout: boolean;
+  mmmDialogRedirectUrl: string | null;
+  mmmDialogError: string | null;
   pendingUpdates: Partial<ShootData> | null;
   setIsPaymentDialogOpen: (open: boolean) => void;
   setIsMarkPaidDialogOpen: (open: boolean) => void;
@@ -82,6 +87,8 @@ interface ShootDetailsModalDialogsProps {
   setIsInvoiceDialogOpen: (open: boolean) => void;
   setSelectedInvoice: (invoice: InvoiceData | null) => void;
   setBrightMlsRedirectUrl: (url: string | null) => void;
+  setIsMmmDialogOpen: (open: boolean) => void;
+  setMmmDialogError: (message: string | null) => void;
   handlePaymentSuccess: () => void;
   handleMarkPaidConfirm: (payload: MarkAsPaidPayload) => Promise<void>;
   handleConfirmSave: () => void;
@@ -131,6 +138,10 @@ export function ShootDetailsModalDialogs({
   selectedInvoice,
   isInvoiceDialogOpen,
   brightMlsRedirectUrl,
+  isMmmDialogOpen,
+  isStartingMmmPunchout,
+  mmmDialogRedirectUrl,
+  mmmDialogError,
   pendingUpdates,
   setIsPaymentDialogOpen,
   setIsMarkPaidDialogOpen,
@@ -151,6 +162,8 @@ export function ShootDetailsModalDialogs({
   setIsInvoiceDialogOpen,
   setSelectedInvoice,
   setBrightMlsRedirectUrl,
+  setIsMmmDialogOpen,
+  setMmmDialogError,
   handlePaymentSuccess,
   handleMarkPaidConfirm,
   handleConfirmSave,
@@ -538,6 +551,19 @@ export function ShootDetailsModalDialogs({
       <BrightMlsImportDialog
         redirectUrl={brightMlsRedirectUrl}
         onRedirectUrlChange={setBrightMlsRedirectUrl}
+      />
+
+      <MmmPunchoutDialog
+        open={isMmmDialogOpen}
+        isLaunching={isStartingMmmPunchout}
+        redirectUrl={mmmDialogRedirectUrl}
+        errorMessage={mmmDialogError}
+        onOpenChange={(open) => {
+          setIsMmmDialogOpen(open);
+          if (!open) {
+            setMmmDialogError(null);
+          }
+        }}
       />
     </>
   );

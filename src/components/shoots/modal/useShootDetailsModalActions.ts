@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import axios from 'axios';
 import { ShootData } from '@/types/shoots';
 import { API_BASE_URL } from '@/config/env';
 import { getApiHeaders } from '@/services/api';
@@ -11,11 +12,6 @@ import {
   buildBrightMlsPublishPayloadWithFallback,
 } from '@/utils/brightMls';
 import { mmmService } from '@/services/mmmService';
-import {
-  navigateMmmWindow,
-  openPendingMmmWindow,
-  showMmmWindowError,
-} from '@/utils/mmm';
 
 interface ToastApi {
   toast: (options: {
@@ -32,6 +28,34 @@ interface UseShootDetailsModalActionsOptions {
   toast: ToastApi['toast'];
 }
 
+interface ApiErrorResponse {
+  message?: string;
+  error?: string;
+  details?: {
+    message?: string;
+    error?: string;
+  };
+}
+
+const getMmmErrorMessage = (error: unknown, fallback: string) => {
+  if (axios.isAxiosError<ApiErrorResponse>(error)) {
+    return (
+      error.response?.data?.message ||
+      error.response?.data?.error ||
+      error.response?.data?.details?.message ||
+      error.response?.data?.details?.error ||
+      error.message ||
+      fallback
+    );
+  }
+
+  if (error instanceof Error) {
+    return error.message || fallback;
+  }
+
+  return fallback;
+};
+
 export function useShootDetailsModalActions({
   shoot,
   isPhotographer,
@@ -45,6 +69,9 @@ export function useShootDetailsModalActions({
   const [downloadStatusMessage, setDownloadStatusMessage] = useState('Preparing your files...');
   const [isGeneratingShareLink, setIsGeneratingShareLink] = useState(false);
   const [isStartingMmmPunchout, setIsStartingMmmPunchout] = useState(false);
+  const [isMmmDialogOpen, setIsMmmDialogOpen] = useState(false);
+  const [mmmDialogRedirectUrl, setMmmDialogRedirectUrl] = useState<string | null>(null);
+  const [mmmDialogError, setMmmDialogError] = useState<string | null>(null);
   const [selectedFileIds, setSelectedFileIds] = useState<string[]>([]);
 
   const handleSendToBrightMls = async () => {
@@ -226,55 +253,54 @@ export function useShootDetailsModalActions({
 
   const handleOpenMmm = () => {
     const shootWithLegacyMmmUrl = shoot as (ShootData & { mmm_redirect_url?: string | null }) | null;
-    const redirectUrl = shoot?.mmmRedirectUrl ?? shootWithLegacyMmmUrl?.mmm_redirect_url ?? null;
+    const redirectUrl =
+      shoot?.mmmRedirectUrl ??
+      shootWithLegacyMmmUrl?.mmm_redirect_url ??
+      mmmDialogRedirectUrl ??
+      null;
     if (!redirectUrl) {
       return;
     }
 
-    const didOpen = navigateMmmWindow(null, redirectUrl);
-    if (!didOpen) {
-      toast({
-        title: 'Popup blocked',
-        description: 'Allow popups in your browser, then use Open MMM again.',
-        variant: 'destructive',
-      });
-    }
+    setMmmDialogError(null);
+    setMmmDialogRedirectUrl(redirectUrl);
+    setIsMmmDialogOpen(true);
   };
 
   const handleStartMmmPunchout = async () => {
     if (!shoot || isStartingMmmPunchout) return;
-
-    const popup = openPendingMmmWindow();
+    const existingRedirectUrl = shoot?.mmmRedirectUrl ?? mmmDialogRedirectUrl ?? null;
 
     try {
       setIsStartingMmmPunchout(true);
+      setIsMmmDialogOpen(true);
+      setMmmDialogError(null);
+      setMmmDialogRedirectUrl(null);
 
       const result = await mmmService.startPunchout(shoot.id);
       if (!result.success || !result.redirect_url) {
         throw new Error(result.message || 'Failed to start the MMM print session.');
       }
 
-      const didOpen = navigateMmmWindow(popup, result.redirect_url);
-      await refreshShoot();
-
-      if (!didOpen) {
-        throw new Error(
-          'Your MMM session is ready, but the popup was blocked. Allow popups and use Open MMM to continue.',
-        );
-      }
+      setMmmDialogRedirectUrl(result.redirect_url);
+      await refreshShoot().catch((refreshError) => {
+        console.warn('MMM punchout succeeded but shoot refresh failed:', refreshError);
+      });
 
       toast({
         title: 'Print session ready',
-        description: 'MMM opened in a new window so you can continue the print order there.',
+        description: 'MMM opened in the dashboard popup so you can continue the print order there.',
       });
     } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : 'Failed to open print materials. Please try again.';
+      const message = getMmmErrorMessage(
+        error,
+        'Failed to open print materials. Please try again.',
+      );
 
       console.error('Error starting MMM punchout:', error);
-      showMmmWindowError(popup, message);
+      setMmmDialogRedirectUrl(existingRedirectUrl);
+      setMmmDialogError(message);
+      setIsMmmDialogOpen(true);
       toast({
         title: 'Error',
         description: message,
@@ -295,6 +321,11 @@ export function useShootDetailsModalActions({
     downloadStatusMessage,
     isGeneratingShareLink,
     isStartingMmmPunchout,
+    isMmmDialogOpen,
+    setIsMmmDialogOpen,
+    mmmDialogRedirectUrl,
+    mmmDialogError,
+    setMmmDialogError,
     selectedFileIds,
     setSelectedFileIds,
     handleSendToBrightMls,

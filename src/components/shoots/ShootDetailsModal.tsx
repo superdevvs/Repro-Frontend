@@ -491,6 +491,11 @@ export function ShootDetailsModal({
     downloadStatusMessage,
     isGeneratingShareLink,
     isStartingMmmPunchout,
+    isMmmDialogOpen,
+    setIsMmmDialogOpen,
+    mmmDialogRedirectUrl,
+    mmmDialogError,
+    setMmmDialogError,
     selectedFileIds,
     setSelectedFileIds,
     handleSendToBrightMls,
@@ -855,6 +860,10 @@ export function ShootDetailsModal({
         selectedInvoice={selectedInvoice}
         isInvoiceDialogOpen={isInvoiceDialogOpen}
         brightMlsRedirectUrl={brightMlsRedirectUrl}
+        isMmmDialogOpen={isMmmDialogOpen}
+        isStartingMmmPunchout={isStartingMmmPunchout}
+        mmmDialogRedirectUrl={mmmDialogRedirectUrl}
+        mmmDialogError={mmmDialogError}
         pendingUpdates={pendingUpdates}
         setIsPaymentDialogOpen={setIsPaymentDialogOpen}
         setIsMarkPaidDialogOpen={setIsMarkPaidDialogOpen}
@@ -875,6 +884,8 @@ export function ShootDetailsModal({
         setIsInvoiceDialogOpen={setIsInvoiceDialogOpen}
         setSelectedInvoice={setSelectedInvoice}
         setBrightMlsRedirectUrl={setBrightMlsRedirectUrl}
+        setIsMmmDialogOpen={setIsMmmDialogOpen}
+        setMmmDialogError={setMmmDialogError}
         handlePaymentSuccess={handlePaymentSuccess}
         handleMarkPaidConfirm={handleMarkPaidConfirm}
         handleConfirmSave={handleConfirmSave}
