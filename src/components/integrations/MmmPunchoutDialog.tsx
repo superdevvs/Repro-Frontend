@@ -63,7 +63,7 @@ export function MmmPunchoutDialog({
                 onClick={handleOpenExternally}
               >
                 <ExternalLink className="mr-2 h-4 w-4" />
-                Open externally
+                Open in new tab
               </Button>
             )}
             <Button
@@ -100,18 +100,12 @@ export function MmmPunchoutDialog({
             </div>
           ) : safeRedirectUrl ? (
             <div className="flex min-h-0 flex-1 flex-col">
-              <div className="flex min-h-0 flex-1 items-start justify-center overflow-hidden rounded-xl border border-border/70 bg-[#0f1723] shadow-sm">
+              <div className="relative flex min-h-0 flex-1 overflow-hidden rounded-xl border border-border/70 bg-[#0f1723] shadow-sm">
                 <iframe
                   key={safeRedirectUrl}
                   title="MMM Print Materials"
                   src={safeRedirectUrl}
-                  className="shrink-0 border-0 bg-background"
-                  style={{
-                    width: '90%',
-                    height: '92%',
-                    transform: 'scale(1.1)',
-                    transformOrigin: 'top center',
-                  }}
+                  className="h-full w-full border-0 bg-background"
                   referrerPolicy="no-referrer-when-downgrade"
                 />
               </div>
