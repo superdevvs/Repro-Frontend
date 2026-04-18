@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Mail, FileText, Zap, Settings, Pencil } from 'lucide-react';
+import { Mail, FileText, Zap, Settings, Pencil, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/components/auth/AuthProvider';
@@ -32,6 +32,13 @@ export function EmailNavigation() {
       icon: Zap,
       label: 'Automations',
       isActive: pathname.startsWith('/messaging/email/automations'),
+      hideForClient: true,
+    },
+    {
+      to: '/messaging/email/recovery',
+      icon: RotateCcw,
+      label: 'Recovery',
+      isActive: pathname.startsWith('/messaging/email/recovery'),
       hideForClient: true,
     },
     {

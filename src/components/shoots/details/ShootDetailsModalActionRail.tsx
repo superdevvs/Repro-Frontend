@@ -477,6 +477,20 @@ export function ShootDetailsModalActionRail({
                 Send to Editing
               </button>
             )}
+            {canFinalise && !isEditMode && (
+              <button
+                className="flex items-center gap-3 w-full rounded-xl px-3 py-3 text-sm font-medium hover:bg-muted transition-colors"
+                onClick={() => {
+                  setIsMobileActionsOpen(false);
+                  handleFinalise();
+                }}
+              >
+                <div className="flex items-center justify-center h-9 w-9 rounded-full bg-green-100 dark:bg-green-900/40">
+                  <Check className="h-4 w-4 text-green-600 dark:text-green-400" />
+                </div>
+                Finalize shoot
+              </button>
+            )}
             {canCancelShoot && !isEditMode && (
               <button
                 className="flex items-center gap-3 w-full rounded-xl px-3 py-3 text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors"

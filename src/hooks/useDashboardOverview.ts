@@ -4,13 +4,7 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import { DashboardOverview } from '@/types/dashboard';
 import { fetchDashboardOverview } from '@/services/dashboardService';
 import { registerDashboardOverviewRefresh } from '@/realtime/realtimeRefreshBus';
-
-const getToken = (sessionToken?: string | null) => {
-  const localToken =
-    (typeof window !== 'undefined' && (localStorage.getItem('authToken') || localStorage.getItem('token'))) ||
-    null;
-  return localToken || sessionToken || undefined;
-};
+import { getAuthToken } from '@/utils/authToken';
 
 interface UseDashboardOverviewResult {
   data: DashboardOverview | null;
@@ -30,7 +24,7 @@ export const useDashboardOverview = (): UseDashboardOverviewResult => {
     refetch,
   } = useQuery({
     queryKey: ['dashboardOverview'],
-    queryFn: () => fetchDashboardOverview(getToken(session?.accessToken)),
+    queryFn: () => fetchDashboardOverview(getAuthToken(session?.accessToken)),
     enabled: ['admin', 'superadmin', 'editing_manager'].includes(role),
     staleTime: 60 * 1000, // 60 seconds - dashboard data can be slightly stale
     gcTime: 5 * 60 * 1000, // 5 minutes

@@ -2,6 +2,7 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 import type { UserData, UserRole, AuthSession } from '@/types/auth';
 import { API_BASE_URL } from '@/config/env';
 import { normalizeEmailHealth } from '@/utils/emailHealth';
+import { getStoredAuthToken } from '@/utils/authToken';
 
 // Define the Role type via shared types
 export type Role = UserRole;
@@ -49,17 +50,6 @@ interface AuthProviderProps {
   children: React.ReactNode;
 }
 
-// Helper function to convert string to base64url format (JWT compatible)
-const toBase64Url = (str: string): string => {
-  // First encode to base64
-  const base64 = btoa(str)
-    // Then convert to base64url by replacing characters
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=/g, '');
-  return base64;
-};
-
 const buildSession = (token: string, user: UserData, role: Role): AuthSession => ({
   accessToken: token,
   refreshToken: null,
@@ -75,33 +65,6 @@ const buildSession = (token: string, user: UserData, role: Role): AuthSession =>
     createdAt: user.createdAt || new Date().toISOString(),
   },
 });
-
-// Generate a properly formatted mock JWT token that will pass validation
-const generateMockJWT = (userId: string, role: string): string => {
-  const header = toBase64Url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
-  const now = Math.floor(Date.now() / 1000);
-  const payload = toBase64Url(JSON.stringify({
-    sub: userId,
-    role: role,
-    iat: now,
-    exp: now + 3600,
-    iss: 'necyyfxufhmacccbhkdm',
-    aud: 'authenticated'
-  }));
-  const mockSecret = 'development-mock-secret-key-for-testing-only';
-  const mockSignatureData = `${header}.${payload}.${mockSecret}`;
-  const signature = toBase64Url(mockSignatureData);
-  return `${header}.${payload}.${signature}`;
-};
-
-const getStoredToken = () =>
-  (typeof window !== 'undefined' &&
-    (localStorage.getItem('authToken') ||
-      localStorage.getItem('token') ||
-      localStorage.getItem('access_token'))) ||
-  null;
-
-const getSessionToken = (userId: string, role: Role) => getStoredToken() ?? generateMockJWT(userId, role);
 
 const normalizeRole = (role?: string | null): Role => {
   if (!role) return 'admin';
@@ -197,7 +160,7 @@ const buildAuthFingerprint = ({
 const getPersistedAuthFingerprint = (): string => {
   if (typeof window === 'undefined') return 'guest';
 
-  const storedToken = getStoredToken();
+  const storedToken = getStoredAuthToken();
   const storedUser = localStorage.getItem('user');
 
   if (!storedToken || !storedUser) {
@@ -250,6 +213,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     clearSessionScopedCaches();
   };
 
+  const syncSessionForUser = (nextUser: UserData, nextRole: Role) => {
+    const token = getStoredAuthToken();
+    setSession(token ? buildSession(token, nextUser, nextRole) : null);
+  };
+
   // Initialize auth state from localStorage on component mount
   useEffect(() => {
     const storedOriginalUser = localStorage.getItem('originalUser');
@@ -263,7 +231,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
 
     const storedUser = localStorage.getItem('user');
-    const storedToken = getStoredToken();
+    const storedToken = getStoredAuthToken();
 
     let initialUser: UserData | null = null;
 
@@ -367,12 +335,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const login = (userData: UserData, authToken?: string) => {
     // Normalize role across API variations
     const roleToUse = normalizeRole(userData.role);
-    const tokenToUse = authToken || getStoredToken();
+    const tokenToUse = authToken || getStoredAuthToken();
 
     if (authToken) {
       if (typeof window !== 'undefined') {
         localStorage.setItem('authToken', authToken);
         localStorage.setItem('token', authToken);
+        localStorage.setItem('access_token', authToken);
       }
     }
 
@@ -390,7 +359,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     setRole(roleToUse);
 
     if (tokenToUse) {
-      setSession(buildSession(tokenToUse, updatedUserData, roleToUse));
+      syncSessionForUser(updatedUserData, roleToUse);
     } else {
       setSession(null);
     }
@@ -454,8 +423,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
     // Keep the real admin token — the backend middleware uses it to authenticate
     // the admin, then swaps to the impersonated user via the header.
-    const sessionToken = getSessionToken(updatedUserData.id, roleToUse);
-    setSession(buildSession(sessionToken, updatedUserData, roleToUse));
+    syncSessionForUser(updatedUserData, roleToUse);
     
     console.log(`Impersonating user: ${targetUser.name} (${targetUser.email}), id=${updatedUserData.id}, epoch=${impersonationEpochRef.current}`);
   };
@@ -482,40 +450,24 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     setOriginalUser(null);
 
     // Restore session
-    const sessionToken = getSessionToken(originalUser.id, restoredRole);
-    setSession(buildSession(sessionToken, originalUser, restoredRole));
+    syncSessionForUser(originalUser, restoredRole);
     
     console.log('Stopped impersonating, restored original user:', originalUser.name);
   };
 
   const setUserRole = (newRole: Role) => {
-    setRole(newRole);
-    
-    // Update user object with new role
     if (user) {
-      const updatedUser = { ...user, role: newRole };
+      const normalizedRole = normalizeRole(newRole);
+      const updatedUser = { ...user, role: normalizedRole };
       setUser(updatedUser);
       localStorage.setItem('user', JSON.stringify(updatedUser));
-      console.log('User role updated to:', newRole);
-      
-      // Update session if it exists
-      if (session) {
-        const mockToken = generateMockJWT(user.id, newRole);
-        
-        setSession({
-          ...session,
-          accessToken: mockToken,
-          user: {
-            ...session.user,
-            role: newRole,
-            metadata: {
-              ...(session.user.metadata || {}),
-              role: newRole,
-            },
-          },
-        });
-      }
+      setRole(normalizedRole);
+      syncSessionForUser(updatedUser, normalizedRole);
+      console.log('User role updated to:', normalizedRole);
+      return;
     }
+
+    setRole(normalizeRole(newRole));
   };
 
   // Update user data function
@@ -526,34 +478,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       if (!userData.role) {
         normalizedUser.role = user.role;
       }
-      
+      const normalizedRole = normalizeRole(normalizedUser.role);
+      normalizedUser.role = normalizedRole;
+
       // Store updated user data in localStorage
       localStorage.setItem('user', JSON.stringify(normalizedUser));
       setUser(normalizedUser);
-      
-      // Update role state if it changed
-      if (userData.role && userData.role !== role) {
-        setRole(userData.role as Role);
-      }
-      
-      // Update session if it exists
-      if (session) {
-        const mockToken = generateMockJWT(normalizedUser.id, normalizedUser.role || role);
-        
-        setSession({
-          ...session,
-          accessToken: mockToken,
-          user: {
-            ...session.user,
-            role: normalizedUser.role,
-            metadata: {
-              ...(session.user.metadata || {}),
-              role: normalizedUser.role,
-            },
-          },
-        });
-      }
-      
+      setRole(normalizedRole);
+      syncSessionForUser(normalizedUser, normalizedRole);
       console.log('User data updated');
     }
   };
@@ -562,7 +494,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const token = getStoredToken();
+    const token = getStoredAuthToken();
     const fingerprint = buildAuthFingerprint({
       user,
       role,
@@ -582,7 +514,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         user,
         role,
         isAuthenticated,
-        token: getStoredToken(),
+        token: getStoredAuthToken(),
         originalUserId: isImpersonating ? originalUser?.id ?? null : null,
       });
       const persistedFingerprint = getPersistedAuthFingerprint();

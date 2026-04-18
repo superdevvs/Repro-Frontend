@@ -122,6 +122,7 @@ import { SHOOT_MEDIA_DOWNLOAD_STARTED_EVENT } from "@/utils/shootMediaDownload";
 import { ClientEmailHealthNotice } from "@/components/email/ClientEmailHealthNotice";
 import { normalizeEmailHealth } from "@/utils/emailHealth";
 import { normalizeImageUrl } from "@/utils/imageUrl";
+import { getAuthToken } from "@/utils/authToken";
 
 const LazyAssignPhotographersCard = lazy(() =>
   import("@/components/dashboard/v2/AssignPhotographersCard").then((module) => ({
@@ -167,12 +168,6 @@ const WORKFLOW_SEQUENCE = [
   "admin_verified",
   "completed",
 ] as const;
-
-const getToken = (sessionToken?: string | null) =>
-  sessionToken ||
-  localStorage.getItem("authToken") ||
-  localStorage.getItem("token") ||
-  undefined;
 
 const parseDateValue = (value?: string | null) => {
   if (!value) return null;
@@ -558,7 +553,7 @@ const Dashboard = () => {
       return;
     }
 
-    const token = getToken(session?.accessToken);
+    const token = getAuthToken(session?.accessToken);
     if (!token) {
       return;
     }
@@ -642,7 +637,7 @@ const Dashboard = () => {
   const handleViewInvoice = useCallback(async (shoot: DashboardShootSummary) => {
     setInvoiceLoading(true);
     try {
-      const token = session?.accessToken || localStorage.getItem('authToken') || localStorage.getItem('token');
+      const token = getAuthToken(session?.accessToken);
       const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/invoice`, {
         method: 'GET',
         headers: {
@@ -738,7 +733,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     if (!canLoadAvailability) return;
-    const token = getToken(session?.accessToken);
+    const token = getAuthToken(session?.accessToken);
     if (!token) {
       setAvailabilityError("Missing auth token");
       return;
@@ -1001,7 +996,7 @@ const Dashboard = () => {
         return openSummary(shootDataToSummary(sourceShoot));
       }
 
-      const token = getToken(session?.accessToken);
+      const token = getAuthToken(session?.accessToken);
       if (!token) {
         if (authToast) {
           toast({
@@ -1696,7 +1691,7 @@ const Dashboard = () => {
 
   const handleAdvanceStage = useCallback(
     async (shoot: DashboardShootSummary) => {
-      const token = getToken(session?.accessToken);
+      const token = getAuthToken(session?.accessToken);
       if (!token) {
         toast({
           title: "Authentication required",
@@ -1748,7 +1743,7 @@ const Dashboard = () => {
   // Handle pipeline move back
   const handleMoveBack = useCallback(
     async (shoot: DashboardShootSummary) => {
-      const token = getToken(session?.accessToken);
+      const token = getAuthToken(session?.accessToken);
       if (!token) {
         toast({
           title: "Authentication required",
@@ -2177,7 +2172,7 @@ const Dashboard = () => {
       };
       const handleManageClientEmail = () => navigate("/settings?tab=profile");
       const handleResendClientVerification = async () => {
-        const token = getToken(session?.accessToken);
+        const token = getAuthToken(session?.accessToken);
         if (!token) {
           toast({
             title: "Sign in required",

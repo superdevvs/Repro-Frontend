@@ -20,6 +20,7 @@ import { ClientEmailHealthNotice } from "@/components/email/ClientEmailHealthNot
 import { EmailHealthInlineHint } from "@/components/email/EmailHealthInlineHint";
 import { analyzeEmailInput, normalizeEmailHealth } from "@/utils/emailHealth";
 import { API_BASE_URL } from "@/config/env";
+import { getAuthToken } from "@/utils/authToken";
 
 export function ClientProfile() {
   const { user, setUser } = useAuth();
@@ -141,10 +142,7 @@ export function ClientProfile() {
   };
 
   const handleResendVerification = async () => {
-    const token =
-      localStorage.getItem('authToken') ||
-      localStorage.getItem('token') ||
-      localStorage.getItem('access_token');
+    const token = getAuthToken();
 
     if (!token) {
       toast.error('Please sign in again to resend verification.');

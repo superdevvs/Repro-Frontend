@@ -81,6 +81,7 @@ const EmailCompose = lazy(() => import('./pages/messaging/EmailCompose'));
 const Templates = lazy(() => import('./pages/messaging/Templates'));
 const Automations = lazy(() => import('./pages/messaging/Automations'));
 const AutomationWorkflowEditor = lazy(() => import('./pages/messaging/AutomationWorkflowEditor'));
+const EmailRecovery = lazy(() => import('./pages/messaging/EmailRecovery'));
 const SmsCenter = lazy(() => import('./pages/messaging/SmsCenter'));
 const MessagingSettings = lazy(() => import('./pages/messaging/MessagingSettings'));
 
@@ -600,6 +601,11 @@ const AppRoutes = () => {
       <Route path="/messaging/email/automations/:automationId" element={
         <PermissionRoute resource="messaging-automations">
           <AutomationWorkflowEditor />
+        </PermissionRoute>
+      } />
+      <Route path="/messaging/email/recovery" element={
+        <PermissionRoute resource="messaging-overview">
+          <EmailRecovery />
         </PermissionRoute>
       } />
       <Route path="/messaging/sms" element={
