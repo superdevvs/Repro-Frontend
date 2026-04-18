@@ -79,7 +79,11 @@ const statusPillStyles = (status: string | null | undefined): string => {
 }
 
 const humanizeStatus = (status: string | null | undefined): string => {
-  if (!status) return 'Unknown'
+  const s = (status ?? '').toLowerCase()
+  if (s === 'returned' || s === 'order_returned') return 'Completed'
+  if (s === 'redirect_ready' || s === 'punchout_ready') return 'Open in MMM'
+  if (s === 'error') return 'Failed'
+  if (!status) return 'Not started'
   return status
     .replace(/_/g, ' ')
     .replace(/\s+/g, ' ')
@@ -87,17 +91,28 @@ const humanizeStatus = (status: string | null | undefined): string => {
     .replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
-const shortCookie = (cookie: string | null | undefined): string | null => {
-  if (!cookie) return null
-  return cookie.length <= 10 ? cookie : `${cookie.slice(0, 8)}…`
-}
-
 const sessionOpenerLabel = (session: MmmPunchoutSessionItem): string => {
   const name = [session.first_name, session.last_name].filter(Boolean).join(' ').trim()
   if (name) return name
   if (session.username) return session.username
   if (session.employee_email) return session.employee_email
-  return '—'
+  return 'Unknown user'
+}
+
+const sessionHeadline = (
+  session: MmmPunchoutSessionItem,
+): { label: string; hint?: string } => {
+  const s = (session.status ?? '').toLowerCase()
+  if (session.order_number) {
+    return { label: `Order ${session.order_number}` }
+  }
+  if (s === 'error') {
+    return { label: 'Print session failed' }
+  }
+  if (s === 'returned' || s === 'order_returned') {
+    return { label: 'Order returned', hint: 'no order number' }
+  }
+  return { label: 'Print session started', hint: 'awaiting order' }
 }
 
 export function MmmPunchoutDialog({
@@ -195,14 +210,12 @@ export function MmmPunchoutDialog({
   const canReopen = Boolean(activeRedirectUrl) && !isLaunching
 
   const headerMessage = isLaunching
-    ? 'Preparing your print session now.'
+    ? 'Preparing your print session…'
     : errorMessage
-      ? 'MMM could not be opened yet. Review the message below.'
-      : autoOpenStatus === 'blocked'
-        ? 'Your browser blocked the new tab — use the button on the right.'
-        : activeRedirectUrl
-          ? 'MMM opened in a new tab. Complete your print order there.'
-          : 'Start a new print session to send this shoot to MMM.'
+      ? 'Couldn’t start a print session. See details below.'
+      : activeRedirectUrl
+        ? 'Opened in a new tab. Complete your order there, then come back to see it here.'
+        : 'Start a new print session to send this shoot to MMM.'
 
   const summaryStatus = summary?.mmm_status ?? null
   const headerError = errorMessage ?? summary?.mmm_last_error ?? null
@@ -214,7 +227,7 @@ export function MmmPunchoutDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[92vh] w-[calc(100vw-0.75rem)] max-w-3xl flex-col gap-0 overflow-hidden rounded-2xl border border-border/70 bg-background p-0 shadow-2xl sm:w-[calc(100vw-2rem)] [&>button]:hidden">
+      <DialogContent className="flex h-[min(85vh,720px)] w-[calc(100vw-0.75rem)] max-w-[min(1200px,calc(100vw-2rem))] flex-col gap-0 overflow-hidden rounded-2xl border border-border/70 bg-background p-0 shadow-2xl [&>button]:hidden">
         <DialogHeader className="shrink-0 border-b px-4 py-3 text-left sm:px-6">
           <div className="flex items-center gap-2 sm:gap-3">
             <div className="min-w-0 flex-1">
@@ -251,9 +264,9 @@ export function MmmPunchoutDialog({
           </div>
         </DialogHeader>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-3 py-3 sm:gap-4 sm:px-6 sm:py-4">
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-y-auto px-3 py-3 sm:gap-4 sm:px-6 sm:py-4 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] lg:overflow-hidden">
           {/* Summary card */}
-          <section className="rounded-xl border bg-card p-3 sm:p-4">
+          <section className="rounded-xl border bg-card p-3 sm:p-4 lg:self-start">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <span
@@ -286,15 +299,15 @@ export function MmmPunchoutDialog({
 
             <dl className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2 sm:gap-3">
               <div>
-                <dt className="text-[10px] uppercase tracking-wide text-muted-foreground sm:text-xs">Last punchout</dt>
+                <dt className="text-[10px] uppercase tracking-wide text-muted-foreground sm:text-xs">Last session started</dt>
                 <dd className="mt-0.5 font-medium">
-                  {formatRelative(summary?.mmm_last_punchout_at) ?? '—'}
+                  {formatRelative(summary?.mmm_last_punchout_at) ?? 'Never'}
                 </dd>
               </div>
               <div>
-                <dt className="text-[10px] uppercase tracking-wide text-muted-foreground sm:text-xs">Last order returned</dt>
+                <dt className="text-[10px] uppercase tracking-wide text-muted-foreground sm:text-xs">Last order placed</dt>
                 <dd className="mt-0.5 font-medium">
-                  {formatRelative(summary?.mmm_last_order_at) ?? '—'}
+                  {formatRelative(summary?.mmm_last_order_at) ?? 'No orders yet'}
                 </dd>
               </div>
             </dl>
@@ -345,8 +358,8 @@ export function MmmPunchoutDialog({
           </section>
 
           {/* Recent orders */}
-          <section className="flex min-h-0 flex-1 flex-col rounded-xl border bg-card">
-            <div className="flex items-center justify-between border-b px-3 py-2 sm:px-4 sm:py-2.5">
+          <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border bg-card lg:h-full">
+            <div className="flex shrink-0 items-center justify-between border-b px-3 py-2 sm:px-4 sm:py-2.5">
               <h3 className="text-sm font-semibold">Recent orders</h3>
               {sessions.length > 0 && (
                 <span className="text-xs text-muted-foreground">
@@ -381,97 +394,103 @@ export function MmmPunchoutDialog({
                 No print orders yet. Start one to see history here.
               </div>
             ) : (
-              <ul className="divide-y">
+              <ul className="min-h-0 flex-1 divide-y lg:overflow-y-auto">
                 {sessions.map((session) => {
                   const sessionUrl = normalizeMmmUrl(session.redirect_url)
                   const items = session.order?.items ?? []
                   const canExpand = items.length > 0
                   const isExpanded = expandedSessionId === session.id
 
+                  const headline = sessionHeadline(session)
+                  const startedAt = formatRelative(session.redirected_at ?? session.created_at)
+                  const returnedAt = formatRelative(session.returned_at)
+                  const timeLabel = returnedAt
+                    ? `Completed ${returnedAt}`
+                    : startedAt
+                      ? `Started ${startedAt}`
+                      : null
+                  const isTest =
+                    session.deployment_mode &&
+                    session.deployment_mode.toLowerCase() !== 'production'
+
                   return (
                     <li key={session.id} className="px-3 py-3 sm:px-4">
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 sm:gap-x-3">
+                      <div className="flex items-start gap-2 sm:gap-3">
                         <span
                           className={cn(
-                            'inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[11px] font-medium',
+                            'mt-0.5 inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[11px] font-medium',
                             statusPillStyles(session.status),
                           )}
+                          title={session.buyer_cookie ?? undefined}
                         >
                           {humanizeStatus(session.status)}
                         </span>
 
-                        <span className="min-w-0 max-w-full truncate text-sm font-medium">
-                          {session.order_number ?? '—'}
-                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                            <span className="truncate text-sm font-medium">
+                              {headline.label}
+                            </span>
+                            {headline.hint && (
+                              <span className="text-xs text-muted-foreground">
+                                {headline.hint}
+                              </span>
+                            )}
+                            {isTest && (
+                              <span className="rounded bg-muted px-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                                test
+                              </span>
+                            )}
+                          </div>
+                          <div className="mt-0.5 flex flex-wrap gap-x-2 text-[11px] text-muted-foreground sm:text-xs">
+                            <span className="truncate">{sessionOpenerLabel(session)}</span>
+                            {timeLabel && (
+                              <>
+                                <span aria-hidden>·</span>
+                                <span>{timeLabel}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
 
-                        {session.deployment_mode && (
-                          <span className="shrink-0 rounded-md border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                            {session.deployment_mode}
-                          </span>
-                        )}
-                        {shortCookie(session.buyer_cookie) && (
-                          <span
-                            className="shrink-0 font-mono text-[11px] text-muted-foreground"
-                            title={session.buyer_cookie ?? undefined}
-                          >
-                            {shortCookie(session.buyer_cookie)}
-                          </span>
-                        )}
-
-                        <div className="ml-auto flex shrink-0 items-center gap-1.5">
+                        <div className="flex shrink-0 items-center gap-1">
                           {sessionUrl && (
                             <Button
                               type="button"
-                              variant="outline"
-                              size="sm"
-                              className="h-7 rounded-md px-2 text-xs sm:px-2.5"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-foreground"
                               onClick={() => handleOpenExternally(sessionUrl)}
                               aria-label="Reopen in new tab"
+                              title="Reopen in new tab"
                             >
-                              <ExternalLink className="h-3.5 w-3.5 sm:mr-1" />
-                              <span className="hidden sm:inline">Reopen</span>
+                              <ExternalLink className="h-4 w-4" />
                             </Button>
                           )}
                           {canExpand && (
                             <Button
                               type="button"
                               variant="ghost"
-                              size="sm"
-                              className="h-7 rounded-md px-2 text-xs text-muted-foreground"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-foreground"
                               onClick={() =>
                                 setExpandedSessionId(isExpanded ? null : session.id)
                               }
                               aria-label={isExpanded ? 'Hide items' : `Show ${items.length} items`}
+                              title={
+                                isExpanded
+                                  ? 'Hide items'
+                                  : `Show ${items.length} ${items.length === 1 ? 'item' : 'items'}`
+                              }
                             >
                               {isExpanded ? (
-                                <>
-                                  <ChevronUp className="h-3.5 w-3.5 sm:mr-1" />
-                                  <span className="hidden sm:inline">Hide items</span>
-                                </>
+                                <ChevronUp className="h-4 w-4" />
                               ) : (
-                                <>
-                                  <ChevronDown className="h-3.5 w-3.5 sm:mr-1" />
-                                  <span className="hidden sm:inline">
-                                    {items.length} {items.length === 1 ? 'item' : 'items'}
-                                  </span>
-                                  <span className="sm:hidden">{items.length}</span>
-                                </>
+                                <ChevronDown className="h-4 w-4" />
                               )}
                             </Button>
                           )}
                         </div>
-                      </div>
-
-                      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground sm:text-xs">
-                        <span className="truncate">Opened by {sessionOpenerLabel(session)}</span>
-                        {formatRelative(session.redirected_at ?? session.created_at) && (
-                          <span>
-                            Started {formatRelative(session.redirected_at ?? session.created_at)}
-                          </span>
-                        )}
-                        {formatRelative(session.returned_at) && (
-                          <span>Returned {formatRelative(session.returned_at)}</span>
-                        )}
                       </div>
 
                       {session.last_error && (
