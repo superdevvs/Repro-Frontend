@@ -31,9 +31,69 @@ export interface MmmPunchoutResponse {
   message?: string | null;
 }
 
+export interface MmmPunchoutOrderLineItem {
+  line_number?: number | null;
+  supplier_part_id?: string | null;
+  description?: string | null;
+  quantity?: number | null;
+  unit_of_measure?: string | null;
+  unit_price?: number | null;
+  currency?: string | null;
+  extended_price?: number | null;
+}
+
+export interface MmmPunchoutOrder {
+  items?: MmmPunchoutOrderLineItem[];
+  subtotal?: number | null;
+  tax?: number | null;
+  shipping?: number | null;
+  total?: number | null;
+  currency?: string | null;
+}
+
+export interface MmmPunchoutSessionItem {
+  id: number;
+  shoot_id: number;
+  user_id: number | null;
+  status: string | null;
+  order_number: string | null;
+  buyer_cookie: string | null;
+  redirect_url: string | null;
+  redirected_at: string | null;
+  returned_at: string | null;
+  last_error: string | null;
+  employee_email: string | null;
+  username: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  created_at: string | null;
+  deployment_mode: string | null;
+  order: MmmPunchoutOrder | null;
+}
+
+export interface MmmSessionsSummary {
+  mmm_status: string | null;
+  mmm_order_number: string | null;
+  mmm_buyer_cookie: string | null;
+  mmm_redirect_url: string | null;
+  mmm_last_punchout_at: string | null;
+  mmm_last_order_at: string | null;
+  mmm_last_error: string | null;
+}
+
+export interface MmmSessionsResponse {
+  success: boolean;
+  sessions: MmmPunchoutSessionItem[];
+  summary: MmmSessionsSummary;
+}
+
 export const mmmService = {
   async startPunchout(shootId: number | string, payload: MmmPunchoutPayload = {}): Promise<MmmPunchoutResponse> {
     const response = await apiClient.post(API_ROUTES.integrations.mmm.punchout(shootId), payload);
     return response.data as MmmPunchoutResponse;
+  },
+  async listSessions(shootId: number | string): Promise<MmmSessionsResponse> {
+    const response = await apiClient.get(API_ROUTES.integrations.mmm.sessions(shootId));
+    return response.data as MmmSessionsResponse;
   },
 };

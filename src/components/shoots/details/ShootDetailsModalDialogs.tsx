@@ -96,6 +96,7 @@ interface ShootDetailsModalDialogsProps {
   handleMarkOnHold: () => void;
   handleCancelShoot: () => void;
   handleDownloadMedia: (size: 'original' | 'small' | 'medium' | 'large') => void;
+  handleStartMmmPunchout: () => void | Promise<void>;
   onShootUpdate?: () => void;
   onClose: () => void;
   formatTime: (value: string) => string;
@@ -171,6 +172,7 @@ export function ShootDetailsModalDialogs({
   handleMarkOnHold,
   handleCancelShoot,
   handleDownloadMedia,
+  handleStartMmmPunchout,
   onShootUpdate,
   onClose,
   formatTime,
@@ -558,6 +560,8 @@ export function ShootDetailsModalDialogs({
         isLaunching={isStartingMmmPunchout}
         redirectUrl={mmmDialogRedirectUrl}
         errorMessage={mmmDialogError}
+        shootId={shoot?.id ?? null}
+        onStartSession={handleStartMmmPunchout}
         onOpenChange={(open) => {
           setIsMmmDialogOpen(open);
           if (!open) {

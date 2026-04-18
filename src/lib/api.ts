@@ -57,6 +57,7 @@ export const API_ROUTES = {
     },
     mmm: {
       punchout: (shootId: number | string) => `${BASE_URL}/api/integrations/shoots/${shootId}/mmm/punchout`,
+      sessions: (shootId: number | string) => `${BASE_URL}/api/integrations/shoots/${shootId}/mmm/sessions`,
     },
     testConnection: `${BASE_URL}/api/integrations/test-connection`,
   },

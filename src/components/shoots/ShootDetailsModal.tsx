@@ -893,6 +893,7 @@ export function ShootDetailsModal({
         handleMarkOnHold={handleMarkOnHold}
         handleCancelShoot={handleCancelShoot}
         handleDownloadMedia={handleDownloadMedia}
+        handleStartMmmPunchout={handleStartMmmPunchout}
         onShootUpdate={onShootUpdate}
         onClose={onClose}
         formatTime={formatTime}
