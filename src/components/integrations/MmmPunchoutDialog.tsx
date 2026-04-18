@@ -1,10 +1,9 @@
 import { useMemo } from 'react'
-import { AlertCircle, ExternalLink, Loader2 } from 'lucide-react'
+import { AlertCircle, ExternalLink, Loader2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
@@ -30,24 +29,49 @@ export function MmmPunchoutDialog({
   onOpenChange,
 }: MmmPunchoutDialogProps) {
   const safeRedirectUrl = useMemo(() => normalizeMmmUrl(redirectUrl), [redirectUrl])
+  const canOpenExternally = Boolean(safeRedirectUrl) && !isLaunching
+
+  const handleOpenExternally = () => {
+    if (!safeRedirectUrl) return
+    window.open(safeRedirectUrl, '_blank', 'noopener,noreferrer')
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[96vw] max-w-7xl gap-0 overflow-hidden p-0">
-        <DialogHeader className="border-b px-6 py-4">
-          <DialogTitle className="text-base">MMM Print Materials</DialogTitle>
-          <DialogDescription>
-            {isLaunching
-              ? 'Preparing your print session now.'
-              : errorMessage
-                ? 'MMM could not be opened yet. Review the message below.'
-                : 'Complete the MMM login and print flow here.'}
-          </DialogDescription>
+      <DialogContent className="flex h-[94vh] w-[calc(100vw-2rem)] max-w-[calc(100vw-2rem)] flex-col gap-0 overflow-hidden rounded-2xl border border-border/70 bg-background p-0 shadow-2xl sm:w-[calc(100vw-3rem)] sm:max-w-[calc(100vw-3rem)] [&>button]:hidden">
+        <DialogHeader className="shrink-0 border-b px-5 py-4 text-left sm:px-6">
+          <div className="flex items-center gap-3">
+            <DialogTitle className="min-w-0 flex-1 text-lg font-semibold tracking-tight">
+              MMM Print Materials
+            </DialogTitle>
+            {canOpenExternally && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-9 rounded-lg px-3.5"
+                onClick={handleOpenExternally}
+              >
+                <ExternalLink className="mr-2 h-4 w-4" />
+                Open externally
+              </Button>
+            )}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 shrink-0 rounded-full border border-border/70 text-muted-foreground hover:bg-muted"
+              onClick={() => onOpenChange(false)}
+            >
+              <X className="h-4 w-4" />
+              <span className="sr-only">Close MMM print materials</span>
+            </Button>
+          </div>
         </DialogHeader>
 
-        <div className="p-4">
+        <div className="flex min-h-0 flex-1 flex-col px-4 pb-4 pt-3 sm:px-5">
           {isLaunching ? (
-            <div className="flex h-[40vh] flex-col items-center justify-center gap-3 rounded-xl border bg-muted/20 text-center">
+            <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 rounded-xl border bg-muted/20 text-center">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
               <div className="space-y-1">
                 <p className="font-medium">Preparing print materials...</p>
@@ -57,53 +81,33 @@ export function MmmPunchoutDialog({
               </div>
             </div>
           ) : errorMessage ? (
-            <div className="flex h-[40vh] flex-col items-center justify-center gap-4 rounded-xl border border-destructive/30 bg-destructive/5 px-6 text-center">
+            <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 rounded-xl border border-destructive/30 bg-destructive/5 px-6 text-center">
               <AlertCircle className="h-8 w-8 text-destructive" />
               <div className="space-y-1">
                 <p className="font-medium">Unable to open print materials</p>
                 <p className="max-w-xl text-sm text-muted-foreground">{errorMessage}</p>
               </div>
-              {safeRedirectUrl && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => window.open(safeRedirectUrl, '_blank', 'noopener,noreferrer')}
-                >
-                  <ExternalLink className="mr-2 h-4 w-4" />
-                  Open existing MMM session
-                </Button>
-              )}
             </div>
           ) : safeRedirectUrl ? (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between gap-3 rounded-lg border bg-muted/30 px-4 py-2">
+            <div className="flex min-h-0 flex-1 flex-col gap-3">
+              <div className="rounded-lg border border-border/70 bg-muted/20 px-4 py-2.5">
                 <p className="text-sm text-muted-foreground">
-                  Stay in this popup to finish login and print ordering. If MMM blocks embedding, open it externally.
+                  Stay in this popup to finish login and print ordering. If MMM stalls in the embedded view, use the external button above.
                 </p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => window.open(safeRedirectUrl, '_blank', 'noopener,noreferrer')}
-                >
-                  <ExternalLink className="mr-2 h-4 w-4" />
-                  Open externally
-                </Button>
               </div>
 
-              <div className="overflow-hidden rounded-xl border bg-background">
+              <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-border/70 bg-background shadow-sm">
                 <iframe
                   key={safeRedirectUrl}
                   title="MMM Print Materials"
                   src={safeRedirectUrl}
-                  className="h-[78vh] w-full bg-background"
+                  className="h-full min-h-0 w-full bg-background"
                   referrerPolicy="no-referrer-when-downgrade"
                 />
               </div>
             </div>
           ) : (
-            <div className="flex h-[30vh] items-center justify-center rounded-xl border bg-muted/20 text-sm text-muted-foreground">
+            <div className="flex min-h-0 flex-1 items-center justify-center rounded-xl border bg-muted/20 text-sm text-muted-foreground">
               MMM is ready when you are.
             </div>
           )}
