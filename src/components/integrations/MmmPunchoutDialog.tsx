@@ -1,5 +1,5 @@
-import { useMemo } from 'react'
-import { AlertCircle, ExternalLink, Loader2, X } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { AlertCircle, CheckCircle2, ExternalLink, Loader2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -30,16 +30,47 @@ export function MmmPunchoutDialog({
 }: MmmPunchoutDialogProps) {
   const safeRedirectUrl = useMemo(() => normalizeMmmUrl(redirectUrl), [redirectUrl])
   const canOpenExternally = Boolean(safeRedirectUrl) && !isLaunching
+  const [autoOpenStatus, setAutoOpenStatus] = useState<'idle' | 'opened' | 'blocked'>('idle')
+  const openedUrlRef = useRef<string | null>(null)
+
+  const handleOpenExternally = (url?: string | null) => {
+    const target = url ?? safeRedirectUrl
+    if (!target) return false
+    const popup = window.open(target, '_blank', 'noopener,noreferrer')
+    if (popup) {
+      setAutoOpenStatus('opened')
+      openedUrlRef.current = target
+      return true
+    }
+    setAutoOpenStatus('blocked')
+    return false
+  }
+
+  // Auto-open MMM in a real new tab once per redirect URL.
+  // Embedding in an iframe breaks MMM because its session cookie is treated as
+  // third-party and blocked, which causes an unexpected login prompt even when
+  // the punchout token already authenticated the user.
+  useEffect(() => {
+    if (!open) {
+      openedUrlRef.current = null
+      setAutoOpenStatus('idle')
+      return
+    }
+    if (!safeRedirectUrl || isLaunching || errorMessage) return
+    if (openedUrlRef.current === safeRedirectUrl) return
+    handleOpenExternally(safeRedirectUrl)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, safeRedirectUrl, isLaunching, errorMessage])
+
   const headerMessage = isLaunching
     ? 'Preparing your print session now.'
     : errorMessage
       ? 'MMM could not be opened yet. Review the message below.'
-      : 'Stay in this popup to finish login and print ordering. If MMM stalls, use the external button.'
-
-  const handleOpenExternally = () => {
-    if (!safeRedirectUrl) return
-    window.open(safeRedirectUrl, '_blank', 'noopener,noreferrer')
-  }
+      : safeRedirectUrl
+        ? autoOpenStatus === 'blocked'
+          ? 'Your browser blocked the new tab. Use the button on the right to open MMM.'
+          : 'MMM opened in a new tab. Complete your print order there.'
+        : 'MMM is ready when you are.'
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -60,7 +91,7 @@ export function MmmPunchoutDialog({
                 variant="outline"
                 size="sm"
                 className="h-9 rounded-lg px-3.5"
-                onClick={handleOpenExternally}
+                onClick={() => handleOpenExternally()}
               >
                 <ExternalLink className="mr-2 h-4 w-4" />
                 Open in new tab
@@ -99,16 +130,46 @@ export function MmmPunchoutDialog({
               </div>
             </div>
           ) : safeRedirectUrl ? (
-            <div className="flex min-h-0 flex-1 flex-col">
-              <div className="relative flex min-h-0 flex-1 overflow-hidden rounded-xl border border-border/70 bg-[#0f1723] shadow-sm">
-                <iframe
-                  key={safeRedirectUrl}
-                  title="MMM Print Materials"
-                  src={safeRedirectUrl}
-                  className="h-full w-full border-0 bg-background"
-                  referrerPolicy="no-referrer-when-downgrade"
-                />
-              </div>
+            <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 rounded-xl border bg-muted/20 px-6 py-10 text-center">
+              {autoOpenStatus === 'blocked' ? (
+                <>
+                  <AlertCircle className="h-8 w-8 text-amber-500" />
+                  <div className="space-y-1">
+                    <p className="font-medium">Your browser blocked the new tab</p>
+                    <p className="max-w-xl text-sm text-muted-foreground">
+                      Allow popups for this site, or click the button below to open MMM in a new tab.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={() => handleOpenExternally()}
+                    className="h-9 rounded-lg px-4"
+                  >
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    Open in new tab
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="h-8 w-8 text-emerald-500" />
+                  <div className="space-y-1">
+                    <p className="font-medium">MMM opened in a new tab</p>
+                    <p className="max-w-xl text-sm text-muted-foreground">
+                      Complete your print order in that tab. You can close this popup, or reopen the
+                      session at any time.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => handleOpenExternally()}
+                    className="h-9 rounded-lg px-4"
+                  >
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    Reopen in new tab
+                  </Button>
+                </>
+              )}
             </div>
           ) : (
             <div className="flex min-h-0 flex-1 items-center justify-center rounded-xl border bg-muted/20 text-sm text-muted-foreground">

@@ -347,17 +347,6 @@ export function ShootDetailsModalActionRail({
               )}
               {showMmmPunchoutButtons && (
                 <>
-                  {mmmRedirectUrl && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-xs px-3 bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-950 dark:hover:bg-slate-900 dark:text-slate-300 dark:border-slate-800"
-                      onClick={handleOpenMmm}
-                    >
-                      <Link2 className="h-3 w-3 mr-1" />
-                      <span>Open MMM</span>
-                    </Button>
-                  )}
                   {canStartMmmPunchout && (
                     <Button
                       variant="outline"
@@ -534,20 +523,6 @@ export function ShootDetailsModalActionRail({
                   <Download className="h-4 w-4 text-green-600 dark:text-green-400" />
                 </div>
                 {isDownloading ? 'Downloading...' : 'Download'}
-              </button>
-            )}
-            {showMmmPunchoutButtons && !isEditMode && mmmRedirectUrl && (
-              <button
-                className="flex items-center gap-3 w-full rounded-xl px-3 py-3 text-sm font-medium hover:bg-muted transition-colors"
-                onClick={() => {
-                  setIsMobileActionsOpen(false);
-                  handleOpenMmm();
-                }}
-              >
-                <div className="flex items-center justify-center h-9 w-9 rounded-full bg-slate-100 dark:bg-slate-900/40">
-                  <Link2 className="h-4 w-4 text-slate-600 dark:text-slate-400" />
-                </div>
-                Open MMM
               </button>
             )}
             {showMmmPunchoutButtons && !isEditMode && canStartMmmPunchout && (
