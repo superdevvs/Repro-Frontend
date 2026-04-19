@@ -15,9 +15,9 @@ import { API_ROUTES } from '@/lib/api';
 import { API_BASE_URL } from '@/config/env';
 import { fetchDashboardOverview } from '@/services/dashboardService';
 import { useToast } from '@/hooks/use-toast';
-import { format, parseISO, isToday, isTomorrow, addDays, startOfDay, isPast, isFuture } from 'date-fns';
-import { Phone, Mail, Calendar, Clock, CheckCircle2, AlertTriangle, MapPin, ExternalLink, ChevronRight, Info, ChevronLeft } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { format, parseISO, isToday, isTomorrow, addDays, isPast } from 'date-fns';
+import { Phone, Mail, Calendar, Clock, CheckCircle2, AlertTriangle, ExternalLink, ChevronRight, Info, ChevronLeft } from 'lucide-react';
+import { cn, getInitials } from '@/lib/utils';
 import {
   Select,
   SelectContent,
@@ -63,7 +63,7 @@ export const PhotographerAssignmentModal: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [assigning, setAssigning] = useState<number | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [filterType, setFilterType] = useState<'all' | 'compatible' | 'nearby' | 'same-client'>('all');
+  const [filterType, setFilterType] = useState<'all' | 'compatible'>('all');
 
   // Fetch availability and shoots when modal opens
   useEffect(() => {
@@ -123,7 +123,10 @@ export const PhotographerAssignmentModal: React.FC = () => {
     };
 
     fetchData();
-  }, [isOpen, photographer, selectedDate, toast]);
+    // The fetched data (availability list + dashboard overview) does not depend on
+    // `selectedDate` — only the memoized timeline rendering does. Including it here
+    // would retrigger a full network round-trip every time the date picker changes.
+  }, [isOpen, photographer, toast]);
 
   const handleAssignPhotographer = async (shootId: number) => {
     if (!photographer) return;
@@ -292,7 +295,7 @@ export const PhotographerAssignmentModal: React.FC = () => {
     }
 
     return slots;
-  }, [selectedDate, availabilitySlots, photographerSchedule, isToday]);
+  }, [selectedDate, availabilitySlots, photographerSchedule]);
 
   // Get next availability
   const nextAvailability = useMemo(() => {
@@ -354,30 +357,8 @@ export const PhotographerAssignmentModal: React.FC = () => {
       }
     }
 
-    // Remove the showOnlyCompatible filter - show all shoots
-    // if (showOnlyCompatible) {
-    //   filtered = filtered.filter(shoot => {
-    //     const shootTime = shoot.startTime || shoot.timeLabel;
-    //     if (!shootTime) return false;
-    //     return timelineSlots.some(slot => slot.status === 'available');
-    //   });
-    // }
-
     return filtered;
   }, [upcomingShoots, filterType, timelineSlots]);
-
-  // Get today's schedule preview (3-4 items)
-  const todaySchedulePreview = useMemo(() => {
-    if (!isToday(selectedDate)) return [];
-    return photographerSchedule
-      .filter(shoot => shoot.timeLabel)
-      .sort((a, b) => {
-        const timeA = a.startTime || a.timeLabel || '';
-        const timeB = b.startTime || b.timeLabel || '';
-        return timeA.localeCompare(timeB);
-      })
-      .slice(0, 4);
-  }, [selectedDate, photographerSchedule]);
 
   // Get upcoming days summary
   const upcomingDaysSummary = useMemo(() => {
@@ -490,7 +471,7 @@ export const PhotographerAssignmentModal: React.FC = () => {
                 <div className="flex items-start gap-3 sm:gap-4">
                   <Avatar
                     src={photographer.avatar}
-                    initials={photographer.name.split(' ').map(n => n[0]).join('')}
+                    initials={getInitials(photographer.name)}
                     className="w-12 h-12 sm:w-16 sm:h-16"
                     status={photographer.status}
                   />
@@ -706,15 +687,13 @@ export const PhotographerAssignmentModal: React.FC = () => {
                     Assignable Shoots ({filteredShoots.length})
                   </h4>
                   <div className="flex items-center gap-2">
-                    <Select value={filterType} onValueChange={(v: any) => setFilterType(v)}>
+                    <Select value={filterType} onValueChange={(v) => setFilterType(v as 'all' | 'compatible')}>
                       <SelectTrigger className="w-full sm:w-32 h-8 text-xs">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All</SelectItem>
                         <SelectItem value="compatible">Compatible</SelectItem>
-                        <SelectItem value="nearby">Nearby</SelectItem>
-                        <SelectItem value="same-client">Same client</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

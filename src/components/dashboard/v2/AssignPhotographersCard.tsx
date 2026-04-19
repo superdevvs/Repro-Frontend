@@ -3,7 +3,7 @@ import { format, startOfMonth, startOfWeek } from 'date-fns';
 import { ChevronRight, Phone, Mail, MessageSquare, MapPin } from 'lucide-react';
 import { DashboardPhotographerSummary } from '@/types/dashboard';
 import { Card, Avatar } from './SharedComponents';
-import { cn } from '@/lib/utils';
+import { cn, getInitials } from '@/lib/utils';
 import { usePhotographerAssignment } from '@/context/PhotographerAssignmentContext';
 
 interface AvailabilityWindow {
@@ -104,7 +104,11 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
   const [sortBy, setSortBy] = useState<SortBy>('availability');
   const [preset, setPreset] = useState<WindowPreset>('today');
   const availabilitySet = useMemo(() => new Set(availablePhotographerIds), [availablePhotographerIds]);
-  const hasAvailabilityData = availabilitySet.size > 0;
+  // Trust the API response once it has resolved (loading=false, no error), even when the
+  // returned list is empty — that legitimately means "no one available in this window".
+  // Only fall back to the optimistic "everyone free" view while the request is in flight
+  // or errored, so the UI doesn't flash wrong zeros before the first fetch completes.
+  const hasAvailabilityData = !availabilityLoading && !availabilityError;
 
   const handlePhotographerClick = (photographer: DashboardPhotographerSummary) => {
     openModal(photographer);
@@ -301,7 +305,7 @@ export const AssignPhotographersCard: React.FC<AssignPhotographersCardProps> = (
               <div className="flex items-start gap-2 sm:gap-3">
                 <Avatar
                   src={photographer.avatar}
-                  initials={photographer.name.split(' ').map((n) => n[0]).join('')}
+                  initials={getInitials(photographer.name)}
                   className="w-10 h-10 sm:w-12 sm:h-12 flex-shrink-0"
                   status={availabilitySet.has(photographer.id) || !hasAvailabilityData ? 'free' : photographer.status}
                 />

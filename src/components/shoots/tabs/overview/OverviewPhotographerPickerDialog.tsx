@@ -140,10 +140,10 @@ export function OverviewPhotographerPickerDialog({
                         type="button"
                         onClick={() => setSelectedPhotographerId(photographerItem.id)}
                         className={cn(
-                          'w-full rounded-[28px] border px-5 py-4 text-left transition-all',
+                          'w-full rounded-2xl border px-4 py-3 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40',
                           isSelected
-                            ? 'border-blue-500/80 bg-blue-950/35 shadow-[0_0_0_1px_rgba(59,130,246,0.18)]'
-                            : 'border-slate-200/70 bg-slate-50/90 hover:border-blue-300 dark:border-slate-800 dark:bg-slate-900/70 dark:hover:border-blue-800',
+                            ? 'border-blue-500/70 bg-blue-50/60 dark:border-blue-500/50 dark:bg-blue-950/30'
+                            : 'border-slate-200/70 bg-white/70 hover:border-blue-400/50 dark:border-slate-800/70 dark:bg-slate-900/40',
                         )}
                       >
                         <div className="flex items-start gap-4">
@@ -177,14 +177,14 @@ export function OverviewPhotographerPickerDialog({
 
                               <span
                                 className={cn(
-                                  'mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full border transition-colors',
+                                  'mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition-colors',
                                   isSelected
-                                    ? 'border-blue-500 bg-blue-600 text-white'
-                                    : 'border-slate-300 bg-transparent text-transparent dark:border-slate-700',
+                                    ? 'border-blue-600 bg-blue-600 text-white'
+                                    : 'border-slate-300/80 dark:border-slate-700/80',
                                 )}
                                 aria-hidden="true"
                               >
-                                <Check className="h-4 w-4" />
+                                {isSelected ? <Check className="h-4 w-4" /> : null}
                               </span>
                             </div>
 

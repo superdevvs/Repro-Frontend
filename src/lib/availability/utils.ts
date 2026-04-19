@@ -87,11 +87,4 @@ export const toHhMm = (t?: string) => {
   return t.slice(0, 5);
 };
 
-export const getInitials = (name: string) => {
-  return name
-    .split(' ')
-    .map(part => part[0])
-    .join('')
-    .toUpperCase()
-    .substring(0, 2);
-};
+export { getInitials } from "@/lib/utils";
