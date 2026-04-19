@@ -16,6 +16,7 @@ const targets = [
   'src/hooks/useShootHistoryActions.ts',
   'src/pages/messaging/AutomationWorkflowEditor.tsx',
   'src/pages/messaging/MessagingSettings.tsx',
+  'src/pages/Availability.tsx',
 ];
 
 const countLines = (contents) => {
