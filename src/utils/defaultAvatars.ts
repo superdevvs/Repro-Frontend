@@ -79,8 +79,16 @@ export function getAvatarUrl(
   userId?: string | number
 ): string {
   // Check for valid custom avatar - handle edge cases like "null" string, empty strings, etc.
+  // Defensive type-guard: backend may (in edge cases) return avatar as an array/object
+  // or other non-string value.  Without this guard calling `.trim()` throws
+  // `TypeError: e.trim is not a function` during Navbar render and crashes the
+  // whole Dashboard tree immediately after login.
   const invalidValues = ['null', 'undefined', 'none', ''];
-  if (customAvatar && customAvatar.trim() && !invalidValues.includes(customAvatar.trim().toLowerCase())) {
+  if (
+    typeof customAvatar === 'string' &&
+    customAvatar.trim() &&
+    !invalidValues.includes(customAvatar.trim().toLowerCase())
+  ) {
     const trimmed = customAvatar.trim();
     const isAbsolute = /^https?:\/\//i.test(trimmed) || trimmed.startsWith('data:') || trimmed.startsWith('blob:');
     if (isAbsolute) {

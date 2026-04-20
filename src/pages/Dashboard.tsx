@@ -701,12 +701,19 @@ const Dashboard = () => {
     </>
   );
 
-  const firstName = user?.firstName || user?.name?.split(" ")[0] || "there";
+  const safeUserName = typeof user?.name === 'string' ? user.name : '';
+  const safeFirstName =
+    typeof user?.firstName === 'string' ? user.firstName : '';
+  const safeLastName =
+    typeof (user as { lastName?: string | null } | null)?.lastName === 'string'
+      ? ((user as { lastName?: string | null }).lastName as string)
+      : '';
+  const firstName = safeFirstName || safeUserName.split(' ')[0] || 'there';
   const fullName =
-    user?.name ||
-    [user?.firstName, (user as { lastName?: string | null } | null)?.lastName]
-      .filter((value): value is string => Boolean(value && value.trim()))
-      .join(" ") ||
+    safeUserName ||
+    [safeFirstName, safeLastName]
+      .filter((value) => value.trim().length > 0)
+      .join(' ') ||
     firstName;
   const greetingPrefix = getGreetingPrefix();
   const greetingTitle = (

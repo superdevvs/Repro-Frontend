@@ -72,24 +72,53 @@ const normalizeRole = (role?: string | null): Role => {
   return role as Role;
 };
 
+// Coerce any backend-returned value to a clean string (or null if it cannot be
+// meaningfully represented).  Prevents downstream `.trim()` / `.charAt()` /
+// `.split()` crashes when a column is unexpectedly serialized as an array,
+// object, number, or boolean.
+const toStringOrNull = (value: unknown): string | null => {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  return null;
+};
+
+const toStringOrUndefined = (value: unknown): string | undefined => {
+  const result = toStringOrNull(value);
+  return result ?? undefined;
+};
+
 const normalizeApiUser = (apiUser: any, base?: UserData | null): UserData => {
   const role = normalizeRole(apiUser?.role ?? base?.role);
   return {
     ...(base ?? {}),
     ...(apiUser ?? {}),
     id: String(apiUser?.id ?? base?.id ?? ''),
-    name: apiUser?.name ?? base?.name ?? '',
-    email: apiUser?.email ?? base?.email ?? '',
+    name: toStringOrNull(apiUser?.name) ?? toStringOrNull(base?.name) ?? '',
+    email: toStringOrNull(apiUser?.email) ?? toStringOrNull(base?.email) ?? '',
     role,
-    avatar: apiUser?.avatar ?? base?.avatar,
-    phone: apiUser?.phone ?? apiUser?.phonenumber ?? apiUser?.phone_number ?? base?.phone,
-    address: apiUser?.address ?? base?.address,
-    city: apiUser?.city ?? base?.city,
-    state: apiUser?.state ?? base?.state,
-    zipcode: apiUser?.zipcode ?? apiUser?.zip ?? base?.zipcode,
-    timezone: apiUser?.timezone ?? base?.timezone,
-    company: apiUser?.company ?? apiUser?.company_name ?? base?.company,
-    companyNotes: apiUser?.companyNotes ?? apiUser?.company_notes ?? base?.companyNotes,
+    avatar: toStringOrUndefined(apiUser?.avatar) ?? toStringOrUndefined(base?.avatar),
+    phone:
+      toStringOrUndefined(apiUser?.phone) ??
+      toStringOrUndefined(apiUser?.phonenumber) ??
+      toStringOrUndefined(apiUser?.phone_number) ??
+      toStringOrUndefined(base?.phone),
+    address: toStringOrUndefined(apiUser?.address) ?? toStringOrUndefined(base?.address),
+    city: toStringOrUndefined(apiUser?.city) ?? toStringOrUndefined(base?.city),
+    state: toStringOrUndefined(apiUser?.state) ?? toStringOrUndefined(base?.state),
+    zipcode:
+      toStringOrUndefined(apiUser?.zipcode) ??
+      toStringOrUndefined(apiUser?.zip) ??
+      toStringOrUndefined(base?.zipcode),
+    timezone: toStringOrUndefined(apiUser?.timezone) ?? toStringOrUndefined(base?.timezone),
+    company:
+      toStringOrUndefined(apiUser?.company) ??
+      toStringOrUndefined(apiUser?.company_name) ??
+      toStringOrUndefined(base?.company),
+    companyNotes:
+      toStringOrUndefined(apiUser?.companyNotes) ??
+      toStringOrUndefined(apiUser?.company_notes) ??
+      toStringOrUndefined(base?.companyNotes),
     shootCcEmails: apiUser?.shootCcEmails ?? apiUser?.shoot_cc_emails ?? base?.shootCcEmails ?? base?.shoot_cc_emails ?? [],
     shoot_cc_emails: apiUser?.shoot_cc_emails ?? apiUser?.shootCcEmails ?? base?.shoot_cc_emails ?? base?.shootCcEmails ?? [],
     clientDiscountType: apiUser?.clientDiscountType ?? apiUser?.client_discount_type ?? base?.clientDiscountType ?? base?.client_discount_type ?? null,
