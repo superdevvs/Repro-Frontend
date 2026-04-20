@@ -994,24 +994,27 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange, is
                 render={({ field }) => (
                   <FormItem className="mt-4 px-1">
                     <div className="flex items-start gap-2">
-                      <input
+                      <Checkbox
                         id="terms"
-                        type="checkbox"
                         checked={field.value ?? false}
-                        onChange={(e) => {
-                          const checked = e.target.checked;
+                        onCheckedChange={(checked) => {
                           if (checked) {
                             setTermsOpen(true);
                             return;
                           }
                           field.onChange(false);
                         }}
-                        className={`mt-0.5 h-4 w-4 rounded border ${isMobile ? 'border-white/30 bg-slate-900/60' : 'border-border dark:border-white/30 dark:bg-transparent'}`}
+                        aria-label="Agree to the Terms and Conditions"
+                        className={`mt-0.5 ${isMobile ? 'border-white/30 bg-slate-900/60 data-[state=checked]:bg-cyan-400 data-[state=checked]:text-slate-950' : 'border-border dark:border-white/30 dark:bg-transparent dark:data-[state=checked]:bg-cyan-400 dark:data-[state=checked]:text-slate-950'}`}
                       />
                       <div className={`text-sm leading-6 ${isMobile ? 'text-slate-300' : 'text-muted-foreground dark:text-slate-300'}`}>
-                        <label htmlFor="terms" className="select-none">
+                        <button
+                          type="button"
+                          onClick={() => setTermsOpen(true)}
+                          className="select-none bg-transparent p-0 text-left text-inherit"
+                        >
                           I agree to the{' '}
-                        </label>
+                        </button>
                         <button
                           type="button"
                           onClick={(e) => {
