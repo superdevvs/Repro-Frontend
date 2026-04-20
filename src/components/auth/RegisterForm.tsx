@@ -301,9 +301,10 @@ export type RegisterSuccessPayload = {
 type RegisterFormProps = {
   onSuccess: (payload: RegisterSuccessPayload) => void;
   onStepChange?: (step: 1 | 2) => void;
+  isActive?: boolean;
 };
 
-const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange }) => {
+const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange, isActive = false }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [currentStep, setCurrentStep] = useState<1 | 2>(1);
@@ -462,6 +463,21 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange }) 
   useEffect(() => {
     onStepChange?.(currentStep);
   }, [currentStep, onStepChange]);
+
+  useEffect(() => {
+    if (!isActive) {
+      return;
+    }
+
+    form.setValue('terms', false, {
+      shouldDirty: false,
+      shouldTouch: false,
+      shouldValidate: false,
+    });
+    setTermsOpen(false);
+    setTermsScrollProgress(0);
+    setTermsScrolledToEnd(false);
+  }, [form, isActive]);
 
   const updateTermsScrollState = () => {
     const scrollElement = termsScrollRef.current;

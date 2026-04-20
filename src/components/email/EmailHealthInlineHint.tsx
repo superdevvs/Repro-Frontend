@@ -62,6 +62,10 @@ const getCompactMessage = ({
   return message;
 };
 
+const normalizeEmailValue = (value: unknown): string => (
+  typeof value === 'string' ? value.trim() : ''
+);
+
 export function EmailHealthInlineHint({
   email,
   localHint,
@@ -72,7 +76,8 @@ export function EmailHealthInlineHint({
   variant = 'inline',
   className,
 }: EmailHealthInlineHintProps) {
-  if (!email?.trim()) {
+  const normalizedEmail = normalizeEmailValue(email);
+  if (!normalizedEmail) {
     return null;
   }
 

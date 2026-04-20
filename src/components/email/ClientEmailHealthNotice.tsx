@@ -24,6 +24,10 @@ type NoticeConfig = {
   showResend: boolean;
 };
 
+const normalizeEmailValue = (value: unknown): string => (
+  typeof value === 'string' ? value.trim() : ''
+);
+
 const buildNoticeConfig = (email: string, emailHealth?: EmailHealth): NoticeConfig | null => {
   const status = emailHealth?.status;
   if (!status || status === 'verified') {
@@ -80,7 +84,7 @@ export function ClientEmailHealthNotice({
   className,
   variant = 'card',
 }: ClientEmailHealthNoticeProps) {
-  const normalizedEmail = email?.trim();
+  const normalizedEmail = normalizeEmailValue(email);
   if (!normalizedEmail) {
     return null;
   }
