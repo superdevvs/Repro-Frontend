@@ -19,6 +19,18 @@ type PaymentConfirmationResult = {
   last_payment_amount?: number | string | null;
   return_to?: string | null;
   payment_status?: string | null;
+  remaining_balance?: number | string | null;
+  total_paid?: number | string | null;
+  reconciled?: boolean | null;
+  session_id?: string | null;
+};
+
+const toFiniteNumber = (value: unknown): number | null => {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
 };
 
 export default function AuthenticatedPaymentReturnPage() {
@@ -77,13 +89,22 @@ export default function AuthenticatedPaymentReturnPage() {
         }
 
         const data = (response.data?.data || response.data) as PaymentConfirmationResult;
-        const confirmedAmount = Number(data.last_payment_amount ?? Number.NaN);
+        const confirmedAmount = toFiniteNumber(data.last_payment_amount);
+        const remainingBalance = toFiniteNumber(data.remaining_balance);
+        const paymentStatus = (data.payment_status ?? '').toString().toLowerCase();
 
-        if (!Number.isFinite(confirmedAmount) || confirmedAmount <= 0) {
-          throw new Error('Unable to determine the processed payment amount.');
+        const isPaidByStatus = paymentStatus === 'paid' || paymentStatus === 'succeeded';
+        const isPaidByBalance = remainingBalance !== null && remainingBalance <= 0.01;
+        const isPaidByAmount = confirmedAmount !== null && confirmedAmount > 0;
+        const isPaidByReconcile = data.reconciled === true;
+
+        if (!isPaidByStatus && !isPaidByBalance && !isPaidByAmount && !isPaidByReconcile) {
+          // The backend did not indicate a successful payment. Surface a generic error so the
+          // client knows to retry or contact support rather than assume success.
+          throw new Error('Your payment could not be confirmed yet. Please refresh or contact support if this persists.');
         }
 
-        setLastPaymentAmount(confirmedAmount);
+        setLastPaymentAmount(confirmedAmount ?? null);
         setResolvedReturnTo(sanitizeRelativeReturnTo(data.return_to ?? initialReturnTo));
 
         triggerDashboardOverviewRefresh();
@@ -158,7 +179,9 @@ export default function AuthenticatedPaymentReturnPage() {
           <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
           <h2 className="text-2xl font-semibold text-white mb-2">Payment Successful!</h2>
           <p className="text-gray-400 mb-4">
-            Your payment of ${(lastPaymentAmount ?? 0).toFixed(2)} has been processed successfully.
+            {lastPaymentAmount !== null && lastPaymentAmount > 0
+              ? `Your payment of $${lastPaymentAmount.toFixed(2)} has been processed successfully.`
+              : 'Your payment has been processed successfully.'}
           </p>
           <p className="text-sm text-gray-500">
             You will receive a confirmation email shortly.
