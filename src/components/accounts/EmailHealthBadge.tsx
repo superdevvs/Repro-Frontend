@@ -1,4 +1,5 @@
 import { Badge } from '@/components/ui/badge';
+import { Mail } from 'lucide-react';
 import type { EmailHealth } from '@/types/auth';
 import { getEmailHealthClasses, getEmailHealthLabel } from '@/utils/emailHealth';
 
@@ -12,7 +13,8 @@ export function EmailHealthBadge({ emailHealth }: EmailHealthBadgeProps) {
   }
 
   return (
-    <Badge variant="outline" className={getEmailHealthClasses(emailHealth.status)}>
+    <Badge variant="outline" className={`inline-flex items-center gap-1.5 ${getEmailHealthClasses(emailHealth.status)}`}>
+      <Mail className="h-3 w-3 shrink-0" />
       {getEmailHealthLabel(emailHealth.status)}
     </Badge>
   );

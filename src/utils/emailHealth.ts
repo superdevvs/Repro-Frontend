@@ -252,7 +252,7 @@ export function getEmailHealthClasses(status?: EmailHealthStatus): string {
       return 'border-emerald-400/45 bg-emerald-500/5 text-emerald-300';
     case 'unverified':
     case 'risky':
-      return 'border-amber-400/55 bg-amber-500/10 text-amber-300';
+      return 'border-red-300 bg-red-50 text-red-700 dark:border-amber-400/55 dark:bg-amber-500/10 dark:text-amber-300';
     case 'bounced':
     case 'invalid':
       return 'border-rose-400/50 bg-rose-500/5 text-rose-300';
