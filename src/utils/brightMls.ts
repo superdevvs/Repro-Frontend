@@ -130,24 +130,23 @@ const formatTourLabel = (key: string): string =>
     .trim()
     .replace(/\b\w/g, (match) => match.toUpperCase())
 
-const getEmbedTourUrls = (rawTourLinks: LooseRecord): Record<string, string> => {
-  const rawEmbeds = Array.isArray(rawTourLinks.embeds) ? rawTourLinks.embeds : []
-
-  return rawEmbeds.reduce<Record<string, string>>((acc, entry, index) => {
-    const embed = asRecord(entry)
-    const candidate = normalizeString(
-      embed.mls || embed.mls_embed || embed.url || embed.branded || embed.branded_embed,
-    )
-
-    if (!/^https?:\/\//i.test(candidate)) {
-      return acc
-    }
-
-    const title = normalizeString(embed.title) || `Embed ${index + 1}`
-    acc[title] = candidate
-    return acc
-  }, {})
-}
+// Tour link keys we explicitly want forwarded to Bright MLS (branded + MLS variants
+// and 3D section links). `video_link` (the in-page video embed) and the `embeds`
+// iframe array are intentionally excluded per product requirements.
+const BRIGHT_MLS_BROADCAST_TOUR_KEYS: Array<{ key: string; label: string }> = [
+  { key: 'branded', label: 'Branded Tour' },
+  { key: 'mls', label: 'MLS Tour' },
+  { key: 'generic_mls', label: 'MLS Tour' },
+  { key: 'genericMls', label: 'MLS Tour' },
+  { key: 'zillow_3d', label: 'Zillow 3D Home Tour' },
+  { key: 'matterport_branded', label: 'Matterport 3D Tour (Branded)' },
+  { key: 'matterport_mls', label: 'Matterport 3D Tour (MLS)' },
+  { key: 'iguide_branded', label: 'iGUIDE 3D Tour (Branded)' },
+  { key: 'iguide_mls', label: 'iGUIDE 3D Tour (MLS)' },
+  { key: 'video_branded', label: 'Branded Video' },
+  { key: 'video_mls', label: 'MLS Video' },
+  { key: 'video_generic', label: 'Property Video' },
+]
 
 const getSortOrder = (file: Partial<ShootFileData> & LooseRecord, index: number): number => {
   const sortOrder = Number(file.sort_order)
@@ -257,66 +256,91 @@ export const buildBrightMlsPublishPayload = (
     description: 'Floor plan',
   }))
 
-  const additional_tour_urls = Object.entries(rawTourLinks).reduce<Record<string, string>>((acc, [key, value]) => {
-    if (
-      [
-        'iguide_mls',
-        'iguide_branded',
-        'iguide',
-        'iGuide',
-        'cubicasa',
-        'cubicasa_url',
-        'matterport_mls',
-        'matterport_branded',
-        'matterport',
-        'mls',
-        'generic_mls',
-        'genericMls',
-        'slideshow',
-        'slideshow_url',
-        'neo_tour',
-        'neotour',
-        'video_mls',
-        'video_generic',
-        'video_link',
-        'video_branded',
-        'embeds',
-        'featured_embed_id',
-        'featured_embed',
-        'tour_style',
-      ].includes(key)
-    ) {
-      return acc
+  const HANDLED_OR_SKIPPED_TOUR_KEYS = new Set([
+    // Dedicated payload slots
+    'iguide_mls',
+    'iguide_branded',
+    'iguide',
+    'iGuide',
+    'cubicasa',
+    'cubicasa_url',
+    'matterport_mls',
+    'matterport_branded',
+    'matterport',
+    'slideshow',
+    'slideshow_url',
+    'neo_tour',
+    'neotour',
+    // Broadcast keys handled explicitly below
+    'branded',
+    'mls',
+    'generic_mls',
+    'genericMls',
+    'zillow_3d',
+    'video_branded',
+    'video_mls',
+    'video_generic',
+    // Intentionally excluded from Bright MLS sync
+    'video_link',
+    'embeds',
+    'featured_embed_id',
+    'featured_embed',
+    'tour_style',
+    'realtor_client',
+    'realtor_client_id',
+    'realtorClient',
+    'realtorClientId',
+  ])
+
+  const iguideTourUrl = firstUrl(shoot.iguide_tour_url, shoot.iguideTourUrl, getPreferredIguideUrl(shoot))
+  const slideshowUrl = firstUrl(
+    rawTourLinks.slideshow,
+    rawTourLinks.slideshow_url,
+    rawTourLinks.neo_tour,
+    rawTourLinks.neotour,
+  )
+  const matterportUrl = firstUrl(rawTourLinks.matterport_mls, rawTourLinks.matterport_branded, rawTourLinks.matterport)
+  const cubicasaUrl = firstUrl(rawTourLinks.cubicasa, rawTourLinks.cubicasa_url)
+
+  const additional_tour_urls: Record<string, string> = {}
+  const seenUrls = new Set<string>(
+    [iguideTourUrl, slideshowUrl, matterportUrl, cubicasaUrl].filter((value): value is string => !!value),
+  )
+
+  // Explicit broadcast of branded/MLS/3D/video (branded+MLS) tour links.
+  for (const { key, label } of BRIGHT_MLS_BROADCAST_TOUR_KEYS) {
+    const candidate = normalizeString(rawTourLinks[key])
+    if (!/^https?:\/\//i.test(candidate) || seenUrls.has(candidate) || additional_tour_urls[label]) {
+      continue
+    }
+    additional_tour_urls[label] = candidate
+    seenUrls.add(candidate)
+  }
+
+  // Forward any remaining unhandled URL-valued tour link entries as-is.
+  for (const [key, value] of Object.entries(rawTourLinks)) {
+    if (HANDLED_OR_SKIPPED_TOUR_KEYS.has(key)) {
+      continue
     }
 
     const candidate = normalizeString(value)
-    if (!/^https?:\/\//i.test(candidate)) {
-      return acc
+    if (!/^https?:\/\//i.test(candidate) || seenUrls.has(candidate)) {
+      continue
     }
 
-    acc[formatTourLabel(key)] = candidate
-    return acc
-  }, getEmbedTourUrls(rawTourLinks))
+    const label = formatTourLabel(key)
+    if (!additional_tour_urls[label]) {
+      additional_tour_urls[label] = candidate
+      seenUrls.add(candidate)
+    }
+  }
 
   return {
     photos,
-    iguide_tour_url: firstUrl(shoot.iguide_tour_url, shoot.iguideTourUrl, getPreferredIguideUrl(shoot)),
-    slideshow_url: firstUrl(
-      rawTourLinks.slideshow,
-      rawTourLinks.slideshow_url,
-      rawTourLinks.neo_tour,
-      rawTourLinks.neotour,
-      rawTourLinks.video_mls,
-      rawTourLinks.video_generic,
-      rawTourLinks.video_link,
-      rawTourLinks.video_branded,
-      rawTourLinks.mls,
-      rawTourLinks.generic_mls,
-      rawTourLinks.genericMls,
-      shoot.mls_compliant_link,
-    ),
-    matterport_url: firstUrl(rawTourLinks.matterport_mls, rawTourLinks.matterport_branded, rawTourLinks.matterport),
-    cubicasa_url: firstUrl(rawTourLinks.cubicasa, rawTourLinks.cubicasa_url),
+    iguide_tour_url: iguideTourUrl,
+    slideshow_url: slideshowUrl,
+    matterport_url: matterportUrl,
+    cubicasa_url: cubicasaUrl,
     additional_tour_urls,
     documents,
   }
