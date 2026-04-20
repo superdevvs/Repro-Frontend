@@ -333,10 +333,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   // Login function
   const login = (userData: UserData, authToken?: string) => {
-    // Normalize role across API variations
-    const roleToUse = normalizeRole(userData.role);
-    const tokenToUse = authToken || getStoredAuthToken();
-
+    // Persist the auth token FIRST so any subsequent fetches (including the
+    // post-login refresh below) carry the correct Authorization header.
     if (authToken) {
       if (typeof window !== 'undefined') {
         localStorage.setItem('authToken', authToken);
@@ -345,26 +343,81 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       }
     }
 
-    // Update userData with the role
-    const updatedUserData = {
-      ...userData,
-      role: roleToUse,
-      metadata: userData.metadata || {},
-    };
-    // Store the user data in localStorage
-    localStorage.setItem('user', JSON.stringify(updatedUserData));
+    const tokenToUse = authToken || getStoredAuthToken();
+
+    // Normalize the incoming user through the SAME pipeline as the reload/init
+    // path so fresh-login and reload produce identically shaped user objects
+    // (e.g. shootCcEmails/clientDiscount*/metadata defaults).  Without this,
+    // the Dashboard first-render on a just-logged-in account crashed because
+    // downstream components expect those defaults.
+    const normalizedUser = normalizeApiUser(userData);
+    const roleToUse = normalizeRole(normalizedUser.role);
+    normalizedUser.role = roleToUse;
+
+    // Store the normalized user so any later reload picks up the same shape.
+    localStorage.setItem('user', JSON.stringify(normalizedUser));
     clearSessionScopedCaches();
-    setUser(updatedUserData);
+    setUser(normalizedUser);
     setIsAuthenticated(true);
     setRole(roleToUse);
 
     if (tokenToUse) {
-      syncSessionForUser(updatedUserData, roleToUse);
+      syncSessionForUser(normalizedUser, roleToUse);
     } else {
       setSession(null);
     }
 
     console.log('Login successful, user role:', roleToUse);
+
+    // Mirror the reload path: fire a background /api/user refresh so
+    // server-managed fields (metadata.specialties, email_health details,
+    // discount config, timezone, etc.) are populated immediately after login
+    // instead of only after the next page reload.
+    if (tokenToUse && typeof window !== 'undefined') {
+      // Abort any in-flight refresh from the init effect.
+      refreshAbortRef.current?.abort();
+
+      const epochAtStart = impersonationEpochRef.current;
+      const controller = new AbortController();
+      refreshAbortRef.current = controller;
+
+      fetch(`${API_BASE_URL}/api/user`, {
+        headers: {
+          Accept: 'application/json',
+          Authorization: `Bearer ${tokenToUse}`,
+        },
+        signal: controller.signal,
+      })
+        .then(async (response) => {
+          // Guard against impersonation starting during the async gap.
+          if (localStorage.getItem('originalUser')) return;
+          if (impersonationEpochRef.current !== epochAtStart) return;
+          if (!response.ok) return;
+
+          const apiUser = await response.json();
+
+          // Final guard before writing state.
+          if (localStorage.getItem('originalUser')) return;
+          if (impersonationEpochRef.current !== epochAtStart) return;
+
+          const refreshed = normalizeApiUser(apiUser, normalizedUser);
+          const refreshedRole = normalizeRole(refreshed.role);
+
+          localStorage.setItem('user', JSON.stringify(refreshed));
+          setUser(refreshed);
+          setRole(refreshedRole);
+          syncSessionForUser(refreshed, refreshedRole);
+        })
+        .catch((error) => {
+          if ((error as DOMException)?.name === 'AbortError') return;
+          console.warn('Failed to refresh user data after login', error);
+        })
+        .finally(() => {
+          if (refreshAbortRef.current === controller) {
+            refreshAbortRef.current = null;
+          }
+        });
+    }
   };
 
   // Logout function
