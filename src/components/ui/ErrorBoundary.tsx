@@ -2,6 +2,7 @@ import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { attemptChunkLoadRecovery, isRecoverableChunkError } from '@/lib/chunkLoadRecovery';
 
 interface Props {
   children: ReactNode;
@@ -27,6 +28,8 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     this.setState({ error, errorInfo });
+
+    attemptChunkLoadRecovery(error);
     
     // Log error to console in development
     if (process.env.NODE_ENV === 'development') {
@@ -60,7 +63,9 @@ export class ErrorBoundary extends Component<Props, State> {
               </div>
               <CardTitle className="text-xl">Something went wrong</CardTitle>
               <CardDescription>
-                An unexpected error occurred. Please try refreshing the page.
+                {isRecoverableChunkError(this.state.error)
+                  ? 'A new version of the app was detected. We are trying to refresh to the latest build.'
+                  : 'An unexpected error occurred. Please try refreshing the page.'}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">

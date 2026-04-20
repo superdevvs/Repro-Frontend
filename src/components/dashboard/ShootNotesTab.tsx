@@ -385,7 +385,8 @@ export function ShootNotesTab({
 
   function shouldRenderNoteSection(noteType: NoteType): boolean {
     const isEditing = activeEdits[noteType];
-    return canView(noteType) && (!hideEmptySections || isEditing || hasNoteContent(noteType));
+    const isEditable = canEdit(noteType);
+    return canView(noteType) && (!hideEmptySections || isEditing || isEditable || hasNoteContent(noteType));
   }
 
   // Helper functions for styled notes with updated colors to match dashboard

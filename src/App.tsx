@@ -21,6 +21,7 @@ import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { SystemTelemetryProvider } from '@/features/system-overview/SystemTelemetryProvider';
 import { startRealtimeListener } from '@/realtime/realtimeListener';
 import { subscribeRealtimeEvents } from '@/realtime/realtimeEvents';
+import { clearChunkLoadRecoveryState } from '@/lib/chunkLoadRecovery';
 import {
   triggerDashboardOverviewRefresh,
   triggerEditingRequestsRefresh,
@@ -646,6 +647,10 @@ const AppRoutes = () => {
 };
 
 function App() {
+  useEffect(() => {
+    clearChunkLoadRecoveryState();
+  }, []);
+
   return (
     <div className="app-root">
       <div className="app-shell">

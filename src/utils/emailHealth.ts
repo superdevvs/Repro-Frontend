@@ -249,14 +249,14 @@ export function getEmailHealthLabel(status?: EmailHealthStatus): string {
 export function getEmailHealthClasses(status?: EmailHealthStatus): string {
   switch (status) {
     case 'verified':
-      return 'border-emerald-200 bg-transparent text-emerald-700';
+      return 'border-emerald-400/45 bg-emerald-500/5 text-emerald-300';
     case 'unverified':
     case 'risky':
-      return 'border-amber-200 bg-transparent text-amber-700';
+      return 'border-amber-400/55 bg-amber-500/10 text-amber-300';
     case 'bounced':
     case 'invalid':
-      return 'border-rose-200 bg-transparent text-rose-700';
+      return 'border-rose-400/50 bg-rose-500/5 text-rose-300';
     default:
-      return 'border-slate-200 bg-transparent text-slate-600';
+      return 'border-slate-400/35 bg-slate-500/5 text-slate-300';
   }
 }

@@ -19,6 +19,7 @@ import {
   KeyRound,
   Bell,
   Link,
+  Mail,
   Camera,
   ExternalLink,
   Trash2,
@@ -114,7 +115,10 @@ export function AccountCard({
             <div>
               <h3 className="font-medium text-base">{user.name}</h3>
               <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                <span>{user.email}</span>
+                <span className="inline-flex items-center gap-1.5">
+                  <Mail className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                  <span>{user.email}</span>
+                </span>
                 <EmailHealthBadge emailHealth={user.email_health} />
               </div>
             </div>
