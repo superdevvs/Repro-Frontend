@@ -364,6 +364,19 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange, is
       terms: false,
     },
   });
+  const resetTermsAgreement = () => {
+    form.setValue('terms', false, {
+      shouldDirty: false,
+      shouldTouch: false,
+      shouldValidate: false,
+    });
+    setTermsOpen(false);
+    setTermsScrollProgress(0);
+    setTermsScrolledToEnd(false);
+  };
+  const openTermsDialog = () => {
+    setTermsOpen(true);
+  };
   const stepOneFields: Array<keyof RegisterFormValues> = [
     'firstName',
     'lastName',
@@ -469,15 +482,8 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange, is
       return;
     }
 
-    form.setValue('terms', false, {
-      shouldDirty: false,
-      shouldTouch: false,
-      shouldValidate: false,
-    });
-    setTermsOpen(false);
-    setTermsScrollProgress(0);
-    setTermsScrolledToEnd(false);
-  }, [form, isActive]);
+    resetTermsAgreement();
+  }, [isActive]);
 
   const updateTermsScrollState = () => {
     const scrollElement = termsScrollRef.current;
@@ -519,6 +525,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange, is
       return;
     }
 
+    resetTermsAgreement();
     setCurrentStep(2);
   };
 
@@ -996,13 +1003,16 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange, is
                     <div className="flex items-start gap-2">
                       <Checkbox
                         id="terms"
-                        checked={field.value ?? false}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            setTermsOpen(true);
+                        checked={field.value === true}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          if (field.value === true) {
+                            field.onChange(false);
+                            setTermsScrollProgress(0);
+                            setTermsScrolledToEnd(false);
                             return;
                           }
-                          field.onChange(false);
+                          openTermsDialog();
                         }}
                         aria-label="Agree to the Terms and Conditions"
                         className={`mt-0.5 ${isMobile ? 'border-white/30 bg-slate-900/60 data-[state=checked]:bg-cyan-400 data-[state=checked]:text-slate-950' : 'border-border dark:border-white/30 dark:bg-transparent dark:data-[state=checked]:bg-cyan-400 dark:data-[state=checked]:text-slate-950'}`}
@@ -1010,7 +1020,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange, is
                       <div className={`text-sm leading-6 ${isMobile ? 'text-slate-300' : 'text-muted-foreground dark:text-slate-300'}`}>
                         <button
                           type="button"
-                          onClick={() => setTermsOpen(true)}
+                          onClick={openTermsDialog}
                           className="select-none bg-transparent p-0 text-left text-inherit"
                         >
                           I agree to the{' '}
@@ -1019,7 +1029,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange, is
                           type="button"
                           onClick={(e) => {
                             e.preventDefault();
-                            setTermsOpen(true);
+                            openTermsDialog();
                           }}
                           className={`font-medium underline underline-offset-4 transition-colors ${isMobile ? 'text-cyan-300 hover:text-cyan-200' : 'text-primary dark:text-cyan-400 dark:hover:text-cyan-300'}`}
                         >
