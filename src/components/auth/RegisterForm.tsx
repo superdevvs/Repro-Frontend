@@ -785,7 +785,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange, is
                   <FormItem className="relative">
                     <FormControl>
                       <Input
-                        placeholder="San Francisco"
+                        placeholder="City"
                         autoComplete="address-level2"
                         {...field}
                         className={inputClass}
@@ -802,7 +802,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange, is
                   <FormItem className="relative">
                     <FormControl>
                       <Input
-                        placeholder="CA"
+                        placeholder="State"
                         autoComplete="address-level1"
                         {...field}
                         className={inputClass}
@@ -822,7 +822,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange, is
                   <FormItem className="relative md:col-span-2">
                     <FormControl>
                       <Input
-                        placeholder="United States"
+                        placeholder="Country"
                         autoComplete="country-name"
                         {...field}
                         className={inputClass}
@@ -839,7 +839,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange, is
                   <FormItem className="relative">
                     <FormControl>
                       <Input
-                        placeholder="94107"
+                        placeholder="ZIP Code"
                         autoComplete="postal-code"
                         {...field}
                         className={inputClass}
