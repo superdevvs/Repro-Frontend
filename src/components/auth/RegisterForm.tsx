@@ -316,7 +316,9 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange, is
   const [termsScrollProgress, setTermsScrollProgress] = useState(0);
   const [termsScrolledToEnd, setTermsScrolledToEnd] = useState(false);
   const isMobile = useIsMobile();
+  const formTopRef = useRef<HTMLDivElement | null>(null);
   const termsScrollRef = useRef<HTMLDivElement | null>(null);
+  const previousStepRef = useRef<1 | 2>(1);
 
   const mobileInputClass =
     'bg-slate-900/70 border border-white/10 rounded-2xl px-4 py-3 text-white placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-0 focus:border-transparent';
@@ -482,6 +484,23 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange, is
   useEffect(() => {
     onStepChange?.(currentStep);
   }, [currentStep, onStepChange]);
+
+  useEffect(() => {
+    const previousStep = previousStepRef.current;
+    previousStepRef.current = currentStep;
+
+    if (!isMobile || previousStep === currentStep) {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      formTopRef.current?.scrollIntoView({
+        block: 'start',
+        behavior: 'auto',
+      });
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    });
+  }, [currentStep, isMobile]);
 
   useEffect(() => {
     if (!isActive) {
@@ -654,6 +673,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange, is
 
   return (
     <Form {...form}>
+      <div ref={formTopRef} />
       <form onSubmit={handleFormSubmit} className="space-y-6">
         {currentStep === 1 ? (
           <>
