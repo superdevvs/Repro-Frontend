@@ -383,26 +383,30 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
 
             {/* Register Form */}
             <TabsContent value="register" className={`${registerContentClass} ${isMobile ? 'min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1' : ''}`}>
-              <RegisterForm
-                onSuccess={handleRegisterSuccess}
-                onStepChange={setRegisterStep}
-                isActive={activeTab === 'register'}
-              />
-              <p
-                className={`text-center text-sm pt-2 ${isMobile ? 'text-slate-400' : 'text-muted-foreground dark:text-slate-400'}`}
-              >
-                <span
-                  onClick={() => setActiveTab('login')}
-                  className="text-muted-foreground/70 dark:text-slate-400 font-medium cursor-pointer hover:underline inline-flex items-center"
+              <div className={isMobile ? 'flex min-h-full flex-col' : ''}>
+                <div className={isMobile ? 'flex-1' : ''}>
+                  <RegisterForm
+                    onSuccess={handleRegisterSuccess}
+                    onStepChange={setRegisterStep}
+                    isActive={activeTab === 'register'}
+                  />
+                </div>
+                <p
+                  className={`text-center text-sm ${isMobile ? 'pt-6 text-slate-400' : 'pt-2 text-muted-foreground dark:text-slate-400'}`}
                 >
-                  <span>
-                    Go back to{' '}
-                    <span className={`${isMobile ? 'text-cyan-300' : 'text-primary dark:text-cyan-400'} font-semibold`}>
-                      Login
+                  <span
+                    onClick={() => setActiveTab('login')}
+                    className="text-muted-foreground/70 dark:text-slate-400 font-medium cursor-pointer hover:underline inline-flex items-center"
+                  >
+                    <span>
+                      Go back to{' '}
+                      <span className={`${isMobile ? 'text-cyan-300' : 'text-primary dark:text-cyan-400'} font-semibold`}>
+                        Login
+                      </span>
                     </span>
                   </span>
-                </span>
-              </p>
+                </p>
+              </div>
             </TabsContent>
           </Tabs>
         </CardContent>

@@ -674,7 +674,10 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange, is
   return (
     <Form {...form}>
       <div ref={formTopRef} />
-      <form onSubmit={handleFormSubmit} className="space-y-6">
+      <form
+        onSubmit={handleFormSubmit}
+        className={currentStep === 2 && isMobile ? 'flex min-h-full flex-col' : 'space-y-6'}
+      >
         {currentStep === 1 ? (
           <>
             <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
@@ -979,7 +982,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange, is
             </div>
           </>
         ) : (
-          <>
+          <div className={`flex flex-1 flex-col ${isMobile ? 'justify-between gap-6' : 'gap-6'}`}>
             <div className={smsSectionClass}>
               <div className="flex flex-col gap-2 px-1">
                 <p className={metaLabelClass}>SMS Opt-In</p>
@@ -1259,7 +1262,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange, is
                 </Button>
               </div>
             </div>
-          </>
+          </div>
         )}
 
         <Dialog
