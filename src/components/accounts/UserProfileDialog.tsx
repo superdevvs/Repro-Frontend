@@ -1,4 +1,5 @@
 
+import { Loader2 } from "lucide-react";
 import { User } from "@/components/auth/AuthProvider";
 import { useAuth } from "@/components/auth";
 import { Button } from "@/components/ui/button";
@@ -64,6 +65,8 @@ interface UserProfileDialogProps {
   onOpenChange: (open: boolean) => void;
   user: User | null;
   onEdit?: () => void;
+  onResendVerification?: (user: UserProfileDialogUser) => Promise<void> | void;
+  isResendingVerification?: boolean;
   accountRep?: string;
   lastShootDate?: string;
   shootStats?: {
@@ -81,6 +84,8 @@ export function UserProfileDialog({
   onOpenChange,
   user,
   onEdit = () => {},
+  onResendVerification,
+  isResendingVerification = false,
   accountRep = 'Unassigned',
   lastShootDate,
   shootStats,
@@ -92,6 +97,10 @@ export function UserProfileDialog({
   const profileUser = user as UserProfileDialogUser;
   const canSeeSensitiveRepData = viewerRole === 'superadmin';
   const canSeeActivityLog = ['admin', 'superadmin', 'editing_manager', 'salesRep'].includes(viewerRole);
+  const canResendVerification =
+    ['admin', 'superadmin', 'editing_manager', 'salesRep'].includes(viewerRole)
+    && user.role === 'client'
+    && ['unverified', 'risky'].includes(user.email_health?.status ?? '');
   const repDetails = (user.metadata?.repDetails as RepDetails | undefined) || undefined;
 
   const getInitials = (name: string) => {
@@ -194,9 +203,24 @@ export function UserProfileDialog({
 
                   {user.email_health?.status && (
                     <div className="md:col-span-2 rounded-lg border border-border/70 p-3">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-sm text-muted-foreground">Email Health</p>
-                        <EmailHealthBadge emailHealth={user.email_health} />
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm text-muted-foreground">Email Health</p>
+                          <EmailHealthBadge emailHealth={user.email_health} />
+                        </div>
+                        {canResendVerification && onResendVerification && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="w-full sm:w-auto"
+                            onClick={() => void onResendVerification(profileUser)}
+                            disabled={isResendingVerification}
+                          >
+                            {isResendingVerification && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Resend verification
+                          </Button>
+                        )}
                       </div>
                       {user.email_health.warning_message && (
                         <p className="mt-2 text-sm">{user.email_health.warning_message}</p>
