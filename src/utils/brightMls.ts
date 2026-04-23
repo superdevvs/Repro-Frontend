@@ -55,20 +55,20 @@ const firstUrl = (...values: unknown[]): string | null => {
 
 const getFileUrl = (file: Partial<ShootFileData> & LooseRecord): string =>
   firstUrl(
-    getImageUrl(file, 'original'),
     getImageUrl(file, 'large'),
     getImageUrl(file, 'medium'),
+    file.web_url,
+    file.web_path,
+    file.large_url,
+    file.large,
+    file.medium_url,
+    file.medium,
     file.url,
+    file.storage_path,
     file.path,
     file.original_url,
     file.original,
-    file.large_url,
-    file.large,
-    file.web_url,
-    file.web_path,
-    file.medium_url,
-    file.medium,
-    file.storage_path,
+    getImageUrl(file, 'original'),
   ) || ''
 
 const getLatestCommentText = (file: Partial<ShootFileData> & LooseRecord): string => {
@@ -99,29 +99,50 @@ const getLatestCommentText = (file: Partial<ShootFileData> & LooseRecord): strin
   return ''
 }
 
+const RAW_FILENAME_PATTERN = /\.(arw|cr2|cr3|dng|heic|heif|nef|nrw|orf|pef|raf|raw|rw2|sr2)$/i
+const EDITED_FILENAME_PATTERN = /\.(jpg|jpeg|png|gif|webp)$/i
+const EDITED_WORKFLOW_STAGES = new Set(['completed', 'verified', 'review', 'ready', 'delivered'])
+const EDITED_MEDIA_TYPES = new Set(['edited', 'image', 'photo'])
+
 const isImageFile = (file: Partial<ShootFileData> & LooseRecord): boolean => {
-  const fileType = normalizeString(file.fileType || file.file_type || file.media_type).toLowerCase()
+  const mediaType = normalizeString(file.mediaType || file.media_type || file.fileType || file.file_type).toLowerCase()
   const typeLabel = normalizeString(file.type).toLowerCase()
   const workflowStage = normalizeString(file.workflowStage || file.workflow_stage).toLowerCase()
   const filename = normalizeString(file.filename)
-  const storagePath = normalizeString(file.path || file.url || file.original || file.original_url)
+  const storagePath = normalizeString(
+    file.web_path || file.web_url || file.large_url || file.medium_url || file.path || file.url || file.original || file.original_url,
+  )
+  const originalPath = normalizeString(file.original || file.original_url || file.path)
+
+  if (mediaType === 'raw' || typeLabel === 'raw' || workflowStage === 'todo') {
+    return false
+  }
+
+  if (RAW_FILENAME_PATTERN.test(filename) || RAW_FILENAME_PATTERN.test(originalPath)) {
+    return false
+  }
 
   return (
-    fileType === 'image' ||
-    fileType === 'edited' ||
-    fileType === 'photo' ||
-    fileType.startsWith('image/') ||
-    typeLabel === 'image' ||
-    typeLabel === 'photo' ||
+    EDITED_MEDIA_TYPES.has(mediaType) ||
+    mediaType.startsWith('image/') ||
+    EDITED_MEDIA_TYPES.has(typeLabel) ||
     typeLabel.startsWith('image/') ||
-    workflowStage === 'completed' ||
-    workflowStage === 'verified' ||
-    workflowStage === 'review' ||
-    workflowStage === 'ready' ||
-    workflowStage === 'delivered' ||
-    /\.(jpg|jpeg|png|gif|webp|heic|heif|tif|tiff)$/i.test(filename) ||
-    /\.(jpg|jpeg|png|gif|webp|heic|heif|tif|tiff)$/i.test(storagePath)
+    EDITED_WORKFLOW_STAGES.has(workflowStage) ||
+    EDITED_FILENAME_PATTERN.test(filename) ||
+    EDITED_FILENAME_PATTERN.test(storagePath)
   )
+}
+
+export const getBrightMlsPublishableFiles = (
+  shoot: Partial<ShootData> & LooseRecord,
+): Array<Partial<ShootFileData> & LooseRecord> => {
+  const mediaRecord = asRecord(shoot.media)
+  const files = Array.isArray(shoot.files) ? shoot.files : []
+  const mediaFiles = Array.isArray(mediaRecord.files) ? mediaRecord.files : []
+
+  return [...files, ...mediaFiles]
+    .map((file) => (file || {}) as Partial<ShootFileData> & LooseRecord)
+    .filter((file) => isImageFile(file) && !!getFileUrl(file))
 }
 
 const formatTourLabel = (key: string): string =>
@@ -168,14 +189,10 @@ export const buildBrightMlsPublishPayload = (
 ): BrightMlsPublishPayload => {
   const selectedPhotoIds = options?.selectedPhotoIds ? new Set(Array.from(options.selectedPhotoIds, (value) => String(value))) : null
   const mediaRecord = asRecord(shoot.media)
-  const files = Array.isArray(shoot.files) ? shoot.files : []
-  const mediaFiles = Array.isArray(mediaRecord.files) ? mediaRecord.files : []
   const mediaImages = Array.isArray(mediaRecord.images) ? (mediaRecord.images as LooseRecord[]) : []
 
-  const candidateFiles = [...files, ...mediaFiles]
-  const filePhotos = candidateFiles
+  const filePhotos = getBrightMlsPublishableFiles(shoot)
     .map((file, index) => ({ file: (file || {}) as Partial<ShootFileData> & LooseRecord, index }))
-    .filter(({ file }) => isImageFile(file) && !!getFileUrl(file))
     .filter(({ file }) => {
       if (!selectedPhotoIds) {
         return true
@@ -220,17 +237,17 @@ export const buildBrightMlsPublishPayload = (
     .map(({ image, index }) => ({
       id: typeof image.id === 'string' || typeof image.id === 'number' ? image.id : undefined,
       url: firstUrl(
-        getImageUrl(image, 'original'),
         getImageUrl(image, 'large'),
         getImageUrl(image, 'medium'),
+        image.web_path,
         image.url,
-        image.original_url,
-        image.original,
         image.large_url,
         image.large,
-        image.path,
         image.thumbnail_path,
-        image.web_path,
+        image.path,
+        image.original_url,
+        image.original,
+        getImageUrl(image, 'original'),
       ) || '',
       filename: normalizeString(image.filename || image.name) || `photo-${index + 1}`,
       description: getLatestCommentText(image as Partial<ShootFileData> & LooseRecord),
@@ -294,6 +311,9 @@ export const buildBrightMlsPublishPayload = (
 
   const iguideTourUrl = firstUrl(shoot.iguide_tour_url, shoot.iguideTourUrl, getPreferredIguideUrl(shoot))
   const slideshowUrl = firstUrl(
+    rawTourLinks.mls,
+    rawTourLinks.generic_mls,
+    rawTourLinks.genericMls,
     rawTourLinks.slideshow,
     rawTourLinks.slideshow_url,
     rawTourLinks.neo_tour,
@@ -362,23 +382,36 @@ const fetchShootFilesForBrightMls = async (
   authToken?: string | null,
 ): Promise<LooseRecord[]> => {
   const headers = getBrightMlsFetchHeaders(authToken)
+  const response = await fetch(`${API_BASE_URL}/api/shoots/${shootId}/files?type=edited`, { headers })
+  if (!response.ok) {
+    return []
+  }
 
-  const fetchFiles = async (type: 'edited' | 'all') => {
-    const response = await fetch(`${API_BASE_URL}/api/shoots/${shootId}/files?type=${type}`, { headers })
-    if (!response.ok) {
-      return []
+  const payload = await response.json().catch(() => ({ data: [] }))
+  return Array.isArray(payload?.data) ? (payload.data as LooseRecord[]) : Array.isArray(payload) ? (payload as LooseRecord[]) : []
+}
+
+const fetchShootDetailsForBrightMls = async (
+  shootId: string | number,
+  authToken?: string | null,
+): Promise<LooseRecord | null> => {
+  const response = await fetch(`${API_BASE_URL}/api/shoots/${shootId}`, {
+    headers: getBrightMlsFetchHeaders(authToken),
+  })
+  if (!response.ok) {
+    return null
+  }
+
+  const payload = await response.json().catch(() => null)
+  if (payload && typeof payload === 'object') {
+    const record = payload as LooseRecord
+    const data = record.data
+    if (data && typeof data === 'object') {
+      return data as LooseRecord
     }
-
-    const payload = await response.json().catch(() => ({ data: [] }))
-    return Array.isArray(payload?.data) ? (payload.data as LooseRecord[]) : Array.isArray(payload) ? (payload as LooseRecord[]) : []
   }
 
-  const editedFiles = await fetchFiles('edited')
-  if (editedFiles.length > 0) {
-    return editedFiles
-  }
-
-  return fetchFiles('all')
+  return payload && typeof payload === 'object' ? (payload as LooseRecord) : null
 }
 
 export const buildBrightMlsPublishPayloadWithFallback = async (
@@ -387,25 +420,34 @@ export const buildBrightMlsPublishPayloadWithFallback = async (
   options?: BrightMlsBuildOptions,
 ): Promise<BrightMlsPublishPayload> => {
   const initialPayload = buildBrightMlsPublishPayload(shoot, options)
-  if (initialPayload.photos.length > 0 || !shoot.id) {
+  if (!shoot.id) {
     return initialPayload
   }
 
-  const fetchedFiles = await fetchShootFilesForBrightMls(shoot.id, authToken)
-  if (fetchedFiles.length === 0) {
-    return initialPayload
-  }
+  const [fetchedShoot, fetchedFiles] = await Promise.all([
+    fetchShootDetailsForBrightMls(shoot.id, authToken),
+    fetchShootFilesForBrightMls(shoot.id, authToken),
+  ])
 
+  const baseShoot = fetchedShoot ? { ...shoot, ...fetchedShoot } : shoot
   const currentMedia = asRecord(shoot.media)
+
+  if (fetchedFiles.length === 0 && !fetchedShoot) {
+    return initialPayload
+  }
+
   return buildBrightMlsPublishPayload(
     {
-      ...shoot,
-      files: fetchedFiles as unknown as ShootFileData[],
+      ...baseShoot,
+      files: fetchedFiles.length > 0
+        ? (fetchedFiles as unknown as ShootFileData[])
+        : (Array.isArray(baseShoot.files) ? (baseShoot.files as ShootFileData[]) : []),
       media: {
         ...currentMedia,
-        files: Array.isArray(currentMedia.files) && currentMedia.files.length > 0
-          ? currentMedia.files
-          : (fetchedFiles as unknown as ShootData['media']['files']),
+        ...asRecord(baseShoot.media),
+        files: fetchedFiles.length > 0
+          ? (fetchedFiles as unknown as ShootData['media']['files'])
+          : (Array.isArray(currentMedia.files) ? currentMedia.files : asRecord(baseShoot.media).files as ShootData['media']['files']),
       },
     },
     options,

@@ -9,6 +9,7 @@ import { apiClient } from '@/services/api';
 import API_ROUTES from '@/lib/api';
 import {
   buildBrightMlsPublishPayloadWithFallback,
+  getBrightMlsPublishableFiles,
 } from '@/utils/brightMls';
 import { BrightMlsImportDialog } from '@/components/integrations/BrightMlsImportDialog';
 import { 
@@ -61,10 +62,13 @@ export function ShootIntegrationsSection({ shoot, onRefresh }: ShootIntegrations
   const [publishingBrightMls, setPublishingBrightMls] = useState(false);
   const [brightMlsDialogOpen, setBrightMlsDialogOpen] = useState(false);
   const [brightMlsRedirectUrl, setBrightMlsRedirectUrl] = useState<string | null>(null);
-  const [selectedPhotos, setSelectedPhotos] = useState<Set<number>>(new Set());
+  const [selectedPhotos, setSelectedPhotos] = useState<Set<string>>(new Set());
 
   const propertyDetails = shoot.property_details || {};
-  const allPhotoIds = shoot.files?.map((file) => file.id) || [];
+  const publishablePhotos = getBrightMlsPublishableFiles(
+    shoot as unknown as Partial<ShootData> & Record<string, unknown>,
+  ).filter((file) => typeof file.id === 'string' || typeof file.id === 'number');
+  const allPhotoIds = publishablePhotos.map((file) => String(file.id));
 
   const handleRefreshProperty = async () => {
     setRefreshingProperty(true);
@@ -412,17 +416,17 @@ export function ShootIntegrationsSection({ shoot, onRefresh }: ShootIntegrations
                 <div>
                   <Label className="mb-2 block">Photos</Label>
                   <div className="space-y-2 max-h-60 overflow-y-auto">
-                    {shoot.files?.map((file, idx) => (
+                    {publishablePhotos.map((file, idx) => (
                       <div key={file.id} className="flex items-center space-x-2">
                         <Checkbox
                           id={`photo-${file.id}`}
-                          checked={selectedPhotos.size === 0 || selectedPhotos.has(file.id)}
+                          checked={selectedPhotos.size === 0 || selectedPhotos.has(String(file.id))}
                           onCheckedChange={(checked) => {
                             const newSet = selectedPhotos.size === 0 ? new Set(allPhotoIds) : new Set(selectedPhotos);
                             if (checked) {
-                              newSet.add(file.id);
+                              newSet.add(String(file.id));
                             } else {
-                              newSet.delete(file.id);
+                              newSet.delete(String(file.id));
                             }
                             setSelectedPhotos(newSet);
                           }}
