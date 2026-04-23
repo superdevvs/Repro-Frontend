@@ -332,7 +332,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange, is
     ? 'text-[11px] font-medium uppercase tracking-[0.18em] text-cyan-300/90'
     : 'text-[11px] font-medium uppercase tracking-[0.18em] text-cyan-500 dark:text-cyan-300/90';
   const smsSectionClass = isMobile
-    ? 'rounded-[28px] border border-white/10 bg-white/[0.04] p-4'
+    ? 'space-y-4'
     : 'rounded-[28px] border border-border/60 bg-black/[0.02] p-5 dark:border-white/10 dark:bg-white/[0.03]';
   const smsCardClass = isMobile
     ? 'rounded-2xl border border-white/10 bg-slate-950/40 p-4'
@@ -494,11 +494,21 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange, is
     }
 
     window.requestAnimationFrame(() => {
-      formTopRef.current?.scrollIntoView({
-        block: 'start',
-        behavior: 'auto',
-      });
-      window.scrollTo({ top: 0, behavior: 'auto' });
+      let current: HTMLElement | null = formTopRef.current;
+
+      while (current) {
+        const style = window.getComputedStyle(current);
+        const canScrollY =
+          (style.overflowY === 'auto' || style.overflowY === 'scroll') &&
+          current.scrollHeight > current.clientHeight;
+
+        if (canScrollY) {
+          current.scrollTop = 0;
+          break;
+        }
+
+        current = current.parentElement;
+      }
     });
   }, [currentStep, isMobile]);
 
@@ -676,7 +686,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange, is
       <div ref={formTopRef} />
       <form
         onSubmit={handleFormSubmit}
-        className={currentStep === 2 && isMobile ? 'flex h-full min-h-full flex-1 flex-col' : 'space-y-6'}
+        className="space-y-6"
       >
         {currentStep === 1 ? (
           <>
@@ -982,8 +992,8 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange, is
             </div>
           </>
         ) : (
-          <div className={`flex flex-1 flex-col ${isMobile ? 'h-full justify-between gap-6' : 'gap-6'}`}>
-            <div className={`${smsSectionClass} ${isMobile ? 'flex-1' : ''}`}>
+          <div className="space-y-6">
+            <div className={smsSectionClass}>
               <div className="flex flex-col gap-2 px-1">
                 <p className={metaLabelClass}>SMS Opt-In</p>
                 <p className={smsBodyClass}>
