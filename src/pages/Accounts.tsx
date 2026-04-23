@@ -884,6 +884,11 @@ export default function Accounts() {
     setEditUserDialogOpen(true);
   };
 
+  const handleAssignRep = (user) => {
+    setSelectedUser(user);
+    setEditUserDialogOpen(true);
+  };
+
   const handleChangeRole = (user) => {
     setSelectedUser(user);
     setRoleChangeDialogOpen(true);
@@ -1362,11 +1367,12 @@ export default function Accounts() {
               <HorizontalLoader message="Loading accounts..." />
             ) : viewMode === 'grid' ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6">
-                {paginatedUsers.map((user) => (
+                {accountListUsers.map((user) => (
                   <AccountCard
                     key={user.id}
                     user={user}
                     onEdit={handleEditUser}
+                    onAssignRep={handleAssignRep}
                     onChangeRole={handleChangeRole}
                     onResetPassword={handleResetPassword}
                     onImpersonate={handleImpersonate}
@@ -1399,6 +1405,7 @@ export default function Accounts() {
               <AccountList
                 users={accountListUsers}
                 onEdit={handleEditUser}
+                onAssignRep={handleAssignRep}
                 onChangeRole={handleChangeRole}
                 onResetPassword={handleResetPassword}
                 onImpersonate={handleImpersonate}

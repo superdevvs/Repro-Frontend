@@ -23,7 +23,8 @@ import {
   Camera,
   ExternalLink,
   Trash2,
-  LogIn
+  LogIn,
+  UserPlus
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Client } from "@/types/clients";
@@ -31,8 +32,9 @@ import type { RepDetails } from "@/types/auth";
 import { EmailHealthBadge } from "@/components/accounts/EmailHealthBadge";
 
 interface AccountCardProps {
-  user: User;
+  user: User & { accountRep?: string; lastShootDate?: string };
   onEdit: (user: User) => void;
+  onAssignRep: (user: User) => void;
   onChangeRole: (user: User) => void;
   onResetPassword: (user: User) => void;
   onImpersonate: (user: User) => void;
@@ -51,6 +53,7 @@ interface AccountCardProps {
 export function AccountCard({
   user,
   onEdit,
+  onAssignRep,
   onChangeRole,
   onResetPassword,
   onImpersonate,
@@ -71,6 +74,10 @@ export function AccountCard({
     || (viewerRole === 'salesRep' && user.role === 'client');
   const canChangeRole = isSuperAdmin; // Only Super Admin can change access rules for other account types
   const repDetails = (user.metadata?.repDetails as RepDetails | undefined) || undefined;
+  const shouldShowAssignRep =
+    canManageAccounts &&
+    user.role === 'client' &&
+    (!user.accountRep || user.accountRep === 'Unassigned');
 
   const getRoleBadgeColor = (role: Role) => {
     switch (role) {
@@ -135,6 +142,14 @@ export function AccountCard({
                   onEdit(user);
                 }}>
                   <Pencil className="mr-2 h-4 w-4" /> Edit User
+                </DropdownMenuItem>
+              )}
+              {shouldShowAssignRep && (
+                <DropdownMenuItem onClick={(e) => {
+                  e.stopPropagation();
+                  onAssignRep(user);
+                }}>
+                  <UserPlus className="mr-2 h-4 w-4" /> Assign Rep
                 </DropdownMenuItem>
               )}
               {/* Only Super Admin can change roles (access rules) */}

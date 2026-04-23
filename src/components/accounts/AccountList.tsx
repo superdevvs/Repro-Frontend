@@ -14,13 +14,14 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { User, Role } from "@/components/auth/AuthProvider";
 import { useAuth } from "@/components/auth";
-import { Camera, ExternalLink, Trash2, LogIn } from "lucide-react";
+import { Camera, ExternalLink, Trash2, LogIn, UserPlus } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { EmailHealthBadge } from "@/components/accounts/EmailHealthBadge";
 
 interface AccountListProps {
   users: Array<User & { active?: boolean; accountRep?: string; lastShootDate?: string }>;
   onEdit: (user: User) => void;
+  onAssignRep: (user: User) => void;
   onChangeRole: (user: User) => void;
   onResetPassword: (user: User) => void;
   onImpersonate: (user: User) => void;
@@ -38,6 +39,7 @@ interface AccountListProps {
 export function AccountList({
   users,
   onEdit,
+  onAssignRep,
   onChangeRole,
   onResetPassword,
   onImpersonate,
@@ -115,6 +117,10 @@ export function AccountList({
             const secondaryRoleList = secondaryRoles
               .filter((role: Role) => role && role !== user.role)
               .filter((role: Role, index: number, list: Role[]) => list.indexOf(role) === index);
+            const shouldShowAssignRep =
+              canManageAccounts &&
+              user.role === 'client' &&
+              (!user.accountRep || user.accountRep === 'Unassigned');
             return (
               <TableRow key={user.id} className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50">
               <TableCell onClick={() => onViewProfile(user)}>
@@ -163,6 +169,11 @@ export function AccountList({
                     {canEditRow && (
                       <DropdownMenuItem onClick={() => onEdit(user)}>
                         Edit User
+                      </DropdownMenuItem>
+                    )}
+                    {shouldShowAssignRep && (
+                      <DropdownMenuItem onClick={() => onAssignRep(user)}>
+                        <UserPlus className="mr-2 h-4 w-4" /> Assign Rep
                       </DropdownMenuItem>
                     )}
                     {/* Only Super Admin can change roles (access rules) */}
