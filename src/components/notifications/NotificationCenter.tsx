@@ -73,7 +73,7 @@ export function NotificationCenter() {
   const { notifications, unreadCount, loading, error, refresh, markAsRead, markAllAsRead } =
     useNotifications();
   const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<NotificationType>('unread');
+  const [activeTab, setActiveTab] = useState<NotificationType>('shoots');
   const [cancellationDialogOpen, setCancellationDialogOpen] = useState(false);
   const [cancellationShootId, setCancellationShootId] = useState<number | null>(null);
   const [cancellationProcessing, setCancellationProcessing] = useState(false);
@@ -636,8 +636,8 @@ export function NotificationCenter() {
           <div className="px-4 pt-3 pb-2 border-b">
             <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
               {[
-                { value: 'unread', label: 'Unread', count: unreadCount },
                 { value: 'shoots', label: 'Shoots', count: null },
+                { value: 'unread', label: 'Unread', count: unreadCount },
                 { value: 'messages', label: 'Messages', count: null },
                 { value: 'system', label: 'System', count: null },
                 { value: 'all', label: 'All', count: notifications.length },
