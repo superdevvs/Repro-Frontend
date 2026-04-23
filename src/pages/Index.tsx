@@ -181,12 +181,12 @@ const Index = () => {
     
     return (
       <div 
-        className={`dark ${isLogin ? '' : 'mobile-login-scrollable'}`} 
+        className="dark"
         style={{ 
           background: '#060a0e', 
           minHeight: '100dvh',
-          height: isLogin ? '100dvh' : 'auto',
-          overflow: isLogin ? 'hidden' : 'auto',
+          height: '100dvh',
+          overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
           padding: isLogin ? '16px' : undefined,
