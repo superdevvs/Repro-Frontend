@@ -247,7 +247,11 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
             defaultValue="login"
             value={activeTab}
             onValueChange={setActiveTab}
-            className={isMobile ? `${isRegister ? 'flex min-h-0 flex-1 flex-col space-y-0' : 'flex flex-col space-y-0'}` : 'space-y-6'}
+            className={
+              isMobile
+                ? `${isRegister ? 'auth-mobile-tabs flex min-h-0 flex-1 flex-col space-y-0' : 'flex flex-col space-y-0'}`
+                : 'space-y-6'
+            }
           >
             <TabsList className={tabsListClass}>
               <TabsTrigger
