@@ -587,6 +587,21 @@ function SummaryCard({
   );
 }
 
+function SummaryBadge({
+  label,
+  value,
+}: {
+  label: string;
+  value: React.ReactNode;
+}) {
+  return (
+    <div className="inline-flex items-center gap-2 rounded-md border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-1">
+      <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-100/80">{label}</span>
+      <span className="text-sm font-semibold text-foreground">{value}</span>
+    </div>
+  );
+}
+
 function UploadClassificationButtons({
   file,
   index,
@@ -928,12 +943,23 @@ export function EditedUploadSection({
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <div className="space-y-3">
+        <div className="grid gap-3 sm:grid-cols-2">
         <SummaryCard label="Expected" value={expectedCount} />
         <SummaryCard label="Uploaded" value={uploadedCount} tone="info" />
-        {specialCountCards.map((card) => (
-          <SummaryCard key={card.type} label={card.label} value={card.count} tone="success" />
-        ))}
+        </div>
+        {specialCountCards.length > 0 && (
+          <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                Tagged counts
+              </div>
+              {specialCountCards.map((card) => (
+                <SummaryBadge key={card.type} label={card.label} value={card.count} />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="rounded-lg border bg-card p-4">
