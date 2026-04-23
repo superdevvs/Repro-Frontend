@@ -386,6 +386,10 @@ export function ShootDetailsTourTab({
       return '';
     }
   };
+  const getSavedTourLinksFromResponse = (payload: any): Record<string, any> => {
+    const savedShoot = payload?.data ?? payload;
+    return getRawTourLinks(savedShoot as any) as Record<string, any>;
+  };
   const persistTourSettings = async (nextSettings: typeof tourSettings) => {
     if (!isAdmin) return;
     setIsSavingTourSettings(true);
@@ -789,7 +793,13 @@ export function ShootDetailsTourTab({
     }
     setIsSavingVideoLinkKey(editingVideoLinkKey);
     try {
+      const linkKey = editingVideoLinkKey;
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const nextTourLinks = {
+        ...sourceTourLinks,
+        ...tourLinks,
+        [linkKey]: value || null,
+      };
       const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
         method: 'PATCH',
         headers: {
@@ -798,16 +808,20 @@ export function ShootDetailsTourTab({
           'Accept': 'application/json',
         },
         body: JSON.stringify({
-          tour_links: {
-            [editingVideoLinkKey]: value || null,
-          },
+          tour_links: nextTourLinks,
         }),
       });
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({ message: 'Failed to save video link' }));
         throw new Error(errorData.message || 'Failed to save video link');
       }
-      const updated = { ...tourLinks, [editingVideoLinkKey]: value || '' };
+      const responseData = await res.json().catch(() => ({}));
+      const savedTourLinks = getSavedTourLinksFromResponse(responseData);
+      const savedValue = String(savedTourLinks?.[linkKey] ?? '').trim();
+      if (savedValue !== value) {
+        throw new Error('The video link was not persisted. Please refresh and try again.');
+      }
+      const updated = { ...tourLinks, ...savedTourLinks, [linkKey]: savedValue };
       setTourLinks(updated);
       setEditingVideoLinkKey(null);
       setVideoLinkValue('');
@@ -841,6 +855,11 @@ export function ShootDetailsTourTab({
     setIsDeletingVideoLinkKey(key);
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const nextTourLinks = {
+        ...sourceTourLinks,
+        ...tourLinks,
+        [key]: null,
+      };
       const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
         method: 'PATCH',
         headers: {
@@ -849,16 +868,20 @@ export function ShootDetailsTourTab({
           'Accept': 'application/json',
         },
         body: JSON.stringify({
-          tour_links: {
-            [key]: null,
-          },
+          tour_links: nextTourLinks,
         }),
       });
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({ message: 'Failed to delete video link' }));
         throw new Error(errorData.message || 'Failed to delete video link');
       }
-      const updated = { ...tourLinks, [key]: '' };
+      const responseData = await res.json().catch(() => ({}));
+      const savedTourLinks = getSavedTourLinksFromResponse(responseData);
+      const savedValue = String(savedTourLinks?.[key] ?? '').trim();
+      if (savedValue !== '') {
+        throw new Error('The video link was not removed. Please refresh and try again.');
+      }
+      const updated = { ...tourLinks, ...savedTourLinks, [key]: '' };
       setTourLinks(updated);
       if (editingVideoLinkKey === key) {
         setEditingVideoLinkKey(null);

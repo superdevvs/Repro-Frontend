@@ -273,48 +273,61 @@ export function ShootDetailsTourTabView(props: any) {
               <div className="space-y-3">
                 <div className="space-y-1">
                   <Label>Public Video Pages</Label>
+                  {isAdmin && (
+                    <p className="text-xs text-muted-foreground">
+                      These links stay fixed. Editing a row changes the video that the public page plays.
+                    </p>
+                  )}
                 </div>
                 {publicVideoLinkConfigs.map(({ key, label, placeholder }) => {
                   const isEditing = editingVideoLinkKey === key;
                   const url = getTourUrl(key);
+                  const destinationUrl = typeof tourLinks[key] === 'string' ? tourLinks[key] : '';
                   return (
                     <div key={key} className="space-y-2">
                       <Label>{label}</Label>
                       {!isEditing ? (
-                        <div className="flex items-center gap-2">
-                          <Input
-                            value={url}
-                            readOnly
-                            placeholder={placeholder}
-                            className="flex-1"
-                          />
-                          <Button variant="outline" size="sm" onClick={() => copyLink(key)} title="Copy link" disabled={!url}>
-                            <Copy className="h-4 w-4" />
-                          </Button>
-                          <Button variant="outline" size="sm" onClick={() => openLink(key)} title="Open in new tab" disabled={!url}>
-                            <ExternalLink className="h-4 w-4" />
-                          </Button>
-                          <Button variant="outline" size="sm" onClick={() => shareLink(key)} title="Share link" disabled={!url}>
-                            <Share2 className="h-4 w-4" />
-                          </Button>
-                          <Button variant="outline" size="sm" onClick={() => getQrCode(key)} title="Get QR code" disabled={!url}>
-                            <QrCode className="h-4 w-4" />
-                          </Button>
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Input
+                              value={url}
+                              readOnly
+                              placeholder={placeholder}
+                              className="flex-1"
+                            />
+                            <Button variant="outline" size="sm" onClick={() => copyLink(key)} title="Copy link" disabled={!url}>
+                              <Copy className="h-4 w-4" />
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => openLink(key)} title="Open in new tab" disabled={!url}>
+                              <ExternalLink className="h-4 w-4" />
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => shareLink(key)} title="Share link" disabled={!url}>
+                              <Share2 className="h-4 w-4" />
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => getQrCode(key)} title="Get QR code" disabled={!url}>
+                              <QrCode className="h-4 w-4" />
+                            </Button>
+                            {isAdmin && (
+                              <Button variant="outline" size="sm" onClick={() => startEditVideoLink(key)} title={`Edit ${label}`}>
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {isAdmin && tourLinks[key] && (
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => void deleteVideoLink(key)}
+                                disabled={isDeletingVideoLinkKey === key}
+                                title={`Remove ${label}`}
+                              >
+                                <Trash className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
                           {isAdmin && (
-                            <Button variant="outline" size="sm" onClick={() => startEditVideoLink(key)} title={`Edit ${label}`}>
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                          )}
-                          {isAdmin && tourLinks[key] && (
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => void deleteVideoLink(key)}
-                              disabled={isDeletingVideoLinkKey === key}
-                              title={`Remove ${label}`}
-                            >
-                              <Trash className="h-4 w-4" />
-                            </Button>
+                            <p className="truncate text-xs text-muted-foreground">
+                              Destination: {destinationUrl || placeholder}
+                            </p>
                           )}
                         </div>
                       ) : (
