@@ -311,6 +311,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange, is
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [serverEmailHealth, setServerEmailHealth] = useState<any>(undefined);
   const [emailWarningOverride, setEmailWarningOverride] = useState(false);
+  const [showRegisterTermsHint, setShowRegisterTermsHint] = useState(false);
   const [termsOpen, setTermsOpen] = useState(false);
   const [termsScrollProgress, setTermsScrollProgress] = useState(0);
   const [termsScrolledToEnd, setTermsScrolledToEnd] = useState(false);
@@ -411,6 +412,11 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange, is
     'confirmPassword',
   ]);
   const hasAcceptedTerms = form.watch('terms');
+  useEffect(() => {
+    if (hasAcceptedTerms) {
+      setShowRegisterTermsHint(false);
+    }
+  }, [hasAcceptedTerms]);
   const localEmailHint = useMemo(() => analyzeEmailInput(emailValue ?? ''), [emailValue]);
   const stepOneProgressPercent = useMemo(() => {
     const emailIsComplete =
@@ -1169,7 +1175,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange, is
               />
             </div>
 
-            <div className="flex flex-col gap-3 border-t border-white/10 pt-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-3 border-t border-white/10 pt-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
               <Button
                 type="button"
                 onClick={() => setCurrentStep(1)}
@@ -1182,28 +1188,56 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange, is
                 Back
               </Button>
 
-              <Button
-                type="submit"
-                className={`h-12 rounded-full text-base font-semibold ${
-                  hasAcceptedTerms
-                    ? isMobile
-                      ? 'w-full bg-gradient-to-r from-blue-500 to-cyan-400 text-white shadow-lg shadow-blue-500/30 hover:opacity-90'
-                      : 'min-w-[220px] bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-lg shadow-blue-600/25 hover:opacity-90'
-                    : isMobile
-                      ? 'w-full bg-slate-500/40 text-slate-300 shadow-none cursor-not-allowed hover:opacity-100'
-                      : 'min-w-[220px] bg-slate-700/60 text-slate-400 shadow-none cursor-not-allowed hover:opacity-100'
-                }`}
-                disabled={isSubmitting || !hasAcceptedTerms}
+              <div className={`flex items-center justify-center ${isMobile ? 'order-last min-h-0' : 'min-h-[48px] flex-1 px-4'}`}>
+                <p
+                  aria-hidden={!showRegisterTermsHint || hasAcceptedTerms}
+                  className={`max-w-[22rem] text-center text-xs leading-5 text-cyan-200 transition-all duration-200 ${
+                    showRegisterTermsHint && !hasAcceptedTerms
+                      ? 'translate-y-0 opacity-100'
+                      : 'pointer-events-none translate-y-1 opacity-0'
+                  }`}
+                >
+                  Please agree to the Terms and Conditions and Privacy Policy to enable registration.
+                </p>
+              </div>
+
+              <div
+                className={isMobile ? 'w-full' : 'shrink-0'}
+                onMouseEnter={() => {
+                  if (!hasAcceptedTerms) {
+                    setShowRegisterTermsHint(true);
+                  }
+                }}
+                onMouseLeave={() => setShowRegisterTermsHint(false)}
+                onClick={() => {
+                  if (!hasAcceptedTerms) {
+                    setShowRegisterTermsHint(true);
+                  }
+                }}
               >
-                {isSubmitting ? (
-                  <div className="flex items-center justify-center gap-2">
-                    <div className="animate-spin h-4 w-4 border-2 border-t-transparent rounded-full" />
-                    <span>Creating Account...</span>
-                  </div>
-                ) : (
-                  'Register'
-                )}
-              </Button>
+                <Button
+                  type="submit"
+                  className={`h-12 rounded-full text-base font-semibold ${
+                    hasAcceptedTerms
+                      ? isMobile
+                        ? 'w-full bg-gradient-to-r from-blue-500 to-cyan-400 text-white shadow-lg shadow-blue-500/30 hover:opacity-90'
+                        : 'min-w-[220px] bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-lg shadow-blue-600/25 hover:opacity-90'
+                      : isMobile
+                        ? 'w-full bg-slate-500/40 text-slate-300 shadow-none cursor-not-allowed hover:opacity-100'
+                        : 'min-w-[220px] bg-slate-700/60 text-slate-400 shadow-none cursor-not-allowed hover:opacity-100'
+                  }`}
+                  disabled={isSubmitting || !hasAcceptedTerms}
+                >
+                  {isSubmitting ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="animate-spin h-4 w-4 border-2 border-t-transparent rounded-full" />
+                      <span>Creating Account...</span>
+                    </div>
+                  ) : (
+                    'Register'
+                  )}
+                </Button>
+              </div>
             </div>
           </>
         )}
