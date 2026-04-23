@@ -676,7 +676,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange, is
       <div ref={formTopRef} />
       <form
         onSubmit={handleFormSubmit}
-        className={currentStep === 2 && isMobile ? 'flex min-h-full flex-col' : 'space-y-6'}
+        className={currentStep === 2 && isMobile ? 'flex h-full min-h-full flex-1 flex-col' : 'space-y-6'}
       >
         {currentStep === 1 ? (
           <>
@@ -982,8 +982,8 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange, is
             </div>
           </>
         ) : (
-          <div className={`flex flex-1 flex-col ${isMobile ? 'justify-between gap-6' : 'gap-6'}`}>
-            <div className={smsSectionClass}>
+          <div className={`flex flex-1 flex-col ${isMobile ? 'h-full justify-between gap-6' : 'gap-6'}`}>
+            <div className={`${smsSectionClass} ${isMobile ? 'flex-1' : ''}`}>
               <div className="flex flex-col gap-2 px-1">
                 <p className={metaLabelClass}>SMS Opt-In</p>
                 <p className={smsBodyClass}>

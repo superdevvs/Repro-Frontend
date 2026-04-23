@@ -386,9 +386,9 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
 
 
             {/* Register Form */}
-            <TabsContent value="register" className={`${registerContentClass} ${isMobile ? 'min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1' : ''}`}>
-              <div className={isMobile ? 'flex min-h-full flex-col' : ''}>
-                <div className={isMobile ? 'flex-1' : ''}>
+            <TabsContent value="register" className={`${registerContentClass} ${isMobile ? 'h-full min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1' : ''}`}>
+              <div className={isMobile ? 'flex h-full min-h-full flex-col' : ''}>
+                <div className={isMobile ? 'flex flex-1 flex-col' : ''}>
                   <RegisterForm
                     onSuccess={handleRegisterSuccess}
                     onStepChange={setRegisterStep}
