@@ -132,6 +132,15 @@ const MEDIA_TYPE_CARD_LABELS: Record<UploadQueueMediaType, string> = {
   floorplan: 'FP',
 };
 
+const MEDIA_TYPE_SUMMARY_LABELS: Record<UploadQueueMediaType, string> = {
+  extra: 'Extra',
+  virtual_staging: 'Virtual Staging',
+  green_grass: 'Green Grass',
+  twilight: 'Twilight',
+  drone: 'Drone',
+  floorplan: 'Floorplan',
+};
+
 const triggerUploadRefreshes = (shootId: string | number) => {
   triggerShootDetailRefresh(shootId);
   triggerShootHistoryRefresh();
@@ -530,6 +539,7 @@ function getMediaTypeCards(counts: Record<UploadQueueMediaType, number>) {
     .map((mediaType) => ({
       type: mediaType,
       label: MEDIA_TYPE_CARD_LABELS[mediaType],
+      summaryLabel: MEDIA_TYPE_SUMMARY_LABELS[mediaType],
       count: counts[mediaType],
     }));
 }
@@ -567,10 +577,12 @@ function SummaryCard({
   label,
   value,
   tone = 'default',
+  className = '',
 }: {
   label: string;
   value: React.ReactNode;
   tone?: 'default' | 'success' | 'info';
+  className?: string;
 }) {
   const toneClassName =
     tone === 'success'
@@ -580,7 +592,7 @@ function SummaryCard({
         : 'border-border bg-card';
 
   return (
-    <div className={`rounded-lg border p-3 ${toneClassName}`}>
+    <div className={`rounded-lg border p-3 ${toneClassName} ${className}`.trim()}>
       <div className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">{label}</div>
       <div className="mt-1 text-2xl font-semibold text-foreground">{value}</div>
     </div>
@@ -596,7 +608,7 @@ function SummaryBadge({
 }) {
   return (
     <div className="inline-flex items-center gap-2 rounded-md border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-1">
-      <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-100/80">{label}</span>
+      <span className="text-[11px] font-medium text-foreground/90">{label}</span>
       <span className="text-sm font-semibold text-foreground">{value}</span>
     </div>
   );
@@ -943,19 +955,17 @@ export function EditedUploadSection({
 
   return (
     <div className="space-y-4">
-      <div className="space-y-3">
-        <div className="grid gap-3 sm:grid-cols-2">
-        <SummaryCard label="Expected" value={expectedCount} />
-        <SummaryCard label="Uploaded" value={uploadedCount} tone="info" />
-        </div>
+      <div className="space-y-3 md:space-y-0 md:flex md:items-stretch md:gap-3">
+        <SummaryCard label="Expected" value={expectedCount} className="md:w-[170px] md:shrink-0" />
+        <SummaryCard label="Uploaded" value={uploadedCount} tone="info" className="md:w-[170px] md:shrink-0" />
         {specialCountCards.length > 0 && (
-          <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+          <div className="min-w-0 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 md:flex-1">
+            <div className="flex h-full flex-wrap items-center gap-2">
+              <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground md:mr-1">
                 Tagged counts
               </div>
               {specialCountCards.map((card) => (
-                <SummaryBadge key={card.type} label={card.label} value={card.count} />
+                <SummaryBadge key={card.type} label={card.summaryLabel} value={card.count} />
               ))}
             </div>
           </div>
