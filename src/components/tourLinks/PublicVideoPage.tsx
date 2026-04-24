@@ -20,6 +20,8 @@ type PublicPayload = {
   photos?: string[];
   shoot?: ShootData;
   tour_links?: Record<string, any>;
+  video_thumbnail_url?: string | null;
+  video_poster_url?: string | null;
 };
 
 const variantConfig: Record<VideoVariant, { endpoint: string; tourKey: string; title: string }> = {
@@ -42,11 +44,22 @@ const variantConfig: Record<VideoVariant, { endpoint: string; tourKey: string; t
 
 const getEmbedUrl = (url: string): string | null => {
   if (!url) return null;
-  const ytMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  const ytMatch = url.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
   if (ytMatch) return `https://www.youtube-nocookie.com/embed/${ytMatch[1]}`;
-  const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
+  const vimeoMatch = url.match(/(?:player\.)?vimeo\.com\/(?:video\/)?(\d+)/);
   if (vimeoMatch) return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
   return url;
+};
+
+const getFallbackThumbnailUrl = (url: string | null): string => {
+  if (!url) return '';
+
+  const ytMatch = url.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  if (ytMatch) {
+    return `https://i.ytimg.com/vi/${ytMatch[1]}/hqdefault.jpg`;
+  }
+
+  return '';
 };
 
 const getPlayableVideoUrl = (url: string): string | null => {
@@ -110,10 +123,19 @@ export function PublicVideoPage({ variant }: PublicVideoPageProps) {
         const separator = endpoint.includes('?') ? '&' : '?';
         const res = await fetch(`${endpoint}${separator}t=${Date.now()}`);
         const data: PublicPayload = await res.json();
-
-        setPoster(Array.isArray(data?.photos) && data.photos.length > 0 ? data.photos[0] : '');
         const nextUrl = data?.tour_links?.[config.tourKey];
-        setSourceUrl(typeof nextUrl === 'string' && nextUrl.trim() ? nextUrl.trim() : null);
+        const normalizedUrl = typeof nextUrl === 'string' && nextUrl.trim() ? nextUrl.trim() : null;
+        const thumbnailUrl =
+          (typeof data?.video_thumbnail_url === 'string' && data.video_thumbnail_url.trim()
+            ? data.video_thumbnail_url.trim()
+            : '') ||
+          (typeof data?.video_poster_url === 'string' && data.video_poster_url.trim()
+            ? data.video_poster_url.trim()
+            : '') ||
+          getFallbackThumbnailUrl(normalizedUrl);
+
+        setPoster(thumbnailUrl);
+        setSourceUrl(normalizedUrl);
       } catch (error) {
         console.error('Error loading public video page:', error);
       } finally {
