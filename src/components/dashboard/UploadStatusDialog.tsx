@@ -22,7 +22,7 @@ export const UploadStatusDialog: React.FC<UploadStatusDialogProps> = ({
 }) => {
   const { uploads, cancelUpload, dismissUpload, clearCompleted } = useUpload();
 
-  const hasCompleted = uploads.some(u => u.status !== 'uploading');
+  const hasFinished = uploads.some(u => u.status !== 'uploading');
 
   const statusBadge = (upload: ShootUpload) => {
     switch (upload.status) {
@@ -132,7 +132,7 @@ export const UploadStatusDialog: React.FC<UploadStatusDialogProps> = ({
         </div>
 
         {/* Footer */}
-        {hasCompleted && (
+        {hasFinished && (
           <div className="flex justify-end pt-2 border-t border-border">
             <Button
               variant="ghost"
@@ -140,7 +140,7 @@ export const UploadStatusDialog: React.FC<UploadStatusDialogProps> = ({
               className="text-xs"
               onClick={clearCompleted}
             >
-              Clear completed
+              Clear finished
             </Button>
           </div>
         )}
