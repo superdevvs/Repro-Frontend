@@ -52,6 +52,8 @@ interface UploadRequestError {
 interface UploadContextType {
   uploads: ShootUpload[];
   activeUploadCount: number;
+  completedUploadCount: number;
+  failedUploadCount: number;
   startUpload: (params: StartUploadParams) => string;
   trackUpload: (params: TrackUploadParams) => string;
   cancelUpload: (uploadId: string) => void;
@@ -67,6 +69,8 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const completionCallbacks = useRef<Map<string, () => void>>(new Map());
 
   const activeUploadCount = uploads.filter(u => u.status === 'uploading').length;
+  const completedUploadCount = uploads.filter(u => u.status === 'completed').length;
+  const failedUploadCount = uploads.filter(u => u.status === 'failed').length;
 
   // Warn user before leaving page if uploads are active
   useEffect(() => {
@@ -304,6 +308,8 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       value={{
         uploads,
         activeUploadCount,
+        completedUploadCount,
+        failedUploadCount,
         startUpload,
         trackUpload,
         cancelUpload,

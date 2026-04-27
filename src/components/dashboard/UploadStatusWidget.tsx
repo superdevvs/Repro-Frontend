@@ -4,7 +4,7 @@ import { useUpload } from '@/context/UploadContext';
 import { UploadStatusDialog } from './UploadStatusDialog';
 
 export const UploadStatusWidget: React.FC = () => {
-  const { uploads, activeUploadCount } = useUpload();
+  const { uploads, activeUploadCount, completedUploadCount, failedUploadCount } = useUpload();
   const [dialogOpen, setDialogOpen] = useState(false);
 
   // Only show when there are uploads (active, completed, or failed)
@@ -18,6 +18,14 @@ export const UploadStatusWidget: React.FC = () => {
           .reduce((sum, u) => sum + u.progress, 0) / activeUploadCount
       )
     : 100;
+  const finishedCount = completedUploadCount + failedUploadCount;
+  const summaryText = hasActive
+    ? `${activeUploadCount} upload${activeUploadCount !== 1 ? 's' : ''} in progress`
+    : failedUploadCount > 0 && completedUploadCount > 0
+      ? `${completedUploadCount} completed, ${failedUploadCount} failed`
+      : failedUploadCount > 0
+        ? `${failedUploadCount} upload${failedUploadCount !== 1 ? 's' : ''} failed`
+        : `${completedUploadCount} upload${completedUploadCount !== 1 ? 's' : ''} completed`;
 
   return (
     <>
@@ -29,14 +37,12 @@ export const UploadStatusWidget: React.FC = () => {
           {hasActive ? (
             <UploadCloud className="h-4 w-4 text-blue-600 dark:text-blue-400 animate-pulse" />
           ) : (
-            <span className="text-base font-bold text-blue-600 dark:text-blue-400">{uploads.length}</span>
+            <span className="text-base font-bold text-blue-600 dark:text-blue-400">{finishedCount}</span>
           )}
         </div>
         <div className="flex-1 text-left">
           <span className="text-[11px] font-medium text-muted-foreground leading-tight block">
-            {hasActive
-              ? `${activeUploadCount} upload${activeUploadCount !== 1 ? 's' : ''} in progress`
-              : `${uploads.length} upload${uploads.length !== 1 ? 's' : ''} completed`}
+            {summaryText}
           </span>
           {hasActive && (
             <div className="mt-1 h-1.5 w-full bg-blue-100 dark:bg-blue-900/30 rounded-full overflow-hidden">

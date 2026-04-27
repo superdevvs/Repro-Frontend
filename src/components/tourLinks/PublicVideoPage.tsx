@@ -51,12 +51,65 @@ const getEmbedUrl = (url: string): string | null => {
   return url;
 };
 
-const getFallbackThumbnailUrl = (url: string | null): string => {
-  if (!url) return '';
+const getYoutubeVideoId = (url: string | null): string | null => {
+  if (!url) return null;
 
   const ytMatch = url.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-  if (ytMatch) {
-    return `https://i.ytimg.com/vi/${ytMatch[1]}/hqdefault.jpg`;
+  return ytMatch?.[1] ?? null;
+};
+
+const getFallbackThumbnailUrl = (url: string | null): string => {
+  const youtubeId = getYoutubeVideoId(url);
+  return youtubeId ? `https://i.ytimg.com/vi/${youtubeId}/hqdefault.jpg` : '';
+};
+
+const getThumbnailCandidates = (
+  videoUrl: string | null,
+  thumbnailUrl?: string | null,
+  posterUrl?: string | null,
+): string[] => {
+  const candidates: string[] = [];
+  const seen = new Set<string>();
+  const addCandidate = (value?: string | null) => {
+    if (!value) return;
+    const normalized = value.trim();
+    if (!normalized || seen.has(normalized)) return;
+    seen.add(normalized);
+    candidates.push(normalized);
+  };
+
+  const youtubeId = getYoutubeVideoId(videoUrl);
+  if (youtubeId) {
+    addCandidate(`https://i.ytimg.com/vi/${youtubeId}/maxresdefault.jpg`);
+    addCandidate(`https://i.ytimg.com/vi/${youtubeId}/sddefault.jpg`);
+  }
+
+  addCandidate(thumbnailUrl);
+  addCandidate(posterUrl);
+
+  if (youtubeId) {
+    addCandidate(`https://i.ytimg.com/vi/${youtubeId}/hqdefault.jpg`);
+    addCandidate(`https://i.ytimg.com/vi/${youtubeId}/mqdefault.jpg`);
+    addCandidate(`https://i.ytimg.com/vi/${youtubeId}/default.jpg`);
+  } else {
+    addCandidate(getFallbackThumbnailUrl(videoUrl));
+  }
+
+  return candidates;
+};
+
+const resolveBestThumbnailUrl = async (candidates: string[]): Promise<string> => {
+  for (const candidate of candidates) {
+    const isAvailable = await new Promise<boolean>((resolve) => {
+      const image = new Image();
+      image.onload = () => resolve(true);
+      image.onerror = () => resolve(false);
+      image.src = candidate;
+    });
+
+    if (isAvailable) {
+      return candidate;
+    }
   }
 
   return '';
@@ -126,15 +179,18 @@ export function PublicVideoPage({ variant }: PublicVideoPageProps) {
         const nextUrl = data?.tour_links?.[config.tourKey];
         const normalizedUrl = typeof nextUrl === 'string' && nextUrl.trim() ? nextUrl.trim() : null;
         const thumbnailUrl =
-          (typeof data?.video_thumbnail_url === 'string' && data.video_thumbnail_url.trim()
+          typeof data?.video_thumbnail_url === 'string' && data.video_thumbnail_url.trim()
             ? data.video_thumbnail_url.trim()
-            : '') ||
-          (typeof data?.video_poster_url === 'string' && data.video_poster_url.trim()
+            : '';
+        const posterUrl =
+          typeof data?.video_poster_url === 'string' && data.video_poster_url.trim()
             ? data.video_poster_url.trim()
-            : '') ||
-          getFallbackThumbnailUrl(normalizedUrl);
+            : '';
+        const nextPoster = await resolveBestThumbnailUrl(
+          getThumbnailCandidates(normalizedUrl, thumbnailUrl, posterUrl),
+        );
 
-        setPoster(thumbnailUrl);
+        setPoster(nextPoster);
         setSourceUrl(normalizedUrl);
       } catch (error) {
         console.error('Error loading public video page:', error);
