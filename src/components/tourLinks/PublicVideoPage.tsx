@@ -132,6 +132,23 @@ const getPlayableVideoUrl = (url: string): string | null => {
   return embedUrl;
 };
 
+const getPreviewVideoUrl = (url: string): string | null => {
+  const embedUrl = getEmbedUrl(url);
+  if (!embedUrl) return null;
+
+  if (embedUrl.includes('youtube-nocookie.com')) {
+    const sep = embedUrl.includes('?') ? '&' : '?';
+    return `${embedUrl}${sep}autoplay=0&rel=0&modestbranding=1&playsinline=1`;
+  }
+
+  if (embedUrl.includes('player.vimeo.com')) {
+    const sep = embedUrl.includes('?') ? '&' : '?';
+    return `${embedUrl}${sep}autoplay=0&title=0&byline=0&portrait=0`;
+  }
+
+  return embedUrl;
+};
+
 const isEmbeddedPlayerUrl = (url: string | null): boolean => {
   if (!url) return false;
   return url.includes('youtube.com') || url.includes('youtube-nocookie.com') || url.includes('vimeo.com');
@@ -207,6 +224,7 @@ export function PublicVideoPage({ variant }: PublicVideoPageProps) {
   }, [sourceUrl]);
 
   const embedUrl = useMemo(() => (sourceUrl ? getEmbedUrl(sourceUrl) : null), [sourceUrl]);
+  const previewVideoUrl = useMemo(() => (sourceUrl ? getPreviewVideoUrl(sourceUrl) : null), [sourceUrl]);
   const playableUrl = useMemo(() => (sourceUrl ? getPlayableVideoUrl(sourceUrl) : null), [sourceUrl]);
   const isIframeEmbed = isEmbeddedPlayerUrl(embedUrl);
 
@@ -251,7 +269,30 @@ export function PublicVideoPage({ variant }: PublicVideoPageProps) {
                       className="group relative h-full w-full overflow-hidden bg-black"
                       aria-label={`Play ${config.title}`}
                     >
-                      {poster ? (
+                      {isIframeEmbed && previewVideoUrl ? (
+                        <iframe
+                          src={previewVideoUrl}
+                          className="h-full w-full border-0 pointer-events-none"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                          title={`${config.title} preview`}
+                          tabIndex={-1}
+                        />
+                      ) : sourceUrl ? (
+                        <video
+                          src={sourceUrl}
+                          preload="auto"
+                          muted
+                          playsInline
+                          className="h-full w-full bg-black object-contain"
+                          onLoadedMetadata={(event) => {
+                            const video = event.currentTarget;
+                            if (video.duration > 0 && video.currentTime === 0) {
+                              video.currentTime = Math.min(0.1, video.duration);
+                            }
+                          }}
+                        />
+                      ) : poster ? (
                         <img
                           src={poster}
                           alt=""
