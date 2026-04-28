@@ -12,7 +12,7 @@ import { getApiHeaders } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 import { type ShootData } from '@/types/shoots';
 import { type MediaFile } from '@/hooks/useShootFiles';
-import { getDisplayMediaFilename, getMediaFullSizeImageUrl, getMediaViewerImageUrl } from './mediaPreviewUtils';
+import { getDisplayMediaFilename, getMediaFullSizeImageUrl, getMediaVideoUrlCandidates, getMediaViewerImageUrl } from './mediaPreviewUtils';
 import { isRawFile } from '@/services/rawPreviewService';
 import {
   triggerDashboardOverviewRefresh,
@@ -181,6 +181,7 @@ export function MediaViewer({
   const [viewerRequests, setViewerRequests] = useState<MediaIssueRequest[]>([]);
   const [requestsLoading, setRequestsLoading] = useState(false);
   const [requestRefreshKey, setRequestRefreshKey] = useState(0);
+  const [videoSourceIndex, setVideoSourceIndex] = useState(0);
   const slideshowPreloadRefs = useRef<Map<string, HTMLImageElement>>(new Map());
   const slideshowReadyUrlsRef = useRef<Set<string>>(new Set());
   const zoomStageRef = useRef<HTMLDivElement | null>(null);
@@ -242,6 +243,7 @@ export function MediaViewer({
     setShowFileDetails(false);
     setShowRequestComposer(false);
     setFlagReason('');
+    setVideoSourceIndex(0);
   }, [currentFile?.id]);
 
   useEffect(() => {
@@ -891,7 +893,8 @@ export function MediaViewer({
   const fullSizeImageUrl = getMediaFullSizeImageUrl(currentFile);
   const isImg = isPreviewableImage(currentFile);
   const isVid = isVideoFile(currentFile);
-  const videoUrl = isVid ? (getImageUrl(currentFile, 'original') || getImageUrl(currentFile, 'large')) : '';
+  const videoUrlCandidates = isVid ? getMediaVideoUrlCandidates(currentFile) : [];
+  const videoUrl = videoUrlCandidates[videoSourceIndex] || videoUrlCandidates[0] || '';
   const fileExt = currentFile?.filename?.split('.')?.pop()?.toUpperCase();
   const displayFilename = getDisplayMediaFilename(currentFile) || currentFile.filename;
   const mediaType = (currentFile.media_type || '').toLowerCase();
@@ -1216,11 +1219,11 @@ export function MediaViewer({
           </Button>
 
           <div className="flex h-full w-full min-h-0 flex-col px-1.5 pb-1.5 pt-1.5 sm:px-3 sm:pb-3 sm:pt-2 lg:px-2.5 lg:pb-2.5 lg:pt-2 2xl:px-3 2xl:pb-3 2xl:pt-2.5">
-            <div className="grid min-h-0 min-w-0 flex-1 grid-cols-1 gap-2.5 lg:grid-cols-[minmax(0,1fr)_17.5rem] xl:grid-cols-[minmax(0,1fr)_18.5rem] 2xl:grid-cols-[minmax(0,1fr)_19.5rem] lg:gap-2 2xl:gap-2.5">
-              <div className="grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md">
+            <div className="relative grid min-h-0 min-w-0 flex-1 grid-cols-1 gap-2.5 lg:block">
+              <div className="grid h-full min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md">
                 {/* Top Metadata Bar */}
-                <div className="flex flex-wrap items-start justify-between gap-2 border-b border-white/10 px-2.5 py-2 sm:px-3 sm:py-2.5 lg:px-2.5 lg:py-1.5 2xl:px-3 2xl:py-2">
-                  <div className="min-w-0">
+                <div className="flex flex-wrap items-start justify-between gap-2 border-b border-white/10 px-2.5 py-2 sm:px-3 sm:py-2.5 lg:gap-3 lg:px-3 lg:py-2 2xl:px-3 2xl:py-2">
+                  <div className="min-w-0 flex-1 pr-12 lg:max-w-[calc(100%-18rem)] xl:max-w-[calc(100%-19rem)] 2xl:max-w-[calc(100%-20rem)]">
                     <p className="truncate text-[13px] font-semibold text-white sm:text-sm lg:text-[15px] xl:text-base">{displayFilename}</p>
                     <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-white/60 sm:text-[11px]">
                       <span>{currentIndex + 1} of {files.length}</span>
@@ -1230,9 +1233,9 @@ export function MediaViewer({
                   </div>
                   {/* Viewer Controls */}
                   {isImg ? (
-                    <div className="hidden flex-wrap items-center justify-end gap-1.5 lg:flex">
+                    <div className="hidden min-w-0 max-w-full flex-1 flex-wrap items-center justify-end gap-1.5 pr-12 lg:flex lg:max-w-[calc(100%-18rem)] xl:max-w-[calc(100%-19rem)] 2xl:max-w-[calc(100%-20rem)]">
                       {canViewFullSize && (
-                        <div className="flex items-center gap-1 rounded-lg bg-black/30 p-1">
+                        <div className="flex min-w-0 flex-wrap items-center gap-1 rounded-lg bg-black/30 p-1">
                           <Button
                             variant="ghost"
                             size="sm"
@@ -1254,7 +1257,7 @@ export function MediaViewer({
                           </Button>
                         </div>
                       )}
-                      <div className="flex items-center gap-1 rounded-lg bg-black/30 p-1">
+                      <div className="flex min-w-0 flex-wrap items-center gap-1 rounded-lg bg-black/30 p-1">
                         <Button
                           variant="ghost"
                           size="icon"
@@ -1397,15 +1400,29 @@ export function MediaViewer({
                             draggable={false}
                           />
                         </div>
-                      ) : isVid ? (
-                        <video
-                          key={currentFile.id}
-                          src={videoUrl}
-                          controls
-                          autoPlay
-                          className="h-full w-full max-h-full max-w-full rounded-none object-contain shadow-none lg:rounded-xl lg:shadow-2xl"
-                          style={{ outline: 'none' }}
-                        />
+                        ) : isVid ? (
+                        videoUrl ? (
+                          <video
+                            key={`${currentFile.id}-${videoUrl}`}
+                            src={videoUrl}
+                            controls
+                            playsInline
+                            preload="metadata"
+                            className="h-full w-full max-h-full max-w-full rounded-none bg-black object-contain shadow-none lg:rounded-xl lg:shadow-2xl"
+                            style={{ outline: 'none' }}
+                            onError={() => {
+                              setVideoSourceIndex((current) => {
+                                const next = current + 1;
+                                return next < videoUrlCandidates.length ? next : current;
+                              });
+                            }}
+                          />
+                        ) : (
+                          <div className="max-w-sm text-center text-white">
+                            <FileIcon className="mx-auto mb-4 h-12 w-12 sm:h-16 sm:w-16" />
+                            <p className="text-sm sm:text-base">Video preview is not available.</p>
+                          </div>
+                        )
                       ) : (
                         <div className="text-white text-center">
                           <FileIcon className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-4" />
@@ -1488,7 +1505,7 @@ export function MediaViewer({
                   </div>
                 </div>
 
-              <div className="min-h-0 min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md lg:flex lg:min-h-0 lg:flex-col">
+              <div className="min-h-0 min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md lg:absolute lg:bottom-0 lg:right-0 lg:top-0 lg:z-20 lg:flex lg:w-[17.5rem] lg:min-h-0 lg:flex-col xl:w-[18.5rem] 2xl:w-[19.5rem]">
                 <ScrollArea className="h-full lg:min-h-0 lg:flex-1">
                   <div className="space-y-3 p-2.5 text-white sm:p-3 lg:space-y-2.5 lg:p-2.5 xl:p-3 2xl:space-y-3 2xl:p-3.5">
                     <div className="hidden min-w-0 gap-2 sm:grid-cols-2 lg:grid">

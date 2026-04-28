@@ -23,6 +23,8 @@ import {
   User,
   Clock,
   AlertCircle,
+  RefreshCw,
+  LinkIcon,
 } from 'lucide-react';
 import { ShootData } from '@/types/shoots';
 import { format } from 'date-fns';
@@ -49,7 +51,7 @@ interface ActivityLogEntry {
     role?: string;
   } | null;
   action: string;
-  type: 'email' | 'payment' | 'upload' | 'finalize' | 'note' | 'status_change' | 'other';
+  type: 'email' | 'payment' | 'upload' | 'finalize' | 'note' | 'status_change' | 'sync' | 'tour' | 'other';
   description: string;
   details?: any;
   metadata?: Record<string, unknown>;
@@ -73,6 +75,8 @@ const activityTypeIcons: Record<string, React.ReactNode> = {
   finalize: <CheckCircle className="h-4 w-4" />,
   note: <FileText className="h-4 w-4" />,
   status_change: <AlertCircle className="h-4 w-4" />,
+  sync: <RefreshCw className="h-4 w-4" />,
+  tour: <LinkIcon className="h-4 w-4" />,
   other: <Clock className="h-4 w-4" />,
 };
 
@@ -83,6 +87,8 @@ const activityTypeColors: Record<string, string> = {
   finalize: 'bg-emerald-100 text-emerald-700 border-emerald-200',
   note: 'bg-gray-100 text-gray-700 border-gray-200',
   status_change: 'bg-orange-100 text-orange-700 border-orange-200',
+  sync: 'bg-cyan-100 text-cyan-700 border-cyan-200',
+  tour: 'bg-indigo-100 text-indigo-700 border-indigo-200',
   other: 'bg-slate-100 text-slate-700 border-slate-200',
 };
 
@@ -127,6 +133,8 @@ const normalizeActivityEntry = (item: any): ActivityLogEntry => ({
 
 function determineActivityType(action: string): ActivityLogEntry['type'] {
   const lower = action.toLowerCase();
+  if (lower.includes('bright_mls') || lower.includes('bright mls') || lower.includes('mls_synced')) return 'sync';
+  if (lower.includes('tour_links') || lower.includes('tour link') || (lower.includes('tour') && lower.includes('generated'))) return 'tour';
   if (lower.includes('email') || lower.includes('sent')) return 'email';
   if (lower.includes('payment') || lower.includes('paid') || lower.includes('charge')) return 'payment';
   if (lower.includes('upload') || lower.includes('file') || lower.includes('hero') || lower.includes('cover')) return 'upload';

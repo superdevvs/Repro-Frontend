@@ -176,6 +176,23 @@ export const getMediaFullSizeImageUrl = (file: MediaFile): string => {
   return getStrictResolvedUrls(file, ['original_url', 'original'])[0] || '';
 };
 
+export const getMediaVideoUrlCandidates = (file: MediaFile): string[] => {
+  const candidates = getStrictResolvedUrls(file, [
+    'original_url',
+    'original',
+    'url',
+    'path',
+    'large_url',
+    'large',
+  ]);
+
+  return candidates.filter((url) => !isPlaceholderImageUrl(url));
+};
+
+export const getMediaVideoUrl = (file: MediaFile): string => {
+  return getMediaVideoUrlCandidates(file)[0] || '';
+};
+
 export const getDisplayMediaFilename = (file: Pick<MediaFile, 'filename'>): string => {
   const rawFilename = String(file.filename || '').trim();
   if (!rawFilename) {
