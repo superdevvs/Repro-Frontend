@@ -11,6 +11,7 @@ import { SidebarLinks } from './sidebar/SidebarLinks';
 import { SidebarFooter } from './sidebar/SidebarFooter';
 
 const SMALL_DESKTOP_BREAKPOINT = 1280;
+const SIDEBAR_COLLAPSED_STORAGE_KEY = 'repro.sidebar.collapsed';
 
 interface SidebarProps {
   className?: string;
@@ -19,8 +20,20 @@ interface SidebarProps {
 export function Sidebar({ className }: SidebarProps) {
   const isMobile = useIsMobile();
   const isSmallDesktop = typeof window !== 'undefined' && window.innerWidth < SMALL_DESKTOP_BREAKPOINT;
-  const [isCollapsed, setIsCollapsed] = useState(isSmallDesktop);
-  const manualOverride = useRef(false);
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+
+    const storedPreference = window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY);
+
+    if (storedPreference !== null) {
+      return storedPreference === 'true';
+    }
+
+    return window.innerWidth < SMALL_DESKTOP_BREAKPOINT;
+  });
+  const manualOverride = useRef(typeof window !== 'undefined' && window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) !== null);
   const { user, role, logout } = useAuth();
 
   // Auto-collapse/expand when crossing the breakpoint, unless user manually toggled
@@ -30,8 +43,6 @@ export function Sidebar({ className }: SidebarProps) {
       if (!manualOverride.current) {
         setIsCollapsed(!e.matches);
       }
-      // Reset manual override when crossing breakpoint so auto-behavior resumes
-      manualOverride.current = false;
     };
     // Set initial state
     handler(mql);
@@ -47,7 +58,11 @@ export function Sidebar({ className }: SidebarProps) {
   // Toggle sidebar collapse/expand manually
   const toggleCollapse = () => {
     manualOverride.current = true;
-    setIsCollapsed(!isCollapsed);
+    setIsCollapsed((current) => {
+      const next = !current;
+      window.localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(next));
+      return next;
+    });
   };
   
   // Desktop sidebar

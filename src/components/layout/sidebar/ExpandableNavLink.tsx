@@ -14,6 +14,7 @@ interface ExpandableNavLinkProps {
   isCollapsed: boolean;
   defaultTo: string; // Where to go when clicking the main item
   subItems: SubItem[];
+  onActivePreview?: (element: HTMLElement) => void;
 }
 
 export function ExpandableNavLink({ 
@@ -21,7 +22,8 @@ export function ExpandableNavLink({
   label, 
   isCollapsed, 
   defaultTo,
-  subItems 
+  subItems,
+  onActivePreview,
 }: ExpandableNavLinkProps) {
   const { pathname } = useLocation();
 
@@ -61,21 +63,36 @@ export function ExpandableNavLink({
       {/* Main Item */}
       <Link
         to={defaultTo}
+        data-sidebar-active={isActive ? 'true' : undefined}
+        onPointerDown={(event) => onActivePreview?.(event.currentTarget)}
         onClick={handleMainClick}
         className={cn(
-          'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
-          isActive ? 'bg-secondary/80 font-medium' : 'text-muted-foreground hover:bg-secondary/50',
+          'group relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors duration-200',
+          isActive
+            ? 'font-medium text-sidebar-accent-foreground dark:text-sidebar-primary-foreground'
+            : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground',
           isCollapsed && 'justify-center p-2'
         )}
       >
-        {icon}
+        <span
+          className={cn(
+            'relative z-20 flex items-center',
+            isActive && '[&_svg]:text-sidebar-accent-foreground dark:[&_svg]:text-sidebar-primary-foreground',
+            isActive && isCollapsed && '[&_svg]:text-sidebar-primary dark:[&_svg]:text-sidebar-primary-foreground'
+          )}
+        >
+          {icon}
+        </span>
         {!isCollapsed && (
           <>
-            <span className="flex-1">{label}</span>
+            <span className="relative z-20 flex-1">{label}</span>
             <button
               type="button"
               onClick={handleChevronClick}
-              className="rounded-full p-1 text-muted-foreground hover:bg-secondary focus:outline-none focus:ring-2 focus:ring-primary"
+              className={cn(
+                'relative z-20 rounded-full p-1 focus:outline-none focus:ring-2 focus:ring-primary',
+                isActive ? 'text-sidebar-accent-foreground hover:bg-sidebar-primary/10 dark:text-sidebar-primary-foreground dark:hover:bg-white/10' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+              )}
             >
               <ChevronDown className={cn('h-4 w-4 transition-transform', !isExpanded && '-rotate-90')} />
             </button>
@@ -95,8 +112,8 @@ export function ExpandableNavLink({
                 className={cn(
                   'block rounded-md px-3 py-2 text-sm transition-colors',
                   isSubItemActive 
-                    ? 'bg-secondary/60 font-medium' 
-                    : 'text-muted-foreground hover:bg-secondary/40'
+                    ? 'bg-sidebar-primary/10 font-medium text-sidebar-accent-foreground ring-1 ring-sidebar-border dark:text-sidebar-primary-foreground dark:ring-white/5' 
+                    : 'text-muted-foreground hover:bg-secondary/40 hover:text-foreground'
                 )}
               >
                 {subItem.label}
@@ -108,4 +125,3 @@ export function ExpandableNavLink({
     </div>
   );
 }
-

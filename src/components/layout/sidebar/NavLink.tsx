@@ -10,35 +10,58 @@ interface NavLinkProps {
   label: string;
   isCollapsed: boolean;
   isActive: boolean;
+  onActivePreview?: (element: HTMLElement) => void;
+  iconClassName?: string;
+  activeIconClassName?: string;
+  animateIconOnActive?: boolean;
 }
 
-export function NavLink({ to, icon, label, isCollapsed, isActive }: NavLinkProps) {
+export function NavLink({
+  to,
+  icon,
+  label,
+  isCollapsed,
+  isActive,
+  onActivePreview,
+  iconClassName,
+  activeIconClassName,
+  animateIconOnActive = false,
+}: NavLinkProps) {
+  const defaultActiveIconClassName = '[&_svg]:text-sidebar-accent-foreground dark:[&_svg]:text-sidebar-primary-foreground';
+  const collapsedActiveIconClassName = '[&_svg]:text-sidebar-primary dark:[&_svg]:text-sidebar-primary-foreground';
+
   return (
     <Link
       to={to}
+      data-sidebar-active={isActive ? 'true' : undefined}
+      onPointerDown={(event) => onActivePreview?.(event.currentTarget)}
       className={cn(
-        'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors relative overflow-hidden',
-        isActive ? 'font-medium text-foreground' : 'text-muted-foreground hover:bg-secondary/50',
+        'group relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors duration-200',
+        isActive
+          ? 'font-medium text-sidebar-accent-foreground dark:text-sidebar-primary-foreground'
+          : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground',
         isCollapsed && 'justify-center p-2'
       )}
     >
-      {/* Animated background for active state - slides left to right */}
-      {isActive && (
-        <motion.div
-          layoutId="sidebar-active-bg"
-          className="absolute inset-0 bg-secondary/80 rounded-md"
-          initial={{ x: -20, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          exit={{ x: 20, opacity: 0 }}
-          transition={{
-            type: "spring",
-            stiffness: 400,
-            damping: 25,
-          }}
-        />
-      )}
-      <span className="relative z-10 flex items-center gap-3">
-        {icon}
+      <span
+        className={cn(
+          'relative z-20 flex items-center gap-3 transition-colors',
+          !isActive && iconClassName,
+          isActive && (activeIconClassName ?? defaultActiveIconClassName),
+          isActive && isCollapsed && (activeIconClassName ?? collapsedActiveIconClassName)
+        )}
+      >
+        {animateIconOnActive ? (
+          <motion.span
+            className="flex items-center"
+            animate={isActive ? { scale: [1, 1.13, 1], rotate: [0, -6, 0] } : { scale: 1, rotate: 0 }}
+            transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
+          >
+            {icon}
+          </motion.span>
+        ) : (
+          icon
+        )}
         {!isCollapsed && <span>{label}</span>}
       </span>
     </Link>

@@ -46,6 +46,7 @@ type Service = {
   delivery_time?: string;
   photographer_required?: boolean;
   photographer_pay?: string | number;
+  exclude_from_sales_commission?: boolean;
   photo_count?: number;
   quantity?: number;
   active: boolean;
@@ -82,6 +83,7 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
     icon: '',
     photographer_required: false,
     photographer_pay: '',
+    exclude_from_sales_commission: false,
     photo_count: undefined as number | undefined,
     quantity: undefined as number | undefined,
     service_group_ids: [] as string[],
@@ -182,6 +184,7 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
       icon: '',
       photographer_required: false,
       photographer_pay: '',
+      exclude_from_sales_commission: false,
       photo_count: undefined,
       quantity: undefined,
       service_group_ids: [],
@@ -264,6 +267,7 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
       category_id: Number(newService.category),
       icon: newService.icon || null,
       photographer_required: newService.photographer_required || false,
+      exclude_from_sales_commission: newService.exclude_from_sales_commission || false,
       photographer_pay: newService.photographer_required
         && newService.photographer_pay !== ''
         && newService.photographer_pay != null
@@ -513,6 +517,7 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
           category: categoryName,
           photographer_required: item.photographer_required ?? false,
           photographer_pay: item.photographer_pay ?? null,
+          exclude_from_sales_commission: item.exclude_from_sales_commission ?? false,
           photo_count: photoCount,
           quantity: item.quantity,
           icon: item.icon,
@@ -981,6 +986,23 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
                 />
               </div>
             )}
+            <div className="flex items-center justify-between gap-4 rounded-lg border border-border/70 bg-muted/20 px-3 py-3">
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="exclude_from_sales_commission" className="cursor-pointer">
+                  Exclude from sales commission
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Use for travel, cancellation, and reschedule fees.
+                </p>
+              </div>
+              <Switch
+                id="exclude_from_sales_commission"
+                checked={newService.exclude_from_sales_commission}
+                onCheckedChange={(checked) =>
+                  setNewService(prev => ({ ...prev, exclude_from_sales_commission: checked }))
+                }
+              />
+            </div>
           </div>
           <DialogFooter className="border-t pt-3 sm:pt-4">
             <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>

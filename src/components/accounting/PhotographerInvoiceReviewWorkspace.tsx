@@ -1,6 +1,7 @@
 import React, { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { formatDistanceToNowStrict } from 'date-fns';
 import {
+  AlertTriangle,
   CalendarRange,
   CheckCircle2,
   ChevronRight,
@@ -61,7 +62,7 @@ import {
 import { exportRowsAsCsv, exportRowsAsExcel, exportRowsAsPdf } from '@/utils/accountingExports';
 
 type ReviewWorkspaceTab = 'review-queue' | 'payout-report';
-type ReviewStatusFilter = 'pending_approval' | 'approved' | 'rejected';
+type ReviewStatusFilter = 'pending_approval' | 'approved' | 'accounts_approved' | 'rejected';
 type ReviewWorkspaceRole = 'photographer' | 'salesRep';
 
 interface InvoiceReviewWorkspaceProps {
@@ -133,7 +134,8 @@ const getStatusLabel = (status: string) => {
     case 'pending_approval':
       return 'Needs Review';
     case 'approved':
-      return 'Approved';
+    case 'accounts_approved':
+      return 'Accounts Approved';
     case 'rejected':
       return 'Returned';
     default:
@@ -147,6 +149,7 @@ const getStatusBadgeClassName = (status: string) => {
     case 'pending_approval':
       return 'border-primary/20 bg-primary/10 text-primary';
     case 'approved':
+    case 'accounts_approved':
       return 'border-border bg-secondary text-secondary-foreground';
     case 'rejected':
       return 'border-destructive/20 bg-destructive/10 text-destructive';
@@ -158,6 +161,7 @@ const getStatusBadgeClassName = (status: string) => {
 const getTimelineTone = (event: WeeklyInvoiceTimelineEvent) => {
   switch (event.key) {
     case 'approved':
+    case 'accounts_approved':
       return 'border-primary/20 bg-primary/5';
     case 'returned':
       return 'border-destructive/20 bg-destructive/5';
@@ -179,6 +183,40 @@ const EmptyQueueState = ({ statusLabel, payeePlural }: { statusLabel: string; pa
     </div>
   </div>
 );
+
+const getInvoiceWarnings = (invoice: WeeklyInvoice | null) => invoice?.unresolved_warnings || [];
+
+const getNumberFromRecord = (record: Record<string, unknown> | null | undefined, key: string) => {
+  const value = record?.[key];
+  const numberValue = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
+  return Number.isFinite(numberValue) ? numberValue : 0;
+};
+
+const getSalesRepCommissionSummary = (invoice: WeeklyInvoice) => {
+  const snapshot = invoice.approval_snapshot || null;
+  const itemMeta = (invoice.items || []).map((item) => item.meta || {});
+  const commissionableGross = snapshot
+    ? getNumberFromRecord(snapshot, 'commissionable_gross')
+    : itemMeta.reduce((sum, meta) => sum + getNumberFromRecord(meta, 'commissionable_gross'), 0);
+  const excludedFeeTotal = snapshot
+    ? getNumberFromRecord(snapshot, 'excluded_fees_total') || getNumberFromRecord(snapshot, 'excluded_fee_total')
+    : itemMeta.reduce(
+        (sum, meta) =>
+          sum + (getNumberFromRecord(meta, 'excluded_fees_total') || getNumberFromRecord(meta, 'excluded_fee_total')),
+        0,
+      );
+  const commissionRate = snapshot
+    ? getNumberFromRecord(snapshot, 'commission_rate')
+    : getNumberFromRecord(itemMeta.find((meta) => meta.commission_rate != null), 'commission_rate');
+
+  return {
+    commissionableGross,
+    excludedFeeTotal,
+    commissionRate,
+    commissionAmount: Number(invoice.total_amount || 0),
+    isFrozen: Boolean(snapshot),
+  };
+};
 
 const DetailShell = ({
   invoice,
@@ -224,6 +262,8 @@ const DetailShell = ({
   const expenses = (invoice.items || []).filter((item) => item.type === 'expense');
   const canReview = ['pending', 'pending_approval'].includes(invoice.approval_status);
   const payee = role === 'salesRep' ? invoice.salesRep : invoice.photographer;
+  const warnings = getInvoiceWarnings(invoice);
+  const commissionSummary = role === 'salesRep' ? getSalesRepCommissionSummary(invoice) : null;
 
   return (
     <Card className="border-border/70 bg-card/80">
@@ -253,12 +293,12 @@ const DetailShell = ({
                   Return for Changes
                 </Button>
                 <Button size="sm" onClick={onApprove}>
-                  Approve &amp; Mark Shoots Paid
+                  Approve Amount
                 </Button>
               </div>
             ) : (
               <div className="text-sm text-muted-foreground">
-                {invoice.approval_status === 'approved'
+                {['approved', 'accounts_approved'].includes(invoice.approval_status)
                   ? `This ${getPayeeLabel(role)} invoice has already been approved.`
                   : `This invoice was returned to the ${getPayeeLabel(role)}.`}
               </div>
@@ -287,6 +327,52 @@ const DetailShell = ({
       </CardHeader>
 
       <CardContent className="flex flex-col gap-5 pt-6">
+        {warnings.length > 0 ? (
+          <section className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 text-amber-950">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <div className="flex flex-col gap-2">
+                <div className="text-sm font-semibold">Unresolved warnings block approval by default</div>
+                <div className="space-y-1 text-sm">
+                  {warnings.map((warning, index) => (
+                    <div key={`${warning.code || 'warning'}-${index}`}>
+                      {warning.message || 'This invoice has an unresolved payout warning.'}
+                    </div>
+                  ))}
+                </div>
+                {invoice.warning_override_reason ? (
+                  <div className="rounded-lg border border-amber-200 bg-background/70 px-3 py-2 text-sm">
+                    Override reason: {invoice.warning_override_reason}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </section>
+        ) : null}
+
+        {commissionSummary ? (
+          <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <div className="rounded-xl border border-border/70 bg-muted/20 px-4 py-3">
+              <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Commissionable</div>
+              <div className="mt-2 text-lg font-semibold">{formatCurrency(commissionSummary.commissionableGross)}</div>
+            </div>
+            <div className="rounded-xl border border-border/70 bg-muted/20 px-4 py-3">
+              <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Excluded Fees</div>
+              <div className="mt-2 text-lg font-semibold">{formatCurrency(commissionSummary.excludedFeeTotal)}</div>
+            </div>
+            <div className="rounded-xl border border-border/70 bg-muted/20 px-4 py-3">
+              <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Rate</div>
+              <div className="mt-2 text-lg font-semibold">{commissionSummary.commissionRate || 15}%</div>
+            </div>
+            <div className="rounded-xl border border-border/70 bg-muted/20 px-4 py-3">
+              <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                {commissionSummary.isFrozen ? 'Frozen Total' : 'Current Total'}
+              </div>
+              <div className="mt-2 text-lg font-semibold">{formatCurrency(commissionSummary.commissionAmount)}</div>
+            </div>
+          </section>
+        ) : null}
+
         <div className="grid gap-5 xl:grid-cols-[1.35fr_minmax(18rem,0.95fr)]">
           <div className="flex flex-col gap-5">
             <section className="flex flex-col gap-3">
@@ -427,6 +513,28 @@ const DetailShell = ({
 
             <section className="flex flex-col gap-3 rounded-xl border border-border/70 bg-muted/20 px-4 py-4">
               <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-muted-foreground" />
+                <h3 className="text-sm font-semibold">Audit History</h3>
+              </div>
+              <div className="flex flex-col gap-3">
+                {(invoice.audit_events || []).map((event) => (
+                  <div key={event.id} className="rounded-xl border border-border/70 bg-background px-4 py-3">
+                    <div className="font-medium">{event.summary || event.event.replace(/_/g, ' ')}</div>
+                    <div className="mt-1 text-sm text-muted-foreground">
+                      {event.actor?.name || 'System'} · {formatTimestamp(event.created_at)}
+                    </div>
+                  </div>
+                ))}
+                {(invoice.audit_events || []).length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-border/70 px-4 py-8 text-center text-sm text-muted-foreground">
+                    No audit events are available for this invoice yet.
+                  </div>
+                ) : null}
+              </div>
+            </section>
+
+            <section className="flex flex-col gap-3 rounded-xl border border-border/70 bg-muted/20 px-4 py-4">
+              <div className="flex items-center gap-2">
                 <User2 className="h-4 w-4 text-muted-foreground" />
                 <h3 className="text-sm font-semibold">Actors</h3>
               </div>
@@ -475,6 +583,7 @@ export function PhotographerInvoiceReviewWorkspace({
   const [approveDialogOpen, setApproveDialogOpen] = useState(false);
   const [returnDialogOpen, setReturnDialogOpen] = useState(false);
   const [returnReason, setReturnReason] = useState('');
+  const [warningOverrideReason, setWarningOverrideReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const deferredSearch = useDeferredValue(search.trim());
   const resolvedShortLabel = shortLabel || (role === 'salesRep' ? 'Sales Rep' : 'Photographer');
@@ -678,15 +787,27 @@ export function PhotographerInvoiceReviewWorkspace({
   const handleApprove = async () => {
     if (!selectedInvoice) return;
 
+    const warnings = getInvoiceWarnings(selectedInvoice);
+    const overrideReason = warningOverrideReason.trim();
+    if (warnings.length > 0 && !overrideReason) {
+      toast({
+        title: 'Override reason required',
+        description: 'Unresolved warnings block approval unless accounts records an override reason.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setActionLoading(true);
 
     try {
-      await approveWeeklyInvoice(selectedInvoice.id);
+      await approveWeeklyInvoice(selectedInvoice.id, warnings.length > 0 ? overrideReason : undefined);
       toast({
         title: 'Invoice approved',
-        description: 'The invoice was approved and linked shoots were marked as paid.',
+        description: 'The amount was approved. Payment can be marked separately after it is sent.',
       });
       setApproveDialogOpen(false);
+      setWarningOverrideReason('');
       await handleRefresh();
     } catch (error) {
       toast({
@@ -1016,15 +1137,22 @@ export function PhotographerInvoiceReviewWorkspace({
         />
       </TabsContent>
 
-      <Dialog open={approveDialogOpen} onOpenChange={setApproveDialogOpen}>
+      <Dialog
+        open={approveDialogOpen}
+        onOpenChange={(open) => {
+          setApproveDialogOpen(open);
+          if (!open) setWarningOverrideReason('');
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Approve {resolvedShortLabel} Invoice</DialogTitle>
             <DialogDescription>
-              This will approve the invoice and mark all linked {resolvedShortLabel.toLowerCase()} shoots as paid.
+              This approves the payout amount and freezes the totals. Payment is marked separately after it is sent.
             </DialogDescription>
           </DialogHeader>
-          <div className="rounded-xl border border-border/70 bg-muted/20 px-4 py-4 text-sm text-muted-foreground">
+          <div className="flex flex-col gap-4">
+            <div className="rounded-xl border border-border/70 bg-muted/20 px-4 py-4 text-sm text-muted-foreground">
             {selectedInvoice ? (
               <>
                 <div className="font-medium text-foreground">
@@ -1034,6 +1162,33 @@ export function PhotographerInvoiceReviewWorkspace({
                 <div className="mt-1 font-medium text-foreground">{formatCurrency(selectedInvoice.total_amount)}</div>
               </>
             ) : null}
+            </div>
+            {getInvoiceWarnings(selectedInvoice).length > 0 ? (
+              <div className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-950">
+                <div className="flex items-start gap-2 font-semibold">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                  Approval requires an accounts override reason
+                </div>
+                <div className="space-y-1">
+                  {getInvoiceWarnings(selectedInvoice).map((warning, index) => (
+                    <div key={`${warning.code || 'warning'}-${index}`}>
+                      {warning.message || 'This invoice has an unresolved payout warning.'}
+                    </div>
+                  ))}
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="warning-override-reason">Required override reason</Label>
+                  <Textarea
+                    id="warning-override-reason"
+                    value={warningOverrideReason}
+                    onChange={(event) => setWarningOverrideReason(event.target.value)}
+                    placeholder="Explain why accounts is approving despite unresolved warnings."
+                    rows={4}
+                    className="bg-background"
+                  />
+                </div>
+              </div>
+            ) : null}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setApproveDialogOpen(false)}>
@@ -1041,7 +1196,7 @@ export function PhotographerInvoiceReviewWorkspace({
             </Button>
             <Button onClick={handleApprove} disabled={actionLoading}>
               {actionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Approve &amp; Mark Shoots Paid
+              Approve Amount
             </Button>
           </DialogFooter>
         </DialogContent>

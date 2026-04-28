@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 import { ReproAiIcon } from '@/components/icons/ReproAiIcon';
 import { Link } from 'react-router-dom';
 import { getAccountingMode, accountingConfigs } from '@/config/accountingConfig';
-import { LayoutGroup } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   HomeIcon,
   ClipboardIcon,
@@ -34,6 +34,13 @@ interface SidebarLinksProps {
 
 export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
   const { pathname } = useLocation();
+  const navListRef = React.useRef<HTMLDivElement | null>(null);
+  const [activeIndicator, setActiveIndicator] = React.useState<{
+    top: number;
+    left: number;
+    width: number;
+    height: number;
+  } | null>(null);
   const permission = usePermission();
   const linkedSharedVisibility = useLinkedSharedVisibility();
   const isEditingManager = role === 'editing_manager';
@@ -56,9 +63,86 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
 
   const isChatActive = pathname === '/chat-with-reproai';
 
+  const measureActiveIndicator = React.useCallback(() => {
+    const container = navListRef.current;
+    const activeElement = container?.querySelector<HTMLElement>('[data-sidebar-active="true"]');
+
+    if (!container || !activeElement) {
+      setActiveIndicator(null);
+      return;
+    }
+
+    const containerRect = container.getBoundingClientRect();
+    const activeRect = activeElement.getBoundingClientRect();
+
+    setActiveIndicator({
+      top: activeRect.top - containerRect.top,
+      left: activeRect.left - containerRect.left,
+      width: activeRect.width,
+      height: activeRect.height,
+    });
+  }, []);
+
+  const previewActiveIndicator = React.useCallback((activeElement: HTMLElement) => {
+    const container = navListRef.current;
+
+    if (!container) {
+      return;
+    }
+
+    const containerRect = container.getBoundingClientRect();
+    const activeRect = activeElement.getBoundingClientRect();
+
+    setActiveIndicator({
+      top: activeRect.top - containerRect.top,
+      left: activeRect.left - containerRect.left,
+      width: activeRect.width,
+      height: activeRect.height,
+    });
+  }, []);
+
+  React.useLayoutEffect(() => {
+    measureActiveIndicator();
+    window.addEventListener('resize', measureActiveIndicator);
+
+    return () => window.removeEventListener('resize', measureActiveIndicator);
+  }, [pathname, role, canViewShared, canBookShoot, canViewScheduling, canViewPortal, canViewAccounting, canViewEmailInbox, canViewMessagingOverview, canViewSms, canViewAiEditing, canViewRobbie, measureActiveIndicator]);
+
+  React.useLayoutEffect(() => {
+    setActiveIndicator(null);
+
+    let frameId = 0;
+    const settleTimer = window.setTimeout(measureActiveIndicator, 240);
+
+    frameId = window.requestAnimationFrame(() => {
+      frameId = window.requestAnimationFrame(measureActiveIndicator);
+    });
+
+    return () => {
+      window.clearTimeout(settleTimer);
+      window.cancelAnimationFrame(frameId);
+    };
+  }, [isCollapsed, measureActiveIndicator]);
+
   return (
-    <LayoutGroup>
-    <div className="flex flex-1 flex-col gap-2 p-2">
+    <div ref={navListRef} className="relative flex flex-1 flex-col gap-2 p-2">
+      {activeIndicator && (
+        <motion.div
+          aria-hidden="true"
+          className={cn(
+            'pointer-events-none absolute z-10 rounded-xl ring-1 ring-sidebar-border dark:ring-white/5',
+            isCollapsed
+              ? 'bg-sidebar-primary/20 ring-sidebar-primary/30 dark:bg-sidebar-primary/40 dark:ring-sidebar-primary/40'
+              : 'bg-[linear-gradient(90deg,hsl(var(--sidebar-primary)/0.18)_0%,hsl(var(--sidebar-primary)/0.11)_46%,hsl(var(--sidebar-accent)/0.7)_100%)] dark:bg-[linear-gradient(90deg,hsl(var(--sidebar-primary)/0.62)_0%,hsl(var(--sidebar-primary)/0.26)_42%,hsl(var(--sidebar-accent)/0.55)_100%)]'
+          )}
+          initial={false}
+          animate={activeIndicator}
+          transition={{
+            duration: 0.38,
+            ease: [0.22, 1, 0.36, 1],
+          }}
+        />
+      )}
       {/* Dashboard link - everyone with dashboard view permission can see this */}
       {dashboardPermission.canView() && (
         <NavLink
@@ -67,6 +151,7 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
           label="Dashboard"
           isCollapsed={isCollapsed}
           isActive={pathname === '/dashboard'}
+          onActivePreview={previewActiveIndicator}
         />
       )}
       
@@ -78,6 +163,7 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
           label="Book Shoot"
           isCollapsed={isCollapsed}
           isActive={pathname === '/book-shoot'}
+          onActivePreview={previewActiveIndicator}
         />
       )}
       
@@ -89,6 +175,7 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
           label="Shoot History"
           isCollapsed={isCollapsed}
           isActive={pathname === '/shoot-history' || pathname.startsWith('/shoots')}
+          onActivePreview={previewActiveIndicator}
         />
       )}
       {canViewShared && (
@@ -98,6 +185,7 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
           label="Shared"
           isCollapsed={isCollapsed}
           isActive={pathname === '/shared'}
+          onActivePreview={previewActiveIndicator}
         />
       )}
       
@@ -109,6 +197,7 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
           label="Accounts"
           isCollapsed={isCollapsed}
           isActive={pathname === '/accounts'}
+          onActivePreview={previewActiveIndicator}
         />
       )}
       {canViewScheduling && !isEditingManager && (
@@ -118,6 +207,7 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
           label="Scheduling"
           isCollapsed={isCollapsed}
           isActive={pathname === '/scheduling-settings'}
+          onActivePreview={previewActiveIndicator}
         />
       )}
 
@@ -129,6 +219,9 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
           label="Exclusive Listings"
           isCollapsed={isCollapsed}
           isActive={pathname === '/portal' || pathname.startsWith('/exclusive-listings')}
+          onActivePreview={previewActiveIndicator}
+          activeIconClassName="[&_svg]:text-yellow-600 dark:[&_svg]:text-amber-300"
+          animateIconOnActive
         />
       )}
       
@@ -143,6 +236,7 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
             label={config.sidebarLabel}
             isCollapsed={isCollapsed}
             isActive={pathname === '/accounting'}
+            onActivePreview={previewActiveIndicator}
           />
         );
       })()}
@@ -155,6 +249,7 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
           label={role === 'client' ? 'Contact' : 'Messaging'}
           isCollapsed={isCollapsed}
           isActive={pathname.startsWith('/messaging/email')}
+          onActivePreview={previewActiveIndicator}
         />
       )}
       {/* Messaging - Expandable with Emails and SMS for admins */}
@@ -164,6 +259,7 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
           label="Messaging"
           isCollapsed={isCollapsed}
           defaultTo={canViewMessagingOverview ? "/messaging/overview" : "/messaging/sms"}
+          onActivePreview={previewActiveIndicator}
           subItems={[
             ...(canViewEmailInbox ? [{ to: '/messaging/email/inbox', label: 'Emails' }] : []),
             ...(canViewSms ? [{ to: '/messaging/sms', label: 'SMS' }] : []),
@@ -179,6 +275,7 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
           label="Availability"
           isCollapsed={isCollapsed}
           isActive={pathname === '/availability'}
+          onActivePreview={previewActiveIndicator}
         />
       )}
       
@@ -195,6 +292,7 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
             label="Address Lookup Demo"
             isCollapsed={isCollapsed}
             isActive={pathname === '/address-lookup-demo'}
+            onActivePreview={previewActiveIndicator}
           />
           <NavLink
             to="/book-shoot-enhanced"
@@ -202,6 +300,7 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
             label="Enhanced Book Shoot"
             isCollapsed={isCollapsed}
             isActive={pathname === '/book-shoot-enhanced'}
+            onActivePreview={previewActiveIndicator}
           />
           <NavLink
             to="/test-client-form"
@@ -209,6 +308,7 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
             label="Test Client Form"
             isCollapsed={isCollapsed}
             isActive={pathname === '/test-client-form'}
+            onActivePreview={previewActiveIndicator}
           />
         </>
       )}
@@ -221,6 +321,7 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
           label="AI Editing"
           isCollapsed={isCollapsed}
           isActive={pathname === '/ai-editing' || pathname.startsWith('/ai-editing')}
+          onActivePreview={previewActiveIndicator}
         />
       )}
 
@@ -229,19 +330,32 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
       {canViewRobbie && (
         <Link
           to="/chat-with-reproai"
+          data-sidebar-active={isChatActive ? 'true' : undefined}
+          onPointerDown={(event) => previewActiveIndicator(event.currentTarget)}
           className={cn(
-            'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors relative',
+            'relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors',
             isChatActive 
-              ? 'bg-secondary/80 font-medium border border-primary/20 shadow-sm' 
-              : 'text-muted-foreground hover:bg-secondary/50',
+              ? 'font-medium text-sidebar-accent-foreground dark:text-sidebar-primary-foreground' 
+              : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground',
             isCollapsed && 'justify-center p-2'
           )}
         >
-          <ReproAiIcon className="h-5 w-5 flex-shrink-0" />
-          {!isCollapsed && <span>Chat with Robbie</span>}
+          <ReproAiIcon
+            useSolid={isChatActive}
+            className={cn(
+              'relative z-20 h-5 w-5 flex-shrink-0',
+              isChatActive && 'text-sidebar-primary-foreground'
+            )}
+          />
+          {!isCollapsed && (
+            <span className="relative z-20 leading-tight">
+              Chat with
+              <br />
+              Robbie
+            </span>
+          )}
         </Link>
       )}
     </div>
-    </LayoutGroup>
   );
 }

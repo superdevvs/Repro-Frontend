@@ -358,12 +358,18 @@ export interface WeeklyInvoice {
   modifiedBy?: WeeklyInvoiceActor | null;
   approvedBy?: WeeklyInvoiceActor | null;
   rejectedBy?: WeeklyInvoiceActor | null;
+  warningOverrideBy?: WeeklyInvoiceActor | null;
   shoot_count?: number;
   charge_count?: number;
   expense_count?: number;
   items?: WeeklyInvoiceItem[];
   shoots?: WeeklyInvoiceReviewShoot[];
   timeline?: WeeklyInvoiceTimelineEvent[];
+  approval_snapshot?: Record<string, unknown> | null;
+  unresolved_warnings?: WeeklyInvoiceWarning[];
+  warning_override_reason?: string | null;
+  warning_override_at?: string | null;
+  audit_events?: WeeklyInvoiceAuditEvent[];
 }
 
 export interface WeeklyInvoiceItem {
@@ -392,6 +398,23 @@ export interface WeeklyInvoiceTimelineEvent {
   timestamp: string;
   actor?: WeeklyInvoiceActor | null;
   reason?: string | null;
+}
+
+export interface WeeklyInvoiceWarning {
+  code?: string;
+  severity?: string;
+  message?: string;
+  shoot_id?: number | string | null;
+  metadata?: Record<string, unknown> | null;
+}
+
+export interface WeeklyInvoiceAuditEvent {
+  id: number;
+  event: string;
+  summary?: string | null;
+  metadata?: Record<string, unknown> | null;
+  created_at: string;
+  actor?: WeeklyInvoiceActor | null;
 }
 
 export interface WeeklyInvoiceReviewShoot extends InvoiceShootRef {
@@ -602,7 +625,7 @@ export const fetchPendingApprovalInvoices = async (params: { page?: number; per_
 
 export const fetchAdminInvoiceReviewQueue = async (params: {
   role?: 'photographer' | 'salesRep';
-  approval_status?: 'pending_approval' | 'approved' | 'rejected';
+  approval_status?: 'pending_approval' | 'approved' | 'accounts_approved' | 'rejected';
   search?: string;
   start?: string;
   end?: string;
@@ -647,10 +670,14 @@ export const fetchAdminInvoiceReviewDetail = async (invoiceId: number): Promise<
 /**
  * Approve a weekly invoice (admin)
  */
-export const approveWeeklyInvoice = async (invoiceId: number): Promise<{ message: string; invoice: WeeklyInvoice }> => {
+export const approveWeeklyInvoice = async (
+  invoiceId: number,
+  warningOverrideReason?: string
+): Promise<{ message: string; invoice: WeeklyInvoice }> => {
   const response = await fetch(`${API_BASE_URL}/api/admin/invoices/${invoiceId}/approve`, {
     method: 'POST',
     headers: buildHeaders(),
+    body: warningOverrideReason ? JSON.stringify({ warning_override_reason: warningOverrideReason }) : undefined,
   });
 
   if (!response.ok) {

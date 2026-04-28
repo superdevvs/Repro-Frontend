@@ -39,6 +39,7 @@ type ServiceProps = {
     delivery_time?: string;
     photographer_required?: boolean;
     photographer_pay?: string | number;
+    exclude_from_sales_commission?: boolean;
     photo_count?: number;
     quantity?: number;
     active: boolean;
@@ -143,6 +144,7 @@ export function ServiceCard({ service, availableServiceGroups, onUpdate }: Servi
       delivery_time: parseInt(String(editedService.delivery_time), 10),
       icon: editedService.icon,
       photographer_required: editedService.photographer_required || false,
+      exclude_from_sales_commission: editedService.exclude_from_sales_commission || false,
       photographer_pay: editedService.photographer_required
         && editedService.photographer_pay !== ''
         && editedService.photographer_pay != null
@@ -325,6 +327,12 @@ export function ServiceCard({ service, availableServiceGroups, onUpdate }: Servi
                 <span className="text-sm font-medium">Photographer Pay:</span>
                 <span>${Number(service.photographer_pay).toFixed(2)}</span>
               </div>
+            )}
+
+            {service.exclude_from_sales_commission && (
+              <Badge variant="outline" className="w-fit border-amber-200 bg-amber-50 text-amber-800">
+                Excluded from sales commission
+              </Badge>
             )}
             
             {isPhotoCategory && service.photo_count != null && (
@@ -651,6 +659,24 @@ export function ServiceCard({ service, availableServiceGroups, onUpdate }: Servi
                 />
               </div>
             )}
+            <div className="flex items-center justify-between gap-4 rounded-lg border border-border/70 bg-muted/20 px-3 py-3">
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="exclude_from_sales_commission" className="cursor-pointer">
+                  Exclude from sales commission
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Use for travel, cancellation, and reschedule fees.
+                </p>
+              </div>
+              <Switch
+                id="exclude_from_sales_commission"
+                name="exclude_from_sales_commission"
+                checked={editedService.exclude_from_sales_commission || false}
+                onCheckedChange={(checked) =>
+                  setEditedService({ ...editedService, exclude_from_sales_commission: checked })
+                }
+              />
+            </div>
             
           </div>
           <DialogFooter>

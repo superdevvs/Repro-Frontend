@@ -72,6 +72,11 @@ const approvalStatusConfig: Record<string, { label: string; className: string; i
     className: 'border-border bg-secondary text-secondary-foreground',
     icon: <CheckCircle className="h-3 w-3" />,
   },
+  accounts_approved: {
+    label: 'Accounts Approved',
+    className: 'border-border bg-secondary text-secondary-foreground',
+    icon: <CheckCircle className="h-3 w-3" />,
+  },
   rejected: {
     label: 'Requested for Modification',
     className: 'border-destructive/20 bg-destructive/10 text-destructive',
@@ -664,10 +669,10 @@ export const WeeklyInvoiceReview: React.FC = () => {
                         Accept & Resubmit
                       </Button>
                     )}
-                    {invoice.approval_status === 'approved' && (
+                    {['approved', 'accounts_approved'].includes(invoice.approval_status) && (
                       <Badge className="bg-green-100 text-green-800">
                         <CheckCircle className="mr-1 h-3 w-3" />
-                        Approved – Payment Processing
+                        Approved - Payment Processing
                       </Badge>
                     )}
                   </div>
