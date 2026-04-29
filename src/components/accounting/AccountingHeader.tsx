@@ -239,17 +239,6 @@ export function AccountingHeader({
             </button>
             <button
               type="button"
-              onClick={() => onTabChange('equipments')}
-              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                activeTab === 'equipments'
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Equipments
-            </button>
-            <button
-              type="button"
               onClick={() => onTabChange('sales-reps')}
               className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
                 activeTab === 'sales-reps'
@@ -258,6 +247,18 @@ export function AccountingHeader({
               }`}
             >
               Sales Reps
+            </button>
+            <div className="mx-1 h-6 w-px bg-border" aria-hidden="true" />
+            <button
+              type="button"
+              onClick={() => onTabChange('equipments')}
+              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                activeTab === 'equipments'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Equipments
             </button>
           </div>
 
