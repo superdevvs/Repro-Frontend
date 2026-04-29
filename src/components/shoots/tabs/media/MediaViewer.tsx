@@ -999,65 +999,67 @@ export function MediaViewer({
     canRequestModification ||
     slideshowAvailable;
   const fitMediaClassName =
-    'block h-auto max-h-full min-h-0 w-auto max-w-full min-w-0 select-none object-contain object-center rounded-none shadow-none lg:rounded-xl lg:shadow-2xl';
-  const mediaViewerToolbar = isImg ? (
-    <div className="min-w-0 max-w-[calc(100vw-8rem)] justify-self-end overflow-x-auto rounded-xl md:max-w-[28rem] xl:max-w-full">
-      <div className="ml-auto flex w-max items-center gap-0.5 rounded-xl border border-white/10 bg-black/45 p-1 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-md">
-        {canViewFullSize && (
-          <>
-            <Button
-              variant="ghost"
-              size="sm"
-              className={`h-7 shrink-0 whitespace-nowrap rounded-lg px-2 text-[11px] text-white hover:bg-white/15 ${
-                previewMode === 'web' ? 'bg-white/10' : ''
-              }`}
-              onClick={() => setPreviewMode('web')}
-              title="Use web-sized preview"
-            >
-              Web size
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className={`h-7 shrink-0 whitespace-nowrap rounded-lg px-2 text-[11px] text-white hover:bg-white/15 ${
-                previewMode === 'full' ? 'bg-white/10' : ''
-              }`}
-              onClick={() => setPreviewMode('full')}
-              disabled={!fullSizeAvailable}
-              title={fullSizeAvailable ? 'Use full-size preview' : 'Full-size preview unavailable'}
-            >
-              Full size
-            </Button>
-            <span className="mx-0.5 h-5 w-px shrink-0 bg-white/10" aria-hidden />
-          </>
-        )}
+    'block h-full max-h-full min-h-0 w-full max-w-full min-w-0 select-none object-contain object-center rounded-none shadow-none lg:rounded-xl lg:shadow-2xl';
+  const previewSizeControls = isImg && canViewFullSize ? (
+    <div className="absolute right-3 top-3 z-40 max-w-[calc(100%-1.5rem)] overflow-x-auto rounded-xl sm:right-4 sm:top-4">
+      <div className="ml-auto flex w-max items-center gap-1 rounded-xl border border-white/10 bg-black/55 p-1 text-white shadow-[0_12px_30px_rgba(0,0,0,0.35)] backdrop-blur-md">
+        <Button
+          variant="ghost"
+          size="sm"
+          className={`h-7 shrink-0 whitespace-nowrap rounded-lg px-2.5 text-[11px] text-white hover:bg-white/15 sm:h-8 sm:text-xs ${
+            previewMode === 'web' ? 'bg-blue-600 text-white hover:bg-blue-600' : ''
+          }`}
+          onClick={() => setPreviewMode('web')}
+          title="Use web-sized preview"
+        >
+          Web size
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className={`h-7 shrink-0 whitespace-nowrap rounded-lg px-2.5 text-[11px] text-white hover:bg-white/15 sm:h-8 sm:text-xs ${
+            previewMode === 'full' ? 'bg-blue-600 text-white hover:bg-blue-600' : ''
+          }`}
+          onClick={() => setPreviewMode('full')}
+          disabled={!fullSizeAvailable}
+          title={fullSizeAvailable ? 'Use full-size preview' : 'Full-size preview unavailable'}
+        >
+          Full size
+        </Button>
+      </div>
+    </div>
+  ) : null;
+  const zoomControls = isImg ? (
+    <div className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-center sm:bottom-4">
+      <div className="pointer-events-auto flex max-w-full items-center gap-1 rounded-xl border border-white/10 bg-black/60 p-1 text-white shadow-[0_12px_30px_rgba(0,0,0,0.35)] backdrop-blur-md">
         <Button
           variant="ghost"
           size="icon"
-          className="h-7 w-7 shrink-0 rounded-lg text-white hover:bg-white/15"
+          className="h-8 w-8 shrink-0 rounded-lg text-white hover:bg-white/15"
           onClick={handleZoomOut}
           disabled={zoom <= 0.5}
           title="Zoom out (-)"
         >
           <span className="text-sm">−</span>
         </Button>
-        <span className="min-w-[2.5rem] shrink-0 text-center text-[11px] font-medium text-white">
+        <span className="min-w-[3rem] shrink-0 rounded-md bg-white/5 px-2 py-1 text-center text-xs font-medium text-white">
           {Math.round(zoom * 100)}%
         </span>
         <Button
           variant="ghost"
           size="icon"
-          className="h-7 w-7 shrink-0 rounded-lg text-white hover:bg-white/15"
+          className="h-8 w-8 shrink-0 rounded-lg text-white hover:bg-white/15"
           onClick={handleZoomIn}
           disabled={zoom >= MAX_MEDIA_VIEWER_ZOOM}
           title="Zoom in (+)"
         >
           <span className="text-sm">+</span>
         </Button>
+        <span className="mx-1 h-5 w-px shrink-0 bg-white/10" aria-hidden />
         <Button
           variant="ghost"
           size="sm"
-          className="h-7 shrink-0 whitespace-nowrap rounded-lg px-2 text-[11px] text-white hover:bg-white/15"
+          className="h-8 shrink-0 whitespace-nowrap rounded-lg px-2.5 text-xs text-white hover:bg-white/15"
           onClick={handleResetZoom}
           title="Reset zoom (0)"
         >
@@ -1351,7 +1353,6 @@ export function MediaViewer({
                       {!isClient && currentFile.fileSize && <span>{formatViewerFileSize(currentFile.fileSize)}</span>}
                     </div>
                   </div>
-                  {mediaViewerToolbar}
                   {!isImg && (
                     <p className="hidden justify-self-end text-[11px] text-white/55 md:block">Use ← → to navigate • ESC to close</p>
                   )}
@@ -1359,6 +1360,8 @@ export function MediaViewer({
 
                   <div className="min-h-0 min-w-0 px-1.5 pb-1.5 pt-1.5 sm:px-2.5 sm:pb-2.5 sm:pt-2 lg:px-1.5 lg:pb-1.5 lg:pt-1.5 2xl:px-2 2xl:pb-2">
                     <div className="relative h-full min-h-0 min-w-0 overflow-hidden bg-black/75 sm:min-h-[56dvh] sm:rounded-lg lg:min-h-0 lg:rounded-lg lg:bg-black/50 xl:rounded-xl">
+                      {previewSizeControls}
+                      {zoomControls}
                       {currentIndex > 0 && (
                         <Button
                           variant="ghost"
@@ -1396,7 +1399,7 @@ export function MediaViewer({
                       {isImg ? (
                         zoom > 1 ? (
                           <div
-                            className="relative flex shrink-0 items-center justify-center p-2"
+                            className="relative flex shrink-0 items-center justify-center"
                             style={zoomedImageViewportStyle}
                           >
                             <img
