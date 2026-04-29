@@ -1000,10 +1000,9 @@ export function MediaViewer({
     slideshowAvailable;
   const fitMediaClassName =
     'block h-auto max-h-full min-h-0 w-auto max-w-full min-w-0 select-none object-contain object-center rounded-none shadow-none lg:rounded-xl lg:shadow-2xl';
-  const showEditedStageToolbar = isImg && !currentFileIsRaw;
   const mediaViewerToolbar = isImg ? (
-    <div className="min-w-0 max-w-full overflow-x-auto rounded-xl">
-      <div className="ml-auto flex w-max max-w-full items-center gap-0.5 rounded-xl border border-white/10 bg-black/45 p-1 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-md">
+    <div className="min-w-0 max-w-full justify-self-end overflow-x-auto rounded-xl">
+      <div className="ml-auto flex w-max items-center gap-0.5 rounded-xl border border-white/10 bg-black/45 p-1 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-md">
         {canViewFullSize && (
           <>
             <Button
@@ -1223,7 +1222,7 @@ export function MediaViewer({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="absolute right-12 top-2 z-20 h-9 w-9 rounded-full border border-white/10 bg-black/40 text-white hover:bg-white/20 xl:hidden"
+                  className="absolute right-12 top-2 z-20 h-9 w-9 rounded-full border border-white/10 bg-black/40 text-white hover:bg-white/20 min-[1680px]:hidden"
                 >
                   <MoreHorizontal className="h-5 w-5" />
                 </Button>
@@ -1303,7 +1302,7 @@ export function MediaViewer({
             <X className="h-5 w-5 sm:h-6 sm:w-6" />
           </Button>
           {canRequestModification && showRequestComposer && (
-            <div className="absolute inset-x-3 top-16 z-30 max-h-[calc(100dvh-8rem)] overflow-auto rounded-xl border border-rose-500/25 bg-neutral-950/95 p-3 text-white shadow-2xl backdrop-blur-md sm:left-auto sm:right-14 sm:w-[24rem] xl:hidden">
+            <div className="absolute inset-x-3 top-16 z-30 max-h-[calc(100dvh-8rem)] overflow-auto rounded-xl border border-rose-500/25 bg-neutral-950/95 p-3 text-white shadow-2xl backdrop-blur-md sm:left-auto sm:right-14 sm:w-[24rem] min-[1680px]:hidden">
               <p className="text-sm font-medium text-white">Create request</p>
               <p className="mt-1 text-xs text-white/65">
                 Request any changes for this image.
@@ -1340,10 +1339,10 @@ export function MediaViewer({
           )}
 
           <div className="flex h-full w-full min-h-0 flex-col px-1.5 pb-1.5 pt-1.5 sm:px-3 sm:pb-3 sm:pt-2 lg:px-2.5 lg:pb-2.5 lg:pt-2 2xl:px-3 2xl:pb-3 2xl:pt-2.5">
-            <div className="grid min-h-0 min-w-0 flex-1 grid-cols-1 gap-2.5 xl:grid-cols-[minmax(0,1fr)_18.5rem] xl:gap-2 2xl:grid-cols-[minmax(0,1fr)_19.5rem] 2xl:gap-2.5">
+            <div className="grid min-h-0 min-w-0 flex-1 grid-cols-1 gap-2.5 min-[1680px]:grid-cols-[minmax(0,1fr)_18.5rem] min-[1680px]:gap-2 2xl:grid-cols-[minmax(0,1fr)_19.5rem] 2xl:gap-2.5">
               <div className="grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md">
                 {/* Top Metadata Bar */}
-                <div className="grid min-w-0 grid-cols-1 gap-2 border-b border-white/10 px-2.5 py-2 pr-12 sm:px-3 sm:py-2.5 md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:gap-3 lg:px-3 lg:py-2 xl:pr-3 2xl:px-3 2xl:py-2">
+                <div className="grid min-w-0 grid-cols-1 gap-2 border-b border-white/10 px-2.5 py-2 pr-12 sm:px-3 sm:py-2.5 md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:gap-3 lg:px-3 lg:py-2 min-[1680px]:pr-3 2xl:px-3 2xl:py-2">
                   <div className="min-w-0">
                     <p className="truncate text-[13px] font-semibold text-white sm:text-sm lg:text-[15px] xl:text-base">{displayFilename}</p>
                     <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-white/60 sm:text-[11px]">
@@ -1352,7 +1351,7 @@ export function MediaViewer({
                       {!isClient && currentFile.fileSize && <span>{formatViewerFileSize(currentFile.fileSize)}</span>}
                     </div>
                   </div>
-                  {!showEditedStageToolbar && mediaViewerToolbar}
+                  {mediaViewerToolbar}
                   {!isImg && (
                     <p className="hidden justify-self-end text-[11px] text-white/55 md:block">Use ← → to navigate • ESC to close</p>
                   )}
@@ -1360,29 +1359,11 @@ export function MediaViewer({
 
                   <div className="min-h-0 min-w-0 px-1.5 pb-1.5 pt-1.5 sm:px-2.5 sm:pb-2.5 sm:pt-2 lg:px-1.5 lg:pb-1.5 lg:pt-1.5 2xl:px-2 2xl:pb-2">
                     <div className="relative h-full min-h-0 min-w-0 overflow-hidden bg-black/75 sm:min-h-[56dvh] sm:rounded-lg lg:min-h-0 lg:rounded-lg lg:bg-black/50 xl:rounded-xl">
-                      {showEditedStageToolbar && mediaViewerToolbar && (
-                        <div className="absolute right-3 top-3 z-30 max-w-[calc(100%-1.5rem)] overflow-x-auto rounded-xl">
-                          {mediaViewerToolbar}
-                        </div>
-                      )}
-                    <div
-                      ref={zoomStageRef}
-                      className={`absolute inset-0 flex min-h-0 min-w-0 items-center justify-center p-0 sm:p-1.5 lg:p-1 xl:p-1.5 ${
-                        zoom > 1
-                          ? `${isPanningZoomStage ? 'cursor-grabbing' : 'cursor-grab'} touch-none overflow-auto`
-                          : 'overflow-hidden'
-                      } ${showEditedStageToolbar ? 'pt-12 sm:pt-12 lg:pt-12 xl:pt-12' : ''}`}
-                      onPointerDown={handleZoomStagePointerDown}
-                      onPointerMove={handleZoomStagePointerMove}
-                      onPointerUp={handleZoomStagePointerUp}
-                      onPointerCancel={handleZoomStagePointerUp}
-                      onLostPointerCapture={() => stopZoomPan()}
-                    >
                       {currentIndex > 0 && (
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="absolute left-1.5 top-1/2 z-10 h-8 w-8 -translate-y-1/2 rounded-full border border-white/10 bg-black/45 text-white hover:bg-white/15 sm:left-2 sm:h-10 sm:w-10"
+                          className="absolute left-3 top-1/2 z-30 h-9 w-9 -translate-y-1/2 rounded-full border border-white/10 bg-black/55 text-white shadow-lg hover:bg-white/15 sm:left-4 sm:h-10 sm:w-10"
                           onClick={handlePrevious}
                         >
                           <ChevronLeft className="h-5 w-5 sm:h-6 sm:w-6" />
@@ -1393,12 +1374,25 @@ export function MediaViewer({
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="absolute right-1.5 top-1/2 z-10 h-8 w-8 -translate-y-1/2 rounded-full border border-white/10 bg-black/45 text-white hover:bg-white/15 sm:right-2 sm:h-10 sm:w-10"
+                          className="absolute right-3 top-1/2 z-30 h-9 w-9 -translate-y-1/2 rounded-full border border-white/10 bg-black/55 text-white shadow-lg hover:bg-white/15 sm:right-4 sm:h-10 sm:w-10"
                           onClick={handleNext}
                         >
                           <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6" />
                         </Button>
                       )}
+                    <div
+                      ref={zoomStageRef}
+                      className={`absolute inset-0 flex min-h-0 min-w-0 items-center justify-center px-12 py-1 sm:px-14 sm:py-1.5 lg:px-16 lg:py-1 xl:px-16 xl:py-1.5 ${
+                        zoom > 1
+                          ? `${isPanningZoomStage ? 'cursor-grabbing' : 'cursor-grab'} touch-none overflow-auto`
+                          : 'overflow-hidden'
+                      }`}
+                      onPointerDown={handleZoomStagePointerDown}
+                      onPointerMove={handleZoomStagePointerMove}
+                      onPointerUp={handleZoomStagePointerUp}
+                      onPointerCancel={handleZoomStagePointerUp}
+                      onLostPointerCapture={() => stopZoomPan()}
+                    >
                       {isImg ? (
                         zoom > 1 ? (
                           <div
@@ -1536,8 +1530,8 @@ export function MediaViewer({
                   </div>
                 </div>
 
-              <div className="hidden min-h-0 min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md xl:flex xl:min-h-0 xl:flex-col">
-                <ScrollArea className="h-full xl:min-h-0 xl:flex-1">
+              <div className="hidden min-h-0 min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md min-[1680px]:flex min-[1680px]:min-h-0 min-[1680px]:flex-col">
+                <ScrollArea className="h-full min-[1680px]:min-h-0 min-[1680px]:flex-1">
                   <div className="space-y-3 p-2.5 text-white sm:p-3 lg:space-y-2.5 lg:p-2.5 xl:p-3 2xl:space-y-3 2xl:p-3.5">
                     <div className="hidden min-w-0 gap-2 sm:grid-cols-2 xl:grid">
                       {canSetHero && (
@@ -1648,7 +1642,7 @@ export function MediaViewer({
                       )}
                     </div>
                     {canRequestModification && (
-                      <div className="space-y-2 xl:hidden">
+                      <div className="space-y-2 min-[1680px]:hidden">
                         <Button
                           variant="destructive"
                           className="h-10 w-full justify-start"
