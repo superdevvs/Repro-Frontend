@@ -1233,7 +1233,7 @@ export function MediaViewer({
                   </div>
                   {/* Viewer Controls */}
                   {isImg ? (
-                    <div className="hidden min-w-0 max-w-full flex-wrap items-center justify-end gap-1.5 lg:flex">
+                    <div className="hidden">
                       {canViewFullSize && (
                         <div className="flex min-w-0 flex-wrap items-center gap-1 rounded-lg bg-black/30 p-1">
                           <Button
@@ -1291,7 +1291,7 @@ export function MediaViewer({
                       </div>
                     </div>
                   ) : (
-                    <p className="text-[11px] text-white/55">Use ← → to navigate • ESC to close</p>
+                    <p className="hidden text-[11px] text-white/55 lg:block">Use ← → to navigate • ESC to close</p>
                   )}
                 </div>
 
@@ -1329,6 +1329,65 @@ export function MediaViewer({
                         >
                           <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6" />
                         </Button>
+                      )}
+                      {isImg && (
+                        <div className="absolute right-2 top-2 z-10 hidden max-w-[calc(100%-1rem)] flex-wrap items-center justify-end gap-1.5 rounded-xl border border-white/10 bg-black/55 p-1 text-white shadow-2xl backdrop-blur-md lg:flex">
+                          {canViewFullSize && (
+                            <div className="flex min-w-0 items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className={`h-7 px-2.5 text-[11px] text-white hover:bg-white/15 sm:h-8 sm:text-xs ${previewMode === 'web' ? 'bg-white/10' : ''}`}
+                                onClick={() => setPreviewMode('web')}
+                                title="Use web-sized preview"
+                              >
+                                Web size
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className={`h-7 px-2.5 text-[11px] text-white hover:bg-white/15 sm:h-8 sm:text-xs ${previewMode === 'full' ? 'bg-white/10' : ''}`}
+                                onClick={() => setPreviewMode('full')}
+                                disabled={!fullSizeAvailable}
+                                title={fullSizeAvailable ? 'Use full-size preview' : 'Full-size preview unavailable'}
+                              >
+                                Full size
+                              </Button>
+                            </div>
+                          )}
+                          <div className="flex min-w-0 items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-white hover:bg-white/15 sm:h-8 sm:w-8"
+                              onClick={handleZoomOut}
+                              disabled={zoom <= 0.5}
+                              title="Zoom out"
+                            >
+                              <span className="text-sm">−</span>
+                            </Button>
+                            <span className="min-w-[3.5rem] text-center text-[11px] font-medium text-white sm:min-w-[4rem] sm:text-xs">{Math.round(zoom * 100)}%</span>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-white hover:bg-white/15 sm:h-8 sm:w-8"
+                              onClick={handleZoomIn}
+                              disabled={zoom >= MAX_MEDIA_VIEWER_ZOOM}
+                              title="Zoom in"
+                            >
+                              <span className="text-sm">+</span>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-[11px] text-white hover:bg-white/15 sm:h-8 sm:text-xs"
+                              onClick={handleResetZoom}
+                              title="Reset zoom (0)"
+                            >
+                              Reset
+                            </Button>
+                          </div>
+                        </div>
                       )}
                       {isImg && canViewFullSize && (
                         <div className="absolute left-2 top-2 z-10 flex items-center gap-1 rounded-full border border-white/10 bg-black/55 p-1 backdrop-blur-md lg:hidden">
@@ -1389,7 +1448,7 @@ export function MediaViewer({
                       )}
                       {isImg ? (
                         <div
-                          className={`flex shrink-0 items-center justify-center ${zoom > 1 ? 'relative' : 'h-full w-full'}`}
+                          className={`flex shrink-0 items-center justify-center ${zoom > 1 ? 'relative' : 'absolute inset-0 h-full w-full'}`}
                           style={zoomedImageViewportStyle}
                         >
                           <img

@@ -5,14 +5,16 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./components/auth";
 import { PermissionsProvider } from './context/PermissionsContext';
 import { usePermission } from './hooks/usePermission';
 import { UserPreferencesProvider } from './contexts/UserPreferencesContext';
 import { RequestManagerProvider, useRequestManager } from './context/RequestManagerContext';
 import { PhotographerAssignmentProvider, usePhotographerAssignment } from './context/PhotographerAssignmentContext';
+import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { PageTransition } from '@/components/layout/PageTransition';
+import { useIsMobile } from '@/hooks/use-mobile';
 import Index from "./pages/Index";
 import { ShootsProvider } from './context/ShootsContext';
 import { UploadProvider } from './context/UploadContext';
@@ -108,6 +110,44 @@ const FullScreenSpinner = () => (
   </div>
 );
 
+const DashboardContentFallback = () => (
+  <div className="flex min-h-[320px] flex-1 items-center justify-center bg-background text-muted-foreground">
+    <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-card/70 px-4 py-3 shadow-sm">
+      <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      <span className="text-sm font-medium">Loading...</span>
+    </div>
+  </div>
+);
+
+const getDashboardLayoutClassName = (pathname: string, isMobile: boolean) => {
+  if (pathname === '/chat-with-reproai') {
+    return '!p-0 !pb-0 !min-h-0';
+  }
+
+  if (pathname === '/availability') {
+    return `!min-h-0${isMobile ? '' : ' !overflow-hidden'}`;
+  }
+
+  if (pathname.startsWith('/shoots/')) {
+    return '!p-0';
+  }
+
+  return undefined;
+};
+
+const DashboardShell = () => {
+  const location = useLocation();
+  const isMobile = useIsMobile();
+
+  return (
+    <DashboardLayout className={getDashboardLayoutClassName(location.pathname, isMobile)}>
+      <Suspense fallback={<DashboardContentFallback />}>
+        <Outlet />
+      </Suspense>
+    </DashboardLayout>
+  );
+};
+
 const RobbieRouteTracker = () => {
   const location = useLocation();
 
@@ -124,12 +164,18 @@ const RobbieRouteTracker = () => {
 };
 
 // Protected route component
-const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
+const ProtectedRoute = ({
+  children,
+  loadingFallback = <FullScreenSpinner />,
+}: {
+  children: JSX.Element;
+  loadingFallback?: React.ReactNode;
+}) => {
   const { isAuthenticated, isLoading } = useAuth();
 
   // Show loading state if auth is still initializing
   if (isLoading) {
-    return <FullScreenSpinner />;
+    return <>{loadingFallback}</>;
   }
 
   // Silently redirect to login - no toast notification needed
@@ -145,11 +191,13 @@ const PermissionRoute = ({
   resource,
   action = 'view',
   fallbackTo = '/dashboard',
+  loadingFallback = <DashboardContentFallback />,
 }: {
   children: JSX.Element;
   resource: string;
   action?: string;
   fallbackTo?: string;
+  loadingFallback?: React.ReactNode;
 }) => {
   const { isAuthenticated, isLoading: authLoading, role } = useAuth();
   const { can, isLoading: permissionsLoading } = usePermission();
@@ -174,7 +222,7 @@ const PermissionRoute = ({
   }, [action, authLoading, hasPermission, isAuthenticated, permissionsLoading, resource]);
 
   if (authLoading || permissionsLoading) {
-    return <FullScreenSpinner />;
+    return <>{loadingFallback}</>;
   }
 
   if (!isAuthenticated) {
@@ -275,7 +323,7 @@ const AppRoutes = () => {
   return (
     <Suspense fallback={<FullScreenSpinner />}>
       <AnimatePresence mode="wait">
-      <Routes location={location} key={location.pathname}>
+      <Routes location={location}>
       <Route path="/" element={
         <PageTransition>
           <Index />
@@ -399,6 +447,11 @@ const AppRoutes = () => {
         // </ProtectedRoute>
        } />
 
+      <Route element={
+        <ProtectedRoute>
+          <DashboardShell />
+        </ProtectedRoute>
+      }>
       <Route path="/dashboard" element={
         <PermissionRoute resource="dashboard" fallbackTo="/">
           <ShootRoutesWrapper>
@@ -634,6 +687,7 @@ const AppRoutes = () => {
           </PageTransition>
         </ProtectedRoute>
       } />
+      </Route>
       <Route path="*" element={
         <PageTransition>
           <NotFound />
