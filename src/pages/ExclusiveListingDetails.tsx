@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { DashboardRouteSkeleton } from '@/components/layout/DashboardRouteSkeleton';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -234,20 +235,7 @@ export default function ExclusiveListingDetails() {
   };
 
   if (loading) {
-    return (
-      <DashboardLayout>
-        <div className="space-y-6 p-6">
-          <PageHeader
-            badge="Exclusive"
-            title="Private Exclusive Listing"
-            description="Loading listing…"
-          />
-          <Card>
-            <CardContent className="py-12 text-center text-muted-foreground">Loading…</CardContent>
-          </Card>
-        </div>
-      </DashboardLayout>
-    );
+    return <DashboardRouteSkeleton pathname={`/exclusive-listings/${id ?? ''}`} />;
   }
 
   if (!shoot) {

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { API_BASE_URL } from '@/config/env';
+import { getStoredAuthToken } from '@/utils/authToken';
 import { Loader2, Play } from 'lucide-react';
 
 type VideoVariant = 'branded' | 'mls' | 'generic';
@@ -191,7 +192,13 @@ export function PublicVideoPage({ variant }: PublicVideoPageProps) {
           : `${API_BASE_URL}/api/public/shoots/${shootId}/${config.endpoint}`;
 
         const separator = endpoint.includes('?') ? '&' : '?';
-        const res = await fetch(`${endpoint}${separator}t=${Date.now()}`);
+        const token = getStoredAuthToken();
+        const res = await fetch(`${endpoint}${separator}t=${Date.now()}`, {
+          headers: {
+            Accept: 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
         const data: PublicPayload = await res.json();
         const nextUrl = data?.tour_links?.[config.tourKey];
         const normalizedUrl = typeof nextUrl === 'string' && nextUrl.trim() ? nextUrl.trim() : null;

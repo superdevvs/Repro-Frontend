@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { DashboardRouteSkeleton } from '@/components/layout/DashboardRouteSkeleton';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -565,35 +566,8 @@ const PrivateListingPortal = () => {
     );
   };
 
-  // ─── Loading ───────────────────────────────────────────────
   if (loading) {
-    return (
-      <DashboardLayout>
-        <div className="space-y-4 px-2 pt-3 pb-3 sm:space-y-6 sm:p-6">
-          <PageHeader
-            badge="Exclusive"
-            title="Exclusive Listings"
-            description="Private, pre-market properties — invitation only"
-          />
-          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <Card key={i} className="overflow-hidden border-border/60 animate-pulse">
-                <div className="aspect-[16/10] bg-muted" />
-                <CardContent className="p-4 space-y-3">
-                  <div className="h-4 bg-muted rounded w-3/4" />
-                  <div className="h-3 bg-muted rounded w-1/2" />
-                  <div className="flex gap-3">
-                    <div className="h-3 bg-muted rounded w-16" />
-                    <div className="h-3 bg-muted rounded w-16" />
-                    <div className="h-3 bg-muted rounded w-16" />
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </DashboardLayout>
-    );
+    return <DashboardRouteSkeleton pathname="/portal" />;
   }
 
   // ─── Main Render ───────────────────────────────────────────

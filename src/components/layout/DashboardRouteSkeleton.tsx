@@ -72,16 +72,58 @@ const TabStrip = ({ count = 4 }: { count?: number }) => (
   </div>
 );
 
+const DashboardMetricCardSkeleton = () => (
+  <div className="min-h-36 rounded-xl border border-border/60 bg-background/45 p-4">
+    <div className="flex items-start justify-between">
+      <Skeleton className="h-10 w-10 rounded-full" />
+      <Skeleton className="h-4 w-5" />
+    </div>
+    <div className="mt-5 space-y-3">
+      <Skeleton className="h-8 w-10" />
+      <Skeleton className="h-4 w-28" />
+      <Skeleton className="h-3 w-20" />
+    </div>
+  </div>
+);
+
+const DashboardStatsPanelSkeleton = () => (
+  <Panel className="rounded-3xl p-5">
+    <div className="grid grid-cols-2 gap-2.5">
+      {Array.from({ length: 4 }).map((_, index) => (
+        <DashboardMetricCardSkeleton key={index} />
+      ))}
+    </div>
+  </Panel>
+);
+
+const AssignPhotographersSkeleton = () => (
+  <Panel className="overflow-hidden rounded-3xl p-0">
+    <div className="space-y-4 p-5">
+      <Skeleton className="h-6 w-52" />
+      <div className="flex h-9 items-center gap-6 rounded-xl bg-muted/35 px-3">
+        <Skeleton className="h-3 w-16" />
+        <Skeleton className="h-3 w-20" />
+        <Skeleton className="h-3 w-20" />
+      </div>
+      <div className="grid h-9 grid-cols-3 gap-2 rounded-xl bg-muted/30 p-1">
+        <Skeleton className="h-full rounded-lg" />
+        <Skeleton className="h-full rounded-lg" />
+        <Skeleton className="h-full rounded-lg" />
+      </div>
+    </div>
+    <div className="border-t border-border/50 p-4">
+      <Rows count={4} />
+    </div>
+  </Panel>
+);
+
 const DashboardSkeleton = () => (
   <div className="space-y-6 px-2 py-4 sm:p-6">
     <HeaderSkeleton actions={false} />
     <div className="grid gap-6 xl:grid-cols-[380px_minmax(0,1fr)_380px]">
       <div className="space-y-6">
-        <StatCards count={4} />
-        <Panel className="space-y-4">
-          <Skeleton className="h-6 w-48" />
-          <Rows count={4} />
-        </Panel>
+        <DashboardStatsPanelSkeleton />
+        <AssignPhotographersSkeleton />
       </div>
       <Panel className="min-h-[420px] space-y-5">
         <div className="flex items-center justify-between">

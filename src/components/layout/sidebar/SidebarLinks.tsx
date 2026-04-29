@@ -4,6 +4,7 @@ import { NavLink } from './NavLink';
 import { ExpandableNavLink } from './ExpandableNavLink';
 import { usePermission } from '@/hooks/usePermission';
 import { useLinkedSharedVisibility } from '@/hooks/useLinkedSharedVisibility';
+import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { ReproAiIcon } from '@/components/icons/ReproAiIcon';
 import { Link } from 'react-router-dom';
@@ -31,6 +32,36 @@ interface SidebarLinksProps {
   isCollapsed: boolean;
   role: string;
 }
+
+const SidebarLinksSkeleton = ({ isCollapsed }: { isCollapsed: boolean }) => (
+  <div className="flex flex-col gap-2 p-2 pt-4">
+    {Array.from({ length: 10 }).map((_, index) => (
+      <div
+        key={index}
+        className={cn(
+          'flex h-10 items-center gap-3 rounded-xl px-3',
+          isCollapsed && 'justify-center px-2'
+        )}
+      >
+        <Skeleton className="h-5 w-5 rounded-md" />
+        {!isCollapsed && (
+          <Skeleton
+            className={cn(
+              'h-4 rounded-md',
+              index === 0 && 'w-24',
+              index === 1 && 'w-28',
+              index === 2 && 'w-32',
+              index === 3 && 'w-24',
+              index === 4 && 'w-28',
+              index > 4 && index % 2 === 0 && 'w-36',
+              index > 4 && index % 2 !== 0 && 'w-24'
+            )}
+          />
+        )}
+      </div>
+    ))}
+  </div>
+);
 
 export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
   const { pathname } = useLocation();
@@ -123,6 +154,10 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
       window.cancelAnimationFrame(frameId);
     };
   }, [isCollapsed, measureActiveIndicator]);
+
+  if (permission.isLoading || (role === 'client' && linkedSharedVisibility.loading)) {
+    return <SidebarLinksSkeleton isCollapsed={isCollapsed} />;
+  }
 
   return (
     <div ref={navListRef} className="relative flex flex-1 flex-col gap-2 p-2">
