@@ -64,6 +64,8 @@ const emptyForm = {
   photos: [] as File[],
 };
 
+type EquipmentFormState = typeof emptyForm;
+
 const getApiErrorMessage = (error: unknown, fallback: string) => {
   const apiMessage = (error as any)?.response?.data?.message;
   return typeof apiMessage === "string" && apiMessage.trim() ? apiMessage : fallback;
@@ -79,8 +81,13 @@ export function PhotographerEquipmentWorkspace() {
   const [loading, setLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const [unassignedEquipments, setUnassignedEquipments] = useState<PhotographerEquipment[]>([]);
+  const [selectedExistingEquipmentId, setSelectedExistingEquipmentId] = useState("");
+  const [manualEntryOpen, setManualEntryOpen] = useState(false);
+  const [financePanelOpen, setFinancePanelOpen] = useState(false);
   const [editingEquipment, setEditingEquipment] = useState<PhotographerEquipment | null>(null);
   const [editForm, setEditForm] = useState(emptyForm);
+  const [editFinancePanelOpen, setEditFinancePanelOpen] = useState(false);
   const [rowPhotos, setRowPhotos] = useState<Record<number, File[]>>({});
   const [busyId, setBusyId] = useState<number | null>(null);
 
@@ -115,8 +122,19 @@ export function PhotographerEquipmentWorkspace() {
     }
   };
 
+  const loadUnassignedEquipments = async () => {
+    try {
+      const data = await listAdminPhotographerEquipments();
+      setUnassignedEquipments(data.filter((equipment) => !equipment.photographer_id));
+    } catch (error) {
+      console.error("Failed to load unassigned photographer equipments", error);
+      setUnassignedEquipments([]);
+    }
+  };
+
   useEffect(() => {
     loadPhotographers();
+    loadUnassignedEquipments();
   }, []);
 
   useEffect(() => {
@@ -124,12 +142,111 @@ export function PhotographerEquipmentWorkspace() {
   }, [photographerFilter, statusFilter]);
 
   const filteredEquipments = useMemo(() => equipments, [equipments]);
+  const selectedExistingEquipment = useMemo(
+    () => unassignedEquipments.find((equipment) => String(equipment.id) === selectedExistingEquipmentId) || null,
+    [selectedExistingEquipmentId, unassignedEquipments],
+  );
+
+  const openAddDialog = () => {
+    setForm(emptyForm);
+    setSelectedExistingEquipmentId("");
+    setManualEntryOpen(false);
+    setFinancePanelOpen(false);
+    setDialogOpen(true);
+    loadUnassignedEquipments();
+  };
+
+  const handleExistingEquipmentChange = (value: string) => {
+    if (value === "select") {
+      setSelectedExistingEquipmentId("");
+      setManualEntryOpen(false);
+      return;
+    }
+
+    if (value === "new") {
+      setSelectedExistingEquipmentId("");
+      setManualEntryOpen(true);
+      setForm((current) => ({
+        ...emptyForm,
+        photographer_id: current.photographer_id,
+        issue_date: current.issue_date,
+      }));
+      return;
+    }
+
+    const equipment = unassignedEquipments.find((item) => String(item.id) === value);
+    setSelectedExistingEquipmentId(value);
+    setManualEntryOpen(false);
+    if (equipment) {
+      setForm((current) => ({
+        ...current,
+        name: equipment.name,
+        serial_number: equipment.serial_number || "",
+        issue_date: equipment.issue_date || current.issue_date,
+        purchase_date: equipment.purchase_date || "",
+        purchase_cost: equipment.purchase_cost != null ? String(equipment.purchase_cost) : "",
+        vendor: equipment.vendor || "",
+        add_to_expense: Boolean(equipment.expense_id),
+        receipt: null,
+        photos: [],
+      }));
+    }
+  };
 
   const submitEquipment = async () => {
-    if (!form.name.trim()) {
+    if (selectedExistingEquipment) {
+      if (!form.photographer_id) {
+        toast({
+          title: "Choose a photographer",
+          description: "Select the photographer who will receive this equipment.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setBusyId(selectedExistingEquipment.id);
+      try {
+        await updateAdminPhotographerEquipment(selectedExistingEquipment.id, {
+          photographer_id: form.photographer_id,
+          issue_date: form.issue_date,
+          ...(financePanelOpen
+            ? {
+              purchase_date: form.purchase_date,
+              purchase_cost: form.purchase_cost,
+              vendor: form.vendor,
+              add_to_expense: form.add_to_expense,
+              receipt: form.receipt,
+            }
+            : {}),
+        });
+        if (form.photos.length > 0) {
+          await uploadAdminEquipmentPhotos(selectedExistingEquipment.id, form.photos);
+        }
+        toast({ title: "Equipment assigned", description: "The photographer can now verify it." });
+        setDialogOpen(false);
+        setForm(emptyForm);
+        setSelectedExistingEquipmentId("");
+        setManualEntryOpen(false);
+        setFinancePanelOpen(false);
+        await loadEquipments();
+        await loadUnassignedEquipments();
+      } catch (error) {
+        console.error("Failed to assign existing photographer equipment", error);
+        toast({
+          title: "Could not assign equipment",
+          description: getApiErrorMessage(error, "Please check the fields and try again."),
+          variant: "destructive",
+        });
+      } finally {
+        setBusyId(null);
+      }
+      return;
+    }
+
+    if (!manualEntryOpen || !form.name.trim()) {
       toast({
         title: "Missing details",
-        description: "Enter the equipment name.",
+        description: "Choose an existing equipment or add a new equipment name.",
         variant: "destructive",
       });
       return;
@@ -141,17 +258,24 @@ export function PhotographerEquipmentWorkspace() {
         name: form.name.trim(),
         serial_number: form.serial_number.trim(),
         issue_date: form.issue_date,
-        purchase_date: form.purchase_date,
-        purchase_cost: form.purchase_cost,
-        vendor: form.vendor,
-        add_to_expense: form.add_to_expense,
-        receipt: form.receipt,
+        ...(financePanelOpen
+          ? {
+            purchase_date: form.purchase_date,
+            purchase_cost: form.purchase_cost,
+            vendor: form.vendor,
+            add_to_expense: form.add_to_expense,
+            receipt: form.receipt,
+          }
+          : {}),
         photos: form.photos,
       });
       toast({ title: "Equipment assigned", description: "The photographer can now verify it." });
       setDialogOpen(false);
       setForm(emptyForm);
-      loadEquipments();
+      setManualEntryOpen(false);
+      setFinancePanelOpen(false);
+      await loadEquipments();
+      await loadUnassignedEquipments();
     } catch (error) {
       console.error("Failed to create photographer equipment", error);
       toast({
@@ -164,8 +288,9 @@ export function PhotographerEquipmentWorkspace() {
 
   const openEditDialog = (equipment: PhotographerEquipment) => {
     setEditingEquipment(equipment);
+    setEditFinancePanelOpen(false);
     setEditForm({
-      photographer_id: String(equipment.photographer_id),
+      photographer_id: equipment.photographer_id ? String(equipment.photographer_id) : "",
       name: equipment.name,
       serial_number: equipment.serial_number || "",
       issue_date: equipment.issue_date || "",
@@ -190,11 +315,15 @@ export function PhotographerEquipmentWorkspace() {
         name: editForm.name.trim(),
         serial_number: editForm.serial_number.trim(),
         issue_date: editForm.issue_date,
-        purchase_date: editForm.purchase_date,
-        purchase_cost: editForm.purchase_cost,
-        vendor: editForm.vendor,
-        add_to_expense: editForm.add_to_expense,
-        receipt: editForm.receipt,
+        ...(editFinancePanelOpen
+          ? {
+            purchase_date: editForm.purchase_date,
+            purchase_cost: editForm.purchase_cost,
+            vendor: editForm.vendor,
+            add_to_expense: editForm.add_to_expense,
+            receipt: editForm.receipt,
+          }
+          : {}),
       });
       if (editForm.photos.length > 0) {
         await uploadAdminEquipmentPhotos(editingEquipment.id, editForm.photos);
@@ -202,7 +331,9 @@ export function PhotographerEquipmentWorkspace() {
       toast({ title: "Equipment updated", description: "Admin reference photos were saved with the equipment." });
       setEditingEquipment(null);
       setEditForm(emptyForm);
+      setEditFinancePanelOpen(false);
       await loadEquipments();
+      await loadUnassignedEquipments();
     } catch (error) {
       console.error("Failed to update photographer equipment", error);
       toast({
@@ -252,6 +383,70 @@ export function PhotographerEquipmentWorkspace() {
     );
   };
 
+  const renderFinancialPanel = (
+    values: EquipmentFormState,
+    setValues: React.Dispatch<React.SetStateAction<EquipmentFormState>>,
+    checkboxId: string,
+    linkedExpenseLabel: string,
+  ) => (
+    <div className="space-y-4 rounded-md border border-border/70 bg-background/80 p-4">
+      <div className="space-y-1">
+        <h3 className="text-sm font-semibold">Purchase & Expense</h3>
+        <p className="text-xs text-muted-foreground">
+          Admin-only accounting details. These fields are never shown to photographers.
+        </p>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label>Purchase Date</Label>
+          <Input
+            type="date"
+            value={values.purchase_date}
+            onChange={(event) => setValues((current) => ({ ...current, purchase_date: event.target.value }))}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Purchase Cost</Label>
+          <Input
+            type="number"
+            min="0"
+            step="0.01"
+            value={values.purchase_cost}
+            onChange={(event) => setValues((current) => ({ ...current, purchase_cost: event.target.value }))}
+          />
+        </div>
+      </div>
+      <div className="space-y-2">
+        <Label>Vendor</Label>
+        <Input
+          value={values.vendor}
+          onChange={(event) => setValues((current) => ({ ...current, vendor: event.target.value }))}
+        />
+      </div>
+      <div className="flex items-center gap-2 rounded-md border border-border/70 p-3">
+        <input
+          id={checkboxId}
+          type="checkbox"
+          checked={values.add_to_expense}
+          onChange={(event) => setValues((current) => ({ ...current, add_to_expense: event.target.checked }))}
+          className="h-4 w-4"
+        />
+        <Label htmlFor={checkboxId}>{linkedExpenseLabel}</Label>
+      </div>
+      <div className="space-y-2">
+        <Label>Expense Receipt</Label>
+        <Input
+          type="file"
+          accept="image/*,.pdf"
+          onChange={(event) => setValues((current) => ({
+            ...current,
+            receipt: event.target.files?.[0] || null,
+          }))}
+        />
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-4">
       <Card>
@@ -263,7 +458,7 @@ export function PhotographerEquipmentWorkspace() {
                 <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
                 Refresh
               </Button>
-              <Button onClick={() => setDialogOpen(true)}>
+              <Button onClick={openAddDialog}>
                 <Plus className="mr-2 h-4 w-4" />
                 Add Equipment
               </Button>
@@ -403,195 +598,225 @@ export function PhotographerEquipmentWorkspace() {
         </CardContent>
       </Card>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+      <Dialog open={dialogOpen} onOpenChange={(open) => {
+        setDialogOpen(open);
+        if (!open) {
+          setSelectedExistingEquipmentId("");
+          setManualEntryOpen(false);
+          setFinancePanelOpen(false);
+        }
+      }}>
+        <DialogContent className={financePanelOpen ? "max-w-5xl" : "max-w-2xl"}>
           <DialogHeader>
             <DialogTitle>Add Equipment</DialogTitle>
             <DialogDescription>
-              Assign equipment to a photographer and upload private admin reference photos now or later.
+              Assign existing inventory to a photographer, or add a new equipment record.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-2">
-            <div className="space-y-2">
-              <Label>Photographer</Label>
-              <Select value={form.photographer_id || "unassigned"} onValueChange={(value) => setForm((current) => ({ ...current, photographer_id: value === "unassigned" ? "" : value }))}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select photographer" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="unassigned">Unassigned Inventory</SelectItem>
-                  {photographers.map((photographer) => (
-                    <SelectItem key={photographer.id} value={photographer.id}>
-                      {photographer.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
+          <div className={financePanelOpen ? "grid gap-5 py-2 lg:grid-cols-[minmax(0,1fr)_340px]" : "grid gap-4 py-2"}>
+            <div className="space-y-4">
               <div className="space-y-2">
-                <Label>Name</Label>
-                <Input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} />
+                <Label>Photographer</Label>
+                <Select value={form.photographer_id || "unassigned"} onValueChange={(value) => setForm((current) => ({ ...current, photographer_id: value === "unassigned" ? "" : value }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select photographer" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unassigned">Unassigned Inventory</SelectItem>
+                    {photographers.map((photographer) => (
+                      <SelectItem key={photographer.id} value={photographer.id}>
+                        {photographer.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
+
               <div className="space-y-2">
-                <Label>Serial Number</Label>
-                <Input value={form.serial_number} onChange={(event) => setForm((current) => ({ ...current, serial_number: event.target.value }))} />
+                <Label>Equipment</Label>
+                {unassignedEquipments.length > 0 ? (
+                  <Select
+                    value={selectedExistingEquipmentId || (manualEntryOpen ? "new" : "select")}
+                    onValueChange={handleExistingEquipmentChange}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose existing equipment" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="select">Choose existing equipment</SelectItem>
+                      {unassignedEquipments.map((equipment) => (
+                        <SelectItem key={equipment.id} value={String(equipment.id)}>
+                          {equipment.name}{equipment.serial_number ? ` - ${equipment.serial_number}` : ""}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value="new">Add new equipment</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div className="rounded-md border border-dashed border-border/70 p-3 text-sm text-muted-foreground">
+                    No unassigned equipment is available.
+                  </div>
+                )}
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Issue Date</Label>
-              <Input type="date" value={form.issue_date} onChange={(event) => setForm((current) => ({ ...current, issue_date: event.target.value }))} />
-            </div>
-            <div className="grid gap-3 sm:grid-cols-3">
+
+              {selectedExistingEquipment && (
+                <div className="rounded-md border border-border/70 bg-background/70 p-3 text-sm">
+                  <div className="font-medium">{selectedExistingEquipment.name}</div>
+                  <div className="text-muted-foreground">
+                    {selectedExistingEquipment.serial_number ? `Serial ${selectedExistingEquipment.serial_number}` : "No serial number"}
+                    {selectedExistingEquipment.purchase_date ? ` · Purchased ${selectedExistingEquipment.purchase_date}` : ""}
+                  </div>
+                </div>
+              )}
+
+              {!manualEntryOpen && !selectedExistingEquipment && (
+                <Button type="button" variant="outline" onClick={() => handleExistingEquipmentChange("new")}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add New Equipment
+                </Button>
+              )}
+
+              {manualEntryOpen && (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Name</Label>
+                    <Input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Serial Number</Label>
+                    <Input value={form.serial_number} onChange={(event) => setForm((current) => ({ ...current, serial_number: event.target.value }))} />
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-2">
-                <Label>Purchase Date</Label>
-                <Input type="date" value={form.purchase_date} onChange={(event) => setForm((current) => ({ ...current, purchase_date: event.target.value }))} />
+                <Label>Issue Date</Label>
+                <Input type="date" value={form.issue_date} onChange={(event) => setForm((current) => ({ ...current, issue_date: event.target.value }))} />
               </div>
+
               <div className="space-y-2">
-                <Label>Purchase Cost</Label>
-                <Input type="number" min="0" step="0.01" value={form.purchase_cost} onChange={(event) => setForm((current) => ({ ...current, purchase_cost: event.target.value }))} />
+                <div className="flex items-center justify-between gap-3">
+                  <Label>Admin Reference Photos</Label>
+                  <Button type="button" variant="outline" size="sm" onClick={() => setFinancePanelOpen((open) => !open)}>
+                    {financePanelOpen ? "Hide Purchase" : "Purchase / Expense"}
+                  </Button>
+                </div>
+                <Input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={(event) => setForm((current) => ({
+                    ...current,
+                    photos: Array.from(event.target.files || []),
+                  }))}
+                />
+                <p className="text-xs text-muted-foreground">
+                  These private admin photos are visible to the assigned photographer for verification.
+                </p>
               </div>
-              <div className="space-y-2">
-                <Label>Vendor</Label>
-                <Input value={form.vendor} onChange={(event) => setForm((current) => ({ ...current, vendor: event.target.value }))} />
-              </div>
             </div>
-            <div className="flex items-center gap-2 rounded-md border border-border/70 p-3">
-              <input
-                id="add-equipment-expense"
-                type="checkbox"
-                checked={form.add_to_expense}
-                onChange={(event) => setForm((current) => ({ ...current, add_to_expense: event.target.checked }))}
-                className="h-4 w-4"
-              />
-              <Label htmlFor="add-equipment-expense">Add this equipment as an accounting expense</Label>
-            </div>
-            <div className="space-y-2">
-              <Label>Expense Receipt</Label>
-              <Input
-                type="file"
-                accept="image/*,.pdf"
-                onChange={(event) => setForm((current) => ({
-                  ...current,
-                  receipt: event.target.files?.[0] || null,
-                }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Admin Reference Photos</Label>
-              <Input
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={(event) => setForm((current) => ({
-                  ...current,
-                  photos: Array.from(event.target.files || []),
-                }))}
-              />
-              <p className="text-xs text-muted-foreground">
-                These admin-uploaded photos are private and visible to the assigned photographer for verification.
-              </p>
-            </div>
+            {financePanelOpen && renderFinancialPanel(
+              form,
+              setForm,
+              "add-equipment-expense",
+              "Add this equipment as an accounting expense",
+            )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button onClick={submitEquipment}>Add Equipment</Button>
+            <Button variant="outline" onClick={() => {
+              setDialogOpen(false);
+              setSelectedExistingEquipmentId("");
+              setManualEntryOpen(false);
+              setFinancePanelOpen(false);
+            }}>Cancel</Button>
+            <Button onClick={submitEquipment} disabled={busyId === selectedExistingEquipment?.id}>
+              {selectedExistingEquipment ? "Assign Equipment" : "Add Equipment"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={Boolean(editingEquipment)} onOpenChange={(open) => !open && setEditingEquipment(null)}>
-        <DialogContent>
+      <Dialog open={Boolean(editingEquipment)} onOpenChange={(open) => {
+        if (!open) {
+          setEditingEquipment(null);
+          setEditFinancePanelOpen(false);
+        }
+      }}>
+        <DialogContent className={editFinancePanelOpen ? "max-w-5xl" : "max-w-2xl"}>
           <DialogHeader>
             <DialogTitle>Edit Equipment</DialogTitle>
             <DialogDescription>
               Update assigned equipment details and add more private admin reference photos.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-2">
-            <div className="space-y-2">
-              <Label>Photographer</Label>
-              <Select value={editForm.photographer_id || "unassigned"} onValueChange={(value) => setEditForm((current) => ({ ...current, photographer_id: value === "unassigned" ? "" : value }))}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select photographer" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="unassigned">Unassigned Inventory</SelectItem>
-                  {photographers.map((photographer) => (
-                    <SelectItem key={photographer.id} value={photographer.id}>
-                      {photographer.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
+          <div className={editFinancePanelOpen ? "grid gap-5 py-2 lg:grid-cols-[minmax(0,1fr)_340px]" : "grid gap-4 py-2"}>
+            <div className="space-y-4">
               <div className="space-y-2">
-                <Label>Name</Label>
-                <Input value={editForm.name} onChange={(event) => setEditForm((current) => ({ ...current, name: event.target.value }))} />
+                <Label>Photographer</Label>
+                <Select value={editForm.photographer_id || "unassigned"} onValueChange={(value) => setEditForm((current) => ({ ...current, photographer_id: value === "unassigned" ? "" : value }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select photographer" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unassigned">Unassigned Inventory</SelectItem>
+                    {photographers.map((photographer) => (
+                      <SelectItem key={photographer.id} value={photographer.id}>
+                        {photographer.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Name</Label>
+                  <Input value={editForm.name} onChange={(event) => setEditForm((current) => ({ ...current, name: event.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Serial Number</Label>
+                  <Input value={editForm.serial_number} onChange={(event) => setEditForm((current) => ({ ...current, serial_number: event.target.value }))} />
+                </div>
+              </div>
+
               <div className="space-y-2">
-                <Label>Serial Number</Label>
-                <Input value={editForm.serial_number} onChange={(event) => setEditForm((current) => ({ ...current, serial_number: event.target.value }))} />
+                <Label>Issue Date</Label>
+                <Input type="date" value={editForm.issue_date} onChange={(event) => setEditForm((current) => ({ ...current, issue_date: event.target.value }))} />
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Issue Date</Label>
-              <Input type="date" value={editForm.issue_date} onChange={(event) => setEditForm((current) => ({ ...current, issue_date: event.target.value }))} />
-            </div>
-            <div className="grid gap-3 sm:grid-cols-3">
+
               <div className="space-y-2">
-                <Label>Purchase Date</Label>
-                <Input type="date" value={editForm.purchase_date} onChange={(event) => setEditForm((current) => ({ ...current, purchase_date: event.target.value }))} />
+                <div className="flex items-center justify-between gap-3">
+                  <Label>Add Admin Reference Photos</Label>
+                  <Button type="button" variant="outline" size="sm" onClick={() => setEditFinancePanelOpen((open) => !open)}>
+                    {editFinancePanelOpen ? "Hide Purchase" : "Purchase / Expense"}
+                  </Button>
+                </div>
+                <Input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={(event) => setEditForm((current) => ({
+                    ...current,
+                    photos: Array.from(event.target.files || []),
+                  }))}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Admins can add more reference photos while editing equipment; existing photos stay attached.
+                </p>
               </div>
-              <div className="space-y-2">
-                <Label>Purchase Cost</Label>
-                <Input type="number" min="0" step="0.01" value={editForm.purchase_cost} onChange={(event) => setEditForm((current) => ({ ...current, purchase_cost: event.target.value }))} />
-              </div>
-              <div className="space-y-2">
-                <Label>Vendor</Label>
-                <Input value={editForm.vendor} onChange={(event) => setEditForm((current) => ({ ...current, vendor: event.target.value }))} />
-              </div>
             </div>
-            <div className="flex items-center gap-2 rounded-md border border-border/70 p-3">
-              <input
-                id="edit-equipment-expense"
-                type="checkbox"
-                checked={editForm.add_to_expense}
-                onChange={(event) => setEditForm((current) => ({ ...current, add_to_expense: event.target.checked }))}
-                className="h-4 w-4"
-              />
-              <Label htmlFor="edit-equipment-expense">Add or update this equipment as an accounting expense</Label>
-            </div>
-            <div className="space-y-2">
-              <Label>Expense Receipt</Label>
-              <Input
-                type="file"
-                accept="image/*,.pdf"
-                onChange={(event) => setEditForm((current) => ({
-                  ...current,
-                  receipt: event.target.files?.[0] || null,
-                }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Add Admin Reference Photos</Label>
-              <Input
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={(event) => setEditForm((current) => ({
-                  ...current,
-                  photos: Array.from(event.target.files || []),
-                }))}
-              />
-              <p className="text-xs text-muted-foreground">
-                Admins can add more reference photos while editing equipment; existing photos stay attached.
-              </p>
-            </div>
+            {editFinancePanelOpen && renderFinancialPanel(
+              editForm,
+              setEditForm,
+              "edit-equipment-expense",
+              "Add or update this equipment as an accounting expense",
+            )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingEquipment(null)}>Cancel</Button>
+            <Button variant="outline" onClick={() => {
+              setEditingEquipment(null);
+              setEditFinancePanelOpen(false);
+            }}>Cancel</Button>
             <Button onClick={submitEquipmentEdit} disabled={busyId === editingEquipment?.id}>
               Save Equipment
             </Button>

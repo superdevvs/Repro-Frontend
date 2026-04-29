@@ -15,7 +15,7 @@ export type PhotographerEquipmentPhoto = {
 
 export type PhotographerEquipment = {
   id: number;
-  photographer_id: number;
+  photographer_id: number | null;
   photographer?: {
     id: number;
     name: string;
