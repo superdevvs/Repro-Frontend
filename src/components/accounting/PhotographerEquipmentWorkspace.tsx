@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -58,6 +59,11 @@ const emptyForm = {
   photos: [] as File[],
 };
 
+const getApiErrorMessage = (error: unknown, fallback: string) => {
+  const apiMessage = (error as any)?.response?.data?.message;
+  return typeof apiMessage === "string" && apiMessage.trim() ? apiMessage : fallback;
+};
+
 export function PhotographerEquipmentWorkspace() {
   const { toast } = useToast();
   const [equipments, setEquipments] = useState<PhotographerEquipment[]>([]);
@@ -96,7 +102,7 @@ export function PhotographerEquipmentWorkspace() {
       console.error("Failed to load photographer equipments", error);
       toast({
         title: "Unable to load equipments",
-        description: "Please refresh and try again.",
+        description: getApiErrorMessage(error, "Please refresh and try again."),
         variant: "destructive",
       });
     } finally {
@@ -140,7 +146,7 @@ export function PhotographerEquipmentWorkspace() {
       console.error("Failed to create photographer equipment", error);
       toast({
         title: "Could not assign equipment",
-        description: "Please check the fields and try again.",
+        description: getApiErrorMessage(error, "Please check the fields and try again."),
         variant: "destructive",
       });
     }
@@ -181,7 +187,7 @@ export function PhotographerEquipmentWorkspace() {
       console.error("Failed to update photographer equipment", error);
       toast({
         title: "Could not update equipment",
-        description: "Please check the fields and try again.",
+        description: getApiErrorMessage(error, "Please check the fields and try again."),
         variant: "destructive",
       });
     } finally {
@@ -199,7 +205,7 @@ export function PhotographerEquipmentWorkspace() {
       console.error("Equipment action failed", error);
       toast({
         title: "Action failed",
-        description: "Please try again.",
+        description: getApiErrorMessage(error, "Please try again."),
         variant: "destructive",
       });
     } finally {
@@ -375,6 +381,9 @@ export function PhotographerEquipmentWorkspace() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Add Equipment</DialogTitle>
+            <DialogDescription>
+              Assign equipment to a photographer and upload private admin reference photos now or later.
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-2">
             <div className="space-y-2">
@@ -433,6 +442,9 @@ export function PhotographerEquipmentWorkspace() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Equipment</DialogTitle>
+            <DialogDescription>
+              Update assigned equipment details and add more private admin reference photos.
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-2">
             <div className="space-y-2">
