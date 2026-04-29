@@ -1000,9 +1000,10 @@ export function MediaViewer({
     slideshowAvailable;
   const fitMediaClassName =
     'block h-auto max-h-full min-h-0 w-auto max-w-full min-w-0 select-none object-contain object-center rounded-none shadow-none lg:rounded-xl lg:shadow-2xl';
+  const showEditedStageToolbar = isImg && !currentFileIsRaw;
   const mediaViewerToolbar = isImg ? (
-    <div className="min-w-0 max-w-full overflow-x-auto pb-0.5 md:justify-self-end md:overflow-visible md:pb-0">
-      <div className="ml-auto flex w-max items-center gap-0.5 rounded-xl border border-white/10 bg-black/45 p-1 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-md">
+    <div className="min-w-0 max-w-full overflow-x-auto rounded-xl">
+      <div className="ml-auto flex w-max max-w-full items-center gap-0.5 rounded-xl border border-white/10 bg-black/45 p-1 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-md">
         {canViewFullSize && (
           <>
             <Button
@@ -1351,20 +1352,26 @@ export function MediaViewer({
                       {!isClient && currentFile.fileSize && <span>{formatViewerFileSize(currentFile.fileSize)}</span>}
                     </div>
                   </div>
-                  {mediaViewerToolbar}
+                  {!showEditedStageToolbar && mediaViewerToolbar}
                   {!isImg && (
                     <p className="hidden justify-self-end text-[11px] text-white/55 md:block">Use ← → to navigate • ESC to close</p>
                   )}
                 </div>
 
                   <div className="min-h-0 min-w-0 px-1.5 pb-1.5 pt-1.5 sm:px-2.5 sm:pb-2.5 sm:pt-2 lg:px-1.5 lg:pb-1.5 lg:pt-1.5 2xl:px-2 2xl:pb-2">
+                    <div className="relative h-full min-h-0 min-w-0 overflow-hidden bg-black/75 sm:min-h-[56dvh] sm:rounded-lg lg:min-h-0 lg:rounded-lg lg:bg-black/50 xl:rounded-xl">
+                      {showEditedStageToolbar && mediaViewerToolbar && (
+                        <div className="absolute right-3 top-3 z-30 max-w-[calc(100%-1.5rem)] overflow-x-auto rounded-xl">
+                          {mediaViewerToolbar}
+                        </div>
+                      )}
                     <div
                       ref={zoomStageRef}
-                      className={`relative flex h-full min-h-0 min-w-0 w-full items-center justify-center bg-black/75 p-0 sm:min-h-[56dvh] sm:rounded-lg sm:p-1.5 lg:min-h-0 lg:rounded-lg lg:bg-black/50 lg:p-1 xl:rounded-xl xl:p-1.5 ${
+                      className={`absolute inset-0 flex min-h-0 min-w-0 items-center justify-center p-0 sm:p-1.5 lg:p-1 xl:p-1.5 ${
                         zoom > 1
                           ? `${isPanningZoomStage ? 'cursor-grabbing' : 'cursor-grab'} touch-none overflow-auto`
                           : 'overflow-hidden'
-                      }`}
+                      } ${showEditedStageToolbar ? 'pt-12 sm:pt-12 lg:pt-12 xl:pt-12' : ''}`}
                       onPointerDown={handleZoomStagePointerDown}
                       onPointerMove={handleZoomStagePointerMove}
                       onPointerUp={handleZoomStagePointerUp}
@@ -1444,6 +1451,7 @@ export function MediaViewer({
                           <p className="text-sm sm:text-base">{displayFilename}</p>
                         </div>
                       )}
+                    </div>
                     </div>
                   </div>
 
