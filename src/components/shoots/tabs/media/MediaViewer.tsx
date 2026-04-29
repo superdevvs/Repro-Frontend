@@ -1225,7 +1225,7 @@ export function MediaViewer({
               <div className="grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md">
                 {/* Top Metadata Bar */}
                 <div className="flex items-start justify-between gap-2 border-b border-white/10 px-2.5 py-2 sm:px-3 sm:py-2.5 lg:gap-3 lg:px-3 lg:py-2 2xl:px-3 2xl:py-2">
-                  <div className="min-w-0 flex-1 pr-10">
+                  <div className="min-w-0 flex-1 pr-10 lg:pr-3">
                     <p className="truncate text-[13px] font-semibold text-white sm:text-sm lg:text-[15px] xl:text-base">{displayFilename}</p>
                     <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-white/60 sm:text-[11px]">
                       <span>{currentIndex + 1} of {files.length}</span>
@@ -1233,7 +1233,66 @@ export function MediaViewer({
                       {!isClient && currentFile.fileSize && <span>{formatViewerFileSize(currentFile.fileSize)}</span>}
                     </div>
                   </div>
-                  {!isImg && (
+                  {isImg ? (
+                    <div className="hidden shrink-0 flex-wrap items-center justify-end gap-1 rounded-xl border border-white/10 bg-black/40 p-1 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] lg:flex">
+                      {canViewFullSize && (
+                        <div className="flex shrink-0 items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className={`h-7 px-2.5 text-[11px] text-white hover:bg-white/15 ${previewMode === 'web' ? 'bg-white/10' : ''}`}
+                            onClick={() => setPreviewMode('web')}
+                            title="Use web-sized preview"
+                          >
+                            Web size
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className={`h-7 px-2.5 text-[11px] text-white hover:bg-white/15 ${previewMode === 'full' ? 'bg-white/10' : ''}`}
+                            onClick={() => setPreviewMode('full')}
+                            disabled={!fullSizeAvailable}
+                            title={fullSizeAvailable ? 'Use full-size preview' : 'Full-size preview unavailable'}
+                          >
+                            Full size
+                          </Button>
+                          <span className="mx-1 hidden h-5 w-px bg-white/10 xl:block" aria-hidden />
+                        </div>
+                      )}
+                      <div className="flex shrink-0 items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-white hover:bg-white/15"
+                          onClick={handleZoomOut}
+                          disabled={zoom <= 0.5}
+                          title="Zoom out (-)"
+                        >
+                          <span className="text-sm">−</span>
+                        </Button>
+                        <span className="min-w-[3.25rem] text-center text-[11px] font-medium text-white">{Math.round(zoom * 100)}%</span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-white hover:bg-white/15"
+                          onClick={handleZoomIn}
+                          disabled={zoom >= MAX_MEDIA_VIEWER_ZOOM}
+                          title="Zoom in (+)"
+                        >
+                          <span className="text-sm">+</span>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2.5 text-[11px] text-white hover:bg-white/15"
+                          onClick={handleResetZoom}
+                          title="Reset zoom (0)"
+                        >
+                          Reset
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
                     <p className="hidden text-[11px] text-white/55 lg:block">Use ← → to navigate • ESC to close</p>
                   )}
                 </div>
@@ -1241,10 +1300,10 @@ export function MediaViewer({
                   <div className="min-h-0 min-w-0 px-1.5 pb-1.5 pt-1.5 sm:px-2.5 sm:pb-2.5 sm:pt-2 lg:px-1.5 lg:pb-1.5 lg:pt-1.5 2xl:px-2 2xl:pb-2">
                     <div
                       ref={zoomStageRef}
-                      className={`relative grid h-full min-h-0 min-w-0 w-full bg-black/75 p-0 sm:min-h-[56dvh] sm:rounded-lg sm:p-1.5 lg:min-h-0 lg:rounded-lg lg:bg-black/50 lg:p-1 xl:rounded-xl xl:p-1.5 ${
+                      className={`relative flex h-full min-h-0 min-w-0 w-full items-center justify-center bg-black/75 p-0 sm:min-h-[56dvh] sm:rounded-lg sm:p-1.5 lg:min-h-0 lg:rounded-lg lg:bg-black/50 lg:p-1 xl:rounded-xl xl:p-1.5 ${
                         zoom > 1
                           ? `${isPanningZoomStage ? 'cursor-grabbing' : 'cursor-grab'} touch-none overflow-auto`
-                          : 'place-items-center overflow-hidden'
+                          : 'overflow-hidden'
                       }`}
                       onPointerDown={handleZoomStagePointerDown}
                       onPointerMove={handleZoomStagePointerMove}
@@ -1272,65 +1331,6 @@ export function MediaViewer({
                         >
                           <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6" />
                         </Button>
-                      )}
-                      {isImg && (
-                        <div className="absolute right-2 top-2 z-20 hidden max-w-[calc(100%-1rem)] items-center justify-end gap-1 overflow-x-auto rounded-xl border border-white/10 bg-black/60 p-1 text-white shadow-2xl backdrop-blur-md lg:flex">
-                          {canViewFullSize && (
-                            <div className="flex shrink-0 items-center gap-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className={`h-7 px-2.5 text-[11px] text-white hover:bg-white/15 sm:h-8 sm:text-xs ${previewMode === 'web' ? 'bg-white/10' : ''}`}
-                                onClick={() => setPreviewMode('web')}
-                                title="Use web-sized preview"
-                              >
-                                Web size
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className={`h-7 px-2.5 text-[11px] text-white hover:bg-white/15 sm:h-8 sm:text-xs ${previewMode === 'full' ? 'bg-white/10' : ''}`}
-                                onClick={() => setPreviewMode('full')}
-                                disabled={!fullSizeAvailable}
-                                title={fullSizeAvailable ? 'Use full-size preview' : 'Full-size preview unavailable'}
-                              >
-                                Full size
-                              </Button>
-                            </div>
-                          )}
-                          <div className="flex shrink-0 items-center gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-white hover:bg-white/15 sm:h-8 sm:w-8"
-                              onClick={handleZoomOut}
-                              disabled={zoom <= 0.5}
-                              title="Zoom out"
-                            >
-                              <span className="text-sm">−</span>
-                            </Button>
-                            <span className="min-w-[3.5rem] text-center text-[11px] font-medium text-white sm:min-w-[4rem] sm:text-xs">{Math.round(zoom * 100)}%</span>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-white hover:bg-white/15 sm:h-8 sm:w-8"
-                              onClick={handleZoomIn}
-                              disabled={zoom >= MAX_MEDIA_VIEWER_ZOOM}
-                              title="Zoom in"
-                            >
-                              <span className="text-sm">+</span>
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 text-[11px] text-white hover:bg-white/15 sm:h-8 sm:text-xs"
-                              onClick={handleResetZoom}
-                              title="Reset zoom (0)"
-                            >
-                              Reset
-                            </Button>
-                          </div>
-                        </div>
                       )}
                       {isImg && canViewFullSize && (
                         <div className="absolute left-2 top-2 z-10 flex items-center gap-1 rounded-full border border-white/10 bg-black/55 p-1 backdrop-blur-md lg:hidden">
@@ -1390,18 +1390,28 @@ export function MediaViewer({
                         </div>
                       )}
                       {isImg ? (
-                        <div
-                          className={`flex shrink-0 items-center justify-center ${zoom > 1 ? 'relative' : 'h-auto max-h-full w-auto max-w-full'}`}
-                          style={zoomedImageViewportStyle}
-                        >
+                        zoom > 1 ? (
+                          <div
+                            className="relative flex shrink-0 items-center justify-center"
+                            style={zoomedImageViewportStyle}
+                          >
+                            <img
+                              src={imageUrl}
+                              alt={displayFilename}
+                              className="h-full w-full select-none object-contain object-center rounded-none shadow-none lg:rounded-xl lg:shadow-2xl"
+                              loading="eager"
+                              draggable={false}
+                            />
+                          </div>
+                        ) : (
                           <img
                             src={imageUrl}
                             alt={displayFilename}
-                            className={`max-h-full max-w-full select-none object-contain object-center rounded-none shadow-none lg:rounded-xl lg:shadow-2xl ${zoom > 1 ? 'h-full w-full' : 'h-auto w-auto'}`}
+                            className="max-h-full max-w-full select-none object-contain object-center rounded-none shadow-none lg:rounded-xl lg:shadow-2xl"
                             loading="eager"
                             draggable={false}
                           />
-                        </div>
+                        )
                         ) : isVid ? (
                         videoUrl ? (
                           <video
