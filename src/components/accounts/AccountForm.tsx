@@ -42,6 +42,7 @@ import { STATE_OPTIONS } from "@/utils/stateUtils";
 import { Upload, FileText, X, Camera, Loader2, MapPin } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { useServices } from "@/hooks/useServices";
+import { useServiceCategories } from "@/hooks/useServiceCategories";
 import { useServiceGroups } from "@/hooks/useServiceGroups";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { usePermission } from "@/hooks/usePermission";
@@ -54,6 +55,7 @@ import {
 } from "@/components/ui/drawer";
 import { useQueryClient } from "@tanstack/react-query";
 import { analyzeEmailInput, normalizeEmailHealth } from "@/utils/emailHealth";
+import { getCategorySpecialtyId } from "@/utils/photographerSpecialties";
 
 // Define allowed roles for the form
 type FormRole = 'superadmin' | 'admin' | 'editing_manager' | 'photographer' | 'client' | 'editor' | 'salesRep';
@@ -1010,35 +1012,51 @@ export function AccountForm({
   };
 
   // Dynamic services from API (synced with Scheduling Settings)
-  // Stores service IDs, not names - for stable references
+  // Photographer capabilities are selected by category. Legacy service IDs are still recognized.
   const { data: servicesData, isLoading: isLoadingServices } = useServices();
+  const { data: serviceCategoriesData, isLoading: isLoadingCategories } = useServiceCategories();
   const serviceOptions = React.useMemo(() => {
     if (!servicesData || servicesData.length === 0) return [];
     return servicesData.filter((s) => s.active !== false);
   }, [servicesData]);
+  const serviceCategories = React.useMemo(() => {
+    if (!Array.isArray(serviceCategoriesData)) return [];
 
-  // Group services by category for organized display
-  const groupedServices = React.useMemo(() => {
-    if (!serviceOptions.length) return [];
-    const groups: Record<string, typeof serviceOptions> = {};
-    for (const s of serviceOptions) {
-      const cat = s.category || 'Other';
-      if (!groups[cat]) groups[cat] = [];
-      groups[cat].push(s);
+    return serviceCategoriesData
+      .map((category: any) => ({
+        id: String(category.id),
+        name: String(category.name || '').trim(),
+      }))
+      .filter((category) => category.id && category.name);
+  }, [serviceCategoriesData]);
+
+  const categoryCapabilityOptions = React.useMemo(() => {
+    const groups = new Map<string, { id: string; label: string; services: typeof serviceOptions }>();
+
+    for (const category of serviceCategories) {
+      const id = getCategorySpecialtyId(category);
+      groups.set(id, { id, label: category.name, services: [] });
     }
-    // Sort: named categories first alphabetically, "Other" last
-    return Object.entries(groups).sort(([a], [b]) => {
-      if (a === 'Other') return 1;
-      if (b === 'Other') return -1;
-      return a.localeCompare(b);
+
+    for (const s of serviceOptions) {
+      const label = s.category || 'Other';
+      const id = getCategorySpecialtyId({ id: s.category_id, name: label });
+      const existing = groups.get(id);
+
+      if (existing) {
+        existing.services.push(s);
+      } else {
+        groups.set(id, { id, label, services: [s] });
+      }
+    }
+
+    return Array.from(groups.values()).sort((a, b) => {
+      if (a.label === 'Other') return 1;
+      if (b.label === 'Other') return -1;
+      return a.label.localeCompare(b.label);
     });
-  }, [serviceOptions]);
-  
-  // Helper to get service name by ID for display
-  const getServiceName = (serviceId: string) => {
-    const service = servicesData?.find(s => s.id === serviceId);
-    return service?.name || serviceId;
-  };
+  }, [serviceCategories, serviceOptions]);
+  const isLoadingCategoryCapabilities = isLoadingServices || isLoadingCategories;
 
   // watch role to toggle specialties UI
   const isSalesRep = currentRole === "salesRep";
@@ -1823,54 +1841,59 @@ export function AccountForm({
                   name="specialties"
                   render={({ field }) => {
                     const valueArray: string[] = Array.isArray(field.value) ? field.value : [];
-                    const toggle = (opt: string) => {
-                      if (valueArray.includes(opt)) field.onChange(valueArray.filter((v) => v !== opt));
-                      else field.onChange([...valueArray, opt]);
+                    const toggle = (categoryId: string, serviceIds: string[]) => {
+                      const selected = valueArray.includes(categoryId) || serviceIds.some((id) => valueArray.includes(id));
+                      const categoryServiceIds = new Set(serviceIds);
+
+                      if (selected) {
+                        field.onChange(valueArray.filter((value) => value !== categoryId && !categoryServiceIds.has(value)));
+                        return;
+                      }
+
+                      field.onChange([
+                        ...valueArray.filter((value) => !categoryServiceIds.has(value)),
+                        categoryId,
+                      ]);
                     };
 
                     return (
                       <FormItem>
                         <FormLabel>Service Capabilities</FormLabel>
                         <p className="text-xs text-muted-foreground mb-2">
-                          Select services this photographer can perform
+                          Select categories this photographer can shoot
                         </p>
-                        {isLoadingServices ? (
+                        {isLoadingCategoryCapabilities ? (
                           <div className="flex items-center gap-2 py-4 text-muted-foreground">
                             <Loader2 className="h-4 w-4 animate-spin" />
-                            <span className="text-sm">Loading services...</span>
+                            <span className="text-sm">Loading categories...</span>
                           </div>
-                        ) : serviceOptions.length === 0 ? (
+                        ) : categoryCapabilityOptions.length === 0 ? (
                           <p className="text-sm text-muted-foreground py-2">
-                            No services configured. Add services in Scheduling Settings.
+                            No categories configured. Add services in Scheduling Settings.
                           </p>
                         ) : (
-                          <div className="space-y-3 mt-2">
-                            {groupedServices.map(([category, services]) => (
-                              <div key={category}>
-                                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">{category}</h4>
-                                <div className="flex flex-wrap gap-1.5">
-                                  {services.map((service) => {
-                                    const active = valueArray.includes(service.id);
-                                    return (
-                                      <button
-                                        key={service.id}
-                                        type="button"
-                                        onClick={() => toggle(service.id)}
-                                        title={service.description || service.name}
-                                        className={cn(
-                                          "px-3 py-1.5 rounded-full text-sm border transition",
-                                          active
-                                            ? "bg-primary/10 text-primary border-primary/30 shadow-sm"
-                                            : "bg-background text-muted-foreground border-border/70 hover:bg-muted/60 hover:text-foreground"
-                                        )}
-                                      >
-                                        {service.name}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            ))}
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {categoryCapabilityOptions.map((category) => {
+                              const serviceIds = category.services.map((service) => service.id);
+                              const active = valueArray.includes(category.id) || serviceIds.some((id) => valueArray.includes(id));
+
+                              return (
+                                <button
+                                  key={category.id}
+                                  type="button"
+                                  onClick={() => toggle(category.id, serviceIds)}
+                                  title={`${category.services.length} services`}
+                                  className={cn(
+                                    "px-3 py-1.5 rounded-full text-sm border transition",
+                                    active
+                                      ? "bg-primary/10 text-primary border-primary/30 shadow-sm"
+                                      : "bg-background text-muted-foreground border-border/70 hover:bg-muted/60 hover:text-foreground"
+                                  )}
+                                >
+                                  {category.label}
+                                </button>
+                              );
+                            })}
                           </div>
                         )}
                         <FormMessage />

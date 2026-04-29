@@ -34,6 +34,7 @@ import { to12Hour, to24Hour } from '@/utils/availabilityUtils';
 import API_ROUTES from '@/lib/api';
 import { CheckCircle2, Check, Clock } from "lucide-react";
 import { getAvatarUrl } from '@/utils/defaultAvatars';
+import { getCategorySpecialtyId, hasCategorySpecialty } from '@/utils/photographerSpecialties';
 
 interface SchedulingPhotographer {
   id: string;
@@ -514,25 +515,43 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
   // Which category is currently being assigned in the picker (null = default/single mode)
   const [activeCategoryForPicker, setActiveCategoryForPicker] = useState<string | null>(null);
 
-  // Get service IDs for the active category (used to filter photographers by specialties)
-  const activeServiceIdsForPicker = useMemo(() => {
-    if (!activeCategoryForPicker) return new Set<string>();
+  // Get category capability and legacy service IDs for the active category.
+  const activeCategoryCapabilityForPicker = useMemo(() => {
+    const empty = {
+      categorySpecialtyId: '',
+      categoryNameSpecialtyId: '',
+      serviceIds: new Set<string>(),
+    };
+    if (!activeCategoryForPicker) return empty;
     const services = serviceCategories.find(([cat]) => cat === activeCategoryForPicker)?.[1] || [];
-    return new Set(services.map(s => s.id));
+    if (!services.length) return empty;
+
+    const firstService = services[0];
+    const category = firstService.category || { name: activeCategoryForPicker };
+
+    return {
+      categorySpecialtyId: getCategorySpecialtyId(category),
+      categoryNameSpecialtyId: getCategorySpecialtyId({ name: activeCategoryForPicker }),
+      serviceIds: new Set(services.map(s => s.id)),
+    };
   }, [activeCategoryForPicker, serviceCategories]);
 
   // Filter photographers to only those whose specialties match the active category's services
   const filteredPhotographersForCategory = useMemo(() => {
-    if (!isMultiCategory || activeServiceIdsForPicker.size === 0) return null; // null = no filtering
+    if (!isMultiCategory || activeCategoryCapabilityForPicker.serviceIds.size === 0) return null; // null = no filtering
     return photographers.filter(p => {
       const specialties: string[] = (p as any).metadata?.specialties
         || (p as any).specialties
         || [];
       if (!specialties.length) return true; // No specialties defined = show (can do anything)
-      // Show if photographer has ANY of the active category's service IDs in their specialties
-      return specialties.some(specId => activeServiceIdsForPicker.has(String(specId)));
+      return hasCategorySpecialty(
+        specialties,
+        activeCategoryCapabilityForPicker.categorySpecialtyId,
+        activeCategoryCapabilityForPicker.categoryNameSpecialtyId,
+        activeCategoryCapabilityForPicker.serviceIds,
+      );
     });
-  }, [isMultiCategory, activeServiceIdsForPicker, photographers]);
+  }, [isMultiCategory, activeCategoryCapabilityForPicker, photographers]);
 
   // Helper: get photographer ID for a category (from servicePhotographers map)
   const getPhotographerForCategory = (categoryName: string): string => {
@@ -1009,7 +1028,7 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
       : photographersWithDistance;
 
     // Multi-category mode: filter by specialties for the active category
-    if (isMultiCategory && activeCategoryForPicker && activeServiceIdsForPicker.size > 0) {
+    if (isMultiCategory && activeCategoryForPicker && activeCategoryCapabilityForPicker.serviceIds.size > 0) {
       const allowedIds = filteredPhotographersForCategory
         ? new Set(filteredPhotographersForCategory.map(p => String(p.id)))
         : null;
@@ -1070,7 +1089,7 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
     });
 
     return sorted;
-  }, [photographersWithDistance, photographers, searchQuery, sortBy, showAllPhotographers, photographerAvailability, time, isMultiCategory, activeCategoryForPicker, activeServiceIdsForPicker, filteredPhotographersForCategory]);
+  }, [photographersWithDistance, photographers, searchQuery, sortBy, showAllPhotographers, photographerAvailability, time, isMultiCategory, activeCategoryForPicker, activeCategoryCapabilityForPicker, filteredPhotographersForCategory]);
 
   const renderPhotographerFilters = (mobileDrawer = false) => (
     <div className={cn("space-y-3", mobileDrawer && "space-y-2") }>
