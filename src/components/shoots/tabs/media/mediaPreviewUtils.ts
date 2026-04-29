@@ -6,6 +6,24 @@ export type MediaImageSize = 'thumb' | 'web' | 'medium' | 'large' | 'original';
 const RAW_EXTENSIONS = /\.(nef|cr2|cr3|arw|dng|raf|rw2|orf|pef|srw|3fr|iiq)$/;
 const DERIVATIVE_SUFFIX_REGEX = /([._-](thumb|thumbnail|web|medium|large|full|placeholder))+$/i;
 
+const isRawMediaFile = (file: MediaFile): boolean => {
+  const name = (file.filename || '').toLowerCase();
+  const mime = (file.fileType || '').toLowerCase();
+  const mediaType = (file.media_type || '').toLowerCase();
+
+  return (
+    mediaType === 'raw' ||
+    RAW_EXTENSIONS.test(name) ||
+    mime.includes('nef') ||
+    mime.includes('dng') ||
+    mime.includes('cr2') ||
+    mime.includes('cr3') ||
+    mime.includes('arw') ||
+    mime.includes('raf') ||
+    mime.includes('raw')
+  );
+};
+
 const hasProcessedRawPreview = (file: MediaFile): boolean =>
   Boolean(file.thumbnail_path || file.thumb || file.medium || file.web_path);
 
@@ -158,12 +176,19 @@ export const getMediaViewerImageCandidates = (file: MediaFile): string[] => {
     !placeholderCandidates.includes(explicitDisplayUrl)
       ? [explicitDisplayUrl]
       : [];
-  const preferredCandidates = [
-    ...previewCandidates,
-    ...safeDisplayUrlCandidates,
-    ...thumbCandidates,
-    ...placeholderCandidates,
-  ];
+  const preferredCandidates = isRawMediaFile(file)
+    ? [
+        ...thumbCandidates,
+        ...previewCandidates,
+        ...safeDisplayUrlCandidates,
+        ...placeholderCandidates,
+      ]
+    : [
+        ...previewCandidates,
+        ...safeDisplayUrlCandidates,
+        ...thumbCandidates,
+        ...placeholderCandidates,
+      ];
 
   return Array.from(new Set(preferredCandidates.filter(Boolean)));
 };

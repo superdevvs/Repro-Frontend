@@ -898,8 +898,10 @@ export function MediaViewer({
   const fileExt = currentFile?.filename?.split('.')?.pop()?.toUpperCase();
   const displayFilename = getDisplayMediaFilename(currentFile) || currentFile.filename;
   const mediaType = (currentFile.media_type || '').toLowerCase();
+  const currentFileIsRaw = mediaType === 'raw' || isRawFile(currentFile.filename);
   const fullSizeAvailable = Boolean(
-    fullSizeImageUrl &&
+    !currentFileIsRaw &&
+      fullSizeImageUrl &&
       previewImageUrl &&
       fullSizeImageUrl !== previewImageUrl,
   );
@@ -1233,7 +1235,7 @@ export function MediaViewer({
                   </div>
                   {/* Viewer Controls */}
                   {isImg ? (
-                    <div className="hidden">
+                    <div className="flex w-full min-w-0 flex-wrap items-center justify-start gap-1.5 pt-1 lg:justify-end">
                       {canViewFullSize && (
                         <div className="flex min-w-0 flex-wrap items-center gap-1 rounded-lg bg-black/30 p-1">
                           <Button
@@ -1331,7 +1333,7 @@ export function MediaViewer({
                         </Button>
                       )}
                       {isImg && (
-                        <div className="absolute right-2 top-2 z-10 hidden max-w-[calc(100%-1rem)] flex-wrap items-center justify-end gap-1.5 rounded-xl border border-white/10 bg-black/55 p-1 text-white shadow-2xl backdrop-blur-md lg:flex">
+                        <div className="hidden">
                           {canViewFullSize && (
                             <div className="flex min-w-0 items-center gap-1">
                               <Button
@@ -1454,7 +1456,7 @@ export function MediaViewer({
                           <img
                             src={imageUrl}
                             alt={displayFilename}
-                            className="max-h-full max-w-full select-none object-contain rounded-none shadow-none lg:rounded-xl lg:shadow-2xl"
+                            className="h-full w-full max-h-full max-w-full select-none object-contain object-center rounded-none shadow-none lg:rounded-xl lg:shadow-2xl"
                             loading="eager"
                             draggable={false}
                           />
