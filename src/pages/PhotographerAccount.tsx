@@ -24,13 +24,20 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Camera, CameraIcon, CreditCard, MapPin, Phone, Settings, Upload, User, UserIcon } from 'lucide-react';
+import { Camera, CameraIcon, CreditCard, Eye, MapPin, Phone, Settings, Upload, User, UserIcon, Wrench } from 'lucide-react';
 import { format } from 'date-fns';
 import { ShootsDialogs } from '@/components/dashboard/ShootsDialogs';
 import { ShootData } from '@/types/shoots';
 import { ImageUpload } from '@/components/profile/ImageUpload';
 import API_ROUTES from '@/lib/api';
 import { GoogleCalendarStatusBadge } from '@/components/integrations/GoogleCalendarStatusBadge';
+import {
+  equipmentStatusLabel,
+  listMyPhotographerEquipments,
+  openEquipmentPhoto,
+  type PhotographerEquipment,
+  uploadPhotographerVerificationPhotos,
+} from '@/services/photographerEquipmentService';
 
 // Define form schemas
 const personalInfoSchema = z.object({
@@ -83,7 +90,10 @@ const PhotographerAccount = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const { shoots, updateShoot } = useShoots();
-  const [activeTab, setActiveTab] = useState('personal');
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window === 'undefined') return 'personal';
+    return new URLSearchParams(window.location.search).get('tab') || 'personal';
+  });
   const [selectedShoot, setSelectedShoot] = useState<ShootData | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
@@ -95,6 +105,23 @@ const PhotographerAccount = () => {
   });
   const [isGoogleCalendarLoading, setIsGoogleCalendarLoading] = useState(true);
   const [googleCalendarAction, setGoogleCalendarAction] = useState<'connect' | 'disconnect' | 'resync' | null>(null);
+  const [equipments, setEquipments] = useState<PhotographerEquipment[]>([]);
+  const [isEquipmentLoading, setIsEquipmentLoading] = useState(false);
+  const [equipmentUploads, setEquipmentUploads] = useState<Record<number, File[]>>({});
+  const [uploadingEquipmentId, setUploadingEquipmentId] = useState<number | null>(null);
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      if (value === 'personal') {
+        url.searchParams.delete('tab');
+      } else {
+        url.searchParams.set('tab', value);
+      }
+      window.history.replaceState({}, '', url.toString());
+    }
+  };
 
   // Filter shoots by this photographer
   const photographerShoots = shoots.filter(shoot => 
@@ -115,6 +142,58 @@ const PhotographerAccount = () => {
   
   // Filter completed shoots
   const completedShoots = photographerShoots.filter(shoot => shoot.status === 'completed');
+
+  const fetchEquipments = async () => {
+    setIsEquipmentLoading(true);
+    try {
+      const data = await listMyPhotographerEquipments();
+      setEquipments(data);
+    } catch (error) {
+      console.error('Failed to load photographer equipments', error);
+      toast({
+        title: 'Unable to load equipments',
+        description: 'Please refresh and try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsEquipmentLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'equipments') {
+      fetchEquipments();
+    }
+  }, [activeTab]);
+
+  const handleEquipmentVerificationUpload = async (equipmentId: number) => {
+    const photos = equipmentUploads[equipmentId] || [];
+    if (photos.length === 0) {
+      toast({
+        title: 'Choose photos first',
+        description: 'Select at least one verification photo before submitting.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setUploadingEquipmentId(equipmentId);
+    try {
+      const updated = await uploadPhotographerVerificationPhotos(equipmentId, photos);
+      setEquipments((items) => items.map((item) => (item.id === updated.id ? updated : item)));
+      setEquipmentUploads((uploads) => ({ ...uploads, [equipmentId]: [] }));
+      toast({ title: 'Verification submitted', description: 'Admin review can now approve this equipment.' });
+    } catch (error) {
+      console.error('Failed to upload equipment verification photos', error);
+      toast({
+        title: 'Upload failed',
+        description: 'Please try again with image files under 10 MB.',
+        variant: 'destructive',
+      });
+    } finally {
+      setUploadingEquipmentId(null);
+    }
+  };
 
   // Handle opening upload dialog
   const handleUploadMedia = (shoot: ShootData) => {
@@ -473,11 +552,12 @@ const PhotographerAccount = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <Tabs value={activeTab} onValueChange={setActiveTab}>
+                <Tabs value={activeTab} onValueChange={handleTabChange}>
                   <AutoExpandingTabsList
                     tabs={[
                       { value: 'personal', icon: User, label: 'Personal Info' },
                       { value: 'specialties', icon: Camera, label: 'Specialties' },
+                      { value: 'equipments', icon: Wrench, label: 'Equipments' },
                       { value: 'notifications', icon: Settings, label: 'Preferences' },
                       { value: 'completed-shoots', icon: Upload, label: 'Media' },
                     ]}
@@ -632,6 +712,111 @@ const PhotographerAccount = () => {
                     </Form>
                   </TabsContent>
                   
+                  {/* Equipments Tab */}
+                  <TabsContent value="equipments">
+                    <div className="space-y-4">
+                      {isEquipmentLoading ? (
+                        <div className="rounded-md border p-6 text-sm text-muted-foreground">Loading equipments...</div>
+                      ) : equipments.length === 0 ? (
+                        <div className="rounded-md border p-6 text-sm text-muted-foreground">No equipments assigned.</div>
+                      ) : (
+                        equipments.map((equipment) => {
+                          const referencePhotos = equipment.photos.filter((photo) => photo.type === 'admin_reference');
+                          const verificationPhotos = equipment.photos.filter((photo) => photo.type === 'photographer_verification');
+                          const selectedFiles = equipmentUploads[equipment.id] || [];
+
+                          return (
+                            <Card key={equipment.id} className="border-border/70">
+                              <CardHeader className="space-y-3">
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                  <div>
+                                    <CardTitle className="text-lg">{equipment.name}</CardTitle>
+                                    <CardDescription>
+                                      {equipment.serial_number ? `Serial ${equipment.serial_number}` : 'No serial number'}{equipment.issue_date ? ` · Issued ${equipment.issue_date}` : ''}
+                                    </CardDescription>
+                                  </div>
+                                  <Badge variant={equipment.status === 'verified' ? 'default' : equipment.status === 'rejected' ? 'destructive' : 'outline'}>
+                                    {equipmentStatusLabel(equipment.status)}
+                                  </Badge>
+                                </div>
+                                {equipment.rejection_reason && (
+                                  <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+                                    {equipment.rejection_reason}
+                                  </div>
+                                )}
+                              </CardHeader>
+                              <CardContent className="space-y-4">
+                                <div className="grid gap-4 md:grid-cols-2">
+                                  <div className="space-y-2">
+                                    <h4 className="text-sm font-medium">Admin Reference Photos</h4>
+                                    {referencePhotos.length === 0 ? (
+                                      <p className="text-sm text-muted-foreground">No reference photos uploaded.</p>
+                                    ) : (
+                                      <div className="flex flex-wrap gap-2">
+                                        {referencePhotos.map((photo) => (
+                                          <Button key={photo.id} type="button" variant="outline" size="sm" onClick={() => openEquipmentPhoto(photo)}>
+                                            <Eye className="mr-2 h-4 w-4" />
+                                            {photo.original_name || 'View photo'}
+                                          </Button>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="space-y-2">
+                                    <h4 className="text-sm font-medium">Your Verification Photos</h4>
+                                    {verificationPhotos.length === 0 ? (
+                                      <p className="text-sm text-muted-foreground">No verification photos submitted.</p>
+                                    ) : (
+                                      <div className="flex flex-wrap gap-2">
+                                        {verificationPhotos.map((photo) => (
+                                          <Button key={photo.id} type="button" variant="outline" size="sm" onClick={() => openEquipmentPhoto(photo)}>
+                                            <Eye className="mr-2 h-4 w-4" />
+                                            {photo.original_name || 'View photo'}
+                                          </Button>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {equipment.status !== 'verified' && (
+                                  <div className="rounded-md border bg-muted/30 p-3">
+                                    <div className="grid gap-3 sm:grid-cols-[1fr,auto] sm:items-end">
+                                      <div className="space-y-1.5">
+                                        <FormLabel>Upload Verification Photos</FormLabel>
+                                        <Input
+                                          type="file"
+                                          accept="image/*"
+                                          multiple
+                                          onChange={(event) => setEquipmentUploads((uploads) => ({
+                                            ...uploads,
+                                            [equipment.id]: Array.from(event.target.files || []),
+                                          }))}
+                                        />
+                                        {selectedFiles.length > 0 && (
+                                          <p className="text-xs text-muted-foreground">
+                                            {selectedFiles.length} photo{selectedFiles.length === 1 ? '' : 's'} selected
+                                          </p>
+                                        )}
+                                      </div>
+                                      <Button
+                                        type="button"
+                                        onClick={() => handleEquipmentVerificationUpload(equipment.id)}
+                                        disabled={uploadingEquipmentId === equipment.id}
+                                      >
+                                        {uploadingEquipmentId === equipment.id ? 'Uploading...' : 'Submit'}
+                                      </Button>
+                                    </div>
+                                  </div>
+                                )}
+                              </CardContent>
+                            </Card>
+                          );
+                        })
+                      )}
+                    </div>
+                  </TabsContent>
+
                   {/* Notifications Tab */}
                   <TabsContent value="notifications">
                     <Form {...notificationsForm}>

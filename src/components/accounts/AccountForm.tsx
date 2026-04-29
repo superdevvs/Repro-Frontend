@@ -39,7 +39,7 @@ import { useToast } from "@/hooks/use-toast";
 import { API_BASE_URL } from "@/config/env";
 import type { EmailHealth, RepDetails } from "@/types/auth";
 import { STATE_OPTIONS } from "@/utils/stateUtils";
-import { Upload, FileText, X, Camera, Loader2, MapPin } from "lucide-react";
+import { Upload, FileText, X, Camera, Loader2, MapPin, Plus, Wrench } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { useServices } from "@/hooks/useServices";
 import { useServiceCategories } from "@/hooks/useServiceCategories";
@@ -80,6 +80,22 @@ const parseShootCcEmails = (value?: string) =>
     .split(/[\n,;]+/)
     .map((email) => email.trim().toLowerCase())
     .filter(Boolean);
+
+type EquipmentDraftRow = {
+  id: string;
+  name: string;
+  serialNumber: string;
+  issueDate: string;
+  photos: File[];
+};
+
+const createEquipmentDraftRow = (): EquipmentDraftRow => ({
+  id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
+  name: "",
+  serialNumber: "",
+  issueDate: "",
+  photos: [],
+});
 
 // Create schema with viewer role parameter - superadmin can skip mandatory fields
 const createAccountFormSchema = (viewerRole?: string) => z.object({
@@ -227,6 +243,7 @@ export function AccountForm({
   const [insuranceModalOpen, setInsuranceModalOpen] = useState(false);
   const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
   const [emailWarningOverride, setEmailWarningOverride] = useState(false);
+  const [equipmentRows, setEquipmentRows] = useState<EquipmentDraftRow[]>([]);
   const [serverEmailHealth, setServerEmailHealth] = useState<EmailHealth | undefined>(
     normalizeEmailHealth(initialData?.email_health),
   );
@@ -357,6 +374,7 @@ export function AccountForm({
               : [],
         });
         setAvatarUrl(initialData.avatar || "");
+        setEquipmentRows([]);
       } else {
         form.reset({
           firstName: "",
@@ -409,9 +427,27 @@ export function AccountForm({
         }
 
         setAvatarUrl("");
+        setEquipmentRows([]);
       }
     }
   }, [currentUser?.id, currentUser?.name, initialData, form, open, viewerRole]);
+
+  const updateEquipmentRow = (rowId: string, patch: Partial<EquipmentDraftRow>) => {
+    setEquipmentRows((rows) => rows.map((row) => (row.id === rowId ? { ...row, ...patch } : row)));
+  };
+
+  const addEquipmentRow = () => {
+    setEquipmentRows((rows) => [...rows, createEquipmentDraftRow()]);
+  };
+
+  const removeEquipmentRow = (rowId: string) => {
+    setEquipmentRows((rows) => rows.filter((row) => row.id !== rowId));
+  };
+
+  const activeEquipmentRows = React.useMemo(
+    () => equipmentRows.filter((row) => row.name.trim()),
+    [equipmentRows],
+  );
 
   const repMetadata = (initialData?.metadata as Record<string, any> | undefined) || {};
   const repMetaId = repMetadata.accountRepId || repMetadata.account_rep_id || repMetadata.repId || repMetadata.rep_id;
@@ -919,6 +955,19 @@ export function AccountForm({
       
       if (payload.metadata) {
         formData.append('metadata', JSON.stringify(payload.metadata));
+      }
+
+      if (values.role === 'photographer' && activeEquipmentRows.length > 0) {
+        formData.append('equipments', JSON.stringify(activeEquipmentRows.map((row) => ({
+          name: row.name.trim(),
+          serial_number: row.serialNumber.trim(),
+          issue_date: row.issueDate || null,
+        }))));
+        activeEquipmentRows.forEach((row, index) => {
+          row.photos.forEach((file) => {
+            formData.append(`equipment_reference_photos[${index}][]`, file);
+          });
+        });
       }
 
       const res = await fetch(`${API_BASE_URL}/api/admin/users`, {
@@ -1955,6 +2004,88 @@ export function AccountForm({
                       </FormItem>
                     )}
                   />
+                </div>
+
+                <div className="space-y-3 rounded-lg border border-border/60 bg-muted/30 p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-2">
+                      <Wrench className="h-4 w-4 text-muted-foreground" />
+                      <h3 className="text-sm font-semibold">Equipments</h3>
+                    </div>
+                    {!initialData && (
+                      <Button type="button" variant="outline" size="sm" onClick={addEquipmentRow}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Equipment
+                      </Button>
+                    )}
+                  </div>
+
+                  {initialData ? (
+                    <p className="text-sm text-muted-foreground">
+                      Assigned equipments are managed from Admin Accounting.
+                    </p>
+                  ) : equipmentRows.length === 0 ? (
+                    <div className="rounded-md border border-dashed border-border/70 bg-background px-3 py-4 text-sm text-muted-foreground">
+                      No equipment assigned yet.
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {equipmentRows.map((row, index) => (
+                        <div key={row.id} className="rounded-md border border-border/70 bg-background p-3">
+                          <div className="mb-3 flex items-center justify-between gap-2">
+                            <span className="text-sm font-medium">Equipment {index + 1}</span>
+                            <Button type="button" variant="ghost" size="sm" onClick={() => removeEquipmentRow(row.id)}>
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          <div className="grid gap-3 md:grid-cols-3">
+                            <div className="space-y-1.5">
+                              <FormLabel>Name</FormLabel>
+                              <Input
+                                value={row.name}
+                                onChange={(event) => updateEquipmentRow(row.id, { name: event.target.value })}
+                                placeholder="Camera, iGUIDE machine"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <FormLabel>Serial Number</FormLabel>
+                              <Input
+                                value={row.serialNumber}
+                                onChange={(event) => updateEquipmentRow(row.id, { serialNumber: event.target.value })}
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <FormLabel>Issue Date</FormLabel>
+                              <Input
+                                type="date"
+                                value={row.issueDate}
+                                onChange={(event) => updateEquipmentRow(row.id, { issueDate: event.target.value })}
+                              />
+                            </div>
+                          </div>
+                          <div className="mt-3 space-y-1.5">
+                            <FormLabel>Admin Reference Photos</FormLabel>
+                            <Input
+                              type="file"
+                              accept="image/*"
+                              multiple
+                              onChange={(event) => updateEquipmentRow(row.id, {
+                                photos: Array.from(event.target.files || []),
+                              })}
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Optional photos uploaded by admin now; more can be added later from Admin Accounting Equipments.
+                            </p>
+                            {row.photos.length > 0 && (
+                              <p className="text-xs text-muted-foreground">
+                                {row.photos.length} photo{row.photos.length === 1 ? "" : "s"} selected
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </>
             )}

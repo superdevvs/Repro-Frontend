@@ -41,6 +41,7 @@ import type { ClientBillingItem } from '@/types/clientBilling';
 import { useShoots } from '@/context/ShootsContext';
 import { WeeklyInvoiceReview } from '@/components/invoices/WeeklyInvoiceReview';
 import { PhotographerInvoiceReviewWorkspace } from '@/components/accounting/PhotographerInvoiceReviewWorkspace';
+import { PhotographerEquipmentWorkspace } from '@/components/accounting/PhotographerEquipmentWorkspace';
 import { SalesRepInvoiceReviewWorkspace } from '@/components/accounting/SalesRepInvoiceReviewWorkspace';
 import { EditorEarningsWorkspace } from '@/components/accounting/EditorEarningsWorkspace';
 import { EditingManagerVerificationView } from '@/components/accounting/EditingManagerVerificationView';
@@ -600,6 +601,10 @@ const AccountingPage = () => {
                 title: 'Editor Accounting',
                 description: 'Track snapshot-based editor earnings, payout batches, exports, and reports.',
               },
+              equipments: {
+                title: 'Photographer Equipments',
+                description: 'Manage assigned equipment, verification status, and reminder emails.',
+              },
               'sales-reps': {
                 title: 'Sales Rep Accounting',
                 description: 'Review commission invoices, payout totals, exports, and weekly reports.',
@@ -831,6 +836,12 @@ const AccountingPage = () => {
               {activeTab === 'editors' && accountingMode === 'admin' && (
                 <div className="flex flex-col gap-4 sm:gap-6">
                   <EditorEarningsWorkspace mode="admin" />
+                </div>
+              )}
+
+              {activeTab === 'equipments' && accountingMode === 'admin' && (
+                <div className="flex flex-col gap-4 sm:gap-6">
+                  <PhotographerEquipmentWorkspace />
                 </div>
               )}
 
