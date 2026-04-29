@@ -178,9 +178,9 @@ export const getMediaViewerImageCandidates = (file: MediaFile): string[] => {
       : [];
   const preferredCandidates = isRawMediaFile(file)
     ? [
-        ...thumbCandidates,
         ...previewCandidates,
         ...safeDisplayUrlCandidates,
+        ...thumbCandidates,
         ...placeholderCandidates,
       ]
     : [

@@ -13,6 +13,7 @@ import { UserPreferencesProvider } from './contexts/UserPreferencesContext';
 import { RequestManagerProvider, useRequestManager } from './context/RequestManagerContext';
 import { PhotographerAssignmentProvider, usePhotographerAssignment } from './context/PhotographerAssignmentContext';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { DashboardRouteSkeleton } from '@/components/layout/DashboardRouteSkeleton';
 import { PageTransition } from '@/components/layout/PageTransition';
 import { useIsMobile } from '@/hooks/use-mobile';
 import Index from "./pages/Index";
@@ -110,14 +111,11 @@ const FullScreenSpinner = () => (
   </div>
 );
 
-const DashboardContentFallback = () => (
-  <div className="flex min-h-[320px] flex-1 items-center justify-center bg-background text-muted-foreground">
-    <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-card/70 px-4 py-3 shadow-sm">
-      <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-      <span className="text-sm font-medium">Loading...</span>
-    </div>
-  </div>
-);
+const DashboardRouteFallback = () => {
+  const location = useLocation();
+
+  return <DashboardRouteSkeleton pathname={location.pathname} />;
+};
 
 const getDashboardLayoutClassName = (pathname: string, isMobile: boolean) => {
   if (pathname === '/chat-with-reproai') {
@@ -141,7 +139,7 @@ const DashboardShell = () => {
 
   return (
     <DashboardLayout className={getDashboardLayoutClassName(location.pathname, isMobile)}>
-      <Suspense fallback={<DashboardContentFallback />}>
+      <Suspense fallback={<DashboardRouteFallback />}>
         <Outlet />
       </Suspense>
     </DashboardLayout>
@@ -191,7 +189,7 @@ const PermissionRoute = ({
   resource,
   action = 'view',
   fallbackTo = '/dashboard',
-  loadingFallback = <DashboardContentFallback />,
+  loadingFallback = <DashboardRouteFallback />,
 }: {
   children: JSX.Element;
   resource: string;
@@ -487,7 +485,7 @@ const AppRoutes = () => {
         </PermissionRoute>
       } />
       <Route path="/shared" element={
-        <ProtectedRoute>
+        <ProtectedRoute loadingFallback={<DashboardRouteFallback />}>
           <ShootRoutesWrapper>
             <Shared />
           </ShootRoutesWrapper>
@@ -674,14 +672,14 @@ const AppRoutes = () => {
       } />
       {/* Address lookup testing routes */}
       <Route path="/address-lookup-demo" element={
-        <ProtectedRoute>
+        <ProtectedRoute loadingFallback={<DashboardRouteFallback />}>
           <PageTransition>
             <AddressLookupDemo />
           </PageTransition>
         </ProtectedRoute>
       } />
       <Route path="/book-shoot-enhanced" element={
-        <ProtectedRoute>
+        <ProtectedRoute loadingFallback={<DashboardRouteFallback />}>
           <PageTransition>
             <BookShootWithAddressLookup />
           </PageTransition>
