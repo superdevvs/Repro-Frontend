@@ -1001,7 +1001,7 @@ export function MediaViewer({
   const fitMediaClassName =
     'block h-full max-h-full min-h-0 w-full max-w-full min-w-0 select-none object-contain object-center rounded-none shadow-none lg:rounded-xl lg:shadow-2xl';
   const previewSizeControls = isImg && canViewFullSize ? (
-    <div className="absolute right-3 top-3 z-40 max-w-[calc(100%-1.5rem)] overflow-x-auto rounded-xl sm:right-4 sm:top-4">
+    <div className="flex min-w-0 max-w-full overflow-x-auto rounded-xl md:justify-self-end">
       <div className="ml-auto flex w-max items-center gap-1 rounded-xl border border-white/10 bg-black/55 p-1 text-white shadow-[0_12px_30px_rgba(0,0,0,0.35)] backdrop-blur-md">
         <Button
           variant="ghost"
@@ -1356,11 +1356,11 @@ export function MediaViewer({
                   {!isImg && (
                     <p className="hidden justify-self-end text-[11px] text-white/55 md:block">Use ← → to navigate • ESC to close</p>
                   )}
+                  {isImg && previewSizeControls}
                 </div>
 
                   <div className="min-h-0 min-w-0 px-1.5 pb-1.5 pt-1.5 sm:px-2.5 sm:pb-2.5 sm:pt-2 lg:px-1.5 lg:pb-1.5 lg:pt-1.5 2xl:px-2 2xl:pb-2">
                     <div className="relative h-full min-h-0 min-w-0 overflow-hidden bg-black/75 sm:min-h-[56dvh] sm:rounded-lg lg:min-h-0 lg:rounded-lg lg:bg-black/50 xl:rounded-xl">
-                      {previewSizeControls}
                       {zoomControls}
                       {currentIndex > 0 && (
                         <Button
