@@ -8,7 +8,7 @@ import { type MediaFile } from '@/hooks/useShootFiles';
 import { isRawFile } from '@/services/rawPreviewService';
 import VideoThumbnail from '../../VideoThumbnail';
 import { normalizeManualOrder, sortMediaFiles, type MediaSortOrder } from './mediaSort';
-import { getDisplayMediaFilename } from './mediaPreviewUtils';
+import { getDisplayMediaFilename, getMediaVideoUrlCandidates } from './mediaPreviewUtils';
 import { DndContext, PointerSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, arrayMove, rectSortingStrategy, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -409,6 +409,8 @@ export function MediaGrid({
     file.is_hidden ? 'blur-[1px] brightness-[0.92]' : '';
   const getGridPreviewMediaClassName = (file: MediaFile) =>
     `absolute inset-0 h-full w-full object-cover transition-all duration-200 ${getHiddenMediaClassName(file)}`;
+  const getVideoThumbnailSource = (file: MediaFile): string =>
+    getMediaVideoUrlCandidates(file)[0] || getImageUrl(file, 'original');
   const renderHiddenMediaOverlay = () => (
     <>
       <div className="absolute inset-0 bg-slate-950/10 z-[2] pointer-events-none" />
@@ -429,6 +431,7 @@ export function MediaGrid({
     const thumbUrl = getImageUrl(file, 'thumb');
     const ext = file.filename.split('.').pop()?.toUpperCase();
     const displayFilename = getDisplayMediaFilename(file) || file.filename;
+    const videoThumbSrc = isVid ? getVideoThumbnailSource(file) : '';
     
     // Find the actual index in the full sorted array for viewer
     const actualIndex = sortedFiles.findIndex(f => f.id === file.id);
@@ -465,12 +468,11 @@ export function MediaGrid({
           
           // For videos without a backend thumbnail, generate one client-side
           if (isVid && !hasDisplayableImage) {
-            const videoSrc = file.original || file.large || file.medium || file.url || getImageUrl(file, 'original');
-            return videoSrc ? (
+            return videoThumbSrc ? (
               <VideoThumbnail
-                src={videoSrc}
+                src={videoThumbSrc}
                 alt={file.filename}
-                className={getGridPreviewMediaClassName(file)}
+                className={`${getGridPreviewMediaClassName(file)} z-[1]`}
               />
             ) : null;
           }
@@ -511,7 +513,7 @@ export function MediaGrid({
 
         {/* Video play overlay */}
         {isVid && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="absolute inset-0 z-[2] flex items-center justify-center pointer-events-none">
             <div className="bg-black/50 rounded-full p-1.5">
               <Play className="h-5 w-5 text-white fill-white" />
             </div>
@@ -578,6 +580,7 @@ export function MediaGrid({
     const thumbUrl = getImageUrl(file, 'thumb');
     const ext = file.filename.split('.').pop()?.toUpperCase();
     const displayFilename = getDisplayMediaFilename(file) || file.filename;
+    const videoThumbSrc = isVid ? getVideoThumbnailSource(file) : '';
     const actualIndex = sortedFiles.findIndex(f => f.id === file.id);
     const latestCommentText = getLatestCommentText(file);
 
@@ -597,12 +600,11 @@ export function MediaGrid({
               const thumbSrc = file.thumb || thumbUrl;
 
               if (isVid && !hasDisplayableImage) {
-                const videoSrc = file.original || file.large || file.medium || file.url || getImageUrl(file, 'original');
-                return videoSrc ? (
+                return videoThumbSrc ? (
                   <VideoThumbnail
-                    src={videoSrc}
+                    src={videoThumbSrc}
                     alt={file.filename}
-                    className={getGridPreviewMediaClassName(file)}
+                    className={`${getGridPreviewMediaClassName(file)} z-[1]`}
                   />
                 ) : null;
               }
@@ -639,7 +641,7 @@ export function MediaGrid({
             </div>
 
             {isVid && (
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="absolute inset-0 z-[2] flex items-center justify-center pointer-events-none">
                 <div className="bg-black/50 rounded-full p-1.5">
                   <Play className="h-5 w-5 text-white fill-white" />
                 </div>
@@ -705,6 +707,7 @@ export function MediaGrid({
     const imageUrl = getImageUrl(file, 'thumb');
     const ext = file.filename.split('.').pop()?.toUpperCase();
     const displayFilename = getDisplayMediaFilename(file) || file.filename;
+    const videoThumbSrc = isVid ? getVideoThumbnailSource(file) : '';
     const actualIndex = sortedFiles.findIndex(f => f.id === file.id);
     const isDragging = draggedId === file.id;
     const isDragOver = dragOverId === file.id;
@@ -765,9 +768,9 @@ export function MediaGrid({
             />
           ) : isVid ? (
             <VideoThumbnail
-              src={file.original || file.large || file.medium || file.url || getImageUrl(file, 'original')}
+              src={videoThumbSrc}
               alt={file.filename}
-              className={`w-full h-full object-cover transition-all duration-200 ${getHiddenMediaClassName(file)}`}
+              className={`relative z-[1] w-full h-full object-cover transition-all duration-200 ${getHiddenMediaClassName(file)}`}
             />
           ) : null}
           <div 
@@ -780,7 +783,7 @@ export function MediaGrid({
             </div>
           </div>
           {isVid && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="absolute inset-0 z-[2] flex items-center justify-center pointer-events-none">
               <div className="bg-black/50 rounded-full p-0.5">
                 <Play className="h-3 w-3 text-white fill-white" />
               </div>
@@ -885,6 +888,7 @@ export function MediaGrid({
     const imageUrl = getImageUrl(file, 'thumb');
     const ext = file.filename.split('.').pop()?.toUpperCase();
     const displayFilename = getDisplayMediaFilename(file) || file.filename;
+    const videoThumbSrc = isVid ? getVideoThumbnailSource(file) : '';
     const actualIndex = sortedFiles.findIndex(f => f.id === file.id);
     const hasProcessedThumb = isRaw ? !!(file.thumbnail_path || file.web_path) : true;
     const hasDisplayableImage = hasProcessedThumb && (file.thumb || imageUrl);
@@ -941,9 +945,9 @@ export function MediaGrid({
                 />
               ) : isVid ? (
                 <VideoThumbnail
-                  src={file.original || file.large || file.medium || file.url || getImageUrl(file, 'original')}
+                  src={videoThumbSrc}
                   alt={displayFilename}
-                  className={`w-full h-full object-cover transition-all duration-200 ${getHiddenMediaClassName(file)}`}
+                  className={`relative z-[1] w-full h-full object-cover transition-all duration-200 ${getHiddenMediaClassName(file)}`}
                 />
               ) : null}
               <div

@@ -14,6 +14,7 @@ import { type ShootData } from '@/types/shoots';
 import { type MediaFile } from '@/hooks/useShootFiles';
 import { getDisplayMediaFilename, getMediaFullSizeImageUrl, getMediaVideoUrlCandidates, getMediaViewerImageUrl } from './mediaPreviewUtils';
 import { isRawFile } from '@/services/rawPreviewService';
+import VideoThumbnail from '../../VideoThumbnail';
 import {
   triggerDashboardOverviewRefresh,
   triggerEditingRequestsRefresh,
@@ -995,7 +996,74 @@ export function MediaViewer({
     (canInteractSingleMedia && Boolean(onToggleFavorite)) ||
     (canDownloadSingleMedia && Boolean(onDownloadSingle)) ||
     Boolean(onToggleHidden) ||
+    canRequestModification ||
     slideshowAvailable;
+  const mediaViewerToolbar = isImg ? (
+    <div className="max-w-full overflow-x-auto pb-0.5 md:w-auto md:flex-none md:pb-0">
+      <div className="flex w-max max-w-none items-center gap-1 rounded-xl border border-white/10 bg-black/45 p-1 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-md">
+        {canViewFullSize && (
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`h-7 shrink-0 whitespace-nowrap rounded-lg px-2.5 text-[11px] text-white hover:bg-white/15 ${
+                previewMode === 'web' ? 'bg-white/10' : ''
+              }`}
+              onClick={() => setPreviewMode('web')}
+              title="Use web-sized preview"
+            >
+              Web size
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`h-7 shrink-0 whitespace-nowrap rounded-lg px-2.5 text-[11px] text-white hover:bg-white/15 ${
+                previewMode === 'full' ? 'bg-white/10' : ''
+              }`}
+              onClick={() => setPreviewMode('full')}
+              disabled={!fullSizeAvailable}
+              title={fullSizeAvailable ? 'Use full-size preview' : 'Full-size preview unavailable'}
+            >
+              Full size
+            </Button>
+            <span className="mx-0.5 h-5 w-px shrink-0 bg-white/10" aria-hidden />
+          </>
+        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 shrink-0 rounded-lg text-white hover:bg-white/15"
+          onClick={handleZoomOut}
+          disabled={zoom <= 0.5}
+          title="Zoom out (-)"
+        >
+          <span className="text-sm">−</span>
+        </Button>
+        <span className="min-w-[2.75rem] shrink-0 text-center text-[11px] font-medium text-white">
+          {Math.round(zoom * 100)}%
+        </span>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 shrink-0 rounded-lg text-white hover:bg-white/15"
+          onClick={handleZoomIn}
+          disabled={zoom >= MAX_MEDIA_VIEWER_ZOOM}
+          title="Zoom in (+)"
+        >
+          <span className="text-sm">+</span>
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 shrink-0 whitespace-nowrap rounded-lg px-2.5 text-[11px] text-white hover:bg-white/15"
+          onClick={handleResetZoom}
+          title="Reset zoom (0)"
+        >
+          Reset
+        </Button>
+      </div>
+    </div>
+  ) : null;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -1152,7 +1220,7 @@ export function MediaViewer({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="absolute right-12 top-2 z-20 h-9 w-9 rounded-full border border-white/10 bg-black/40 text-white hover:bg-white/20 lg:hidden"
+                  className="absolute right-12 top-2 z-20 h-9 w-9 rounded-full border border-white/10 bg-black/40 text-white hover:bg-white/20 xl:hidden"
                 >
                   <MoreHorizontal className="h-5 w-5" />
                 </Button>
@@ -1207,6 +1275,18 @@ export function MediaViewer({
                     Slideshow
                   </DropdownMenuItem>
                 )}
+                {canRequestModification && (
+                  <DropdownMenuItem
+                    className={mobileActionMenuItemClassName}
+                    onSelect={() => {
+                      blurActiveElement();
+                      setShowRequestComposer((current) => !current);
+                    }}
+                  >
+                    <AlertCircle className="h-4 w-4" />
+                    Request modification
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           )}
@@ -1219,91 +1299,66 @@ export function MediaViewer({
           >
             <X className="h-5 w-5 sm:h-6 sm:w-6" />
           </Button>
+          {canRequestModification && showRequestComposer && (
+            <div className="absolute inset-x-3 top-16 z-30 max-h-[calc(100dvh-8rem)] overflow-auto rounded-xl border border-rose-500/25 bg-neutral-950/95 p-3 text-white shadow-2xl backdrop-blur-md sm:left-auto sm:right-14 sm:w-[24rem] xl:hidden">
+              <p className="text-sm font-medium text-white">Create request</p>
+              <p className="mt-1 text-xs text-white/65">
+                Request any changes for this image.
+              </p>
+              <Textarea
+                value={flagReason}
+                onChange={(event) => setFlagReason(event.target.value)}
+                placeholder="Request any changes in this image..."
+                className="mt-3 min-h-[80px] resize-none border-white/10 bg-black/30 text-white placeholder:text-white/45"
+              />
+              <div className="mt-3 flex items-center justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="text-white hover:bg-white/10 hover:text-white"
+                  onClick={() => {
+                    setShowRequestComposer(false);
+                    setFlagReason('');
+                  }}
+                  disabled={flagging}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleFlagImage}
+                  disabled={!flagReason.trim() || flagging}
+                  variant="destructive"
+                >
+                  {flagging ? 'Creating request...' : 'Create request'}
+                </Button>
+              </div>
+            </div>
+          )}
 
           <div className="flex h-full w-full min-h-0 flex-col px-1.5 pb-1.5 pt-1.5 sm:px-3 sm:pb-3 sm:pt-2 lg:px-2.5 lg:pb-2.5 lg:pt-2 2xl:px-3 2xl:pb-3 2xl:pt-2.5">
-            <div className="grid min-h-0 min-w-0 flex-1 grid-cols-1 gap-2.5 lg:grid-cols-[minmax(0,1fr)_17.5rem] lg:gap-2 xl:grid-cols-[minmax(0,1fr)_18.5rem] 2xl:grid-cols-[minmax(0,1fr)_19.5rem] 2xl:gap-2.5">
+            <div className="grid min-h-0 min-w-0 flex-1 grid-cols-1 gap-2.5 xl:grid-cols-[minmax(0,1fr)_18.5rem] xl:gap-2 2xl:grid-cols-[minmax(0,1fr)_19.5rem] 2xl:gap-2.5">
               <div className="grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md">
                 {/* Top Metadata Bar */}
-                <div className="flex flex-col gap-2 border-b border-white/10 px-2.5 py-2 sm:px-3 sm:py-2.5 lg:gap-2 lg:px-3 lg:py-2 2xl:px-3 2xl:py-2">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1 pr-10 lg:pr-2">
-                      <p className="truncate text-[13px] font-semibold text-white sm:text-sm lg:text-[15px] xl:text-base">{displayFilename}</p>
-                      <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-white/60 sm:text-[11px]">
-                        <span>{currentIndex + 1} of {files.length}</span>
-                        {currentFile.width && currentFile.height && <span>{currentFile.width} × {currentFile.height}</span>}
-                        {!isClient && currentFile.fileSize && <span>{formatViewerFileSize(currentFile.fileSize)}</span>}
-                      </div>
+                <div className="flex min-w-0 flex-col gap-2 border-b border-white/10 px-2.5 py-2 pr-12 sm:px-3 sm:py-2.5 md:flex-row md:items-center md:justify-between md:gap-3 lg:px-3 lg:py-2 xl:pr-3 2xl:px-3 2xl:py-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[13px] font-semibold text-white sm:text-sm lg:text-[15px] xl:text-base">{displayFilename}</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-white/60 sm:text-[11px]">
+                      <span>{currentIndex + 1} of {files.length}</span>
+                      {currentFile.width && currentFile.height && <span>{currentFile.width} × {currentFile.height}</span>}
+                      {!isClient && currentFile.fileSize && <span>{formatViewerFileSize(currentFile.fileSize)}</span>}
                     </div>
-                    {!isImg && (
-                      <p className="hidden text-[11px] text-white/55 lg:block">Use ← → to navigate • ESC to close</p>
-                    )}
                   </div>
-                  {isImg && (
-                    <div className="hidden min-w-0 max-w-full flex-wrap items-center justify-start gap-1 self-start rounded-xl border border-white/10 bg-black/40 p-1 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] lg:flex">
-                      {canViewFullSize && (
-                        <div className="flex shrink-0 items-center gap-0.5">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className={`h-7 px-2 text-[11px] text-white hover:bg-white/15 ${previewMode === 'web' ? 'bg-white/10' : ''}`}
-                            onClick={() => setPreviewMode('web')}
-                            title="Use web-sized preview"
-                          >
-                            Web
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className={`h-7 px-2 text-[11px] text-white hover:bg-white/15 ${previewMode === 'full' ? 'bg-white/10' : ''}`}
-                            onClick={() => setPreviewMode('full')}
-                            disabled={!fullSizeAvailable}
-                            title={fullSizeAvailable ? 'Use full-size preview' : 'Full-size preview unavailable'}
-                          >
-                            Full
-                          </Button>
-                          <span className="mx-1 h-5 w-px bg-white/10" aria-hidden />
-                        </div>
-                      )}
-                      <div className="flex shrink-0 items-center gap-0.5">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-white hover:bg-white/15"
-                          onClick={handleZoomOut}
-                          disabled={zoom <= 0.5}
-                          title="Zoom out (-)"
-                        >
-                          <span className="text-sm">−</span>
-                        </Button>
-                        <span className="min-w-[2.75rem] text-center text-[11px] font-medium text-white">{Math.round(zoom * 100)}%</span>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-white hover:bg-white/15"
-                          onClick={handleZoomIn}
-                          disabled={zoom >= MAX_MEDIA_VIEWER_ZOOM}
-                          title="Zoom in (+)"
-                        >
-                          <span className="text-sm">+</span>
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2 text-[11px] text-white hover:bg-white/15"
-                          onClick={handleResetZoom}
-                          title="Reset zoom (0)"
-                        >
-                          Reset
-                        </Button>
-                      </div>
-                    </div>
+                  {mediaViewerToolbar}
+                  {!isImg && (
+                    <p className="hidden flex-none text-[11px] text-white/55 md:block">Use ← → to navigate • ESC to close</p>
                   )}
                 </div>
 
                   <div className="min-h-0 min-w-0 px-1.5 pb-1.5 pt-1.5 sm:px-2.5 sm:pb-2.5 sm:pt-2 lg:px-1.5 lg:pb-1.5 lg:pt-1.5 2xl:px-2 2xl:pb-2">
                     <div
                       ref={zoomStageRef}
-                      className={`relative flex h-full min-h-0 min-w-0 w-full items-center justify-center bg-black/75 p-0 sm:min-h-[56dvh] sm:rounded-lg sm:p-1.5 lg:min-h-0 lg:rounded-lg lg:bg-black/50 lg:p-1 xl:rounded-xl xl:p-1.5 ${
+                      className={`relative grid h-full min-h-0 min-w-0 w-full place-items-center bg-black/75 p-0 sm:min-h-[56dvh] sm:rounded-lg sm:p-1.5 lg:min-h-0 lg:rounded-lg lg:bg-black/50 lg:p-1 xl:rounded-xl xl:p-1.5 ${
                         zoom > 1
                           ? `${isPanningZoomStage ? 'cursor-grabbing' : 'cursor-grab'} touch-none overflow-auto`
                           : 'overflow-hidden'
@@ -1335,87 +1390,28 @@ export function MediaViewer({
                           <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6" />
                         </Button>
                       )}
-                      {isImg && canViewFullSize && (
-                        <div className="absolute left-2 top-2 z-10 flex items-center gap-1 rounded-full border border-white/10 bg-black/55 p-1 backdrop-blur-md lg:hidden">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className={`h-7 rounded-full px-2.5 text-[11px] text-white hover:bg-white/15 ${previewMode === 'web' ? 'bg-white/10' : ''}`}
-                            onClick={() => setPreviewMode('web')}
-                            title="Use web-sized preview"
-                          >
-                            Web
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className={`h-7 rounded-full px-2.5 text-[11px] text-white hover:bg-white/15 ${previewMode === 'full' ? 'bg-white/10' : ''}`}
-                            onClick={() => setPreviewMode('full')}
-                            disabled={!fullSizeAvailable}
-                            title={fullSizeAvailable ? 'Use full-size preview' : 'Full-size preview unavailable'}
-                          >
-                            Full
-                          </Button>
-                        </div>
-                      )}
-                      {isImg && (
-                        <div className="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1 rounded-full border border-white/10 bg-black/55 p-1 text-white backdrop-blur-md lg:hidden">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 rounded-full text-white hover:bg-white/15"
-                            onClick={handleZoomOut}
-                            disabled={zoom <= 0.5}
-                            title="Zoom out"
-                          >
-                            <span className="text-sm">−</span>
-                          </Button>
-                          <span className="min-w-[3.5rem] text-center text-[11px] font-medium">{Math.round(zoom * 100)}%</span>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 rounded-full text-white hover:bg-white/15"
-                            onClick={handleZoomIn}
-                            disabled={zoom >= MAX_MEDIA_VIEWER_ZOOM}
-                            title="Zoom in"
-                          >
-                            <span className="text-sm">+</span>
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 rounded-full px-2.5 text-[11px] text-white hover:bg-white/15"
-                            onClick={handleResetZoom}
-                            title="Reset zoom"
-                          >
-                            Reset
-                          </Button>
-                        </div>
-                      )}
                       {isImg ? (
                         zoom > 1 ? (
                           <div
-                            className="relative flex shrink-0 items-center justify-center"
+                            className="relative grid shrink-0 place-items-center p-2"
                             style={zoomedImageViewportStyle}
                           >
                             <img
                               src={imageUrl}
                               alt={displayFilename}
-                              className="h-full w-full select-none object-contain object-center rounded-none shadow-none lg:rounded-xl lg:shadow-2xl"
+                              className="h-auto max-h-full w-auto max-w-full select-none object-contain object-center rounded-none shadow-none lg:rounded-xl lg:shadow-2xl"
                               loading="eager"
                               draggable={false}
                             />
                           </div>
                         ) : (
-                          <div className="absolute inset-0 flex items-center justify-center p-1 sm:p-1.5 lg:p-1 xl:p-1.5">
                             <img
                               src={imageUrl}
                               alt={displayFilename}
-                              className="max-h-full max-w-full select-none object-contain object-center rounded-none shadow-none lg:rounded-xl lg:shadow-2xl"
+                              className="h-auto max-h-full w-auto max-w-full select-none object-contain object-center rounded-none shadow-none lg:rounded-xl lg:shadow-2xl"
                               loading="eager"
                               draggable={false}
                             />
-                          </div>
                         )
                         ) : isVid ? (
                         videoUrl ? (
@@ -1469,9 +1465,10 @@ export function MediaViewer({
                         const fileIsImg = isImageFile(file);
                         const fileIsVid = isVideoFile(file);
                         const fileIsRaw = isRawFile(file.filename);
+                        const fileVideoThumbUrl = fileIsVid ? getMediaVideoUrlCandidates(file)[0] || '' : '';
                         const hasDisplayableThumb = fileIsRaw
                           ? !!(file.thumbnail_path || file.web_path)
-                          : fileIsImg;
+                          : Boolean(fileImageUrl && (fileIsImg || fileIsVid));
 
                         return (
                           <button
@@ -1498,6 +1495,13 @@ export function MediaViewer({
                                 }}
                               />
                             ) : null}
+                            {fileIsVid && !hasDisplayableThumb && fileVideoThumbUrl ? (
+                              <VideoThumbnail
+                                src={fileVideoThumbUrl}
+                                alt={file.filename}
+                                className="absolute inset-0 z-[1] h-full w-full object-cover"
+                              />
+                            ) : null}
                             <div
                               className="w-full h-full bg-muted items-center justify-center"
                               style={{ display: hasDisplayableThumb && fileImageUrl ? 'none' : 'flex' }}
@@ -1509,7 +1513,7 @@ export function MediaViewer({
                               )}
                             </div>
                             {fileIsVid && (
-                              <div className="absolute inset-0 flex items-center justify-center">
+                              <div className="absolute inset-0 z-[2] flex items-center justify-center">
                                 <div className="bg-black/50 rounded-full p-0.5">
                                   <Play className="h-3 w-3 sm:h-4 sm:w-4 text-white fill-white" />
                                 </div>
@@ -1522,10 +1526,10 @@ export function MediaViewer({
                   </div>
                 </div>
 
-              <div className="min-h-0 min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md lg:flex lg:min-h-0 lg:flex-col">
-                <ScrollArea className="h-full lg:min-h-0 lg:flex-1">
+              <div className="hidden min-h-0 min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md xl:flex xl:min-h-0 xl:flex-col">
+                <ScrollArea className="h-full xl:min-h-0 xl:flex-1">
                   <div className="space-y-3 p-2.5 text-white sm:p-3 lg:space-y-2.5 lg:p-2.5 xl:p-3 2xl:space-y-3 2xl:p-3.5">
-                    <div className="hidden min-w-0 gap-2 sm:grid-cols-2 lg:grid">
+                    <div className="hidden min-w-0 gap-2 sm:grid-cols-2 xl:grid">
                       {canSetHero && (
                         <Button
                           variant="outline"
@@ -1605,7 +1609,7 @@ export function MediaViewer({
                               value={flagReason}
                               onChange={(event) => setFlagReason(event.target.value)}
                               placeholder="Request any changes in this image..."
-                              className="mt-3 min-h-[80px] resize-none border-white/10 bg-black/30 text-white placeholder:text-white/45 lg:min-h-[60px] xl:min-h-[72px]"
+                              className="mt-3 min-h-[80px] resize-none border-white/10 bg-black/30 text-white placeholder:text-white/45 xl:min-h-[72px]"
                             />
                             <div className="mt-3 flex items-center justify-end gap-2">
                               <Button
@@ -1634,7 +1638,7 @@ export function MediaViewer({
                       )}
                     </div>
                     {canRequestModification && (
-                      <div className="space-y-2 lg:hidden">
+                      <div className="space-y-2 xl:hidden">
                         <Button
                           variant="destructive"
                           className="h-10 w-full justify-start"
