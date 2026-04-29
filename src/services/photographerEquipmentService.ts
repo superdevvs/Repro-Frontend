@@ -24,6 +24,19 @@ export type PhotographerEquipment = {
   name: string;
   serial_number?: string | null;
   issue_date?: string | null;
+  purchase_date?: string | null;
+  purchase_cost?: number | null;
+  vendor?: string | null;
+  expense_id?: number | null;
+  expense?: {
+    id: number;
+    status: string;
+    category: string;
+    amount: number;
+    expense_date?: string | null;
+    has_receipt: boolean;
+    receipt_url?: string | null;
+  } | null;
   status: EquipmentStatus;
   verification_requested_at?: string | null;
   submitted_at?: string | null;
@@ -79,17 +92,27 @@ export const listAdminPhotographerEquipments = async (filters?: {
 };
 
 export const createAdminPhotographerEquipment = async (payload: {
-  photographer_id: string;
+  photographer_id?: string;
   name: string;
   serial_number?: string;
   issue_date?: string;
+  purchase_date?: string;
+  purchase_cost?: string;
+  vendor?: string;
+  add_to_expense?: boolean;
+  receipt?: File | null;
   photos?: File[];
 }) => {
   const formData = new FormData();
-  formData.append("photographer_id", payload.photographer_id);
+  if (payload.photographer_id) formData.append("photographer_id", payload.photographer_id);
   formData.append("name", payload.name);
   if (payload.serial_number) formData.append("serial_number", payload.serial_number);
   if (payload.issue_date) formData.append("issue_date", payload.issue_date);
+  if (payload.purchase_date) formData.append("purchase_date", payload.purchase_date);
+  if (payload.purchase_cost) formData.append("purchase_cost", payload.purchase_cost);
+  if (payload.vendor) formData.append("vendor", payload.vendor);
+  if (payload.add_to_expense) formData.append("add_to_expense", "1");
+  if (payload.receipt) formData.append("receipt", payload.receipt);
   appendPhotos(formData, payload.photos);
 
   const response = await apiClient.post<{ data: PhotographerEquipment }>(
@@ -102,11 +125,32 @@ export const createAdminPhotographerEquipment = async (payload: {
 
 export const updateAdminPhotographerEquipment = async (
   equipmentId: number,
-  payload: Partial<Pick<PhotographerEquipment, "name" | "serial_number" | "issue_date" | "status">> & { photographer_id?: string },
+  payload: Partial<Pick<PhotographerEquipment, "name" | "serial_number" | "issue_date" | "status">> & {
+    photographer_id?: string;
+    purchase_date?: string;
+    purchase_cost?: string;
+    vendor?: string;
+    add_to_expense?: boolean;
+    receipt?: File | null;
+  },
 ) => {
-  const response = await apiClient.put<{ data: PhotographerEquipment }>(
+  const formData = new FormData();
+  if (payload.photographer_id !== undefined) formData.append("photographer_id", payload.photographer_id);
+  if (payload.name !== undefined) formData.append("name", payload.name);
+  if (payload.serial_number !== undefined) formData.append("serial_number", payload.serial_number || "");
+  if (payload.issue_date !== undefined) formData.append("issue_date", payload.issue_date || "");
+  if (payload.status !== undefined) formData.append("status", payload.status);
+  if (payload.purchase_date !== undefined) formData.append("purchase_date", payload.purchase_date || "");
+  if (payload.purchase_cost !== undefined) formData.append("purchase_cost", payload.purchase_cost || "");
+  if (payload.vendor !== undefined) formData.append("vendor", payload.vendor || "");
+  if (payload.add_to_expense) formData.append("add_to_expense", "1");
+  if (payload.receipt) formData.append("receipt", payload.receipt);
+  formData.append("_method", "PUT");
+
+  const response = await apiClient.post<{ data: PhotographerEquipment }>(
     `/admin/photographer-equipments/${equipmentId}`,
-    payload,
+    formData,
+    multipartConfig,
   );
   return response.data.data;
 };

@@ -11,6 +11,14 @@ import { InvoiceData } from '@/utils/invoiceUtils';
 import { Eye, BarChart3, PieChart, LineChart as LineChartIcon, Search, UploadCloud, Plus, Edit, Receipt, Trash2, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
+  createAccountingExpense,
+  deleteAccountingExpense,
+  listAccountingExpenses,
+  openAccountingExpenseReceipt,
+  updateAccountingExpense,
+  type AccountingExpense,
+} from '@/services/accountingExpenseService';
+import {
   endOfDay,
   endOfMonth,
   endOfQuarter,
@@ -62,6 +70,9 @@ export function RevenueCharts({
     notes?: string;
     tags?: string[];
     invoiceId?: string;
+    relatedType?: string | null;
+    relatedId?: number | null;
+    receiptUrl?: string | null;
     _uploadedPreview?: string | null;
   };
 
@@ -104,62 +115,47 @@ export function RevenueCharts({
     return Number.isFinite(parsed) ? parsed : 0;
   };
 
-  const expenseItems = useMemo<ExpenseItem[]>(() => {
-    return invoices.flatMap((invoice) => {
-      const items = invoice.items || [];
-      return items
-        .filter((item: any) => String(item?.type || item?.meta?.type || '').toLowerCase() === 'expense')
-        .map((item: any, index: number) => {
-          const meta = item?.meta || {};
-          const recordedAt =
-            item?.recorded_at ||
-            item?.recordedAt ||
-            item?.created_at ||
-            item?.createdAt ||
-            invoice.issueDate ||
-            invoice.date ||
-            invoice.createdAt;
+  const [backendExpenses, setBackendExpenses] = useState<AccountingExpense[]>([]);
+  const [expensesLoading, setExpensesLoading] = useState(false);
 
-          return {
-            id: String(item?.id || `${invoice.id}-${index}`),
-            vendor: meta.vendor || item?.description || 'Expense',
-            category: meta.category || 'General',
-            sub: meta.sub || '',
-            amount: normalizeAmount(item?.total_amount ?? item?.unit_amount),
-            date: recordedAt || new Date().toISOString(),
-            status: normalizeExpenseStatus(meta.status),
-            reimb: Boolean(meta.reimb),
-            notes: meta.notes || '',
-            tags: Array.isArray(meta.tags) ? meta.tags : [],
-            invoiceId: String(invoice.id || ''),
-          } satisfies ExpenseItem;
-        });
-    });
-  }, [invoices]);
-
-  const STORAGE_KEY = 'repro_expenses';
-
-  const [draftExpenses, setDraftExpenses] = useState<ExpenseItem[]>(() => {
-    if (typeof window === 'undefined') return [];
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
+  const loadExpenses = async () => {
+    if (!isSuperAdmin && role !== 'admin') {
+      setBackendExpenses([]);
+      return;
     }
-  });
 
-  // Persist draft expenses to localStorage
+    setExpensesLoading(true);
+    try {
+      setBackendExpenses(await listAccountingExpenses());
+    } catch (error) {
+      console.error('Failed to load accounting expenses', error);
+      setBackendExpenses([]);
+    } finally {
+      setExpensesLoading(false);
+    }
+  };
+
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(draftExpenses));
-    } catch (e) {
-      console.error('Failed to save expenses to localStorage', e);
-    }
-  }, [draftExpenses]);
-  const expensesState = useMemo(
-    () => [...draftExpenses, ...expenseItems],
-    [draftExpenses, expenseItems]
+    loadExpenses();
+  }, [isSuperAdmin, role]);
+
+  const expensesState = useMemo<ExpenseItem[]>(() =>
+    backendExpenses.map((expense) => ({
+      id: String(expense.id),
+      vendor: expense.vendor || expense.description || 'Expense',
+      category: expense.category || 'General',
+      sub: expense.description || '',
+      amount: normalizeAmount(expense.amount),
+      date: expense.expense_date || new Date().toISOString(),
+      status: normalizeExpenseStatus(expense.status),
+      reimb: Boolean(expense.reimbursable),
+      notes: expense.notes || '',
+      tags: Array.isArray(expense.tags) ? expense.tags : [],
+      relatedType: expense.related_type || null,
+      relatedId: expense.related_id || null,
+      receiptUrl: expense.receipt_url || null,
+    })),
+    [backendExpenses]
   );
 
   const [search, setSearch] = useState('');
@@ -590,6 +586,7 @@ export function RevenueCharts({
     if (previewData) {
       (window as any).__pendingReceiptPreview = previewData;
     }
+    (window as any).__pendingReceiptFile = file;
     
     setShowNewExpenseForm(true);
   };
@@ -602,11 +599,22 @@ export function RevenueCharts({
     setImportError(null);
     if (!f) return;
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       const text = String(reader.result || "");
       try {
         const newItems = parseSimpleCsv(text);
-        setDraftExpenses(prev => [...newItems, ...prev]);
+        await Promise.all(newItems.map((item) => createAccountingExpense({
+          vendor: item.vendor,
+          category: item.category,
+          description: item.sub || item.category,
+          amount: item.amount,
+          expense_date: item.date ? new Date(item.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+          status: item.status,
+          reimbursable: item.reimb,
+          notes: item.notes,
+          tags: item.tags,
+        })));
+        await loadExpenses();
       } catch (err: any) {
         setImportError(err?.message || "Failed to parse CSV");
       }
@@ -660,43 +668,63 @@ export function RevenueCharts({
     setShowNewExpenseForm(true);
   };
 
-  const saveNewExpense = () => {
+  const saveNewExpense = async () => {
     // Check if there's a pending receipt preview from OCR upload
     const pendingPreview = (window as any).__pendingReceiptPreview;
-    
-    const e = {
-      id: String(Date.now()),
+    const pendingFile = (window as any).__pendingReceiptFile as File | undefined;
+
+    const created = await createAccountingExpense({
       vendor: newExpenseForm.vendor || "Untitled",
       category: newExpenseForm.category || "Misc",
-      sub: newExpenseForm.sub || "",
+      description: newExpenseForm.sub || newExpenseForm.category || "Expense",
       amount: Number(newExpenseForm.amount) || 0,
-      date: newExpenseForm.date ? new Date(newExpenseForm.date).toISOString() : new Date().toISOString(),
+      expense_date: newExpenseForm.date || new Date().toISOString().split('T')[0],
       status: normalizeExpenseStatus(newExpenseForm.status),
-      reimb: !!newExpenseForm.reimb,
+      reimbursable: !!newExpenseForm.reimb,
       notes: newExpenseForm.notes,
       tags: newExpenseForm.tags ? newExpenseForm.tags.split(",").map(t => t.trim()).filter(Boolean) : [],
+      receipt: pendingFile || null,
+    });
+
+    await loadExpenses();
+    setSelectedExpense({
+      id: String(created.id),
+      vendor: created.vendor || created.description,
+      category: created.category,
+      sub: created.description,
+      amount: created.amount,
+      date: created.expense_date,
+      status: normalizeExpenseStatus(created.status),
+      reimb: created.reimbursable,
+      notes: created.notes || "",
+      tags: created.tags || [],
+      receiptUrl: created.receipt_url || null,
       _uploadedPreview: pendingPreview || null,
-    } as ExpenseItem;
-    
-    setDraftExpenses(prev => [e, ...prev]);
-    setSelectedExpense(e);
+    });
     setShowNewExpenseForm(false);
-    
-    // Clear pending preview
+
     delete (window as any).__pendingReceiptPreview;
+    delete (window as any).__pendingReceiptFile;
   };
 
-  const deleteExpense = (id: string) => {
-    setDraftExpenses(prev => prev.filter(e => e.id !== id));
+  const deleteExpense = async (id: string) => {
+    const current = expensesState.find((expense) => expense.id === id);
+    if (current?.relatedType === 'photographer_equipment') {
+      const confirmed = window.confirm('This expense is linked to equipment. Deleting it will unlink the equipment expense but keep the equipment record.');
+      if (!confirmed) return;
+    }
+    await deleteAccountingExpense(Number(id));
+    await loadExpenses();
     if (selectedExpense?.id === id) {
       setSelectedExpense(null);
     }
     setSelectedIds(prev => prev.filter(i => i !== id));
   };
 
-  const deleteSelectedExpenses = () => {
+  const deleteSelectedExpenses = async () => {
     if (selectedIds.length === 0) return;
-    setDraftExpenses(prev => prev.filter(e => !selectedIds.includes(e.id)));
+    await Promise.all(selectedIds.map((id) => deleteAccountingExpense(Number(id))));
+    await loadExpenses();
     if (selectedExpense && selectedIds.includes(selectedExpense.id)) {
       setSelectedExpense(null);
     }
@@ -720,23 +748,41 @@ export function RevenueCharts({
     setShowEditExpenseForm(true);
   };
 
-  const saveEditedExpense = () => {
-    const updated = {
-      id: editExpenseForm.id,
+  const saveEditedExpense = async () => {
+    const current = expensesState.find((expense) => expense.id === editExpenseForm.id);
+    if (current?.relatedType === 'photographer_equipment') {
+      const confirmed = window.confirm('This expense is linked to equipment. Saving will sync amount, date, and vendor back to the equipment record.');
+      if (!confirmed) return;
+    }
+
+    const updated = await updateAccountingExpense(Number(editExpenseForm.id), {
       vendor: editExpenseForm.vendor || "Untitled",
       category: editExpenseForm.category || "Misc",
-      sub: editExpenseForm.sub || "",
+      description: editExpenseForm.sub || editExpenseForm.category || "Expense",
       amount: Number(editExpenseForm.amount) || 0,
-      date: editExpenseForm.date ? new Date(editExpenseForm.date).toISOString() : new Date().toISOString(),
+      expense_date: editExpenseForm.date || new Date().toISOString().split('T')[0],
       status: normalizeExpenseStatus(editExpenseForm.status),
-      reimb: !!editExpenseForm.reimb,
+      reimbursable: !!editExpenseForm.reimb,
       notes: editExpenseForm.notes,
       tags: editExpenseForm.tags ? editExpenseForm.tags.split(",").map(t => t.trim()).filter(Boolean) : [],
-      _uploadedPreview: editExpenseForm._uploadedPreview,
-    } as ExpenseItem;
-    
-    setDraftExpenses(prev => prev.map(e => e.id === updated.id ? updated : e));
-    setSelectedExpense(updated);
+    });
+
+    await loadExpenses();
+    setSelectedExpense({
+      id: String(updated.id),
+      vendor: updated.vendor || updated.description,
+      category: updated.category,
+      sub: updated.description,
+      amount: updated.amount,
+      date: updated.expense_date,
+      status: normalizeExpenseStatus(updated.status),
+      reimb: updated.reimbursable,
+      notes: updated.notes || "",
+      tags: updated.tags || [],
+      relatedType: updated.related_type || null,
+      relatedId: updated.related_id || null,
+      receiptUrl: updated.receipt_url || null,
+    });
     setShowEditExpenseForm(false);
   };
 
@@ -1235,11 +1281,16 @@ export function RevenueCharts({
                     <div 
                       className={cn(
                         "bg-muted rounded-lg border border-border p-3 flex items-center gap-3",
-                        selectedExpense._uploadedPreview && "cursor-pointer hover:bg-muted/80 transition"
+                        (selectedExpense._uploadedPreview || selectedExpense.receiptUrl) && "cursor-pointer hover:bg-muted/80 transition"
                       )}
-                      onClick={() => {
+                      onClick={async () => {
                         if (selectedExpense._uploadedPreview) {
                           setPreviewImage(String(selectedExpense._uploadedPreview));
+                          return;
+                        }
+                        if (selectedExpense.receiptUrl) {
+                          const source = backendExpenses.find((expense) => String(expense.id) === selectedExpense.id);
+                          if (source) await openAccountingExpenseReceipt(source);
                         }
                       }}
                     >
@@ -1252,7 +1303,7 @@ export function RevenueCharts({
                       )}
                       <div className="flex flex-col">
                         <span className="text-sm text-foreground font-medium">Receipt</span>
-                        {selectedExpense._uploadedPreview && (
+                        {(selectedExpense._uploadedPreview || selectedExpense.receiptUrl) && (
                           <span className="text-xs text-muted-foreground">Click to preview</span>
                         )}
                       </div>

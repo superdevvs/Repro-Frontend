@@ -56,6 +56,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { analyzeEmailInput, normalizeEmailHealth } from "@/utils/emailHealth";
 import { getCategorySpecialtyId } from "@/utils/photographerSpecialties";
+import { listAdminPhotographerEquipments, type PhotographerEquipment } from "@/services/photographerEquipmentService";
 
 // Define allowed roles for the form
 type FormRole = 'superadmin' | 'admin' | 'editing_manager' | 'photographer' | 'client' | 'editor' | 'salesRep';
@@ -244,6 +245,8 @@ export function AccountForm({
   const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
   const [emailWarningOverride, setEmailWarningOverride] = useState(false);
   const [equipmentRows, setEquipmentRows] = useState<EquipmentDraftRow[]>([]);
+  const [existingEquipmentOptions, setExistingEquipmentOptions] = useState<PhotographerEquipment[]>([]);
+  const [selectedExistingEquipmentIds, setSelectedExistingEquipmentIds] = useState<string[]>([]);
   const [serverEmailHealth, setServerEmailHealth] = useState<EmailHealth | undefined>(
     normalizeEmailHealth(initialData?.email_health),
   );
@@ -375,6 +378,7 @@ export function AccountForm({
         });
         setAvatarUrl(initialData.avatar || "");
         setEquipmentRows([]);
+        setSelectedExistingEquipmentIds([]);
       } else {
         form.reset({
           firstName: "",
@@ -428,6 +432,7 @@ export function AccountForm({
 
         setAvatarUrl("");
         setEquipmentRows([]);
+        setSelectedExistingEquipmentIds([]);
       }
     }
   }, [currentUser?.id, currentUser?.name, initialData, form, open, viewerRole]);
@@ -459,6 +464,20 @@ export function AccountForm({
   const currentRole = form.watch("role");
   const currentEmail = form.watch("email");
   const isClientRole = currentRole === "client";
+
+  useEffect(() => {
+    if (!open || currentRole !== "photographer" || initialData) {
+      return;
+    }
+
+    listAdminPhotographerEquipments()
+      .then((items) => setExistingEquipmentOptions(items.filter((item) => !item.photographer_id)))
+      .catch((error) => {
+        console.error("Failed to load unassigned equipment", error);
+        setExistingEquipmentOptions([]);
+      });
+  }, [currentRole, initialData, open]);
+
   const localEmailHint = React.useMemo(() => analyzeEmailInput(currentEmail || ""), [currentEmail]);
   const emailHelpState = React.useMemo(() => {
     if (!isClientRole) {
@@ -968,6 +987,9 @@ export function AccountForm({
             formData.append(`equipment_reference_photos[${index}][]`, file);
           });
         });
+      }
+      if (values.role === 'photographer' && selectedExistingEquipmentIds.length > 0) {
+        selectedExistingEquipmentIds.forEach((id) => formData.append('existing_equipment_ids[]', id));
       }
 
       const res = await fetch(`${API_BASE_URL}/api/admin/users`, {
@@ -2024,13 +2046,49 @@ export function AccountForm({
                     <p className="text-sm text-muted-foreground">
                       Assigned equipments are managed from Admin Accounting.
                     </p>
-                  ) : equipmentRows.length === 0 ? (
-                    <div className="rounded-md border border-dashed border-border/70 bg-background px-3 py-4 text-sm text-muted-foreground">
-                      No equipment assigned yet.
-                    </div>
                   ) : (
-                    <div className="space-y-3">
-                      {equipmentRows.map((row, index) => (
+                    <div className="space-y-4">
+                      <div className="space-y-2 rounded-md border border-border/70 bg-background p-3">
+                        <div className="space-y-1">
+                          <FormLabel>Assign Existing Unassigned Equipment</FormLabel>
+                          <p className="text-xs text-muted-foreground">
+                            Pick company equipment that was already added in Accounting Equipments.
+                          </p>
+                        </div>
+                        {existingEquipmentOptions.length === 0 ? (
+                          <p className="text-sm text-muted-foreground">No unassigned equipment available.</p>
+                        ) : (
+                          <div className="flex flex-wrap gap-2">
+                            {existingEquipmentOptions.map((equipment) => {
+                              const id = String(equipment.id);
+                              const active = selectedExistingEquipmentIds.includes(id);
+                              return (
+                                <button
+                                  key={id}
+                                  type="button"
+                                  onClick={() => setSelectedExistingEquipmentIds((ids) =>
+                                    active ? ids.filter((value) => value !== id) : [...ids, id]
+                                  )}
+                                  className={cn(
+                                    "rounded-full border px-3 py-1.5 text-sm transition",
+                                    active
+                                      ? "border-primary/40 bg-primary/10 text-primary"
+                                      : "border-border/70 bg-background text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                                  )}
+                                >
+                                  {equipment.name}{equipment.serial_number ? ` · ${equipment.serial_number}` : ""}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+
+                      {equipmentRows.length === 0 ? (
+                        <div className="rounded-md border border-dashed border-border/70 bg-background px-3 py-4 text-sm text-muted-foreground">
+                          No manual equipment rows added.
+                        </div>
+                      ) : equipmentRows.map((row, index) => (
                         <div key={row.id} className="rounded-md border border-border/70 bg-background p-3">
                           <div className="mb-3 flex items-center justify-between gap-2">
                             <span className="text-sm font-medium">Equipment {index + 1}</span>

@@ -56,6 +56,11 @@ const emptyForm = {
   name: "",
   serial_number: "",
   issue_date: "",
+  purchase_date: "",
+  purchase_cost: "",
+  vendor: "",
+  add_to_expense: false,
+  receipt: null as File | null,
   photos: [] as File[],
 };
 
@@ -121,10 +126,10 @@ export function PhotographerEquipmentWorkspace() {
   const filteredEquipments = useMemo(() => equipments, [equipments]);
 
   const submitEquipment = async () => {
-    if (!form.photographer_id || !form.name.trim()) {
+    if (!form.name.trim()) {
       toast({
         title: "Missing details",
-        description: "Choose a photographer and enter the equipment name.",
+        description: "Enter the equipment name.",
         variant: "destructive",
       });
       return;
@@ -136,6 +141,11 @@ export function PhotographerEquipmentWorkspace() {
         name: form.name.trim(),
         serial_number: form.serial_number.trim(),
         issue_date: form.issue_date,
+        purchase_date: form.purchase_date,
+        purchase_cost: form.purchase_cost,
+        vendor: form.vendor,
+        add_to_expense: form.add_to_expense,
+        receipt: form.receipt,
         photos: form.photos,
       });
       toast({ title: "Equipment assigned", description: "The photographer can now verify it." });
@@ -159,12 +169,17 @@ export function PhotographerEquipmentWorkspace() {
       name: equipment.name,
       serial_number: equipment.serial_number || "",
       issue_date: equipment.issue_date || "",
+      purchase_date: equipment.purchase_date || "",
+      purchase_cost: equipment.purchase_cost != null ? String(equipment.purchase_cost) : "",
+      vendor: equipment.vendor || "",
+      add_to_expense: Boolean(equipment.expense_id),
+      receipt: null,
       photos: [],
     });
   };
 
   const submitEquipmentEdit = async () => {
-    if (!editingEquipment || !editForm.photographer_id || !editForm.name.trim()) {
+    if (!editingEquipment || !editForm.name.trim()) {
       return;
     }
 
@@ -175,6 +190,11 @@ export function PhotographerEquipmentWorkspace() {
         name: editForm.name.trim(),
         serial_number: editForm.serial_number.trim(),
         issue_date: editForm.issue_date,
+        purchase_date: editForm.purchase_date,
+        purchase_cost: editForm.purchase_cost,
+        vendor: editForm.vendor,
+        add_to_expense: editForm.add_to_expense,
+        receipt: editForm.receipt,
       });
       if (editForm.photos.length > 0) {
         await uploadAdminEquipmentPhotos(editingEquipment.id, editForm.photos);
@@ -308,7 +328,13 @@ export function PhotographerEquipmentWorkspace() {
                         </Badge>
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        {equipment.photographer?.name || "Unassigned photographer"}{equipment.serial_number ? ` · Serial ${equipment.serial_number}` : ""}{equipment.issue_date ? ` · Issued ${equipment.issue_date}` : ""}
+                        {equipment.photographer?.name || "Unassigned inventory"}{equipment.serial_number ? ` · Serial ${equipment.serial_number}` : ""}{equipment.issue_date ? ` · Issued ${equipment.issue_date}` : ""}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {equipment.purchase_date ? `Purchased ${equipment.purchase_date}` : "No purchase date"}
+                        {equipment.purchase_cost != null ? ` · $${equipment.purchase_cost.toLocaleString()}` : ""}
+                        {equipment.vendor ? ` · ${equipment.vendor}` : ""}
+                        {equipment.expense_id ? " · Expense linked" : ""}
                       </p>
                       {equipment.rejection_reason && (
                         <p className="text-sm text-destructive">{equipment.rejection_reason}</p>
@@ -388,11 +414,12 @@ export function PhotographerEquipmentWorkspace() {
           <div className="grid gap-4 py-2">
             <div className="space-y-2">
               <Label>Photographer</Label>
-              <Select value={form.photographer_id} onValueChange={(value) => setForm((current) => ({ ...current, photographer_id: value }))}>
+              <Select value={form.photographer_id || "unassigned"} onValueChange={(value) => setForm((current) => ({ ...current, photographer_id: value === "unassigned" ? "" : value }))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select photographer" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="unassigned">Unassigned Inventory</SelectItem>
                   {photographers.map((photographer) => (
                     <SelectItem key={photographer.id} value={photographer.id}>
                       {photographer.name}
@@ -414,6 +441,41 @@ export function PhotographerEquipmentWorkspace() {
             <div className="space-y-2">
               <Label>Issue Date</Label>
               <Input type="date" value={form.issue_date} onChange={(event) => setForm((current) => ({ ...current, issue_date: event.target.value }))} />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="space-y-2">
+                <Label>Purchase Date</Label>
+                <Input type="date" value={form.purchase_date} onChange={(event) => setForm((current) => ({ ...current, purchase_date: event.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <Label>Purchase Cost</Label>
+                <Input type="number" min="0" step="0.01" value={form.purchase_cost} onChange={(event) => setForm((current) => ({ ...current, purchase_cost: event.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <Label>Vendor</Label>
+                <Input value={form.vendor} onChange={(event) => setForm((current) => ({ ...current, vendor: event.target.value }))} />
+              </div>
+            </div>
+            <div className="flex items-center gap-2 rounded-md border border-border/70 p-3">
+              <input
+                id="add-equipment-expense"
+                type="checkbox"
+                checked={form.add_to_expense}
+                onChange={(event) => setForm((current) => ({ ...current, add_to_expense: event.target.checked }))}
+                className="h-4 w-4"
+              />
+              <Label htmlFor="add-equipment-expense">Add this equipment as an accounting expense</Label>
+            </div>
+            <div className="space-y-2">
+              <Label>Expense Receipt</Label>
+              <Input
+                type="file"
+                accept="image/*,.pdf"
+                onChange={(event) => setForm((current) => ({
+                  ...current,
+                  receipt: event.target.files?.[0] || null,
+                }))}
+              />
             </div>
             <div className="space-y-2">
               <Label>Admin Reference Photos</Label>
@@ -449,11 +511,12 @@ export function PhotographerEquipmentWorkspace() {
           <div className="grid gap-4 py-2">
             <div className="space-y-2">
               <Label>Photographer</Label>
-              <Select value={editForm.photographer_id} onValueChange={(value) => setEditForm((current) => ({ ...current, photographer_id: value }))}>
+              <Select value={editForm.photographer_id || "unassigned"} onValueChange={(value) => setEditForm((current) => ({ ...current, photographer_id: value === "unassigned" ? "" : value }))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select photographer" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="unassigned">Unassigned Inventory</SelectItem>
                   {photographers.map((photographer) => (
                     <SelectItem key={photographer.id} value={photographer.id}>
                       {photographer.name}
@@ -475,6 +538,41 @@ export function PhotographerEquipmentWorkspace() {
             <div className="space-y-2">
               <Label>Issue Date</Label>
               <Input type="date" value={editForm.issue_date} onChange={(event) => setEditForm((current) => ({ ...current, issue_date: event.target.value }))} />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="space-y-2">
+                <Label>Purchase Date</Label>
+                <Input type="date" value={editForm.purchase_date} onChange={(event) => setEditForm((current) => ({ ...current, purchase_date: event.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <Label>Purchase Cost</Label>
+                <Input type="number" min="0" step="0.01" value={editForm.purchase_cost} onChange={(event) => setEditForm((current) => ({ ...current, purchase_cost: event.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <Label>Vendor</Label>
+                <Input value={editForm.vendor} onChange={(event) => setEditForm((current) => ({ ...current, vendor: event.target.value }))} />
+              </div>
+            </div>
+            <div className="flex items-center gap-2 rounded-md border border-border/70 p-3">
+              <input
+                id="edit-equipment-expense"
+                type="checkbox"
+                checked={editForm.add_to_expense}
+                onChange={(event) => setEditForm((current) => ({ ...current, add_to_expense: event.target.checked }))}
+                className="h-4 w-4"
+              />
+              <Label htmlFor="edit-equipment-expense">Add or update this equipment as an accounting expense</Label>
+            </div>
+            <div className="space-y-2">
+              <Label>Expense Receipt</Label>
+              <Input
+                type="file"
+                accept="image/*,.pdf"
+                onChange={(event) => setEditForm((current) => ({
+                  ...current,
+                  receipt: event.target.files?.[0] || null,
+                }))}
+              />
             </div>
             <div className="space-y-2">
               <Label>Add Admin Reference Photos</Label>
