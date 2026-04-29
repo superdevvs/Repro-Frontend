@@ -214,8 +214,18 @@ export const getMediaVideoUrlCandidates = (file: MediaFile): string[] => {
   return candidates.filter((url) => !isPlaceholderImageUrl(url));
 };
 
+export const getMediaVideoPreviewUrl = (file: MediaFile): string => {
+  const shootId = file.shoot_id;
+  const fileId = file.id;
+  if (!shootId || !fileId) {
+    return '';
+  }
+
+  return normalizeImageUrl(`/api/shoots/${shootId}/files/${fileId}/preview`);
+};
+
 export const getMediaVideoUrl = (file: MediaFile): string => {
-  return getMediaVideoUrlCandidates(file)[0] || '';
+  return getMediaVideoUrlCandidates(file)[0] || getMediaVideoPreviewUrl(file);
 };
 
 export const getDisplayMediaFilename = (file: Pick<MediaFile, 'filename'>): string => {

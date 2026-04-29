@@ -8,7 +8,7 @@ import { type MediaFile } from '@/hooks/useShootFiles';
 import { isRawFile } from '@/services/rawPreviewService';
 import VideoThumbnail from '../../VideoThumbnail';
 import { normalizeManualOrder, sortMediaFiles, type MediaSortOrder } from './mediaSort';
-import { getDisplayMediaFilename, getMediaVideoUrlCandidates } from './mediaPreviewUtils';
+import { getDisplayMediaFilename, getMediaVideoUrl } from './mediaPreviewUtils';
 import { DndContext, PointerSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, arrayMove, rectSortingStrategy, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -410,7 +410,7 @@ export function MediaGrid({
   const getGridPreviewMediaClassName = (file: MediaFile) =>
     `absolute inset-0 h-full w-full object-cover transition-all duration-200 ${getHiddenMediaClassName(file)}`;
   const getVideoThumbnailSource = (file: MediaFile): string =>
-    getMediaVideoUrlCandidates(file)[0] || getImageUrl(file, 'original');
+    getMediaVideoUrl(file) || getImageUrl(file, 'original');
   const renderHiddenMediaOverlay = () => (
     <>
       <div className="absolute inset-0 bg-slate-950/10 z-[2] pointer-events-none" />

@@ -12,7 +12,7 @@ import { getApiHeaders } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 import { type ShootData } from '@/types/shoots';
 import { type MediaFile } from '@/hooks/useShootFiles';
-import { getDisplayMediaFilename, getMediaFullSizeImageUrl, getMediaVideoUrlCandidates, getMediaViewerImageUrl } from './mediaPreviewUtils';
+import { getDisplayMediaFilename, getMediaFullSizeImageUrl, getMediaVideoPreviewUrl, getMediaVideoUrl, getMediaVideoUrlCandidates, getMediaViewerImageUrl } from './mediaPreviewUtils';
 import { isRawFile } from '@/services/rawPreviewService';
 import VideoThumbnail from '../../VideoThumbnail';
 import {
@@ -895,7 +895,7 @@ export function MediaViewer({
   const isImg = isPreviewableImage(currentFile);
   const isVid = isVideoFile(currentFile);
   const videoUrlCandidates = isVid ? getMediaVideoUrlCandidates(currentFile) : [];
-  const videoUrl = videoUrlCandidates[videoSourceIndex] || videoUrlCandidates[0] || '';
+  const videoUrl = videoUrlCandidates[videoSourceIndex] || getMediaVideoUrl(currentFile);
   const fileExt = currentFile?.filename?.split('.')?.pop()?.toUpperCase();
   const displayFilename = getDisplayMediaFilename(currentFile) || currentFile.filename;
   const mediaType = (currentFile.media_type || '').toLowerCase();
@@ -998,15 +998,17 @@ export function MediaViewer({
     Boolean(onToggleHidden) ||
     canRequestModification ||
     slideshowAvailable;
+  const fitMediaClassName =
+    'block h-auto max-h-full min-h-0 w-auto max-w-full min-w-0 select-none object-contain object-center rounded-none shadow-none lg:rounded-xl lg:shadow-2xl';
   const mediaViewerToolbar = isImg ? (
-    <div className="max-w-full overflow-x-auto pb-0.5 md:w-auto md:flex-none md:pb-0">
-      <div className="flex w-max max-w-none items-center gap-1 rounded-xl border border-white/10 bg-black/45 p-1 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-md">
+    <div className="min-w-0 max-w-full overflow-x-auto pb-0.5 md:justify-self-end md:overflow-visible md:pb-0">
+      <div className="ml-auto flex w-max items-center gap-0.5 rounded-xl border border-white/10 bg-black/45 p-1 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-md">
         {canViewFullSize && (
           <>
             <Button
               variant="ghost"
               size="sm"
-              className={`h-7 shrink-0 whitespace-nowrap rounded-lg px-2.5 text-[11px] text-white hover:bg-white/15 ${
+              className={`h-7 shrink-0 whitespace-nowrap rounded-lg px-2 text-[11px] text-white hover:bg-white/15 ${
                 previewMode === 'web' ? 'bg-white/10' : ''
               }`}
               onClick={() => setPreviewMode('web')}
@@ -1017,7 +1019,7 @@ export function MediaViewer({
             <Button
               variant="ghost"
               size="sm"
-              className={`h-7 shrink-0 whitespace-nowrap rounded-lg px-2.5 text-[11px] text-white hover:bg-white/15 ${
+              className={`h-7 shrink-0 whitespace-nowrap rounded-lg px-2 text-[11px] text-white hover:bg-white/15 ${
                 previewMode === 'full' ? 'bg-white/10' : ''
               }`}
               onClick={() => setPreviewMode('full')}
@@ -1039,7 +1041,7 @@ export function MediaViewer({
         >
           <span className="text-sm">−</span>
         </Button>
-        <span className="min-w-[2.75rem] shrink-0 text-center text-[11px] font-medium text-white">
+        <span className="min-w-[2.5rem] shrink-0 text-center text-[11px] font-medium text-white">
           {Math.round(zoom * 100)}%
         </span>
         <Button
@@ -1055,7 +1057,7 @@ export function MediaViewer({
         <Button
           variant="ghost"
           size="sm"
-          className="h-7 shrink-0 whitespace-nowrap rounded-lg px-2.5 text-[11px] text-white hover:bg-white/15"
+          className="h-7 shrink-0 whitespace-nowrap rounded-lg px-2 text-[11px] text-white hover:bg-white/15"
           onClick={handleResetZoom}
           title="Reset zoom (0)"
         >
@@ -1340,8 +1342,8 @@ export function MediaViewer({
             <div className="grid min-h-0 min-w-0 flex-1 grid-cols-1 gap-2.5 xl:grid-cols-[minmax(0,1fr)_18.5rem] xl:gap-2 2xl:grid-cols-[minmax(0,1fr)_19.5rem] 2xl:gap-2.5">
               <div className="grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md">
                 {/* Top Metadata Bar */}
-                <div className="flex min-w-0 flex-col gap-2 border-b border-white/10 px-2.5 py-2 pr-12 sm:px-3 sm:py-2.5 md:flex-row md:items-center md:justify-between md:gap-3 lg:px-3 lg:py-2 xl:pr-3 2xl:px-3 2xl:py-2">
-                  <div className="min-w-0 flex-1">
+                <div className="grid min-w-0 grid-cols-1 gap-2 border-b border-white/10 px-2.5 py-2 pr-12 sm:px-3 sm:py-2.5 md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:gap-3 lg:px-3 lg:py-2 xl:pr-3 2xl:px-3 2xl:py-2">
+                  <div className="min-w-0">
                     <p className="truncate text-[13px] font-semibold text-white sm:text-sm lg:text-[15px] xl:text-base">{displayFilename}</p>
                     <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-white/60 sm:text-[11px]">
                       <span>{currentIndex + 1} of {files.length}</span>
@@ -1351,14 +1353,14 @@ export function MediaViewer({
                   </div>
                   {mediaViewerToolbar}
                   {!isImg && (
-                    <p className="hidden flex-none text-[11px] text-white/55 md:block">Use ← → to navigate • ESC to close</p>
+                    <p className="hidden justify-self-end text-[11px] text-white/55 md:block">Use ← → to navigate • ESC to close</p>
                   )}
                 </div>
 
                   <div className="min-h-0 min-w-0 px-1.5 pb-1.5 pt-1.5 sm:px-2.5 sm:pb-2.5 sm:pt-2 lg:px-1.5 lg:pb-1.5 lg:pt-1.5 2xl:px-2 2xl:pb-2">
                     <div
                       ref={zoomStageRef}
-                      className={`relative grid h-full min-h-0 min-w-0 w-full place-items-center bg-black/75 p-0 sm:min-h-[56dvh] sm:rounded-lg sm:p-1.5 lg:min-h-0 lg:rounded-lg lg:bg-black/50 lg:p-1 xl:rounded-xl xl:p-1.5 ${
+                      className={`relative flex h-full min-h-0 min-w-0 w-full items-center justify-center bg-black/75 p-0 sm:min-h-[56dvh] sm:rounded-lg sm:p-1.5 lg:min-h-0 lg:rounded-lg lg:bg-black/50 lg:p-1 xl:rounded-xl xl:p-1.5 ${
                         zoom > 1
                           ? `${isPanningZoomStage ? 'cursor-grabbing' : 'cursor-grab'} touch-none overflow-auto`
                           : 'overflow-hidden'
@@ -1393,13 +1395,13 @@ export function MediaViewer({
                       {isImg ? (
                         zoom > 1 ? (
                           <div
-                            className="relative grid shrink-0 place-items-center p-2"
+                            className="relative flex shrink-0 items-center justify-center p-2"
                             style={zoomedImageViewportStyle}
                           >
                             <img
                               src={imageUrl}
                               alt={displayFilename}
-                              className="h-auto max-h-full w-auto max-w-full select-none object-contain object-center rounded-none shadow-none lg:rounded-xl lg:shadow-2xl"
+                              className={fitMediaClassName}
                               loading="eager"
                               draggable={false}
                             />
@@ -1408,7 +1410,7 @@ export function MediaViewer({
                             <img
                               src={imageUrl}
                               alt={displayFilename}
-                              className="h-auto max-h-full w-auto max-w-full select-none object-contain object-center rounded-none shadow-none lg:rounded-xl lg:shadow-2xl"
+                              className={fitMediaClassName}
                               loading="eager"
                               draggable={false}
                             />
@@ -1421,7 +1423,7 @@ export function MediaViewer({
                             controls
                             playsInline
                             preload="metadata"
-                            className="h-auto max-h-full w-auto max-w-full rounded-none bg-black object-contain object-center shadow-none lg:rounded-xl lg:shadow-2xl"
+                            className={`${fitMediaClassName} bg-black`}
                             style={{ outline: 'none' }}
                             onError={() => {
                               setVideoSourceIndex((current) => {
@@ -1465,7 +1467,7 @@ export function MediaViewer({
                         const fileIsImg = isImageFile(file);
                         const fileIsVid = isVideoFile(file);
                         const fileIsRaw = isRawFile(file.filename);
-                        const fileVideoThumbUrl = fileIsVid ? getMediaVideoUrlCandidates(file)[0] || '' : '';
+                        const fileVideoThumbUrl = fileIsVid ? getMediaVideoUrl(file) || getMediaVideoPreviewUrl(file) : '';
                         const hasDisplayableThumb = fileIsRaw
                           ? !!(file.thumbnail_path || file.web_path)
                           : Boolean(fileImageUrl && (fileIsImg || fileIsVid));

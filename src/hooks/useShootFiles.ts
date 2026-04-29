@@ -12,6 +12,7 @@ const getToken = (sessionToken?: string | null) => {
 
 export interface MediaFile {
   id: string;
+  shoot_id?: string | number;
   filename: string;
   url?: string;
   path?: string;
@@ -101,6 +102,7 @@ const fetchShootFiles = async (
     const mapFiles = (json: any): MediaFile[] =>
       (json?.data || json || []).map((f: any) => ({
         id: String(f.id),
+        shoot_id: f.shoot_id ?? f.shootId,
         filename: f.filename || f.stored_filename,
         url: f.url || f.path,
         path: f.path,
@@ -153,6 +155,7 @@ const fetchShootFiles = async (
     const json = res.ok ? await res.json() : { data: [] };
     return (json?.data || json || []).map((f: any) => ({
       id: String(f.id),
+      shoot_id: f.shoot_id ?? f.shootId,
       filename: f.filename || f.stored_filename,
       url: f.url || f.path,
       path: f.path,
