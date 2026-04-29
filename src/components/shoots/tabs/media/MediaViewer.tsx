@@ -1224,8 +1224,8 @@ export function MediaViewer({
             <div className="grid min-h-0 min-w-0 flex-1 grid-cols-1 gap-2.5 lg:grid-cols-[minmax(0,1fr)_17.5rem] lg:gap-2 xl:grid-cols-[minmax(0,1fr)_18.5rem] 2xl:grid-cols-[minmax(0,1fr)_19.5rem] 2xl:gap-2.5">
               <div className="grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md">
                 {/* Top Metadata Bar */}
-                <div className="flex items-start justify-between gap-2 border-b border-white/10 px-2.5 py-2 sm:px-3 sm:py-2.5 lg:gap-3 lg:px-3 lg:py-2 2xl:px-3 2xl:py-2">
-                  <div className="min-w-0 flex-1 pr-10 lg:pr-3">
+                <div className="flex flex-col gap-2 border-b border-white/10 px-2.5 py-2 sm:px-3 sm:py-2.5 lg:gap-2 lg:px-3 lg:py-2 2xl:flex-row 2xl:items-center 2xl:justify-between 2xl:gap-3 2xl:px-3 2xl:py-2">
+                  <div className="min-w-0 flex-1 pr-10 2xl:pr-2">
                     <p className="truncate text-[13px] font-semibold text-white sm:text-sm lg:text-[15px] xl:text-base">{displayFilename}</p>
                     <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-white/60 sm:text-[11px]">
                       <span>{currentIndex + 1} of {files.length}</span>
@@ -1234,32 +1234,32 @@ export function MediaViewer({
                     </div>
                   </div>
                   {isImg ? (
-                    <div className="hidden shrink-0 flex-wrap items-center justify-end gap-1 rounded-xl border border-white/10 bg-black/40 p-1 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] lg:flex">
+                    <div className="hidden min-w-0 max-w-full shrink flex-wrap items-center justify-start gap-1 self-start rounded-xl border border-white/10 bg-black/40 p-1 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] lg:flex 2xl:justify-end 2xl:self-auto">
                       {canViewFullSize && (
-                        <div className="flex shrink-0 items-center gap-1">
+                        <div className="flex shrink-0 items-center gap-0.5">
                           <Button
                             variant="ghost"
                             size="sm"
-                            className={`h-7 px-2.5 text-[11px] text-white hover:bg-white/15 ${previewMode === 'web' ? 'bg-white/10' : ''}`}
+                            className={`h-7 px-2 text-[11px] text-white hover:bg-white/15 ${previewMode === 'web' ? 'bg-white/10' : ''}`}
                             onClick={() => setPreviewMode('web')}
                             title="Use web-sized preview"
                           >
-                            Web size
+                            Web
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
-                            className={`h-7 px-2.5 text-[11px] text-white hover:bg-white/15 ${previewMode === 'full' ? 'bg-white/10' : ''}`}
+                            className={`h-7 px-2 text-[11px] text-white hover:bg-white/15 ${previewMode === 'full' ? 'bg-white/10' : ''}`}
                             onClick={() => setPreviewMode('full')}
                             disabled={!fullSizeAvailable}
                             title={fullSizeAvailable ? 'Use full-size preview' : 'Full-size preview unavailable'}
                           >
-                            Full size
+                            Full
                           </Button>
-                          <span className="mx-1 hidden h-5 w-px bg-white/10 xl:block" aria-hidden />
+                          <span className="mx-1 h-5 w-px bg-white/10" aria-hidden />
                         </div>
                       )}
-                      <div className="flex shrink-0 items-center gap-1">
+                      <div className="flex shrink-0 items-center gap-0.5">
                         <Button
                           variant="ghost"
                           size="icon"
@@ -1270,7 +1270,7 @@ export function MediaViewer({
                         >
                           <span className="text-sm">−</span>
                         </Button>
-                        <span className="min-w-[3.25rem] text-center text-[11px] font-medium text-white">{Math.round(zoom * 100)}%</span>
+                        <span className="min-w-[2.75rem] text-center text-[11px] font-medium text-white">{Math.round(zoom * 100)}%</span>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -1284,7 +1284,7 @@ export function MediaViewer({
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-7 px-2.5 text-[11px] text-white hover:bg-white/15"
+                          className="h-7 px-2 text-[11px] text-white hover:bg-white/15"
                           onClick={handleResetZoom}
                           title="Reset zoom (0)"
                         >
@@ -1390,28 +1390,24 @@ export function MediaViewer({
                         </div>
                       )}
                       {isImg ? (
-                        zoom > 1 ? (
-                          <div
-                            className="relative flex shrink-0 items-center justify-center"
-                            style={zoomedImageViewportStyle}
-                          >
-                            <img
-                              src={imageUrl}
-                              alt={displayFilename}
-                              className="h-full w-full select-none object-contain object-center rounded-none shadow-none lg:rounded-xl lg:shadow-2xl"
-                              loading="eager"
-                              draggable={false}
-                            />
-                          </div>
-                        ) : (
+                        <div
+                          className={`flex items-center justify-center ${
+                            zoom > 1
+                              ? 'relative shrink-0'
+                              : 'mx-auto h-full w-full'
+                          }`}
+                          style={zoomedImageViewportStyle}
+                        >
                           <img
                             src={imageUrl}
                             alt={displayFilename}
-                            className="max-h-full max-w-full select-none object-contain object-center rounded-none shadow-none lg:rounded-xl lg:shadow-2xl"
+                            className={`mx-auto select-none object-contain object-center rounded-none shadow-none lg:rounded-xl lg:shadow-2xl ${
+                              zoom > 1 ? 'h-full w-full' : 'max-h-full max-w-full'
+                            }`}
                             loading="eager"
                             draggable={false}
                           />
-                        )
+                        </div>
                         ) : isVid ? (
                         videoUrl ? (
                           <video
