@@ -1224,17 +1224,22 @@ export function MediaViewer({
             <div className="grid min-h-0 min-w-0 flex-1 grid-cols-1 gap-2.5 lg:grid-cols-[minmax(0,1fr)_17.5rem] lg:gap-2 xl:grid-cols-[minmax(0,1fr)_18.5rem] 2xl:grid-cols-[minmax(0,1fr)_19.5rem] 2xl:gap-2.5">
               <div className="grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md">
                 {/* Top Metadata Bar */}
-                <div className="flex flex-col gap-2 border-b border-white/10 px-2.5 py-2 sm:px-3 sm:py-2.5 lg:gap-2 lg:px-3 lg:py-2 2xl:flex-row 2xl:items-center 2xl:justify-between 2xl:gap-3 2xl:px-3 2xl:py-2">
-                  <div className="min-w-0 flex-1 pr-10 2xl:pr-2">
-                    <p className="truncate text-[13px] font-semibold text-white sm:text-sm lg:text-[15px] xl:text-base">{displayFilename}</p>
-                    <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-white/60 sm:text-[11px]">
-                      <span>{currentIndex + 1} of {files.length}</span>
-                      {currentFile.width && currentFile.height && <span>{currentFile.width} × {currentFile.height}</span>}
-                      {!isClient && currentFile.fileSize && <span>{formatViewerFileSize(currentFile.fileSize)}</span>}
+                <div className="flex flex-col gap-2 border-b border-white/10 px-2.5 py-2 sm:px-3 sm:py-2.5 lg:gap-2 lg:px-3 lg:py-2 2xl:px-3 2xl:py-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1 pr-10 lg:pr-2">
+                      <p className="truncate text-[13px] font-semibold text-white sm:text-sm lg:text-[15px] xl:text-base">{displayFilename}</p>
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-white/60 sm:text-[11px]">
+                        <span>{currentIndex + 1} of {files.length}</span>
+                        {currentFile.width && currentFile.height && <span>{currentFile.width} × {currentFile.height}</span>}
+                        {!isClient && currentFile.fileSize && <span>{formatViewerFileSize(currentFile.fileSize)}</span>}
+                      </div>
                     </div>
+                    {!isImg && (
+                      <p className="hidden text-[11px] text-white/55 lg:block">Use ← → to navigate • ESC to close</p>
+                    )}
                   </div>
-                  {isImg ? (
-                    <div className="hidden min-w-0 max-w-full shrink flex-wrap items-center justify-start gap-1 self-start rounded-xl border border-white/10 bg-black/40 p-1 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] lg:flex 2xl:justify-end 2xl:self-auto">
+                  {isImg && (
+                    <div className="hidden min-w-0 max-w-full flex-wrap items-center justify-start gap-1 self-start rounded-xl border border-white/10 bg-black/40 p-1 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] lg:flex">
                       {canViewFullSize && (
                         <div className="flex shrink-0 items-center gap-0.5">
                           <Button
@@ -1292,8 +1297,6 @@ export function MediaViewer({
                         </Button>
                       </div>
                     </div>
-                  ) : (
-                    <p className="hidden text-[11px] text-white/55 lg:block">Use ← → to navigate • ESC to close</p>
                   )}
                 </div>
 
@@ -1390,24 +1393,30 @@ export function MediaViewer({
                         </div>
                       )}
                       {isImg ? (
-                        <div
-                          className={`flex items-center justify-center ${
-                            zoom > 1
-                              ? 'relative shrink-0'
-                              : 'mx-auto h-full w-full'
-                          }`}
-                          style={zoomedImageViewportStyle}
-                        >
-                          <img
-                            src={imageUrl}
-                            alt={displayFilename}
-                            className={`mx-auto select-none object-contain object-center rounded-none shadow-none lg:rounded-xl lg:shadow-2xl ${
-                              zoom > 1 ? 'h-full w-full' : 'max-h-full max-w-full'
-                            }`}
-                            loading="eager"
-                            draggable={false}
-                          />
-                        </div>
+                        zoom > 1 ? (
+                          <div
+                            className="relative flex shrink-0 items-center justify-center"
+                            style={zoomedImageViewportStyle}
+                          >
+                            <img
+                              src={imageUrl}
+                              alt={displayFilename}
+                              className="h-full w-full select-none object-contain object-center rounded-none shadow-none lg:rounded-xl lg:shadow-2xl"
+                              loading="eager"
+                              draggable={false}
+                            />
+                          </div>
+                        ) : (
+                          <div className="absolute inset-0 flex items-center justify-center p-1 sm:p-1.5 lg:p-1 xl:p-1.5">
+                            <img
+                              src={imageUrl}
+                              alt={displayFilename}
+                              className="max-h-full max-w-full select-none object-contain object-center rounded-none shadow-none lg:rounded-xl lg:shadow-2xl"
+                              loading="eager"
+                              draggable={false}
+                            />
+                          </div>
+                        )
                         ) : isVid ? (
                         videoUrl ? (
                           <video
