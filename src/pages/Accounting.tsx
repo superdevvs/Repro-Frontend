@@ -1,30 +1,21 @@
 
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { lazy, Suspense, useState, useMemo, useEffect, useCallback } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { AccountingHeader, type AccountingTab } from '@/components/accounting/AccountingHeader';
 import { OverviewCards } from '@/components/accounting/OverviewCards';
 import { RoleBasedOverviewCards } from '@/components/accounting/RoleBasedOverviewCards';
-import { RevenueCharts } from '@/components/accounting/RevenueCharts';
-import { RoleBasedCharts } from '@/components/accounting/RoleBasedCharts';
 import { InvoiceList } from '@/components/accounting/InvoiceList';
 import { ClientBillingOverviewCards } from '@/components/accounting/ClientBillingOverviewCards';
-import { ClientBillingCharts } from '@/components/accounting/ClientBillingCharts';
 import { ClientBillingSidePanel } from '@/components/accounting/ClientBillingSidePanel';
 import { ClientBillingList } from '@/components/accounting/ClientBillingList';
 import { PhotographerShootsTable } from '@/components/accounting/PhotographerShootsTable';
 import { EditorJob } from '@/components/accounting/EditorJobsTable';
 import { PaymentsSummary } from '@/components/accounting/PaymentsSummary';
 import { RoleBasedSidePanel } from '@/components/accounting/RoleBasedSidePanel';
-import { EditorRateSettings } from '@/components/accounting/EditorRateSettings';
 import { ShootData } from '@/types/shoots';
-import { UpcomingPayments } from '@/components/accounting/UpcomingPayments';
-import { CreateInvoiceDialog } from '@/components/invoices/CreateInvoiceDialog';
-import { InvoiceViewDialog } from '@/components/invoices/InvoiceViewDialog';
-import { PaymentDialog, type InvoicePaymentCompletePayload } from '@/components/invoices/PaymentDialog';
-import { BatchInvoiceDialog } from '@/components/accounting/BatchInvoiceDialog';
-import { InvoiceData } from '@/utils/invoiceUtils';
+import type { InvoicePaymentCompletePayload } from '@/components/invoices/PaymentDialog';
+import type { InvoiceData, InvoiceViewDialogInvoice } from '@/types/invoice';
 import { useToast } from '@/hooks/use-toast';
-import { EditInvoiceDialog } from '@/components/invoices/EditInvoiceDialog';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { usePermission } from '@/hooks/usePermission';
 import { getAccountingMode, accountingConfigs } from '@/config/accountingConfig';
@@ -40,13 +31,6 @@ import {
 import type { ClientBillingItem } from '@/types/clientBilling';
 import { useShoots } from '@/context/ShootsContext';
 import { WeeklyInvoiceReview } from '@/components/invoices/WeeklyInvoiceReview';
-import { PhotographerInvoiceReviewWorkspace } from '@/components/accounting/PhotographerInvoiceReviewWorkspace';
-import { PhotographerEquipmentWorkspace } from '@/components/accounting/PhotographerEquipmentWorkspace';
-import { SalesRepInvoiceReviewWorkspace } from '@/components/accounting/SalesRepInvoiceReviewWorkspace';
-import { EditorEarningsWorkspace } from '@/components/accounting/EditorEarningsWorkspace';
-import { EditingManagerVerificationView } from '@/components/accounting/EditingManagerVerificationView';
-import { SalesRepSummarySection } from '@/components/accounting/sales/SalesRepSummarySection';
-import { ShootDetailsModalWrapper } from '@/components/dashboard/v2/ShootDetailsModalWrapper';
 import type { DashboardShootSummary } from '@/types/dashboard';
 import { shootDataToSummary } from '@/utils/dashboardDerivedUtils';
 import { useServices } from '@/hooks/useServices';
@@ -61,6 +45,69 @@ import {
   isPhotoServiceName,
   normalizeEditorServiceName,
 } from '@/utils/editorRates';
+
+const LazyRevenueCharts = lazy(() =>
+  import('@/components/accounting/RevenueCharts').then((module) => ({ default: module.RevenueCharts })),
+);
+const LazyRoleBasedCharts = lazy(() =>
+  import('@/components/accounting/RoleBasedCharts').then((module) => ({ default: module.RoleBasedCharts })),
+);
+const LazyClientBillingCharts = lazy(() =>
+  import('@/components/accounting/ClientBillingCharts').then((module) => ({ default: module.ClientBillingCharts })),
+);
+const LazyEditorRateSettings = lazy(() =>
+  import('@/components/accounting/EditorRateSettings').then((module) => ({ default: module.EditorRateSettings })),
+);
+const LazyCreateInvoiceDialog = lazy(() =>
+  import('@/components/invoices/CreateInvoiceDialog').then((module) => ({ default: module.CreateInvoiceDialog })),
+);
+const LazyInvoiceViewDialog = lazy(() =>
+  import('@/components/invoices/InvoiceViewDialog').then((module) => ({ default: module.InvoiceViewDialog })),
+);
+const LazyPaymentDialog = lazy(() =>
+  import('@/components/invoices/PaymentDialog').then((module) => ({ default: module.PaymentDialog })),
+);
+const LazyBatchInvoiceDialog = lazy(() =>
+  import('@/components/accounting/BatchInvoiceDialog').then((module) => ({ default: module.BatchInvoiceDialog })),
+);
+const LazyEditInvoiceDialog = lazy(() =>
+  import('@/components/invoices/EditInvoiceDialog').then((module) => ({ default: module.EditInvoiceDialog })),
+);
+const LazyPhotographerInvoiceReviewWorkspace = lazy(() =>
+  import('@/components/accounting/PhotographerInvoiceReviewWorkspace').then((module) => ({
+    default: module.PhotographerInvoiceReviewWorkspace,
+  })),
+);
+const LazyPhotographerEquipmentWorkspace = lazy(() =>
+  import('@/components/accounting/PhotographerEquipmentWorkspace').then((module) => ({
+    default: module.PhotographerEquipmentWorkspace,
+  })),
+);
+const LazySalesRepInvoiceReviewWorkspace = lazy(() =>
+  import('@/components/accounting/SalesRepInvoiceReviewWorkspace').then((module) => ({
+    default: module.SalesRepInvoiceReviewWorkspace,
+  })),
+);
+const LazyEditorEarningsWorkspace = lazy(() =>
+  import('@/components/accounting/EditorEarningsWorkspace').then((module) => ({
+    default: module.EditorEarningsWorkspace,
+  })),
+);
+const LazyEditingManagerVerificationView = lazy(() =>
+  import('@/components/accounting/EditingManagerVerificationView').then((module) => ({
+    default: module.EditingManagerVerificationView,
+  })),
+);
+const LazySalesRepSummarySection = lazy(() =>
+  import('@/components/accounting/sales/SalesRepSummarySection').then((module) => ({
+    default: module.SalesRepSummarySection,
+  })),
+);
+const LazyShootDetailsModalWrapper = lazy(() =>
+  import('@/components/dashboard/v2/ShootDetailsModalWrapper').then((module) => ({
+    default: module.ShootDetailsModalWrapper,
+  })),
+);
 
 const toNumber = (value: unknown) => {
   const num = Number(value);
@@ -139,7 +186,6 @@ const isInvoiceInDaysWindow = (invoice: InvoiceData, daysWindow: number) => {
 };
 
 type ViewableInvoice = InvoiceData | ClientBillingInvoiceViewData;
-type InvoiceViewDialogInvoice = React.ComponentProps<typeof InvoiceViewDialog>['invoice'];
 type ShootWithLegacyEditorFields = ShootData & {
   editor_id?: string | number | null;
   editorId?: string | number | null;
@@ -640,25 +686,29 @@ const AccountingPage = () => {
           })()}
 
           {isEditingManagerAccounting ? (
-            <EditingManagerVerificationView
-              shoots={contextShoots}
-              invoices={filteredInvoices}
-              loading={loading}
-              onViewInvoice={handleViewInvoice}
-            />
+            <Suspense fallback={null}>
+              <LazyEditingManagerVerificationView
+                shoots={contextShoots}
+                invoices={filteredInvoices}
+                loading={loading}
+                onViewInvoice={handleViewInvoice}
+              />
+            </Suspense>
           ) : (
             <>
               {/* Home Tab Content */}
               {(activeTab === 'home' || accountingMode !== 'admin') && (
                 accountingMode === 'rep' ? (
                   <div className="space-y-6">
-                    <SalesRepSummarySection
-                      data={salesRepSummary.data}
-                      loading={salesRepSummary.loading}
-                      error={salesRepSummary.error}
-                      daysWindow={daysWindow}
-                      onRetry={salesRepSummary.refresh}
-                    />
+                    <Suspense fallback={null}>
+                      <LazySalesRepSummarySection
+                        data={salesRepSummary.data}
+                        loading={salesRepSummary.loading}
+                        error={salesRepSummary.error}
+                        daysWindow={daysWindow}
+                        onRetry={salesRepSummary.refresh}
+                      />
+                    </Suspense>
 
                     <section className="space-y-3">
                       <div className="space-y-1">
@@ -731,27 +781,33 @@ const AccountingPage = () => {
                       <div className="grid grid-cols-1 gap-3 items-stretch lg:grid-cols-3">
                         <div className="lg:col-span-2">
                           {accountingMode === 'admin' ? (
-                            <RevenueCharts
-                              invoices={adminWindowInvoices}
-                              timeFilter={timeFilter}
-                              onTimeFilterChange={setTimeFilter}
-                              role={role}
-                            />
+                            <Suspense fallback={null}>
+                              <LazyRevenueCharts
+                                invoices={adminWindowInvoices}
+                                timeFilter={timeFilter}
+                                onTimeFilterChange={setTimeFilter}
+                                role={role}
+                              />
+                            </Suspense>
                           ) : accountingMode === 'client' ? (
-                            <ClientBillingCharts
-                              items={clientBillingItems}
-                              timeFilter={timeFilter}
-                              onTimeFilterChange={setTimeFilter}
-                            />
+                            <Suspense fallback={null}>
+                              <LazyClientBillingCharts
+                                items={clientBillingItems}
+                                timeFilter={timeFilter}
+                                onTimeFilterChange={setTimeFilter}
+                              />
+                            </Suspense>
                           ) : (
-                            <RoleBasedCharts
-                              invoices={filteredInvoices}
-                              mode={accountingMode}
-                              timeFilter={timeFilter}
-                              onTimeFilterChange={setTimeFilter}
-                              shoots={shoots}
-                              editingJobs={editingJobs}
-                            />
+                            <Suspense fallback={null}>
+                              <LazyRoleBasedCharts
+                                invoices={filteredInvoices}
+                                mode={accountingMode}
+                                timeFilter={timeFilter}
+                                onTimeFilterChange={setTimeFilter}
+                                shoots={shoots}
+                                editingJobs={editingJobs}
+                              />
+                            </Suspense>
                           )}
                         </div>
                         {(config.showPaymentsSummary || config.showLatestTransactions || accountingMode === 'editor' || accountingMode === 'photographer') && (
@@ -765,7 +821,9 @@ const AccountingPage = () => {
                               />
                             ) : accountingMode === 'editor' ? (
                               <>
-                                <EditorRateSettings className="min-h-0 max-h-[min(72vh,44rem)]" />
+                                <Suspense fallback={null}>
+                                  <LazyEditorRateSettings className="min-h-0 max-h-[min(72vh,44rem)]" />
+                                </Suspense>
                                 <RoleBasedSidePanel
                                   invoices={filteredInvoices}
                                   mode={accountingMode}
@@ -794,7 +852,9 @@ const AccountingPage = () => {
                     )}
 
                     {accountingMode === 'editor' && (
-                      <EditorEarningsWorkspace mode="self" />
+                      <Suspense fallback={null}>
+                        <LazyEditorEarningsWorkspace mode="self" />
+                      </Suspense>
                     )}
 
                     {/* For non-client: show invoice table in original position (after charts) */}
@@ -829,78 +889,104 @@ const AccountingPage = () => {
               {/* Photographers Tab Content */}
               {activeTab === 'photographers' && accountingMode === 'admin' && (
                 <div className="flex flex-col gap-4 sm:gap-6">
-                  <PhotographerInvoiceReviewWorkspace />
+                  <Suspense fallback={null}>
+                    <LazyPhotographerInvoiceReviewWorkspace />
+                  </Suspense>
                 </div>
               )}
 
               {activeTab === 'editors' && accountingMode === 'admin' && (
                 <div className="flex flex-col gap-4 sm:gap-6">
-                  <EditorEarningsWorkspace mode="admin" />
+                  <Suspense fallback={null}>
+                    <LazyEditorEarningsWorkspace mode="admin" />
+                  </Suspense>
                 </div>
               )}
 
               {activeTab === 'equipments' && accountingMode === 'admin' && (
                 <div className="flex flex-col gap-4 sm:gap-6">
-                  <PhotographerEquipmentWorkspace />
+                  <Suspense fallback={null}>
+                    <LazyPhotographerEquipmentWorkspace />
+                  </Suspense>
                 </div>
               )}
 
               {activeTab === 'sales-reps' && accountingMode === 'admin' && (
                 <div className="flex flex-col gap-4 sm:gap-6">
-                  <SalesRepInvoiceReviewWorkspace />
+                  <Suspense fallback={null}>
+                    <LazySalesRepInvoiceReviewWorkspace />
+                  </Suspense>
                 </div>
               )}
             </>
           )}
         </div>
 
-      {selectedInvoiceForView && (
-        <InvoiceViewDialog
-          isOpen={viewDialogOpen}
-          onClose={closeViewDialog}
-          invoice={selectedInvoiceForView}
-        />
+      {viewDialogOpen && selectedInvoiceForView && (
+        <Suspense fallback={null}>
+          <LazyInvoiceViewDialog
+            isOpen={viewDialogOpen}
+            onClose={closeViewDialog}
+            invoice={selectedInvoiceForView}
+          />
+        </Suspense>
       )}
 
-      {!isEditingManagerAccounting && selectedInvoice && canMarkAsPaid && (
-        <PaymentDialog
-          isOpen={paymentDialogOpen}
-          onClose={closePaymentDialog}
-          invoice={selectedInvoice as InvoiceData}
-          onPaymentComplete={handlePaymentComplete}
-        />
-      )}
-
-      {!isEditingManagerAccounting && canCreateInvoice && (
-        <CreateInvoiceDialog
-          isOpen={createDialogOpen}
-          onClose={() => setCreateDialogOpen(false)}
-          onInvoiceCreate={handleCreateInvoice}
-        />
+      {!isEditingManagerAccounting && paymentDialogOpen && selectedInvoice && canMarkAsPaid && (
+        <Suspense fallback={null}>
+          <LazyPaymentDialog
+            isOpen={paymentDialogOpen}
+            onClose={closePaymentDialog}
+            invoice={selectedInvoice as InvoiceData}
+            onPaymentComplete={handlePaymentComplete}
+          />
+        </Suspense>
       )}
 
       {!isEditingManagerAccounting && canCreateInvoice && (
-        <BatchInvoiceDialog
-          isOpen={batchDialogOpen}
-          onClose={() => setBatchDialogOpen(false)}
-          onCreateBatch={handleCreateBatchInvoices}
-        />
+        createDialogOpen && (
+          <Suspense fallback={null}>
+            <LazyCreateInvoiceDialog
+              isOpen={createDialogOpen}
+              onClose={() => setCreateDialogOpen(false)}
+              onInvoiceCreate={handleCreateInvoice}
+            />
+          </Suspense>
+        )
+      )}
+
+      {!isEditingManagerAccounting && canCreateInvoice && (
+        batchDialogOpen && (
+          <Suspense fallback={null}>
+            <LazyBatchInvoiceDialog
+              isOpen={batchDialogOpen}
+              onClose={() => setBatchDialogOpen(false)}
+              onCreateBatch={handleCreateBatchInvoices}
+            />
+          </Suspense>
+        )
       )}
 
       {!isEditingManagerAccounting && selectedInvoice && canEditInvoice && (
-        <EditInvoiceDialog
-          isOpen={editDialogOpen}
-          onClose={() => setEditDialogOpen(false)}
-          invoice={selectedInvoice as InvoiceData}
-          onInvoiceEdit={handleInvoiceEdit}
-        />
+        editDialogOpen && (
+          <Suspense fallback={null}>
+            <LazyEditInvoiceDialog
+              isOpen={editDialogOpen}
+              onClose={() => setEditDialogOpen(false)}
+              invoice={selectedInvoice as InvoiceData}
+              onInvoiceEdit={handleInvoiceEdit}
+            />
+          </Suspense>
+        )
       )}
 
       {selectedPhotographerShoot && (
-        <ShootDetailsModalWrapper
-          shoot={selectedPhotographerShoot}
-          onClose={() => setSelectedPhotographerShoot(null)}
-        />
+        <Suspense fallback={null}>
+          <LazyShootDetailsModalWrapper
+            shoot={selectedPhotographerShoot}
+            onClose={() => setSelectedPhotographerShoot(null)}
+          />
+        </Suspense>
       )}
     </DashboardLayout>
   );

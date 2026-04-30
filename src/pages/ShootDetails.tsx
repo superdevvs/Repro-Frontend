@@ -58,7 +58,6 @@ import { useShootDetailsModalActions } from '@/components/shoots/modal/useShootD
 import { ShootDetailsMediaTab } from '@/components/shoots/tabs/ShootDetailsMediaTab';
 import { ShootDetailsNotesTab } from '@/components/shoots/tabs/ShootDetailsNotesTab';
 import { ShootDetailsSettingsTab } from '@/components/shoots/tabs/ShootDetailsSettingsTab';
-import { ShootDetailsTourTab } from '@/components/shoots/tabs/ShootDetailsTourTab';
 import { ShootDetailsSlideshowTab } from '@/components/shoots/tabs/ShootDetailsSlideshowTab';
 import { ShootDetailsActivityLogTab } from '@/components/shoots/tabs/ShootDetailsActivityLogTab';
 import { ShootDetailsIssuesTab } from '@/components/shoots/tabs/ShootDetailsIssuesTab';
@@ -66,6 +65,12 @@ import { ShootDetailsSidebar } from '@/components/shoots/tabs/ShootDetailsSideba
 import { AddServiceDialog } from '@/components/shoots/AddServiceDialog';
 import { MarkAsPaidDialog, MarkAsPaidPayload } from '@/components/payments/MarkAsPaidDialog';
 import { RescheduleDialog } from '@/components/dashboard/RescheduleDialog';
+
+const LazyShootDetailsTourTab = React.lazy(() =>
+  import('@/components/shoots/tabs/ShootDetailsTourTab').then((module) => ({
+    default: module.ShootDetailsTourTab,
+  })),
+);
 
 type ShootWorkflowLog = {
   action?: string | null;
@@ -877,13 +882,17 @@ const ShootDetails: React.FC = () => {
 
                   <TabsContent value="tour" className="mt-0 p-4 sm:p-6" style={{ flex: '0 0 auto', height: 'auto' }}>
                     <div className="max-w-7xl mx-auto">
-                      <ShootDetailsTourTab
-                        shoot={shoot}
-                        isAdmin={isAdmin}
-                        isRep={isRep}
-                        isClient={isClient}
-                        onShootUpdate={loadShoot}
-                      />
+                      {activeTab === 'tour' && (
+                        <React.Suspense fallback={null}>
+                          <LazyShootDetailsTourTab
+                            shoot={shoot}
+                            isAdmin={isAdmin}
+                            isRep={isRep}
+                            isClient={isClient}
+                            onShootUpdate={loadShoot}
+                          />
+                        </React.Suspense>
+                      )}
                     </div>
                   </TabsContent>
 

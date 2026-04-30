@@ -4,7 +4,6 @@ import React from 'react' // Explicitly import React
 import '@/services/api' // Register global axios interceptors (auth + impersonation) early
 import App from './App.tsx'
 import './index.css'
-import 'leaflet/dist/leaflet.css'
 import { ThemeProvider } from './hooks/useTheme'
 import { installChunkLoadRecovery } from '@/lib/chunkLoadRecovery'
 

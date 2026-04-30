@@ -17,8 +17,18 @@ import { ShootDetailsNotesTab } from '../tabs/ShootDetailsNotesTab';
 import { ShootDetailsIssuesTab } from '../tabs/ShootDetailsIssuesTab';
 import { ShootDetailsSettingsTab } from '../tabs/ShootDetailsSettingsTab';
 import { ShootDetailsActivityLogTab } from '../tabs/ShootDetailsActivityLogTab';
-import { ShootDetailsTourTab } from '../tabs/ShootDetailsTourTab';
-import { TourAnalyticsPanel } from '../TourAnalyticsPanel';
+
+const LazyShootDetailsTourTab = React.lazy(() =>
+  import('../tabs/ShootDetailsTourTab').then((module) => ({
+    default: module.ShootDetailsTourTab,
+  })),
+);
+
+const LazyTourAnalyticsPanel = React.lazy(() =>
+  import('../TourAnalyticsPanel').then((module) => ({
+    default: module.TourAnalyticsPanel,
+  })),
+);
 
 type VisibleTabId =
   | 'overview'
@@ -196,17 +206,19 @@ export function ShootDetailsModalBody({
                 />
               </TabsContent>
 
-              {(isAdmin || isRep || isClient) && (
+              {(isAdmin || isRep || isClient) && activeTab === 'tours' && (
                 <TabsContent value="tours" className="mt-0">
-                  <ShootDetailsTourTab
-                    shoot={shoot}
-                    isAdmin={isAdmin}
-                    isRep={isRep}
-                    isClient={isClient}
-                    isClientReleaseLocked={isClientReleaseLocked}
-                    onShootUpdate={refreshShootAndParent}
-                    onShowAnalytics={() => setShowTourAnalytics(true)}
-                  />
+                  <React.Suspense fallback={null}>
+                    <LazyShootDetailsTourTab
+                      shoot={shoot}
+                      isAdmin={isAdmin}
+                      isRep={isRep}
+                      isClient={isClient}
+                      isClientReleaseLocked={isClientReleaseLocked}
+                      onShootUpdate={refreshShootAndParent}
+                      onShowAnalytics={() => setShowTourAnalytics(true)}
+                    />
+                  </React.Suspense>
                 </TabsContent>
               )}
               {(isAdmin || isRep) && (
@@ -288,7 +300,9 @@ export function ShootDetailsModalBody({
         <div className="hidden sm:flex w-[62.5%] min-h-0 flex-1 flex-col bg-background border-t sm:border-t-0">
           <div className="flex-1 min-h-0 overflow-y-auto px-2 sm:px-3">
             {showTourAnalytics ? (
-              <TourAnalyticsPanel shootId={shoot.id} onBack={() => setShowTourAnalytics(false)} />
+              <React.Suspense fallback={null}>
+                <LazyTourAnalyticsPanel shootId={shoot.id} onBack={() => setShowTourAnalytics(false)} />
+              </React.Suspense>
             ) : (
               <ShootDetailsMediaTab
                 shoot={shoot}

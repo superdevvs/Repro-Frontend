@@ -1,4 +1,4 @@
-import { type ComponentProps, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import {
   CalendarClock,
   Camera,
@@ -22,7 +22,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { InvoiceViewDialog } from '@/components/invoices/InvoiceViewDialog';
 import { BulkActionsDialog } from '@/components/shoots/BulkActionsDialog';
 import { ShootApprovalModal } from '@/components/shoots/ShootApprovalModal';
 import { ShootDeclineModal } from '@/components/shoots/ShootDeclineModal';
@@ -30,7 +29,14 @@ import { ShootDetailsModal } from '@/components/shoots/ShootDetailsModal';
 import { ShootEditModal } from '@/components/shoots/ShootEditModal';
 import { BrightMlsImportDialog } from '@/components/integrations/BrightMlsImportDialog';
 import { ShootData } from '@/types/shoots';
+import type { InvoiceViewDialogInvoice } from '@/types/invoice';
 import { formatWorkflowStatus } from '@/utils/status';
+
+const LazyInvoiceViewDialog = lazy(() =>
+  import('@/components/invoices/InvoiceViewDialog').then((module) => ({
+    default: module.InvoiceViewDialog,
+  })),
+);
 
 const formatDeleteDate = (value?: string) => {
   if (!value) return 'Not scheduled';
@@ -93,7 +99,7 @@ interface ShootHistoryModalHostProps {
   onDeleteShootIdChange: (value: string | number | null) => void;
   isDeleting: boolean;
   onConfirmDelete: (options?: { deleteMedia?: boolean }) => void;
-  selectedInvoice: ComponentProps<typeof InvoiceViewDialog>['invoice'] | null;
+  selectedInvoice: InvoiceViewDialogInvoice | null;
   invoiceDialogOpen: boolean;
   onInvoiceClose: () => void;
   brightMlsRedirectUrl: string | null;
@@ -358,12 +364,14 @@ export function ShootHistoryModalHost({
         </AlertDialogContent>
       </AlertDialog>
 
-      {selectedInvoice && (
-        <InvoiceViewDialog
-          isOpen={invoiceDialogOpen}
-          onClose={onInvoiceClose}
-          invoice={selectedInvoice}
-        />
+      {invoiceDialogOpen && selectedInvoice && (
+        <Suspense fallback={null}>
+          <LazyInvoiceViewDialog
+            isOpen={invoiceDialogOpen}
+            onClose={onInvoiceClose}
+            invoice={selectedInvoice}
+          />
+        </Suspense>
       )}
 
       <BrightMlsImportDialog

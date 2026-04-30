@@ -4,14 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Download, Plus, Trash2 } from "lucide-react";
-import { jsPDF } from "jspdf";
 import { format } from "date-fns";
 import { Logo } from "@/components/layout/Logo";
 import { useToast } from '@/hooks/use-toast';
 import { usePermission } from '@/hooks/usePermission';
 import { addInvoiceMiscItem, removeInvoiceMiscItem } from '@/services/invoiceService';
-import { formatPaymentBreakdown, formatPaymentMethod, type PaymentDetails } from '@/utils/paymentUtils';
-import type { InvoiceData, InvoiceItem as SharedInvoiceItem, InvoiceParty, InvoiceShootRef } from '@/utils/invoiceUtils';
+import { formatPaymentBreakdown, formatPaymentMethod } from '@/utils/paymentUtils';
+import type { InvoiceViewDialogInvoice, InvoiceViewDialogItem } from '@/types/invoice';
 
 const COMPANY_NAME = 'REPRO Photos';
 const COMPANY_PHONE = '(202) 868-1663';
@@ -21,38 +20,7 @@ const COMPANY_ADDRESS_LINES = COMPANY_ADDRESS
   ? COMPANY_ADDRESS.split('|').map((line) => line.trim()).filter(Boolean)
   : [];
 
-type InvoiceItem = SharedInvoiceItem & {
-  meta?: {
-    extra_description?: string;
-    service_name?: string;
-    photographer_name?: string;
-    source?: string;
-    [key: string]: unknown;
-  } | null;
-};
-
-type InvoiceViewDialogInvoice = Omit<
-  Partial<InvoiceData>,
-  'id' | 'number' | 'client' | 'photographer' | 'shoot' | 'shoots' | 'items' | 'paymentMethod' | 'paymentDetails' | 'paidAt'
-> & {
-  id?: string | number;
-  invoice_number?: string | number;
-  number?: string;
-  client?: string | InvoiceParty | null;
-  photographer?: string | InvoiceParty | null;
-  shoot?: InvoiceShootRef | null;
-  shoots?: InvoiceShootRef[];
-  items?: InvoiceItem[];
-  paymentMethod?: string;
-  payment_method?: string;
-  paymentDetails?: PaymentDetails;
-  payment_details?: PaymentDetails;
-  paidAt?: string | null;
-  paid_at?: string | null;
-  issue_date?: string;
-  due_date?: string;
-  amount_paid?: number | string;
-};
+type InvoiceItem = InvoiceViewDialogItem;
 
 interface InvoiceViewDialogProps {
   isOpen: boolean;
@@ -314,6 +282,7 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
     setIsPdfGenerating(true);
 
     try {
+      const { jsPDF } = await import("jspdf");
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { format } from 'date-fns';
 import {
   Dialog,
@@ -13,8 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { MarkAsPaidDialog, MarkAsPaidPayload } from '@/components/payments/MarkAsPaidDialog';
 import { StripePaymentDialog } from '@/components/payments/StripePaymentDialog';
-import { InvoiceViewDialog } from '@/components/invoices/InvoiceViewDialog';
-import { InvoiceData } from '@/utils/invoiceUtils';
+import type { InvoiceData } from '@/types/invoice';
 import { BrightMlsImportDialog } from '@/components/integrations/BrightMlsImportDialog';
 import { MmmPunchoutDialog } from '@/components/integrations/MmmPunchoutDialog';
 import { HorizontalLoader } from '@/components/ui/horizontal-loader';
@@ -25,6 +24,12 @@ import { ShootData } from '@/types/shoots';
 import {
   ShootMediaDownloadSize,
 } from '@/utils/shootMediaDownload';
+
+const LazyInvoiceViewDialog = lazy(() =>
+  import('@/components/invoices/InvoiceViewDialog').then((module) => ({
+    default: module.InvoiceViewDialog,
+  })),
+);
 
 interface ShootDetailsModalDialogsProps {
   shoot: ShootData | null;
@@ -539,15 +544,17 @@ export function ShootDetailsModalDialogs({
         />
       )}
 
-      {selectedInvoice && (
-        <InvoiceViewDialog
-          isOpen={isInvoiceDialogOpen}
-          onClose={() => {
-            setIsInvoiceDialogOpen(false);
-            setSelectedInvoice(null);
-          }}
-          invoice={selectedInvoice}
-        />
+      {isInvoiceDialogOpen && selectedInvoice && (
+        <Suspense fallback={null}>
+          <LazyInvoiceViewDialog
+            isOpen={isInvoiceDialogOpen}
+            onClose={() => {
+              setIsInvoiceDialogOpen(false);
+              setSelectedInvoice(null);
+            }}
+            invoice={selectedInvoice}
+          />
+        </Suspense>
       )}
 
       <BrightMlsImportDialog

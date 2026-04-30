@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { lazy, Suspense, useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -32,13 +32,18 @@ import {
 } from 'lucide-react';
 import { ShootData } from '@/types/shoots';
 import { useToast } from '@/hooks/use-toast';
-import { InvoiceViewDialog } from '@/components/invoices/InvoiceViewDialog';
-import { InvoiceData } from '@/utils/invoiceUtils';
+import type { InvoiceData } from '@/types/invoice';
 import { API_BASE_URL } from '@/config/env';
 import { calculateDistance, getCoordinatesFromAddress } from '@/utils/distanceUtils';
 import { getStateFullName } from '@/utils/stateUtils';
 import { cn } from '@/lib/utils';
 import { getShootPhotographerAssignmentGroups } from '@/utils/shootPhotographerAssignments';
+
+const LazyInvoiceViewDialog = lazy(() =>
+  import('@/components/invoices/InvoiceViewDialog').then((module) => ({
+    default: module.InvoiceViewDialog,
+  })),
+);
 
 interface ShootDetailsSidebarProps {
   shoot: ShootData;
@@ -570,15 +575,17 @@ export function ShootDetailsSidebar({
         </Card>
       )}
       
-      {selectedInvoice && (
-        <InvoiceViewDialog
-          isOpen={isInvoiceDialogOpen}
-          onClose={() => {
-            setIsInvoiceDialogOpen(false);
-            setSelectedInvoice(null);
-          }}
-          invoice={selectedInvoice}
-        />
+      {isInvoiceDialogOpen && selectedInvoice && (
+        <Suspense fallback={null}>
+          <LazyInvoiceViewDialog
+            isOpen={isInvoiceDialogOpen}
+            onClose={() => {
+              setIsInvoiceDialogOpen(false);
+              setSelectedInvoice(null);
+            }}
+            invoice={selectedInvoice}
+          />
+        </Suspense>
       )}
 
       {/* Assign Photographer Dialog - Matching Book Shoot selector */}

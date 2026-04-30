@@ -7,9 +7,6 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { useShoots } from "@/context/ShootsContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useDashboardOverview } from "@/hooks/useDashboardOverview";
-import { ShootApprovalModal } from "@/components/shoots/ShootApprovalModal";
-import { ShootDeclineModal } from "@/components/shoots/ShootDeclineModal";
-import { ShootEditModal } from "@/components/shoots/ShootEditModal";
 import {
   filterEditingManagerUpcomingShoots,
   filterReadyToDeliverShoots,
@@ -36,8 +33,6 @@ import { useEditingRequests } from "@/hooks/useEditingRequests";
 import { useRequestManager } from "@/context/RequestManagerContext";
 import { UpcomingShootsCardSkeleton } from "@/components/dashboard/v2/UpcomingShootsCardSkeleton";
 import { withErrorBoundary } from "@/components/ui/ErrorBoundary";
-import { InvoiceViewDialog } from "@/components/invoices/InvoiceViewDialog";
-import { CancellationRequestsDialog } from "@/components/dashboard/CancellationRequestsDialog";
 import { UploadStatusWidget } from "@/components/dashboard/UploadStatusWidget";
 import { usePermission } from "@/hooks/usePermission";
 import { DASHBOARD_DESCRIPTION } from "@/features/dashboard/constants";
@@ -129,6 +124,36 @@ const LazyShootDetailsModal = lazy(() =>
 const LazySpecialEditingRequestDialog = lazy(() =>
   import("@/components/dashboard/SpecialEditingRequestDialog").then((module) => ({
     default: module.SpecialEditingRequestDialog,
+  })),
+);
+
+const LazyInvoiceViewDialog = lazy(() =>
+  import("@/components/invoices/InvoiceViewDialog").then((module) => ({
+    default: module.InvoiceViewDialog,
+  })),
+);
+
+const LazyShootApprovalModal = lazy(() =>
+  import("@/components/shoots/ShootApprovalModal").then((module) => ({
+    default: module.ShootApprovalModal,
+  })),
+);
+
+const LazyShootDeclineModal = lazy(() =>
+  import("@/components/shoots/ShootDeclineModal").then((module) => ({
+    default: module.ShootDeclineModal,
+  })),
+);
+
+const LazyShootEditModal = lazy(() =>
+  import("@/components/shoots/ShootEditModal").then((module) => ({
+    default: module.ShootEditModal,
+  })),
+);
+
+const LazyCancellationRequestsDialog = lazy(() =>
+  import("@/components/dashboard/CancellationRequestsDialog").then((module) => ({
+    default: module.CancellationRequestsDialog,
   })),
 );
 
@@ -297,11 +322,13 @@ const Dashboard = () => {
       </Suspense>
       {/* Invoice View Dialog */}
       {selectedInvoice && (
-        <InvoiceViewDialog
-          isOpen={invoiceDialogOpen}
-          onClose={closeInvoiceDialog}
-          invoice={selectedInvoice}
-        />
+        <Suspense fallback={null}>
+          <LazyInvoiceViewDialog
+            isOpen={invoiceDialogOpen}
+            onClose={closeInvoiceDialog}
+            invoice={selectedInvoice}
+          />
+        </Suspense>
       )}
     </>
   );
@@ -738,49 +765,55 @@ const Dashboard = () => {
 
       {/* Approval Modal for requested shoots */}
       {approvalModalShoot && (
-        <ShootApprovalModal
-          isOpen={!!approvalModalShoot}
-          onClose={() => setApprovalModalShoot(null)}
-          shootId={approvalModalShoot.id}
-          shootAddress={approvalModalShoot.addressLine || ''}
-          currentScheduledAt={approvalModalShoot.startTime}
-          onApproved={() => {
-            setApprovalModalShoot(null);
-            refresh();
-          }}
-          photographers={Array.isArray(data?.photographers) ? data.photographers.map((p) => ({
-            id: p.id,
-            name: p.name,
-            avatar: p.avatar,
-          })) : []}
-        />
+        <Suspense fallback={null}>
+          <LazyShootApprovalModal
+            isOpen={!!approvalModalShoot}
+            onClose={() => setApprovalModalShoot(null)}
+            shootId={approvalModalShoot.id}
+            shootAddress={approvalModalShoot.addressLine || ''}
+            currentScheduledAt={approvalModalShoot.startTime}
+            onApproved={() => {
+              setApprovalModalShoot(null);
+              refresh();
+            }}
+            photographers={Array.isArray(data?.photographers) ? data.photographers.map((p) => ({
+              id: p.id,
+              name: p.name,
+              avatar: p.avatar,
+            })) : []}
+          />
+        </Suspense>
       )}
 
       {/* Decline Modal for requested shoots */}
       {declineModalShoot && (
-        <ShootDeclineModal
-          isOpen={!!declineModalShoot}
-          onClose={() => setDeclineModalShoot(null)}
-          shootId={declineModalShoot.id}
-          shootAddress={declineModalShoot.addressLine || ''}
-          onDeclined={() => {
-            setDeclineModalShoot(null);
-            refresh();
-          }}
-        />
+        <Suspense fallback={null}>
+          <LazyShootDeclineModal
+            isOpen={!!declineModalShoot}
+            onClose={() => setDeclineModalShoot(null)}
+            shootId={declineModalShoot.id}
+            shootAddress={declineModalShoot.addressLine || ''}
+            onDeclined={() => {
+              setDeclineModalShoot(null);
+              refresh();
+            }}
+          />
+        </Suspense>
       )}
 
       {/* Edit Modal for modifying shoot requests */}
       {editModalShoot && (
-        <ShootEditModal
-          isOpen={!!editModalShoot}
-          onClose={() => setEditModalShoot(null)}
-          shootId={editModalShoot.id}
-          onSaved={() => {
-            setEditModalShoot(null);
-            refresh();
-          }}
-        />
+        <Suspense fallback={null}>
+          <LazyShootEditModal
+            isOpen={!!editModalShoot}
+            onClose={() => setEditModalShoot(null)}
+            shootId={editModalShoot.id}
+            onSaved={() => {
+              setEditModalShoot(null);
+              refresh();
+            }}
+          />
+        </Suspense>
       )}
 
       <Suspense fallback={null}>
@@ -810,15 +843,19 @@ const Dashboard = () => {
         />
       </Suspense>
 
-      <CancellationRequestsDialog
-        open={cancellationDialogOpen}
-        onOpenChange={setCancellationDialogOpen}
-        onActionComplete={() => {
-          refresh();
-          void fetchPendingCancellationShoots();
-          if (fetchShoots) fetchShoots().catch(() => {});
-        }}
-      />
+      {cancellationDialogOpen && (
+        <Suspense fallback={null}>
+          <LazyCancellationRequestsDialog
+            open={cancellationDialogOpen}
+            onOpenChange={setCancellationDialogOpen}
+            onActionComplete={() => {
+              refresh();
+              void fetchPendingCancellationShoots();
+              if (fetchShoots) fetchShoots().catch(() => {});
+            }}
+          />
+        </Suspense>
+      )}
     </DashboardLayout>
   );
 };

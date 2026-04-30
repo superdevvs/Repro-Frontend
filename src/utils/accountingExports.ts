@@ -1,6 +1,3 @@
-import { jsPDF } from 'jspdf';
-import * as XLSX from 'xlsx';
-
 export interface ExportColumn<Row extends Record<string, unknown>> {
   key: keyof Row;
   label: string;
@@ -47,7 +44,8 @@ export const exportRowsAsExcel = <Row extends Record<string, unknown>>(
   columns: ReadonlyArray<ExportColumn<Row>>,
   rows: Row[],
 ) => {
-  const worksheet = XLSX.utils.json_to_sheet(
+  void import('xlsx').then((XLSX) => {
+    const worksheet = XLSX.utils.json_to_sheet(
     rows.map((row) =>
       columns.reduce<Record<string, unknown>>((accumulator, column) => {
         accumulator[column.label] = sanitizeValue(row[column.key]);
@@ -59,6 +57,7 @@ export const exportRowsAsExcel = <Row extends Record<string, unknown>>(
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
   XLSX.writeFile(workbook, `${fileName}.xlsx`);
+  });
 };
 
 export const exportRowsAsPdf = <Row extends Record<string, unknown>>(
@@ -67,7 +66,8 @@ export const exportRowsAsPdf = <Row extends Record<string, unknown>>(
   columns: ReadonlyArray<ExportColumn<Row>>,
   rows: Row[],
 ) => {
-  const doc = new jsPDF({
+  void import('jspdf').then(({ jsPDF }) => {
+    const doc = new jsPDF({
     orientation: 'landscape',
     unit: 'pt',
     format: 'a4',
@@ -108,4 +108,5 @@ export const exportRowsAsPdf = <Row extends Record<string, unknown>>(
   });
 
   doc.save(`${fileName}.pdf`);
+  });
 };

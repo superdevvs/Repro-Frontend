@@ -1,90 +1,17 @@
-import { jsPDF } from "jspdf";
 import { format } from "date-fns";
-import { formatPaymentMethod, type PaymentDetails } from '@/utils/paymentUtils';
+import { formatPaymentMethod } from '@/utils/paymentUtils';
+import type {
+  InvoiceData,
+  InvoiceItem,
+  InvoiceLocation,
+  InvoiceParty,
+  InvoiceShootRef,
+} from "@/types/invoice";
 
-export interface InvoiceParty {
-  id?: number | string;
-  name?: string;
-  email?: string;
-  [key: string]: unknown;
-}
-
-export interface InvoiceLocation {
-  address?: string;
-  city?: string;
-  state?: string;
-  zip?: string;
-  fullAddress?: string;
-  full?: string;
-  [key: string]: unknown;
-}
-
-export interface InvoiceShootRef {
-  id?: number | string;
-  client_id?: number;
-  photographer_id?: number;
-  client?: InvoiceParty | null;
-  photographer?: InvoiceParty | null;
-  location?: InvoiceLocation | null;
-  address?: string;
-  city?: string;
-  state?: string;
-  zip?: string;
-  [key: string]: unknown;
-}
-
-export interface InvoiceItem {
-  id?: number | string;
-  description?: string;
-  quantity?: number;
-  unit_amount?: number;
-  total_amount?: number;
-  type?: string;
-  shoot_id?: number | string;
-  meta?: Record<string, unknown> | null;
-  [key: string]: unknown;
-}
-
-// Invoice data type
-export interface InvoiceData {
-  id: string;
-  number: string; // Adding the number property that's being used in InvoiceList.tsx
-  client: string;
-  property: string;
-  date: string;
-  dueDate: string;
-  amount: number;
-  status: 'paid' | 'pending' | 'overdue';
-  services: string[];
-  paymentMethod: string;
-  paymentDetails?: PaymentDetails;
-
-  // Optional fields filled when data comes from the backend
-  invoiceNumber?: string;
-  client_id?: number;
-  photographer?: string;
-  photographer_id?: number;
-  salesRep?: string;
-  sales_rep_id?: number;
-  amountPaid?: number;
-  balance?: number;
-  subtotal?: number;
-  tax?: number;
-  total?: number;
-  issueDate?: string;
-  billingPeriodStart?: string;
-  billingPeriodEnd?: string;
-  createdAt?: string;
-  paidAt?: string;
-  shootsCount?: number;
-  shoot_id?: number;
-  shoot?: InvoiceShootRef;
-  shoots?: InvoiceShootRef[];
-  items?: InvoiceItem[];
-  notes?: string;
-}
+export type { InvoiceData, InvoiceItem, InvoiceLocation, InvoiceParty, InvoiceShootRef } from "@/types/invoice";
 
 export const generateInvoicePDF = (invoice: InvoiceData): void => {
+  void import("jspdf").then(({ jsPDF }) => {
   // Create a new PDF document
   const doc = new jsPDF();
   
@@ -223,4 +150,5 @@ export const generateInvoicePDF = (invoice: InvoiceData): void => {
   
   // Save the PDF with the invoice number as the filename
   doc.save(`Invoice-${invoice.id}.pdf`);
+  });
 };
