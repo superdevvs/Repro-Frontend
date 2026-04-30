@@ -226,7 +226,7 @@ export function analyzeEmailInput(email: string): LocalEmailHealthHint {
   return {
     level: 'info',
     status: 'unverified',
-    message: 'This email will be saved as unverified until the client confirms it.',
+    message: 'This email will be saved as unverified until the account holder confirms it.',
   };
 }
 

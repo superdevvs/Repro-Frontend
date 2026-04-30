@@ -97,10 +97,14 @@ export function UserProfileDialog({
   const profileUser = user as UserProfileDialogUser;
   const canSeeSensitiveRepData = viewerRole === 'superadmin';
   const canSeeActivityLog = ['admin', 'superadmin', 'editing_manager', 'salesRep'].includes(viewerRole);
+  const emailHealthStatus = user.email_health?.status ?? null;
+  const isEmailVerified = emailHealthStatus === 'verified' || Boolean(user.email_health?.email_verified_at);
   const canResendVerification =
     ['admin', 'superadmin', 'editing_manager', 'salesRep'].includes(viewerRole)
-    && user.role === 'client'
-    && ['unverified', 'risky'].includes(user.email_health?.status ?? '');
+    && !['admin', 'superadmin'].includes(user.role)
+    && Boolean(user.email)
+    && !isEmailVerified
+    && !['bounced', 'invalid'].includes(emailHealthStatus ?? '');
   const repDetails = (user.metadata?.repDetails as RepDetails | undefined) || undefined;
 
   const getInitials = (name: string) => {
@@ -201,7 +205,7 @@ export function UserProfileDialog({
                     </div>
                   )}
 
-                  {user.email_health?.status && (
+                  {(user.email_health?.status || canResendVerification) && (
                     <div className="md:col-span-2 rounded-lg border border-border/70 p-3">
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex flex-wrap items-center gap-2">

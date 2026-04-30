@@ -31,6 +31,11 @@ export const PermissionsProvider: React.FC<PermissionsProviderProps> = ({ childr
   const [userPermissions, setUserPermissions] = useState<PermissionRule[]>([]);
   const [permissionIds, setPermissionIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadedScope, setLoadedScope] = useState<string>('guest');
+
+  const currentScope = isAuthenticated && role
+    ? `${user?.id ?? 'unknown'}:${role}`
+    : 'guest';
 
   useEffect(() => {
     if (authLoading) {
@@ -43,16 +48,19 @@ export const PermissionsProvider: React.FC<PermissionsProviderProps> = ({ childr
       if (!isAuthenticated || !role) {
         setUserPermissions([]);
         setPermissionIds([]);
+        setLoadedScope('guest');
         setIsLoading(false);
         return;
       }
 
+      const scopeForRequest = currentScope;
       setIsLoading(true);
 
       try {
         const response = await fetchCurrentUserPermissions(controller.signal);
         setUserPermissions(response.permissions || []);
         setPermissionIds(response.permissionIds || []);
+        setLoadedScope(scopeForRequest);
       } catch (error) {
         if (controller.signal.aborted) {
           return;
@@ -61,6 +69,7 @@ export const PermissionsProvider: React.FC<PermissionsProviderProps> = ({ childr
         console.error('Failed to load permissions:', error);
         setUserPermissions([]);
         setPermissionIds([]);
+        setLoadedScope(scopeForRequest);
       } finally {
         if (!controller.signal.aborted) {
           setIsLoading(false);
@@ -73,10 +82,15 @@ export const PermissionsProvider: React.FC<PermissionsProviderProps> = ({ childr
     return () => {
       controller.abort();
     };
-  }, [role, isAuthenticated, authLoading]);
+  }, [role, user?.id, isAuthenticated, authLoading, currentScope]);
+
+  const effectiveIsLoading =
+    authLoading ||
+    isLoading ||
+    (isAuthenticated && Boolean(role) && loadedScope !== currentScope);
 
   const can = (resource: string, action: string, conditions?: Record<string, any>): boolean => {
-    if (isLoading || authLoading || !isAuthenticated) return false;
+    if (effectiveIsLoading || !isAuthenticated) return false;
 
     // Check if user has the required permission
     const hasPermission = userPermissions.some(permission => 
@@ -104,7 +118,7 @@ export const PermissionsProvider: React.FC<PermissionsProviderProps> = ({ childr
   };
 
   return (
-    <PermissionsContext.Provider value={{ can, userPermissions, permissionIds, isLoading }}>
+    <PermissionsContext.Provider value={{ can, userPermissions, permissionIds, isLoading: effectiveIsLoading }}>
       {children}
     </PermissionsContext.Provider>
   );
