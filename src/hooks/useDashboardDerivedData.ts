@@ -81,6 +81,12 @@ export const useDashboardDerivedData = ({
   role,
   user,
 }: UseDashboardDerivedDataParams): UseDashboardDerivedDataResult => {
+  const isAdminExperience = role === "admin" || role === "superadmin" || role === "editing_manager";
+  const isClient = role === "client";
+  const isEditor = role === "editor";
+  const isPhotographer = role === "photographer";
+  const isSalesRep = role === "salesRep";
+
   // Memoize shoot summaries with stable references
   // Always regenerate summaries when shoots change to ensure updates are reflected
   const summaryMap = useMemo(() => {
@@ -117,19 +123,19 @@ export const useDashboardDerivedData = ({
   const userId = user?.id;
   const photographerSourceShoots = useMemo(
     () => {
-      if (!userId) return [];
+      if (!isPhotographer || !userId) return [];
       if (role === 'photographer') return shoots;
       return shoots.filter((shoot) => isAssignmentMatch(shoot, user, "photographer"));
     },
-    [role, shoots, user, userId],
+    [isPhotographer, role, shoots, user, userId],
   );
   const editorSourceShoots = useMemo(
     () => {
-      if (!userId) return [];
+      if (!isEditor || !userId) return [];
       if (role === 'editor') return shoots;
       return shoots.filter((shoot) => isAssignmentMatch(shoot, user, "editor"));
     },
-    [role, shoots, user, userId],
+    [isEditor, role, shoots, user, userId],
   );
 
   const photographerSummaries = useMemo(
@@ -182,11 +188,15 @@ export const useDashboardDerivedData = ({
   const editorCompleted = useMemo(() => filterCompletedShoots(editorSummaries), [editorSummaries]);
 
   // Requested shoots for admin/rep dashboard - component handles past/present filtering
-  const requestedShoots = useMemo(() => filterRequestedShoots(allSummaries), [allSummaries]);
+  const requestedShoots = useMemo(
+    () => (isAdminExperience ? filterRequestedShoots(allSummaries) : []),
+    [allSummaries, isAdminExperience],
+  );
 
   // Filter out requested shoots from upcoming shoots data for UpcomingShootsCard
   // Use allSummaries (from context) instead of data?.upcomingShoots so it updates immediately
   const upcomingShootsWithoutRequested = useMemo(() => {
+    if (!isAdminExperience) return [];
     // Use allSummaries from context which updates immediately when context changes
     const upcoming = filterUpcomingShoots(allSummaries, role);
     const filtered = upcoming.filter((shoot) => {
@@ -194,7 +204,7 @@ export const useDashboardDerivedData = ({
       return !statusKey.includes("requested");
     });
     return filtered;
-  }, [allSummaries, role]);
+  }, [allSummaries, isAdminExperience, role]);
 
   const editorDelivered = useMemo(() => {
     if (!editorReadyToDeliver.length) {
@@ -206,13 +216,13 @@ export const useDashboardDerivedData = ({
   }, [editorReadyToDeliver, editorSummaries]);
 
   const ownedClientShoots = useMemo(() => {
-    if (role !== "client" || !user) return [];
+    if (!isClient || !user) return [];
     return shoots.filter((shoot) => doesShootBelongToClient(shoot, user));
-  }, [role, shoots, user]);
+  }, [isClient, shoots, user]);
 
   // Optimize client shoots filtering
   const clientShoots = useMemo(() => {
-    if (role !== "client" || !user) return [];
+    if (!isClient || !user) return [];
     const visibleShoots = shoots.filter((shoot) => {
       if (doesShootBelongToClient(shoot, user)) {
         return true;
@@ -228,7 +238,7 @@ export const useDashboardDerivedData = ({
     return Array.from(
       new Map(visibleShoots.map((shoot) => [String(shoot.id), shoot])).values(),
     );
-  }, [role, shoots, user]);
+  }, [isClient, shoots, user]);
 
   const clientRecords = useMemo(() => {
     if (!clientShoots.length) return [];
@@ -265,6 +275,9 @@ export const useDashboardDerivedData = ({
   }, [clientRecords]);
 
   const repScope = useMemo(() => {
+    if (!isSalesRep) {
+      return { clientIds: [], clientNames: [], regions: [], hasScope: false };
+    }
     const metadata = (user?.metadata as Record<string, unknown>) || {};
     const clientIds = extractMetadataArray(metadata, ["managedClientIds", "clientIds"]).map((value) =>
       value.toString(),
@@ -281,10 +294,11 @@ export const useDashboardDerivedData = ({
     );
     const hasScope = clientIds.length > 0 || clientNames.length > 0 || regions.length > 0;
     return { clientIds, clientNames, regions, hasScope };
-  }, [user?.metadata]);
+  }, [isSalesRep, user?.metadata]);
 
   // Optimize rep visible summaries filtering
   const repVisibleSummaries = useMemo(() => {
+    if (!isSalesRep) return [];
     if (!repScope.hasScope) return allSummaries;
     const { clientIds, clientNames, regions } = repScope;
     // Early return if no filters
@@ -311,10 +325,11 @@ export const useDashboardDerivedData = ({
       }
       return false;
     });
-  }, [allSummaries, repScope]);
+  }, [allSummaries, isSalesRep, repScope]);
 
   // Optimize rep source shoots filtering
   const repSourceShoots = useMemo(() => {
+    if (!isSalesRep) return [];
     if (!repScope.hasScope) return shoots;
     const { clientIds, clientNames, regions } = repScope;
     // Early return if no filters
@@ -341,7 +356,7 @@ export const useDashboardDerivedData = ({
       }
       return false;
     });
-  }, [repScope, shoots]);
+  }, [isSalesRep, repScope, shoots]);
 
   const repUpcoming = useMemo(() => filterUpcomingShoots(repVisibleSummaries, role), [repVisibleSummaries, role]);
   const repPendingReviews = useMemo(() => filterPendingReviews(repVisibleSummaries), [repVisibleSummaries]);
@@ -356,8 +371,8 @@ export const useDashboardDerivedData = ({
   }, [ownedClientShoots]);
 
   const fallbackPhotographers = useMemo(
-    () => buildPhotographerSummariesFromShoots(shoots),
-    [shoots],
+    () => (isAdminExperience || isSalesRep ? buildPhotographerSummariesFromShoots(shoots) : []),
+    [isAdminExperience, isSalesRep, shoots],
   );
 
   return {
