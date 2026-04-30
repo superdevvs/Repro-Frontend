@@ -10,6 +10,7 @@ import {
   ChevronLeft, ChevronRight, Video, Layers, FileText, Mail, Phone,
   User, Thermometer, Wind, Sun, Cloud, CloudRain, Snowflake, Droplets, Link2, ExternalLink, Users
 } from "lucide-react";
+import { sanitizeTourEmbedHtml } from './videoControlRestrictions';
 
 interface ShootData {
   id: number;
@@ -238,12 +239,7 @@ export function NeoTour() {
   };
 
   const applyAutoplayToEmbedHtml = (html: string) => {
-    if (!tourSettings.autoplay) return html;
-    return html.replace(/src=["']([^"']+)["']/gi, (match, src) => {
-      if (src.includes('autoplay=')) return match;
-      const updated = appendAutoplayParam(src);
-      return match.replace(src, updated);
-    });
+    return sanitizeTourEmbedHtml(html, appendAutoplayParam);
   };
 
   const isEmbedHtml = (value: string) => value.includes('<') && value.includes('>');
@@ -358,7 +354,7 @@ export function NeoTour() {
               { id: 'gallery' as SectionId, label: 'Gallery' },
               { id: 'details' as SectionId, label: 'Details' },
               ...(orderedEmbeds.length > 0 ? [{ id: 'embeds' as SectionId, label: 'Embeds' }] : []),
-              ...(videos.length > 0 || videoLink ? [{ id: 'video' as SectionId, label: 'Video' }] : []),
+              ...(videoLink ? [{ id: 'video' as SectionId, label: 'Video' }] : []),
               { id: 'contact' as SectionId, label: 'Contact' },
             ].map((item) => (
               <button
@@ -681,7 +677,7 @@ export function NeoTour() {
       </section>
 
       {/* Video Section */}
-      {(videos.length > 0 || videoLink) && (
+      {videoLink && (
         <section ref={videoRef} id="video" className="py-24 px-6 bg-slate-950 border-b border-blue-500/20">
           <div className="max-w-7xl mx-auto">
             <motion.div
@@ -704,22 +700,13 @@ export function NeoTour() {
               transition={{ duration: 0.6 }}
               className="relative aspect-video rounded-3xl overflow-hidden border border-blue-500/20 shadow-2xl"
             >
-              {videoLink && getEmbedUrl(videoLink) ? (
+              {getEmbedUrl(videoLink) ? (
                 <iframe
                   src={`${getEmbedUrl(videoLink) || ''}${tourSettings.autoplay ? (getEmbedUrl(videoLink)?.includes('?') ? '&' : '?') + 'autoplay=1&mute=1' : ''}`}
                   className="w-full h-full border-0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope"
                   allowFullScreen
                   title="Video Tour"
-                />
-              ) : videos.length > 0 ? (
-                <video
-                  src={videos[0]}
-                  controls
-                  autoPlay={tourSettings.autoplay}
-                  muted={tourSettings.autoplay}
-                  className="w-full h-full object-cover"
-                  poster={photos[0]}
                 />
               ) : null}
             </motion.div>

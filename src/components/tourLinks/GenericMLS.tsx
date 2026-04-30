@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { NeoTour } from "./NeoTour";
 import { trackPageView, trackMediaView, trackLinkClick, trackDownload } from '@/lib/tourTracking';
+import { restrictedVideoProps, sanitizeTourEmbedHtml } from './videoControlRestrictions';
 
 interface PropertyDetails {
   beds?: number;
@@ -176,7 +177,7 @@ export function GenericMLS() {
     return [featured, ...embeds.filter((e) => e.id !== featuredEmbedId)];
   }, [embeds, featuredEmbedId]);
 
-  const hasVideo = videos.length > 0 || !!videoLink;
+  const hasVideo = !!videoLink;
 
   const openLightbox = (index: number) => {
     setLightboxIndex(index);
@@ -205,11 +206,7 @@ export function GenericMLS() {
     return `${url}${sep}autoplay=1&mute=1`;
   };
   const applyAutoplayToEmbedHtml = (html: string) => {
-    if (!tourSettings.autoplay) return html;
-    return html.replace(/src=["']([^"']+)["']/gi, (match, src) => {
-      if (src.includes('autoplay=')) return match;
-      return match.replace(src, appendAutoplayParam(src));
-    });
+    return sanitizeTourEmbedHtml(html, appendAutoplayParam);
   };
   const isEmbedHtml = (value: string) => value.includes('<') && value.includes('>');
   const getEmbedValue = (embed: { branded: string; mls: string }) => embed.mls || embed.branded || '';
@@ -274,7 +271,7 @@ export function GenericMLS() {
             {photos.length > 0 && (
               <a href="#photos" className="px-2.5 md:px-4 py-1 md:py-1.5 text-xs md:text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors whitespace-nowrap">Photos</a>
             )}
-            {(videos.length > 0 || videoLink) && (
+            {hasVideo && (
               <a href="#video" className="px-2.5 md:px-4 py-1 md:py-1.5 text-xs md:text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors whitespace-nowrap">Videos</a>
             )}
             {(matterportUrl || iguideUrl) && (
@@ -393,20 +390,15 @@ export function GenericMLS() {
                   <iframe
                     src={`${getEmbedUrl(videoLink) || ''}${tourSettings.autoplay ? (getEmbedUrl(videoLink)?.includes('?') ? '&' : '?') + 'autoplay=1&mute=1' : ''}`}
                     className="w-full h-full border-0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope"
                     allowFullScreen
                     title="Video Tour"
                   />
                 ) : (
-                  <video src={videoLink} controls autoPlay={tourSettings.autoplay} muted={tourSettings.autoplay} className="w-full h-full object-cover" poster={photos[0]} />
+                  <video src={videoLink} controls {...restrictedVideoProps} autoPlay={tourSettings.autoplay} muted={tourSettings.autoplay} className="w-full h-full object-cover" poster={photos[0]} />
                 )}
               </div>
             )}
-            {videos.map((video, idx) => (
-              <div key={idx} className="relative aspect-video rounded-2xl overflow-hidden border border-border/40 shadow-md">
-                <video src={video} controls autoPlay={tourSettings.autoplay} muted={tourSettings.autoplay} className="w-full h-full object-cover" poster={photos[0]} />
-              </div>
-            ))}
           </div>
         </section>
       )}

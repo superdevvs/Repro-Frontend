@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { API_BASE_URL } from '@/config/env';
 import { getStoredAuthToken } from '@/utils/authToken';
 import { Loader2, Play } from 'lucide-react';
+import { restrictedVideoProps } from './videoControlRestrictions';
 
 type VideoVariant = 'branded' | 'mls' | 'generic';
 
@@ -280,7 +281,7 @@ export function PublicVideoPage({ variant }: PublicVideoPageProps) {
                         <iframe
                           src={previewVideoUrl}
                           className="h-full w-full border-0 pointer-events-none"
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope"
                           allowFullScreen
                           title={`${config.title} preview`}
                           tabIndex={-1}
@@ -291,6 +292,7 @@ export function PublicVideoPage({ variant }: PublicVideoPageProps) {
                           preload="auto"
                           muted
                           playsInline
+                          {...restrictedVideoProps}
                           className="h-full w-full bg-black object-contain"
                           onLoadedMetadata={(event) => {
                             const video = event.currentTarget;
@@ -319,7 +321,7 @@ export function PublicVideoPage({ variant }: PublicVideoPageProps) {
                     <iframe
                       src={playableUrl}
                       className="h-full w-full border-0"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope"
                       allowFullScreen
                       title={config.title}
                     />
@@ -327,6 +329,7 @@ export function PublicVideoPage({ variant }: PublicVideoPageProps) {
                     <video
                       src={sourceUrl}
                       controls
+                      {...restrictedVideoProps}
                       autoPlay
                       playsInline
                       poster={poster || undefined}

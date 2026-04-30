@@ -999,10 +999,13 @@ export function MediaViewer({
     canRequestModification ||
     slideshowAvailable;
   const fitMediaClassName =
-    'block h-full max-h-full min-h-0 w-full max-w-full min-w-0 select-none object-contain object-center rounded-none shadow-none lg:rounded-xl lg:shadow-2xl';
-  const previewSizeControls = isImg && canViewFullSize ? (
-    <div className="flex min-w-0 max-w-full overflow-x-auto rounded-xl md:justify-self-end">
-      <div className="ml-auto flex w-max items-center gap-1 rounded-xl border border-white/10 bg-black/55 p-1 text-white shadow-[0_12px_30px_rgba(0,0,0,0.35)] backdrop-blur-md">
+    'block h-full max-h-full min-h-0 w-full max-w-full min-w-0 select-none object-contain object-top rounded-none shadow-none md:object-center lg:rounded-xl lg:shadow-2xl';
+  const renderPreviewSizeControls = (
+    wrapperClassName = '',
+    groupClassName = '',
+  ) => isImg ? (
+    <div className={`flex min-w-0 max-w-full overflow-x-auto rounded-xl ${wrapperClassName}`}>
+      <div className={`ml-auto flex w-max items-center gap-1 rounded-xl border border-white/10 bg-black/55 p-1 text-white shadow-[0_12px_30px_rgba(0,0,0,0.35)] backdrop-blur-md ${groupClassName}`}>
         <Button
           variant="ghost"
           size="sm"
@@ -1021,14 +1024,23 @@ export function MediaViewer({
             previewMode === 'full' ? 'bg-blue-600 text-white hover:bg-blue-600' : ''
           }`}
           onClick={() => setPreviewMode('full')}
-          disabled={!fullSizeAvailable}
-          title={fullSizeAvailable ? 'Use full-size preview' : 'Full-size preview unavailable'}
+          disabled={!canViewFullSize || !fullSizeAvailable}
+          title={
+            canViewFullSize && fullSizeAvailable
+              ? 'Use full-size preview'
+              : 'Full-size preview unavailable'
+          }
         >
           Full size
         </Button>
       </div>
     </div>
   ) : null;
+  const previewSizeControls = renderPreviewSizeControls('hidden md:flex md:justify-self-end');
+  const mobilePreviewSizeControls = renderPreviewSizeControls(
+    'pointer-events-auto justify-end',
+    'bg-black/60',
+  );
   const zoomControls = isImg ? (
     <div className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-center sm:bottom-4">
       <div className="pointer-events-auto flex max-w-full items-center gap-1 rounded-xl border border-white/10 bg-black/60 p-1 text-white shadow-[0_12px_30px_rgba(0,0,0,0.35)] backdrop-blur-md">
@@ -1340,13 +1352,13 @@ export function MediaViewer({
             </div>
           )}
 
-          <div className="flex h-full w-full min-h-0 flex-col px-1.5 pb-1.5 pt-1.5 sm:px-3 sm:pb-3 sm:pt-2 lg:px-2.5 lg:pb-2.5 lg:pt-2 2xl:px-3 2xl:pb-3 2xl:pt-2.5">
-            <div className="grid min-h-0 min-w-0 flex-1 grid-cols-1 gap-2.5 xl:grid-cols-[minmax(0,1fr)_18rem] 2xl:grid-cols-[minmax(0,1fr)_19.5rem]">
-              <div className="grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md">
+          <div className="flex h-full w-full min-h-0 min-w-0 flex-col px-1.5 pb-1.5 pt-1.5 sm:px-3 sm:pb-3 sm:pt-2 lg:px-2.5 lg:pb-2.5 lg:pt-2 2xl:px-3 2xl:pb-3 2xl:pt-2.5">
+            <div className="grid min-h-0 min-w-0 w-full max-w-full flex-1 grid-cols-1 gap-2.5 overflow-hidden xl:grid-cols-[minmax(0,1fr)_18rem] 2xl:grid-cols-[minmax(0,1fr)_19.5rem]">
+              <div className="grid min-h-0 min-w-0 w-full max-w-full grid-cols-[minmax(0,1fr)] grid-rows-[auto_auto_auto_minmax(0,1fr)] overflow-hidden rounded-xl border border-white/10 bg-white/5 backdrop-blur-md md:grid-rows-[auto_minmax(0,1fr)_auto] sm:rounded-2xl">
                 {/* Top Metadata Bar */}
-                <div className="grid min-w-0 grid-cols-1 gap-2 border-b border-white/10 px-2.5 py-2 pr-24 sm:px-3 sm:py-2.5 md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:gap-3 lg:px-3 lg:py-2 xl:pr-3 2xl:px-3 2xl:py-2">
+                <div className="grid min-w-0 select-none grid-cols-1 gap-1 border-b border-white/10 px-3 py-3 pr-24 sm:gap-2 sm:px-3 sm:py-2.5 md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:gap-3 lg:px-3 lg:py-2 xl:pr-3 2xl:px-3 2xl:py-2">
                   <div className="min-w-0">
-                    <p className="truncate text-[13px] font-semibold text-white sm:text-sm lg:text-[15px] xl:text-base">{displayFilename}</p>
+                    <p className="truncate text-[14px] font-semibold leading-tight text-white sm:text-sm lg:text-[15px] xl:text-base">{displayFilename}</p>
                     <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-white/60 sm:text-[11px]">
                       <span>{currentIndex + 1} of {files.length}</span>
                       {currentFile.width && currentFile.height && <span>{currentFile.width} × {currentFile.height}</span>}
@@ -1359,8 +1371,13 @@ export function MediaViewer({
                   {isImg && previewSizeControls}
                 </div>
 
-                  <div className="min-h-0 min-w-0 px-1.5 pb-1.5 pt-1.5 sm:px-2.5 sm:pb-2.5 sm:pt-2 lg:px-1.5 lg:pb-1.5 lg:pt-1.5 2xl:px-2 2xl:pb-2">
-                    <div className="relative h-full min-h-0 min-w-0 overflow-hidden bg-black/75 sm:min-h-[56dvh] sm:rounded-lg lg:min-h-0 lg:rounded-lg lg:bg-black/50 xl:rounded-xl">
+                  <div className="min-h-0 min-w-0 w-full px-1 pb-1 pt-1 sm:px-2.5 sm:pb-2.5 sm:pt-2 md:h-full lg:px-1.5 lg:pb-1.5 lg:pt-1.5 2xl:px-2 2xl:pb-2">
+                    <div className="relative mx-auto aspect-square max-h-[calc(100dvh-17rem)] w-full max-w-full overflow-hidden bg-black/75 sm:rounded-lg md:h-full md:max-h-none md:aspect-auto md:max-w-none lg:min-h-0 lg:rounded-lg lg:bg-black/50 xl:rounded-xl">
+                      {isImg && (
+                        <div className="pointer-events-none absolute right-3 top-3 z-40 flex justify-end md:hidden">
+                          {mobilePreviewSizeControls}
+                        </div>
+                      )}
                       {zoomControls}
                       {currentIndex > 0 && (
                         <Button
@@ -1385,7 +1402,7 @@ export function MediaViewer({
                       )}
                     <div
                       ref={zoomStageRef}
-                      className={`absolute inset-0 flex min-h-0 min-w-0 items-center justify-center px-3 py-1 sm:px-10 sm:py-1.5 md:px-16 lg:px-20 lg:py-1 xl:px-20 xl:py-1.5 2xl:px-24 ${
+                      className={`absolute inset-0 flex min-h-0 min-w-0 items-center justify-center px-2 py-2 sm:px-10 sm:py-1.5 md:px-16 lg:px-20 lg:py-1 xl:px-20 xl:py-1.5 2xl:px-24 ${
                         zoom > 1
                           ? `${isPanningZoomStage ? 'cursor-grabbing' : 'cursor-grab'} touch-none overflow-auto`
                           : 'overflow-hidden'
@@ -1530,6 +1547,129 @@ export function MediaViewer({
                         );
                       })}
                     </div>
+                  </div>
+
+                  <div className="min-h-0 overflow-hidden border-t border-white/10 px-2.5 py-2 text-white md:hidden">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[13px] font-medium">Comments</p>
+                      <Badge className="border-white/10 bg-white/10 text-white/80 hover:bg-white/10">
+                        {Number(currentFile.comment_count ?? fileComments.length)}
+                      </Badge>
+                    </div>
+                    {(canSetHero ||
+                      (canInteractSingleMedia && onToggleFavorite) ||
+                      (canDownloadSingleMedia && onDownloadSingle) ||
+                      onToggleHidden ||
+                      canRequestModification) && (
+                      <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+                        {canSetHero && (
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-9 w-9 shrink-0 rounded-lg !border-white/10 !bg-black/35 !text-white hover:!bg-white/10"
+                            onClick={handleSetHeroImage}
+                            title="Make hero"
+                          >
+                            <CheckCircle2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {canInteractSingleMedia && onToggleFavorite && (
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-9 w-9 shrink-0 rounded-lg !border-white/10 !bg-black/35 !text-white hover:!bg-white/10"
+                            onClick={() => onToggleFavorite(currentFile.id)}
+                            title={currentFile.is_favorite ? 'Unlike image' : 'Like image'}
+                          >
+                            <Heart className={`h-4 w-4 ${currentFile.is_favorite ? 'fill-current' : ''}`} />
+                          </Button>
+                        )}
+                        {canDownloadSingleMedia && onDownloadSingle && (
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-9 w-9 shrink-0 rounded-lg !border-white/10 !bg-black/35 !text-white hover:!bg-white/10"
+                            onClick={() => onDownloadSingle(currentFile.id)}
+                            title="Download image"
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {onToggleHidden && (
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-9 w-9 shrink-0 rounded-lg !border-white/10 !bg-black/35 !text-white hover:!bg-white/10"
+                            onClick={() => onToggleHidden(currentFile.id, !currentFile.is_hidden)}
+                            title={currentFile.is_hidden ? 'Unhide image' : 'Hide image'}
+                          >
+                            {currentFile.is_hidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                          </Button>
+                        )}
+                        {canRequestModification && (
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-9 w-9 shrink-0 rounded-lg !border-rose-400/20 !bg-rose-500/15 !text-rose-50 hover:!bg-rose-500/25"
+                            onClick={() => {
+                              blurActiveElement();
+                              setShowRequestComposer((current) => !current);
+                            }}
+                            title="Request modification"
+                          >
+                            <AlertCircle className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                    {canInteractSingleMedia && onAddComment ? (
+                      <div className="mt-2 flex flex-col gap-2">
+                        <Textarea
+                          value={commentDraft}
+                          onChange={(event) => setCommentDraft(event.target.value)}
+                          placeholder="Add a comment for this image..."
+                          className="min-h-[58px] resize-none border-white/10 bg-black/30 text-xs text-white placeholder:text-white/45"
+                        />
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 text-white hover:bg-white/10 hover:text-white"
+                            onClick={() => setCommentDraft('')}
+                            disabled={!commentDraft.trim()}
+                          >
+                            Clear
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="h-8 bg-blue-600 text-white hover:bg-blue-700"
+                            onClick={() => {
+                              if (!commentDraft.trim()) return;
+                              onAddComment(currentFile.id, commentDraft);
+                              setCommentDraft('');
+                            }}
+                            disabled={!commentDraft.trim()}
+                          >
+                            Save comment
+                          </Button>
+                        </div>
+                      </div>
+                    ) : fileComments.length === 0 ? (
+                      <p className="mt-2 text-xs text-white/55">No comments on this image yet.</p>
+                    ) : null}
+                    {fileComments.length > 0 && (
+                      <div className="mt-2 max-h-28 space-y-2 overflow-auto pr-1">
+                        {fileComments.slice().reverse().map((comment, index) => (
+                          <div key={`${comment.timestamp ?? comment.comment}-${index}`} className="rounded-lg border border-white/10 bg-white/5 p-2">
+                            <div className="flex items-center justify-between gap-2 text-[10px] text-white/55">
+                              <span>{comment.author || 'Team note'}</span>
+                              <span>{formatViewerDateTime(comment.timestamp)}</span>
+                            </div>
+                            <p className="mt-1 whitespace-pre-wrap break-words text-xs text-white/90">{comment.comment}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
 

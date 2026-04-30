@@ -100,6 +100,16 @@ const getStrictPreviewCandidates = (file: MediaFile): string[] =>
     'watermarked_web_path',
   ]);
 
+const getStrictOriginalCandidates = (file: MediaFile): string[] =>
+  getStrictResolvedUrls(file, [
+    'original_url',
+    'original',
+    'url',
+    'path',
+    'large_url',
+    'large',
+  ]);
+
 const getStrictPlaceholderCandidates = (file: MediaFile): string[] =>
   getStrictResolvedUrls(file, [
     'placeholder_url',
@@ -166,8 +176,9 @@ export const getMediaImageUrlCandidates = (
 export const getMediaViewerImageCandidates = (file: MediaFile): string[] => {
   const thumbCandidates = getStrictThumbCandidates(file);
   const previewCandidates = getStrictPreviewCandidates(file);
+  const originalCandidates = getStrictOriginalCandidates(file);
   const placeholderCandidates = getStrictPlaceholderCandidates(file);
-  const explicitOriginalUrl = normalizeImageUrl(file.original_url || file.original || '');
+  const explicitOriginalUrl = originalCandidates[0] || normalizeImageUrl(file.original_url || file.original || '');
   const explicitDisplayUrl = normalizeImageUrl(file.url || '');
   const safeDisplayUrlCandidates =
     explicitDisplayUrl &&
@@ -186,6 +197,7 @@ export const getMediaViewerImageCandidates = (file: MediaFile): string[] => {
     : [
         ...previewCandidates,
         ...safeDisplayUrlCandidates,
+        ...originalCandidates,
         ...thumbCandidates,
         ...placeholderCandidates,
       ];
@@ -198,7 +210,7 @@ export const getMediaViewerImageUrl = (file: MediaFile): string => {
 };
 
 export const getMediaFullSizeImageUrl = (file: MediaFile): string => {
-  return getStrictResolvedUrls(file, ['original_url', 'original'])[0] || '';
+  return getStrictOriginalCandidates(file)[0] || '';
 };
 
 export const getMediaVideoUrlCandidates = (file: MediaFile): string[] => {
