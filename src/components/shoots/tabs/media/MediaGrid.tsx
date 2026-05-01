@@ -1,9 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
-import { CheckCircle2, Circle, Download, Eye, EyeOff, GripVertical, Heart, Image as ImageIcon, MessageSquare, MinusCircle, Play } from 'lucide-react';
+import { CheckCircle2, ChevronLeft, ChevronRight, Circle, Download, Eye, EyeOff, GripVertical, Heart, Image as ImageIcon, MessageSquare, MinusCircle, Play } from 'lucide-react';
 import { type MediaFile } from '@/hooks/useShootFiles';
 import { isRawFile } from '@/services/rawPreviewService';
 import VideoThumbnail from '../../VideoThumbnail';
@@ -63,7 +63,18 @@ interface MediaGridProps {
   onToggleFavorite?: (fileId: string) => void;
   onAddComment?: (fileId: string, comment: string) => void;
   onDownloadSingle?: (fileId: string) => void;
+  enableRawStacks?: boolean;
+  rawStackSize?: number | null;
 }
+
+interface MediaStack {
+  id: string;
+  files: MediaFile[];
+  expectedSize: number;
+}
+
+const MAX_CAPTURED_TIME_STACK_SIZE = 7;
+const CAPTURED_BRACKET_GAP_SECONDS = 2;
 
 export function MediaGrid({ 
   files, 
@@ -89,12 +100,16 @@ export function MediaGrid({
   onToggleFavorite,
   onAddComment,
   onDownloadSingle,
+  enableRawStacks = false,
+  rawStackSize = null,
 }: MediaGridProps) {
   const isManualSortEnabled = sortOrder === 'manual' && manualSortActive;
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const [commentPopoverFileId, setCommentPopoverFileId] = useState<string | null>(null);
   const [commentDraft, setCommentDraft] = useState('');
+  const [stackPreviewIndexes, setStackPreviewIndexes] = useState<Record<string, number>>({});
+  const [hoveredStackId, setHoveredStackId] = useState<string | null>(null);
 
   // Sort files based on sortOrder, then separate regular and extra files
   const sortedFiles = useMemo(
@@ -110,6 +125,150 @@ export function MediaGrid({
   const regularFiles = separateExtras ? visibleSorted.filter(f => !f.isExtra) : visibleSorted;
   const extraFiles = separateExtras ? visibleSorted.filter(f => f.isExtra) : [];
   const visibleRegularIds = regularFiles.map((file) => file.id);
+  const normalizedRawStackSize =
+    typeof rawStackSize === 'number' && Number.isFinite(rawStackSize) && rawStackSize > 1
+      ? Math.round(rawStackSize)
+      : null;
+  const shouldStackRawFiles = enableRawStacks && viewMode === 'grid' && !isManualSortEnabled;
+
+  const parseCapturedSecond = (value?: string) => {
+    if (!value) {
+      return null;
+    }
+
+    const normalizedValue = value.replace(/^(\d{4}):(\d{2}):(\d{2})/, '$1-$2-$3');
+    const timestamp = Date.parse(normalizedValue);
+
+    return Number.isNaN(timestamp) ? null : Math.floor(timestamp / 1000);
+  };
+
+  const isRawStackCandidate = (file: MediaFile) =>
+    !file.isExtra &&
+    !isVideo?.(file) &&
+    ((file.media_type || '').toLowerCase() === 'raw' || isRawFile(file.filename));
+
+  const buildMediaStacks = (stackFiles: MediaFile[]): MediaStack[] => {
+    if (!shouldStackRawFiles) {
+      return stackFiles.map((file) => ({ id: file.id, files: [file], expectedSize: 1 }));
+    }
+
+    const normalizeStack = (stack: MediaStack): MediaStack[] => {
+      if (stack.files.length <= 1) {
+        return [{ ...stack, expectedSize: 1 }];
+      }
+
+      const isCapturedTimeStack = stack.id.startsWith('captured-run:');
+
+      if (
+        isCapturedTimeStack &&
+        !normalizedRawStackSize &&
+        stack.files.length > MAX_CAPTURED_TIME_STACK_SIZE
+      ) {
+        return stack.files.map((file) => ({ id: file.id, files: [file], expectedSize: 1 }));
+      }
+
+      return [{
+        ...stack,
+        expectedSize: stack.files.length > 1 ? Math.max(stack.expectedSize, stack.files.length) : 1,
+      }];
+    };
+
+    const stacks: MediaStack[] = [];
+    let currentStack: MediaStack | null = null;
+
+    stackFiles.forEach((file) => {
+      if (!isRawStackCandidate(file)) {
+        currentStack = null;
+        stacks.push({ id: file.id, files: [file], expectedSize: 1 });
+        return;
+      }
+
+      const bracketGroup =
+        file.bracket_group === null || file.bracket_group === undefined
+          ? null
+          : Number(file.bracket_group);
+      const capturedSecond = parseCapturedSecond(file.captured_at);
+      const baseKey = typeof bracketGroup === 'number' && Number.isFinite(bracketGroup) && bracketGroup > 0
+        ? `bracket-${bracketGroup}`
+        : null;
+      const stackLimit = normalizedRawStackSize ?? Number.POSITIVE_INFINITY;
+      if (
+        currentStack &&
+        baseKey &&
+        currentStack.id.startsWith(`${baseKey}:`) &&
+        currentStack.files.length < stackLimit
+      ) {
+        currentStack.files.push(file);
+        currentStack.expectedSize = normalizedRawStackSize ?? currentStack.files.length;
+        return;
+      }
+
+      if (baseKey) {
+        currentStack = {
+          id: `${baseKey}:${stacks.length}`,
+          files: [file],
+          expectedSize: normalizedRawStackSize ?? 1,
+        };
+        stacks.push(currentStack);
+        return;
+      }
+
+      if (capturedSecond !== null) {
+        const previousFile = currentStack?.files[currentStack.files.length - 1];
+        const previousCapturedSecond = parseCapturedSecond(previousFile?.captured_at);
+        const isSameCapturedRun =
+          currentStack?.id.startsWith('captured-run:') &&
+          previousCapturedSecond !== null &&
+          Math.abs(capturedSecond - previousCapturedSecond) <= CAPTURED_BRACKET_GAP_SECONDS &&
+          currentStack.files.length < stackLimit;
+
+        if (isSameCapturedRun && currentStack) {
+          currentStack.files.push(file);
+          currentStack.expectedSize = normalizedRawStackSize ?? currentStack.files.length;
+          return;
+        }
+
+        currentStack = {
+          id: `captured-run:${stacks.length}`,
+          files: [file],
+          expectedSize: normalizedRawStackSize ?? 1,
+        };
+        stacks.push(currentStack);
+        return;
+      }
+
+      currentStack = null;
+      stacks.push({ id: file.id, files: [file], expectedSize: 1 });
+    });
+
+    return stacks.flatMap(normalizeStack);
+  };
+
+  const regularStacks = buildMediaStacks(regularFiles);
+  useEffect(() => {
+    if (!hoveredStackId) {
+      return undefined;
+    }
+
+    const hoveredStack = regularStacks.find((stack) => stack.id === hoveredStackId);
+    if (!hoveredStack || hoveredStack.files.length <= 1) {
+      return undefined;
+    }
+
+    const intervalId = window.setInterval(() => {
+      setStackPreviewIndexes((current) => {
+        const currentIndex = current[hoveredStackId] ?? 0;
+
+        return {
+          ...current,
+          [hoveredStackId]: (currentIndex + 1) % hoveredStack.files.length,
+        };
+      });
+    }, 850);
+
+    return () => window.clearInterval(intervalId);
+  }, [hoveredStackId, regularStacks]);
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -423,7 +582,7 @@ export function MediaGrid({
     </>
   );
   
-  const renderFileCard = (file: MediaFile, index: number, isExtraSection: boolean = false) => {
+  const renderFileCard = (file: MediaFile, index: number, isExtraSection: boolean = false, stack?: MediaStack) => {
     const isSelected = selectedFiles.has(file.id);
     const isImg = isImage(file);
     const isVid = isVideo?.(file) ?? false;
@@ -439,16 +598,51 @@ export function MediaGrid({
     const isDragging = draggedId === file.id;
     const isDragOver = dragOverId === file.id;
     const latestCommentText = getLatestCommentText(file);
+    const stackFiles = stack?.files ?? [file];
+    const stackFileIndex = stack ? Math.max(0, stackFiles.findIndex((stackFile) => stackFile.id === file.id)) : 0;
+    const hasStack = Boolean(stack && stackFiles.length > 1);
+    const stackTotal = stack ? Math.max(stack.expectedSize, stackFiles.length) : 1;
+    const sequenceNumber = Number(file.sequence);
+    const stackPosition =
+      Number.isFinite(sequenceNumber) && sequenceNumber > 0 && sequenceNumber <= stackTotal
+        ? sequenceNumber
+        : stackFileIndex + 1;
+    const changeStackPreview = (direction: 1 | -1, event: React.MouseEvent<HTMLButtonElement>) => {
+      if (!stack || stackFiles.length <= 1) {
+        return;
+      }
+
+      event.stopPropagation();
+      setStackPreviewIndexes((current) => {
+        const currentIndex = current[stack.id] ?? 0;
+        const nextIndex = (currentIndex + direction + stackFiles.length) % stackFiles.length;
+
+        return {
+          ...current,
+          [stack.id]: nextIndex,
+        };
+      });
+    };
     
     return (
       <div
-        key={file.id}
+        key={stack?.id ?? file.id}
         draggable={isManualSortEnabled && !isExtraSection}
         onDragStart={(e) => handleDragStart(e, file.id)}
         onDragOver={(e) => handleDragOver(e, file.id)}
         onDragLeave={handleDragLeave}
         onDrop={(e) => handleDrop(e, file.id)}
         onDragEnd={handleDragEnd}
+        onMouseEnter={() => {
+          if (hasStack && stack) {
+            setHoveredStackId(stack.id);
+          }
+        }}
+        onMouseLeave={() => {
+          if (stack) {
+            setHoveredStackId((current) => (current === stack.id ? null : current));
+          }
+        }}
         className={`relative rounded-xl overflow-hidden border cursor-pointer transition-all group bg-card flex flex-col ${
           isSelected ? 'border-primary ring-1 ring-primary' : 'border-border hover:border-primary/50'
         } ${isExtraSection ? 'opacity-90' : ''} ${isDragging ? 'opacity-50 scale-95' : ''} ${isDragOver ? 'ring-2 ring-blue-500 border-blue-500' : ''} ${isManualSortEnabled && !isExtraSection ? 'cursor-grab active:cursor-grabbing' : ''}`}
@@ -460,6 +654,51 @@ export function MediaGrid({
         {/* Grid thumbnails use the smallest available size (thumb/placeholder) */}
         {/* No srcSet — avoids browser loading medium/web images for small grid cells */}
         {(() => {
+          if (hasStack) {
+            return (
+              <div
+                className="absolute inset-0 z-[1] flex h-full will-change-transform transition-transform duration-500 ease-in-out"
+                style={{ transform: `translateX(-${stackFileIndex * 100}%)` }}
+              >
+                {stackFiles.map((stackFile) => {
+                  const stackIsRaw = isRawFile(stackFile.filename);
+                  const stackIsVid = isVideo?.(stackFile) ?? false;
+                  const stackThumbUrl = getImageUrl(stackFile, 'thumb');
+                  const stackDisplayFilename = getDisplayMediaFilename(stackFile) || stackFile.filename;
+                  const hasProcessedStackThumb = stackIsRaw
+                    ? !!(stackFile.thumbnail_path || stackFile.web_path)
+                    : true;
+                  const hasDisplayableStackImage = hasProcessedStackThumb && (stackFile.thumb || stackThumbUrl);
+                  const stackVideoSrc = stackIsVid ? getVideoThumbnailSource(stackFile) : '';
+
+                  return (
+                    <div key={stackFile.id} className="relative h-full min-w-full bg-muted/40">
+                      {stackIsVid && !hasDisplayableStackImage && stackVideoSrc ? (
+                        <VideoThumbnail
+                          src={stackVideoSrc}
+                          alt={stackDisplayFilename}
+                          className={`h-full w-full object-cover transition-all duration-200 ${getHiddenMediaClassName(stackFile)}`}
+                        />
+                      ) : hasDisplayableStackImage ? (
+                        <img
+                          src={stackFile.thumb || stackThumbUrl}
+                          alt={stackDisplayFilename}
+                          className={`h-full w-full object-cover transition-all duration-200 ${getHiddenMediaClassName(stackFile)}`}
+                          loading="lazy"
+                          draggable={false}
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center bg-muted text-muted-foreground">
+                          <ImageIcon className="h-6 w-6" />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          }
+
           const hasProcessedThumb = isRaw 
             ? !!(file.thumbnail_path || file.web_path)
             : true;
@@ -523,6 +762,32 @@ export function MediaGrid({
         {/* Hidden overlay */}
         {file.is_hidden && renderHiddenMediaOverlay()}
 
+        {hasStack && (
+          <>
+            <div className="absolute bottom-1.5 right-1.5 z-[4] rounded-md border border-black/10 bg-white/95 px-1.5 py-0.5 text-[10px] font-semibold text-slate-900 shadow-sm">
+              {stackPosition}/{stackTotal}
+            </div>
+            <div className="pointer-events-none absolute inset-y-0 left-1.5 right-1.5 z-[4] flex items-center justify-between opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
+              <button
+                type="button"
+                className="pointer-events-auto flex h-6 w-6 items-center justify-center rounded-full bg-white/95 text-slate-900 shadow-md transition-transform hover:scale-105"
+                onClick={(event) => changeStackPreview(-1, event)}
+                aria-label="Previous image in stack"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                className="pointer-events-auto flex h-6 w-6 items-center justify-center rounded-full bg-white/95 text-slate-900 shadow-md transition-transform hover:scale-105"
+                onClick={(event) => changeStackPreview(1, event)}
+                aria-label="Next image in stack"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </>
+        )}
+
         {renderSingleMediaActions(file)}
 
         {/* Extra badge */}
@@ -570,6 +835,13 @@ export function MediaGrid({
         </div>
       </div>
     );
+  };
+
+  const renderStackCard = (stack: MediaStack, index: number) => {
+    const activeStackIndex = Math.min(stackPreviewIndexes[stack.id] ?? 0, stack.files.length - 1);
+    const activeFile = stack.files[Math.max(0, activeStackIndex)] ?? stack.files[0];
+
+    return renderFileCard(activeFile, index, false, stack);
   };
 
   const renderSortableFileCard = (file: MediaFile, index: number) => {
@@ -1078,7 +1350,7 @@ export function MediaGrid({
         </DndContext>
       ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">
-            {regularFiles.map((file, index) => renderFileCard(file, index, false))}
+            {regularStacks.map((stack, index) => renderStackCard(stack, index))}
           </div>
         )}
 

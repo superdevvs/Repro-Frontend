@@ -100,6 +100,17 @@ const getStrictPreviewCandidates = (file: MediaFile): string[] =>
     'watermarked_web_path',
   ]);
 
+const getStrictLargePreviewCandidates = (file: MediaFile): string[] =>
+  getStrictResolvedUrls(file, [
+    'large_url',
+    'large',
+    'medium_url',
+    'medium',
+    'web_url',
+    'web_path',
+    'watermarked_web_path',
+  ]);
+
 const getStrictOriginalCandidates = (file: MediaFile): string[] =>
   getStrictResolvedUrls(file, [
     'original_url',
@@ -210,6 +221,10 @@ export const getMediaViewerImageUrl = (file: MediaFile): string => {
 };
 
 export const getMediaFullSizeImageUrl = (file: MediaFile): string => {
+  if (isRawMediaFile(file)) {
+    return getStrictLargePreviewCandidates(file)[0] || '';
+  }
+
   return getStrictOriginalCandidates(file)[0] || '';
 };
 

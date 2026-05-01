@@ -203,7 +203,7 @@ export function ShootDetailsMediaTabView(props: any) {
                 {/* Media tab - visible to all */}
                 <TabsTrigger 
                   value="media" 
-                  className="text-[11px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 h-7 sm:h-8 data-[state=active]:bg-primary/10 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:rounded-none data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground whitespace-nowrap"
+                      className="hidden text-[11px] sm:inline-flex sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 h-7 sm:h-8 data-[state=active]:bg-primary/10 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:rounded-none data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground whitespace-nowrap"
                   onClick={() => {
                     // For clients, Media tab shows edited; for others, shows uploaded
                     if (isClient) {
@@ -227,7 +227,8 @@ export function ShootDetailsMediaTabView(props: any) {
                       setDisplayTab('uploaded');
                     }}
                   >
-                    Raw Uploads ({rawFiles.length})
+                        <span className="sm:hidden">Raw ({rawFiles.length})</span>
+                        <span className="hidden sm:inline">Raw Uploads ({rawFiles.length})</span>
                   </TabsTrigger>
                 )}
                 {isPhotographer ? (

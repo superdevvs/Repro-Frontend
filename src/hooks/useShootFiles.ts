@@ -50,6 +50,8 @@ export interface MediaFile {
   // Metadata for grouping
   captured_at?: string;
   created_at?: string;
+  bracket_group?: number;
+  sequence?: number;
   is_cover?: boolean;
   is_favorite?: boolean;
   is_hidden?: boolean;
@@ -133,8 +135,10 @@ const fetchShootFiles = async (
         width: f.width,
         height: f.height,
         fileSize: f.file_size || f.fileSize,
-        captured_at: f.captured_at || f.created_at,
+        captured_at: f.captured_at,
         created_at: f.created_at,
+        bracket_group: f.bracket_group,
+        sequence: f.sequence,
         is_cover: f.is_cover || false,
         is_favorite: f.is_favorite || false,
         is_hidden: f.is_hidden || false,
@@ -186,8 +190,10 @@ const fetchShootFiles = async (
       width: f.width,
       height: f.height,
       fileSize: f.file_size || f.fileSize,
-      captured_at: f.captured_at || f.created_at,
+      captured_at: f.captured_at,
       created_at: f.created_at,
+      bracket_group: f.bracket_group,
+      sequence: f.sequence,
       is_cover: f.is_cover || false,
       is_favorite: f.is_favorite || false,
       is_hidden: f.is_hidden || false,

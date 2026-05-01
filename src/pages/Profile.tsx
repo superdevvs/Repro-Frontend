@@ -1,6 +1,6 @@
 
 import React, { useEffect } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/components/auth';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { ClientProfile } from '@/components/profile/ClientProfile';
@@ -11,6 +11,7 @@ import { toast } from '@/components/ui/use-toast';
 
 const Profile = () => {
   const { user, isAuthenticated, isLoading } = useAuth();
+  const location = useLocation();
 
   useEffect(() => {
     // Log for debugging
@@ -38,6 +39,11 @@ const Profile = () => {
       variant: "destructive",
     });
     return <Navigate to="/" replace />;
+  }
+
+  const requestedTab = new URLSearchParams(location.search).get('tab');
+  if (user?.role === 'photographer' && requestedTab === 'equipments') {
+    return <Navigate to="/photographer-account?tab=equipments" replace />;
   }
 
   // Determine which profile component to render based on user role

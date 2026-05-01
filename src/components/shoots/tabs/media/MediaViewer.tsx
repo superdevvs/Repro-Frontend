@@ -899,10 +899,8 @@ export function MediaViewer({
   const fileExt = currentFile?.filename?.split('.')?.pop()?.toUpperCase();
   const displayFilename = getDisplayMediaFilename(currentFile) || currentFile.filename;
   const mediaType = (currentFile.media_type || '').toLowerCase();
-  const currentFileIsRaw = mediaType === 'raw' || isRawFile(currentFile.filename);
   const fullSizeAvailable = Boolean(
-    !currentFileIsRaw &&
-      fullSizeImageUrl &&
+    fullSizeImageUrl &&
       previewImageUrl &&
       fullSizeImageUrl !== previewImageUrl,
   );
@@ -1037,13 +1035,39 @@ export function MediaViewer({
     </div>
   ) : null;
   const previewSizeControls = renderPreviewSizeControls('hidden md:flex md:justify-self-end');
-  const mobilePreviewSizeControls = renderPreviewSizeControls(
-    'pointer-events-auto justify-end',
-    'bg-black/60',
-  );
   const zoomControls = isImg ? (
     <div className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-center sm:bottom-4">
-      <div className="pointer-events-auto flex max-w-full items-center gap-1 rounded-xl border border-white/10 bg-black/60 p-1 text-white shadow-[0_12px_30px_rgba(0,0,0,0.35)] backdrop-blur-md">
+      <div className="pointer-events-auto flex max-w-full items-center gap-1 overflow-x-auto rounded-xl border border-white/10 bg-black/60 p-1 text-white shadow-[0_12px_30px_rgba(0,0,0,0.35)] backdrop-blur-md">
+        <div className="flex shrink-0 items-center gap-1 md:hidden">
+          <Button
+            variant="ghost"
+            size="sm"
+            className={`h-8 shrink-0 whitespace-nowrap rounded-lg px-2 text-xs text-white hover:bg-white/15 ${
+              previewMode === 'web' ? 'bg-blue-600 text-white hover:bg-blue-600' : ''
+            }`}
+            onClick={() => setPreviewMode('web')}
+            title="Use web-sized preview"
+          >
+            Web
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className={`h-8 shrink-0 whitespace-nowrap rounded-lg px-2 text-xs text-white hover:bg-white/15 disabled:opacity-45 ${
+              previewMode === 'full' ? 'bg-blue-600 text-white hover:bg-blue-600' : ''
+            }`}
+            onClick={() => setPreviewMode('full')}
+            disabled={!canViewFullSize || !fullSizeAvailable}
+            title={
+              canViewFullSize && fullSizeAvailable
+                ? 'Use full-size preview'
+                : 'Full-size preview unavailable'
+            }
+          >
+            Full
+          </Button>
+        </div>
+        <span className="h-5 w-px shrink-0 bg-white/10 md:hidden" aria-hidden />
         <Button
           variant="ghost"
           size="icon"
@@ -1372,12 +1396,7 @@ export function MediaViewer({
                 </div>
 
                   <div className="min-h-0 min-w-0 w-full px-1 pb-1 pt-1 sm:px-2.5 sm:pb-2.5 sm:pt-2 md:h-full lg:px-1.5 lg:pb-1.5 lg:pt-1.5 2xl:px-2 2xl:pb-2">
-                    <div className="relative mx-auto aspect-square max-h-[calc(100dvh-17rem)] w-full max-w-full overflow-hidden bg-black/75 sm:rounded-lg md:h-full md:max-h-none md:aspect-auto md:max-w-none lg:min-h-0 lg:rounded-lg lg:bg-black/50 xl:rounded-xl">
-                      {isImg && (
-                        <div className="pointer-events-none absolute right-3 top-3 z-40 flex justify-end md:hidden">
-                          {mobilePreviewSizeControls}
-                        </div>
-                      )}
+                    <div className="relative mx-auto aspect-[4/3] max-h-[calc(100dvh-20rem)] w-full max-w-full overflow-hidden bg-black/75 sm:aspect-square sm:rounded-lg md:h-full md:max-h-none md:aspect-auto md:max-w-none lg:min-h-0 lg:rounded-lg lg:bg-black/50 xl:rounded-xl">
                       {zoomControls}
                       {currentIndex > 0 && (
                         <Button
