@@ -39,6 +39,11 @@ type ServiceCategoryOption = {
   count: number;
 };
 
+type ServiceScheduleFields = {
+  date: string;
+  time: string;
+};
+
 type PhotographerPickerContext = {
   source: 'edit';
   categoryKey?: string;
@@ -140,6 +145,28 @@ const formatDateForInput = (dateString?: string | null) => {
   } catch {
     return format(new Date(), 'yyyy-MM-dd');
   }
+};
+
+const formatTimeForInput = (value?: string | null) => {
+  if (!value) return '';
+  const parsedDate = parseFlexibleDate(value);
+  if (parsedDate) return format(parsedDate, 'HH:mm');
+
+  const hhmmMatch = value.match(/^(\d{1,2}):(\d{2})/);
+  if (!hhmmMatch) return '';
+  const hours = Number(hhmmMatch[1]);
+  const minutes = Number(hhmmMatch[2]);
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return '';
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+};
+
+const buildScheduledAtIso = (dateValue?: string, timeValue?: string) => {
+  if (!dateValue) return null;
+  const [hours = 10, minutes = 0] = (timeValue || '10:00').split(':').map(Number);
+  const scheduledAt = new Date(`${dateValue}T12:00:00`);
+  if (Number.isNaN(scheduledAt.getTime())) return null;
+  scheduledAt.setHours(hours, minutes, 0, 0);
+  return scheduledAt.toISOString();
 };
 
 const slugify = (value: string) =>
@@ -246,6 +273,7 @@ function useOverviewLookupData(
   setSelectedServiceIds: Dispatch<SetStateAction<string[]>>,
   setServicePrices: Dispatch<SetStateAction<Record<string, string>>>,
   setServicePhotographerPays: Dispatch<SetStateAction<Record<string, string>>>,
+  setServiceSchedules: Dispatch<SetStateAction<Record<string, ServiceScheduleFields>>>,
   setEditPhotographers: Dispatch<SetStateAction<PhotographerPickerOption[]>>,
 ) {
   useEffect(() => {
@@ -313,12 +341,65 @@ function useOverviewLookupData(
           photographer_pay: service.photographer_pay != null ? Number(service.photographer_pay) : null,
           duration: service.duration != null ? Number(service.duration) : null,
         }));
-        setServicesList(servicesData);
 
-        const serviceSource: any[] = shoot.serviceObjects && shoot.serviceObjects.length > 0
-          ? shoot.serviceObjects
-          : (Array.isArray(shoot.services) ? shoot.services : []);
-        if (serviceSource.length === 0 || servicesData.length === 0) return;
+        const rawServiceItems: any[] = Array.isArray((shoot as any).serviceItems)
+          ? (shoot as any).serviceItems
+          : Array.isArray((shoot as any).service_items)
+            ? (shoot as any).service_items
+            : [];
+        const serviceObjectsById = new Map<string, any>();
+        if (Array.isArray(shoot.serviceObjects)) {
+          shoot.serviceObjects.forEach((serviceObject: any) => {
+            const id = serviceObject?.service_id ?? serviceObject?.serviceId ?? serviceObject?.id;
+            if (id !== null && id !== undefined) serviceObjectsById.set(String(id), serviceObject);
+          });
+        }
+        const hydratedServiceItems = rawServiceItems.map((item) => {
+          if (!item || typeof item !== 'object') return item;
+          const id = item.service_id ?? item.serviceId ?? item.id;
+          const serviceObject = id !== null && id !== undefined ? serviceObjectsById.get(String(id)) : null;
+          if (!serviceObject) return item;
+          return {
+            ...serviceObject,
+            ...item,
+            scheduled_at: item.scheduled_at ?? item.scheduledAt ?? serviceObject.scheduled_at ?? serviceObject.scheduledAt,
+            scheduledAt: item.scheduledAt ?? item.scheduled_at ?? serviceObject.scheduledAt ?? serviceObject.scheduled_at,
+          };
+        });
+        const serviceSource: any[] = hydratedServiceItems.length > 0
+          ? hydratedServiceItems
+          : shoot.serviceObjects && shoot.serviceObjects.length > 0
+            ? shoot.serviceObjects
+            : (Array.isArray(shoot.services) ? shoot.services : []);
+        const mergedServicesById = new Map<string, ServiceOption>();
+        servicesData.forEach((service: ServiceOption) => {
+          mergedServicesById.set(service.id, service);
+        });
+        serviceSource.forEach((service: any) => {
+          if (!service || typeof service !== 'object') return;
+          const rawServiceId = service.service_id ?? service.serviceId ?? service.id;
+          if (rawServiceId === null || rawServiceId === undefined) return;
+          const serviceId = String(rawServiceId);
+          if (mergedServicesById.has(serviceId)) return;
+          const serviceName = service.name ?? service.service_name ?? service.serviceName;
+          if (!serviceName) return;
+          mergedServicesById.set(serviceId, {
+            id: serviceId,
+            name: String(serviceName),
+            price: Number(service.price ?? service.subtotal ?? 0) || 0,
+            pricing_type: service.pricing_type || 'fixed',
+            allow_multiple: service.allow_multiple ?? false,
+            sqft_ranges: Array.isArray(service.sqft_ranges) ? service.sqft_ranges : [],
+            category: service.category || null,
+            description: service.description || '',
+            photographer_pay: service.photographer_pay != null ? Number(service.photographer_pay) : null,
+            duration: service.duration != null ? Number(service.duration) : null,
+          });
+        });
+        const mergedServices = Array.from(mergedServicesById.values());
+        setServicesList(mergedServices);
+
+        if (serviceSource.length === 0 || mergedServices.length === 0) return;
 
         const currentServiceIds = serviceSource
           .map((service: any) => {
@@ -327,7 +408,7 @@ function useOverviewLookupData(
               return foundService ? foundService.id : null;
             }
             if (service && typeof service === 'object') {
-              return String(service.id || service.service_id || '');
+              return String(service.service_id || service.serviceId || service.id || '');
             }
             return null;
           })
@@ -337,11 +418,33 @@ function useOverviewLookupData(
 
         const nextPrices: Record<string, string> = {};
         const nextPhotographerPays: Record<string, string> = {};
+        const nextServiceSchedules: Record<string, ServiceScheduleFields> = {};
+        const scheduleByServiceId = new Map<string, ServiceScheduleFields>();
+        rawServiceItems.forEach((item) => {
+          if (!item || typeof item !== 'object') return;
+          const serviceId = item.service_id ?? item.serviceId;
+          if (serviceId === null || serviceId === undefined) return;
+          const scheduledAt = item.scheduled_at ?? item.scheduledAt;
+          scheduleByServiceId.set(String(serviceId), {
+            date: formatDateForInput(scheduledAt),
+            time: formatTimeForInput(scheduledAt) || '10:00',
+          });
+        });
+        const orderScheduledAt = (shoot as any).scheduled_at ?? (shoot as any).scheduledAt ?? shoot.scheduledDate;
+        const fallbackSchedule = {
+          date: formatDateForInput(orderScheduledAt),
+          time: formatTimeForInput(orderScheduledAt) || formatTimeForInput(shoot.time) || '10:00',
+        };
         serviceSource.forEach((service: any) => {
           if (!service || typeof service !== 'object') return;
-          const serviceId = String(service.id || service.service_id || '');
+          const serviceId = String(service.service_id || service.serviceId || service.id || '');
           if (!serviceId || !currentServiceIds.includes(serviceId)) return;
-          const serviceRecord = servicesData.find((serviceOption: ServiceOption) => serviceOption.id === serviceId);
+          const serviceScheduledAt = service.scheduled_at ?? service.scheduledAt;
+          nextServiceSchedules[serviceId] = scheduleByServiceId.get(serviceId) || {
+            date: formatDateForInput(serviceScheduledAt) || fallbackSchedule.date,
+            time: formatTimeForInput(serviceScheduledAt) || fallbackSchedule.time,
+          };
+          const serviceRecord = mergedServices.find((serviceOption: ServiceOption) => serviceOption.id === serviceId);
           const basePrice = serviceRecord
             ? resolveServicePrice(serviceRecord, effectiveSqft).basePrice
             : Number(service.price ?? 0);
@@ -361,6 +464,7 @@ function useOverviewLookupData(
         });
         setServicePrices(nextPrices);
         setServicePhotographerPays(nextPhotographerPays);
+        setServiceSchedules(nextServiceSchedules);
       } catch (error) {
         console.error('Error fetching services:', error);
       }
@@ -645,6 +749,7 @@ export function useShootOverviewEditor({
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [servicePrices, setServicePrices] = useState<Record<string, string>>({});
   const [servicePhotographerPays, setServicePhotographerPays] = useState<Record<string, string>>({});
+  const [serviceSchedules, setServiceSchedules] = useState<Record<string, ServiceScheduleFields>>({});
   const [serviceDialogOpen, setServiceDialogOpen] = useState(false);
   const [servicePanelCategory, setServicePanelCategory] = useState('all');
   const [serviceModalSearch, setServiceModalSearch] = useState('');
@@ -663,6 +768,11 @@ export function useShootOverviewEditor({
   const [sortBy, setSortBy] = useState<'distance' | 'name'>('distance');
   const [isCalculatingDistances, setIsCalculatingDistances] = useState(false);
   const [isLoadingAvailability, setIsLoadingAvailability] = useState(false);
+
+  const safeEditPhotographers = useMemo(
+    () => (Array.isArray(editPhotographers) ? editPhotographers : []),
+    [editPhotographers],
+  );
 
   const photographerAssignments = useMemo(() => getShootPhotographerAssignmentGroups(shoot), [shoot]);
   const isAdminOrRep = isAdmin || role === 'rep' || role === 'representative';
@@ -769,6 +879,7 @@ export function useShootOverviewEditor({
     setSelectedServiceIds,
     setServicePrices,
     setServicePhotographerPays,
+    setServiceSchedules,
     setEditPhotographers,
   );
 
@@ -776,6 +887,7 @@ export function useShootOverviewEditor({
     if (!isEditMode) return;
 
     const propertyDetails = shoot.propertyDetails || (shoot as any).property_details || {};
+    setServiceSchedules({});
     setEditedShoot({
       scheduledDate: formatDateForInput(shoot.scheduledDate),
       time: shoot.time,
@@ -803,6 +915,20 @@ export function useShootOverviewEditor({
       }
     }
     setPerCategoryPhotographers(nextPerCategoryPhotographers);
+    setServiceSchedules((current) => {
+      const defaultSchedule = {
+        date: formatDateForInput((shoot as any).scheduled_at ?? (shoot as any).scheduledAt ?? shoot.scheduledDate),
+        time:
+          formatTimeForInput((shoot as any).scheduled_at ?? (shoot as any).scheduledAt) ||
+          formatTimeForInput(shoot.time) ||
+          '10:00',
+      };
+      const nextSchedules: Record<string, ServiceScheduleFields> = {};
+      selectedServiceIds.forEach((serviceId) => {
+        nextSchedules[serviceId] = current[serviceId] || defaultSchedule;
+      });
+      return nextSchedules;
+    });
     setTaxAmountDirty(false);
     setPresenceOption(propertyDetails.presenceOption === 'lockbox' || propertyDetails.presenceOption === 'other' ? propertyDetails.presenceOption : 'self');
     setLockboxCode(propertyDetails.lockboxCode || '');
@@ -810,6 +936,88 @@ export function useShootOverviewEditor({
     setAccessContactName(propertyDetails.accessContactName || '');
     setAccessContactPhone(propertyDetails.accessContactPhone || '');
   }, [initializeMetricsFromShoot, isEditMode, photographerAssignments.groups, shoot]);
+
+  useEffect(() => {
+    if (!isEditMode || selectedServiceIds.length > 0) return;
+
+    const rawSourceItems: any[] = Array.isArray((shoot as any).serviceItems) && (shoot as any).serviceItems.length > 0
+      ? (shoot as any).serviceItems
+      : Array.isArray((shoot as any).service_items) && (shoot as any).service_items.length > 0
+        ? (shoot as any).service_items
+        : Array.isArray(shoot.serviceObjects) && shoot.serviceObjects.length > 0
+          ? shoot.serviceObjects
+          : [];
+    const serviceObjectsById = new Map<string, any>();
+    if (Array.isArray(shoot.serviceObjects)) {
+      shoot.serviceObjects.forEach((serviceObject: any) => {
+        const id = serviceObject?.service_id ?? serviceObject?.serviceId ?? serviceObject?.id;
+        if (id !== null && id !== undefined) serviceObjectsById.set(String(id), serviceObject);
+      });
+    }
+    const sourceItems = rawSourceItems.map((item) => {
+      if (!item || typeof item !== 'object') return item;
+      const id = item.service_id ?? item.serviceId ?? item.id;
+      const serviceObject = id !== null && id !== undefined ? serviceObjectsById.get(String(id)) : null;
+      if (!serviceObject) return item;
+      return {
+        ...serviceObject,
+        ...item,
+        scheduled_at: item.scheduled_at ?? item.scheduledAt ?? serviceObject.scheduled_at ?? serviceObject.scheduledAt,
+        scheduledAt: item.scheduledAt ?? item.scheduled_at ?? serviceObject.scheduledAt ?? serviceObject.scheduled_at,
+      };
+    });
+
+    const ids: string[] = [];
+    const fallbackServices: ServiceOption[] = [];
+    const schedules: Record<string, ServiceScheduleFields> = {};
+    const defaultSchedule = {
+      date: formatDateForInput((shoot as any).scheduled_at ?? (shoot as any).scheduledAt ?? shoot.scheduledDate),
+      time:
+        formatTimeForInput((shoot as any).scheduled_at ?? (shoot as any).scheduledAt) ||
+        formatTimeForInput(shoot.time) ||
+        '10:00',
+    };
+
+    sourceItems.forEach((item) => {
+      if (!item || typeof item !== 'object') return;
+      const rawServiceId = item.service_id ?? item.serviceId ?? item.id;
+      if (rawServiceId === null || rawServiceId === undefined) return;
+      const serviceId = String(rawServiceId);
+      if (!serviceId || ids.includes(serviceId)) return;
+      ids.push(serviceId);
+      const scheduledAt = item.scheduled_at ?? item.scheduledAt;
+      schedules[serviceId] = {
+        date: formatDateForInput(scheduledAt) || defaultSchedule.date,
+        time: formatTimeForInput(scheduledAt) || defaultSchedule.time,
+      };
+      const serviceName = item.name ?? item.service_name ?? item.serviceName;
+      if (serviceName) {
+        fallbackServices.push({
+          id: serviceId,
+          name: String(serviceName),
+          price: Number(item.price ?? item.subtotal ?? 0) || 0,
+          pricing_type: item.pricing_type || 'fixed',
+          allow_multiple: item.allow_multiple ?? false,
+          sqft_ranges: Array.isArray(item.sqft_ranges) ? item.sqft_ranges : [],
+          category: item.category || null,
+          description: item.description || '',
+          photographer_pay: item.photographer_pay != null ? Number(item.photographer_pay) : null,
+          duration: item.duration != null ? Number(item.duration) : null,
+        });
+      }
+    });
+
+    if (ids.length === 0) return;
+    setSelectedServiceIds(ids);
+    setServiceSchedules((current) => ({ ...current, ...schedules }));
+    setServicesList((current) => {
+      const merged = new Map(current.map((service) => [service.id, service]));
+      fallbackServices.forEach((service) => {
+        if (!merged.has(service.id)) merged.set(service.id, service);
+      });
+      return Array.from(merged.values());
+    });
+  }, [isEditMode, selectedServiceIds.length, shoot]);
 
   const handleSave = useCallback(() => {
     if (!onSave) return;
@@ -895,19 +1103,59 @@ export function useShootOverviewEditor({
       (shoot as any).living_area ??
       null;
 
-    updates.services = selectedServiceIds.map((serviceId) => {
+    const orderSchedule = {
+      date: formatDateForInput((updates as any).scheduledDate ?? shoot.scheduledDate),
+      time: formatTimeForInput(String((updates as any).time ?? shoot.time ?? '')) || '10:00',
+    };
+    const existingScheduleByServiceId = new Map<string, ServiceScheduleFields>();
+    [
+      ...(((shoot as any).serviceItems as any[]) || []),
+      ...(((shoot as any).service_items as any[]) || []),
+      ...((shoot.serviceObjects as any[]) || []),
+    ].forEach((item) => {
+      if (!item || typeof item !== 'object') return;
+      const serviceId = item.service_id ?? item.serviceId ?? item.id;
+      if (serviceId === null || serviceId === undefined) return;
+      const scheduledAt = item.scheduled_at ?? item.scheduledAt;
+      if (!scheduledAt) return;
+      existingScheduleByServiceId.set(String(serviceId), {
+        date: formatDateForInput(scheduledAt),
+        time: formatTimeForInput(scheduledAt) || orderSchedule.time,
+      });
+    });
+    const serviceItemsPayload = selectedServiceIds.map((serviceId) => {
       const service = servicesList.find((serviceOption) => serviceOption.id === serviceId);
       const resolvedPrice = service ? resolveServicePrice(service, sqftForPricing, servicePrices[serviceId]).price : 0;
+      const savedSchedule = serviceSchedules[serviceId] || orderSchedule;
+      const existingSchedule = existingScheduleByServiceId.get(serviceId);
+      const serviceSchedule =
+        existingSchedule &&
+        savedSchedule.date === orderSchedule.date &&
+        savedSchedule.time === orderSchedule.time
+          ? existingSchedule
+          : savedSchedule;
       const serviceData: any = {
-        id: Number(serviceId),
+        service_id: Number(serviceId),
         price: resolvedPrice,
         quantity: 1,
+        scheduled_at: buildScheduledAtIso(
+          serviceSchedule.date || orderSchedule.date,
+          serviceSchedule.time || orderSchedule.time,
+        ),
       };
       if (servicePhotographerPays[serviceId]) {
         serviceData.photographer_pay = parseFloat(servicePhotographerPays[serviceId]);
       }
       return serviceData;
     });
+    (updates as any).service_items = serviceItemsPayload;
+    (updates as any).services = serviceItemsPayload.map((serviceData) => ({
+      id: serviceData.service_id,
+      price: serviceData.price,
+      quantity: serviceData.quantity,
+      scheduled_at: serviceData.scheduled_at,
+      photographer_pay: serviceData.photographer_pay,
+    }));
 
     const servicePhotographerAssignments: Array<{ service_id: number; photographer_id: number }> = [];
     if (Object.keys(perCategoryPhotographers).length > 0 && selectedServiceIds.length > 0) {
@@ -944,9 +1192,44 @@ export function useShootOverviewEditor({
     selectedServiceIds,
     servicePhotographerPays,
     servicePrices,
+    serviceSchedules,
     servicesList,
     shoot,
   ]);
+
+  const defaultServiceSchedule = useMemo<ServiceScheduleFields>(
+    () => ({
+      date: formatDateForInput((editedShoot as any).scheduledDate ?? shoot.scheduledDate),
+      time: formatTimeForInput(String((editedShoot as any).time ?? shoot.time ?? '')) || '10:00',
+    }),
+    [editedShoot, shoot.scheduledDate, shoot.time],
+  );
+
+  useEffect(() => {
+    if (!isEditMode) return;
+    setServiceSchedules((current) => {
+      let changed = false;
+      const next: Record<string, ServiceScheduleFields> = {};
+      selectedServiceIds.forEach((serviceId) => {
+        next[serviceId] = current[serviceId] || defaultServiceSchedule;
+        if (!current[serviceId]) changed = true;
+      });
+      Object.keys(current).forEach((serviceId) => {
+        if (!selectedServiceIds.includes(serviceId)) changed = true;
+      });
+      return changed ? next : current;
+    });
+  }, [defaultServiceSchedule, isEditMode, selectedServiceIds]);
+
+  const updateServiceSchedule = useCallback((serviceId: string, field: keyof ServiceScheduleFields, value: string) => {
+    setServiceSchedules((current) => ({
+      ...current,
+      [serviceId]: {
+        ...(current[serviceId] || defaultServiceSchedule),
+        [field]: value,
+      },
+    }));
+  }, [defaultServiceSchedule]);
 
   const handleCancel = useCallback(() => {
     setEditedShoot({});
@@ -1078,7 +1361,7 @@ export function useShootOverviewEditor({
 
   usePhotographerAssignmentOptions(
     assignPhotographerOpen,
-    editPhotographers,
+    safeEditPhotographers,
     isAdminOrRep,
     isEditMode,
     setPhotographers,
@@ -1111,11 +1394,11 @@ export function useShootOverviewEditor({
 
   const photographerPickerOptions = useMemo(() => {
     if (photographers.length > 0) return photographers;
-    if (editPhotographers.length > 0) {
-      return editPhotographers.map((photographer) => ({ ...photographer }));
+    if (safeEditPhotographers.length > 0) {
+      return safeEditPhotographers.map((photographer) => ({ ...photographer }));
     }
     return fallbackAssignedPhotographers;
-  }, [editPhotographers, fallbackAssignedPhotographers, photographers]);
+  }, [fallbackAssignedPhotographers, photographers, safeEditPhotographers]);
 
   const filteredAndSortedPhotographers = useMemo(() => {
     let filteredPhotographers = [...photographerPickerOptions];
@@ -1147,10 +1430,10 @@ export function useShootOverviewEditor({
     const normalizedId = String(photographerId);
     return (
       photographerPickerOptions.find((photographer) => String(photographer.id) === normalizedId)
-      || editPhotographers.find((photographer) => String(photographer.id) === normalizedId)
+      || safeEditPhotographers.find((photographer) => String(photographer.id) === normalizedId)
       || (shoot.photographer && String(shoot.photographer.id) === normalizedId ? shoot.photographer : null)
     );
-  }, [editPhotographers, photographerPickerOptions, shoot.photographer]);
+  }, [photographerPickerOptions, safeEditPhotographers, shoot.photographer]);
 
   const closePhotographerPicker = useCallback(() => {
     setAssignPhotographerOpen(false);
@@ -1336,7 +1619,7 @@ export function useShootOverviewEditor({
       clients,
       selectedClientId,
       clientSearchOpen,
-      editPhotographers,
+      editPhotographers: safeEditPhotographers,
       selectedPhotographerIdEdit,
       photographerSearchOpen,
       perCategoryPhotographers,
@@ -1345,6 +1628,7 @@ export function useShootOverviewEditor({
       selectedServiceIds,
       servicePrices,
       servicePhotographerPays,
+      serviceSchedules,
       serviceDialogOpen,
       servicePanelCategory,
       serviceModalSearch,
@@ -1374,6 +1658,7 @@ export function useShootOverviewEditor({
       setPerCategoryPopoverOpen,
       setServicePrices,
       setServicePhotographerPays,
+      updateServiceSchedule,
       setServiceDialogOpen,
       setServicePanelCategory,
       setServiceModalSearch,

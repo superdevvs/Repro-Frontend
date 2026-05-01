@@ -42,6 +42,7 @@ import { useMediaQuery } from '@/hooks/use-media-query';
 import { API_BASE_URL } from '@/config/env';
 import API_ROUTES from '@/lib/api';
 import AddressLookupField, { type AddressDetails } from '@/components/AddressLookupField';
+import { ServiceDatePicker, ServiceTimePicker } from '@/components/shoots/ServiceSchedulePicker';
 import { getShootPhotographerAssignmentGroups } from '@/utils/shootPhotographerAssignments';
 import { calculatePricingBreakdown, type PricingDiscountType } from '@/utils/pricing';
 import axios from 'axios';
@@ -62,6 +63,8 @@ interface Service {
   pricing_type?: 'fixed' | 'variable';
   sqft_ranges?: SqftRange[];
   category?: { id: number | string; name: string } | string;
+  scheduled_at?: string | null;
+  scheduledAt?: string | null;
 }
 
 interface Photographer {
@@ -192,6 +195,8 @@ interface ShootDetails {
   };
   services?: Service[];
   serviceObjects?: Service[];
+  serviceItems?: Array<Record<string, unknown>>;
+  service_items?: Array<Record<string, unknown>>;
   scheduledAt?: string;
   scheduled_at?: string;
   totalQuote?: number;
@@ -238,8 +243,27 @@ type PhotographerPickerContext = {
 
 type MobileEditPanel = 'details' | 'schedule' | 'services';
 
+type ServiceScheduleFields = {
+  date: string;
+  time: string;
+};
+
 const normalizeCategoryKey = (value?: string) =>
   (value || 'other').trim().toLowerCase().replace(/s$/, '') || 'other';
+
+const formatDateForInputValue = (value?: unknown): string => {
+  if (!value) return '';
+  const date = new Date(String(value));
+  if (Number.isNaN(date.getTime())) return '';
+  return format(date, 'yyyy-MM-dd');
+};
+
+const formatTimeForInputValue = (value?: unknown): string => {
+  if (!value) return '';
+  const date = new Date(String(value));
+  if (Number.isNaN(date.getTime())) return '';
+  return format(date, 'HH:mm');
+};
 
 const mapPhotographerOption = (photographer: PhotographerSource): Photographer => ({
   id: photographer.id?.toString() || '',
@@ -403,6 +427,7 @@ export function ShootEditModal({
   const [scheduledDate, setScheduledDate] = useState<Date | undefined>(undefined);
   const [scheduledTime, setScheduledTime] = useState<string>('10:00');
   const [selectedServiceIds, setSelectedServiceIds] = useState<Set<string>>(new Set());
+  const [serviceSchedules, setServiceSchedules] = useState<Record<string, ServiceScheduleFields>>({});
   const [photographerId, setPhotographerId] = useState<string>('');
   const [perCategoryPhotographers, setPerCategoryPhotographers] = useState<Record<string, string>>({});
   
@@ -436,6 +461,7 @@ export function ShootEditModal({
       
       setIsLoading(true);
       setSelectedServiceIds(new Set());
+      setServiceSchedules({});
       setPerCategoryPhotographers({});
       setPhotographerId('');
       setExpandedServiceCategoryKeys([]);
@@ -563,6 +589,43 @@ export function ShootEditModal({
           if (serviceSource.length > 0) {
             const ids = resolveSelectedServiceIds(serviceSource, mappedServices);
             setSelectedServiceIds(ids);
+
+            const rawServiceItems = Array.isArray(shoot.serviceItems)
+              ? shoot.serviceItems
+              : Array.isArray(shoot.service_items)
+                ? shoot.service_items
+                : [];
+            const scheduleByServiceId = new Map<string, ServiceScheduleFields>();
+            rawServiceItems.forEach((item: Record<string, unknown>) => {
+              const serviceId = item.service_id ?? item.serviceId;
+              if (serviceId === null || serviceId === undefined) return;
+              const scheduledAt = item.scheduled_at ?? item.scheduledAt;
+              const date = formatDateForInputValue(scheduledAt);
+              const time = formatTimeForInputValue(scheduledAt);
+              if (date || time) {
+                scheduleByServiceId.set(String(serviceId), { date, time });
+              }
+            });
+
+            const orderScheduledAt = shoot.start_time || shoot.scheduled_at || shoot.scheduledAt || shoot.scheduled_date || shoot.scheduledDate;
+            const fallbackSchedule = {
+              date: formatDateForInputValue(orderScheduledAt),
+              time: normalizedTime || formatTimeForInputValue(orderScheduledAt) || '10:00',
+            };
+            const nextServiceSchedules: Record<string, ServiceScheduleFields> = {};
+            serviceSource.forEach((service: SelectedServiceSource & Record<string, unknown>) => {
+              if (!service || typeof service !== 'object') return;
+              const serviceId = service.id ?? service.service_id;
+              if (serviceId === null || serviceId === undefined) return;
+              const normalizedServiceId = String(serviceId);
+              const directScheduledAt = service.scheduled_at ?? service.scheduledAt;
+              nextServiceSchedules[normalizedServiceId] =
+                scheduleByServiceId.get(normalizedServiceId) || {
+                  date: formatDateForInputValue(directScheduledAt) || fallbackSchedule.date,
+                  time: formatTimeForInputValue(directScheduledAt) || fallbackSchedule.time,
+                };
+            });
+            setServiceSchedules(nextServiceSchedules);
 
             // Initialize per-category photographer assignments from shoot services
             const catPhotogMap: Record<string, string> = {};
@@ -871,6 +934,36 @@ export function ShootEditModal({
       discountValue: activeDiscountValue,
       taxRate: normalizedTaxRate,
     });
+    const serviceItemsPayload = Array.from(selectedServiceIds).map(id => {
+      const service = availableServices.find(s => s.id?.toString() === id);
+      const serviceSchedule = serviceSchedules[id] || {
+        date: format(scheduledAt, 'yyyy-MM-dd'),
+        time: scheduledTime,
+      };
+      const serviceScheduledAt = buildScheduledAtIso(
+        serviceSchedule.date || format(scheduledAt, 'yyyy-MM-dd'),
+        serviceSchedule.time || scheduledTime,
+      ) || scheduledAt.toISOString();
+      const catName = service
+        ? typeof service.category === 'string'
+          ? service.category
+          : service.category?.name || 'Other'
+        : 'Other';
+      const categoryPhotographerId = perCategoryPhotographers[catName.trim().toLowerCase().replace(/s$/, '')];
+
+      return {
+        service_id: Number(id),
+        quantity: 1,
+        price: service ? getServicePrice(service) : undefined,
+        scheduled_at: serviceScheduledAt,
+        photographer_id:
+          categoryPhotographerId && categoryPhotographerId !== 'unassigned'
+            ? Number(categoryPhotographerId)
+            : photographerId && photographerId !== 'unassigned'
+              ? Number(photographerId)
+              : undefined,
+      };
+    });
 
     const payload: Record<string, unknown> = {
       address: address.trim(),
@@ -879,14 +972,13 @@ export function ShootEditModal({
       zip: zip.trim(),
       scheduled_at: scheduledAt.toISOString(),
       shoot_notes: shootNotes.trim(),
-      services: Array.from(selectedServiceIds).map(id => {
-        const service = availableServices.find(s => s.id?.toString() === id);
-        return { 
-          id: Number(id), 
-          quantity: 1,
-          price: service ? getServicePrice(service) : undefined
-        };
-      }),
+      services: serviceItemsPayload.map((item) => ({
+        id: item.service_id,
+        quantity: item.quantity,
+        price: item.price,
+        scheduled_at: item.scheduled_at,
+      })),
+      service_items: serviceItemsPayload,
       base_quote: pricing.discountedSubtotal,
       discount_type: pricing.discountType,
       discount_value: pricing.discountValue,
@@ -1118,6 +1210,69 @@ export function ShootEditModal({
     () => (scheduledDate ? format(scheduledDate, 'yyyy-MM-dd') : ''),
     [scheduledDate],
   );
+  const defaultServiceSchedule = useMemo<ServiceScheduleFields>(
+    () => ({
+      date: scheduledDateInputValue,
+      time: scheduledTime || '10:00',
+    }),
+    [scheduledDateInputValue, scheduledTime],
+  );
+  const selectedServiceRows = useMemo(
+    () =>
+      Array.from(selectedServiceIds)
+        .map((id) => {
+          const service = availableServices.find((candidate) => candidate.id?.toString() === id);
+          return service ? { id, service } : null;
+        })
+        .filter((row): row is { id: string; service: Service } => Boolean(row)),
+    [availableServices, selectedServiceIds],
+  );
+
+  useEffect(() => {
+    if (selectedServiceIds.size === 0) {
+      setServiceSchedules({});
+      return;
+    }
+
+    setServiceSchedules((current) => {
+      let changed = false;
+      const next: Record<string, ServiceScheduleFields> = {};
+
+      selectedServiceIds.forEach((id) => {
+        next[id] = current[id] || defaultServiceSchedule;
+        if (!current[id]) changed = true;
+      });
+
+      Object.keys(current).forEach((id) => {
+        if (!selectedServiceIds.has(id)) changed = true;
+      });
+
+      return changed ? next : current;
+    });
+  }, [defaultServiceSchedule, selectedServiceIds]);
+
+  const updateServiceSchedule = (
+    serviceId: string,
+    field: keyof ServiceScheduleFields,
+    value: string,
+  ) => {
+    setServiceSchedules((current) => ({
+      ...current,
+      [serviceId]: {
+        ...(current[serviceId] || defaultServiceSchedule),
+        [field]: value,
+      },
+    }));
+  };
+
+  const buildScheduledAtIso = (dateValue?: string, timeValue?: string): string | null => {
+    if (!dateValue) return null;
+    const [hours = 0, minutes = 0] = (timeValue || '10:00').split(':').map(Number);
+    const scheduledAt = new Date(`${dateValue}T12:00:00`);
+    if (Number.isNaN(scheduledAt.getTime())) return null;
+    scheduledAt.setHours(hours, minutes, 0, 0);
+    return scheduledAt.toISOString();
+  };
 
   const renderDetailsPanel = () => (
     <div className="space-y-3 md:pr-1">
@@ -1559,6 +1714,50 @@ export function ShootEditModal({
             })}
           </Accordion>
         </div>
+
+        {selectedServiceRows.length > 0 && (
+          <div className="mt-3 space-y-2 border-t pt-3">
+            <div className="flex items-center justify-between gap-2">
+              <Label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Service schedules
+              </Label>
+              <span className="text-[10px] text-muted-foreground">Defaults to order schedule</span>
+            </div>
+            <div className="space-y-2">
+              {selectedServiceRows.map(({ id, service }) => {
+                const schedule = serviceSchedules[id] || defaultServiceSchedule;
+                const price = getServicePrice(service);
+
+                return (
+                  <div key={id} className="rounded-md border border-border bg-background/50 p-2">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <span className="min-w-0 truncate text-xs font-medium">{service.name}</span>
+                      <span className="shrink-0 text-xs text-muted-foreground">${price.toFixed(0)}</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-[10px]">Date</Label>
+                        <ServiceDatePicker
+                          value={schedule.date}
+                          minDate={minSelectableDate}
+                          onChange={(value) => updateServiceSchedule(id, 'date', value)}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px]">Time</Label>
+                        <ServiceTimePicker
+                          value={schedule.time || scheduledTime}
+                          options={timeOptions}
+                          onChange={(value) => updateServiceSchedule(id, 'time', value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {selectedServiceIds.size > 0 && (() => {
           const servicesTotal = hasVariablePricingWithoutSqft

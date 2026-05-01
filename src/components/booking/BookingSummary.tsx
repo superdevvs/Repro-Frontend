@@ -5,6 +5,8 @@ import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import { useAuth } from '@/components/auth/AuthProvider';
 import type { PricingBreakdown } from '@/utils/pricing';
@@ -25,10 +27,15 @@ interface BookingSummaryProps {
     time: string;
   };
   selectedServices: Array<{ id: string; name: string; description: string; price: number }>;
+  serviceSchedules?: Record<string, { date?: string; time?: string }>;
   onSubmit?: () => void;
   isLastStep?: boolean;
   canSubmit?: boolean;
   isSubmitting?: boolean;
+  canAdjustAmount?: boolean;
+  adjustedTotalInput?: string;
+  setAdjustedTotalInput?: (value: string) => void;
+  originalTotalQuote?: number;
   showRepName?: boolean; // Whether to show rep name (admin, superadmin, photographer only)
   weather?: {
     temperature?: number | null;
@@ -40,10 +47,15 @@ interface BookingSummaryProps {
 export function BookingSummary({
   summaryInfo,
   selectedServices,
+  serviceSchedules = {},
   onSubmit,
   isLastStep = false,
   canSubmit = true,
   isSubmitting = false,
+  canAdjustAmount = false,
+  adjustedTotalInput = '',
+  setAdjustedTotalInput,
+  originalTotalQuote,
   showRepName = false,
   weather,
   isMobile = false,
@@ -52,6 +64,23 @@ export function BookingSummary({
   const { user } = useAuth();
   const hasSelectedServices = selectedServices.length > 0;
   const hasWeather = weather && (weather.temperature !== undefined || weather.condition);
+  const isAmountAdjusted = canAdjustAmount && adjustedTotalInput.trim() !== '';
+  const amountPlaceholder = (originalTotalQuote ?? summaryInfo.pricing?.totalQuote ?? summaryInfo.packagePrice).toFixed(2);
+  const normalizeTimeLabel = (value?: string) => {
+    if (!value) return '';
+    const match = value.match(/^(\d{1,2}):(\d{2})$/);
+    if (!match) return value;
+    const hours = parseInt(match[1], 10);
+    const minutes = match[2];
+    const meridiem = hours >= 12 ? 'PM' : 'AM';
+    const displayHours = hours % 12 === 0 ? 12 : hours % 12;
+    return `${displayHours}:${minutes} ${meridiem}`;
+  };
+  const getServiceScheduleLabel = (serviceId: string) => {
+    const serviceSchedule = serviceSchedules[serviceId];
+    if (!serviceSchedule?.date && !serviceSchedule?.time) return '';
+    return [serviceSchedule.date, normalizeTimeLabel(serviceSchedule.time)].filter(Boolean).join(' at ');
+  };
   
   // Clients submit requests, admin/rep book directly
   const isClientRole = user?.role === 'client';
@@ -153,6 +182,9 @@ export function BookingSummary({
                 >
                   <div>
                     <p className="text-sm font-medium text-slate-900 dark:text-white">{service.name}</p>
+                    {getServiceScheduleLabel(service.id) && (
+                      <p className="text-xs text-blue-600 dark:text-blue-300 mt-0.5">{getServiceScheduleLabel(service.id)}</p>
+                    )}
                     {service.description && (
                       <p className="text-xs text-muted-foreground mt-0.5">{service.description}</p>
                     )}
@@ -165,6 +197,40 @@ export function BookingSummary({
             </div>
             {summaryInfo.pricing && (
               <div className="rounded-md border border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 space-y-1.5">
+                {canAdjustAmount && isMobile && isLastStep && (
+                  <div className="mb-2 rounded-md border border-blue-100 bg-blue-50/80 p-2 dark:border-blue-900/50 dark:bg-blue-950/20">
+                    <Label htmlFor="summary-booking-amount" className="text-xs font-medium text-slate-900 dark:text-slate-100">
+                      Booking amount
+                    </Label>
+                    <div className="mt-1 flex items-center gap-2">
+                      <div className="relative flex-1">
+                        <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-500">$</span>
+                        <Input
+                          id="summary-booking-amount"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          inputMode="decimal"
+                          value={adjustedTotalInput}
+                          onChange={(event) => setAdjustedTotalInput?.(event.target.value)}
+                          placeholder={amountPlaceholder}
+                          className="h-8 pl-6 text-right text-sm"
+                        />
+                      </div>
+                      {isAmountAdjusted && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setAdjustedTotalInput?.('')}
+                          className="h-8 px-2 text-xs"
+                        >
+                          Reset
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )}
                 <div className="flex items-center justify-between text-sm text-slate-600 dark:text-slate-300">
                   <span>Subtotal</span>
                   <span className="font-medium text-slate-900 dark:text-white">${summaryInfo.pricing.serviceSubtotal.toFixed(2)}</span>

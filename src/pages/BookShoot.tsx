@@ -50,6 +50,8 @@ type ServicePackage = {
   service_group_ids?: string[];
 };
 
+type ServiceScheduleMap = Record<string, { date?: string; time?: string }>;
+
 const resolveSelectedServicePrice = (service: ServicePackage, sqft?: number | null) => {
   let price = Number(service.price ?? 0);
 
@@ -101,6 +103,80 @@ const buildNormalizedAddress = (params: {
   return parts.join(', ');
 };
 
+const roundCurrency = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+
+const parseCurrencyInput = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return null;
+  }
+
+  return roundCurrency(parsed);
+};
+
+const toBackendTime = (value?: string | null) => {
+  if (!value) return '';
+  const trimmed = value.trim();
+  const ampmMatch = trimmed.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (ampmMatch) {
+    let hours = parseInt(ampmMatch[1], 10);
+    const minutes = ampmMatch[2];
+    const meridiem = ampmMatch[3].toUpperCase();
+    if (meridiem === 'PM' && hours !== 12) hours += 12;
+    if (meridiem === 'AM' && hours === 12) hours = 0;
+    return `${String(hours).padStart(2, '0')}:${minutes}:00`;
+  }
+
+  const time24Match = trimmed.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if (time24Match) {
+    return `${String(parseInt(time24Match[1], 10)).padStart(2, '0')}:${time24Match[2]}:${(time24Match[3] || '00').padStart(2, '0')}`;
+  }
+
+  return '';
+};
+
+const toDateInputValue = (value: Date) => {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, '0');
+  const day = String(value.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const toTimeInputValue = (value?: string | null) => toBackendTime(value).slice(0, 5);
+
+const buildAdminAdjustedPricing = (
+  pricing: PricingBreakdown,
+  adjustedTotal: number | null,
+  taxRate: number,
+): PricingBreakdown => {
+  if (adjustedTotal === null) {
+    return pricing;
+  }
+
+  const totalQuote = roundCurrency(adjustedTotal);
+  const resolvedTaxRate = Math.max(Number(taxRate || 0), 0);
+  const discountedSubtotal = resolvedTaxRate > 0
+    ? roundCurrency(totalQuote / (1 + resolvedTaxRate))
+    : totalQuote;
+  const taxAmount = roundCurrency(totalQuote - discountedSubtotal);
+
+  return {
+    ...pricing,
+    serviceSubtotal: discountedSubtotal,
+    discountType: null,
+    discountValue: null,
+    discountAmount: 0,
+    discountedSubtotal,
+    taxAmount,
+    totalQuote,
+  };
+};
+
 const BookShoot = () => {
   const isMobile = useIsMobile();
   const location = useLocation();
@@ -111,6 +187,7 @@ const BookShoot = () => {
   const clientCompanyFromUrl = queryParams.get('clientCompany');
   const editShootId = queryParams.get('edit'); // For modifying existing shoot requests
   const { user, isImpersonating } = useAuth();
+  const canAdjustBookingAmount = !isImpersonating && (user?.role === 'admin' || user?.role === 'superadmin');
   const [isEditMode, setIsEditMode] = useState(false);
   const [editShootLoading, setEditShootLoading] = useState(false);
   const [packages, setPackages] = useState<ServicePackage[]>([]);
@@ -135,6 +212,7 @@ const BookShoot = () => {
   const [photographer, setPhotographer] = useState('');
   // Per-service photographer assignments: { serviceId: photographerId }
   const [servicePhotographers, setServicePhotographers] = useState<Record<string, string>>({});
+  const [serviceSchedules, setServiceSchedules] = useState<ServiceScheduleMap>({});
   const [selectedServices, setSelectedServices] = useState<ServicePackage[]>([]);
   const [propertyDetails, setPropertyDetails] = useState<any>(null);
   const [propertySqft, setPropertySqft] = useState<number | null>(null);
@@ -152,6 +230,16 @@ const BookShoot = () => {
       }
       return next;
     });
+    setServiceSchedules(prev => {
+      const currentServiceIds = new Set(services.map(s => s.id));
+      const next: ServiceScheduleMap = {};
+      for (const [svcId, schedule] of Object.entries(prev)) {
+        if (currentServiceIds.has(svcId)) {
+          next[svcId] = schedule;
+        }
+      }
+      return next;
+    });
   };
   const [notes, setNotes] = useState('');
   const [companyNotes, setCompanyNotes] = useState('');
@@ -159,6 +247,7 @@ const BookShoot = () => {
   const [editorNotes, setEditorNotes] = useState('');
   const [bypassPayment, setBypassPayment] = useState(false);
   const [sendNotification, setSendNotification] = useState(true);
+  const [adjustedTotalInput, setAdjustedTotalInput] = useState('');
   const [step, setStep] = useState(1);
   const [isComplete, setIsComplete] = useState(false);
   const [completedBooking, setCompletedBooking] = useState<CompletedBookingSnapshot | null>(null);
@@ -227,6 +316,7 @@ const BookShoot = () => {
     setTime('');
     setPhotographer('');
     setServicePhotographers({});
+    setServiceSchedules({});
     setSelectedServices([]);
     setNotes('');
     setCompanyNotes('');
@@ -234,6 +324,7 @@ const BookShoot = () => {
     setEditorNotes('');
     setBypassPayment(false);
     setSendNotification(true);
+    setAdjustedTotalInput('');
     setStep(1);
     setPropertyDetails(null);
     setPropertySqft(null);
@@ -255,7 +346,7 @@ const BookShoot = () => {
     } catch (error) {
       setHasCachedData(false);
     }
-  }, [shouldCacheForm, client, address, city, state, zip, date, time, photographer, selectedServices, notes, companyNotes, photographerNotes, editorNotes, bypassPayment, sendNotification, step, propertyDetails]);
+  }, [shouldCacheForm, client, address, city, state, zip, date, time, photographer, selectedServices, notes, companyNotes, photographerNotes, editorNotes, bypassPayment, sendNotification, adjustedTotalInput, step, propertyDetails]);
 
   // Restore form data from localStorage on mount (only once, when user is loaded)
   useEffect(() => {
@@ -292,6 +383,7 @@ const BookShoot = () => {
         if (parsed.time) setTime(parsed.time);
         if (parsed.photographer) setPhotographer(parsed.photographer);
         if (parsed.servicePhotographers) setServicePhotographers(parsed.servicePhotographers);
+        if (parsed.serviceSchedules) setServiceSchedules(parsed.serviceSchedules);
         if (parsed.selectedServices && Array.isArray(parsed.selectedServices)) {
           setSelectedServices(parsed.selectedServices);
         }
@@ -301,6 +393,7 @@ const BookShoot = () => {
         if (parsed.editorNotes) setEditorNotes(parsed.editorNotes);
         if (parsed.bypassPayment !== undefined) setBypassPayment(parsed.bypassPayment);
         if (parsed.sendNotification !== undefined) setSendNotification(parsed.sendNotification);
+        if (typeof parsed.adjustedTotalInput === 'string') setAdjustedTotalInput(parsed.adjustedTotalInput);
         if (parsed.editorNotes) setEditorNotes(parsed.editorNotes);
         if (parsed.propertyDetails) setPropertyDetails(parsed.propertyDetails);
         if (parsed.propertySqft !== undefined && parsed.propertySqft !== null) {
@@ -343,6 +436,7 @@ const BookShoot = () => {
         time,
         photographer,
         servicePhotographers,
+        serviceSchedules,
         selectedServices,
         notes,
         companyNotes,
@@ -350,6 +444,7 @@ const BookShoot = () => {
         editorNotes,
         bypassPayment,
         sendNotification,
+        adjustedTotalInput: canAdjustBookingAmount ? adjustedTotalInput : '',
         step,
         propertyDetails,
         propertySqft,
@@ -365,6 +460,7 @@ const BookShoot = () => {
         !time &&
         !photographer &&
         Object.keys(servicePhotographers).length === 0 &&
+        Object.keys(serviceSchedules).length === 0 &&
         selectedServices.length === 0 &&
         !notes &&
         !companyNotes &&
@@ -372,6 +468,7 @@ const BookShoot = () => {
         !editorNotes &&
         !bypassPayment &&
         sendNotification &&
+        !adjustedTotalInput &&
         step === 1 &&
         !propertyDetails &&
         (propertySqft === null || propertySqft === undefined);
@@ -390,6 +487,7 @@ const BookShoot = () => {
   }, [
     shouldCacheForm,
     user,
+    canAdjustBookingAmount,
     client,
     address,
     city,
@@ -399,6 +497,7 @@ const BookShoot = () => {
     time,
     photographer,
     servicePhotographers,
+    serviceSchedules,
     selectedServices,
     notes,
     companyNotes,
@@ -406,6 +505,7 @@ const BookShoot = () => {
     editorNotes,
     bypassPayment,
     sendNotification,
+    adjustedTotalInput,
     step,
     propertyDetails,
     propertySqft,
@@ -766,15 +866,34 @@ const BookShoot = () => {
 
             // Pre-fill per-service photographer assignments from shoot data
             const svcPhotographers: Record<string, string> = {};
-            for (const svc of shootData.services) {
-              const svcId = (svc.id || svc.service_id)?.toString();
+            const svcSchedules: ServiceScheduleMap = {};
+            const serviceRows = Array.isArray(shootData.serviceItems)
+              ? shootData.serviceItems
+              : Array.isArray(shootData.service_items)
+                ? shootData.service_items
+                : shootData.services;
+            for (const svc of serviceRows) {
+              const svcId = (svc.service_id || svc.serviceId || svc.id)?.toString();
               const svcPhotographerId = (svc.photographer_id || svc.resolved_photographer_id)?.toString();
               if (svcId && svcPhotographerId) {
                 svcPhotographers[svcId] = svcPhotographerId;
               }
+              const scheduledValue = svc.scheduled_at || svc.scheduledAt;
+              if (svcId && scheduledValue) {
+                const serviceDate = new Date(scheduledValue);
+                if (!Number.isNaN(serviceDate.getTime())) {
+                  svcSchedules[svcId] = {
+                    date: toDateInputValue(serviceDate),
+                    time: `${String(serviceDate.getHours()).padStart(2, '0')}:${String(serviceDate.getMinutes()).padStart(2, '0')}`,
+                  };
+                }
+              }
             }
             if (Object.keys(svcPhotographers).length > 0) {
               setServicePhotographers(svcPhotographers);
+            }
+            if (Object.keys(svcSchedules).length > 0) {
+              setServiceSchedules(svcSchedules);
             }
           }
           
@@ -844,6 +963,16 @@ const BookShoot = () => {
     [selectedClientData, serviceSubtotal, state]
   );
 
+  const parsedAdjustedTotal = React.useMemo(
+    () => (canAdjustBookingAmount ? parseCurrencyInput(adjustedTotalInput) : null),
+    [adjustedTotalInput, canAdjustBookingAmount]
+  );
+
+  const displayPricingBreakdown = React.useMemo(
+    () => buildAdminAdjustedPricing(pricingBreakdown, parsedAdjustedTotal, getTaxRateForState(state)),
+    [pricingBreakdown, parsedAdjustedTotal, state]
+  );
+
   const getPackagePrice = () => serviceSubtotal;
 
   const getPhotographerRate = () => {
@@ -851,9 +980,9 @@ const BookShoot = () => {
     return 0;
   };
 
-  const getTax = () => pricingBreakdown.taxAmount;
+  const getTax = () => displayPricingBreakdown.taxAmount;
 
-  const getTotal = () => pricingBreakdown.totalQuote;
+  const getTotal = () => displayPricingBreakdown.totalQuote;
 
   const getAvailablePhotographers = () => {
     const role = user?.role;
@@ -862,6 +991,12 @@ const BookShoot = () => {
     if (availablePhotographerIds.length === 0) return [];
     return photographers.filter(p => availablePhotographerIds.includes(p.id));
   };
+
+  useEffect(() => {
+    if (!canAdjustBookingAmount && adjustedTotalInput) {
+      setAdjustedTotalInput('');
+    }
+  }, [adjustedTotalInput, canAdjustBookingAmount]);
 
   const validateCurrentStep = () => {
     if (step === 1) {
@@ -1070,6 +1205,21 @@ const BookShoot = () => {
         return;
       }
 
+      const hasAdjustedTotalInput = adjustedTotalInput.trim() !== '';
+      const adjustedTotalQuote = canAdjustBookingAmount && hasAdjustedTotalInput
+        ? parseCurrencyInput(adjustedTotalInput)
+        : null;
+
+      if (canAdjustBookingAmount && hasAdjustedTotalInput && adjustedTotalQuote === null) {
+        toast({
+          title: "Invalid amount",
+          description: "Enter a valid booking amount before confirming.",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
       // Convert time from 12-hour format (e.g., "02:05 PM") to 24-hour format (e.g., "14:05:00")
       let time24Hour = '00:00:00';
       if (time) {
@@ -1103,27 +1253,54 @@ const BookShoot = () => {
       ) : new Date();
 
       // Calculate pricing information
-      const baseQuote = pricingBreakdown.discountedSubtotal;
+      const pricingForSubmission = buildAdminAdjustedPricing(
+        pricingBreakdown,
+        adjustedTotalQuote,
+        getTaxRateForState(normalizedState)
+      );
+      const baseQuote = pricingForSubmission.discountedSubtotal;
       const photographerRate = getPackagePrice();
-      const taxAmount = pricingBreakdown.taxAmount;
-      const totalQuote = pricingBreakdown.totalQuote;
+      const taxAmount = pricingForSubmission.taxAmount;
+      const totalQuote = pricingForSubmission.totalQuote;
 
       // Get sqft for variable pricing
       const sqft = propertySqft ?? propertyDetails?.sqft ?? propertyDetails?.livingArea ?? null;
+      const orderDate = date ? toDateInputValue(date) : shootDate.toISOString().split('T')[0];
+      const orderTime = time24Hour || toBackendTime(time);
+
+      const resolveServiceScheduledAt = (serviceId: string) => {
+        const customSchedule = serviceSchedules[serviceId];
+        const serviceDate = customSchedule?.date || orderDate;
+        const serviceTime = toBackendTime(customSchedule?.time || orderTime || time);
+
+        return serviceDate && serviceTime ? `${serviceDate} ${serviceTime}` : null;
+      };
       
       const servicesPayload = selectedServices.map(service => {
+        const assignedPhotographerId = servicePhotographers[service.id] || photographer || null;
         return {
           id: service.id,
           price: resolveSelectedServicePrice(service, sqft),
           quantity: 1,
+          photographer_id: assignedPhotographerId,
+          scheduled_at: resolveServiceScheduledAt(service.id),
+          is_deliverable: true,
         };
       });
+      const serviceItemsPayload = servicesPayload.map(service => ({
+        service_id: service.id,
+        price: service.price,
+        quantity: service.quantity,
+        photographer_id: service.photographer_id,
+        scheduled_at: service.scheduled_at,
+        is_deliverable: true,
+      }));
 
       const primaryServiceId = servicesPayload[0]?.id ?? null;
       
       // Construct scheduled_at as full datetime string (YYYY-MM-DD HH:MM:SS)
       const scheduledAt = date && time24Hour 
-        ? `${shootDate.toISOString().split('T')[0]} ${time24Hour}`
+        ? `${orderDate} ${time24Hour}`
         : null;
       
       // Preparing shoot submission
@@ -1138,7 +1315,7 @@ const BookShoot = () => {
         state: normalizedState, // Use normalized state
         zip,
         scheduled_at: scheduledAt, // Full datetime in format: "YYYY-MM-DD HH:MM:SS"
-        scheduled_date: shootDate.toISOString().split('T')[0], // YYYY-MM-DD format (legacy support)
+        scheduled_date: orderDate, // YYYY-MM-DD format (legacy support)
         time: time24Hour, // 24-hour format for backend
         photographer_id: photographer || null,
         // Per-service photographer assignments (multi-photographer support)
@@ -1150,6 +1327,7 @@ const BookShoot = () => {
           : undefined,
         service_id: primaryServiceId,
         services: servicesPayload,
+        service_items: serviceItemsPayload,
         service_category: selectedServices[0]?.category?.name || undefined,
         shoot_notes: notes || undefined,
         company_notes: companyNotes || undefined,
@@ -1161,12 +1339,13 @@ const BookShoot = () => {
         property_details: propertyDetails || undefined,
         // Add the missing required fields based on API error
         base_quote: baseQuote,
-        service_subtotal: pricingBreakdown.serviceSubtotal,
-        discount_type: pricingBreakdown.discountType,
-        discount_value: pricingBreakdown.discountValue,
-        discount_amount: pricingBreakdown.discountAmount,
+        service_subtotal: pricingForSubmission.serviceSubtotal,
+        discount_type: pricingForSubmission.discountType,
+        discount_value: pricingForSubmission.discountValue,
+        discount_amount: pricingForSubmission.discountAmount,
         tax_amount: taxAmount,
         total_quote: totalQuote,
+        admin_adjusted_total_quote: adjustedTotalQuote ?? undefined,
         payment_status: bypassPayment ? 'pending' : 'paid', // or whatever statuses your API expects
         // Don't send status - let backend determine based on user role (client = requested, admin = scheduled)
         created_by: user?.name || user?.email || 'System', // Use available user info
@@ -1176,20 +1355,26 @@ const BookShoot = () => {
 
       try {
         const token = localStorage.getItem('authToken');
-        const response = await axios.post(`${API_BASE_URL}/api/shoots`, payload, {
+        const requestUrl = isEditMode && editShootId
+          ? `${API_BASE_URL}/api/shoots/${editShootId}`
+          : `${API_BASE_URL}/api/shoots`;
+        const requestConfig = {
           headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json'
           }
-        });
+        };
+        const response = isEditMode && editShootId
+          ? await axios.patch(requestUrl, payload, requestConfig)
+          : await axios.post(requestUrl, payload, requestConfig);
 
         // Show appropriate message based on user role
         const isClientRole = user?.role === 'client';
         toast({
-          title: isClientRole ? "Shoot Request Submitted!" : "Shoot Booked!",
+          title: isEditMode ? "Shoot Updated!" : (isClientRole ? "Shoot Request Submitted!" : "Shoot Booked!"),
           description: isClientRole 
             ? "Your shoot request has been submitted for approval. We'll notify you once it's reviewed."
-            : "The shoot has been successfully created.",
+            : isEditMode ? "The shoot has been successfully updated." : "The shoot has been successfully created.",
           variant: "default"
         });
 
@@ -1199,7 +1384,7 @@ const BookShoot = () => {
           time,
           shootId: shootData?.id,
           totalAmount: getTotal(),
-          pricing: pricingBreakdown,
+          pricing: pricingForSubmission,
           shootAddress: buildNormalizedAddress({ address, city, state, zip }),
           shootServices: selectedServices.map((service) => service.name),
           clientName: user?.name,
@@ -1451,8 +1636,8 @@ const BookShoot = () => {
       clientRep: repName,
       services: selectedServices,
       packageLabel: serviceNames,
-      packagePrice: pricingBreakdown.serviceSubtotal,
-      pricing: pricingBreakdown,
+      packagePrice: displayPricingBreakdown.serviceSubtotal,
+      pricing: displayPricingBreakdown,
       address: fullAddress || address || '',
       bedrooms: 0,
       bathrooms: 0,
@@ -1516,7 +1701,7 @@ type CompletedBookingSnapshot = {
                 isClientRequest={isClientAccount}
                 shootId={completedBooking?.shootId ?? createdShootId}
                 totalAmount={completedBooking?.totalAmount ?? getTotal()}
-                pricing={completedBooking?.pricing ?? pricingBreakdown}
+                pricing={completedBooking?.pricing ?? displayPricingBreakdown}
                 shootAddress={completedBooking?.shootAddress ?? buildNormalizedAddress({ address, city, state, zip })}
                 shootServices={completedBooking?.shootServices ?? selectedServices.map(s => s.name)}
                 clientName={completedBooking?.clientName ?? user?.name}
@@ -1575,12 +1760,18 @@ type CompletedBookingSnapshot = {
                   setPhotographer={setPhotographer}
                   servicePhotographers={servicePhotographers}
                   setServicePhotographers={setServicePhotographers}
+                  serviceSchedules={serviceSchedules}
+                  setServiceSchedules={setServiceSchedules}
                   bypassPayment={bypassPayment}
                   setBypassPayment={setBypassPayment}
                   sendNotification={sendNotification}
                   setSendNotification={setSendNotification}
                   getPackagePrice={getPackagePrice}
-                  pricingBreakdown={pricingBreakdown}
+                  pricingBreakdown={displayPricingBreakdown}
+                  originalPricingBreakdown={pricingBreakdown}
+                  canAdjustAmount={canAdjustBookingAmount}
+                  adjustedTotalInput={adjustedTotalInput}
+                  setAdjustedTotalInput={setAdjustedTotalInput}
                   getPhotographerRate={getPhotographerRate}
                   clients={clients}
                   photographers={photographers}
@@ -1595,10 +1786,15 @@ type CompletedBookingSnapshot = {
                     <BookingSummary
                       summaryInfo={summaryInfo}
                       selectedServices={selectedServices}
+                      serviceSchedules={serviceSchedules}
                       onSubmit={step === 3 ? handleSubmit : undefined}
                       isLastStep={step === 3}
                       canSubmit={isFormComplete}
                       isSubmitting={isSubmitting}
+                      canAdjustAmount={canAdjustBookingAmount}
+                      adjustedTotalInput={adjustedTotalInput}
+                      setAdjustedTotalInput={setAdjustedTotalInput}
+                      originalTotalQuote={pricingBreakdown.totalQuote}
                       showRepName={user?.role === 'admin' || user?.role === 'superadmin' || user?.role === 'photographer'}
                       weather={{ temperature: parsedTemperature, condition }}
                       isMobile={isMobile}

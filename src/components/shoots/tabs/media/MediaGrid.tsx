@@ -74,7 +74,8 @@ interface MediaStack {
 }
 
 const MAX_CAPTURED_TIME_STACK_SIZE = 7;
-const CAPTURED_BRACKET_GAP_SECONDS = 2;
+const CAPTURED_BRACKET_GAP_SECONDS = 4;
+const MAX_FILENAME_SEQUENCE_STACK_SIZE = 7;
 
 export function MediaGrid({ 
   files, 
@@ -142,6 +143,15 @@ export function MediaGrid({
     return Number.isNaN(timestamp) ? null : Math.floor(timestamp / 1000);
   };
 
+  const parseFilenameSequence = (filename: string) => {
+    const nameWithoutExtension = filename.replace(/\.[^.]+$/, '');
+    const matches = [...nameWithoutExtension.matchAll(/\d+/g)];
+    const lastMatch = matches[matches.length - 1];
+    const sequence = lastMatch ? Number(lastMatch[0]) : NaN;
+
+    return Number.isFinite(sequence) ? sequence : null;
+  };
+
   const isRawStackCandidate = (file: MediaFile) =>
     !file.isExtra &&
     !isVideo?.(file) &&
@@ -155,16 +165,6 @@ export function MediaGrid({
     const normalizeStack = (stack: MediaStack): MediaStack[] => {
       if (stack.files.length <= 1) {
         return [{ ...stack, expectedSize: 1 }];
-      }
-
-      const isCapturedTimeStack = stack.id.startsWith('captured-run:');
-
-      if (
-        isCapturedTimeStack &&
-        !normalizedRawStackSize &&
-        stack.files.length > MAX_CAPTURED_TIME_STACK_SIZE
-      ) {
-        return stack.files.map((file) => ({ id: file.id, files: [file], expectedSize: 1 }));
       }
 
       return [{
@@ -188,15 +188,16 @@ export function MediaGrid({
           ? null
           : Number(file.bracket_group);
       const capturedSecond = parseCapturedSecond(file.captured_at);
+      const filenameSequence = parseFilenameSequence(file.filename);
       const baseKey = typeof bracketGroup === 'number' && Number.isFinite(bracketGroup) && bracketGroup > 0
         ? `bracket-${bracketGroup}`
         : null;
-      const stackLimit = normalizedRawStackSize ?? Number.POSITIVE_INFINITY;
+      const bracketStackLimit = normalizedRawStackSize ?? Number.POSITIVE_INFINITY;
       if (
         currentStack &&
         baseKey &&
         currentStack.id.startsWith(`${baseKey}:`) &&
-        currentStack.files.length < stackLimit
+        currentStack.files.length < bracketStackLimit
       ) {
         currentStack.files.push(file);
         currentStack.expectedSize = normalizedRawStackSize ?? currentStack.files.length;
@@ -214,13 +215,14 @@ export function MediaGrid({
       }
 
       if (capturedSecond !== null) {
+        const capturedStackLimit = normalizedRawStackSize ?? MAX_CAPTURED_TIME_STACK_SIZE;
         const previousFile = currentStack?.files[currentStack.files.length - 1];
         const previousCapturedSecond = parseCapturedSecond(previousFile?.captured_at);
         const isSameCapturedRun =
           currentStack?.id.startsWith('captured-run:') &&
           previousCapturedSecond !== null &&
           Math.abs(capturedSecond - previousCapturedSecond) <= CAPTURED_BRACKET_GAP_SECONDS &&
-          currentStack.files.length < stackLimit;
+          currentStack.files.length < capturedStackLimit;
 
         if (isSameCapturedRun && currentStack) {
           currentStack.files.push(file);
@@ -235,6 +237,39 @@ export function MediaGrid({
         };
         stacks.push(currentStack);
         return;
+      }
+
+      if (filenameSequence !== null) {
+        const previousFile = currentStack?.files[currentStack.files.length - 1];
+        const previousFilenameSequence = previousFile ? parseFilenameSequence(previousFile.filename) : null;
+        const previousCapturedSecond = parseCapturedSecond(previousFile?.captured_at);
+        const isCapturedCloseEnough =
+          capturedSecond === null ||
+          previousCapturedSecond === null ||
+          Math.abs(capturedSecond - previousCapturedSecond) <= CAPTURED_BRACKET_GAP_SECONDS;
+        const sequenceStackLimit = normalizedRawStackSize ?? MAX_FILENAME_SEQUENCE_STACK_SIZE;
+        const isSameFilenameRun =
+          currentStack?.id.startsWith('filename-run:') &&
+          previousFilenameSequence !== null &&
+          Math.abs(filenameSequence - previousFilenameSequence) === 1 &&
+          isCapturedCloseEnough &&
+          currentStack.files.length < sequenceStackLimit;
+
+        if (isSameFilenameRun && currentStack) {
+          currentStack.files.push(file);
+          currentStack.expectedSize = normalizedRawStackSize ?? currentStack.files.length;
+          return;
+        }
+
+        if (capturedSecond === null) {
+          currentStack = {
+            id: `filename-run:${stacks.length}`,
+            files: [file],
+            expectedSize: normalizedRawStackSize ?? 1,
+          };
+          stacks.push(currentStack);
+          return;
+        }
       }
 
       currentStack = null;

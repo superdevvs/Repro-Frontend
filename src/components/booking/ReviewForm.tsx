@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { getStateFullName } from '@/utils/stateUtils';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -28,6 +29,7 @@ interface ReviewFormProps {
   setPhotographer: (id: string) => void;
   servicePhotographers?: Record<string, string>;
   setServicePhotographers?: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  serviceSchedules?: Record<string, { date?: string; time?: string }>;
   selectedServices: Array<{ id: string; name: string; description?: string; price: number; category?: { id: string; name: string } }>;
   additionalNotes: string; // Renamed from notes to additionalNotes
   setAdditionalNotes: (value: string) => void; // Renamed from setNotes
@@ -37,6 +39,10 @@ interface ReviewFormProps {
   setSendNotification: (value: boolean) => void;
   packagePrice: number; // Changed from getPackagePrice function to packagePrice value
   pricing: PricingBreakdown;
+  originalPricing?: PricingBreakdown;
+  canAdjustAmount?: boolean;
+  adjustedTotalInput?: string;
+  setAdjustedTotalInput?: (value: string) => void;
   photographerRate: number;
   // tax: number;
   // total: number;
@@ -100,6 +106,7 @@ export function ReviewForm({
   setPhotographer,
   servicePhotographers = {},
   setServicePhotographers,
+  serviceSchedules = {},
   selectedServices,
   additionalNotes,
   setAdditionalNotes,
@@ -109,6 +116,10 @@ export function ReviewForm({
   setSendNotification,
   packagePrice,
   pricing,
+  originalPricing,
+  canAdjustAmount = false,
+  adjustedTotalInput = '',
+  setAdjustedTotalInput,
   photographerRate,
   photographers,
   onSubmit,
@@ -124,6 +135,25 @@ export function ReviewForm({
   const showAdminOptions = !isClientRole && !isImpersonating;
 
   const fullAddress = buildNormalizedAddress({ address, city, state, zip });
+  const isAmountAdjusted = canAdjustAmount && adjustedTotalInput.trim() !== '';
+  const baselineTotal = originalPricing?.totalQuote ?? pricing.totalQuote;
+  const defaultDate = date ? format(date, 'yyyy-MM-dd') : '';
+  const normalizeTimeLabel = (value?: string) => {
+    if (!value) return '';
+    const match = value.match(/^(\d{1,2}):(\d{2})$/);
+    if (!match) return value;
+    const hours = parseInt(match[1], 10);
+    const minutes = match[2];
+    const meridiem = hours >= 12 ? 'PM' : 'AM';
+    const displayHours = hours % 12 === 0 ? 12 : hours % 12;
+    return `${displayHours}:${minutes} ${meridiem}`;
+  };
+  const getServiceScheduleLabel = (serviceId: string) => {
+    const serviceSchedule = serviceSchedules[serviceId];
+    const serviceDate = serviceSchedule?.date || defaultDate;
+    const serviceTime = normalizeTimeLabel(serviceSchedule?.time) || time;
+    return [serviceDate, serviceTime].filter(Boolean).join(' at ');
+  };
 
   // Only show toggles section if user has admin options to show
   const reviewToggles = showAdminOptions ? (
@@ -256,8 +286,11 @@ export function ReviewForm({
             {selectedServices.length ? (
               <ul className="mt-1 space-y-0.5 text-sm text-slate-900 dark:text-slate-100">
                 {selectedServices.map(service => (
-                  <li key={service.id} className="flex items-center justify-between">
-                    <span>{service.name}</span>
+                  <li key={service.id} className="flex items-start justify-between gap-3">
+                    <span className="min-w-0">
+                      <span className="block truncate">{service.name}</span>
+                      <span className="block text-xs text-slate-500 dark:text-slate-400">{getServiceScheduleLabel(service.id)}</span>
+                    </span>
                     <span className="font-medium">${Number(service.price ?? 0).toFixed(2)}</span>
                   </li>
                 ))}
@@ -329,6 +362,48 @@ export function ReviewForm({
         <Separator />
 
         <div className="space-y-1">
+          {canAdjustAmount && (
+            <div className="mb-3 rounded-lg border border-blue-100 bg-blue-50/80 p-3 dark:border-blue-900/50 dark:bg-blue-950/20">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                <div className="min-w-0">
+                  <Label htmlFor="booking-amount" className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                    Booking amount
+                  </Label>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Adjusts the final total before booking.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 sm:w-64">
+                  <div className="relative flex-1">
+                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-500">$</span>
+                    <Input
+                      id="booking-amount"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      inputMode="decimal"
+                      value={adjustedTotalInput}
+                      onChange={(event) => setAdjustedTotalInput?.(event.target.value)}
+                      placeholder={baselineTotal.toFixed(2)}
+                      className="h-9 pl-7 text-right"
+                    />
+                  </div>
+                  {isAmountAdjusted && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setAdjustedTotalInput?.('')}
+                      className="h-9 px-2 text-xs"
+                    >
+                      Reset
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="flex justify-between">
             <span className="text-sm text-slate-700 dark:text-slate-200">Subtotal:</span>
             <span className="text-sm text-slate-900 dark:text-slate-100">${pricing.serviceSubtotal.toFixed(2)}</span>

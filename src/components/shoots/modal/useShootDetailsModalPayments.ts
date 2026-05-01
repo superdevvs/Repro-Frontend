@@ -89,7 +89,7 @@ export function useShootDetailsModalPayments({
 
     const body: Record<string, unknown> = {
       payment_type: payload.paymentMethod,
-      amount: outstandingAmount,
+      amount: payload.amount && payload.amount > 0 ? payload.amount : outstandingAmount,
     };
 
     if (payload.paymentDetails) {
@@ -97,6 +97,10 @@ export function useShootDetailsModalPayments({
     }
     if (payload.paymentDate) {
       body.payment_date = payload.paymentDate;
+    }
+    if (payload.shootServiceIds?.length) {
+      body.shoot_service_ids = payload.shootServiceIds;
+      body.allocation_strategy = payload.allocationStrategy;
     }
 
     const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/mark-paid`, {

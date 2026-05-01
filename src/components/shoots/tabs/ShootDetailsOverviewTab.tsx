@@ -80,6 +80,7 @@ import { OverviewPhotographerPickerDialog } from './overview/OverviewPhotographe
 import { OverviewPhotographerSection } from './overview/OverviewPhotographerSection';
 import { OverviewPropertyLocationSection } from './overview/OverviewPropertyLocationSection';
 import { OverviewScheduleWeatherSection } from './overview/OverviewScheduleWeatherSection';
+import { OverviewServiceProgressSection } from './overview/OverviewServiceProgressSection';
 import { OverviewServicesSection } from './overview/OverviewServicesSection';
 import { StripePaymentDialog } from '@/components/payments/StripePaymentDialog';
 import {
@@ -91,6 +92,7 @@ import {
 import { useShootOverviewEditor } from './overview/useShootOverviewEditor';
 import { getNormalizedIguideSync, normalizePropertyDetails } from '@/utils/shootTourData';
 import { formatPropertyMetricValue, getBathroomMetricDisplay } from '@/utils/shootPropertyDisplay';
+import { getShootServiceItems } from '@/utils/shootServiceItems';
 
 const serviceCurrencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -335,6 +337,7 @@ export function ShootDetailsOverviewTab({
   const [isFeaturedShoot, setIsFeaturedShoot] = useState<boolean>(() => resolveFeaturedShootState(shoot));
   const [isSavingFeaturedShoot, setIsSavingFeaturedShoot] = useState(false);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [deliveringServiceItemId, setDeliveringServiceItemId] = useState<string | null>(null);
 
   const {
     state: {
@@ -347,6 +350,7 @@ export function ShootDetailsOverviewTab({
       perCategoryPhotographers,
       servicesList,
       selectedServiceIds,
+      serviceSchedules,
       serviceDialogOpen,
       servicePanelCategory,
       serviceModalSearch,
@@ -389,6 +393,7 @@ export function ShootDetailsOverviewTab({
       clearAddressDerivedState,
       handleAddressSelect,
       toggleServiceSelection,
+      updateServiceSchedule,
       resolvePhotographerDetails,
       closePhotographerPicker,
       openEditPhotographerPicker,
@@ -480,6 +485,47 @@ export function ShootDetailsOverviewTab({
 
   const handlePaymentSuccess = () => {
     onShootUpdate();
+  };
+
+  const handleDeliverServiceItem = async (shootServiceItemId: string) => {
+    if (!isAdmin) return;
+    setDeliveringServiceItemId(shootServiceItemId);
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/finalize`, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          final_status: 'admin_verified',
+          shoot_service_id: shootServiceItemId,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorJson = await response.json().catch(() => null);
+        throw new Error(errorJson?.message || errorJson?.error || 'Failed to deliver this service item.');
+      }
+
+      toast({
+        title: response.status === 202 ? 'Delivery started' : 'Service delivered',
+        description: response.status === 202
+          ? 'This service item is being finalized in the background.'
+          : 'This service item has been delivered.',
+      });
+      onShootUpdate();
+    } catch (error) {
+      toast({
+        title: 'Unable to deliver service',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setDeliveringServiceItemId(null);
+    }
   };
 
   const formatDate = (dateString?: string | null) => {
@@ -646,6 +692,10 @@ export function ShootDetailsOverviewTab({
       return String(service);
     })
     .filter((service): service is string => Boolean(service));
+  const paymentServiceItems = useMemo(
+    () => getShootServiceItems(shoot).filter((item) => item.balanceDue > 0.01),
+    [shoot],
+  );
 
   const { rates: editorRates } = useEditorRates(user?.id, {
     enabled: isEditor && Boolean(user?.id),
@@ -803,6 +853,8 @@ export function ShootDetailsOverviewTab({
         services={services}
         servicesList={servicesList}
         selectedServiceIds={selectedServiceIds}
+        serviceSchedules={serviceSchedules}
+        updateServiceSchedule={updateServiceSchedule}
         serviceDialogOpen={serviceDialogOpen}
         setServiceDialogOpen={setServiceDialogOpen}
         serviceCategoryOptions={serviceCategoryOptions}
@@ -911,6 +963,15 @@ export function ShootDetailsOverviewTab({
         <MediaLinksSection shoot={shoot} isEditor={isEditor} />
       )}
 
+      {!isPhotographer && !isEditor && (
+        <OverviewServiceProgressSection
+          shoot={shoot}
+          canDeliver={isAdmin}
+          deliveringServiceItemId={deliveringServiceItemId}
+          onDeliverServiceItem={handleDeliverServiceItem}
+        />
+      )}
+
       {/* Payment Summary Card - Hidden from photographers and editors */}
       {!isPhotographer && !isEditor && (
         <OverviewPaymentSummarySection
@@ -936,6 +997,7 @@ export function ShootDetailsOverviewTab({
         shootId={shoot.id}
         shootAddress={shoot.location?.fullAddress || shoot.location?.address}
         shootServices={paymentShootServices}
+        serviceItems={paymentServiceItems}
         shootDate={shoot.scheduledDate}
         shootTime={shoot.time ? formatTime(shoot.time) : undefined}
         clientName={shouldHideClientDetails ? undefined : shoot.client?.name}

@@ -536,6 +536,8 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
         .filter((s): s is Record<string, any> => s !== null && typeof s === 'object' && 'id' in s)
         .map((s) => ({
           id: String(s.id),
+          service_id: String(s.id),
+          serviceId: String(s.id),
           name: String(s.name || ''),
           price: Number(s.pivot?.price ?? s.price ?? 0),
           quantity: Number(s.pivot?.quantity ?? s.quantity ?? 1),
@@ -559,6 +561,30 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
           photographer_pay: (s.pivot?.photographer_pay ?? s.photographer_pay) != null
             ? Number(s.pivot?.photographer_pay ?? s.photographer_pay)
             : null,
+          scheduled_at: s.pivot?.scheduled_at ?? s.scheduled_at ?? s.scheduledAt ?? null,
+          scheduledAt: s.scheduledAt ?? s.scheduled_at ?? s.pivot?.scheduled_at ?? null,
+          workflow_status: s.pivot?.workflow_status ?? s.workflow_status ?? s.workflowStatus ?? null,
+          workflowStatus: s.workflowStatus ?? s.workflow_status ?? s.pivot?.workflow_status ?? null,
+          delivery_status: s.pivot?.delivery_status ?? s.delivery_status ?? s.deliveryStatus ?? null,
+          deliveryStatus: s.deliveryStatus ?? s.delivery_status ?? s.pivot?.delivery_status ?? null,
+          ready_at: s.pivot?.ready_at ?? s.ready_at ?? s.readyAt ?? null,
+          readyAt: s.readyAt ?? s.ready_at ?? s.pivot?.ready_at ?? null,
+          delivered_at: s.pivot?.delivered_at ?? s.delivered_at ?? s.deliveredAt ?? null,
+          deliveredAt: s.deliveredAt ?? s.delivered_at ?? s.pivot?.delivered_at ?? null,
+          is_deliverable: Boolean(s.pivot?.is_deliverable ?? s.is_deliverable ?? s.isDeliverable ?? true),
+          isDeliverable: Boolean(s.isDeliverable ?? s.is_deliverable ?? s.pivot?.is_deliverable ?? true),
+          paid_amount: toNumber(s.pivot?.paid_amount ?? s.paid_amount ?? s.paidAmount),
+          paidAmount: toNumber(s.paidAmount ?? s.paid_amount ?? s.pivot?.paid_amount),
+          balance_due: toNumber(s.pivot?.balance_due ?? s.balance_due ?? s.balanceDue),
+          balanceDue: toNumber(s.balanceDue ?? s.balance_due ?? s.pivot?.balance_due),
+          payment_status: s.pivot?.payment_status ?? s.payment_status ?? s.paymentStatus ?? null,
+          paymentStatus: s.paymentStatus ?? s.payment_status ?? s.pivot?.payment_status ?? null,
+          force_unlock_delivery: Boolean(s.pivot?.force_unlock_delivery ?? s.force_unlock_delivery ?? s.forceUnlockDelivery ?? false),
+          forceUnlockDelivery: Boolean(s.forceUnlockDelivery ?? s.force_unlock_delivery ?? s.pivot?.force_unlock_delivery ?? false),
+          is_unlocked_for_delivery: Boolean(s.pivot?.is_unlocked_for_delivery ?? s.is_unlocked_for_delivery ?? s.isUnlockedForDelivery ?? false),
+          isUnlockedForDelivery: Boolean(s.isUnlockedForDelivery ?? s.is_unlocked_for_delivery ?? s.pivot?.is_unlocked_for_delivery ?? false),
+          unlock_state: s.pivot?.unlock_state ?? s.unlock_state ?? s.unlockState ?? undefined,
+          unlockState: s.unlockState ?? s.unlock_state ?? s.pivot?.unlock_state ?? undefined,
           photographer_id: (s.pivot?.photographer_id ?? s.photographer_id) != null
             ? String(s.pivot?.photographer_id ?? s.photographer_id)
             : null,
@@ -662,6 +688,96 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
     }
     return undefined;
   })();
+  const serviceItems = (() => {
+    const rawItems = Array.isArray(shoot.serviceItems)
+      ? shoot.serviceItems
+      : Array.isArray(shoot.service_items)
+        ? shoot.service_items
+        : [];
+
+    if (rawItems.length === 0) {
+      return serviceObjects;
+    }
+
+    const items: ShootServiceObject[] = rawItems
+      .filter((item): item is Record<string, any> => item !== null && typeof item === 'object')
+      .map((item) => {
+        const service = item.service && typeof item.service === 'object' ? item.service : {};
+        const serviceId = item.service_id ?? item.serviceId ?? service.id ?? item.id;
+        const shootServiceId = item.shoot_service_id ?? item.shootServiceId ?? item.id;
+        const scheduledAt = item.scheduledAt ?? item.scheduled_at ?? null;
+        const workflowStatus = item.workflowStatus ?? item.workflow_status ?? null;
+        const deliveryStatus = item.deliveryStatus ?? item.delivery_status ?? null;
+        const readyAt = item.readyAt ?? item.ready_at ?? null;
+        const deliveredAt = item.deliveredAt ?? item.delivered_at ?? null;
+        const price = toNumber(item.price ?? item.subtotal ?? service.price);
+        const quantityValue = Number(item.quantity);
+        const quantity = Math.max(1, Number.isFinite(quantityValue) ? quantityValue : 1);
+
+        return {
+          id: serviceId != null ? String(serviceId) : String(shootServiceId ?? ''),
+          service_id: serviceId != null ? String(serviceId) : null,
+          serviceId: serviceId != null ? String(serviceId) : null,
+          shoot_service_id: shootServiceId != null ? String(shootServiceId) : null,
+          shootServiceId: shootServiceId != null ? String(shootServiceId) : null,
+          name: String(item.name ?? item.service_name ?? item.serviceName ?? service.name ?? ''),
+          price,
+          quantity,
+          subtotal: item.subtotal != null ? toNumber(item.subtotal) : price * quantity,
+          photo_count: item.photo_count ?? item.photoCount ?? service.photo_count ?? service.photoCount ?? null,
+          pricing_type: item.pricing_type ?? service.pricing_type ?? 'fixed',
+          category: item.category ?? service.category ?? null,
+          photographer_pay: item.photographer_pay != null || item.photographerPay != null
+            ? Number(item.photographer_pay ?? item.photographerPay)
+            : null,
+          photographer_id: item.photographer_id != null || item.photographerId != null
+            ? String(item.photographer_id ?? item.photographerId)
+            : null,
+          resolved_photographer_id: item.resolved_photographer_id != null || item.resolvedPhotographerId != null || item.photographer_id != null || item.photographerId != null
+            ? String(item.resolved_photographer_id ?? item.resolvedPhotographerId ?? item.photographer_id ?? item.photographerId)
+            : null,
+          photographer: normalizeServicePerson(item.photographer ?? item.resolved_photographer),
+          editor_id: item.editor_id != null || item.editorId != null
+            ? String(item.editor_id ?? item.editorId)
+            : null,
+          resolved_editor_id: item.resolved_editor_id != null || item.resolvedEditorId != null || item.editor_id != null || item.editorId != null
+            ? String(item.resolved_editor_id ?? item.resolvedEditorId ?? item.editor_id ?? item.editorId)
+            : null,
+          editor: normalizeServicePerson(item.editor ?? item.resolved_editor),
+          scheduled_at: scheduledAt,
+          scheduledAt,
+          workflow_status: workflowStatus,
+          workflowStatus,
+          delivery_status: deliveryStatus,
+          deliveryStatus,
+          ready_at: readyAt,
+          readyAt,
+          delivered_at: deliveredAt,
+          deliveredAt,
+          is_deliverable: Boolean(item.is_deliverable ?? item.isDeliverable ?? true),
+          isDeliverable: Boolean(item.isDeliverable ?? item.is_deliverable ?? true),
+          paid_amount: toNumber(item.paid_amount ?? item.paidAmount),
+          paidAmount: toNumber(item.paidAmount ?? item.paid_amount),
+          balance_due: toNumber(item.balance_due ?? item.balanceDue),
+          balanceDue: toNumber(item.balanceDue ?? item.balance_due),
+          payment_status: item.payment_status ?? item.paymentStatus ?? null,
+          paymentStatus: item.paymentStatus ?? item.payment_status ?? null,
+          force_unlock_delivery: Boolean(item.force_unlock_delivery ?? item.forceUnlockDelivery ?? false),
+          forceUnlockDelivery: Boolean(item.forceUnlockDelivery ?? item.force_unlock_delivery ?? false),
+          is_unlocked_for_delivery: Boolean(item.is_unlocked_for_delivery ?? item.isUnlockedForDelivery ?? false),
+          isUnlockedForDelivery: Boolean(item.isUnlockedForDelivery ?? item.is_unlocked_for_delivery ?? false),
+          unlock_state: item.unlock_state ?? item.unlockState ?? undefined,
+          unlockState: item.unlockState ?? item.unlock_state ?? undefined,
+          lane: item.lane != null ? String(item.lane) : null,
+          category_key: (item.category_key ?? item.categoryKey ?? item.lane) != null
+            ? String(item.category_key ?? item.categoryKey ?? item.lane)
+            : null,
+        };
+      })
+      .filter((item) => Boolean(item.id || item.shoot_service_id || item.name));
+
+    return items.length > 0 ? items : serviceObjects;
+  })();
   const editorAssignments = normalizeEditorAssignments(shoot);
   const resolvedEditor =
     (shoot.editor || editorId)
@@ -707,6 +823,8 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
     editorId: resolvedEditor?.id ? String(resolvedEditor.id) : editorId,
     services: normalizedServices,
     serviceObjects,
+    serviceItems,
+    service_items: serviceItems,
     editorAssignments,
     payment: {
       baseQuote: paymentSummary.baseQuote,

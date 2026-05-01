@@ -26,6 +26,7 @@ import { ShootData } from '@/types/shoots';
 import { useToast } from '@/hooks/use-toast';
 import { API_BASE_URL } from '@/config/env';
 import { MarkAsPaidDialog, MarkAsPaidPayload } from '@/components/payments/MarkAsPaidDialog';
+import { getShootServiceItems } from '@/utils/shootServiceItems';
 
 interface ShootDetailsQuickActionsProps {
   shoot: ShootData;
@@ -301,7 +302,7 @@ export function ShootDetailsQuickActions({
       });
       return;
     }
-    const amount = outstandingAmount;
+    const amount = payload.amount && payload.amount > 0 ? payload.amount : outstandingAmount;
     const token = localStorage.getItem('authToken') || localStorage.getItem('token');
 
     const body: Record<string, any> = {
@@ -314,6 +315,10 @@ export function ShootDetailsQuickActions({
     }
     if (payload.paymentDate) {
       body.payment_date = payload.paymentDate;
+    }
+    if (payload.shootServiceIds?.length) {
+      body.shoot_service_ids = payload.shootServiceIds;
+      body.allocation_strategy = payload.allocationStrategy;
     }
 
     const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/mark-paid`, {
@@ -339,6 +344,7 @@ export function ShootDetailsQuickActions({
   };
 
   const isPaid = Math.max((shoot.payment?.totalQuote ?? 0) - (shoot.payment?.totalPaid ?? 0), 0) <= 0.01;
+  const paymentServiceItems = getShootServiceItems(shoot).filter((item) => item.balanceDue > 0.01);
   const iguideUrl =
     shoot.iguideTourUrl ||
     shoot.tourLinks?.iGuide ||
@@ -491,6 +497,7 @@ export function ShootDetailsQuickActions({
         isOpen={isMarkPaidDialogOpen}
         onClose={() => setIsMarkPaidDialogOpen(false)}
         onConfirm={handleMarkPaidConfirm}
+        serviceItems={paymentServiceItems}
         title="Mark Shoot as Paid"
         description="Select the payment method and provide any required details."
         confirmLabel="Mark as Paid"

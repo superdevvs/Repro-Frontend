@@ -13,6 +13,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { buildServiceTimeOptions, ServiceDatePicker, ServiceTimePicker } from '@/components/shoots/ServiceSchedulePicker';
 import { cn } from '@/lib/utils';
 import { ShootData } from '@/types/shoots';
 import type { ServiceCategoryOption, ServiceOption } from './useShootOverviewEditor';
@@ -23,6 +24,8 @@ type OverviewServicesSectionProps = {
   services: any[];
   servicesList: ServiceOption[];
   selectedServiceIds: string[];
+  serviceSchedules: Record<string, { date: string; time: string }>;
+  updateServiceSchedule: (serviceId: string, field: 'date' | 'time', value: string) => void;
   serviceDialogOpen: boolean;
   setServiceDialogOpen: (open: boolean) => void;
   serviceCategoryOptions: ServiceCategoryOption[];
@@ -40,12 +43,58 @@ type OverviewServicesSectionProps = {
   effectiveSqft: number | null;
 };
 
+const parseScheduleDate = (value?: string | null) => {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const formatDateValue = (value?: string | null) => {
+  const parsed = parseScheduleDate(value);
+  if (!parsed) return '';
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, '0');
+  const day = String(parsed.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const formatTimeValue = (value?: string | null) => {
+  if (!value) return '';
+  const parsed = parseScheduleDate(value);
+  if (parsed) {
+    return `${String(parsed.getHours()).padStart(2, '0')}:${String(parsed.getMinutes()).padStart(2, '0')}`;
+  }
+  const match = value.match(/^(\d{1,2}):(\d{2})/);
+  return match ? `${match[1].padStart(2, '0')}:${match[2]}` : '';
+};
+
+const getShootServiceSchedule = (shoot: ShootData, serviceId: string) => {
+  const sources = [
+    ...((shoot as any).serviceItems || []),
+    ...((shoot as any).service_items || []),
+    ...(shoot.serviceObjects || []),
+  ];
+  const item = sources.find((source: any) => {
+    if (!source || typeof source !== 'object') return false;
+    const rawId = source.service_id ?? source.serviceId ?? source.id;
+    return rawId !== null && rawId !== undefined && String(rawId) === serviceId;
+  });
+  const scheduledAt = item?.scheduled_at ?? item?.scheduledAt;
+  if (!scheduledAt) return null;
+  return {
+    date: formatDateValue(String(scheduledAt)),
+    time: formatTimeValue(String(scheduledAt)),
+  };
+};
+
 export function OverviewServicesSection({
   isEditMode,
   shoot,
   services,
   servicesList,
   selectedServiceIds,
+  serviceSchedules,
+  updateServiceSchedule,
   serviceDialogOpen,
   setServiceDialogOpen,
   serviceCategoryOptions,
@@ -176,30 +225,64 @@ export function OverviewServicesSection({
               {selectedServiceIds.map((serviceId) => {
                 const service = servicesList.find((serviceOption) => serviceOption.id === serviceId);
                 if (!service) return null;
+                const existingSchedule = getShootServiceSchedule(shoot, serviceId);
+                const orderSchedule = {
+                  date: formatDateValue(shoot.scheduledDate),
+                  time: formatTimeValue(shoot.time) || '10:00',
+                };
+                const savedSchedule = serviceSchedules[serviceId];
+                const schedule =
+                  existingSchedule &&
+                  savedSchedule &&
+                  savedSchedule.date === orderSchedule.date &&
+                  savedSchedule.time === orderSchedule.time
+                    ? existingSchedule
+                    : (savedSchedule || existingSchedule || { date: '', time: '10:00' });
 
                 return (
                   <div
                     key={serviceId}
-                    className="border rounded-md p-2 bg-primary/5 border-primary/30 flex items-center justify-between gap-2"
+                    className="border rounded-md p-2 bg-primary/5 border-primary/30"
                   >
-                    <div className="flex-1 min-w-0">
-                      <span className="font-medium text-xs truncate block">{service.name}</span>
-                      {service.pricing_type === 'variable' && effectiveSqft && (
-                        <span className="text-[10px] text-muted-foreground">
-                          Variable • {effectiveSqft.toLocaleString()} sqft
-                        </span>
-                      )}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <span className="font-medium text-xs truncate block">{service.name}</span>
+                        {service.pricing_type === 'variable' && effectiveSqft && (
+                          <span className="text-[10px] text-muted-foreground">
+                            Variable • {effectiveSqft.toLocaleString()} sqft
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold">{getServiceDisplayPrice(service)}</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-5 w-5 p-0 flex-shrink-0"
+                          onClick={() => toggleServiceSelection(serviceId)}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold">{getServiceDisplayPrice(service)}</span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-5 w-5 p-0 flex-shrink-0"
-                        onClick={() => toggleServiceSelection(serviceId)}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-medium text-muted-foreground">Schedule date</span>
+                        <ServiceDatePicker
+                          value={schedule.date}
+                          onChange={(value) => updateServiceSchedule(serviceId, 'date', value)}
+                          triggerClassName="h-8 rounded-lg"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-medium text-muted-foreground">Schedule time</span>
+                        <ServiceTimePicker
+                          value={schedule.time}
+                          options={buildServiceTimeOptions(schedule.time)}
+                          onChange={(value) => updateServiceSchedule(serviceId, 'time', value)}
+                          triggerClassName="h-8 rounded-lg"
+                        />
+                      </div>
                     </div>
                   </div>
                 );

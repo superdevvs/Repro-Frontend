@@ -216,6 +216,8 @@ export const mapShootApiToShootData = (item: Record<string, unknown>): ShootData
 
       return {
         id: toOptionalIdString(service.id) ?? Math.random().toString(36).slice(2),
+        shoot_service_id: toOptionalIdString(service.shoot_service_id ?? service.shootServiceId) ?? null,
+        shootServiceId: toOptionalIdString(service.shootServiceId ?? service.shoot_service_id) ?? null,
         name:
           toOptionalString(service.name) ??
           toOptionalString(service.label) ??
@@ -265,10 +267,118 @@ export const mapShootApiToShootData = (item: Record<string, unknown>): ShootData
         resolved_editor_id: toOptionalIdString(service.resolved_editor_id) ?? null,
         editor: normalizeServicePerson(service.editor),
         editing_completed_at: toOptionalIsoString(service.editing_completed_at) ?? null,
+        scheduled_at: toOptionalIsoString(service.scheduled_at ?? service.scheduledAt) ?? null,
+        scheduledAt: toOptionalIsoString(service.scheduledAt ?? service.scheduled_at) ?? null,
+        workflow_status: toOptionalString(service.workflow_status ?? service.workflowStatus) ?? null,
+        workflowStatus: toOptionalString(service.workflowStatus ?? service.workflow_status) ?? null,
+        delivery_status: toOptionalString(service.delivery_status ?? service.deliveryStatus) ?? null,
+        deliveryStatus: toOptionalString(service.deliveryStatus ?? service.delivery_status) ?? null,
+        ready_at: toOptionalIsoString(service.ready_at ?? service.readyAt) ?? null,
+        readyAt: toOptionalIsoString(service.readyAt ?? service.ready_at) ?? null,
+        delivered_at: toOptionalIsoString(service.delivered_at ?? service.deliveredAt) ?? null,
+        deliveredAt: toOptionalIsoString(service.deliveredAt ?? service.delivered_at) ?? null,
+        is_deliverable: toBooleanValue(service.is_deliverable ?? service.isDeliverable, true),
+        isDeliverable: toBooleanValue(service.isDeliverable ?? service.is_deliverable, true),
+        subtotal:
+          service.subtotal === null || service.subtotal === undefined
+            ? undefined
+            : toNumberValue(service.subtotal),
+        paid_amount: toNumberValue(service.paid_amount ?? service.paidAmount, 0),
+        paidAmount: toNumberValue(service.paidAmount ?? service.paid_amount, 0),
+        balance_due:
+          service.balance_due === null || service.balance_due === undefined
+            ? undefined
+            : toNumberValue(service.balance_due),
+        balanceDue:
+          service.balanceDue === null || service.balanceDue === undefined
+            ? undefined
+            : toNumberValue(service.balanceDue),
+        payment_status: toOptionalString(service.payment_status ?? service.paymentStatus),
+        paymentStatus: toOptionalString(service.paymentStatus ?? service.payment_status),
+        force_unlock_delivery: toBooleanValue(service.force_unlock_delivery ?? service.forceUnlockDelivery),
+        forceUnlockDelivery: toBooleanValue(service.forceUnlockDelivery ?? service.force_unlock_delivery),
+        is_unlocked_for_delivery: toBooleanValue(service.is_unlocked_for_delivery ?? service.isUnlockedForDelivery),
+        isUnlockedForDelivery: toBooleanValue(service.isUnlockedForDelivery ?? service.is_unlocked_for_delivery),
+        unlock_state: toOptionalString(service.unlock_state ?? service.unlockState),
+        unlockState: toOptionalString(service.unlockState ?? service.unlock_state),
         lane: toOptionalString(service.lane) ?? null,
         category_key: toOptionalString(service.category_key) ?? toOptionalString(service.lane) ?? null,
       }
     })
+  const serviceItems = toArrayValue<Record<string, unknown>>(item.serviceItems ?? item.service_items)
+    .map((serviceItem): ShootServiceObject => {
+      const shootServiceId =
+        toOptionalIdString(serviceItem.shoot_service_id ?? serviceItem.shootServiceId ?? serviceItem.id) ?? null
+      const serviceId = toOptionalIdString(serviceItem.service_id ?? serviceItem.serviceId)
+      const matchingService = serviceObjects.find((serviceObject) => serviceId && serviceObject.id === serviceId)
+      const quantity = toNumberValue(serviceItem.quantity ?? matchingService?.quantity, 1)
+      const price = toNumberValue(serviceItem.price ?? matchingService?.price, 0)
+
+      return {
+        ...(matchingService ?? {
+          id: serviceId ?? shootServiceId ?? Math.random().toString(36).slice(2),
+          name:
+            toOptionalString(serviceItem.name) ??
+            toOptionalString(serviceItem.serviceName) ??
+            toOptionalString(serviceItem.service_name) ??
+            'Service',
+          price,
+          quantity,
+        }),
+        id: serviceId ?? matchingService?.id ?? shootServiceId ?? Math.random().toString(36).slice(2),
+        shoot_service_id: shootServiceId,
+        shootServiceId: shootServiceId,
+        name:
+          toOptionalString(serviceItem.name) ??
+          toOptionalString(serviceItem.serviceName) ??
+          toOptionalString(serviceItem.service_name) ??
+          matchingService?.name ??
+          'Service',
+        price,
+        quantity,
+        subtotal:
+          serviceItem.subtotal === null || serviceItem.subtotal === undefined
+            ? matchingService?.subtotal
+            : toNumberValue(serviceItem.subtotal),
+        photographer_id: toOptionalIdString(serviceItem.photographer_id ?? serviceItem.photographerId) ?? matchingService?.photographer_id ?? null,
+        photographer: normalizeServicePerson(serviceItem.photographer) ?? matchingService?.photographer ?? null,
+        editor_id: toOptionalIdString(serviceItem.editor_id ?? serviceItem.editorId) ?? matchingService?.editor_id ?? null,
+        editor: normalizeServicePerson(serviceItem.editor) ?? matchingService?.editor ?? null,
+        scheduled_at: toOptionalIsoString(serviceItem.scheduled_at ?? serviceItem.scheduledAt) ?? matchingService?.scheduled_at ?? null,
+        scheduledAt: toOptionalIsoString(serviceItem.scheduledAt ?? serviceItem.scheduled_at) ?? matchingService?.scheduledAt ?? null,
+        workflow_status: toOptionalString(serviceItem.workflow_status ?? serviceItem.workflowStatus) ?? matchingService?.workflow_status ?? null,
+        workflowStatus: toOptionalString(serviceItem.workflowStatus ?? serviceItem.workflow_status) ?? matchingService?.workflowStatus ?? null,
+        delivery_status: toOptionalString(serviceItem.delivery_status ?? serviceItem.deliveryStatus) ?? matchingService?.delivery_status ?? null,
+        deliveryStatus: toOptionalString(serviceItem.deliveryStatus ?? serviceItem.delivery_status) ?? matchingService?.deliveryStatus ?? null,
+        ready_at: toOptionalIsoString(serviceItem.ready_at ?? serviceItem.readyAt) ?? matchingService?.ready_at ?? null,
+        readyAt: toOptionalIsoString(serviceItem.readyAt ?? serviceItem.ready_at) ?? matchingService?.readyAt ?? null,
+        delivered_at: toOptionalIsoString(serviceItem.delivered_at ?? serviceItem.deliveredAt) ?? matchingService?.delivered_at ?? null,
+        deliveredAt: toOptionalIsoString(serviceItem.deliveredAt ?? serviceItem.delivered_at) ?? matchingService?.deliveredAt ?? null,
+        is_deliverable: toBooleanValue(serviceItem.is_deliverable ?? serviceItem.isDeliverable, matchingService?.is_deliverable ?? true),
+        isDeliverable: toBooleanValue(serviceItem.isDeliverable ?? serviceItem.is_deliverable, matchingService?.isDeliverable ?? true),
+        paid_amount: toNumberValue(serviceItem.paid_amount ?? serviceItem.paidAmount, matchingService?.paid_amount ?? 0),
+        paidAmount: toNumberValue(serviceItem.paidAmount ?? serviceItem.paid_amount, matchingService?.paidAmount ?? 0),
+        balance_due:
+          serviceItem.balance_due === null || serviceItem.balance_due === undefined
+            ? matchingService?.balance_due
+            : toNumberValue(serviceItem.balance_due),
+        balanceDue:
+          serviceItem.balanceDue === null || serviceItem.balanceDue === undefined
+            ? matchingService?.balanceDue
+            : toNumberValue(serviceItem.balanceDue),
+        payment_status: toOptionalString(serviceItem.payment_status ?? serviceItem.paymentStatus) ?? matchingService?.payment_status,
+        paymentStatus: toOptionalString(serviceItem.paymentStatus ?? serviceItem.payment_status) ?? matchingService?.paymentStatus,
+        force_unlock_delivery: toBooleanValue(serviceItem.force_unlock_delivery ?? serviceItem.forceUnlockDelivery, matchingService?.force_unlock_delivery ?? false),
+        forceUnlockDelivery: toBooleanValue(serviceItem.forceUnlockDelivery ?? serviceItem.force_unlock_delivery, matchingService?.forceUnlockDelivery ?? false),
+        is_unlocked_for_delivery: toBooleanValue(serviceItem.is_unlocked_for_delivery ?? serviceItem.isUnlockedForDelivery, matchingService?.is_unlocked_for_delivery ?? false),
+        isUnlockedForDelivery: toBooleanValue(serviceItem.isUnlockedForDelivery ?? serviceItem.is_unlocked_for_delivery, matchingService?.isUnlockedForDelivery ?? false),
+        unlock_state: toOptionalString(serviceItem.unlock_state ?? serviceItem.unlockState) ?? matchingService?.unlock_state,
+        unlockState: toOptionalString(serviceItem.unlockState ?? serviceItem.unlock_state) ?? matchingService?.unlockState,
+      }
+    })
+  const resolvedServiceItems = serviceItems.length
+    ? serviceItems
+    : serviceObjects.filter((service) => service.shoot_service_id || service.shootServiceId)
   const paymentDetails = toObjectValue<{ taxRate?: number; totalPaid?: number; lastPaymentDate?: string; lastPaymentType?: string }>(item.payment)
   const paymentSummary = normalizeShootPaymentSummary({
     payments: item.payments,
@@ -346,7 +456,13 @@ export const mapShootApiToShootData = (item: Record<string, unknown>): ShootData
     editorId: resolvedEditor?.id ? String(resolvedEditor.id) : undefined,
     services: serviceValues,
     serviceObjects: serviceObjects.length ? serviceObjects : undefined,
+    serviceItems: resolvedServiceItems.length ? resolvedServiceItems : undefined,
+    service_items: resolvedServiceItems.length ? resolvedServiceItems : undefined,
     editorAssignments: editorAssignments.length ? editorAssignments : undefined,
+    paymentStatus: paymentSummary.paymentStatus,
+    payment_status: paymentSummary.paymentStatus,
+    bypassPaywall: toBooleanValue(item.bypass_paywall ?? item.bypassPaywall),
+    bypass_paywall: toBooleanValue(item.bypass_paywall ?? item.bypassPaywall),
     status: (() => {
       const status = toStringValue(item.status)
       return status === 'hold_on' ? 'on_hold' : status
@@ -355,12 +471,14 @@ export const mapShootApiToShootData = (item: Record<string, unknown>): ShootData
       const wfStatus = toStringValue(item.workflow_status ?? item.workflowStatus)
       return wfStatus === 'hold_on' ? 'on_hold' : wfStatus
     })(),
+    deliveryStatus: toStringValue(item.delivery_status ?? item.deliveryStatus),
     payment: {
       baseQuote: paymentSummary.baseQuote,
       taxRate: paymentSummary.taxRate,
       taxAmount: paymentSummary.taxAmount,
       totalQuote: paymentSummary.totalQuote,
       totalPaid: paymentSummary.totalPaid,
+      paymentStatus: paymentSummary.paymentStatus,
       lastPaymentDate: paymentSummary.lastPaymentDate,
       lastPaymentType: paymentSummary.lastPaymentType,
     },

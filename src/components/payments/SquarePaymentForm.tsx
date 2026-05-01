@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -26,6 +27,8 @@ import {
   triggerShootHistoryRefresh,
 } from '@/realtime/realtimeRefreshBus';
 import { getCurrentReturnTo, sanitizeRelativeReturnTo } from '@/utils/paymentReturn';
+import type { NormalizedShootServiceItem } from '@/utils/shootServiceItems';
+import { formatServiceItemStatus } from '@/utils/shootServiceItems';
 
 type EmbeddedCheckoutInstance = {
   mount: (element: HTMLElement | string) => void;
@@ -92,6 +95,7 @@ interface SquarePaymentFormProps {
   clientName?: string;
   shootAddress?: string;
   shootServices?: string[];
+  serviceItems?: NormalizedShootServiceItem[];
   shootDate?: string;
   shootTime?: string;
   totalQuote?: number;
@@ -119,6 +123,7 @@ export function SquarePaymentForm({
   clientName,
   shootAddress,
   shootServices = [],
+  serviceItems = [],
   shootDate,
   shootTime,
   totalQuote,
@@ -157,17 +162,44 @@ export function SquarePaymentForm({
   const [paymentAmount, setPaymentAmount] = useState(amount);
   const [paymentAmountInput, setPaymentAmountInput] = useState(amount.toFixed(2));
   const [isPartialPaymentMode, setIsPartialPaymentMode] = useState(false);
+  const [paymentScope, setPaymentScope] = useState<'full' | 'selected'>('full');
+  const [selectedServiceItemIds, setSelectedServiceItemIds] = useState<string[]>([]);
   const [showConfirmationDialog, setShowConfirmationDialog] = useState(false);
   const paymentAmountInputRef = useRef<HTMLInputElement>(null);
-  const outstandingAmount = amount;
+  const payableServiceItems = useMemo(
+    () => serviceItems.filter((item) => item.id && item.balanceDue > 0.01),
+    [serviceItems],
+  );
+  const selectedServiceItems = useMemo(
+    () => payableServiceItems.filter((item) => selectedServiceItemIds.includes(item.id)),
+    [payableServiceItems, selectedServiceItemIds],
+  );
+  const selectedServiceBalance = selectedServiceItems.reduce((sum, item) => sum + item.balanceDue, 0);
+  const isSelectedServicePayment = paymentScope === 'selected';
+  const outstandingAmount = isSelectedServicePayment ? selectedServiceBalance : amount;
   const effectivePaymentAmount = paymentAmountOverride ?? paymentAmount;
+  const confirmationStatusLabel = isSelectedServicePayment
+    ? (selectedServiceItems.length === 1 ? 'Selected Service Payment' : 'Selected Services Payment')
+    : 'Full Payment';
 
   // Update payment amount when props change
   useEffect(() => {
-    const nextAmount = paymentAmountOverride ?? amount;
+    const nextAmount = paymentAmountOverride ?? outstandingAmount;
     setPaymentAmount(nextAmount);
     setPaymentAmountInput(nextAmount.toFixed(2));
-  }, [amount, paymentAmountOverride]);
+  }, [outstandingAmount, paymentAmountOverride]);
+
+  useEffect(() => {
+    if (paymentScope !== 'selected') return;
+    setSelectedServiceItemIds((currentIds) => {
+      const validIds = new Set(payableServiceItems.map((item) => item.id));
+      const retained = currentIds.filter((id) => validIds.has(id));
+      if (retained.length > 0 || payableServiceItems.length === 0) {
+        return retained;
+      }
+      return [payableServiceItems[0].id];
+    });
+  }, [payableServiceItems, paymentScope]);
 
   // Cleanup polling and embedded checkout on unmount
   useEffect(() => {
@@ -203,7 +235,18 @@ export function SquarePaymentForm({
     if (effectivePaymentAmount <= 0 || effectivePaymentAmount > outstandingAmount) {
       toast({
         title: 'Invalid Payment Amount',
-        description: `Payment amount must be between $0.01 and $${outstandingAmount.toFixed(2)}`,
+        description: outstandingAmount > 0
+          ? `Payment amount must be between $0.01 and $${outstandingAmount.toFixed(2)}`
+          : 'Select at least one unpaid service before continuing.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (isSelectedServicePayment && selectedServiceItemIds.length === 0) {
+      toast({
+        title: 'Select a Service',
+        description: 'Choose at least one service item to allocate this payment.',
         variant: 'destructive',
       });
       return;
@@ -235,6 +278,12 @@ export function SquarePaymentForm({
         : {
             amount: effectivePaymentAmount,
             return_to: getCurrentReturnTo() ?? undefined,
+            ...(isSelectedServicePayment
+              ? {
+                  shoot_service_ids: selectedServiceItemIds,
+                  allocation_strategy: 'selected_services',
+                }
+              : {}),
           };
 
       const response = await axios.post(url, body, {
@@ -559,6 +608,67 @@ export function SquarePaymentForm({
           {/* Payment Amount - Compact */}
           {showAmountControls && (
             <div className="p-3 border rounded-lg bg-muted/30">
+              {payableServiceItems.length > 0 && (
+                <div className="mb-3 space-y-2">
+                  <Label className="text-xs text-muted-foreground">Payment Scope</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      type="button"
+                      variant={paymentScope === 'full' ? 'default' : 'outline'}
+                      size="sm"
+                      className="h-8 text-xs"
+                      onClick={() => {
+                        setPaymentScope('full');
+                        setPaymentAmount(amount);
+                        setPaymentAmountInput(amount.toFixed(2));
+                        setIsPartialPaymentMode(false);
+                      }}
+                    >
+                      Full Order
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={paymentScope === 'selected' ? 'default' : 'outline'}
+                      size="sm"
+                      className="h-8 text-xs"
+                      onClick={() => {
+                        setPaymentScope('selected');
+                      }}
+                    >
+                      Selected Services
+                    </Button>
+                  </div>
+                  {paymentScope === 'selected' && (
+                    <div className="space-y-1.5 rounded-md border bg-background/60 p-2">
+                      {payableServiceItems.map((item) => {
+                        const checked = selectedServiceItemIds.includes(item.id);
+                        return (
+                          <label key={item.id} className="flex items-start gap-2 rounded-sm px-1 py-1 text-xs">
+                            <Checkbox
+                              checked={checked}
+                              onCheckedChange={(value) => {
+                                setSelectedServiceItemIds((currentIds) => {
+                                  if (value) {
+                                    return currentIds.includes(item.id) ? currentIds : [...currentIds, item.id];
+                                  }
+                                  return currentIds.filter((id) => id !== item.id);
+                                });
+                              }}
+                              className="mt-0.5"
+                            />
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate font-medium">{item.name}</span>
+                              <span className="block text-[11px] text-muted-foreground">
+                                {formatServiceItemStatus(item.paymentStatus)} · ${item.balanceDue.toFixed(2)} due
+                              </span>
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="flex items-center justify-between gap-3">
                 <div className="flex-1">
                   <Label htmlFor="paymentAmount" className="text-xs text-muted-foreground">Amount</Label>
@@ -843,7 +953,7 @@ export function SquarePaymentForm({
             ) : (
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Status:</span>
-                <span className="text-green-600 font-medium">Full Payment</span>
+                <span className="text-green-600 font-medium">{confirmationStatusLabel}</span>
               </div>
             )}
           </div>

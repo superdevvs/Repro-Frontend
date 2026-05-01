@@ -170,9 +170,14 @@ export interface ShootRealtorClient {
 
 export interface ShootServiceObject {
   id: string;
+  service_id?: string | null;
+  serviceId?: string | number | null;
+  shoot_service_id?: string | null;
+  shootServiceId?: string | number | null;
   name: string;
   price: number;
   quantity: number;
+  subtotal?: number;
   photo_count?: number | null;
   pricing_type?: 'fixed' | 'variable';
   sqft_ranges?: Array<{
@@ -193,6 +198,30 @@ export interface ShootServiceObject {
   resolved_editor_id?: string | null;
   editor?: ShootServiceEditor | null;
   editing_completed_at?: string | null;
+  scheduled_at?: string | null;
+  scheduledAt?: string | null;
+  workflow_status?: string | null;
+  workflowStatus?: string | null;
+  delivery_status?: string | null;
+  deliveryStatus?: string | null;
+  ready_at?: string | null;
+  readyAt?: string | null;
+  delivered_at?: string | null;
+  deliveredAt?: string | null;
+  is_deliverable?: boolean;
+  isDeliverable?: boolean;
+  paid_amount?: number;
+  paidAmount?: number;
+  balance_due?: number;
+  balanceDue?: number;
+  payment_status?: 'unpaid' | 'partially_paid' | 'paid' | string;
+  paymentStatus?: 'unpaid' | 'partially_paid' | 'paid' | string;
+  force_unlock_delivery?: boolean;
+  forceUnlockDelivery?: boolean;
+  is_unlocked_for_delivery?: boolean;
+  isUnlockedForDelivery?: boolean;
+  unlock_state?: string;
+  unlockState?: string;
   lane?: string | null;
   category_key?: string | null;
 }
@@ -262,7 +291,13 @@ export interface ShootData {
   editorId?: string;
   services: string[];
   serviceObjects?: ShootServiceObject[];
+  serviceItems?: ShootServiceObject[];
+  service_items?: ShootServiceObject[];
   editorAssignments?: ShootEditorAssignment[];
+  paymentStatus?: 'paid' | 'unpaid' | 'partial' | 'partially_paid' | string | null;
+  payment_status?: 'paid' | 'unpaid' | 'partial' | 'partially_paid' | string | null;
+  bypassPaywall?: boolean;
+  bypass_paywall?: boolean;
   payment: {
     serviceSubtotal?: number;
     baseQuote: number;
@@ -288,6 +323,7 @@ export interface ShootData {
   property_status?: 'available' | 'sold' | 'rented';
   status: string;
   workflowStatus?: string;
+  deliveryStatus?: string;
   notes?: string | {
     shootNotes?: string;
     approvalNotes?: string;

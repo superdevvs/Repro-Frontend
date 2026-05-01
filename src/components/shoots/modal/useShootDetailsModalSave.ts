@@ -265,11 +265,12 @@ export function useShootDetailsModalSave({
             // Return null to skip
             return null;
           }
-          if (service.id !== undefined && service.id !== null) {
+          const rawServiceId = service.id ?? service.service_id;
+          if (rawServiceId !== undefined && rawServiceId !== null) {
             // Ensure service ID is a number
-            const serviceId = typeof service.id === 'string' 
-              ? parseInt(service.id, 10) 
-              : Number(service.id);
+            const serviceId = typeof rawServiceId === 'string'
+              ? parseInt(rawServiceId, 10)
+              : Number(rawServiceId);
             
             if (!isNaN(serviceId) && serviceId > 0) {
               const serviceData: any = {
@@ -296,6 +297,19 @@ export function useShootDetailsModalSave({
                   serviceData.photographer_pay = photographerPay;
                 }
               }
+
+              if (service.scheduled_at !== undefined) {
+                serviceData.scheduled_at = normalizeNullableString(service.scheduled_at);
+              }
+              if (service.photographer_id !== undefined) {
+                serviceData.photographer_id = toNullableInteger(service.photographer_id);
+              }
+              if (service.editor_id !== undefined) {
+                serviceData.editor_id = toNullableInteger(service.editor_id);
+              }
+              if (service.is_deliverable !== undefined) {
+                serviceData.is_deliverable = Boolean(service.is_deliverable);
+              }
               
               return serviceData;
             }
@@ -305,6 +319,68 @@ export function useShootDetailsModalSave({
 
         payload.services = servicesPayload;
         console.log('💾 Services update:', servicesPayload);
+      }
+
+      if (hasOwn(updates as any, 'service_items') && Array.isArray((updates as any).service_items)) {
+        const serviceItemsPayload = (updates as any).service_items.map((serviceItem: any) => {
+          if (!serviceItem || typeof serviceItem !== 'object') return null;
+          const rawServiceId = serviceItem.service_id ?? serviceItem.id;
+          const serviceId = typeof rawServiceId === 'string'
+            ? parseInt(rawServiceId, 10)
+            : Number(rawServiceId);
+          if (!Number.isFinite(serviceId) || serviceId <= 0) return null;
+
+          const itemData: any = {
+            service_id: serviceId,
+            quantity: serviceItem.quantity || 1,
+          };
+
+          if (serviceItem.price !== undefined && serviceItem.price !== null) {
+            const price = typeof serviceItem.price === 'string'
+              ? parseFloat(serviceItem.price)
+              : Number(serviceItem.price);
+            if (!Number.isNaN(price) && price >= 0) {
+              itemData.price = price;
+            }
+          }
+          if (serviceItem.photographer_pay !== undefined && serviceItem.photographer_pay !== null) {
+            const photographerPay = typeof serviceItem.photographer_pay === 'string'
+              ? parseFloat(serviceItem.photographer_pay)
+              : Number(serviceItem.photographer_pay);
+            if (!Number.isNaN(photographerPay) && photographerPay >= 0) {
+              itemData.photographer_pay = photographerPay;
+            }
+          }
+          if (serviceItem.scheduled_at !== undefined) {
+            itemData.scheduled_at = normalizeNullableString(serviceItem.scheduled_at);
+          }
+          if (serviceItem.photographer_id !== undefined) {
+            itemData.photographer_id = toNullableInteger(serviceItem.photographer_id);
+          }
+          if (serviceItem.editor_id !== undefined) {
+            itemData.editor_id = toNullableInteger(serviceItem.editor_id);
+          }
+          if (serviceItem.is_deliverable !== undefined) {
+            itemData.is_deliverable = Boolean(serviceItem.is_deliverable);
+          }
+          if (serviceItem.workflow_status !== undefined) {
+            itemData.workflow_status = normalizeNullableString(serviceItem.workflow_status);
+          }
+          if (serviceItem.delivery_status !== undefined) {
+            itemData.delivery_status = normalizeNullableString(serviceItem.delivery_status);
+          }
+          if (serviceItem.force_unlock_delivery !== undefined) {
+            itemData.force_unlock_delivery = Boolean(serviceItem.force_unlock_delivery);
+          }
+          if (serviceItem.unlock_reason !== undefined) {
+            itemData.unlock_reason = normalizeNullableString(serviceItem.unlock_reason);
+          }
+
+          return itemData;
+        }).filter(Boolean);
+
+        payload.service_items = serviceItemsPayload;
+        console.log('💾 Service items update:', serviceItemsPayload);
       }
 
       // Per-service photographer assignments

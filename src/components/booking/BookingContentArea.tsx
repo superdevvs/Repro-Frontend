@@ -13,6 +13,8 @@ type SelectedService = {
   category?: { id: string; name: string };
 };
 
+type ServiceScheduleMap = Record<string, { date?: string; time?: string }>;
+
 interface BookingContentAreaProps {
   step: number;
   formErrors: Record<string, string>;
@@ -43,12 +45,18 @@ interface BookingContentAreaProps {
   setPhotographer: React.Dispatch<React.SetStateAction<string>>;
   servicePhotographers: Record<string, string>;
   setServicePhotographers: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  serviceSchedules: ServiceScheduleMap;
+  setServiceSchedules: React.Dispatch<React.SetStateAction<ServiceScheduleMap>>;
   bypassPayment: boolean;
   setBypassPayment: React.Dispatch<React.SetStateAction<boolean>>;
   sendNotification: boolean;
   setSendNotification: React.Dispatch<React.SetStateAction<boolean>>;
   getPackagePrice: () => number;
   pricingBreakdown: PricingBreakdown;
+  originalPricingBreakdown?: PricingBreakdown;
+  canAdjustAmount?: boolean;
+  adjustedTotalInput?: string;
+  setAdjustedTotalInput?: (value: string) => void;
   getPhotographerRate: () => number;
   clients: any[];
   photographers: any[];
@@ -88,12 +96,18 @@ export function BookingContentArea({
   setPhotographer,
   servicePhotographers,
   setServicePhotographers,
+  serviceSchedules,
+  setServiceSchedules,
   bypassPayment,
   setBypassPayment,
   sendNotification,
   setSendNotification,
   getPackagePrice,
   pricingBreakdown,
+  originalPricingBreakdown,
+  canAdjustAmount = false,
+  adjustedTotalInput = '',
+  setAdjustedTotalInput,
   getPhotographerRate,
   clients,
   photographers,
@@ -143,6 +157,8 @@ export function BookingContentArea({
           setPhotographer={setPhotographer}
           servicePhotographers={servicePhotographers}
           setServicePhotographers={setServicePhotographers}
+          serviceSchedules={serviceSchedules}
+          setServiceSchedules={setServiceSchedules}
           selectedServices={selectedServices}
           photographers={photographers}
           handleSubmit={handleSubmit}
@@ -164,6 +180,7 @@ export function BookingContentArea({
           setPhotographer={setPhotographer}
           servicePhotographers={servicePhotographers}
           setServicePhotographers={setServicePhotographers}
+          serviceSchedules={serviceSchedules}
           bypassPayment={bypassPayment}
           setBypassPayment={setBypassPayment}
           sendNotification={sendNotification}
@@ -172,6 +189,10 @@ export function BookingContentArea({
           selectedServices={selectedServices}
           packagePrice={getPackagePrice()}
           pricing={pricingBreakdown}
+          originalPricing={originalPricingBreakdown}
+          canAdjustAmount={canAdjustAmount}
+          adjustedTotalInput={adjustedTotalInput}
+          setAdjustedTotalInput={setAdjustedTotalInput}
           photographerRate={getPhotographerRate()}
           additionalNotes={notes}
           setAdditionalNotes={setNotes}

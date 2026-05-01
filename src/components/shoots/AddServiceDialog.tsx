@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -41,13 +41,40 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
   const [selectedServiceId, setSelectedServiceId] = useState<string>('');
   const [customPrice, setCustomPrice] = useState<string>('');
   const [photographerPay, setPhotographerPay] = useState<string>('');
+  const [scheduleDate, setScheduleDate] = useState<string>('');
+  const [scheduleTime, setScheduleTime] = useState<string>('10:00');
   const { toast } = useToast();
+
+  const shootScheduledAt =
+    (shoot as any).scheduled_at ||
+    (shoot as any).scheduledAt ||
+    shoot.scheduledDate ||
+    null;
+  const timeOptions = useMemo(() => {
+    const options: { value: string; label: string }[] = [];
+    for (let h = 5; h < 23; h++) {
+      for (const m of ['00', '30']) {
+        const hour = h.toString().padStart(2, '0');
+        const period = h >= 12 ? 'PM' : 'AM';
+        const displayHour = h > 12 ? h - 12 : h === 0 ? 12 : h;
+        options.push({ value: `${hour}:${m}`, label: `${displayHour}:${m} ${period}` });
+      }
+    }
+    return options;
+  }, []);
 
   useEffect(() => {
     if (open) {
       fetchServices();
+      const scheduledAt = shootScheduledAt ? new Date(String(shootScheduledAt)) : null;
+      if (scheduledAt && !Number.isNaN(scheduledAt.getTime())) {
+        setScheduleDate(scheduledAt.toISOString().slice(0, 10));
+        setScheduleTime(
+          `${scheduledAt.getHours().toString().padStart(2, '0')}:${scheduledAt.getMinutes().toString().padStart(2, '0')}`,
+        );
+      }
     }
-  }, [open]);
+  }, [open, shootScheduledAt]);
 
   const fetchServices = async () => {
     try {
@@ -85,15 +112,30 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       const selectedService = services.find(s => s.id === Number(selectedServiceId));
+      const existingServiceEntries = getExistingServiceEntries();
       
       // Get current shoot services
-      const currentServices = Array.isArray(shoot.services) 
-        ? shoot.services.map((s: any) => ({
-            id: typeof s === 'object' ? s.id : s,
-            price: typeof s === 'object' ? s.price : selectedService?.price || 0,
-            quantity: 1,
-          }))
-        : [];
+      const currentServices = existingServiceEntries
+        .map((s: any) => {
+          const serviceId = resolveExistingServiceId(s);
+          if (!serviceId) return null;
+          const catalogService = services.find(service => String(service.id) === String(serviceId));
+
+          return {
+            id: Number(serviceId),
+            price: typeof s === 'object' ? s.price ?? catalogService?.price ?? 0 : catalogService?.price ?? 0,
+            quantity: typeof s === 'object' ? s.quantity || 1 : 1,
+            photographer_pay: typeof s === 'object' ? s.photographer_pay ?? s.photographerPay ?? null : null,
+            scheduled_at: typeof s === 'object' ? s.scheduled_at || s.scheduledAt || null : null,
+          };
+        })
+        .filter((service): service is {
+          id: number;
+          price: number;
+          quantity: number;
+          photographer_pay: number | null;
+          scheduled_at: string | null;
+        } => Boolean(service));
 
       // Add new service
       const newService = {
@@ -101,6 +143,7 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
         price: customPrice ? parseFloat(customPrice) : (selectedService?.price || 0),
         quantity: 1,
         photographer_pay: photographerPay ? parseFloat(photographerPay) : null,
+        scheduled_at: buildScheduledAtIso(scheduleDate, scheduleTime),
       };
 
       const updatedServices = [...currentServices, newService];
@@ -127,6 +170,13 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
         },
         body: JSON.stringify({
           services: updatedServices,
+          service_items: updatedServices.map((service) => ({
+            service_id: service.id,
+            price: service.price,
+            quantity: service.quantity || 1,
+            photographer_pay: service.photographer_pay ?? null,
+            scheduled_at: service.scheduled_at || null,
+          })),
           base_quote: parseFloat(newBaseQuote.toFixed(2)),
           tax_amount: parseFloat(newTaxAmount.toFixed(2)),
           total_quote: parseFloat(newTotalQuote.toFixed(2)),
@@ -144,6 +194,8 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
       setSelectedServiceId('');
       setCustomPrice('');
       setPhotographerPay('');
+      setScheduleDate('');
+      setScheduleTime('10:00');
       onShootUpdate();
     } catch (error: any) {
       console.error('Error adding service:', error);
@@ -158,10 +210,39 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
   };
 
   // Filter out services already attached to shoot
-  const currentServiceIds = Array.isArray(shoot.services)
-    ? shoot.services.map((s: any) => (typeof s === 'object' ? s.id : s))
-    : [];
-  const availableServices = services.filter(s => !currentServiceIds.includes(s.id));
+  const getExistingServiceEntries = () => {
+    if (Array.isArray(shoot.serviceItems) && shoot.serviceItems.length > 0) return shoot.serviceItems;
+    if (Array.isArray(shoot.service_items) && shoot.service_items.length > 0) return shoot.service_items;
+    if (Array.isArray(shoot.serviceObjects) && shoot.serviceObjects.length > 0) return shoot.serviceObjects;
+    return Array.isArray(shoot.services) ? shoot.services : [];
+  };
+
+  const resolveExistingServiceId = (entry: unknown): string | null => {
+    if (entry && typeof entry === 'object') {
+      const record = entry as Record<string, unknown>;
+      const rawId = record.service_id ?? record.serviceId ?? record.id;
+      return rawId === null || rawId === undefined ? null : String(rawId);
+    }
+
+    const name = String(entry || '').trim().toLowerCase();
+    if (!name) return null;
+    const matchedService = services.find((service) => service.name.trim().toLowerCase() === name);
+    return matchedService ? String(matchedService.id) : null;
+  };
+
+  const currentServiceIds = getExistingServiceEntries()
+    .map(resolveExistingServiceId)
+    .filter((id): id is string => Boolean(id));
+  const availableServices = services.filter(s => !currentServiceIds.includes(String(s.id)));
+
+  const buildScheduledAtIso = (dateValue?: string, timeValue?: string): string | null => {
+    if (!dateValue) return null;
+    const [hours = 10, minutes = 0] = (timeValue || '10:00').split(':').map(Number);
+    const scheduledAt = new Date(`${dateValue}T12:00:00`);
+    if (Number.isNaN(scheduledAt.getTime())) return null;
+    scheduledAt.setHours(hours, minutes, 0, 0);
+    return scheduledAt.toISOString();
+  };
 
   return (
     <>
@@ -230,6 +311,32 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
                 value={photographerPay}
                 onChange={(e) => setPhotographerPay(e.target.value)}
               />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="serviceScheduleDate">Schedule Date</Label>
+                <Input
+                  id="serviceScheduleDate"
+                  type="date"
+                  value={scheduleDate}
+                  onChange={(e) => setScheduleDate(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="serviceScheduleTime">Schedule Time</Label>
+                <Select value={scheduleTime} onValueChange={setScheduleTime}>
+                  <SelectTrigger id="serviceScheduleTime">
+                    <SelectValue placeholder="Select time" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {timeOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
 

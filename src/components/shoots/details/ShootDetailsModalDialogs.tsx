@@ -24,6 +24,7 @@ import { ShootData } from '@/types/shoots';
 import {
   ShootMediaDownloadSize,
 } from '@/utils/shootMediaDownload';
+import { getShootServiceItems } from '@/utils/shootServiceItems';
 
 const LazyInvoiceViewDialog = lazy(() =>
   import('@/components/invoices/InvoiceViewDialog').then((module) => ({
@@ -208,6 +209,7 @@ export function ShootDetailsModalDialogs({
         )
         .filter(Boolean)
     : [];
+  const paymentServiceItems = getShootServiceItems(shoot).filter((item) => item.balanceDue > 0.01);
 
   return (
     <>
@@ -219,6 +221,7 @@ export function ShootDetailsModalDialogs({
           shootId={shoot.id}
           shootAddress={shoot.location?.fullAddress || shoot.location?.address}
           shootServices={shootServices}
+          serviceItems={paymentServiceItems}
           shootDate={shoot.scheduledDate}
           shootTime={shoot.time ? formatTime(shoot.time) : undefined}
           clientName={shouldHideClientDetails ? undefined : shoot.client?.name}
@@ -233,6 +236,7 @@ export function ShootDetailsModalDialogs({
         isOpen={isMarkPaidDialogOpen}
         onClose={() => setIsMarkPaidDialogOpen(false)}
         onConfirm={handleMarkPaidConfirm}
+        serviceItems={paymentServiceItems}
         title="Mark Shoot as Paid"
         description="Select the payment method and provide any required details."
         confirmLabel="Mark as Paid"

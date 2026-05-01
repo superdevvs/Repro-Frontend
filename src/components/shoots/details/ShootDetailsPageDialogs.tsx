@@ -10,6 +10,7 @@ import { HorizontalLoader } from '@/components/ui/horizontal-loader';
 import { PauseCircle, Loader2 } from 'lucide-react';
 import { ShootData } from '@/types/shoots';
 import { ShootMediaDownloadSize } from '@/utils/shootMediaDownload';
+import type { NormalizedShootServiceItem } from '@/utils/shootServiceItems';
 
 type ShootWithLegacyScheduledAt = ShootData & {
   scheduled_at?: string | null;
@@ -23,6 +24,7 @@ interface ShootDetailsPageDialogsProps {
   shoot: ShootData;
   amountDue: number;
   shootServices: string[];
+  serviceItems?: NormalizedShootServiceItem[];
   formatDate: (value: Date | string | number) => string;
   formatTime: (value: Date | string | number | null | undefined) => string;
   isPaymentDialogOpen: boolean;
@@ -57,6 +59,7 @@ export function ShootDetailsPageDialogs({
   shoot,
   amountDue,
   shootServices,
+  serviceItems = [],
   formatDate,
   formatTime,
   isPaymentDialogOpen,
@@ -118,6 +121,7 @@ export function ShootDetailsPageDialogs({
         shootId={shoot.id}
         shootAddress={shoot.location?.fullAddress || shoot.location?.address}
         shootServices={shootServices}
+        serviceItems={serviceItems}
         shootDate={shoot.scheduledDate ? formatDate(shoot.scheduledDate) : undefined}
         shootTime={shootTime}
         clientName={shoot.client?.name}
@@ -141,6 +145,7 @@ export function ShootDetailsPageDialogs({
         isOpen={isMarkPaidDialogOpen}
         onClose={onMarkPaidDialogClose}
         onConfirm={onMarkPaidConfirm}
+        serviceItems={serviceItems}
         title="Mark Shoot as Paid"
         description="Select the payment method and provide any required details."
         confirmLabel="Mark as Paid"

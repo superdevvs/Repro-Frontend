@@ -79,6 +79,8 @@ interface SchedulingFormProps {
   setPhotographer?: React.Dispatch<React.SetStateAction<string>>;
   servicePhotographers?: Record<string, string>;
   setServicePhotographers?: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  serviceSchedules?: Record<string, { date?: string; time?: string }>;
+  setServiceSchedules?: React.Dispatch<React.SetStateAction<Record<string, { date?: string; time?: string }>>>;
   selectedServices?: Array<{ id: string; name: string; description?: string; price: number; category?: { id: string; name: string } }>;
 }
 
@@ -107,6 +109,8 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
   setPhotographer,
   servicePhotographers = {},
   setServicePhotographers,
+  serviceSchedules = {},
+  setServiceSchedules,
   selectedServices = [],
 }) => {
   const disabledDates = {
@@ -211,6 +215,46 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
     const [hours, minutes] = converted.split(':');
     if (!hours || !minutes) return converted;
     return `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}`;
+  };
+
+  const defaultServiceDate = useMemo(() => {
+    if (!date) return '';
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }, [date]);
+
+  const defaultServiceTime = useMemo(() => normalizeSlotTime(time).slice(0, 5), [time]);
+
+  const getServiceSchedule = (serviceId: string) => ({
+    date: serviceSchedules[serviceId]?.date || defaultServiceDate,
+    time: serviceSchedules[serviceId]?.time || defaultServiceTime,
+  });
+
+  const updateServiceSchedules = (
+    serviceIds: string[],
+    patch: Partial<{ date: string; time: string }>
+  ) => {
+    if (!setServiceSchedules) return;
+    setServiceSchedules(prev => {
+      const next = { ...prev };
+      for (const serviceId of serviceIds) {
+        next[serviceId] = {
+          date: prev[serviceId]?.date || defaultServiceDate,
+          time: prev[serviceId]?.time || defaultServiceTime,
+          ...patch,
+        };
+      }
+      return next;
+    });
+  };
+
+  const formatScheduleLine = (serviceId: string) => {
+    const schedule = getServiceSchedule(serviceId);
+    const dateText = schedule.date || 'No date';
+    const timeText = schedule.time ? to12Hour(schedule.time) : 'No time';
+    return `${dateText} at ${timeText}`;
   };
 
   const normalizeDayOfWeek = (value: any): string => {
@@ -536,10 +580,33 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
     };
   }, [activeCategoryForPicker, serviceCategories]);
 
+  const photographerOptions = useMemo(() => {
+    const byId = new Map<string, SchedulingPhotographer & Record<string, any>>();
+
+    for (const photographerItem of photographersWithDistance) {
+      byId.set(String(photographerItem.id), {
+        ...photographerItem,
+        id: String(photographerItem.id),
+      });
+    }
+
+    for (const photographerItem of photographers) {
+      const id = String(photographerItem.id);
+      const enriched = byId.get(id);
+      byId.set(id, {
+        ...enriched,
+        ...photographerItem,
+        id,
+      });
+    }
+
+    return Array.from(byId.values());
+  }, [photographers, photographersWithDistance]);
+
   // Filter photographers to only those whose specialties match the active category's services
   const filteredPhotographersForCategory = useMemo(() => {
     if (!isMultiCategory || activeCategoryCapabilityForPicker.serviceIds.size === 0) return null; // null = no filtering
-    return photographers.filter(p => {
+    return photographerOptions.filter(p => {
       const specialties: string[] = (p as any).metadata?.specialties
         || (p as any).specialties
         || [];
@@ -551,7 +618,7 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
         activeCategoryCapabilityForPicker.serviceIds,
       );
     });
-  }, [isMultiCategory, activeCategoryCapabilityForPicker, photographers]);
+  }, [isMultiCategory, activeCategoryCapabilityForPicker, photographerOptions]);
 
   // Helper: get photographer ID for a category (from servicePhotographers map)
   const getPhotographerForCategory = (categoryName: string): string => {
@@ -1018,14 +1085,11 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
 
   // Filter and sort photographers
   const filteredAndSortedPhotographers = useMemo(() => {
-    // When showAllPhotographers is true, use original photographers list (bypasses availability)
-    let filtered = showAllPhotographers 
-      ? photographers.map(p => {
-          // Try to find enriched data from photographersWithDistance
-          const enriched = photographersWithDistance.find(pwd => pwd.id === p.id);
-          return enriched || { ...p };
-        })
-      : photographersWithDistance;
+    let filtered = showAllPhotographers
+      ? photographerOptions
+      : photographersWithDistance.length > 0
+        ? photographersWithDistance
+        : photographerOptions;
 
     // Multi-category mode: filter by specialties for the active category
     if (isMultiCategory && activeCategoryForPicker && activeCategoryCapabilityForPicker.serviceIds.size > 0) {
@@ -1089,7 +1153,7 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
     });
 
     return sorted;
-  }, [photographersWithDistance, photographers, searchQuery, sortBy, showAllPhotographers, photographerAvailability, time, isMultiCategory, activeCategoryForPicker, activeCategoryCapabilityForPicker, filteredPhotographersForCategory]);
+  }, [photographersWithDistance, photographerOptions, searchQuery, sortBy, showAllPhotographers, photographerAvailability, time, isMultiCategory, activeCategoryForPicker, activeCategoryCapabilityForPicker, filteredPhotographersForCategory]);
 
   const renderPhotographerFilters = (mobileDrawer = false) => (
     <div className={cn("space-y-3", mobileDrawer && "space-y-2") }>
@@ -1566,6 +1630,26 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
                   </div>
                   <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 text-slate-400 shrink-0" />
                 </div>
+                <div className="grid grid-cols-1 gap-2 rounded-lg border border-slate-200/70 bg-white p-3 dark:border-slate-800/70 dark:bg-slate-900/40 sm:grid-cols-[1fr_140px]">
+                  <div className="space-y-1">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Schedule</p>
+                    <Input
+                      type="date"
+                      value={getServiceSchedule(services[0]?.id || '').date}
+                      onChange={(event) => updateServiceSchedules(services.map(s => s.id), { date: event.target.value })}
+                      className="h-9"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Time</p>
+                    <Input
+                      type="time"
+                      value={getServiceSchedule(services[0]?.id || '').time}
+                      onChange={(event) => updateServiceSchedules(services.map(s => s.id), { time: event.target.value })}
+                      className="h-9"
+                    />
+                  </div>
+                </div>
               </div>
             );
           })}
@@ -1573,6 +1657,34 @@ export const SchedulingForm: React.FC<SchedulingFormProps> = ({
           {/* Single-category: original single photographer trigger with inline Drawer/Dialog */}
           {!isMultiCategory && (
             <>
+              {selectedServices.length > 0 && (
+                <div className="mb-3 space-y-2 rounded-lg border border-slate-200/70 bg-white p-3 dark:border-slate-800/70 dark:bg-slate-900/40">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Service schedules</p>
+                  {selectedServices.map(service => {
+                    const schedule = getServiceSchedule(service.id);
+                    return (
+                      <div key={service.id} className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_150px_120px] sm:items-center">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">{service.name}</p>
+                          <p className="truncate text-xs text-slate-500 dark:text-slate-400">{formatScheduleLine(service.id)}</p>
+                        </div>
+                        <Input
+                          type="date"
+                          value={schedule.date}
+                          onChange={(event) => updateServiceSchedules([service.id], { date: event.target.value })}
+                          className="h-9"
+                        />
+                        <Input
+                          type="time"
+                          value={schedule.time}
+                          onChange={(event) => updateServiceSchedules([service.id], { time: event.target.value })}
+                          className="h-9"
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
               {isMobile ? (
                 <Drawer open={photographerDialogOpen} onOpenChange={handlePhotographerDialogOpen}>
                   <DrawerTrigger asChild>{photographerTrigger}</DrawerTrigger>

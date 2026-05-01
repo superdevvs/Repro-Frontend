@@ -38,6 +38,7 @@ import { calculateDistance, getCoordinatesFromAddress } from '@/utils/distanceUt
 import { getStateFullName } from '@/utils/stateUtils';
 import { cn } from '@/lib/utils';
 import { getShootPhotographerAssignmentGroups } from '@/utils/shootPhotographerAssignments';
+import { OverviewServiceProgressSection } from './overview/OverviewServiceProgressSection';
 
 const LazyInvoiceViewDialog = lazy(() =>
   import('@/components/invoices/InvoiceViewDialog').then((module) => ({
@@ -491,6 +492,10 @@ export function ShootDetailsSidebar({
           </Card>
         );
       })()}
+
+      {(isAdmin || isSuperAdmin) && !isEditor && !isEditingManager && (
+        <OverviewServiceProgressSection shoot={shoot} compact />
+      )}
 
       {/* Billing Summary Card - hidden for editor/editing_manager */}
       {(isAdmin || isSuperAdmin) && !isEditor && !isEditingManager && (

@@ -51,7 +51,11 @@ interface ShootDetails {
     category?: { id?: string | number; name?: string } | string | null;
     photographer_id?: string | number | null;
     resolved_photographer_id?: string | number | null;
+    scheduled_at?: string | null;
+    scheduledAt?: string | null;
   } | string>;
+  serviceItems?: Array<Record<string, unknown>>;
+  service_items?: Array<Record<string, unknown>>;
   scheduledAt?: string;
   totalQuote?: number;
   shootNotes?: string;
@@ -83,6 +87,8 @@ type PhotographerPickerContext = {
   categoryKey?: string;
   categoryName?: string;
 } | null;
+
+type ServiceScheduleMap = Record<string, { date?: string; time?: string }>;
 
 const normalizeCategoryKey = (value?: string) =>
   (value || 'other').trim().toLowerCase().replace(/s$/, '') || 'other';
@@ -150,6 +156,7 @@ export function ShootApprovalModal({
   const [photographerSearchQuery, setPhotographerSearchQuery] = useState('');
   const [scheduledDate, setScheduledDate] = useState<Date | undefined>(undefined);
   const [scheduledTime, setScheduledTime] = useState<string>('10:00');
+  const [serviceSchedules, setServiceSchedules] = useState<ServiceScheduleMap>({});
   const [notes, setNotes] = useState('');
 
   const normalizeTimeValue = (raw?: string | null): string | null => {
@@ -179,6 +186,56 @@ export function ShootApprovalModal({
     }
 
     return null;
+  };
+
+  const formatDateForInputValue = (raw?: unknown): string => {
+    if (!raw) return '';
+    const value = String(raw);
+    const dateOnlyMatch = value.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (dateOnlyMatch) return dateOnlyMatch[1];
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? '' : format(date, 'yyyy-MM-dd');
+  };
+
+  const formatTimeForInputValue = (raw?: unknown): string => {
+    if (!raw) return '';
+    if (typeof raw === 'string') {
+      const timeMatch = raw.match(/(\d{1,2}:\d{2})(?::\d{2})?/);
+      if (timeMatch) {
+        return normalizeTimeValue(timeMatch[1]) || '';
+      }
+    }
+    const date = new Date(String(raw));
+    return Number.isNaN(date.getTime()) ? '' : format(date, 'HH:mm');
+  };
+
+  const getServiceIdentifier = (service: any): string => {
+    if (!service || typeof service === 'string') return '';
+    const id = service.service_id ?? service.serviceId ?? service.id;
+    return id === null || id === undefined ? '' : String(id);
+  };
+
+  const getServiceName = (service: any): string => {
+    if (typeof service === 'string') return service;
+    return service?.name || service?.label || service?.service_name || 'Service';
+  };
+
+  const getServiceCategoryKey = (service: any): string => {
+    const categoryName =
+      typeof service?.category === 'string'
+        ? service.category
+        : service?.category?.name || 'Other';
+    return normalizeCategoryKey(categoryName);
+  };
+
+  const buildScheduledAtIso = (dateValue?: string, timeValue?: string): string | null => {
+    if (!dateValue) return null;
+    const normalizedTime = normalizeTimeValue(timeValue || scheduledTime) || '10:00';
+    const [hours, minutes] = normalizedTime.split(':').map(Number);
+    const date = new Date(`${dateValue}T12:00:00`);
+    if (Number.isNaN(date.getTime())) return null;
+    date.setHours(hours, minutes, 0, 0);
+    return date.toISOString();
   };
 
   const resolveScheduledDate = (shoot: any) => {
@@ -244,6 +301,7 @@ export function ShootApprovalModal({
     // Reset state FIRST to clear any stale data
     setScheduledDate(undefined);
     setScheduledTime('10:00');
+    setServiceSchedules({});
     setPhotographerId('');
     setPerCategoryPhotographers({});
     setPhotographerSearchQuery('');
@@ -322,6 +380,37 @@ export function ShootApprovalModal({
             setTimeOptions(buildTimeOptions(normalizedTime));
           }
 
+          const serviceItemSchedules = new Map<string, Record<string, unknown>>();
+          const rawServiceItems = Array.isArray(shoot.serviceItems)
+            ? shoot.serviceItems
+            : Array.isArray(shoot.service_items)
+              ? shoot.service_items
+              : [];
+          rawServiceItems.forEach((item: Record<string, unknown>) => {
+            const serviceId = item.service_id ?? item.serviceId;
+            if (serviceId !== null && serviceId !== undefined) {
+              serviceItemSchedules.set(String(serviceId), item);
+            }
+          });
+          const nextServiceSchedules: ServiceScheduleMap = {};
+          (Array.isArray(shoot.services) ? shoot.services : []).forEach((service: any) => {
+            if (!service || typeof service === 'string') return;
+            const serviceId = getServiceIdentifier(service);
+            if (!serviceId) return;
+            const itemSchedule = serviceItemSchedules.get(serviceId);
+            const rawScheduledAt =
+              service.scheduled_at ??
+              service.scheduledAt ??
+              itemSchedule?.scheduled_at ??
+              itemSchedule?.scheduledAt;
+            const date = formatDateForInputValue(rawScheduledAt);
+            const time = formatTimeForInputValue(rawScheduledAt);
+            if (date || time) {
+              nextServiceSchedules[serviceId] = { date, time };
+            }
+          });
+          setServiceSchedules(nextServiceSchedules);
+
           // Preselect photographer if provided by the request
           const resolvedPhotographerId =
             shoot.photographer?.id || shoot.photographer_id || shoot.photographerId;
@@ -394,6 +483,31 @@ export function ShootApprovalModal({
 
         if (serviceAssignments.length > 0) {
           payload.service_photographers = serviceAssignments;
+        }
+      }
+
+      if (Array.isArray(shootDetails?.services)) {
+        const defaultDate = format(scheduledAt, 'yyyy-MM-dd');
+        const serviceItemsPayload = shootDetails.services.reduce((items: Array<Record<string, unknown>>, service: any) => {
+          if (!service || typeof service === 'string') return items;
+          const serviceId = Number(getServiceIdentifier(service));
+          if (!serviceId) return items;
+          const categoryKey = getServiceCategoryKey(service);
+          const selectedPhotographerId = perCategoryPhotographers[categoryKey] || photographerId || null;
+          const schedule = serviceSchedules[String(serviceId)] || {};
+          const serviceScheduledAt = buildScheduledAtIso(schedule.date || defaultDate, schedule.time || scheduledTime) || scheduledAt.toISOString();
+          items.push({
+            service_id: serviceId,
+            scheduled_at: serviceScheduledAt,
+            ...(selectedPhotographerId && selectedPhotographerId !== 'unassigned'
+              ? { photographer_id: Number(selectedPhotographerId) }
+              : {}),
+          });
+          return items;
+        }, []);
+
+        if (serviceItemsPayload.length > 0) {
+          payload.service_items = serviceItemsPayload;
         }
       }
 
@@ -622,6 +736,18 @@ export function ShootApprovalModal({
     () => (scheduledDate ? format(scheduledDate, 'yyyy-MM-dd') : ''),
     [scheduledDate]
   );
+  const serviceScheduleRows = Array.isArray(services)
+    ? services.filter((service: any) => service && typeof service === 'object' && getServiceIdentifier(service))
+    : [];
+  const updateServiceSchedule = (serviceId: string, field: 'date' | 'time', value: string) => {
+    setServiceSchedules((current) => ({
+      ...current,
+      [serviceId]: {
+        ...current[serviceId],
+        [field]: value,
+      },
+    }));
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -862,6 +988,62 @@ export function ShootApprovalModal({
                     </div>
                   )}
                 </div>
+
+                {serviceScheduleRows.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <Label className="text-xs">Service Schedules</Label>
+                      <span className="text-[11px] text-muted-foreground">Defaults to order schedule</span>
+                    </div>
+                    <div className="space-y-2">
+                      {serviceScheduleRows.map((service: any) => {
+                        const serviceId = getServiceIdentifier(service);
+                        const schedule = serviceSchedules[serviceId] || {};
+                        const serviceDate = schedule.date || scheduledDateInputValue;
+                        const serviceTime = schedule.time || scheduledTime;
+
+                        return (
+                          <div key={serviceId} className="rounded-lg border bg-background/50 px-3 py-2.5">
+                            <div className="mb-2 flex items-center justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="truncate text-xs font-medium">{getServiceName(service)}</div>
+                                <div className="text-[10px] uppercase text-muted-foreground">
+                                  {typeof service.category === 'string'
+                                    ? service.category
+                                    : service.category?.name || 'Service'}
+                                </div>
+                              </div>
+                              <Badge variant="outline" className="shrink-0 text-[10px]">
+                                Customizable
+                              </Badge>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <Input
+                                type="date"
+                                min={minSelectableDate}
+                                value={serviceDate}
+                                onChange={(event) => updateServiceSchedule(serviceId, 'date', event.target.value)}
+                                className="h-8 text-xs"
+                              />
+                              <Select value={serviceTime} onValueChange={(value) => updateServiceSchedule(serviceId, 'time', value)}>
+                                <SelectTrigger className="h-8 text-xs">
+                                  <SelectValue placeholder="Time" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {timeOptions.map((option) => (
+                                    <SelectItem key={`${serviceId}-${option.value}`} value={option.value}>
+                                      {option.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Approval Notes */}

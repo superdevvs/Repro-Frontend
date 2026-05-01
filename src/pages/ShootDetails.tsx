@@ -53,6 +53,7 @@ import { getShootClientReleaseAccess } from '@/components/shoots/details/shootCl
 import { ShootDetailsPageHeader } from '@/components/shoots/details/ShootDetailsPageHeader';
 import { ShootDetailsPageDialogs } from '@/components/shoots/details/ShootDetailsPageDialogs';
 import { useShootDetailsModalActions } from '@/components/shoots/modal/useShootDetailsModalActions';
+import { getShootServiceItems } from '@/utils/shootServiceItems';
 
 // Import tab components
 import { ShootDetailsMediaTab } from '@/components/shoots/tabs/ShootDetailsMediaTab';
@@ -189,6 +190,10 @@ const ShootDetails: React.FC = () => {
   const workflowBadge = getShootDetailsWorkflowBadge(shoot?.workflowStatus || shoot?.status);
   const paymentBadge = getShootDetailsPaymentBadge(shoot?.payment);
   const shootServices = getShootDetailsServiceNames(shoot);
+  const paymentServiceItems = useMemo(
+    () => getShootServiceItems(shoot).filter((item) => item.balanceDue > 0.01),
+    [shoot],
+  );
   const clientReleaseAccess = useMemo(
     () => getShootClientReleaseAccess(shoot, isClient),
     [isClient, shoot],
@@ -528,13 +533,15 @@ const ShootDetails: React.FC = () => {
       toast({ title: 'Already Paid', description: 'This shoot is already fully paid.' });
       return;
     }
-    const amount = outstandingAmount;
+    const amount = payload.amount && payload.amount > 0 ? payload.amount : outstandingAmount;
 
     const body: {
       payment_type: MarkAsPaidPayload['paymentMethod'];
       amount: number;
       payment_details?: MarkAsPaidPayload['paymentDetails'];
       payment_date?: MarkAsPaidPayload['paymentDate'];
+      shoot_service_ids?: string[];
+      allocation_strategy?: MarkAsPaidPayload['allocationStrategy'];
     } = {
       payment_type: payload.paymentMethod,
       amount,
@@ -545,6 +552,10 @@ const ShootDetails: React.FC = () => {
     }
     if (payload.paymentDate) {
       body.payment_date = payload.paymentDate;
+    }
+    if (payload.shootServiceIds?.length) {
+      body.shoot_service_ids = payload.shootServiceIds;
+      body.allocation_strategy = payload.allocationStrategy;
     }
 
     const headers = getApiHeaders();
@@ -968,6 +979,7 @@ const ShootDetails: React.FC = () => {
           shoot={shoot}
           amountDue={amountDue}
           shootServices={shootServices}
+          serviceItems={paymentServiceItems}
           formatDate={formatDate}
           formatTime={formatTime}
           isPaymentDialogOpen={isPaymentDialogOpen}

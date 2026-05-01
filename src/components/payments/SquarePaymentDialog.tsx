@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/dialog';
 import { SquarePaymentForm, type SquarePaymentSuccessPayload } from './SquarePaymentForm';
 import type { PricingBreakdown } from '@/utils/pricing';
+import type { NormalizedShootServiceItem } from '@/utils/shootServiceItems';
 
 interface SquarePaymentDialogProps {
   isOpen: boolean;
@@ -18,6 +19,7 @@ interface SquarePaymentDialogProps {
   shootIds?: string[];
   shootAddress?: string;
   shootServices?: string[];
+  serviceItems?: NormalizedShootServiceItem[];
   shootDate?: string;
   shootTime?: string;
   clientEmail?: string;
@@ -38,6 +40,7 @@ export function SquarePaymentDialog({
   shootIds,
   shootAddress,
   shootServices,
+  serviceItems,
   shootDate,
   shootTime,
   clientEmail,
@@ -137,6 +140,7 @@ export function SquarePaymentDialog({
               clientName={clientName}
               shootAddress={shootAddress}
               shootServices={shootServices}
+              serviceItems={serviceItems}
               shootDate={shootDate}
               shootTime={shootTime}
               totalQuote={totalQuote}
