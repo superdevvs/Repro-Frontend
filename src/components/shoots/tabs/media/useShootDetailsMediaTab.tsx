@@ -83,6 +83,7 @@ import { getPreferredMlsTourLink } from '@/utils/shootTourData';
 import { markMenuOptions, useShootMediaActions, type DownloadPopupState } from './useShootMediaActions';
 import { ShootDetailsMediaTabView } from './ShootDetailsMediaTabView';
 import { ShootDetailsMediaTabDialogs } from './ShootDetailsMediaTabDialogs';
+import { getShootServiceItems } from '@/utils/shootServiceItems';
 
 interface ShootDetailsMediaTabProps {
   shoot: ShootData;
@@ -146,6 +147,16 @@ export function useShootDetailsMediaTab({
     shoot.payment?.paymentStatus ?? 'unknown',
     shoot.payment?.totalPaid ?? shoot.totalPaid ?? 0,
     shoot.updatedAt ?? '',
+    getShootServiceItems(shoot)
+      .map((item) => [
+        item.id,
+        item.shootServiceId ?? '',
+        item.workflowStatus ?? '',
+        item.deliveryStatus ?? '',
+        item.paymentStatus ?? '',
+        item.isUnlockedForDelivery ? '1' : '0',
+      ].join('|'))
+      .join(';'),
   ].join(':');
   const [activeSubTab, setActiveSubTab] = useState<'uploaded' | 'edited' | 'upload'>(defaultTab);
   const [internalDisplayTab, setInternalDisplayTab] = useState<'uploaded' | 'edited'>(defaultTab);
@@ -179,6 +190,43 @@ export function useShootDetailsMediaTab({
   const [requestManagerOpen, setRequestManagerOpen] = useState(false);
   const [rawFiles, setRawFiles] = useState<MediaFile[]>([]);
   const [editedFiles, setEditedFiles] = useState<MediaFile[]>([]);
+  const clientUnlockedServiceIds = useMemo(() => {
+    if (!isClient) return new Set<string>();
+
+    return new Set(
+      getShootServiceItems(shoot)
+        .filter((item) => {
+          const deliveryStatus = String(item.deliveryStatus ?? '').toLowerCase();
+          const workflowStatus = String(item.workflowStatus ?? '').toLowerCase();
+
+          return (
+            item.isDeliverable &&
+            item.isUnlockedForDelivery &&
+            ['ready', 'delivered'].includes(deliveryStatus) &&
+            workflowStatus !== 'cancelled'
+          );
+        })
+          .flatMap((item) => [item.id, item.shootServiceId].filter(Boolean).map(String)),
+    );
+  }, [isClient, shoot]);
+  const hasClientUnlockedServiceDelivery = isClient && clientUnlockedServiceIds.size > 0;
+  const effectiveClientReleaseLocked = isClientReleaseLocked && !hasClientUnlockedServiceDelivery;
+  const clientVisibleEditedFiles = useMemo(() => {
+    if (!isClient || !isClientReleaseLocked || !hasClientUnlockedServiceDelivery) {
+      return editedFiles;
+    }
+
+    return editedFiles.filter((file) => {
+      const serviceId = file.shoot_service_id ?? file.shootServiceId;
+      return serviceId != null && clientUnlockedServiceIds.has(String(serviceId));
+    });
+  }, [
+    clientUnlockedServiceIds,
+    editedFiles,
+    hasClientUnlockedServiceDelivery,
+    isClient,
+    isClientReleaseLocked,
+  ]);
   const {
     uploadedPhotos,
     uploadedVideos,
@@ -206,7 +254,7 @@ export function useShootDetailsMediaTab({
   } = useShootMediaDerivedData({
     shoot,
     rawFiles,
-    editedFiles,
+    editedFiles: clientVisibleEditedFiles,
     displayTab,
     uploadedMediaTab,
     editedMediaTab,
@@ -214,7 +262,7 @@ export function useShootDetailsMediaTab({
     isPhotographer,
     isEditor,
     isClient,
-    isClientReleaseLocked,
+    isClientReleaseLocked: effectiveClientReleaseLocked,
     role,
   });
   const clientEditedMediaTabs = useMemo(
@@ -343,13 +391,13 @@ export function useShootDetailsMediaTab({
       return;
     }
 
-    const allFiles = [...rawFiles, ...editedFiles];
+    const allFiles = [...rawFiles, ...clientVisibleEditedFiles];
     const nextViewerFiles = viewerFiles.map((file) => allFiles.find((candidate) => candidate.id === file.id) ?? file);
     const hasChanged = nextViewerFiles.some((file, index) => file !== viewerFiles[index]);
     if (hasChanged) {
       setViewerFiles(nextViewerFiles);
     }
-  }, [editedFiles, rawFiles, setViewerFiles, viewerFiles, viewerOpen]);
+  }, [clientVisibleEditedFiles, rawFiles, setViewerFiles, viewerFiles, viewerOpen]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -428,6 +476,7 @@ export function useShootDetailsMediaTab({
   const buildFilesFingerprint = (files: MediaFile[]) => JSON.stringify(
     files.map((f) => ({
       id: f.id,
+      shootServiceId: f.shoot_service_id ?? f.shootServiceId,
       url: f.url,
       path: f.path,
       mt: f.media_type,
@@ -468,10 +517,13 @@ export function useShootDetailsMediaTab({
 
   // Restore manual order from saved sort_order when files load
   const lastSortFingerprint = useRef('');
-  const getAllFiles = useCallback(() => [...rawFiles, ...editedFiles], [editedFiles, rawFiles]);
+  const getAllFiles = useCallback(
+    () => [...rawFiles, ...clientVisibleEditedFiles],
+    [clientVisibleEditedFiles, rawFiles],
+  );
   const getSortableFiles = useCallback(
-    () => (isClient ? [...editedFiles] : [...rawFiles, ...editedFiles]),
-    [editedFiles, isClient, rawFiles],
+    () => (isClient ? [...clientVisibleEditedFiles] : [...rawFiles, ...clientVisibleEditedFiles]),
+    [clientVisibleEditedFiles, isClient, rawFiles],
   );
   useEffect(() => {
     const sortableFiles = getSortableFiles();
@@ -740,7 +792,7 @@ export function useShootDetailsMediaTab({
     setActiveSubTab,
     setDisplayTab,
     rawFiles,
-    editedFiles,
+    editedFiles: isClient ? clientVisibleEditedFiles : editedFiles,
     setRawFiles,
     setEditedFiles,
     showUploadTab,
@@ -758,19 +810,19 @@ export function useShootDetailsMediaTab({
     isAdmin ||
     isPhotographer ||
     (isEditor && displayTab === 'uploaded') ||
-    (isClient && !isClientReleaseLocked);
+    (isClient && !effectiveClientReleaseLocked);
   const canDownloadSingleMediaInActiveTab =
     canDownloadSingleMedia || (isSalesRep && displayTab === 'edited');
   const canDownloadViewerSingleMedia =
     isAdmin ||
     isPhotographer ||
     (isEditor && viewerSourceTab === 'uploaded') ||
-    (isClient && !isClientReleaseLocked) ||
+    (isClient && !effectiveClientReleaseLocked) ||
     (isSalesRep && viewerSourceTab === 'edited');
   const canViewFullSizeMedia =
-    isAdmin || isEditor || isPhotographer || (isClient && !isClientReleaseLocked);
+    isAdmin || isEditor || isPhotographer || (isClient && !effectiveClientReleaseLocked);
   const editedSlideshowFiles = useMemo(() => {
-    const eligibleFiles = editedFiles.filter((file) => {
+    const eligibleFiles = clientVisibleEditedFiles.filter((file) => {
       if (!isPreviewableImage(file) || isVideoFile(file)) {
         return false;
       }
@@ -779,9 +831,9 @@ export function useShootDetailsMediaTab({
     });
 
     return sortMediaFiles(eligibleFiles, sortOrder, manualOrder);
-  }, [editedFiles, isVideoFile, manualOrder, sortOrder]);
+  }, [clientVisibleEditedFiles, isVideoFile, manualOrder, sortOrder]);
   const canStartSlideshowMedia =
-    (isAdmin || isEditor || isPhotographer || (isClient && !isClientReleaseLocked)) &&
+    (isAdmin || isEditor || isPhotographer || (isClient && !effectiveClientReleaseLocked)) &&
     editedSlideshowFiles.length > 1;
   const currentViewerFile = viewerFiles[viewerIndex] ?? null;
   const viewerMatchesEditedSlideshow = useMemo(() => {
@@ -848,12 +900,12 @@ export function useShootDetailsMediaTab({
     shoot?.editedPhotoCount ??
       mediaShoot.edited_photo_count ??
       shoot?.mediaSummary?.editedUploaded ??
-      editedFiles.length ??
+      clientVisibleEditedFiles.length ??
       0,
   );
   const progressStatus = normalizeClientProgressStatus(normalizedShootStatus);
   const hasUploadedMedia = rawMediaCount > 0 || rawFiles.length > 0;
-  const hasEditedMedia = editedMediaCount > 0 || editedFiles.length > 0;
+  const hasEditedMedia = editedMediaCount > 0 || clientVisibleEditedFiles.length > 0;
   const hasReviewSignal = Boolean(shoot?.submittedForReviewAt) || hasEditedMedia;
 
   // Determine if delete is allowed (before delivered status - admin, photographer, editor can delete)
@@ -1080,7 +1132,7 @@ export function useShootDetailsMediaTab({
     );
   };
   // Show "Work in Progress" UI for clients when shoot is not finalized
-  if (isClient && !isShootFinalized) {
+  if (isClient && !isShootFinalized && !hasClientUnlockedServiceDelivery) {
     const progress = clientProgress.percent;
     const progressLabel = clientProgress.label;
     
@@ -1156,7 +1208,7 @@ export function useShootDetailsMediaTab({
         isClient={isClient}
         isPhotographer={isPhotographer}
         rawFiles={rawFiles}
-        editedFiles={editedFiles}
+        editedFiles={clientVisibleEditedFiles}
         setActiveSubTab={setActiveSubTab}
         setDisplayTab={setDisplayTab}
         mediaViewMode={mediaViewMode}

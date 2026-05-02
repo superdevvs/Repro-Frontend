@@ -145,7 +145,10 @@ export function ShootDetailsModalActionRail({
 }: ShootDetailsModalActionRailProps) {
   const hasRawDownloadSelection = rawFileCount > 0 || selectedFileIds.length > 0;
   const canOpenDeliveredDownloadDialog =
-    isDelivered && !isEditor && !isPhotographer && (!isClient || canClientDownload);
+    !isEditor &&
+    !isPhotographer &&
+    (isDelivered || (isClient && canClientDownload)) &&
+    (!isClient || canClientDownload);
   const canPrivilegedProgressDownload =
     !isDelivered &&
     (isAdmin || isEditingManager) &&
@@ -296,7 +299,7 @@ export function ShootDetailsModalActionRail({
                   disabled={isDownloading}
                 >
                   <Download className="h-3 w-3 mr-1" />
-                  <span>{isDownloading ? 'Downloading...' : 'Download'}</span>
+                  <span>{isDownloading ? 'Downloading...' : 'Downloads'}</span>
                 </Button>
               )}
               {canPrivilegedProgressDownload && (
@@ -308,7 +311,7 @@ export function ShootDetailsModalActionRail({
                   disabled={isProgressDownloadDisabled}
                 >
                   <Download className="h-3 w-3 mr-1" />
-                  <span>{isDownloading ? 'Downloading...' : 'Download'}</span>
+                  <span>{isDownloading ? 'Downloading...' : 'Downloads'}</span>
                 </Button>
               )}
               {isDelivered && isPhotographer && (
@@ -507,7 +510,7 @@ export function ShootDetailsModalActionRail({
                 <div className="flex items-center justify-center h-9 w-9 rounded-full bg-green-100 dark:bg-green-900/40">
                   <Download className="h-4 w-4 text-green-600 dark:text-green-400" />
                 </div>
-                {isDownloading ? 'Downloading...' : 'Download'}
+                {isDownloading ? 'Downloading...' : 'Downloads'}
               </button>
             )}
             {canPrivilegedProgressDownload && !isEditMode && (
@@ -522,7 +525,7 @@ export function ShootDetailsModalActionRail({
                 <div className="flex items-center justify-center h-9 w-9 rounded-full bg-green-100 dark:bg-green-900/40">
                   <Download className="h-4 w-4 text-green-600 dark:text-green-400" />
                 </div>
-                {isDownloading ? 'Downloading...' : 'Download'}
+                {isDownloading ? 'Downloading...' : 'Downloads'}
               </button>
             )}
             {showMmmPunchoutButtons && !isEditMode && canStartMmmPunchout && (

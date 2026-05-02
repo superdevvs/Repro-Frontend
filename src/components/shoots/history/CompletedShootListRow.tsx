@@ -400,10 +400,10 @@ export const CompletedShootListRow = ({
                       e.stopPropagation()
                       onDownload(shoot, 'full')
                     }}
-                    title="Download"
+                    title="Downloads"
                   >
                     <Download className="h-3.5 w-3.5" />
-                    <span className="hidden sm:inline">Download</span>
+                    <span className="hidden sm:inline">Downloads</span>
                   </Button>
                 )}
                 {(isSuperAdmin || isAdmin) && onDelete && (

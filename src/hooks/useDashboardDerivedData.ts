@@ -16,7 +16,7 @@ import {
   filterReadyToDeliverShoots,
   filterRequestedShoots,
   filterUpcomingShoots,
-  isClientVisibleCompletedSummary,
+  isClientVisibleCompletedRecord,
   isAssignmentMatch,
   isCanceledSummary,
   isCompletedSummary,
@@ -255,7 +255,7 @@ export const useDashboardDerivedData = ({
     return clientRecords
       .filter(
         (record) =>
-          !isClientVisibleCompletedSummary(record.summary) &&
+          !isClientVisibleCompletedRecord(record) &&
           !isCanceledSummary(record.summary) &&
           !isOnHoldRecord(record),
       )
@@ -264,7 +264,7 @@ export const useDashboardDerivedData = ({
 
   const clientCompletedRecords = useMemo(() => {
     return clientRecords
-      .filter((record) => isClientVisibleCompletedSummary(record.summary))
+      .filter((record) => isClientVisibleCompletedRecord(record))
       .sort((a, b) => sortByStartDesc(a.summary, b.summary));
   }, [clientRecords]);
 

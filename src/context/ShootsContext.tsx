@@ -538,6 +538,12 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
           id: String(s.id),
           service_id: String(s.id),
           serviceId: String(s.id),
+          shoot_service_id: (s.pivot?.id ?? s.shoot_service_id ?? s.shootServiceId) != null
+            ? String(s.pivot?.id ?? s.shoot_service_id ?? s.shootServiceId)
+            : null,
+          shootServiceId: (s.shootServiceId ?? s.shoot_service_id ?? s.pivot?.id) != null
+            ? String(s.shootServiceId ?? s.shoot_service_id ?? s.pivot?.id)
+            : null,
           name: String(s.name || ''),
           price: Number(s.pivot?.price ?? s.price ?? 0),
           quantity: Number(s.pivot?.quantity ?? s.quantity ?? 1),

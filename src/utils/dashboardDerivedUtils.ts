@@ -14,6 +14,7 @@ import {
   formatDateForWallClockInput,
   formatTimeForWallClockInput,
 } from "@/utils/wallClockDateTime";
+import { getShootServiceItems } from "@/utils/shootServiceItems";
 
 type ClientWithLegacyPhoneNumber = ShootData["client"] & {
   phonenumber?: string | null;
@@ -248,6 +249,22 @@ export const isCompletedSummary = (summary: DashboardShootSummary) =>
 
 export const isClientVisibleCompletedSummary = (summary: DashboardShootSummary) =>
   matchesStatus(summary, CLIENT_VISIBLE_DELIVERED_STATUS_KEYWORDS);
+
+export const hasClientVisibleDeliveredService = (shoot: ShootData) =>
+  getShootServiceItems(shoot).some((item) => {
+    const deliveryStatus = String(item.deliveryStatus ?? "").toLowerCase();
+    const workflowStatus = String(item.workflowStatus ?? "").toLowerCase();
+
+    return (
+      item.isDeliverable &&
+      item.isUnlockedForDelivery &&
+      ["ready", "delivered"].includes(deliveryStatus) &&
+      workflowStatus !== "cancelled"
+    );
+  });
+
+export const isClientVisibleCompletedRecord = (record: ClientShootRecord) =>
+  isClientVisibleCompletedSummary(record.summary) || hasClientVisibleDeliveredService(record.data);
 
 export const isCanceledSummary = (summary: DashboardShootSummary) =>
   matchesStatus(summary, CANCELED_STATUS_KEYWORDS);

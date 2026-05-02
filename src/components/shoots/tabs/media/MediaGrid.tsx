@@ -515,7 +515,7 @@ export function MediaGrid({
     );
   };
   const renderSingleMediaActions = (file: MediaFile, alwaysVisible = false) => {
-    const showHiddenToggle = Boolean(toggleFileHidden);
+    const showHiddenToggle = Boolean(toggleFileHidden) && !isClient;
     if (!canInteractSingleMedia && !showHiddenToggle) {
       return null;
     }
@@ -1170,7 +1170,7 @@ export function MediaGrid({
               <Download className="h-3.5 w-3.5" />
             </button>
           )}
-          {toggleFileHidden && (
+          {toggleFileHidden && !isClient && (
             <button
               className={`h-7 w-7 rounded-full flex items-center justify-center transition-all ${
                 file.is_hidden
@@ -1324,7 +1324,7 @@ export function MediaGrid({
                   <Download className="h-3.5 w-3.5" />
                 </button>
               )}
-              {toggleFileHidden && (
+              {toggleFileHidden && !isClient && (
                 <button
                   className={`h-7 w-7 rounded-full flex items-center justify-center transition-all ${
                     file.is_hidden

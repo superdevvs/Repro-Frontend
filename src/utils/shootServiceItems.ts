@@ -3,6 +3,7 @@ import type { ShootData, ShootServiceObject } from '@/types/shoots';
 export type NormalizedShootServiceItem = {
   id: string;
   serviceId?: string;
+  shootServiceId?: string;
   name: string;
   scheduledAt?: string | null;
   photographerName?: string | null;
@@ -64,7 +65,8 @@ export const normalizeShootServiceItem = (item: ShootServiceObject): NormalizedS
 
   return {
     id: getShootServiceItemId(item) ?? toOptionalString(item.id) ?? item.name,
-    serviceId: toOptionalString(item.id),
+    serviceId: toOptionalString(item.service_id ?? item.serviceId ?? item.id),
+    shootServiceId: getShootServiceItemId(item),
     name: item.name || 'Service',
     scheduledAt: item.scheduled_at ?? item.scheduledAt ?? null,
     photographerName: item.photographer?.name ?? null,

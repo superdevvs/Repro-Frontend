@@ -13,6 +13,8 @@ const getToken = (sessionToken?: string | null) => {
 export interface MediaFile {
   id: string;
   shoot_id?: string | number;
+  shoot_service_id?: string | number | null;
+  shootServiceId?: string | number | null;
   filename: string;
   url?: string;
   path?: string;
@@ -105,6 +107,8 @@ const fetchShootFiles = async (
       (json?.data || json || []).map((f: any) => ({
         id: String(f.id),
         shoot_id: f.shoot_id ?? f.shootId,
+        shoot_service_id: f.shoot_service_id ?? f.shootServiceId ?? null,
+        shootServiceId: f.shootServiceId ?? f.shoot_service_id ?? null,
         filename: f.filename || f.stored_filename,
         url: f.url || f.path,
         path: f.path,
@@ -160,6 +164,8 @@ const fetchShootFiles = async (
     return (json?.data || json || []).map((f: any) => ({
       id: String(f.id),
       shoot_id: f.shoot_id ?? f.shootId,
+      shoot_service_id: f.shoot_service_id ?? f.shootServiceId ?? null,
+      shootServiceId: f.shootServiceId ?? f.shoot_service_id ?? null,
       filename: f.filename || f.stored_filename,
       url: f.url || f.path,
       path: f.path,

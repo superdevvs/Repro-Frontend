@@ -337,7 +337,7 @@ export const CompletedAlbumCard = ({
                 e.stopPropagation()
                 onDownload(shoot, 'full')
               }}
-              title="Download"
+              title="Downloads"
             >
               <Download className="h-4 w-4" />
             </Button>

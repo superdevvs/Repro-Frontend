@@ -306,10 +306,10 @@ export function ShootDetailsPageHeader({
                     <Download className="h-3 w-3 mr-1.5" />
                   )}
                   <span className="hidden sm:inline">
-                    {isDownloading ? 'Downloading...' : 'Download'}
+                    {isDownloading ? 'Downloading...' : 'Downloads'}
                   </span>
                   <span className="sm:hidden">
-                    {isDownloading ? '...' : 'Download'}
+                    {isDownloading ? '...' : 'Downloads'}
                   </span>
                 </Button>
               </>
