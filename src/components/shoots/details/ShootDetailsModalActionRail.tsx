@@ -147,9 +147,10 @@ export function ShootDetailsModalActionRail({
   const canOpenDeliveredDownloadDialog =
     !isEditor &&
     !isPhotographer &&
-    (isDelivered || (isClient && canClientDownload)) &&
+    (isDelivered || (isClient && canClientDownload) || (!isClient && editedMediaCount > 0)) &&
     (!isClient || canClientDownload);
   const canPrivilegedProgressDownload =
+    !canOpenDeliveredDownloadDialog &&
     !isDelivered &&
     (isAdmin || isEditingManager) &&
     !isEditor &&

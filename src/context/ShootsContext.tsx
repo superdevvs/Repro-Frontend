@@ -950,6 +950,16 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const persistShoots = useCallback((items: ShootData[]) => {
     if (typeof window === 'undefined') return;
     localStorage.setItem('shoots', JSON.stringify(items));
+    window.dispatchEvent(new CustomEvent('shoots:updated'));
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleShootsUpdated = () => {
+      setShoots(getStoredShoots());
+    };
+    window.addEventListener('shoots:updated', handleShootsUpdated);
+    return () => window.removeEventListener('shoots:updated', handleShootsUpdated);
   }, []);
 
   const fetchShoots = useCallback(async (
@@ -964,6 +974,10 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       handleSessionExpired('Please log in to view the latest shoots.');
       setShoots([]);
       persistShoots([]);
+      return [];
+    }
+
+    if (!user?.role) {
       return [];
     }
 
@@ -1246,7 +1260,7 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const currentPath = locationRef.current;
     const isDashboardRoute = currentPath === '/dashboard';
     const isAccountsRoute = currentPath.startsWith('/accounts');
-    const shouldUseLightweight = (isDashboardRoute || isAccountsRoute) && user?.role !== 'client';
+    const shouldUseLightweight = isDashboardRoute || isAccountsRoute;
     if (shouldUseLightweight) {
       await fetchShoots(undefined, 1, 25, { includeFiles: false });
       return;
@@ -1260,7 +1274,7 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const currentPath = locationRef.current;
     const isDashboardRoute = currentPath === '/dashboard';
     const isAccountsRoute = currentPath.startsWith('/accounts');
-    const shouldUseLightweight = (isDashboardRoute || isAccountsRoute) && user?.role !== 'client';
+    const shouldUseLightweight = isDashboardRoute || isAccountsRoute;
 
     if (shouldUseLightweight) {
       fetchShoots(controller.signal, 1, 25, { includeFiles: false }).catch(() => undefined);

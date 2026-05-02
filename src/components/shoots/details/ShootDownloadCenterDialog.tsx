@@ -99,6 +99,17 @@ const isPhotoFile = (file: ShootFileData) => {
   );
 };
 
+const isClientDownloadableFile = (file: ShootFileData) => {
+  const stage = String(file.workflow_stage || file.workflowStage || '').toLowerCase();
+  if (stage) {
+    return ['verified', 'final', 'completed', 'delivered', 'client_delivered'].includes(stage);
+  }
+
+  const type = String(file.media_type || file.file_type || file.fileType || '').toLowerCase();
+  const path = String(file.path || file.url || '').toLowerCase();
+  return type === 'edited' || path.includes('/final/') || path.includes('\\final\\');
+};
+
 const getFileServiceId = (file: ShootFileData): string | null => {
   const raw = file.shoot_service_id ?? file.shootServiceId;
   return raw === null || raw === undefined || String(raw).trim() === '' ? null : String(raw);
@@ -216,9 +227,10 @@ export function ShootDownloadCenterDialog({
       ? serviceItems
       : serviceItems.filter((service) => unlockedServiceIds.has(String(service.id)));
     const allFiles = Array.isArray(shoot.files) ? shoot.files : [];
+    const clientScopedFiles = isClient ? allFiles.filter(isClientDownloadableFile) : allFiles;
     const files = canSeeWholeShoot
-      ? allFiles
-      : allFiles.filter((file) => {
+      ? clientScopedFiles
+      : clientScopedFiles.filter((file) => {
           const serviceId = getFileServiceId(file);
           return Boolean(serviceId && unlockedServiceIds.has(serviceId));
         });

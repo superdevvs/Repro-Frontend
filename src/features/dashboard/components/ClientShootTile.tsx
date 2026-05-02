@@ -164,7 +164,7 @@ export const ClientShootTile: React.FC<ClientShootTileProps> = React.memo(({
                 )}
                 <Button size="sm" variant="outline" className="h-8 text-xs px-3 shadow-sm" onClick={() => onDownload(record)}>
                   <Download className="w-3.5 h-3.5 mr-1.5" />
-                  Download
+                  Downloads
                 </Button>
               </div>
             </div>
@@ -283,7 +283,7 @@ export const ClientShootTile: React.FC<ClientShootTileProps> = React.memo(({
             onClick={() => onDownload(record)}
           >
             <Download className="w-3 h-3 mr-1" />
-            Download
+            Downloads
           </Button>
         )}
       </div>
