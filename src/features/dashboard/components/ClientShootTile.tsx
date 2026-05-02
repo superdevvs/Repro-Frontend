@@ -4,6 +4,7 @@ import { Calendar, CreditCard, Download, Ghost, Image as ImageIcon } from "lucid
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { getShootClientReleaseAccess } from "@/components/shoots/details/shootClientReleaseAccess";
 import { useUserPreferences } from "@/contexts/UserPreferencesContext";
 import { formatWorkflowStatus } from "@/utils/status";
 import { getSpecialInstructions } from "@/utils/dashboardDerivedUtils";
@@ -31,6 +32,7 @@ export const ClientShootTile: React.FC<ClientShootTileProps> = React.memo(({
   const totalQuote = data.payment?.totalQuote ?? 0;
   const totalPaid = data.payment?.totalPaid ?? 0;
   const paymentStatus = summary.paymentStatus ?? "unpaid";
+  const clientReleaseAccess = getShootClientReleaseAccess(data, true);
   const balanceDue = Math.max(totalQuote - totalPaid, 0);
   const hasPendingPayment = totalQuote > 0 && balanceDue > 0 && paymentStatus !== "paid";
   const startDate = summary.startTime ? new Date(summary.startTime) : null;
@@ -271,6 +273,17 @@ export const ClientShootTile: React.FC<ClientShootTileProps> = React.memo(({
           >
             <CreditCard className="w-3 h-3 mr-1" />
             Pay ${balanceDue.toFixed(0)}
+          </Button>
+        )}
+        {variant === "upcoming" && clientReleaseAccess.canClientDownload && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-xs sm:text-sm"
+            onClick={() => onDownload(record)}
+          >
+            <Download className="w-3 h-3 mr-1" />
+            Download
           </Button>
         )}
       </div>

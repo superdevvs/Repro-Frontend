@@ -504,6 +504,7 @@ export function ShootDetailsModal({
     handleEditorDownloadRaw,
     handleGenerateShareLink,
     handleDownloadMedia,
+    handleDownloadFile,
   } = useShootDetailsModalActions({
     shoot,
     isPhotographer,
@@ -852,6 +853,8 @@ export function ShootDetailsModal({
         isWithinCancellationFeeWindow={isWithinCancellationFeeWindow}
         isCancellingShoot={isCancellingShoot}
         isClient={isClient}
+        canClientDownloadWholeShoot={clientReleaseAccess.canClientDownloadWholeShoot}
+        canClientAccessTours={clientReleaseAccess.canClientAccessTours}
         isDownloadDialogOpen={clientReleaseAccess.canClientDownload ? isDownloadDialogOpen : false}
         isDownloading={isDownloading}
         downloadStatusMessage={downloadStatusMessage}
@@ -893,6 +896,7 @@ export function ShootDetailsModal({
         handleMarkOnHold={handleMarkOnHold}
         handleCancelShoot={handleCancelShoot}
         handleDownloadMedia={handleDownloadMedia}
+        handleDownloadFile={handleDownloadFile}
         handleStartMmmPunchout={handleStartMmmPunchout}
         onShootUpdate={onShootUpdate}
         onClose={onClose}

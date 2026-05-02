@@ -5,6 +5,7 @@ import { API_BASE_URL } from '@/config/env';
 import { getApiHeaders } from '@/services/api';
 import {
   downloadShootMediaArchive,
+  downloadShootMediaFile,
   downloadShootRawFiles,
   getShootMediaDownloadSizeLabel,
 } from '@/utils/shootMediaDownload';
@@ -208,7 +209,10 @@ export function useShootDetailsModalActions({
     }
   };
 
-  const handleDownloadMedia = async (size: 'original' | 'small' | 'medium' | 'large') => {
+  const handleDownloadMedia = async (
+    size: 'original' | 'small' | 'medium' | 'large',
+    options: { shootServiceId?: string | number | null; label?: string } = {},
+  ) => {
     if (!shoot) return;
 
     try {
@@ -223,6 +227,7 @@ export function useShootDetailsModalActions({
         shootId: shoot.id,
         type: downloadType,
         size,
+        shootServiceId: options.shootServiceId,
         address: shoot.location?.address,
         onPreparing: ({ message }) => {
           setDownloadStatusMessage(message);
@@ -234,9 +239,9 @@ export function useShootDetailsModalActions({
         description:
           result.mode === 'redirect'
             ? result.waited
-              ? 'Your files are ready and the download is starting.'
-              : 'Starting your download...'
-            : `Downloading media files in ${getShootMediaDownloadSizeLabel(size)}...`,
+              ? `${options.label ?? 'Your files'} are ready and the download is starting.`
+              : `Starting ${options.label ?? 'your download'}...`
+            : `Downloading ${options.label ?? 'media files'} in ${getShootMediaDownloadSizeLabel(size)}...`,
       });
     } catch (error) {
       console.error('Error downloading media:', error);
@@ -244,6 +249,33 @@ export function useShootDetailsModalActions({
         title: 'Error',
         description:
           error instanceof Error ? error.message : 'Failed to download media. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  const handleDownloadFile = async (fileId: string | number, label = 'file') => {
+    if (!shoot) return;
+
+    try {
+      setIsDownloading(true);
+      setDownloadStatusMessage(`Preparing ${label}...`);
+      await downloadShootMediaFile({
+        shootId: shoot.id,
+        fileId,
+      });
+      toast({
+        title: 'Download started',
+        description: `Starting ${label} download...`,
+      });
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      toast({
+        title: 'Error',
+        description:
+          error instanceof Error ? error.message : 'Failed to download file. Please try again.',
         variant: 'destructive',
       });
     } finally {
@@ -334,5 +366,6 @@ export function useShootDetailsModalActions({
     handleEditorDownloadRaw,
     handleGenerateShareLink,
     handleDownloadMedia,
+    handleDownloadFile,
   };
 }

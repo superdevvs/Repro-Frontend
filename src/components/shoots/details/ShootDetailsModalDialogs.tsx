@@ -16,15 +16,12 @@ import { StripePaymentDialog } from '@/components/payments/StripePaymentDialog';
 import type { InvoiceData } from '@/types/invoice';
 import { BrightMlsImportDialog } from '@/components/integrations/BrightMlsImportDialog';
 import { MmmPunchoutDialog } from '@/components/integrations/MmmPunchoutDialog';
-import { HorizontalLoader } from '@/components/ui/horizontal-loader';
 import { ShootApprovalModal } from '../ShootApprovalModal';
 import { ShootDeclineModal } from '../ShootDeclineModal';
 import { Loader2, PauseCircle, XCircle } from 'lucide-react';
 import { ShootData } from '@/types/shoots';
-import {
-  ShootMediaDownloadSize,
-} from '@/utils/shootMediaDownload';
 import { getShootServiceItems } from '@/utils/shootServiceItems';
+import { ShootDownloadCenterDialog } from './ShootDownloadCenterDialog';
 
 const LazyInvoiceViewDialog = lazy(() =>
   import('@/components/invoices/InvoiceViewDialog').then((module) => ({
@@ -61,6 +58,8 @@ interface ShootDetailsModalDialogsProps {
   isWithinCancellationFeeWindow: boolean;
   isCancellingShoot: boolean;
   isClient: boolean;
+  canClientDownloadWholeShoot?: boolean;
+  canClientAccessTours?: boolean;
   isDownloadDialogOpen: boolean;
   isDownloading: boolean;
   downloadStatusMessage: string;
@@ -101,7 +100,8 @@ interface ShootDetailsModalDialogsProps {
   handleCancellationFeeConfirm: () => void;
   handleMarkOnHold: () => void;
   handleCancelShoot: () => void;
-  handleDownloadMedia: (size: 'original' | 'small' | 'medium' | 'large') => void;
+  handleDownloadMedia: (size: 'original' | 'small' | 'medium' | 'large', target?: { shootServiceId?: string | number | null; label?: string }) => void;
+  handleDownloadFile?: (fileId: string | number, label?: string) => void;
   handleStartMmmPunchout: () => void | Promise<void>;
   onShootUpdate?: () => void;
   onClose: () => void;
@@ -137,6 +137,8 @@ export function ShootDetailsModalDialogs({
   isWithinCancellationFeeWindow,
   isCancellingShoot,
   isClient,
+  canClientDownloadWholeShoot = true,
+  canClientAccessTours = true,
   isDownloadDialogOpen,
   isDownloading,
   downloadStatusMessage,
@@ -178,28 +180,13 @@ export function ShootDetailsModalDialogs({
   handleMarkOnHold,
   handleCancelShoot,
   handleDownloadMedia,
+  handleDownloadFile,
   handleStartMmmPunchout,
   onShootUpdate,
   onClose,
   formatTime,
 }: ShootDetailsModalDialogsProps) {
   type ShootServiceOption = string | { name?: string; label?: string };
-  const clientDownloadOptions: Array<{
-    size: ShootMediaDownloadSize;
-    label: string;
-    description: string;
-  }> = [
-    {
-      size: 'original',
-      label: 'Full Size',
-      description: 'Original-resolution export',
-    },
-    {
-      size: 'small',
-      label: 'MLS',
-      description: '1800x1200px, MLS-ready export',
-    },
-  ];
   const shootServices = Array.isArray(shoot?.services)
     ? (shoot.services as ShootServiceOption[])
         .map((service) =>
@@ -471,52 +458,18 @@ export function ShootDetailsModalDialogs({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isDownloadDialogOpen} onOpenChange={setIsDownloadDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Download Media</DialogTitle>
-            <DialogDescription>
-              {isDownloading
-                ? 'Your download will start automatically when it is ready.'
-                : 'Select the image size you want to download'}
-            </DialogDescription>
-          </DialogHeader>
-          {isDownloading ? (
-            <div className="space-y-4 py-4">
-              <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 px-4 py-3">
-                <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                <div className="space-y-1">
-                  <div className="font-medium">Preparing your files</div>
-                  <div className="text-sm text-muted-foreground">{downloadStatusMessage}</div>
-                </div>
-              </div>
-              <HorizontalLoader message="Your download will start automatically when the archive is ready." />
-            </div>
-          ) : (
-            <div className="space-y-3 py-4">
-              {clientDownloadOptions.map(({ size, label, description }) => (
-                <Button
-                  key={size}
-                  variant="outline"
-                  className="w-full justify-start h-auto py-4"
-                  onClick={() => handleDownloadMedia(size)}
-                  disabled={isDownloading}
-                >
-                  <div className="flex flex-col items-start">
-                    <div className="font-medium">{label}</div>
-                    <div className="text-xs text-muted-foreground">{description}</div>
-                  </div>
-                </Button>
-              ))}
-            </div>
-          )}
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setIsDownloadDialogOpen(false)}>
-              {isDownloading ? 'Close' : 'Cancel'}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <ShootDownloadCenterDialog
+        shoot={shoot}
+        open={isDownloadDialogOpen}
+        isDownloading={isDownloading}
+        downloadStatusMessage={downloadStatusMessage}
+        isClient={isClient}
+        canDownloadWholeShoot={canClientDownloadWholeShoot}
+        canAccessTours={canClientAccessTours}
+        onOpenChange={setIsDownloadDialogOpen}
+        onDownloadArchive={handleDownloadMedia}
+        onDownloadFile={handleDownloadFile}
+      />
 
       {isApprovalModalOpen && shoot && (
         <ShootApprovalModal

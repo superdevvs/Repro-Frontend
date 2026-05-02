@@ -199,7 +199,9 @@ export const CompletedShootListRow = ({
   const isPaid = paymentSummary.paymentStatus === 'paid'
   const paymentBadgeLabel = isPaid
     ? `Paid: ${formatCurrency(paymentSummary.totalPaid)}`
-    : 'Unpaid'
+    : paymentSummary.totalPaid > 0.01
+      ? `Partial: ${formatCurrency(paymentSummary.totalPaid)}`
+      : 'Unpaid'
   const balanceDue = paymentSummary.balance
   const hasPendingPayment = isClient && balanceDue > 0.01 && paymentSummary.paymentStatus !== 'paid'
   const statusValue = shoot.workflowStatus ?? shoot.status ?? ''

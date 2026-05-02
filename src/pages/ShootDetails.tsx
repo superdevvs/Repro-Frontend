@@ -209,6 +209,7 @@ const ShootDetails: React.FC = () => {
     handleEditorDownloadRaw,
     handleGenerateShareLink,
     handleDownloadMedia,
+    handleDownloadFile,
   } = useShootDetailsModalActions({
     shoot,
     isPhotographer,
@@ -990,6 +991,9 @@ const ShootDetails: React.FC = () => {
           isDownloadDialogOpen={isDownloadDialogOpen}
           isDownloading={isDownloading}
           downloadStatusMessage={downloadStatusMessage}
+          isClient={isClient}
+          canClientDownloadWholeShoot={clientReleaseAccess.canClientDownloadWholeShoot}
+          canClientAccessTours={clientReleaseAccess.canClientAccessTours}
           onHoldReason={onHoldReason}
           holdDialogTitle={holdDialogTitle}
           holdDialogDescription={holdDialogDescription}
@@ -1011,6 +1015,7 @@ const ShootDetails: React.FC = () => {
           onRejectHold={handleRejectHold}
           onApproveHold={handleApproveHold}
           onDownloadMedia={handleDownloadMedia}
+          onDownloadFile={handleDownloadFile}
         />
       )}
     </DashboardLayout>

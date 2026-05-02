@@ -40,6 +40,9 @@ export interface ShootAction {
 
 export interface ShootFileData {
   id: string;
+  shoot_id?: string | number;
+  shoot_service_id?: string | number | null;
+  shootServiceId?: string | number | null;
   filename: string;
   stored_filename?: string;
   storedFilename?: string;

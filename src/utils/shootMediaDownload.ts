@@ -25,6 +25,7 @@ type ResolveShootMediaArchiveRequestOptions = {
   requestUrl: string;
   shootId?: string | number;
   size?: ShootMediaDownloadSize;
+  shootServiceId?: string | number | null;
   type: ShootMediaDownloadType;
 };
 
@@ -289,18 +290,23 @@ export const downloadShootMediaArchive = async ({
   shootId,
   type,
   size,
+  shootServiceId,
   address,
   onPreparing,
 }: {
   shootId: string | number;
   type: ShootMediaDownloadType;
   size?: ShootMediaDownloadSize;
+  shootServiceId?: string | number | null;
   address?: string | null;
   onPreparing?: (state: ShootMediaArchivePreparingState) => void;
 }) => {
   const params = new URLSearchParams({ type });
   if (size) {
     params.set('size', size);
+  }
+  if (shootServiceId !== undefined && shootServiceId !== null && String(shootServiceId).trim() !== '') {
+    params.set('shoot_service_id', String(shootServiceId));
   }
 
   return resolveShootMediaArchiveRequest({

@@ -1,4 +1,10 @@
 import { Progress } from '@/components/ui/progress';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import type { ShootData } from '@/types/shoots';
 import {
   getShootServiceItems,
@@ -76,7 +82,8 @@ const formatTimelineRange = (items: NormalizedShootServiceItem[]) => {
 type TimelineCheckpoint = {
   key: string;
   label: string;
-  detail: string;
+  services: string[];
+  tooltip: string;
   position: number;
   progress: number;
 };
@@ -107,6 +114,13 @@ const buildTimelineCheckpoints = (items: NormalizedShootServiceItem[]): Timeline
   return orderedGroups.map(([timestamp, group], index) => {
     const primaryItem = group[0].item;
     const serviceNames = group.map((entry) => entry.item.name).filter(Boolean);
+    const detail = group.length === 1
+      ? primaryItem.name
+      : `${group.length} services`;
+    const tooltipServices = serviceNames.length > 0
+      ? serviceNames.join(', ')
+      : detail;
+    const label = scheduleFormatter.format(group[0].date);
     const position = timelineSpan > 0
       ? ((timestamp - firstTimestamp) / timelineSpan) * 100
       : orderedGroups.length === 1
@@ -115,14 +129,19 @@ const buildTimelineCheckpoints = (items: NormalizedShootServiceItem[]): Timeline
 
     return {
       key: `${timestamp}-${index}`,
-      label: scheduleFormatter.format(group[0].date),
-      detail: group.length === 1
-        ? primaryItem.name
-        : `${group.length} services`,
+      label,
+      services: serviceNames.length > 0 ? serviceNames : [detail],
+      tooltip: `${label} · ${tooltipServices}`,
       position: Math.min(92, Math.max(8, position)),
       progress: Math.round(group.reduce((sum, entry) => sum + getProgressValue(entry.item), 0) / group.length),
     };
   });
+};
+
+const getCheckpointTooltipAlign = (position: number) => {
+  if (position <= 20) return 'start';
+  if (position >= 80) return 'end';
+  return 'center';
 };
 
 export function OverviewServiceProgressSection({
@@ -163,39 +182,42 @@ export function OverviewServiceProgressSection({
       </div>
 
       <div className="space-y-1.5">
-        {checkpoints.length > 0 && (
-          <div className="relative h-4">
-            {checkpoints.map((checkpoint) => (
-              <span
-                key={`${checkpoint.key}-label`}
-                className="absolute top-0 max-w-24 -translate-x-1/2 truncate text-center text-[10px] font-medium leading-4 text-muted-foreground"
-                style={{ left: `${checkpoint.position}%` }}
-                title={`${checkpoint.label} · ${checkpoint.detail}`}
-              >
-                {checkpoint.label}
-              </span>
-            ))}
-          </div>
-        )}
-
         <div className="relative h-4">
           <Progress value={timelineProgress} className="absolute top-1 h-2 rounded-full bg-muted [&>div]:bg-primary" />
 
-          {checkpoints.map((checkpoint) => (
-            <span
-              key={checkpoint.key}
-              className={[
-                'absolute top-0 h-4 w-4 -translate-x-1/2 rounded-full border-2 shadow-sm',
-                checkpoint.progress >= 100
-                  ? 'border-emerald-500 bg-emerald-500'
-                  : checkpoint.progress >= 50
-                    ? 'border-primary bg-primary'
-                    : 'border-primary bg-card',
-              ].join(' ')}
-              style={{ left: `${checkpoint.position}%` }}
-              title={`${checkpoint.label} · ${checkpoint.detail}`}
-            />
-          ))}
+          <TooltipProvider delayDuration={120}>
+            {checkpoints.map((checkpoint) => (
+              <Tooltip key={checkpoint.key}>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label={checkpoint.tooltip}
+                    className={[
+                      'absolute top-0 size-4 -translate-x-1/2 cursor-help rounded-full border-2 shadow-sm transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+                      checkpoint.progress >= 100
+                        ? 'border-emerald-500 bg-emerald-500'
+                        : checkpoint.progress >= 50
+                          ? 'border-primary bg-primary'
+                          : 'border-primary bg-card',
+                    ].join(' ')}
+                    style={{ left: `${checkpoint.position}%` }}
+                  />
+                </TooltipTrigger>
+                <TooltipContent
+                  side="top"
+                  align={getCheckpointTooltipAlign(checkpoint.position)}
+                  className="max-w-56 px-3 py-2 text-xs"
+                >
+                  <div className="flex flex-col gap-1">
+                    <span className="font-semibold">{checkpoint.label}</span>
+                    <span className="leading-snug text-muted-foreground">
+                      {checkpoint.services.join(', ')}
+                    </span>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            ))}
+          </TooltipProvider>
         </div>
       </div>
     </div>

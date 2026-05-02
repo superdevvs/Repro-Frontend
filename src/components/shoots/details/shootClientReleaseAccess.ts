@@ -1,5 +1,6 @@
 import type { ShootData } from '@/types/shoots';
 import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary';
+import { getShootServiceItems } from '@/utils/shootServiceItems';
 
 type CanonicalPaymentStatus = 'paid' | 'unpaid' | 'partial' | null;
 
@@ -11,7 +12,9 @@ export interface ShootClientReleaseAccess {
   isBypassPaywall: boolean;
   isPaidInFull: boolean;
   isClientReleaseLocked: boolean;
+  hasUnlockedServiceDownloads: boolean;
   canClientDownload: boolean;
+  canClientDownloadWholeShoot: boolean;
   canClientAccessTours: boolean;
   shouldUseWatermarkedMessaging: boolean;
 }
@@ -25,13 +28,25 @@ export const getShootClientReleaseAccess = (
   const isBypassPaywall = resolveBypassPaywall(shoot);
   const isPaidInFull = paymentStatus === 'paid' || isBypassPaywall;
   const isClientReleaseLocked = Boolean(isClient && shoot && !isPaidInFull);
+  const hasUnlockedServiceDownloads = Boolean(
+    isClient &&
+      shoot &&
+      getShootServiceItems(shoot).some((item) =>
+        item.isDeliverable &&
+        item.isUnlockedForDelivery &&
+        ['ready', 'delivered'].includes(String(item.deliveryStatus ?? '').toLowerCase()) &&
+        item.workflowStatus !== 'cancelled',
+      ),
+  );
 
   return {
     paymentStatus,
     isBypassPaywall,
     isPaidInFull,
     isClientReleaseLocked,
-    canClientDownload: !isClientReleaseLocked,
+    hasUnlockedServiceDownloads,
+    canClientDownload: !isClientReleaseLocked || hasUnlockedServiceDownloads,
+    canClientDownloadWholeShoot: !isClientReleaseLocked,
     canClientAccessTours: !isClientReleaseLocked,
     shouldUseWatermarkedMessaging: isClientReleaseLocked,
   };
