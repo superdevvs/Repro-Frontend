@@ -27,6 +27,7 @@ import { API_BASE_URL } from "@/config/env";
 import { usePermission } from "@/hooks/usePermission";
 import { useClientBilling } from "@/hooks/useClientBilling";
 import { emptyClientBillingSummary } from "@/services/clientBillingService";
+import { getShootServiceItems } from "@/utils/shootServiceItems";
 
 import { ClientInvoicesCard } from "../components/ClientInvoicesCard";
 import { ClientMyShoots } from "../components/ClientMyShoots";
@@ -103,6 +104,11 @@ export const ClientDashboardView = ({
   const [paymentSelectionOpen, setPaymentSelectionOpen] = useState(false);
   const [selectedShootsForPayment, setSelectedShootsForPayment] = useState<ClientShootRecord[]>([]);
   const [multiPaymentOpen, setMultiPaymentOpen] = useState(false);
+  const shootToPayServiceItems = shootToPay
+    ? getShootServiceItems(shootToPay.data).filter((item) => item.balanceDue > 0.01)
+    : [];
+  const shootToPayBalanceDue =
+    (shootToPay?.data.payment?.totalQuote ?? 0) - (shootToPay?.data.payment?.totalPaid ?? 0);
 
   const handleReschedule = (record: ClientShootRecord) => {
     setShootToReschedule(record.data);
@@ -338,13 +344,27 @@ export const ClientDashboardView = ({
                 <div className="flex justify-between text-sm pt-2 border-t">
                   <span className="text-muted-foreground">Balance Due</span>
                   <span className="font-bold text-lg text-green-600">
-                    ${((shootToPay.data.payment?.totalQuote ?? 0) - (shootToPay.data.payment?.totalPaid ?? 0)).toFixed(2)}
+                    ${shootToPayBalanceDue.toFixed(2)}
                   </span>
                 </div>
               </div>
 
+              {shootToPayServiceItems.length > 0 && (
+                <div className="rounded-lg border bg-background/70 p-3 space-y-2">
+                  <p className="text-xs font-semibold text-muted-foreground">Pay by service</p>
+                  <div className="space-y-1.5">
+                    {shootToPayServiceItems.map((item) => (
+                      <div key={item.id} className="flex items-center justify-between gap-3 text-sm">
+                        <span className="min-w-0 truncate font-medium">{item.name}</span>
+                        <span className="shrink-0 font-semibold text-green-600">${item.balanceDue.toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <p className="text-sm text-muted-foreground text-center">
-                You can also pay later from your invoices page.
+                Use Pay Now to pay the full order or selected service items.
               </p>
             </div>
           )}
@@ -384,6 +404,7 @@ export const ClientDashboardView = ({
           shootId={shootToPay.data.id}
           shootAddress={shootToPay.summary.addressLine}
           shootServices={shootToPay.summary.services?.map((s: any) => typeof s === "string" ? s : s?.name || s?.label || String(s)).filter(Boolean) || []}
+          serviceItems={shootToPayServiceItems}
           shootDate={shootToPay.data.scheduledDate}
           shootTime={shootToPay.data.time}
           clientName={user?.name}

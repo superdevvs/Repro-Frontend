@@ -125,12 +125,31 @@ const filterShootByRole = (
   if (role === 'photographer') {
     const userId = user?.id ? String(user.id) : ''
     const photographerId = shoot.photographer?.id ? String(shoot.photographer.id) : ''
-    if (userId && photographerId) return userId === photographerId
+    const isParentPhotographer = Boolean(userId && photographerId && userId === photographerId)
+
+    const serviceItems = [
+      ...(shoot.serviceItems ?? []),
+      ...(shoot.service_items ?? []),
+      ...(shoot.serviceObjects ?? []),
+    ]
+    const hasAssignedServiceItem = serviceItems.some((serviceItem) => {
+      const assignedPhotographerId =
+        serviceItem.resolved_photographer_id ??
+        serviceItem.photographer_id ??
+        serviceItem.photographer?.id
+
+      return userId && assignedPhotographerId !== undefined && String(assignedPhotographerId) === userId
+    })
+    if (isParentPhotographer || hasAssignedServiceItem) return true
 
     const userName = user?.name?.toLowerCase() || ''
     const photographerName = shoot.photographer?.name?.toLowerCase() || ''
     if (!userId && !userName) return true
-    return photographerName === userName
+    const hasAssignedServiceItemByName = serviceItems.some((serviceItem) => {
+      const assignedPhotographerName = serviceItem.photographer?.name?.toLowerCase()
+      return Boolean(userName && assignedPhotographerName && assignedPhotographerName === userName)
+    })
+    return photographerName === userName || hasAssignedServiceItemByName
   }
 
   if (role === 'editor') {

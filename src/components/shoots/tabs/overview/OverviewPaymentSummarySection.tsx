@@ -24,7 +24,6 @@ export function OverviewPaymentSummarySection({
   isEditMode,
   isAdmin,
   isClient,
-  isClientReleaseLocked,
   editedShoot,
   shoot,
   paymentTotalPaid,
@@ -133,11 +132,6 @@ export function OverviewPaymentSummarySection({
                   {formattedPaymentBalance}
                 </span>
               </div>
-              {isClientReleaseLocked && (
-                <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-4 text-amber-800">
-                  Delivered files unlock per paid service item; unpaid items stay locked.
-                </div>
-              )}
               {paymentBalance > 0.01 && onPayNow && (
                 <div className="mt-3 border-t pt-3">
                   <Button

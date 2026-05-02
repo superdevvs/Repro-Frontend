@@ -10,6 +10,10 @@ import type { ShootData } from "@/types/shoots";
 import type { UserData } from "@/types/auth";
 import { shootHasEditorAssignment } from "@/utils/shootEditorAssignments";
 import { getStateFullName } from "@/utils/stateUtils";
+import {
+  formatDateForWallClockInput,
+  formatTimeForWallClockInput,
+} from "@/utils/wallClockDateTime";
 
 type ClientWithLegacyPhoneNumber = ShootData["client"] & {
   phonenumber?: string | null;
@@ -119,14 +123,42 @@ export const getGreetingPrefix = () => {
   return "Hi";
 };
 
+const parseServiceScheduleDateTime = (value?: string | null): Date | null => {
+  if (!value) return null;
+  const wallDate = formatDateForWallClockInput(value);
+  const wallTime = formatTimeForWallClockInput(value);
+  if (wallDate && wallTime) {
+    const parsedWallClock = parse(`${wallDate} ${wallTime}`, "yyyy-MM-dd HH:mm", new Date());
+    if (isValid(parsedWallClock)) return parsedWallClock;
+  }
+
+  const parsed = parseISO(value);
+  return isValid(parsed) ? parsed : null;
+};
+
 export const parseShootDateTime = (shoot: ShootData): Date | null => {
+  const visibleServiceSchedules = (shoot.serviceItems || shoot.service_items || [])
+    .map((item) => parseServiceScheduleDateTime(item.scheduledAt || item.scheduled_at))
+    .filter((date): date is Date => Boolean(date));
+
+  if (visibleServiceSchedules.length > 0) {
+    return visibleServiceSchedules.sort((a, b) => a.getTime() - b.getTime())[0];
+  }
+
   if (!shoot.scheduledDate) return null;
 
   // Normalize scheduledDate to just the date portion (YYYY-MM-DD)
   // Backend may return "2026-01-13 00:00:00" or "2026-01-13T00:00:00Z" or just "2026-01-13"
   const dateOnly = shoot.scheduledDate.split(/[T\s]/)[0];
 
-  const patterns = ["yyyy-MM-dd h:mm aa", "yyyy-MM-dd hh:mm aa", "yyyy-MM-dd HH:mm", "yyyy-MM-dd H:mm"];
+  const patterns = [
+    "yyyy-MM-dd h:mm aa",
+    "yyyy-MM-dd hh:mm aa",
+    "yyyy-MM-dd HH:mm:ss",
+    "yyyy-MM-dd H:mm:ss",
+    "yyyy-MM-dd HH:mm",
+    "yyyy-MM-dd H:mm",
+  ];
   if (shoot.time) {
     // Normalize time - remove any extra spaces and handle various formats
     const normalizedTime = shoot.time.trim();

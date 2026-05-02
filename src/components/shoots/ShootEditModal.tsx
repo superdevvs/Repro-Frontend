@@ -45,6 +45,11 @@ import AddressLookupField, { type AddressDetails } from '@/components/AddressLoo
 import { ServiceDatePicker, ServiceTimePicker } from '@/components/shoots/ServiceSchedulePicker';
 import { getShootPhotographerAssignmentGroups } from '@/utils/shootPhotographerAssignments';
 import { calculatePricingBreakdown, type PricingDiscountType } from '@/utils/pricing';
+import {
+  buildWallClockIso,
+  formatDateForWallClockInput,
+  formatTimeForWallClockInput,
+} from '@/utils/wallClockDateTime';
 import axios from 'axios';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
@@ -252,17 +257,11 @@ const normalizeCategoryKey = (value?: string) =>
   (value || 'other').trim().toLowerCase().replace(/s$/, '') || 'other';
 
 const formatDateForInputValue = (value?: unknown): string => {
-  if (!value) return '';
-  const date = new Date(String(value));
-  if (Number.isNaN(date.getTime())) return '';
-  return format(date, 'yyyy-MM-dd');
+  return formatDateForWallClockInput(value);
 };
 
 const formatTimeForInputValue = (value?: unknown): string => {
-  if (!value) return '';
-  const date = new Date(String(value));
-  if (Number.isNaN(date.getTime())) return '';
-  return format(date, 'HH:mm');
+  return formatTimeForWallClockInput(value);
 };
 
 const mapPhotographerOption = (photographer: PhotographerSource): Photographer => ({
@@ -855,7 +854,7 @@ export function ShootEditModal({
         ...prev,
         [photographerPickerContext.categoryKey as string]: pickerPhotographerId,
       }));
-      if (!photographerId || photographerId === 'unassigned') {
+      if (selectedServiceCategoryGroups.length <= 1 && (!photographerId || photographerId === 'unassigned')) {
         setPhotographerId(pickerPhotographerId);
       }
     } else {
@@ -1266,12 +1265,7 @@ export function ShootEditModal({
   };
 
   const buildScheduledAtIso = (dateValue?: string, timeValue?: string): string | null => {
-    if (!dateValue) return null;
-    const [hours = 0, minutes = 0] = (timeValue || '10:00').split(':').map(Number);
-    const scheduledAt = new Date(`${dateValue}T12:00:00`);
-    if (Number.isNaN(scheduledAt.getTime())) return null;
-    scheduledAt.setHours(hours, minutes, 0, 0);
-    return scheduledAt.toISOString();
+    return buildWallClockIso(dateValue, timeValue);
   };
 
   const renderDetailsPanel = () => (

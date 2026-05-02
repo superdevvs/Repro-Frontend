@@ -16,6 +16,11 @@ import {
 import { to12Hour } from '@/utils/availabilityUtils';
 import { buildNormalizedPropertyDetails } from '@/components/AddressLookupField';
 import { setNestedDraftValue } from './draftUtils';
+import {
+  buildWallClockIso,
+  formatDateForWallClockInput,
+  formatTimeForWallClockInput,
+} from '@/utils/wallClockDateTime';
 
 type PresenceOption = 'self' | 'other' | 'lockbox';
 
@@ -138,6 +143,8 @@ const parseFlexibleDate = (value?: string | null) => {
 
 const formatDateForInput = (dateString?: string | null) => {
   if (!dateString) return format(new Date(), 'yyyy-MM-dd');
+  const wallClockDate = formatDateForWallClockInput(dateString);
+  if (wallClockDate) return wallClockDate;
   try {
     const parsedDate = parseFlexibleDate(dateString);
     if (!parsedDate) return format(new Date(), 'yyyy-MM-dd');
@@ -149,6 +156,9 @@ const formatDateForInput = (dateString?: string | null) => {
 
 const formatTimeForInput = (value?: string | null) => {
   if (!value) return '';
+  const wallClockTime = formatTimeForWallClockInput(value);
+  if (wallClockTime) return wallClockTime;
+
   const parsedDate = parseFlexibleDate(value);
   if (parsedDate) return format(parsedDate, 'HH:mm');
 
@@ -161,12 +171,7 @@ const formatTimeForInput = (value?: string | null) => {
 };
 
 const buildScheduledAtIso = (dateValue?: string, timeValue?: string) => {
-  if (!dateValue) return null;
-  const [hours = 10, minutes = 0] = (timeValue || '10:00').split(':').map(Number);
-  const scheduledAt = new Date(`${dateValue}T12:00:00`);
-  if (Number.isNaN(scheduledAt.getTime())) return null;
-  scheduledAt.setHours(hours, minutes, 0, 0);
-  return scheduledAt.toISOString();
+  return buildWallClockIso(dateValue, timeValue || '10:00');
 };
 
 const slugify = (value: string) =>

@@ -21,6 +21,11 @@ import { useToast } from '@/hooks/use-toast';
 import { API_BASE_URL } from '@/config/env';
 import { ShootData } from '@/types/shoots';
 import { Plus } from 'lucide-react';
+import {
+  buildWallClockIso,
+  formatDateForWallClockInput,
+  formatTimeForWallClockInput,
+} from '@/utils/wallClockDateTime';
 
 interface Service {
   id: number;
@@ -66,12 +71,13 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
   useEffect(() => {
     if (open) {
       fetchServices();
-      const scheduledAt = shootScheduledAt ? new Date(String(shootScheduledAt)) : null;
-      if (scheduledAt && !Number.isNaN(scheduledAt.getTime())) {
-        setScheduleDate(scheduledAt.toISOString().slice(0, 10));
-        setScheduleTime(
-          `${scheduledAt.getHours().toString().padStart(2, '0')}:${scheduledAt.getMinutes().toString().padStart(2, '0')}`,
-        );
+      const date = formatDateForWallClockInput(shootScheduledAt);
+      const time = formatTimeForWallClockInput(shootScheduledAt);
+      if (date) {
+        setScheduleDate(date);
+      }
+      if (time) {
+        setScheduleTime(time);
       }
     }
   }, [open, shootScheduledAt]);
@@ -236,12 +242,7 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
   const availableServices = services.filter(s => !currentServiceIds.includes(String(s.id)));
 
   const buildScheduledAtIso = (dateValue?: string, timeValue?: string): string | null => {
-    if (!dateValue) return null;
-    const [hours = 10, minutes = 0] = (timeValue || '10:00').split(':').map(Number);
-    const scheduledAt = new Date(`${dateValue}T12:00:00`);
-    if (Number.isNaN(scheduledAt.getTime())) return null;
-    scheduledAt.setHours(hours, minutes, 0, 0);
-    return scheduledAt.toISOString();
+    return buildWallClockIso(dateValue, timeValue || '10:00');
   };
 
   return (

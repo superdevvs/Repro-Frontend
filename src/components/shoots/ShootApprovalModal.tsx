@@ -25,6 +25,11 @@ import axios from 'axios';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { getShootPhotographerAssignmentGroups } from '@/utils/shootPhotographerAssignments';
+import {
+  buildWallClockIso,
+  formatDateForWallClockInput,
+  formatTimeForWallClockInput,
+} from '@/utils/wallClockDateTime';
 
 interface Photographer {
   id: string | number;
@@ -189,24 +194,11 @@ export function ShootApprovalModal({
   };
 
   const formatDateForInputValue = (raw?: unknown): string => {
-    if (!raw) return '';
-    const value = String(raw);
-    const dateOnlyMatch = value.match(/^(\d{4}-\d{2}-\d{2})/);
-    if (dateOnlyMatch) return dateOnlyMatch[1];
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? '' : format(date, 'yyyy-MM-dd');
+    return formatDateForWallClockInput(raw);
   };
 
   const formatTimeForInputValue = (raw?: unknown): string => {
-    if (!raw) return '';
-    if (typeof raw === 'string') {
-      const timeMatch = raw.match(/(\d{1,2}:\d{2})(?::\d{2})?/);
-      if (timeMatch) {
-        return normalizeTimeValue(timeMatch[1]) || '';
-      }
-    }
-    const date = new Date(String(raw));
-    return Number.isNaN(date.getTime()) ? '' : format(date, 'HH:mm');
+    return formatTimeForWallClockInput(raw);
   };
 
   const getServiceIdentifier = (service: any): string => {
@@ -229,13 +221,7 @@ export function ShootApprovalModal({
   };
 
   const buildScheduledAtIso = (dateValue?: string, timeValue?: string): string | null => {
-    if (!dateValue) return null;
-    const normalizedTime = normalizeTimeValue(timeValue || scheduledTime) || '10:00';
-    const [hours, minutes] = normalizedTime.split(':').map(Number);
-    const date = new Date(`${dateValue}T12:00:00`);
-    if (Number.isNaN(date.getTime())) return null;
-    date.setHours(hours, minutes, 0, 0);
-    return date.toISOString();
+    return buildWallClockIso(dateValue, normalizeTimeValue(timeValue || scheduledTime) || '10:00');
   };
 
   const resolveScheduledDate = (shoot: any) => {

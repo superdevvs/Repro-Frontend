@@ -1187,7 +1187,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                               className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-border/70 bg-muted/30 text-[10px] font-semibold text-muted-foreground"
                             >
                               {icon}
-                              {SERVICE_LABELS[key] || tag.label}
+                              {tag.label || SERVICE_LABELS[key]}
                             </span>
                           );
                         })}
@@ -1301,7 +1301,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                                 className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-border/70 bg-background text-[11px] font-semibold text-muted-foreground"
                               >
                                 {icon}
-                                {SERVICE_LABELS[key] || tag.label}
+                                {tag.label || SERVICE_LABELS[key]}
                               </span>
                             );
                           })}

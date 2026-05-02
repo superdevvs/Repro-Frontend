@@ -1,11 +1,13 @@
-import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import type { ShootData } from '@/types/shoots';
 import {
-  formatServiceItemStatus,
   getShootServiceItems,
   type NormalizedShootServiceItem,
 } from '@/utils/shootServiceItems';
+import {
+  formatDateForWallClockInput,
+  formatTimeForWallClockInput,
+} from '@/utils/wallClockDateTime';
 import { CalendarClock } from 'lucide-react';
 
 type OverviewServiceProgressSectionProps = {
@@ -47,16 +49,19 @@ const getTimelineProgress = (items: NormalizedShootServiceItem[]) => {
   return Math.round(average);
 };
 
-const formatSchedule = (value?: string | null) => {
-  if (!value) return 'Order schedule';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'Order schedule';
-  return scheduleFormatter.format(date);
+const parseSchedule = (value?: string | null) => {
+  if (!value) return null;
+  const date = formatDateForWallClockInput(value);
+  const time = formatTimeForWallClockInput(value) || '00:00';
+  if (!date) return null;
+
+  const parsed = new Date(`${date}T${time}:00`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
 
 const formatTimelineRange = (items: NormalizedShootServiceItem[]) => {
   const scheduledDates = items
-    .map((item) => (item.scheduledAt ? new Date(item.scheduledAt) : null))
+    .map((item) => parseSchedule(item.scheduledAt))
     .filter((date): date is Date => Boolean(date) && !Number.isNaN(date.getTime()))
     .sort((a, b) => a.getTime() - b.getTime());
 
@@ -68,14 +73,56 @@ const formatTimelineRange = (items: NormalizedShootServiceItem[]) => {
   return first === last ? first : `${first} - ${last}`;
 };
 
-const getCurrentTimelineStep = (items: NormalizedShootServiceItem[]) => {
-  const orderedItems = [...items].sort((a, b) => {
-    const left = a.scheduledAt ? new Date(a.scheduledAt).getTime() : Number.MAX_SAFE_INTEGER;
-    const right = b.scheduledAt ? new Date(b.scheduledAt).getTime() : Number.MAX_SAFE_INTEGER;
-    return left - right;
+type TimelineCheckpoint = {
+  key: string;
+  label: string;
+  detail: string;
+  position: number;
+  progress: number;
+};
+
+const buildTimelineCheckpoints = (items: NormalizedShootServiceItem[]): TimelineCheckpoint[] => {
+  const scheduledItems = items
+    .map((item) => {
+      const date = parseSchedule(item.scheduledAt);
+      return date ? { item, date, timestamp: date.getTime() } : null;
+    })
+    .filter((entry): entry is { item: NormalizedShootServiceItem; date: Date; timestamp: number } => Boolean(entry))
+    .sort((a, b) => a.timestamp - b.timestamp);
+
+  if (scheduledItems.length === 0) return [];
+
+  const groups = new Map<number, typeof scheduledItems>();
+  scheduledItems.forEach((entry) => {
+    const existing = groups.get(entry.timestamp) || [];
+    existing.push(entry);
+    groups.set(entry.timestamp, existing);
   });
 
-  return orderedItems.find((item) => getProgressValue(item) < 100) ?? orderedItems[orderedItems.length - 1];
+  const orderedGroups = Array.from(groups.entries()).sort(([left], [right]) => left - right);
+  const firstTimestamp = orderedGroups[0][0];
+  const lastTimestamp = orderedGroups[orderedGroups.length - 1][0];
+  const timelineSpan = lastTimestamp - firstTimestamp;
+
+  return orderedGroups.map(([timestamp, group], index) => {
+    const primaryItem = group[0].item;
+    const serviceNames = group.map((entry) => entry.item.name).filter(Boolean);
+    const position = timelineSpan > 0
+      ? ((timestamp - firstTimestamp) / timelineSpan) * 100
+      : orderedGroups.length === 1
+        ? 50
+        : (index / (orderedGroups.length - 1)) * 100;
+
+    return {
+      key: `${timestamp}-${index}`,
+      label: scheduleFormatter.format(group[0].date),
+      detail: group.length === 1
+        ? primaryItem.name
+        : `${group.length} services`,
+      position: Math.min(92, Math.max(8, position)),
+      progress: Math.round(group.reduce((sum, entry) => sum + getProgressValue(entry.item), 0) / group.length),
+    };
+  });
 };
 
 export function OverviewServiceProgressSection({
@@ -88,14 +135,14 @@ export function OverviewServiceProgressSection({
   }
 
   const timelineProgress = getTimelineProgress(serviceItems);
-  const currentStep = getCurrentTimelineStep(serviceItems);
   const deliveredCount = serviceItems.filter((item) => getProgressValue(item) === 100 && item.isDeliverable).length;
   const deliverableCount = serviceItems.filter((item) => item.isDeliverable).length || serviceItems.length;
   const sortedItems = [...serviceItems].sort((a, b) => {
-    const left = a.scheduledAt ? new Date(a.scheduledAt).getTime() : Number.MAX_SAFE_INTEGER;
-    const right = b.scheduledAt ? new Date(b.scheduledAt).getTime() : Number.MAX_SAFE_INTEGER;
+    const left = parseSchedule(a.scheduledAt)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+    const right = parseSchedule(b.scheduledAt)?.getTime() ?? Number.MAX_SAFE_INTEGER;
     return left - right;
   });
+  const checkpoints = buildTimelineCheckpoints(sortedItems);
 
   return (
     <div className="p-2.5 border rounded-lg bg-card">
@@ -115,26 +162,41 @@ export function OverviewServiceProgressSection({
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Progress value={timelineProgress} className="h-2 rounded-full bg-muted [&>div]:bg-primary" />
-
-        {currentStep && (
-          <div className="rounded-md border border-border bg-muted/20 px-2.5 py-2">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="truncate text-xs font-semibold text-foreground">{currentStep.name}</div>
-                <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
-                  {formatSchedule(currentStep.scheduledAt)}
-                  {currentStep.photographerName ? ` · ${currentStep.photographerName}` : ''}
-                  {currentStep.editorName ? ` · Editor: ${currentStep.editorName}` : ''}
-                </div>
-              </div>
-              <Badge variant="outline" className="h-5 shrink-0 px-1.5 text-[10px] font-medium">
-                {formatServiceItemStatus(currentStep.workflowStatus || currentStep.deliveryStatus)}
-              </Badge>
-            </div>
+      <div className="space-y-1.5">
+        {checkpoints.length > 0 && (
+          <div className="relative h-4">
+            {checkpoints.map((checkpoint) => (
+              <span
+                key={`${checkpoint.key}-label`}
+                className="absolute top-0 max-w-24 -translate-x-1/2 truncate text-center text-[10px] font-medium leading-4 text-muted-foreground"
+                style={{ left: `${checkpoint.position}%` }}
+                title={`${checkpoint.label} · ${checkpoint.detail}`}
+              >
+                {checkpoint.label}
+              </span>
+            ))}
           </div>
         )}
+
+        <div className="relative h-4">
+          <Progress value={timelineProgress} className="absolute top-1 h-2 rounded-full bg-muted [&>div]:bg-primary" />
+
+          {checkpoints.map((checkpoint) => (
+            <span
+              key={checkpoint.key}
+              className={[
+                'absolute top-0 h-4 w-4 -translate-x-1/2 rounded-full border-2 shadow-sm',
+                checkpoint.progress >= 100
+                  ? 'border-emerald-500 bg-emerald-500'
+                  : checkpoint.progress >= 50
+                    ? 'border-primary bg-primary'
+                    : 'border-primary bg-card',
+              ].join(' ')}
+              style={{ left: `${checkpoint.position}%` }}
+              title={`${checkpoint.label} · ${checkpoint.detail}`}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );

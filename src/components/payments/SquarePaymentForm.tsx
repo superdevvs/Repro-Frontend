@@ -170,6 +170,15 @@ export function SquarePaymentForm({
     () => serviceItems.filter((item) => item.id && item.balanceDue > 0.01),
     [serviceItems],
   );
+  const displayShootServices = useMemo(() => {
+    const serviceItemNames = serviceItems
+      .map((item) => item.name)
+      .filter((name): name is string => Boolean(name?.trim()));
+
+    return serviceItemNames.length > 0
+      ? Array.from(new Set(serviceItemNames))
+      : shootServices;
+  }, [serviceItems, shootServices]);
   const selectedServiceItems = useMemo(
     () => payableServiceItems.filter((item) => selectedServiceItemIds.includes(item.id)),
     [payableServiceItems, selectedServiceItemIds],
@@ -538,14 +547,14 @@ export function SquarePaymentForm({
             )}
 
             {/* Services */}
-            {shootServices && shootServices.length > 0 && (
+            {displayShootServices.length > 0 && (
               <div className="p-3 border rounded-lg bg-muted/30">
                 <div className="flex items-start gap-2">
                   <Package className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs text-muted-foreground">Services ({shootServices.length})</p>
+                    <p className="text-xs text-muted-foreground">Services ({displayShootServices.length})</p>
                     <div className="text-sm font-medium">
-                      {shootServices.map((service, idx) => (
+                      {displayShootServices.map((service, idx) => (
                         <div key={idx} className="text-sm">• {service}</div>
                       ))}
                     </div>

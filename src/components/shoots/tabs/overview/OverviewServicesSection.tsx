@@ -17,6 +17,10 @@ import { buildServiceTimeOptions, ServiceDatePicker, ServiceTimePicker } from '@
 import { cn } from '@/lib/utils';
 import { ShootData } from '@/types/shoots';
 import type { ServiceCategoryOption, ServiceOption } from './useShootOverviewEditor';
+import {
+  formatDateForWallClockInput,
+  formatTimeForWallClockInput,
+} from '@/utils/wallClockDateTime';
 
 type OverviewServicesSectionProps = {
   isEditMode: boolean;
@@ -50,6 +54,9 @@ const parseScheduleDate = (value?: string | null) => {
 };
 
 const formatDateValue = (value?: string | null) => {
+  const wallClockDate = formatDateForWallClockInput(value);
+  if (wallClockDate) return wallClockDate;
+
   const parsed = parseScheduleDate(value);
   if (!parsed) return '';
   const year = parsed.getFullYear();
@@ -60,6 +67,9 @@ const formatDateValue = (value?: string | null) => {
 
 const formatTimeValue = (value?: string | null) => {
   if (!value) return '';
+  const wallClockTime = formatTimeForWallClockInput(value);
+  if (wallClockTime) return wallClockTime;
+
   const parsed = parseScheduleDate(value);
   if (parsed) {
     return `${String(parsed.getHours()).padStart(2, '0')}:${String(parsed.getMinutes()).padStart(2, '0')}`;
