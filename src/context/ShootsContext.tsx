@@ -854,6 +854,11 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
     completedDate: completedDate ?? undefined,
     expectedFinalCount: toNumber(shoot.expected_final_count),
     expectedRawCount: toNumber(shoot.expected_raw_count),
+    bracketMode: (() => {
+      const raw = (shoot as any).bracket_mode ?? (shoot as any).bracketMode;
+      const n = Number(raw);
+      return n === 3 || n === 5 ? (n as 3 | 5) : null;
+    })(),
     rawPhotoCount: toNumber(shoot.raw_photo_count),
     editedPhotoCount: toNumber(shoot.edited_photo_count),
     extraPhotoCount: toNumber(shoot.extra_photo_count),
