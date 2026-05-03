@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from '@/components/ui/button';
 import { UploadIcon, FileTextIcon, CheckCircleIcon, AlertCircleIcon, DownloadIcon } from 'lucide-react';
 import { useShoots } from '@/context/ShootsContext';
-import { toast } from 'sonner';
+import { toast } from '@/lib/sonner-toast';
 import { API_BASE_URL } from '@/config/env';
 
 interface ImportShootsDialogProps {

@@ -158,6 +158,12 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
 
   const isAdminMiscItem = (item?: InvoiceItem) =>
     item?.type === 'expense' && item?.meta?.source === 'admin_misc';
+  const isWaivedCancellationServiceItem = (item?: InvoiceItem) =>
+    item?.meta?.waived_due_to_cancellation === true || item?.meta?.cancelled_service_charge === true;
+  const getOriginalItemAmount = (item: InvoiceItem, fallback: number) => {
+    const originalAmount = Number(item.meta?.original_amount);
+    return Number.isFinite(originalAmount) && originalAmount > 0 ? originalAmount : fallback;
+  };
 
   const handleAddMiscItem = async () => {
     if (!canEditInvoice) return;
@@ -404,8 +410,12 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
         const description = item.description || item.meta?.service_name || 'Service';
         const photographerName = resolvePhotographerName(item);
         const descLines = doc.splitTextToSize(description, 70);
+        const isWaivedCancellationService = isWaivedCancellationServiceItem(item);
         if (photographerName) {
           descLines.push(`Photographer: ${photographerName}`);
+        }
+        if (isWaivedCancellationService) {
+          descLines.push('Original service charge waived after cancellation');
         }
         const unitAmount = item.unit_amount ?? 0;
         const quantity = item.quantity ?? 1;
@@ -420,6 +430,9 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
         
         // Price
         doc.text(formatCurrency(unitAmount), colPrice, yPos);
+        if (isWaivedCancellationService) {
+          doc.line(colPrice, yPos - 1.5, colPrice + 19, yPos - 1.5);
+        }
         
         // Quantity
         doc.text(String(quantity), colQty + 10, yPos);
@@ -682,14 +695,21 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
                     const quantity = item.quantity ?? 1;
                     const unitAmount = item.unit_amount ?? 0;
                     const totalAmount = item.total_amount ?? unitAmount * quantity;
+                    const isWaivedCancellationService = isWaivedCancellationServiceItem(item);
+                    const originalAmount = getOriginalItemAmount(item, unitAmount * quantity);
                     const photographerName = resolvePhotographerName(item);
                     const isAdminMisc = isAdminMiscItem(item);
                     return (
                     <tr key={item.id || index} className="border-b border-border last:border-b-0">
                       <td className="py-4">
-                        <p className="text-sm font-medium text-foreground">{description}</p>
+                        <p className={`text-sm font-medium text-foreground ${isWaivedCancellationService ? 'line-through text-muted-foreground' : ''}`}>
+                          {description}
+                        </p>
                         {photographerName && (
                           <p className="text-xs text-muted-foreground">Photographer: {photographerName}</p>
+                        )}
+                        {isWaivedCancellationService && (
+                          <p className="text-xs text-muted-foreground">Waived after cancellation</p>
                         )}
                         {isAdminMisc && (
                           <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Misc item</p>
@@ -708,9 +728,22 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
                           </Button>
                         )}
                       </td>
-                      <td className="text-right py-4 text-sm text-muted-foreground">{formatCurrency(unitAmount)}</td>
+                      <td className={`text-right py-4 text-sm text-muted-foreground ${isWaivedCancellationService ? 'line-through' : ''}`}>
+                        {formatCurrency(unitAmount)}
+                      </td>
                       <td className="text-center py-4 text-sm text-muted-foreground">{quantity}</td>
-                      <td className="text-right py-4 text-sm font-medium text-foreground">{formatCurrency(totalAmount)}</td>
+                      <td className="text-right py-4 text-sm font-medium text-foreground">
+                        {isWaivedCancellationService ? (
+                          <div className="flex flex-col items-end">
+                            <span className="text-muted-foreground line-through">
+                              {formatCurrency(originalAmount)}
+                            </span>
+                            <span>{formatCurrency(totalAmount)}</span>
+                          </div>
+                        ) : (
+                          formatCurrency(totalAmount)
+                        )}
+                      </td>
                     </tr>
                   )})
                 ) : (

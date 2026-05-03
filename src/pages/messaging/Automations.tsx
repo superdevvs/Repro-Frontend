@@ -16,7 +16,7 @@ import {
   XCircle,
   Zap,
 } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/sonner-toast';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { AutomationEditorDialog } from '@/components/messaging/automations/AutomationEditorDialog';
 import { EmailNavigation } from '@/components/messaging/email/EmailNavigation';

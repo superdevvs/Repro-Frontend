@@ -266,7 +266,7 @@ export function ShootDetailsModalActionRail({
                   <span>Edit</span>
                 </Button>
               )}
-              {!isEditMode && !isRequestedStatus && canUserPutOnHold && (
+              {!isEditMode && canUserPutOnHold && (
                 <Button
                   variant="outline"
                   size="sm"

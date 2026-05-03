@@ -120,6 +120,39 @@ type ShootMediaTabSource = ShootData & {
   edited_photo_count?: number;
 };
 
+const CLIENT_PROGRESS_STEPS = [
+  {
+    key: 'requested',
+    stageLabel: 'Requested',
+    label: 'Awaiting confirmation',
+    description: "We're waiting for your shoot request to be confirmed.",
+    percent: 10,
+  },
+  {
+    key: 'scheduled',
+    stageLabel: 'Scheduled',
+    label: 'Shoot scheduled',
+    description: 'Your shoot is booked and waiting for the next workflow update.',
+    percent: 30,
+  },
+  {
+    key: 'editing',
+    stageLabel: 'Editing',
+    label: 'Editing in progress',
+    description: 'Your photos are currently being edited.',
+    percent: 60,
+  },
+  {
+    key: 'ready',
+    stageLabel: 'Ready',
+    label: 'Ready',
+    description: "Everything is complete and your shoot is ready.",
+    percent: 100,
+  },
+] as const;
+
+type ClientProgressStageKey = (typeof CLIENT_PROGRESS_STEPS)[number]['key'];
+
 // MediaFile interface is imported from useShootFiles hook
 
 export function useShootDetailsMediaTab({
@@ -861,23 +894,26 @@ export function useShootDetailsMediaTab({
   const normalizedShootStatus = String(shoot?.workflowStatus || mediaShoot.status || '').toLowerCase();
   const normalizeClientProgressStatus = (value: string) => {
     const statusKey = String(value || '').toLowerCase();
-    const aliases: Record<string, 'scheduled' | 'uploaded' | 'editing' | 'review' | 'ready'> = {
-      requested: 'scheduled',
+    const aliases: Record<string, ClientProgressStageKey> = {
+      requested: 'requested',
       approved: 'scheduled',
+      scheduled: 'scheduled',
       booked: 'scheduled',
       raw_upload_pending: 'scheduled',
-      raw_uploaded: 'uploaded',
-      raw_issue: 'uploaded',
-      photos_uploaded: 'uploaded',
-      in_progress: 'uploaded',
-      completed: 'uploaded',
-      editing_uploaded: 'review',
-      editing_complete: 'review',
-      pending_review: 'review',
-      ready_for_review: 'review',
-      review: 'review',
-      qc: 'review',
-      ready: 'review',
+      raw_uploaded: 'editing',
+      raw_issue: 'editing',
+      photos_uploaded: 'editing',
+      in_progress: 'editing',
+      completed: 'editing',
+      uploaded: 'editing',
+      editing: 'editing',
+      editing_uploaded: 'editing',
+      editing_complete: 'editing',
+      pending_review: 'editing',
+      ready_for_review: 'editing',
+      review: 'editing',
+      qc: 'editing',
+      ready: 'ready',
       delivered: 'ready',
       ready_for_client: 'ready',
       admin_verified: 'ready',
@@ -886,7 +922,7 @@ export function useShootDetailsMediaTab({
       finalized: 'ready',
     };
 
-    return aliases[statusKey] || statusKey;
+    return aliases[statusKey] || 'scheduled';
   };
 
   const rawMediaCount = Number(
@@ -938,59 +974,31 @@ export function useShootDetailsMediaTab({
   
   // Calculate progress for non-finalized shoots (for client progress indicator)
   const clientProgress = useMemo(() => {
-    const steps = [
-      {
-        key: 'scheduled',
-        label: normalizedShootStatus.includes('requested') ? 'Awaiting confirmation' : 'Shoot scheduled',
-        description: normalizedShootStatus.includes('requested')
-          ? "We're waiting for your shoot request to be confirmed."
-          : 'Your shoot is booked and waiting for the next workflow update.',
-        percent: 10,
-      },
-      {
-        key: 'uploaded',
-        label: 'Photos uploaded',
-        description: 'The photographer has uploaded the media and it is moving into production.',
-        percent: 30,
-      },
-      {
-        key: 'editing',
-        label: 'Editing in progress',
-        description: 'Your photos are currently being edited.',
-        percent: 50,
-      },
-      {
-        key: 'review',
-        label: 'In review',
-        description: 'Edited files are uploaded and waiting for final admin review.',
-        percent: 75,
-      },
-      {
-        key: 'ready',
-        label: 'Ready',
-        description: "Everything is complete and your shoot is ready.",
-        percent: 100,
-      },
-    ] as const;
+    const isAwaitingRequestConfirmation = progressStatus === 'requested';
+    const steps = isAwaitingRequestConfirmation
+      ? CLIENT_PROGRESS_STEPS
+      : CLIENT_PROGRESS_STEPS
+          .filter((step) => step.key !== 'requested')
+          .map((step) => step.key === 'scheduled' ? { ...step, percent: 10 } : step);
 
-    let stageKey: typeof steps[number]['key'] = 'scheduled';
+    let stageKey: ClientProgressStageKey = isAwaitingRequestConfirmation ? 'requested' : 'scheduled';
 
     if (isShootFinalized || progressStatus === 'ready') {
       stageKey = 'ready';
-    } else if (progressStatus === 'review' || hasReviewSignal) {
-      stageKey = 'review';
-    } else if (progressStatus === 'editing') {
+    } else if (progressStatus === 'editing' || hasReviewSignal) {
       stageKey = 'editing';
-    } else if (progressStatus === 'uploaded' || hasUploadedMedia) {
-      stageKey = 'uploaded';
+    } else if (hasUploadedMedia) {
+      stageKey = 'editing';
     }
 
-    return steps.find((step) => step.key === stageKey) ?? steps[0];
+    return {
+      ...(steps.find((step) => step.key === stageKey) ?? steps[0]),
+      steps,
+    };
   }, [
     hasReviewSignal,
     hasUploadedMedia,
     isShootFinalized,
-    normalizedShootStatus,
     progressStatus,
   ]);
 
@@ -1169,26 +1177,12 @@ export function useShootDetailsMediaTab({
           {/* Status steps */}
           <div className="w-full max-w-xs">
             <div className="flex justify-between items-center text-[10px] text-muted-foreground">
-              <div className={`flex flex-col items-center gap-1 ${progress >= 10 ? 'text-primary' : ''}`}>
-                <div className={`w-2.5 h-2.5 rounded-full ${progress >= 10 ? 'bg-primary' : 'bg-muted'}`} />
-                <span>Scheduled</span>
-              </div>
-              <div className={`flex flex-col items-center gap-1 ${progress >= 30 ? 'text-primary' : ''}`}>
-                <div className={`w-2.5 h-2.5 rounded-full ${progress >= 30 ? 'bg-primary' : 'bg-muted'}`} />
-                <span>Uploaded</span>
-              </div>
-              <div className={`flex flex-col items-center gap-1 ${progress >= 50 ? 'text-primary' : ''}`}>
-                <div className={`w-2.5 h-2.5 rounded-full ${progress >= 50 ? 'bg-primary' : 'bg-muted'}`} />
-                <span>Editing</span>
-              </div>
-              <div className={`flex flex-col items-center gap-1 ${progress >= 75 ? 'text-primary' : ''}`}>
-                <div className={`w-2.5 h-2.5 rounded-full ${progress >= 75 ? 'bg-primary' : 'bg-muted'}`} />
-                <span>Review</span>
-              </div>
-              <div className={`flex flex-col items-center gap-1 ${progress >= 100 ? 'text-primary' : ''}`}>
-                <div className={`w-2.5 h-2.5 rounded-full ${progress >= 100 ? 'bg-primary' : 'bg-muted'}`} />
-                <span>Ready</span>
-              </div>
+              {clientProgress.steps.map((step) => (
+                <div key={step.key} className={`flex flex-col items-center gap-1 ${progress >= step.percent ? 'text-primary' : ''}`}>
+                  <div className={`w-2.5 h-2.5 rounded-full ${progress >= step.percent ? 'bg-primary' : 'bg-muted'}`} />
+                  <span>{step.stageLabel}</span>
+                </div>
+              ))}
             </div>
           </div>
         </div>

@@ -11,13 +11,21 @@ export interface PricingBreakdown {
   totalPaid?: number;
 }
 
-const TAXABLE_STATES = new Set(['MD', 'DC', 'VA']);
+const TAX_RATES_BY_STATE: Record<string, number> = {
+  maryland: 0.06,
+  md: 0.06,
+  'district of columbia': 0.0575,
+  dc: 0.0575,
+  'washington dc': 0.0575,
+  virginia: 0.053,
+  va: 0.053,
+};
 
 const roundCurrency = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 
 export const getTaxRateForState = (state?: string | null) => {
-  const normalizedState = String(state || '').trim().toUpperCase();
-  return TAXABLE_STATES.has(normalizedState) ? 0.06 : 0;
+  const normalizedState = String(state || '').trim().toLowerCase();
+  return TAX_RATES_BY_STATE[normalizedState] ?? 0;
 };
 
 export const calculateDiscountAmount = (

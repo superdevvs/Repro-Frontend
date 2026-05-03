@@ -316,6 +316,9 @@ export interface ShootData {
     paymentStatus?: 'paid' | 'unpaid' | 'partial' | null;
     lastPaymentDate?: string;
     lastPaymentType?: string;
+    originalServiceSubtotal?: number;
+    cancellationFee?: number;
+    isCancellationFeeOnly?: boolean;
   };
   isPrivateListing?: boolean;
   isFeatured?: boolean;

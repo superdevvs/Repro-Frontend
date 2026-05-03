@@ -243,14 +243,7 @@ const getClientEmailHealthAlert = (emailHealth?: EmailHealth | null) => {
       containerClassName:
         'border-rose-200 bg-rose-50/95 text-rose-950 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-100',
       iconClassName: 'text-rose-600 dark:text-rose-300',
-      eyebrowClassName: 'text-rose-700/90 dark:text-rose-200/90',
-      title: 'Client email needs correction',
-      description:
-        emailHealth.warning_message ||
-        'Portal invites and automated booking updates are blocked until this email is corrected.',
-      detail:
-        emailHealth.bounce_reason ||
-        'Update the client email before relying on booking, delivery, or invoice notifications.',
+      message: 'Email needs correction.',
     };
   }
 
@@ -259,13 +252,7 @@ const getClientEmailHealthAlert = (emailHealth?: EmailHealth | null) => {
       containerClassName:
         'border-orange-200 bg-orange-50/95 text-orange-950 dark:border-orange-500/40 dark:bg-orange-500/10 dark:text-orange-100',
       iconClassName: 'text-orange-600 dark:text-orange-300',
-      eyebrowClassName: 'text-orange-700/90 dark:text-orange-200/90',
-      title: 'Client email may be risky',
-      description:
-        emailHealth.warning_message ||
-        'Review this address before relying on automated emails for this booking.',
-      detail:
-        'Important automated sends may be suppressed until the email is corrected or verified.',
+      message: 'Email looks unusual.',
     };
   }
 
@@ -273,13 +260,7 @@ const getClientEmailHealthAlert = (emailHealth?: EmailHealth | null) => {
     containerClassName:
       'border-amber-200 bg-amber-50/95 text-amber-950 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100',
     iconClassName: 'text-amber-600 dark:text-amber-300',
-    eyebrowClassName: 'text-amber-700/90 dark:text-amber-200/90',
-    title: 'Client email is unverified',
-    description:
-      emailHealth.warning_message ||
-      'This client email has not been verified yet.',
-    detail:
-      'Important automated sends may be suppressed until the client verifies the address.',
+    message: 'Email is unverified.',
   };
 };
 
@@ -353,6 +334,9 @@ const adminPropertyFormSchema = z.object({
 type ClientFormValues = z.infer<typeof clientAccountPropertyFormSchema>;
 type AdminFormValues = z.infer<typeof adminPropertyFormSchema>;
 type FormValues = ClientFormValues | AdminFormValues;
+
+const invalidFieldClassName =
+  'border-red-500/60 ring-1 ring-red-500/20 focus-visible:ring-red-500/30 dark:border-red-400/60 dark:ring-red-400/20 dark:focus-visible:ring-red-400/30';
 
 type ClientPropertyFormProps = {
   onComplete: (data: any) => void;
@@ -509,6 +493,9 @@ export const ClientPropertyForm = ({
       }
     ), [isClientAccount]), // ✅ only recompute when role type changes
   });
+
+  const showMissingFieldStroke = (name: keyof AdminFormValues) =>
+    form.formState.submitCount > 0 && Boolean(form.formState.errors[name]);
 
   const watchedClientId = form.watch('clientId' as any);
   const allClients = React.useMemo(() => {
@@ -1247,7 +1234,10 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                                     variant="outline"
                                     role="combobox"
                                     aria-expanded={clientSelectOpen}
-                                    className="w-full justify-between h-12 text-sm font-normal"
+                                    className={cn(
+                                      'w-full justify-between h-12 text-sm font-normal',
+                                      showMissingFieldStroke('clientId') && invalidFieldClassName,
+                                    )}
                                     onClick={() => handleClientSelectOpenChange(true)}
                                   >
                                     <span className="flex items-center gap-2 min-w-0">
@@ -1293,7 +1283,10 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                                       variant="outline"
                                       role="combobox"
                                       aria-expanded={clientSelectOpen}
-                                      className="w-full justify-between h-12 text-sm font-normal"
+                                      className={cn(
+                                        'w-full justify-between h-12 text-sm font-normal',
+                                        showMissingFieldStroke('clientId') && invalidFieldClassName,
+                                      )}
                                     >
                                       <span className="flex items-center gap-2 min-w-0">
                                         {selectedClient && (
@@ -1343,34 +1336,13 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                         {selectedClientEmailAlert && selectedClient && (
                           <div
                             className={cn(
-                              'rounded-xl border px-4 py-3 shadow-sm',
+                              'rounded-xl border px-4 py-3 text-sm font-medium shadow-sm',
                               selectedClientEmailAlert.containerClassName,
                             )}
                           >
-                            <div className="flex items-start gap-3">
-                              <AlertCircle className={cn('mt-0.5 h-4 w-4 shrink-0', selectedClientEmailAlert.iconClassName)} />
-                              <div className="min-w-0 space-y-1">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em]">
-                                    Email health
-                                  </p>
-                                  <EmailHealthBadge emailHealth={selectedClient.email_health} />
-                                </div>
-                                <p className="text-sm font-semibold leading-snug">
-                                  {selectedClientEmailAlert.title}
-                                </p>
-                                <p className="text-sm leading-snug">
-                                  {selectedClientEmailAlert.description}
-                                </p>
-                                <p className={cn('text-xs leading-snug', selectedClientEmailAlert.eyebrowClassName)}>
-                                  Current email: {selectedClient.email}
-                                </p>
-                                {selectedClientEmailAlert.detail && (
-                                  <p className={cn('text-xs leading-snug', selectedClientEmailAlert.eyebrowClassName)}>
-                                    {selectedClientEmailAlert.detail}
-                                  </p>
-                                )}
-                              </div>
+                            <div className="flex items-center gap-2">
+                              <AlertCircle className={cn('h-4 w-4 shrink-0', selectedClientEmailAlert.iconClassName)} />
+                              <span>{selectedClientEmailAlert.message}</span>
                             </div>
                           </div>
                         )}
@@ -1445,6 +1417,10 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                         });
                       }}
                       placeholder="Start typing the property address..."
+                      className={cn(
+                        showMissingFieldStroke('propertyAddress') &&
+                          '[&_input]:border-red-500/60 [&_input]:ring-1 [&_input]:ring-red-500/20 dark:[&_input]:border-red-400/60 dark:[&_input]:ring-red-400/20',
+                      )}
                     />
                   </FormControl>
                   <FormDescription className="text-xs text-muted-foreground">
@@ -1465,7 +1441,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                     value={completeAddress}
                     onChange={(e) => setCompleteAddress(e.target.value)}
                     placeholder="Street address"
-                    className="font-medium"
+                    className={cn('font-medium', showMissingFieldStroke('propertyAddress') && invalidFieldClassName)}
                   />
                   <p className="text-xs text-muted-foreground">
                     You can manually edit this street address if needed.
@@ -1494,7 +1470,11 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                     <FormItem>
                       <FormLabel className="text-xs font-medium text-muted-foreground">City</FormLabel>
                       <FormControl>
-                        <Input placeholder="City" {...field} />
+                        <Input
+                          placeholder="City"
+                          {...field}
+                          className={cn(showMissingFieldStroke('propertyCity') && invalidFieldClassName)}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -1514,7 +1494,10 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                               <Button
                                 type="button"
                                 variant="outline"
-                                className="w-full h-10 justify-between font-normal"
+                                className={cn(
+                                  'w-full h-10 justify-between font-normal',
+                                  showMissingFieldStroke('propertyState') && invalidFieldClassName,
+                                )}
                               >
                                 <span className="truncate">
                                   {STATE_OPTIONS.find((option) => option.value === field.value)?.label || 'Select state'}
@@ -1557,7 +1540,9 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                           </Drawer>
                         ) : (
                           <Select value={field.value} onValueChange={field.onChange}>
-                            <SelectTrigger>
+                            <SelectTrigger
+                              className={cn(showMissingFieldStroke('propertyState') && invalidFieldClassName)}
+                            >
                               <SelectValue placeholder="Select state" />
                             </SelectTrigger>
                             <SelectContent>
@@ -1582,7 +1567,11 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                     <FormItem className="sm:col-span-1 col-span-2">
                       <FormLabel className="text-xs font-medium text-muted-foreground">ZIP Code</FormLabel>
                       <FormControl>
-                        <Input placeholder="ZIP Code" {...field} />
+                        <Input
+                          placeholder="ZIP Code"
+                          {...field}
+                          className={cn(showMissingFieldStroke('propertyZip') && invalidFieldClassName)}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -1647,6 +1636,7 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
                           placeholder="sqft"
                           {...field}
                           value={field.value ?? ''}
+                          className={cn(showMissingFieldStroke('sqft') && invalidFieldClassName)}
                           onChange={(e) => {
                             const value = e.target.value;
                             field.onChange(value === '' ? undefined : Number(value));
@@ -1802,7 +1792,12 @@ const derivedCategories = React.useMemo<CategoryDisplay[]>(() => {
             </TooltipProvider>
           </div>
 
-          <div className="rounded-xl border border-muted/40 bg-card/40 p-4 space-y-3 min-h-[140px]">
+          <div
+            className={cn(
+              'rounded-xl border border-muted/40 bg-card/40 p-4 space-y-3 min-h-[140px] transition-colors',
+              showMissingFieldStroke('selectedPackage') && invalidFieldClassName,
+            )}
+          >
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Selected services</p>

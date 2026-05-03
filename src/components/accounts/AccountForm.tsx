@@ -250,6 +250,7 @@ export function AccountForm({
   const [serverEmailHealth, setServerEmailHealth] = useState<EmailHealth | undefined>(
     normalizeEmailHealth(initialData?.email_health),
   );
+  const hasAutoSelectedDefaultServiceGroupRef = React.useRef(false);
   const { toast } = useToast();
   const { role: viewerRole, user: currentUser } = useAuth();
   const permission = usePermission();
@@ -380,6 +381,7 @@ export function AccountForm({
         setEquipmentRows([]);
         setSelectedExistingEquipmentIds([]);
       } else {
+        hasAutoSelectedDefaultServiceGroupRef.current = false;
         form.reset({
           firstName: "",
           lastName: "",
@@ -493,9 +495,18 @@ export function AccountForm({
       };
     }
 
-    if (serverEmailHealth?.warning_message || serverEmailHealth?.status) {
+    const serverEmailStatus = serverEmailHealth?.status;
+    const shouldShowServerEmailHealth = Boolean(
+      serverEmailHealth?.warning_message ||
+      serverEmailHealth?.suggested_correction ||
+      serverEmailHealth?.requires_confirmation ||
+      serverEmailStatus === 'bounced' ||
+      serverEmailStatus === 'invalid'
+    );
+
+    if (shouldShowServerEmailHealth) {
       return {
-        level: serverEmailHealth?.status === 'bounced' || serverEmailHealth?.status === 'invalid' ? 'error' : 'info',
+        level: serverEmailStatus === 'bounced' || serverEmailStatus === 'invalid' ? 'error' : 'info',
         message: serverEmailHealth?.warning_message || 'This email will stay limited until it is verified.',
         suggestedCorrection: serverEmailHealth?.suggested_correction || undefined,
         requiresConfirmation: serverEmailHealth?.requires_confirmation,
@@ -547,6 +558,26 @@ export function AccountForm({
       })),
     [serviceGroups],
   );
+
+  useEffect(() => {
+    if (!open || initialData || currentRole !== 'client' || hasAutoSelectedDefaultServiceGroupRef.current) {
+      return;
+    }
+
+    const defaultServiceGroup = serviceGroups.find((group) => group.is_default);
+    if (!defaultServiceGroup) {
+      return;
+    }
+
+    hasAutoSelectedDefaultServiceGroupRef.current = true;
+    if ((form.getValues('serviceGroupIds') || []).length === 0) {
+      form.setValue('serviceGroupIds', [defaultServiceGroup.id], {
+        shouldDirty: false,
+        shouldTouch: false,
+        shouldValidate: false,
+      });
+    }
+  }, [currentRole, form, initialData, open, serviceGroups]);
 
   // Fetch admins and reps for account rep dropdown
   useEffect(() => {

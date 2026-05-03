@@ -454,11 +454,14 @@ export function ShootDetailsModal({
     setIsCancellationFeeDialogOpen,
     shouldAddCancellationFee,
     setShouldAddCancellationFee,
+    pendingAction,
     setPendingAction,
     isCancelShootDialogOpen,
     setIsCancelShootDialogOpen,
     cancelShootReason,
     setCancelShootReason,
+    cancelWithoutNotification,
+    setCancelWithoutNotification,
     isCancellingShoot,
     handleSendToEditing,
     handleFinalise,
@@ -839,6 +842,7 @@ export function ShootDetailsModal({
         isSavingChanges={isSavingChanges}
         isCancellationFeeDialogOpen={isCancellationFeeDialogOpen}
         shouldAddCancellationFee={shouldAddCancellationFee}
+        pendingAction={pendingAction}
         isOnHoldDialogOpen={isOnHoldDialogOpen}
         onHoldReason={onHoldReason}
         holdDialogTitle={holdDialogTitle}
@@ -852,7 +856,9 @@ export function ShootDetailsModal({
         cancelShootReason={cancelShootReason}
         isWithinCancellationFeeWindow={isWithinCancellationFeeWindow}
         isCancellingShoot={isCancellingShoot}
+        isAdmin={isAdmin}
         isClient={isClient}
+        cancelWithoutNotification={cancelWithoutNotification}
         canClientDownloadWholeShoot={clientReleaseAccess.canClientDownloadWholeShoot}
         canClientAccessTours={clientReleaseAccess.canClientAccessTours}
         isDownloadDialogOpen={clientReleaseAccess.canClientDownload ? isDownloadDialogOpen : false}
@@ -881,6 +887,7 @@ export function ShootDetailsModal({
         setOnHoldReason={setOnHoldReason}
         setIsCancelShootDialogOpen={setIsCancelShootDialogOpen}
         setCancelShootReason={setCancelShootReason}
+        setCancelWithoutNotification={setCancelWithoutNotification}
         setIsDownloadDialogOpen={setIsDownloadDialogOpen}
         setIsApprovalModalOpen={setIsApprovalModalOpen}
         setIsDeclineModalOpen={setIsDeclineModalOpen}

@@ -45,8 +45,15 @@ export function useShootDetailsModalWorkflow({
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [isCancelShootDialogOpen, setIsCancelShootDialogOpen] = useState(false);
   const [cancelShootReason, setCancelShootReason] = useState('');
+  const [cancelWithoutNotification, setCancelWithoutNotification] = useState(false);
   const [isCancellingShoot, setIsCancellingShoot] = useState(false);
   const shouldShowCancellationFeePrompt = !isClient && isWithinCancellationFeeWindow;
+  const currentStatus = String(shoot?.workflowStatus || shoot?.status || '').toLowerCase();
+  const shouldShowClientCancellationFeeNotice =
+    isClient &&
+    canRequestCancellation &&
+    !canWithdrawRequestedShoot &&
+    ['scheduled', 'booked', 'on_hold'].includes(currentStatus);
 
   const handleSendToEditing = async () => {
     if (!shoot) return;
@@ -189,7 +196,7 @@ export function useShootDetailsModalWorkflow({
 
   const handleMarkOnHoldClick = () => {
     blurActiveElement();
-    if (isWithinCancellationFeeWindow) {
+    if (shouldShowCancellationFeePrompt) {
       setPendingAction('hold');
       setIsCancellationFeeDialogOpen(true);
     } else {
@@ -307,11 +314,15 @@ export function useShootDetailsModalWorkflow({
       };
 
       if (!isClientImmediateWithdrawal && !isClientCancellationRequest) {
-        payload.notify_client = true;
+        payload.notify_client = !cancelWithoutNotification;
+        payload.suppress_notifications = cancelWithoutNotification;
       }
 
       if (!isClient && isWithinCancellationFeeWindow && shouldAddCancellationFee) {
         payload.cancellation_fee = 60;
+      }
+      if (isClientCancellationRequest) {
+        payload.cancellation_fee_notice_acknowledged = true;
       }
 
       const endpoint = isClientImmediateWithdrawal
@@ -349,6 +360,7 @@ export function useShootDetailsModalWorkflow({
 
       setIsCancelShootDialogOpen(false);
       setCancelShootReason('');
+      setCancelWithoutNotification(false);
       setShouldAddCancellationFee(false);
       onShootUpdate?.();
     } catch (error) {
@@ -366,7 +378,7 @@ export function useShootDetailsModalWorkflow({
 
   const handleCancelShootClick = () => {
     blurActiveElement();
-    if (shouldShowCancellationFeePrompt) {
+    if (shouldShowCancellationFeePrompt || shouldShowClientCancellationFeeNotice) {
       setPendingAction('cancel');
       setIsCancellationFeeDialogOpen(true);
     } else {
@@ -490,12 +502,14 @@ export function useShootDetailsModalWorkflow({
     shouldAddCancellationFee,
     setShouldAddCancellationFee,
     pendingAction,
-    setPendingAction,
-    isCancelShootDialogOpen,
-    setIsCancelShootDialogOpen,
-    cancelShootReason,
-    setCancelShootReason,
-    isCancellingShoot,
+      setPendingAction,
+      isCancelShootDialogOpen,
+      setIsCancelShootDialogOpen,
+      cancelShootReason,
+      setCancelShootReason,
+      cancelWithoutNotification,
+      setCancelWithoutNotification,
+      isCancellingShoot,
     handleSendToEditing,
     handleFinalise,
     handleMarkOnHoldClick,

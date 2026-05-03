@@ -139,6 +139,22 @@ export function normalizeEmailHealth(value: unknown): EmailHealth | undefined {
   }
 
   const emailHealth = value as Record<string, unknown>;
+  const warningCode = asNullableString(emailHealth.warning_code);
+
+  if (warningCode === 'unusual_domain') {
+    return {
+      status: 'unverified',
+      verification_sent_at: asNullableString(emailHealth.verification_sent_at),
+      email_verified_at: asNullableString(emailHealth.email_verified_at),
+      last_delivery_attempt_at: asNullableString(emailHealth.last_delivery_attempt_at),
+      last_bounce_at: asNullableString(emailHealth.last_bounce_at),
+      bounce_reason: asNullableString(emailHealth.bounce_reason),
+      warning_code: null,
+      warning_message: null,
+      suggested_correction: null,
+      requires_confirmation: false,
+    };
+  }
 
   return {
     status: asEmailHealthStatus(emailHealth.status),
@@ -147,7 +163,7 @@ export function normalizeEmailHealth(value: unknown): EmailHealth | undefined {
     last_delivery_attempt_at: asNullableString(emailHealth.last_delivery_attempt_at),
     last_bounce_at: asNullableString(emailHealth.last_bounce_at),
     bounce_reason: asNullableString(emailHealth.bounce_reason),
-    warning_code: asNullableString(emailHealth.warning_code),
+    warning_code: warningCode,
     warning_message: asNullableString(emailHealth.warning_message),
     suggested_correction: asNullableString(emailHealth.suggested_correction),
     requires_confirmation: Boolean(emailHealth.requires_confirmation),
@@ -215,18 +231,8 @@ export function analyzeEmailInput(email: string): LocalEmailHealthHint {
     }
   }
 
-  if (!COMMON_DOMAINS.has(domain)) {
-    return {
-      level: 'info',
-      status: 'risky',
-      message: 'This domain looks unusual. Please confirm before saving.',
-    };
-  }
-
   return {
-    level: 'info',
-    status: 'unverified',
-    message: 'This email will be saved as unverified until the account holder confirms it.',
+    level: 'none',
   };
 }
 

@@ -4,7 +4,7 @@ import { Loader2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { toast } from 'sonner';
+import { toast } from '@/lib/sonner-toast';
 import { AutomationWorkflowNode } from '@/components/messaging/automations/AutomationWorkflowNode';
 import { type AutomationFlowNode } from '@/components/messaging/automations/automationWorkflowTypes';
 import {

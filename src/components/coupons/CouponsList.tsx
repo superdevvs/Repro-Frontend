@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Card } from '@/components/ui/card';
 import { CouponCard } from './CouponCard';
 import { useAuth } from '@/components/auth/AuthProvider';
-import { toast } from 'sonner';
+import { toast } from '@/lib/sonner-toast';
 import axios from 'axios';
 import { API_BASE_URL } from '@/config/env';
 

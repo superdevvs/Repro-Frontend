@@ -44,6 +44,7 @@ interface ShootDetailsModalDialogsProps {
   isSavingChanges: boolean;
   isCancellationFeeDialogOpen: boolean;
   shouldAddCancellationFee: boolean;
+  pendingAction: 'hold' | 'cancel' | null;
   isOnHoldDialogOpen: boolean;
   onHoldReason: string;
   holdDialogTitle: string;
@@ -57,7 +58,9 @@ interface ShootDetailsModalDialogsProps {
   cancelShootReason: string;
   isWithinCancellationFeeWindow: boolean;
   isCancellingShoot: boolean;
+  isAdmin: boolean;
   isClient: boolean;
+  cancelWithoutNotification: boolean;
   canClientDownloadWholeShoot?: boolean;
   canClientAccessTours?: boolean;
   isDownloadDialogOpen: boolean;
@@ -86,6 +89,7 @@ interface ShootDetailsModalDialogsProps {
   setOnHoldReason: (reason: string) => void;
   setIsCancelShootDialogOpen: (open: boolean) => void;
   setCancelShootReason: (reason: string) => void;
+  setCancelWithoutNotification: (value: boolean) => void;
   setIsDownloadDialogOpen: (open: boolean) => void;
   setIsApprovalModalOpen: (open: boolean) => void;
   setIsDeclineModalOpen: (open: boolean) => void;
@@ -123,6 +127,7 @@ export function ShootDetailsModalDialogs({
   isSavingChanges,
   isCancellationFeeDialogOpen,
   shouldAddCancellationFee,
+  pendingAction,
   isOnHoldDialogOpen,
   onHoldReason,
   holdDialogTitle,
@@ -136,7 +141,9 @@ export function ShootDetailsModalDialogs({
   cancelShootReason,
   isWithinCancellationFeeWindow,
   isCancellingShoot,
+  isAdmin,
   isClient,
+  cancelWithoutNotification,
   canClientDownloadWholeShoot = true,
   canClientAccessTours = true,
   isDownloadDialogOpen,
@@ -165,6 +172,7 @@ export function ShootDetailsModalDialogs({
   setOnHoldReason,
   setIsCancelShootDialogOpen,
   setCancelShootReason,
+  setCancelWithoutNotification,
   setIsDownloadDialogOpen,
   setIsApprovalModalOpen,
   setIsDeclineModalOpen,
@@ -196,7 +204,13 @@ export function ShootDetailsModalDialogs({
         )
         .filter(Boolean)
     : [];
+  const showSilentCancelOption = isAdmin && !isDelivered;
+  const cancelDialogNotice =
+    showSilentCancelOption && cancelWithoutNotification
+      ? 'This will permanently cancel the shoot. No emails or dashboard notifications will be sent.'
+      : cancelDialogDescription;
   const paymentServiceItems = getShootServiceItems(shoot).filter((item) => item.balanceDue > 0.01);
+  const isClientCancellationFeeNotice = isClient && pendingAction === 'cancel';
 
   return (
     <>
@@ -302,30 +316,36 @@ export function ShootDetailsModalDialogs({
           <DialogHeader>
             <DialogTitle>Cancellation Fee Notice</DialogTitle>
             <DialogDescription>
-              This shoot is scheduled within 3-4 hours. A cancellation fee of $60 may apply.
+              {isClientCancellationFeeNotice
+                ? 'A $60 cancellation fee may be applied if this scheduled shoot is cancelled.'
+                : 'This shoot is scheduled within 3-4 hours. A cancellation fee of $60 may apply.'}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
               <p className="text-sm text-amber-800 dark:text-amber-200">
-                <strong>Notice:</strong> This shoot is scheduled within 3-4 hours. According to our policy, a cancellation fee of $60 may be charged.
+                <strong>Notice:</strong> {isClientCancellationFeeNotice
+                  ? 'Your cancellation request will be sent to admin for approval. If approved, a $60 cancellation fee may replace the original service charges on the invoice.'
+                  : 'This shoot is scheduled within 3-4 hours. According to our policy, a cancellation fee of $60 may be charged.'}
               </p>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="addCancellationFee">Add cancellation fee to invoice?</Label>
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id="addCancellationFee"
-                  checked={shouldAddCancellationFee}
-                  onChange={(e) => setShouldAddCancellationFee(e.target.checked)}
-                  className="h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
-                />
-                <Label htmlFor="addCancellationFee" className="text-sm font-normal cursor-pointer">
-                  Yes, add $60 cancellation fee to the invoice
-                </Label>
+            {!isClientCancellationFeeNotice && (
+              <div className="space-y-2">
+                <Label htmlFor="addCancellationFee">Add cancellation fee to invoice?</Label>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="addCancellationFee"
+                    checked={shouldAddCancellationFee}
+                    onChange={(e) => setShouldAddCancellationFee(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+                  />
+                  <Label htmlFor="addCancellationFee" className="text-sm font-normal cursor-pointer">
+                    Yes, add $60 cancellation fee to the invoice
+                  </Label>
+                </div>
               </div>
-            </div>
+            )}
           </div>
           <div className="flex justify-end gap-2">
             <Button
@@ -382,11 +402,21 @@ export function ShootDetailsModalDialogs({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isCancelShootDialogOpen} onOpenChange={setIsCancelShootDialogOpen}>
+      <Dialog
+        open={isCancelShootDialogOpen}
+        onOpenChange={(open) => {
+          setIsCancelShootDialogOpen(open);
+          if (!open) {
+            setCancelShootReason('');
+            setCancelWithoutNotification(false);
+            setShouldAddCancellationFee(false);
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>{cancelDialogTitle}</DialogTitle>
-            <DialogDescription>{cancelDialogDescription}</DialogDescription>
+            <DialogDescription>{cancelDialogNotice}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg p-4">
@@ -395,7 +425,9 @@ export function ShootDetailsModalDialogs({
                   ? 'This action cannot be undone. The shoot and all associated files will be permanently deleted.'
                   : isClient
                     ? 'Your request will be processed immediately for unapproved shoots, or sent for admin review for scheduled shoots.'
-                    : 'This action cannot be undone. The shoot will be marked as cancelled and the client will be notified.'}
+                    : cancelWithoutNotification
+                      ? 'This action cannot be undone. The shoot will be marked as cancelled without sending email or dashboard notifications.'
+                      : 'This action cannot be undone. The shoot will be marked as cancelled and the client will be notified.'}
               </p>
             </div>
             {!isDelivered && (
@@ -411,7 +443,7 @@ export function ShootDetailsModalDialogs({
                 />
               </div>
             )}
-            {!isDelivered && isWithinCancellationFeeWindow && (
+            {!isDelivered && !isClient && isWithinCancellationFeeWindow && (
               <div className="space-y-2">
                 <Label htmlFor="addCancellationFeeCancelDialog">Add cancellation fee to invoice?</Label>
                 <div className="flex items-center space-x-2">
@@ -428,6 +460,26 @@ export function ShootDetailsModalDialogs({
                 </div>
               </div>
             )}
+            {showSilentCancelOption && (
+              <div className="rounded-lg border border-border/70 bg-muted/30 p-3">
+                <div className="flex items-start gap-3">
+                  <Checkbox
+                    id="cancelWithoutNotification"
+                    checked={cancelWithoutNotification}
+                    onCheckedChange={(checked) => setCancelWithoutNotification(checked === true)}
+                    className="mt-0.5"
+                  />
+                  <div className="space-y-1">
+                    <Label htmlFor="cancelWithoutNotification" className="text-sm font-medium cursor-pointer">
+                      Cancel without notification
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Do not send cancellation emails, dashboard notifications, or cancellation automations.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
           <div className="flex justify-end gap-2">
             <Button
@@ -435,6 +487,7 @@ export function ShootDetailsModalDialogs({
               onClick={() => {
                 setIsCancelShootDialogOpen(false);
                 setCancelShootReason('');
+                setCancelWithoutNotification(false);
                 setShouldAddCancellationFee(false);
               }}
               disabled={isCancellingShoot}

@@ -17,7 +17,7 @@ import type { PaginatedResponseMeta, SmsContact, SmsThreadDetail, SmsThreadFilte
 import { useSmsRealtime } from '@/hooks/use-sms-realtime';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { Drawer, DrawerContent } from '@/components/ui/drawer';
-import { toast } from 'sonner';
+import { toast } from '@/lib/sonner-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useSearchParams } from 'react-router-dom';
 

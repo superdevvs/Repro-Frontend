@@ -145,7 +145,10 @@ export const ShootListRow = ({
     if (!value) return '—'
     try { return formatDatePref(new Date(value)) } catch { return value ?? '—' }
   }
-  const statusLabel = formatWorkflowStatus(shoot.workflowStatus ?? shoot.status ?? '')
+  const rawStatusValue = shoot.workflowStatus ?? shoot.status ?? ''
+  const statusLabel = formatWorkflowStatus(rawStatusValue)
+  const normalizedStatusValue = String(rawStatusValue).toLowerCase()
+  const isCancelledStatus = normalizedStatusValue === 'cancelled' || normalizedStatusValue === 'canceled'
   const paymentStatus = isSuperAdmin && shoot.payment?.totalPaid && shoot.payment?.totalQuote
     ? shoot.payment.totalPaid >= shoot.payment.totalQuote
       ? 'Paid'
@@ -168,7 +171,14 @@ export const ShootListRow = ({
           </h3>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="outline" className="uppercase tracking-wide">
+          <Badge
+            variant="outline"
+            className={cn(
+              'uppercase tracking-wide',
+              isCancelledStatus &&
+                'border-red-500/80 bg-red-500/10 text-red-700 shadow-[0_0_0_1px_rgba(239,68,68,0.35)] dark:bg-red-950/40 dark:text-red-200'
+            )}
+          >
             {statusLabel || 'status'}
           </Badge>
           {paymentStatus && (

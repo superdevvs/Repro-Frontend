@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { DialogClose } from '@/components/ui/dialog';
-import { toast } from 'sonner';
+import { toast } from '@/lib/sonner-toast';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { 
   DialogContent,

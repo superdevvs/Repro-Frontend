@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { toast } from 'sonner';
+import { toast } from '@/lib/sonner-toast';
 
 import { useAuth } from '@/components/auth';
 import { withApiBase } from '@/config/env';

@@ -12,7 +12,7 @@ import { useAuth } from "@/components/auth";
 import { MultiSelectChecklist } from "@/components/ui/multi-select-checklist";
 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { toast as sonnerToast } from "sonner";
+import { toast as sonnerToast } from "@/lib/sonner-toast";
 import { DollarSignIcon as DSIcon } from "lucide-react";
 import { ShootData, ShootGhostUser } from "@/types/shoots";
 import { format } from "date-fns";

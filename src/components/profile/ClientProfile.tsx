@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ImageUpload } from "@/components/profile/ImageUpload";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { toast } from "sonner";
+import { toast } from "@/lib/sonner-toast";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Facebook, Linkedin, Loader2, Twitter } from "lucide-react";

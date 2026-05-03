@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { ImageUpload } from "@/components/profile/ImageUpload";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { toast } from "sonner";
+import { toast } from "@/lib/sonner-toast";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { MapPin, Calendar, ExternalLink, FileText, Camera, Loader2 } from "lucide-react";

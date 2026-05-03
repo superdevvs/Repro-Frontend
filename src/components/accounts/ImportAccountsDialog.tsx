@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { UploadIcon, FileTextIcon, CheckCircleIcon, AlertCircleIcon, DownloadIcon } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/sonner-toast';
 import { API_BASE_URL } from '@/config/env';
 
 interface ImportAccountsDialogProps {

@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
-import { toast } from 'sonner';
+import { toast } from '@/lib/sonner-toast';
 import { format } from 'date-fns';
 import { composeEmail, retryEmail, cancelEmail } from '@/services/messaging';
 import type { Message } from '@/types/messaging';

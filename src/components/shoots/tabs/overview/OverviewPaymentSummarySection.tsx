@@ -36,6 +36,10 @@ export function OverviewPaymentSummarySection({
 }: OverviewPaymentSummarySectionProps) {
   const formattedPaymentBalance = `$${paymentBalance.toFixed(2)}`;
   const payNowLabel = `Pay ${formattedPaymentBalance}`;
+  const isCancellationFeeOnly = Boolean(shoot.payment?.isCancellationFeeOnly);
+  const originalServiceSubtotal = Number(shoot.payment?.originalServiceSubtotal || 0);
+  const cancellationFee = Number(shoot.payment?.cancellationFee || shoot.payment?.totalQuote || 0);
+  const shouldShowCancelledServiceCharges = isCancellationFeeOnly && originalServiceSubtotal > 0;
 
   return (
     <div className="p-2.5 border rounded-lg bg-card">
@@ -92,10 +96,25 @@ export function OverviewPaymentSummarySection({
         <div className="space-y-0.5 text-xs">
           {isAdmin ? (
             <>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Base:</span>
-                <span>${(Number(shoot.payment?.baseQuote) || 0).toFixed(2)}</span>
-              </div>
+              {shouldShowCancelledServiceCharges ? (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Services:</span>
+                    <span className="text-muted-foreground line-through">
+                      ${originalServiceSubtotal.toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Cancellation fee:</span>
+                    <span>${cancellationFee.toFixed(2)}</span>
+                  </div>
+                </>
+              ) : (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Base:</span>
+                  <span>${(Number(shoot.payment?.baseQuote) || 0).toFixed(2)}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Tax:</span>
                 <span>${(Number(shoot.payment?.taxAmount) || 0).toFixed(2)}</span>
@@ -118,6 +137,20 @@ export function OverviewPaymentSummarySection({
             </>
           ) : isClient ? (
             <>
+              {shouldShowCancelledServiceCharges && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Services:</span>
+                  <span className="text-muted-foreground line-through">
+                    ${originalServiceSubtotal.toFixed(2)}
+                  </span>
+                </div>
+              )}
+              {shouldShowCancelledServiceCharges && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Cancellation fee:</span>
+                  <span>${cancellationFee.toFixed(2)}</span>
+                </div>
+              )}
               <div className="flex justify-between font-medium">
                 <span>Total:</span>
                 <span>${(Number(shoot.payment?.totalQuote) || 0).toFixed(2)}</span>

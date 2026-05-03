@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Check, X } from "lucide-react";
+import { getTaxRateForState } from "@/utils/pricing";
 
 interface BookShootInvoiceProps {
   packagePrice: number;
@@ -30,9 +31,10 @@ export const BookShootInvoice = ({
   const [couponSuccess, setCouponSuccess] = React.useState<boolean>(false);
   
   const subtotal = packagePrice; // Only package price, photographer fee is internal
-  const taxRate = state === 'MD' ? 6 : state === 'VA' ? 5.3 : state === 'DC' ? 6 : 0;
-  const taxAmount = ((subtotal - discount) * taxRate) / 100;
+  const taxRate = getTaxRateForState(state);
+  const taxAmount = (subtotal - discount) * taxRate;
   const total = subtotal - discount + taxAmount;
+  const taxPercent = taxRate * 100;
   
   const handleApplyCoupon = () => {
     if (!couponCode.trim()) {
@@ -70,7 +72,7 @@ export const BookShootInvoice = ({
           )}
           
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Tax ({taxRate}%)</span>
+            <span className="text-muted-foreground">Tax ({taxPercent}%)</span>
             <span>${taxAmount.toFixed(2)}</span>
           </div>
           

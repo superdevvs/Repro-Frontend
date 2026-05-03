@@ -17,7 +17,7 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/sonner-toast';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { EmailNavigation } from '@/components/messaging/email/EmailNavigation';
 import { useAuth } from '@/components/auth/AuthProvider';

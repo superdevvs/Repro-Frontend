@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { ArrowRight, Bell, Clock3, Mail, MessageSquare, Sparkles } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/sonner-toast';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {

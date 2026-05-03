@@ -179,6 +179,8 @@ export const CancellationRequestsDialog: React.FC<CancellationRequestsDialogProp
               {shoots.map((shoot) => {
                 const isActioning = actionLoading === shoot.id;
                 const dateStr = formatDate(shoot);
+                const normalizedStatus = String(shoot.status || '').toLowerCase();
+                const canApplyCancellationFee = ['scheduled', 'booked', 'on_hold'].includes(normalizedStatus);
                 return (
                   <div
                     key={shoot.id}
@@ -217,6 +219,11 @@ export const CancellationRequestsDialog: React.FC<CancellationRequestsDialogProp
                         {shoot.cancellationReason}
                       </p>
                     )}
+                    {canApplyCancellationFee && (
+                      <p className="text-[11px] text-amber-700 dark:text-amber-300">
+                        Approval will apply a $60 cancellation fee and waive service charges.
+                      </p>
+                    )}
 
                     {/* Actions */}
                     <div className="flex items-center gap-2 pt-1">
@@ -228,7 +235,7 @@ export const CancellationRequestsDialog: React.FC<CancellationRequestsDialogProp
                         onClick={() => handleApprove(shoot.id)}
                       >
                         {isActioning ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" strokeWidth={2} />}
-                        Accept
+                        {canApplyCancellationFee ? 'Accept + $60' : 'Accept'}
                       </Button>
                       <Button
                         size="sm"

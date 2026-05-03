@@ -23,6 +23,28 @@ export default function ResetPassword() {
 
   const token = searchParams.get('token');
   const email = searchParams.get('email');
+  const isCreateMode = searchParams.get('mode') === 'create';
+  const pageCopy = isCreateMode
+    ? {
+        successToastTitle: 'Password Created',
+        successToastDescription: 'Your password has been created. You can now login with your new password.',
+        successTitle: 'Password Created',
+        successDescription: 'Your password has been created successfully. Redirecting to login...',
+        title: 'Create Your Password',
+        description: 'Enter your password below',
+        submitLoading: 'Creating Password...',
+        submit: 'Create Password',
+      }
+    : {
+        successToastTitle: 'Password Reset Successful',
+        successToastDescription: 'Your password has been reset. You can now login with your new password.',
+        successTitle: 'Password Reset Successful',
+        successDescription: 'Your password has been reset successfully. Redirecting to login...',
+        title: 'Reset Your Password',
+        description: 'Enter your new password below',
+        submitLoading: 'Resetting Password...',
+        submit: 'Reset Password',
+      };
 
   useEffect(() => {
     if (!token || !email) {
@@ -68,8 +90,8 @@ export default function ResetPassword() {
 
       setIsSuccess(true);
       toast({
-        title: 'Password Reset Successful',
-        description: 'Your password has been reset. You can now login with your new password.',
+        title: pageCopy.successToastTitle,
+        description: pageCopy.successToastDescription,
       });
 
       // Redirect to login after 3 seconds
@@ -96,9 +118,9 @@ export default function ResetPassword() {
             <div className="mx-auto w-12 h-12 bg-green-500/20 rounded-full flex items-center justify-center mb-4">
               <CheckCircle className="w-6 h-6 text-green-500" />
             </div>
-            <CardTitle className="text-white">Password Reset Successful</CardTitle>
+            <CardTitle className="text-white">{pageCopy.successTitle}</CardTitle>
             <CardDescription className="text-slate-400">
-              Your password has been reset successfully. Redirecting to login...
+              {pageCopy.successDescription}
             </CardDescription>
           </CardHeader>
           <CardContent className="text-center">
@@ -138,9 +160,9 @@ export default function ResetPassword() {
     <div className="min-h-screen flex items-center justify-center bg-[#060a0e] p-4">
       <Card className="w-full max-w-md bg-slate-900 border-slate-800">
         <CardHeader className="text-center">
-          <CardTitle className="text-white text-2xl">Reset Your Password</CardTitle>
+          <CardTitle className="text-white text-2xl">{pageCopy.title}</CardTitle>
           <CardDescription className="text-slate-400">
-            Enter your new password below
+            {pageCopy.description}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -214,10 +236,10 @@ export default function ResetPassword() {
               {isLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Resetting Password...
+                  {pageCopy.submitLoading}
                 </>
               ) : (
-                'Reset Password'
+                pageCopy.submit
               )}
             </Button>
           </form>

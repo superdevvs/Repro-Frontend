@@ -67,8 +67,8 @@ const statusColors: Record<string, string> = {
   // Other statuses
   on_hold: 'bg-amber-100 text-amber-700 border-amber-200',
   declined: 'bg-red-100 text-red-700 border-red-200',
-  canceled: 'bg-gray-100 text-gray-700 border-gray-200',
-  cancelled: 'bg-gray-100 text-gray-700 border-gray-200',
+  canceled: 'border-red-500/80 bg-red-500/10 text-red-700 shadow-[0_0_0_1px_rgba(239,68,68,0.35)] dark:bg-red-950/40 dark:text-red-200',
+  cancelled: 'border-red-500/80 bg-red-500/10 text-red-700 shadow-[0_0_0_1px_rgba(239,68,68,0.35)] dark:bg-red-950/40 dark:text-red-200',
 };
 
 const roleDefaultActions: Record<Role, ShootAction> = {
@@ -98,6 +98,7 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
   const { formatTemperature, formatTime, formatDate } = useUserPreferences();
   const normalizedStatus = String(shoot.workflowStatus || shoot.status || '').toLowerCase();
   const isPreShootStatus = normalizedStatus === 'scheduled' || normalizedStatus === 'booked' || normalizedStatus === 'requested' || normalizedStatus === 'on_hold';
+  const showScheduleStatusPill = normalizedStatus === 'requested' || normalizedStatus === 'scheduled' || normalizedStatus === 'booked';
   const heroImage = normalizeImageUrl(shoot.heroImage) || (!isPreShootStatus ? '/placeholder.svg' : null);
   // Get status color - check both workflowStatus and status, and handle case-insensitive lookup
   const statusKey = normalizedStatus;
@@ -265,6 +266,16 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
               >
                 {shoot.location.city}, {getStateFullName(shoot.location.state)} {shoot.location.zip}
               </p>
+              {showScheduleStatusPill && (
+                <Badge
+                  className={cn(
+                    'mt-2 inline-flex w-fit rounded-md border px-2.5 py-0.5 text-xs font-semibold capitalize',
+                    statusClass,
+                  )}
+                >
+                  {formatWorkflowStatus(shoot.workflowStatus || shoot.status)}
+                </Badge>
+              )}
             </div>
             {/* Date and Time stacked vertically on the right */}
             <div className="flex flex-col items-start gap-1 text-xs text-muted-foreground flex-shrink-0 min-[1180px]:items-end min-[1180px]:text-sm">

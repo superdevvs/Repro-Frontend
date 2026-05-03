@@ -24,6 +24,7 @@ import { API_BASE_URL } from '@/config/env';
 import { normalizeState, isValidState } from '@/utils/stateUtils';
 import { calculatePricingBreakdown, getTaxRateForState, type PricingBreakdown } from '@/utils/pricing';
 import { normalizeEmailHealth } from '@/utils/emailHealth';
+import { AlertTriangle } from 'lucide-react';
 
 type SqftRange = {
   id?: number;
@@ -102,6 +103,39 @@ const buildNormalizedAddress = (params: {
 
   return parts.join(', ');
 };
+
+const normalizeDuplicateAddressKey = (value?: string | null) =>
+  normalizeAddressPart(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '');
+
+const getDateKey = (value?: Date | string | null) => {
+  if (!value) return '';
+  if (value instanceof Date) {
+    return toDateInputValue(value);
+  }
+
+  const raw = String(value).trim();
+  const directDate = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (directDate) {
+    return directDate[1];
+  }
+
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) {
+    return '';
+  }
+
+  return toDateInputValue(parsed);
+};
+
+const duplicateCheckIgnoredStatuses = new Set([
+  'cancelled',
+  'canceled',
+  'declined',
+  'rejected',
+  'archived',
+]);
 
 const roundCurrency = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 
@@ -256,7 +290,7 @@ const BookShoot = () => {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [clientPropertyFormKey, setClientPropertyFormKey] = useState(0);
   const { toast } = useToast();
-  const { addShoot } = useShoots();
+  const { addShoot, shoots } = useShoots();
   const navigate = useNavigate();
   const [photographers, setPhotographersList] = useState<Array<{ id: string; name: string; avatar?: string }>>([]);
   const [availablePhotographerIds, setAvailablePhotographerIds] = useState<string[]>([]);
@@ -296,6 +330,49 @@ const BookShoot = () => {
     
     return hasClient && hasAddress && hasCity && hasState && hasZip && hasDate && hasTime && hasServices;
   }, [isClientAccount, client, address, city, state, zip, date, time, selectedServices]);
+
+  const sameDayAddressShoot = React.useMemo(() => {
+    const selectedDateKey = getDateKey(date);
+    const selectedAddressKey = normalizeDuplicateAddressKey(
+      buildNormalizedAddress({ address, city, state, zip }) || address,
+    );
+
+    if (!selectedDateKey || !selectedAddressKey) {
+      return undefined;
+    }
+
+    return shoots.find((shoot) => {
+      if (!shoot || (editShootId && String(shoot.id) === String(editShootId))) {
+        return false;
+      }
+
+      const statusKey = String(shoot.status || shoot.workflowStatus || '').trim().toLowerCase();
+      if (duplicateCheckIgnoredStatuses.has(statusKey)) {
+        return false;
+      }
+
+      if (getDateKey(shoot.scheduledDate) !== selectedDateKey) {
+        return false;
+      }
+
+      const location = shoot.location;
+      const shootAddressKeys = [
+        location.fullAddress,
+        buildNormalizedAddress({
+          address: location.address,
+          city: location.city,
+          state: location.state,
+          zip: location.zip,
+        }),
+      ]
+        .map(normalizeDuplicateAddressKey)
+        .filter(Boolean);
+
+      return shootAddressKeys.includes(selectedAddressKey);
+    });
+  }, [address, city, date, editShootId, shoots, state, zip]);
+
+  const showSameDayAddressWarning = step === 2 && Boolean(sameDayAddressShoot);
   
   // Check if user should have form data cached (admin, rep, or photographer)
   const shouldCacheForm = user && ['admin', 'superadmin', 'rep', 'photographer'].includes(user.role);
@@ -1714,6 +1791,16 @@ type CompletedBookingSnapshot = {
                   title={currentStepContent.title}
                   description={currentStepContent.description}
                 />
+                {showSameDayAddressWarning && (
+                  <div className="w-full rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100 shadow-sm md:ml-auto md:max-w-xl">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 flex-none text-amber-300" />
+                      <p className="leading-5">
+                        This shoot is already booked for this address on the same day. Please check your date.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <BookingStepIndicator currentStep={step} totalSteps={3} />

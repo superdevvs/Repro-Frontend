@@ -85,6 +85,10 @@ export type InvoiceViewDialogItem = InvoiceItem & {
     service_name?: string;
     photographer_name?: string;
     source?: string;
+    waived_due_to_cancellation?: boolean;
+    cancelled_service_charge?: boolean;
+    original_amount?: number;
+    cancellation_fee?: boolean;
     [key: string]: unknown;
   } | null;
 };

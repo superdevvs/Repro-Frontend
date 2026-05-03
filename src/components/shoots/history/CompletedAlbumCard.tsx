@@ -253,7 +253,7 @@ export const CompletedAlbumCard = ({
               // Review status removed - no longer needed
               if (statusKey.includes('delivered') || statusKey.includes('admin_verified') || statusKey.includes('ready_for_client') || statusKey.includes('ready')) return 'bg-emerald-500 text-white';
               if (statusKey.includes('declined')) return 'bg-red-500 text-white';
-              if (statusKey.includes('cancel')) return 'bg-gray-500 text-white';
+              if (statusKey.includes('cancel')) return 'border border-red-500/80 bg-red-500/10 text-red-700 shadow-[0_0_0_1px_rgba(239,68,68,0.35)] dark:bg-red-950/40 dark:text-red-200';
               if (statusKey.includes('hold')) return 'bg-amber-500 text-white';
               return 'bg-emerald-500 text-white'; // Default
             };

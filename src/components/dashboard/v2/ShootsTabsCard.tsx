@@ -1055,6 +1055,9 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
   useEffect(() => {
     if (requestedCount === 0) {
       setHasUnreadRequests(false);
+      if (activeTab === 'requested') {
+        setActiveTab('upcoming');
+      }
       lastRequestedCountRef.current = requestedCount;
       return;
     }

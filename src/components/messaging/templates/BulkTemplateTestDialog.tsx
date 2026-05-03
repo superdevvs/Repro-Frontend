@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { toast } from 'sonner';
+import { toast } from '@/lib/sonner-toast';
 import { Send } from 'lucide-react';
 
 import type { MessageTemplate } from '@/types/messaging';

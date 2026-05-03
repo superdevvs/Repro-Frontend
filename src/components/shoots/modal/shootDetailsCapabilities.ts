@@ -111,7 +111,8 @@ export const getShootDetailsCapabilities = ({
   const canPutOnHold = Boolean(
     shoot &&
       !isOnHold &&
-      (shoot.status === 'scheduled' ||
+      (normalizedStatus === 'requested' ||
+        shoot.status === 'scheduled' ||
         shoot.status === 'booked' ||
         shoot.workflowStatus === 'booked' ||
         normalizedStatus === 'editing' ||
