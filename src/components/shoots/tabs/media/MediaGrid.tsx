@@ -70,6 +70,10 @@ interface MediaGridProps {
 interface MediaStack {
   id: string;
   files: MediaFile[];
+  // First file encountered in input order (i.e. respects the user's chosen sort).
+  // `files` may be reordered (e.g. by sequence for hover rotation), but the cover
+  // tile must keep following the active sort so the dropdown visibly works.
+  coverFile: MediaFile;
   expectedSize: number;
 }
 
@@ -164,7 +168,7 @@ export function MediaGrid({
 
   const buildMediaStacks = (stackFiles: MediaFile[]): MediaStack[] => {
     if (!shouldStackRawFiles) {
-      return stackFiles.map((file) => ({ id: file.id, files: [file], expectedSize: 1 }));
+      return stackFiles.map((file) => ({ id: file.id, files: [file], coverFile: file, expectedSize: 1 }));
     }
 
     const normalizeStack = (stack: MediaStack): MediaStack[] => {
@@ -188,7 +192,7 @@ export function MediaGrid({
     stackFiles.forEach((file) => {
       if (!isRawStackCandidate(file)) {
         currentStack = null;
-        stacks.push({ id: file.id, files: [file], expectedSize: 1 });
+        stacks.push({ id: file.id, files: [file], coverFile: file, expectedSize: 1 });
         return;
       }
 
@@ -216,6 +220,7 @@ export function MediaGrid({
         const newBracketStack: MediaStack = {
           id: `${baseKey}:${stacks.length}`,
           files: [file],
+          coverFile: file,
           expectedSize: normalizedRawStackSize ?? 1,
         };
         bracketStacksByKey.set(baseKey, newBracketStack);
@@ -275,6 +280,7 @@ export function MediaGrid({
         currentStack = {
           id: `burst:${stacks.length}`,
           files: [file],
+          coverFile: file,
           expectedSize: normalizedRawStackSize ?? 1,
         };
         stacks.push(currentStack);
@@ -282,23 +288,11 @@ export function MediaGrid({
       }
 
       currentStack = null;
-      stacks.push({ id: file.id, files: [file], expectedSize: 1 });
+      stacks.push({ id: file.id, files: [file], coverFile: file, expectedSize: 1 });
     });
 
-    // Within each bracket stack, sort files by sequence so the rotating
-    // cover preview cycles through seq 1..N instead of input order.
-    bracketStacksByKey.forEach((stack) => {
-      stack.files.sort((a, b) => {
-        const aSeq = Number(a.sequence);
-        const bSeq = Number(b.sequence);
-        const aValid = Number.isFinite(aSeq) && aSeq > 0;
-        const bValid = Number.isFinite(bSeq) && bSeq > 0;
-        if (aValid && bValid) return aSeq - bSeq;
-        if (aValid) return -1;
-        if (bValid) return 1;
-        return 0;
-      });
-    });
+    // Keep `files` in insertion order (which already matches the user's sort),
+    // so the cover tile AND the hover-rotation both follow the active sort.
 
     return stacks.flatMap(normalizeStack);
   };
@@ -897,8 +891,11 @@ export function MediaGrid({
   };
 
   const renderStackCard = (stack: MediaStack, index: number) => {
-    const activeStackIndex = Math.min(stackPreviewIndexes[stack.id] ?? 0, stack.files.length - 1);
-    const activeFile = stack.files[Math.max(0, activeStackIndex)] ?? stack.files[0];
+    const previewIndex = stackPreviewIndexes[stack.id];
+    const activeFile =
+      previewIndex !== undefined && stack.files.length > 0
+        ? stack.files[Math.min(Math.max(0, previewIndex), stack.files.length - 1)]
+        : stack.coverFile;
 
     return renderFileCard(activeFile, index, false, stack);
   };

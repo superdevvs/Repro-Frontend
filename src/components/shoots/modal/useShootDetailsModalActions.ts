@@ -189,11 +189,25 @@ export function useShootDetailsModalActions({
       }
 
       const data = await res.json();
-      await navigator.clipboard.writeText(data.share_link);
+      const shareLink: string | undefined = data?.share_link;
+
+      let copied = false;
+      if (shareLink) {
+        try {
+          await navigator.clipboard.writeText(shareLink);
+          copied = true;
+        } catch (clipboardError) {
+          console.warn('Clipboard copy failed, share link still generated:', clipboardError);
+        }
+      }
 
       toast({
         title: 'Share link generated!',
-        description: 'Link copied to clipboard. Lifetime link.',
+        description: copied
+          ? 'Link copied to clipboard. Lifetime link.'
+          : shareLink
+            ? 'Share link created. Open Media Links to copy it.'
+            : 'Share link created. Refresh to view it under Media Links.',
       });
 
       await refreshShoot();

@@ -29,6 +29,7 @@ interface PropertyDetails {
 
 export function GenericMLS() {
   const [photos, setPhotos] = useState<string[]>([]);
+  const [heroPhotos, setHeroPhotos] = useState<string[]>([]);
   const [videos, setVideos] = useState<string[]>([]);
   const [videoLink, setVideoLink] = useState<string | null>(null);
   const [propertyDetails, setPropertyDetails] = useState<PropertyDetails | null>(null);
@@ -87,6 +88,7 @@ export function GenericMLS() {
         }
 
         setPhotos(Array.isArray(data?.photos) ? data.photos : []);
+        setHeroPhotos(Array.isArray(data?.hero_photos) ? data.hero_photos : []);
         setVideos(Array.isArray(data?.videos) ? data.videos : []);
         if (data?.video_link || data?.tour_links?.video_link) setVideoLink(data.video_link || data.tour_links?.video_link);
         if (data?.property_details) setPropertyDetails(data.property_details);
@@ -124,14 +126,31 @@ export function GenericMLS() {
     fetchData();
   }, []);
 
-  // Ken Burns slideshow
+  // Hero slideshow always starts with hero image(s), then continues through all remaining photos in sorted order.
+  const heroSlides = useMemo(() => {
+    const seen = new Set<string>();
+    const ordered: string[] = [];
+    [...heroPhotos, ...photos].forEach((url) => {
+      if (url && !seen.has(url)) {
+        seen.add(url);
+        ordered.push(url);
+      }
+    });
+    return ordered;
+  }, [heroPhotos, photos]);
+
+  // Ken Burns slideshow — cycle through all photos every 6s
   useEffect(() => {
-    if (photos.length <= 1) return;
+    if (heroSlides.length <= 1) return;
     const timer = setInterval(() => {
-      setHeroIndex((prev) => (prev + 1) % Math.min(photos.length, 10));
+      setHeroIndex((prev) => (prev + 1) % heroSlides.length);
     }, 6000);
     return () => clearInterval(timer);
-  }, [photos.length]);
+  }, [heroSlides.length]);
+
+  useEffect(() => {
+    setHeroIndex(0);
+  }, [heroSlides.length]);
 
   // Derived values
   const getBeds = () => {
@@ -247,7 +266,7 @@ export function GenericMLS() {
             <AnimatePresence mode="sync">
               <motion.img
                 key={heroIndex}
-                src={photos[heroIndex % photos.length]}
+                src={heroSlides[heroIndex % heroSlides.length]}
                 alt="Hero"
                 className="absolute inset-0 w-full h-full object-cover"
                 initial={{ opacity: 0, scale: 1.05 }}

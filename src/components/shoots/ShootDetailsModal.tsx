@@ -568,6 +568,7 @@ export function ShootDetailsModal({
     : null;
   const paymentBadge = useMemo(() => {
     if (!shoot) return null;
+    if (isEditor) return null;
 
     const paymentSummary = normalizeShootPaymentSummary(shoot);
     const hasMeaningfulPaymentState =
@@ -583,7 +584,7 @@ export function ShootDetailsModal({
     if (!badge) return null;
 
     return <Badge variant={badge.variant}>{badge.label}</Badge>;
-  }, [shoot]);
+  }, [shoot, isEditor]);
   const addressTitle = shoot
     ? (() => {
         const address = shoot.location?.address || (shoot as any).address || '';

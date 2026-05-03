@@ -889,18 +889,20 @@ export function ShootDetailsOverviewTab({
         updateField={updateField}
       />
 
-      <OverviewPhotographerSection
-        shoot={shoot}
-        isEditMode={isEditMode}
-        isPhotographer={isPhotographer}
-        isClient={isClient}
-        photographerAssignments={photographerAssignments}
-        editModePhotographerRows={editModePhotographerRows}
-        perCategoryPhotographers={perCategoryPhotographers}
-        selectedPhotographerIdEdit={selectedPhotographerIdEdit}
-        resolvePhotographerDetails={resolvePhotographerDetails}
-        openEditPhotographerPicker={openEditPhotographerPicker}
-      />
+      {!isEditor && (
+        <OverviewPhotographerSection
+          shoot={shoot}
+          isEditMode={isEditMode}
+          isPhotographer={isPhotographer}
+          isClient={isClient}
+          photographerAssignments={photographerAssignments}
+          editModePhotographerRows={editModePhotographerRows}
+          perCategoryPhotographers={perCategoryPhotographers}
+          selectedPhotographerIdEdit={selectedPhotographerIdEdit}
+          resolvePhotographerDetails={resolvePhotographerDetails}
+          openEditPhotographerPicker={openEditPhotographerPicker}
+        />
+      )}
 
       {!isEditor && (
         <OverviewAccessSection
@@ -1008,7 +1010,7 @@ export function ShootDetailsOverviewTab({
       />
 
       {/* Notes section - visible in overview for photographer and editing manager */}
-      {(isPhotographer || role === 'editing_manager') && (
+      {(isPhotographer || isEditor || role === 'editing_manager') && (
         <div className="p-2.5 border rounded-lg bg-card">
           <span className="text-[11px] font-semibold text-muted-foreground uppercase mb-1.5 block">Notes</span>
           <ShootNotesTab

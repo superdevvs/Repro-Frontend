@@ -160,14 +160,24 @@ export function BrandedPage() {
     fetchData();
   }, []);
 
-  // Hero slideshow uses curated hero set when present, else falls back to all photos.
-  const heroSlides = useMemo(() => (heroPhotos.length > 0 ? heroPhotos : photos), [heroPhotos, photos]);
+  // Hero slideshow always starts with hero image(s), then continues through all remaining photos in sorted order.
+  const heroSlides = useMemo(() => {
+    const seen = new Set<string>();
+    const ordered: string[] = [];
+    [...heroPhotos, ...photos].forEach((url) => {
+      if (url && !seen.has(url)) {
+        seen.add(url);
+        ordered.push(url);
+      }
+    });
+    return ordered;
+  }, [heroPhotos, photos]);
 
-  // Ken Burns slideshow — cycle hero photos every 6s
+  // Ken Burns slideshow — cycle through all photos every 6s
   useEffect(() => {
     if (heroSlides.length <= 1) return;
     const timer = setInterval(() => {
-      setHeroIndex((prev) => (prev + 1) % Math.min(heroSlides.length, 10));
+      setHeroIndex((prev) => (prev + 1) % heroSlides.length);
     }, 6000);
     return () => clearInterval(timer);
   }, [heroSlides.length]);

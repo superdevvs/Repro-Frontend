@@ -426,6 +426,10 @@ export const shootDataToSummary = (shoot: ShootData): DashboardShootSummary => {
     deliveryDeadline: shoot.completedDate ?? null,
     submittedForReviewAt: shoot.submittedForReviewAt ?? null,
     adminIssueNotes: typeof shoot.adminIssueNotes === "string" ? shoot.adminIssueNotes : undefined,
+    editorNotes:
+      shoot.notes && typeof shoot.notes !== "string"
+        ? shoot.notes.editingNotes ?? null
+        : null,
     holdRequestedAt: shoot.holdRequestedAt ?? null,
     holdRequestedBy: shoot.holdRequestedBy ?? null,
     holdReason: shoot.holdReason ?? null,

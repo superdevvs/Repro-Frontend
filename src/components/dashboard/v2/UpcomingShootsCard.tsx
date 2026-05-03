@@ -22,7 +22,14 @@ import {
   Edit,
   Eye,
   Clock,
+  Copy,
+  Download,
+  Loader2,
 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { API_BASE_URL } from '@/config/env';
+import { getApiHeaders } from '@/services/api';
+import { downloadShootRawFiles, startSameWindowDownload } from '@/utils/shootMediaDownload';
 import { DroneIcon3 } from '@/components/icons/DroneIcon3';
 import { getIconComponent } from '@/components/scheduling/IconPicker';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -294,6 +301,72 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
   const displayTitle = title ?? 'Upcoming shoots';
   const filterTitle = title ? `Filter ${title.toLowerCase()}` : 'Filter upcoming shoots';
   const emptyText = emptyStateText ?? 'No upcoming shoots found.';
+
+  const { toast } = useToast();
+  const [shareLinkBusyId, setShareLinkBusyId] = useState<number | null>(null);
+  const [downloadBusyId, setDownloadBusyId] = useState<number | null>(null);
+
+  const handleEditorCopyShareLink = useCallback(
+    async (event: React.MouseEvent, shootId: number) => {
+      event.stopPropagation();
+      if (shareLinkBusyId) return;
+      setShareLinkBusyId(shootId);
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/shoots/${shootId}/share-links`, {
+          headers: { ...getApiHeaders(), Accept: 'application/json' },
+        });
+        if (!response.ok) throw new Error('Failed to load share links');
+        const payload = await response.json();
+        const list = Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : [];
+        const active = list
+          .filter((l: any) => !l.is_revoked && !l.is_expired && l.is_active !== false)
+          .sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+        const rawLink =
+          active.find((l: any) => {
+            const stage = String(l.media_stage || 'raw').toLowerCase();
+            return stage === 'raw' || stage.startsWith('raw_');
+          }) || active[0];
+        if (!rawLink?.share_url) {
+          toast({ title: 'No share link yet', description: 'This shoot has no active raw share link.', variant: 'destructive' });
+          return;
+        }
+        await navigator.clipboard.writeText(rawLink.share_url);
+        toast({ title: 'Share link copied', description: 'Raw files link copied to clipboard.' });
+      } catch {
+        toast({ title: 'Copy failed', description: 'Unable to copy the share link right now.', variant: 'destructive' });
+      } finally {
+        setShareLinkBusyId(null);
+      }
+    },
+    [shareLinkBusyId, toast],
+  );
+
+  const handleEditorDownloadRaw = useCallback(
+    async (event: React.MouseEvent, shootId: number) => {
+      event.stopPropagation();
+      if (downloadBusyId) return;
+      setDownloadBusyId(shootId);
+      try {
+        const result = await downloadShootRawFiles({ shootId });
+        if (result.mode === 'redirect') {
+          startSameWindowDownload(result.url);
+        }
+        toast({
+          title: 'Download started',
+          description: result.message || 'Your raw files download has started.',
+        });
+      } catch (error: any) {
+        toast({
+          title: 'Download failed',
+          description: error?.message || 'Unable to download raw files right now.',
+          variant: 'destructive',
+        });
+      } finally {
+        setDownloadBusyId(null);
+      }
+    },
+    [downloadBusyId, toast],
+  );
 
   useEffect(() => {
     if (!isEditorRole) return;
@@ -1159,6 +1232,28 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                             })()}</span>
                           </div>
                         )}
+                        {isEditorRole && (
+                          <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
+                            <button
+                              type="button"
+                              onClick={(event) => void handleEditorCopyShareLink(event, shoot.id)}
+                              disabled={shareLinkBusyId === shoot.id}
+                              title="Copy raw share link"
+                              className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background text-muted-foreground hover:text-foreground hover:border-primary/40 disabled:opacity-60 disabled:cursor-not-allowed"
+                            >
+                              {shareLinkBusyId === shoot.id ? <Loader2 size={12} className="animate-spin" /> : <Copy size={12} />}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(event) => void handleEditorDownloadRaw(event, shoot.id)}
+                              disabled={downloadBusyId === shoot.id}
+                              title="Download raw files"
+                              className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background text-muted-foreground hover:text-foreground hover:border-primary/40 disabled:opacity-60 disabled:cursor-not-allowed"
+                            >
+                              {downloadBusyId === shoot.id ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
+                            </button>
+                          </div>
+                        )}
                       </div>
                       {/* Row 2: Address */}
                       <div>
@@ -1192,6 +1287,12 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                           );
                         })}
                       </div>
+                      {isEditorRole && shoot.editorNotes?.trim() && (
+                        <div className="rounded-lg border border-purple-500/30 bg-purple-500/5 px-2.5 py-1.5">
+                          <p className="text-[9px] font-semibold uppercase tracking-wide text-purple-600 dark:text-purple-300 mb-0.5">Editing Notes</p>
+                          <p className="text-[11px] text-foreground/90 whitespace-pre-wrap line-clamp-3">{shoot.editorNotes}</p>
+                        </div>
+                      )}
                       {/* Row 5: Status left + Photographer/Client right */}
                       <hr className="border-border" />
                       <div className="flex items-center justify-between">
@@ -1306,9 +1407,49 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                             );
                           })}
                         </div>
+                        {isEditorRole && shoot.editorNotes?.trim() && (
+                          <div className="rounded-lg border border-purple-500/30 bg-purple-500/5 px-3 py-2">
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-purple-600 dark:text-purple-300 mb-1">Editing Notes</p>
+                            <p className="text-xs text-foreground/90 whitespace-pre-wrap line-clamp-3">{shoot.editorNotes}</p>
+                          </div>
+                        )}
                       </div>
 
                       <div className="flex flex-col items-end gap-3 min-w-[120px] justify-between">
+                        {isEditorRole && (
+                          <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-8 rounded-full px-3 text-xs"
+                              onClick={(event) => void handleEditorCopyShareLink(event, shoot.id)}
+                              disabled={shareLinkBusyId === shoot.id}
+                            >
+                              {shareLinkBusyId === shoot.id ? (
+                                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Copy className="mr-1.5 h-3.5 w-3.5" />
+                              )}
+                              Share link
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-8 rounded-full px-3 text-xs"
+                              onClick={(event) => void handleEditorDownloadRaw(event, shoot.id)}
+                              disabled={downloadBusyId === shoot.id}
+                            >
+                              {downloadBusyId === shoot.id ? (
+                                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Download className="mr-1.5 h-3.5 w-3.5" />
+                              )}
+                              Download
+                            </Button>
+                          </div>
+                        )}
                         {!hideWeather && (
                           <div className="flex items-center gap-1 rounded-full border border-border px-3 py-1 text-xs font-semibold text-muted-foreground bg-background shadow-sm">
                             {renderWeatherIcon(weather?.icon)}
