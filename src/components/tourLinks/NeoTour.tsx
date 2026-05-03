@@ -47,6 +47,7 @@ type SectionId = 'header' | 'gallery' | 'details' | 'embeds' | 'video' | 'contac
 
 export function NeoTour() {
   const [photos, setPhotos] = useState<string[]>([]);
+  const [heroPhotos, setHeroPhotos] = useState<string[]>([]);
   const [videos, setVideos] = useState<string[]>([]);
   const [videoLink, setVideoLink] = useState<string | null>(null);
   const [shoot, setShoot] = useState<ShootData | null>(null);
@@ -126,6 +127,7 @@ export function NeoTour() {
         const data = await res.json();
         
         setPhotos(Array.isArray(data?.photos) ? data.photos : []);
+        setHeroPhotos(Array.isArray(data?.hero_photos) ? data.hero_photos : []);
         setVideos(Array.isArray(data?.videos) ? data.videos : []);
         if (data?.video_link || data?.tour_links?.video_link) setVideoLink(data.video_link || data.tour_links?.video_link);
         if (data?.shoot) setShoot(data.shoot);
@@ -485,9 +487,9 @@ export function NeoTour() {
       {/* Main Header Section */}
       <section ref={headerRef} id="header" className="relative min-h-screen overflow-hidden border-b border-blue-500/20">
         <div className="absolute inset-0">
-          {photos.length > 0 ? (
+          {(heroPhotos.length > 0 ? heroPhotos : photos).length > 0 ? (
             <img
-              src={photos[0]}
+              src={(heroPhotos.length > 0 ? heroPhotos : photos)[0]}
               alt="Hero Property"
               className="w-full h-full object-cover"
             />

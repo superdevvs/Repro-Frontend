@@ -180,6 +180,10 @@ export function MediaGrid({
 
     const stacks: MediaStack[] = [];
     let currentStack: MediaStack | null = null;
+    // Map of bracket-group key -> stack so files with the same bracket_group
+    // always join the same stack even when sort order interleaves them
+    // (EXIF captured_at often has identical seconds across adjacent groups).
+    const bracketStacksByKey = new Map<string, MediaStack>();
 
     stackFiles.forEach((file) => {
       if (!isRawStackCandidate(file)) {
@@ -198,24 +202,25 @@ export function MediaGrid({
         ? `bracket-${bracketGroup}`
         : null;
       const bracketStackLimit = normalizedRawStackSize ?? Number.POSITIVE_INFINITY;
-      if (
-        currentStack &&
-        baseKey &&
-        currentStack.id.startsWith(`${baseKey}:`) &&
-        currentStack.files.length < bracketStackLimit
-      ) {
-        currentStack.files.push(file);
-        currentStack.expectedSize = normalizedRawStackSize ?? currentStack.files.length;
-        return;
-      }
 
       if (baseKey) {
-        currentStack = {
+        const existingBracketStack = bracketStacksByKey.get(baseKey);
+        if (existingBracketStack && existingBracketStack.files.length < bracketStackLimit) {
+          existingBracketStack.files.push(file);
+          existingBracketStack.expectedSize =
+            normalizedRawStackSize ?? existingBracketStack.files.length;
+          currentStack = existingBracketStack;
+          return;
+        }
+
+        const newBracketStack: MediaStack = {
           id: `${baseKey}:${stacks.length}`,
           files: [file],
           expectedSize: normalizedRawStackSize ?? 1,
         };
-        stacks.push(currentStack);
+        bracketStacksByKey.set(baseKey, newBracketStack);
+        stacks.push(newBracketStack);
+        currentStack = newBracketStack;
         return;
       }
 
@@ -278,6 +283,21 @@ export function MediaGrid({
 
       currentStack = null;
       stacks.push({ id: file.id, files: [file], expectedSize: 1 });
+    });
+
+    // Within each bracket stack, sort files by sequence so the rotating
+    // cover preview cycles through seq 1..N instead of input order.
+    bracketStacksByKey.forEach((stack) => {
+      stack.files.sort((a, b) => {
+        const aSeq = Number(a.sequence);
+        const bSeq = Number(b.sequence);
+        const aValid = Number.isFinite(aSeq) && aSeq > 0;
+        const bValid = Number.isFinite(bSeq) && bSeq > 0;
+        if (aValid && bValid) return aSeq - bSeq;
+        if (aValid) return -1;
+        if (bValid) return 1;
+        return 0;
+      });
     });
 
     return stacks.flatMap(normalizeStack);

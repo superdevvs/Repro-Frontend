@@ -55,6 +55,7 @@ interface PropertyDetails {
 
 export function BrandedPage() {
   const [photos, setPhotos] = useState<string[]>([]);
+  const [heroPhotos, setHeroPhotos] = useState<string[]>([]);
   const [videos, setVideos] = useState<string[]>([]);
   const [videoLink, setVideoLink] = useState<string | null>(null);
   const [shoot, setShoot] = useState<ShootData | null>(null);
@@ -117,6 +118,7 @@ export function BrandedPage() {
         }
 
         setPhotos(Array.isArray(data?.photos) ? data.photos : []);
+        setHeroPhotos(Array.isArray(data?.hero_photos) ? data.hero_photos : []);
         setVideos(Array.isArray(data?.videos) ? data.videos : []);
         if (data?.video_link || data?.tour_links?.video_link) setVideoLink(data.video_link || data.tour_links?.video_link);
         if (data?.shoot) setShoot(data.shoot);
@@ -158,14 +160,21 @@ export function BrandedPage() {
     fetchData();
   }, []);
 
+  // Hero slideshow uses curated hero set when present, else falls back to all photos.
+  const heroSlides = useMemo(() => (heroPhotos.length > 0 ? heroPhotos : photos), [heroPhotos, photos]);
+
   // Ken Burns slideshow — cycle hero photos every 6s
   useEffect(() => {
-    if (photos.length <= 1) return;
+    if (heroSlides.length <= 1) return;
     const timer = setInterval(() => {
-      setHeroIndex((prev) => (prev + 1) % Math.min(photos.length, 10));
+      setHeroIndex((prev) => (prev + 1) % Math.min(heroSlides.length, 10));
     }, 6000);
     return () => clearInterval(timer);
-  }, [photos.length]);
+  }, [heroSlides.length]);
+
+  useEffect(() => {
+    setHeroIndex(0);
+  }, [heroSlides.length]);
 
   // Derived values
   const getBeds = () => {
@@ -285,11 +294,11 @@ export function BrandedPage() {
       {/* Hero — Ken Burns slideshow */}
       <div className="p-2.5">
         <div className="rounded-2xl overflow-hidden relative h-[calc(100vh-110px)] md:h-[calc(100vh-120px)] min-h-[500px] md:min-h-[500px]">
-          {photos.length > 0 ? (
+          {heroSlides.length > 0 ? (
             <AnimatePresence mode="sync">
               <motion.img
                 key={heroIndex}
-                src={photos[heroIndex % photos.length]}
+                src={heroSlides[heroIndex % heroSlides.length]}
                 alt="Hero"
                 className="absolute inset-0 w-full h-full object-cover"
                 initial={{ opacity: 0, scale: 1.05 }}
