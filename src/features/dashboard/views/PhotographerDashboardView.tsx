@@ -54,6 +54,7 @@ export const PhotographerDashboardView = ({
             title="Completed shoots"
             subtitle="Ready for clients"
             emptyStateText="No completed shoots yet."
+            onSelect={(shoot) => onSelectShoot(shoot)}
             onViewAll={() => navigate("/shoot-history?tab=delivered")}
           />
         </Suspense>
@@ -75,6 +76,7 @@ export const PhotographerDashboardView = ({
               title="Completed shoots"
               subtitle="Ready for clients"
               emptyStateText="No completed shoots yet."
+              onSelect={(shoot) => onSelectShoot(shoot)}
               onViewAll={() => navigate("/shoot-history?tab=delivered")}
             />
           </Suspense>,

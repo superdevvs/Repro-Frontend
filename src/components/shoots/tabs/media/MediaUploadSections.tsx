@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Upload, X } from 'lucide-react';
@@ -67,10 +67,10 @@ const TRACKED_MEDIA_TYPES: UploadQueueMediaType[] = [
 ];
 
 const DEFAULT_UPLOAD_LIMITS = {
-  perFileBytes: 500 * 1024 * 1024,
-  totalRequestBytes: 550 * 1024 * 1024,
-  perFileLabel: '500MB',
-  totalRequestLabel: '550MB',
+  perFileBytes: 2000 * 1024 * 1024,
+  totalRequestBytes: 2200 * 1024 * 1024,
+  perFileLabel: '2GB',
+  totalRequestLabel: '2.2GB',
 } as const;
 
 const UPLOAD_CLASSIFICATION_OPTIONS: UploadClassificationOption[] = [
@@ -676,8 +676,8 @@ export function EditedUploadSection({
   const [queueClassifications, setQueueClassifications] = useState<QueueClassificationMap>({});
   const [uploadIssues, setUploadIssues] = useState<UploadIssue[]>([]);
   const [uploadLimitHint, setUploadLimitHint] = useState<string | undefined>(buildUploadLimitDescription({
-    per_file: '500MB',
-    total_request: '550MB',
+    per_file: '2GB',
+    total_request: '2.2GB',
   }));
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
@@ -699,8 +699,8 @@ export function EditedUploadSection({
     setIsUploading(false);
     setNotes('');
     setUploadLimitHint(buildUploadLimitDescription({
-      per_file: '500MB',
-      total_request: '550MB',
+      per_file: '2GB',
+      total_request: '2.2GB',
     }));
   }, [shoot.id]);
 
@@ -1129,8 +1129,8 @@ export function RawUploadSection({
   const [queueClassifications, setQueueClassifications] = useState<QueueClassificationMap>({});
   const [uploadIssues, setUploadIssues] = useState<UploadIssue[]>([]);
   const [uploadLimitHint, setUploadLimitHint] = useState<string | undefined>(buildUploadLimitDescription({
-    per_file: '500MB',
-    total_request: '550MB',
+    per_file: '2GB',
+    total_request: '2.2GB',
   }));
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
@@ -1155,6 +1155,8 @@ export function RawUploadSection({
   const defaultBracketMultiplier =
     toPositiveCount(shoot.bracketMode ?? shoot.package?.bracketMode) ??
     (shootRequiresBrackets ? 5 : 1);
+  const defaultBracketMultiplierRef = useRef(defaultBracketMultiplier);
+  defaultBracketMultiplierRef.current = defaultBracketMultiplier;
   const [bracketMultiplier, setBracketMultiplier] = useState<number>(Math.max(1, defaultBracketMultiplier));
 
   const existingCounts = useMemo(() => createEmptyMediaTypeCounts(), []);
@@ -1191,11 +1193,16 @@ export function RawUploadSection({
     setIsUploading(false);
     setNotes('');
     setUploadLimitHint(buildUploadLimitDescription({
-      per_file: '500MB',
-      total_request: '550MB',
+      per_file: '2GB',
+      total_request: '2.2GB',
     }));
-    setBracketMultiplier(Math.max(1, defaultBracketMultiplier));
-  }, [defaultBracketMultiplier, shoot.id]);
+    setBracketMultiplier(Math.max(1, defaultBracketMultiplierRef.current));
+    // Only reset queue when the user switches to a different shoot.
+    // Re-fetches of the same shoot (background refreshes) must NOT wipe the
+    // in-progress upload queue – that was causing the "first drag/drop does
+    // nothing, second time works" bug when bracketMode/services flipped.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shoot.id]);
 
   const mergeSelectedFiles = (incomingFiles: File[]) => {
     if (incomingFiles.length === 0) return;
