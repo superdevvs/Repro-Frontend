@@ -101,6 +101,53 @@ export function ShootDetailsMediaTabView(props: any) {
   } = props;
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const canMarkSelectedFiles = !isClient && (!isEditor || displayTab === 'edited');
+  const renderRawUploadsTab = () => (
+    !isClient && (
+      <TabsTrigger 
+        value="uploaded" 
+        className="text-[11px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 h-7 sm:h-8 data-[state=active]:bg-primary/10 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:rounded-none data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground whitespace-nowrap"
+        onClick={() => {
+          setActiveSubTab('uploaded');
+          setDisplayTab('uploaded');
+        }}
+      >
+        <span className="sm:hidden">Raw ({rawFiles.length})</span>
+        <span className="hidden sm:inline">Raw Uploads ({rawFiles.length})</span>
+      </TabsTrigger>
+    )
+  );
+  const renderEditedTab = () => (
+    isPhotographer ? (
+      <button
+        type="button"
+        className="text-[11px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 h-7 sm:h-8 text-primary font-medium hover:bg-primary/10 rounded-md transition-colors whitespace-nowrap inline-flex items-center gap-1"
+        onClick={() => {
+          const mlsLink = getPreferredMlsTourLink(shoot);
+          if (mlsLink) {
+            window.open(mlsLink, '_blank', 'noopener,noreferrer');
+          } else {
+            // Open the app's MLS tour page for this shoot
+            const baseUrl = window.location.origin;
+            window.open(`${baseUrl}/tour/mls?shootId=${shoot.id}`, '_blank', 'noopener,noreferrer');
+          }
+        }}
+      >
+        <ExternalLink className="h-3 w-3" />
+        Edited Media
+      </button>
+    ) : (
+      <TabsTrigger 
+        value="edited" 
+        className="text-[11px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 h-7 sm:h-8 data-[state=active]:bg-primary/10 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:rounded-none data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground whitespace-nowrap"
+        onClick={() => {
+          setActiveSubTab('edited');
+          setDisplayTab('edited');
+        }}
+      >
+        Edited ({editedFiles.length})
+      </TabsTrigger>
+    )
+  );
   const renderClientEditedCategoryTabs = () => (
     <div className="flex-1 min-w-0 overflow-x-auto">
       <div className="flex items-center gap-1.5 min-w-max">
@@ -217,49 +264,17 @@ export function ShootDetailsMediaTabView(props: any) {
                 >
                   Media
                 </TabsTrigger>
-                {/* Uploaded tab - hidden for clients (they only see edited media) */}
-                {!isClient && (
-                <TabsTrigger 
-                  value="uploaded" 
-                  className="text-[11px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 h-7 sm:h-8 data-[state=active]:bg-primary/10 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:rounded-none data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground whitespace-nowrap"
-                    onClick={() => {
-                      setActiveSubTab('uploaded');
-                      setDisplayTab('uploaded');
-                    }}
-                  >
-                        <span className="sm:hidden">Raw ({rawFiles.length})</span>
-                        <span className="hidden sm:inline">Raw Uploads ({rawFiles.length})</span>
-                  </TabsTrigger>
-                )}
-                {isPhotographer ? (
-                  <button
-                    type="button"
-                    className="text-[11px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 h-7 sm:h-8 text-primary font-medium hover:bg-primary/10 rounded-md transition-colors whitespace-nowrap inline-flex items-center gap-1"
-                    onClick={() => {
-                        const mlsLink = getPreferredMlsTourLink(shoot);
-                      if (mlsLink) {
-                        window.open(mlsLink, '_blank', 'noopener,noreferrer');
-                      } else {
-                        // Open the app's MLS tour page for this shoot
-                        const baseUrl = window.location.origin;
-                        window.open(`${baseUrl}/tour/mls?shootId=${shoot.id}`, '_blank', 'noopener,noreferrer');
-                      }
-                    }}
-                  >
-                    <ExternalLink className="h-3 w-3" />
-                    Edited Media
-                  </button>
+                {isEditor ? (
+                  <>
+                    {renderEditedTab()}
+                    {renderRawUploadsTab()}
+                  </>
                 ) : (
-                  <TabsTrigger 
-                    value="edited" 
-                    className="text-[11px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 h-7 sm:h-8 data-[state=active]:bg-primary/10 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:rounded-none data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground whitespace-nowrap"
-                    onClick={() => {
-                      setActiveSubTab('edited');
-                      setDisplayTab('edited');
-                    }}
-                  >
-                    Edited ({editedFiles.length})
-                  </TabsTrigger>
+                  <>
+                    {/* Uploaded tab - hidden for clients (they only see edited media) */}
+                    {renderRawUploadsTab()}
+                    {renderEditedTab()}
+                  </>
                 )}
               </TabsList>
             </Tabs>

@@ -1288,9 +1288,9 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                         })}
                       </div>
                       {isEditorRole && shoot.editorNotes?.trim() && (
-                        <div className="rounded-lg border border-purple-500/30 bg-purple-500/5 px-2.5 py-1.5">
-                          <p className="text-[9px] font-semibold uppercase tracking-wide text-purple-600 dark:text-purple-300 mb-0.5">Editing Notes</p>
-                          <p className="text-[11px] text-foreground/90 whitespace-pre-wrap line-clamp-3">{shoot.editorNotes}</p>
+                        <div className="rounded-full border border-purple-500/40 bg-transparent px-3 py-1.5 flex items-baseline gap-1.5">
+                          <span className="text-[11px] font-semibold text-foreground whitespace-nowrap">Editing Notes :</span>
+                          <span className="text-[11px] text-purple-500 dark:text-purple-300 truncate">{shoot.editorNotes}</span>
                         </div>
                       )}
                       {/* Row 5: Status left + Photographer/Client right */}
@@ -1408,9 +1408,9 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                           })}
                         </div>
                         {isEditorRole && shoot.editorNotes?.trim() && (
-                          <div className="rounded-lg border border-purple-500/30 bg-purple-500/5 px-3 py-2">
-                            <p className="text-[10px] font-semibold uppercase tracking-wide text-purple-600 dark:text-purple-300 mb-1">Editing Notes</p>
-                            <p className="text-xs text-foreground/90 whitespace-pre-wrap line-clamp-3">{shoot.editorNotes}</p>
+                          <div className="rounded-full border border-purple-500/40 bg-transparent px-4 py-2 flex items-baseline gap-2 w-full">
+                            <span className="text-sm font-semibold text-foreground whitespace-nowrap">Editing Notes :</span>
+                            <span className="text-sm text-purple-500 dark:text-purple-300 truncate">{shoot.editorNotes}</span>
                           </div>
                         )}
                       </div>

@@ -161,6 +161,47 @@ export function MediaGrid({
     return { prefix: match[1] ?? '', sequence };
   };
 
+  const getPositiveNumber = (value: unknown) => {
+    const numberValue = Number(value);
+    return Number.isFinite(numberValue) && numberValue > 0 ? numberValue : null;
+  };
+
+  const getStackOrderSecond = (file: MediaFile) =>
+    parseCapturedSecond(file.captured_at) ?? parseCapturedSecond(file.created_at);
+
+  const compareRawStackingOrder = (left: MediaFile, right: MediaFile) => {
+    const leftTime = getStackOrderSecond(left);
+    const rightTime = getStackOrderSecond(right);
+    if (leftTime !== null && rightTime !== null && leftTime !== rightTime) {
+      return leftTime - rightTime;
+    }
+
+    const leftFilenameParts = parseFilenameParts(left.filename);
+    const rightFilenameParts = parseFilenameParts(right.filename);
+    if (leftFilenameParts && rightFilenameParts) {
+      const prefixCompare = leftFilenameParts.prefix.localeCompare(rightFilenameParts.prefix, undefined, { numeric: true });
+      if (prefixCompare !== 0) {
+        return prefixCompare;
+      }
+
+      if (leftFilenameParts.sequence !== rightFilenameParts.sequence) {
+        return leftFilenameParts.sequence - rightFilenameParts.sequence;
+      }
+    }
+
+    return (left.filename || '').localeCompare(right.filename || '', undefined, { numeric: true });
+  };
+
+  const compareStackMembers = (left: MediaFile, right: MediaFile) => {
+    const leftSequence = getPositiveNumber(left.sequence);
+    const rightSequence = getPositiveNumber(right.sequence);
+    if (leftSequence !== null && rightSequence !== null && leftSequence !== rightSequence) {
+      return leftSequence - rightSequence;
+    }
+
+    return compareRawStackingOrder(left, right);
+  };
+
   const isRawStackCandidate = (file: MediaFile) =>
     !file.isExtra &&
     !isVideo?.(file) &&
@@ -184,9 +225,94 @@ export function MediaGrid({
 
     const stacks: MediaStack[] = [];
     let currentStack: MediaStack | null = null;
-    // Map of bracket-group key -> stack so files with the same bracket_group
-    // always join the same stack even when sort order interleaves them
-    // (EXIF captured_at often has identical seconds across adjacent groups).
+
+    const rawCandidates = stackFiles.filter(isRawStackCandidate);
+    const rawCandidatesWithGroup = rawCandidates.filter((file) => getPositiveNumber(file.bracket_group) !== null);
+
+    if (normalizedRawStackSize || rawCandidatesWithGroup.length > 0) {
+      const rawStackByFileId = new Map<string, MediaStack>();
+      const bracketGroups = new Map<number, MediaFile[]>();
+      const ungroupedRawFiles: MediaFile[] = [];
+
+      rawCandidates.forEach((file) => {
+        const bracketGroup = getPositiveNumber(file.bracket_group);
+        if (bracketGroup !== null) {
+          const groupFiles = bracketGroups.get(bracketGroup) ?? [];
+          groupFiles.push(file);
+          bracketGroups.set(bracketGroup, groupFiles);
+          return;
+        }
+
+        ungroupedRawFiles.push(file);
+      });
+
+      const getCoverFile = (groupFiles: MediaFile[]) =>
+        groupFiles.reduce((currentCover, candidate) => {
+          const currentIndex = stackFiles.findIndex((file) => file.id === currentCover.id);
+          const candidateIndex = stackFiles.findIndex((file) => file.id === candidate.id);
+          return candidateIndex >= 0 && (currentIndex < 0 || candidateIndex < currentIndex)
+            ? candidate
+            : currentCover;
+        }, groupFiles[0]);
+
+      const registerStack = (id: string, groupFiles: MediaFile[], expectedSize: number) => {
+        if (groupFiles.length === 0) {
+          return;
+        }
+
+        const stack: MediaStack = {
+          id,
+          files: [...groupFiles].sort(compareStackMembers),
+          coverFile: getCoverFile(groupFiles),
+          expectedSize,
+        };
+
+        stack.files.forEach((file) => rawStackByFileId.set(file.id, stack));
+      };
+
+      const bracketStackLimit = normalizedRawStackSize ?? Number.POSITIVE_INFINITY;
+      bracketGroups.forEach((groupFiles, bracketGroup) => {
+        const orderedGroupFiles = [...groupFiles].sort(compareStackMembers);
+        for (let startIndex = 0; startIndex < orderedGroupFiles.length; startIndex += bracketStackLimit) {
+          const stackFilesChunk = orderedGroupFiles.slice(startIndex, startIndex + bracketStackLimit);
+          registerStack(
+            `bracket-${bracketGroup}:${Math.floor(startIndex / bracketStackLimit)}`,
+            stackFilesChunk,
+            normalizedRawStackSize ?? stackFilesChunk.length,
+          );
+        }
+      });
+
+      if (normalizedRawStackSize) {
+        const orderedRawFiles = [...ungroupedRawFiles].sort(compareRawStackingOrder);
+        for (let startIndex = 0; startIndex < orderedRawFiles.length; startIndex += normalizedRawStackSize) {
+          const stackFilesChunk = orderedRawFiles.slice(startIndex, startIndex + normalizedRawStackSize);
+          registerStack(
+            `raw-chunk:${startIndex}`,
+            stackFilesChunk,
+            stackFilesChunk.length > 1 ? normalizedRawStackSize : 1,
+          );
+        }
+      }
+
+      const emittedStackIds = new Set<string>();
+      const orderedStacks: MediaStack[] = [];
+      stackFiles.forEach((file) => {
+        const rawStack = rawStackByFileId.get(file.id);
+        if (rawStack) {
+          if (!emittedStackIds.has(rawStack.id)) {
+            orderedStacks.push(rawStack);
+            emittedStackIds.add(rawStack.id);
+          }
+          return;
+        }
+
+        orderedStacks.push({ id: file.id, files: [file], coverFile: file, expectedSize: 1 });
+      });
+
+      return orderedStacks.flatMap(normalizeStack);
+    }
+
     const bracketStacksByKey = new Map<string, MediaStack>();
 
     stackFiles.forEach((file) => {
