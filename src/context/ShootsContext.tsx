@@ -1112,37 +1112,72 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         // For clients: fetch from multiple tabs to get all their shoots (scheduled, completed, delivered)
         const headers = buildFetchHeaders(token);
         const deliveredPerPage = Math.max(perPage, 250);
-        const [scheduledResponse, completedResponse, deliveredResponse] = await Promise.all([
-          fetch(`${API_BASE_URL}/api/shoots?tab=scheduled&page=${page}&per_page=${perPage}&include_files=${includeFiles ? 'true' : 'false'}`, {
-            headers,
-            signal,
+        const clientTabRequests = [
+          {
+            tab: 'scheduled' as const,
+            requestPage: page,
+            requestPerPage: perPage,
+          },
+          {
+            tab: 'completed' as const,
+            requestPage: page,
+            requestPerPage: perPage,
+          },
+          {
+            tab: 'delivered' as const,
+            requestPage: 1,
+            requestPerPage: deliveredPerPage,
+          },
+        ];
+        const clientTabResponses = await Promise.all(
+          clientTabRequests.map(async ({ tab, requestPage, requestPerPage }) => {
+            try {
+              const response = await fetch(`${API_BASE_URL}/api/shoots?tab=${tab}&page=${requestPage}&per_page=${requestPerPage}&include_files=${includeFiles ? 'true' : 'false'}`, {
+                headers,
+                signal,
+              });
+              return { tab, response };
+            } catch (error) {
+              return { tab, error };
+            }
           }),
-          fetch(`${API_BASE_URL}/api/shoots?tab=completed&page=${page}&per_page=${perPage}&include_files=${includeFiles ? 'true' : 'false'}`, {
-            headers,
-            signal,
-          }),
-          fetch(`${API_BASE_URL}/api/shoots?tab=delivered&page=1&per_page=${deliveredPerPage}&include_files=${includeFiles ? 'true' : 'false'}`, {
-            headers,
-            signal,
-          }),
-        ]);
+        );
 
-        if (scheduledResponse.status === 401 || scheduledResponse.status === 419 || 
-            completedResponse.status === 401 || completedResponse.status === 419 ||
-            deliveredResponse.status === 401 || deliveredResponse.status === 419) {
+        if (clientTabResponses.some((result) =>
+          'response' in result && (result.response.status === 401 || result.response.status === 419)
+        )) {
           handleSessionExpired();
           setShoots([]);
           persistShoots([]);
           return [];
         }
 
-        if (!scheduledResponse.ok || !completedResponse.ok || !deliveredResponse.ok) {
+        const successfulClientTabResponses = clientTabResponses.filter(
+          (result): result is { tab: 'scheduled' | 'completed' | 'delivered'; response: Response } =>
+            'response' in result && result.response.ok,
+        );
+
+        if (successfulClientTabResponses.length === 0) {
           throw new Error('Failed to load shoots from server');
         }
 
-        const scheduledJson = await scheduledResponse.json();
-        const completedJson = await completedResponse.json();
-        const deliveredJson = await deliveredResponse.json();
+        const failedClientTabs = clientTabResponses
+          .filter((result) => !('response' in result) || !result.response.ok)
+          .map((result) => result.tab);
+        if (failedClientTabs.length > 0) {
+          console.warn('Some client shoot tabs failed to load:', failedClientTabs);
+        }
+
+        const clientTabJsonEntries = await Promise.all(
+          successfulClientTabResponses.map(async ({ tab, response }) => [tab, await response.json()] as const),
+        );
+        const clientTabJson = Object.fromEntries(clientTabJsonEntries) as Partial<
+          Record<'scheduled' | 'completed' | 'delivered', any>
+        >;
+
+        const scheduledJson = clientTabJson.scheduled ?? {};
+        const completedJson = clientTabJson.completed ?? {};
+        const deliveredJson = clientTabJson.delivered ?? {};
         
         const scheduledRecords = Array.isArray(scheduledJson.data) ? scheduledJson.data : [];
         const completedRecords = Array.isArray(completedJson.data) ? completedJson.data : [];
