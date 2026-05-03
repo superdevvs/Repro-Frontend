@@ -1288,9 +1288,9 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                         })}
                       </div>
                       {isEditorRole && shoot.editorNotes?.trim() && (
-                        <div className="rounded-full border border-purple-500/40 bg-transparent px-3 py-1.5 flex items-baseline gap-1.5">
+                        <div className="inline-flex max-w-full items-baseline gap-1.5 self-start rounded-full border border-border bg-transparent px-3 py-1.5">
                           <span className="text-[11px] font-semibold text-foreground whitespace-nowrap">Editing Notes :</span>
-                          <span className="text-[11px] text-purple-500 dark:text-purple-300 truncate">{shoot.editorNotes}</span>
+                          <span className="text-[11px] text-muted-foreground truncate">{shoot.editorNotes}</span>
                         </div>
                       )}
                       {/* Row 5: Status left + Photographer/Client right */}
@@ -1408,9 +1408,9 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                           })}
                         </div>
                         {isEditorRole && shoot.editorNotes?.trim() && (
-                          <div className="rounded-full border border-purple-500/40 bg-transparent px-4 py-2 flex items-baseline gap-2 w-full">
+                          <div className="inline-flex max-w-full items-baseline gap-2 self-start rounded-full border border-border bg-transparent px-4 py-2">
                             <span className="text-sm font-semibold text-foreground whitespace-nowrap">Editing Notes :</span>
-                            <span className="text-sm text-purple-500 dark:text-purple-300 truncate">{shoot.editorNotes}</span>
+                            <span className="text-sm text-muted-foreground truncate">{shoot.editorNotes}</span>
                           </div>
                         )}
                       </div>
