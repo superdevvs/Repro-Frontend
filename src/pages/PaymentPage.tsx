@@ -843,17 +843,14 @@ export default function PaymentPage() {
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#060a0e] text-white">
+    <div className={`h-screen w-full overflow-x-hidden bg-[#060a0e] text-white ${showEmbeddedCheckout ? 'overflow-y-auto xl:overflow-hidden' : 'overflow-y-auto'}`}>
       <div className={`mx-auto w-full px-4 py-5 sm:px-6 sm:py-8 lg:px-8 lg:py-10 ${pageMaxWidthClass} transition-all duration-300`}>
         <div className="mb-6 flex flex-col gap-3 lg:mb-8 lg:flex-row lg:items-center lg:justify-between">
           <Logo variant="light" className="h-8 w-auto" />
           <div className="flex flex-wrap items-center gap-2 text-sm text-gray-400">
             <span>Secure payment powered by</span>
-            <svg className="h-5" viewBox="0 0 60 25" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M5 10.2c0-.7.6-1 1.5-1 1.4 0 3 .4 4.4 1.2V6.3c-1.5-.6-3-.8-4.4-.8C3.3 5.5.8 7.4.8 10.4c0 4.7 6.4 3.9 6.4 5.9 0 .8-.7 1.1-1.7 1.1-1.5 0-3.4-.6-4.9-1.4v4.2c1.7.7 3.3 1 4.9 1 3.3 0 5.6-1.6 5.6-4.7C11.1 11.6 5 12.5 5 10.2z" fill="#635BFF"/>
-              <path d="M19.5 3.5l-4 .9V8h-1.7v3.7h1.7v4.7c0 3.2 1.5 4.3 4 4.3 1.2 0 2-.3 2-.3v-3.6s-.7.3-1.3.3c-.7 0-1.2-.3-1.2-1.2v-4.2h2.5V8h-2.5V3.5h.5z" fill="#635BFF"/>
-              <path d="M27.2 5.5c-1.4 0-2.3.7-2.8 1.1l-.2-.9h-3.7v14.9l4.2-.9V17c.5.4 1.3.9 2.5.9 2.5 0 4.8-2 4.8-6.5-.1-4.1-2.4-5.9-4.8-5.9zm-.8 9.3c-.8 0-1.3-.3-1.7-.7v-5.3c.4-.4.9-.7 1.7-.7 1.3 0 2.2 1.4 2.2 3.4 0 2-.9 3.3-2.2 3.3z" fill="#635BFF"/>
-              <path d="M35.7 5.5c-2.8 0-4.5 2.7-4.5 6.4 0 4.2 2 6.3 5.4 6.3 1.6 0 2.8-.4 3.7-.9v-3.3c-.9.5-1.9.7-3.2.7-1.3 0-2.4-.5-2.5-2h6.1c0-.2 0-.9 0-.9.1-3.9-1.8-6.3-5-6.3zm-1.2 5.2c0-1.5.9-2.1 1.7-2.1.8 0 1.6.6 1.6 2.1h-3.3z" fill="#635BFF"/>
+            <svg className="h-5 w-auto" viewBox="0 0 60 25" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Stripe">
+              <path fillRule="evenodd" clipRule="evenodd" d="M59.64 14.28h-8.06c.19 1.93 1.6 2.55 3.2 2.55 1.64 0 2.96-.37 4.05-.95v3.32a8.33 8.33 0 0 1-4.56 1.1c-4.01 0-6.83-2.5-6.83-7.48 0-4.19 2.39-7.52 6.3-7.52 3.92 0 5.96 3.28 5.96 7.5 0 .4-.04 1.26-.06 1.48zm-5.92-5.62c-1.03 0-2.17.73-2.17 2.58h4.25c0-1.85-1.07-2.58-2.08-2.58zM40.95 20.3c-1.44 0-2.32-.6-2.9-1.04l-.02 4.63-4.12.87V5.57h3.76l.08 1.02a4.7 4.7 0 0 1 3.23-1.29c2.9 0 5.62 2.6 5.62 7.4 0 5.23-2.7 7.6-5.65 7.6zM40 8.95c-.95 0-1.54.34-1.97.81l.02 6.12c.4.44.98.78 1.95.78 1.52 0 2.54-1.65 2.54-3.87 0-2.15-1.04-3.84-2.54-3.84zM28.24 5.57h4.13v14.44h-4.13V5.57zm0-4.7L32.37 0v3.36l-4.13.88V.88zm-4.32 9.35v9.79H19.8V5.57h3.7l.12 1.22c1-1.77 3.07-1.41 3.62-1.22v3.79c-.52-.17-2.29-.43-3.32.86zm-8.55 4.72c0 2.43 2.6 1.68 3.12 1.46v3.36c-.55.3-1.54.54-2.89.54a4.15 4.15 0 0 1-4.27-4.24l.01-13.17 4.02-.86v3.54h3.14V9.4h-3.13v5.54zm-4.91.7c0 2.83-2.31 4.41-5.7 4.41a11.71 11.71 0 0 1-4.46-.93v-3.93c1.38.75 3.1 1.31 4.46 1.31.92 0 1.53-.24 1.53-1C6.4 13.62 0 14.5 0 9.84 0 7.04 2.17 5.4 5.5 5.4c1.32 0 2.63.2 3.95.73v3.88a9.24 9.24 0 0 0-3.96-1.03c-.79 0-1.28.18-1.28.85 0 1.31 6.4.31 6.4 5.81z" fill="#635BFF"/>
             </svg>
           </div>
         </div>
@@ -997,21 +994,6 @@ export default function PaymentPage() {
                         </div>
                       )}
 
-                      <div className="rounded-2xl border border-gray-800 bg-[#0f1524] p-4 sm:p-5">
-                        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                          <div className="space-y-1">
-                            <p className="text-xs uppercase tracking-[0.3em] text-gray-500">Checkout readiness</p>
-                            <p className="text-sm text-gray-300">Stripe will open inline below, optimized for card and wallet payments.</p>
-                          </div>
-                          <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
-                            <Lock className="h-3 w-3" />
-                            <span>256-bit SSL encrypted</span>
-                            <span className="hidden sm:inline">·</span>
-                            <span>Powered by Stripe</span>
-                          </div>
-                        </div>
-                      </div>
-
                       {stripeError && (
                         <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3">
                           <p className="text-sm text-red-400">{stripeError}</p>
@@ -1110,8 +1092,8 @@ export default function PaymentPage() {
                       )}
                     </div>
 
-                    <div className="overflow-hidden rounded-2xl border border-gray-800 bg-[#0b111d] p-1.5 sm:p-3 lg:p-4">
-                      <div className="mx-auto min-w-0 w-full max-w-[860px] overflow-hidden rounded-[18px] border border-gray-200/80 bg-white shadow-[0_20px_60px_rgba(15,23,42,0.18)] sm:rounded-[22px]">
+                    <div className="rounded-2xl border border-gray-800 bg-[#0b111d] p-1.5 sm:p-3 lg:p-4">
+                      <div className="mx-auto min-w-0 w-full rounded-[18px] border border-gray-200/80 bg-white shadow-[0_20px_60px_rgba(15,23,42,0.18)] sm:rounded-[22px] xl:max-h-[calc(100vh-14rem)] xl:overflow-y-auto">
                         {embeddedCheckoutLoading && (
                           <div className="flex items-center justify-center py-12">
                             <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
@@ -1119,7 +1101,7 @@ export default function PaymentPage() {
                         )}
                         <div
                           ref={checkoutMountRef}
-                          className="min-h-[72svh] w-full min-w-0 sm:min-h-[760px]"
+                          className="w-full min-w-0"
                         />
                       </div>
                     </div>

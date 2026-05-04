@@ -72,6 +72,7 @@ const PublicVideoPage = lazy(() => import('@/components/tourLinks/PublicVideoPag
 const CubiCasaScanning = lazy(() => import('./pages/CubiCasaScanning'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const PaymentPage = lazy(() => import('./pages/PaymentPage'));
+const PaymentDemo = lazy(() => import('./pages/PaymentDemo'));
 const AuthenticatedPaymentReturnPage = lazy(() => import('./pages/AuthenticatedPaymentReturnPage'));
 const TermsAndConditions = lazy(() => import('./pages/TermsAndConditions'));
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
@@ -393,6 +394,12 @@ const AppRoutes = () => {
       <Route path="/payment/:token" element={
         <PageTransition>
           <PaymentPage />
+        </PageTransition>
+      } />
+      {/* Demo-only route for UI checking the payment/Stripe layout without a real token */}
+      <Route path="/payment-demo" element={
+        <PageTransition>
+          <PaymentDemo />
         </PageTransition>
       } />
       <Route path="/payment-return/shoot/:shootId" element={
