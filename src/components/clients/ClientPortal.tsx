@@ -441,7 +441,7 @@ export function ClientPortal() {
           <div className="space-y-2">
             <div>
               <h2 className="text-3xl font-bold tracking-tight">Listings</h2>
-              <p className="text-muted-foreground">High-resolution previews with quick gallery access.</p>
+              <p className="text-muted-foreground">High-resolution previews with quick listing access.</p>
             </div>
           </div>
           <Badge variant="outline" className="text-sm h-9 px-4 rounded-full">
@@ -581,9 +581,6 @@ export function ClientPortal() {
                             )}
                           </div>
                         )}
-                        <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
-                          <Badge variant="outline" className="rounded-full">{shoot.category.charAt(0).toUpperCase() + shoot.category.slice(1)}</Badge>
-                        </div>
                         <div className="flex flex-col gap-2">
                           {isDelivered && (
                           <Button className="w-full" size="sm" onClick={() => openListing(shoot)}>
