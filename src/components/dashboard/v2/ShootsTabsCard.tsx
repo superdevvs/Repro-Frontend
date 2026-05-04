@@ -24,6 +24,7 @@ import {
   MoreVertical,
   ChevronsDown,
   Clock,
+  List,
 } from 'lucide-react';
 import { DroneIcon3 } from '@/components/icons/DroneIcon3';
 import { getIconComponent } from '@/components/scheduling/IconPicker';
@@ -284,6 +285,7 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
   const weatherMapRef = useRef<Map<number, WeatherInfo>>(new Map());
   const [providerVersion, setProviderVersion] = useState(0);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isCompactMobile, setIsCompactMobile] = useState(false);
   const lastRequestedCountRef = useRef<number>(requestedShoots.length);
   
   const SHOOTS_PER_PAGE = 5;
@@ -748,6 +750,23 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
     return String(value).trim();
   };
 
+  const getShootDateParts = (shoot: DashboardShootSummary) => {
+    const shootDate = shoot.startTime ? new Date(shoot.startTime) : null;
+    const validDate = shootDate && !Number.isNaN(shootDate.getTime()) ? shootDate : null;
+    const rawTime =
+      shoot.timeLabel ||
+      (validDate
+        ? `${validDate.getHours().toString().padStart(2, '0')}:${validDate.getMinutes().toString().padStart(2, '0')}`
+        : null);
+
+    return {
+      month: validDate ? validDate.toLocaleDateString('en-US', { month: 'short' }).toUpperCase() : '--',
+      day: validDate ? String(validDate.getDate()) : '--',
+      weekday: validDate ? validDate.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase() : '',
+      time: rawTime ? formatTime(rawTime) : '--',
+    };
+  };
+
   const renderShootCard = (shoot: DashboardShootSummary, isRequested: boolean) => {
     const statusKey = (shoot.workflowStatus || shoot.status || '').toLowerCase();
     const statusClass = STATUS_COLORS[statusKey] || STATUS_COLORS.scheduled;
@@ -762,6 +781,7 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
       return parts.map((part) => ({ label: part, type: service.type, icon: service.icon }));
     });
     const weather = weatherMap[shoot.id];
+    const dateParts = getShootDateParts(shoot);
 
     return (
       <div
@@ -769,6 +789,7 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
         onClick={() => onSelect(shoot, weather)}
         className={cn(
           "relative border rounded-3xl px-5 pt-4 pb-3.5 sm:p-5 hover:shadow-lg transition-all cursor-pointer bg-card group",
+          isCompactMobile && "px-3 py-2.5 rounded-2xl sm:rounded-3xl sm:px-5 sm:py-5",
           isRequested 
             ? "border-blue-400 bg-blue-50/30 dark:bg-blue-950/20 hover:border-blue-500" 
             : "border-border hover:border-primary/40"
@@ -782,7 +803,42 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
         )}
 
         {/* ── Mobile layout ── */}
-        <div className="sm:hidden space-y-2.5">
+        {isCompactMobile && (
+          <div className="sm:hidden grid grid-cols-[48px,1fr,auto] items-center gap-3 min-h-[62px]">
+            <div className="rounded-xl border border-border/80 bg-muted/40 dark:bg-muted/20 px-2 py-2 text-center shadow-sm">
+              <p className="text-[9px] font-semibold text-muted-foreground leading-none">{dateParts.month}</p>
+              <p className="mt-0.5 text-lg font-bold leading-none text-foreground">{dateParts.day}</p>
+              <p className="mt-1 text-[9px] font-semibold leading-none text-muted-foreground">{dateParts.weekday}</p>
+            </div>
+
+            <div className="min-w-0 border-l border-border/60 pl-3">
+              <h3 className="truncate text-sm font-semibold text-foreground">{shoot.addressLine}</h3>
+              <p className="mt-1 flex items-center gap-1 truncate text-[10px] text-muted-foreground">
+                <MapPin size={10} className="shrink-0" />
+                <span className="truncate">{shoot.cityStateZip}</span>
+              </p>
+              <p className="mt-1 flex items-center gap-1 truncate text-[10px] text-muted-foreground">
+                <span className="shrink-0">Client</span>
+                <span className="font-semibold text-foreground truncate">• {shoot.clientName || 'Client TBD'}</span>
+                <span className="shrink-0">• #{shoot.id}</span>
+              </p>
+            </div>
+
+            <div className="flex h-full min-w-[76px] flex-col items-end justify-center gap-2">
+              <span className="text-xs font-semibold text-primary">{dateParts.time}</span>
+              <span
+                className={cn(
+                  'inline-flex max-w-[76px] items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap',
+                  statusClass,
+                )}
+              >
+                <span className="truncate">{formatWorkflowStatus(shoot.workflowStatus || shoot.status)}</span>
+              </span>
+            </div>
+          </div>
+        )}
+
+        <div className={cn("sm:hidden space-y-2.5", isCompactMobile && "hidden")}>
           {/* Row 1: Date+time badge + Weather (right-aligned) */}
           <div className="flex items-start gap-2">
             <div className="rounded-xl border border-border/80 bg-muted/40 dark:bg-muted/20 px-2.5 py-1.5 shadow-sm flex-shrink-0 flex items-center gap-2">
@@ -1485,6 +1541,19 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
 
   return (
     <Card className="flex flex-col h-full flex-1 relative">
+      <button
+        onClick={() => setIsCompactMobile((prev) => !prev)}
+        className={cn(
+          "sm:hidden absolute top-3 right-12 z-10 h-8 w-8 flex items-center justify-center rounded-full transition-colors",
+          isCompactMobile
+            ? "bg-primary/15 text-primary"
+            : "hover:bg-muted/60 text-muted-foreground"
+        )}
+        aria-label={isCompactMobile ? "Show full shoot cards" : "Show compact shoot cards"}
+      >
+        <List size={16} />
+      </button>
+
       {/* 3-dot / chevron menu toggle — top-right corner on mobile */}
       <button
         onClick={() => setIsMenuOpen((prev) => !prev)}
@@ -1512,9 +1581,12 @@ export const ShootsTabsCard: React.FC<ShootsTabsCardProps> = ({
             </button>
             <button
               onClick={() => setActiveTab('requested')}
+              disabled={requestedCount === 0}
               className={cn(
                 'px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium transition-all border-b-2 whitespace-nowrap',
-                activeTab === 'requested'
+                requestedCount === 0
+                  ? 'text-muted-foreground/35 border-transparent cursor-not-allowed'
+                  : activeTab === 'requested'
                   ? 'text-foreground border-primary'
                   : 'text-muted-foreground border-transparent hover:text-foreground'
               )}

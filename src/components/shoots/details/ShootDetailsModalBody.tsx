@@ -191,7 +191,7 @@ export function ShootDetailsModalBody({
             </Tabs>
           </div>
 
-          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-2 sm:px-4 py-0.5 sm:py-2.5">
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-2 sm:px-4 py-0 sm:py-2.5">
             <Tabs value={activeTab} onValueChange={handleTabChange}>
               <TabsContent value="overview" className="mt-0">
                 <ShootDetailsOverviewTab
