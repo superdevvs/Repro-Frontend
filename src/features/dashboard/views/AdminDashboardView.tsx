@@ -109,7 +109,7 @@ export const AdminDashboardView = ({
   );
 
   const adminMobileContent = (
-    <div className="space-y-4">
+    <div className="space-y-2 sm:space-y-4">
       <RoleMetricTilesCard tiles={adminMetricTiles} />
       <Tabs
         value={mobileDashboardTab}
@@ -144,8 +144,8 @@ export const AdminDashboardView = ({
   );
 
   return (
-    <div className="px-2 pt-3 pb-3 sm:p-6 flex flex-col min-h-full gap-4 sm:gap-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="px-2 pt-1.5 pb-3 sm:p-6 flex flex-col min-h-full gap-2.5 sm:gap-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
         <div className="flex-1">
           <PageHeader title={greetingTitle} description={DASHBOARD_DESCRIPTION} />
         </div>

@@ -9,6 +9,10 @@ import {
   Edit,
   Link2,
   Loader2,
+  Camera,
+  FileText,
+  Images,
+  MessageCircle,
   MoreVertical,
   PauseCircle,
   PlayCircle,
@@ -16,6 +20,7 @@ import {
   Save,
   Send,
   Share2,
+  Settings,
   X,
   XCircle,
 } from 'lucide-react';
@@ -28,6 +33,27 @@ type VisibleTabId =
   | 'settings'
   | 'activity'
   | 'media';
+
+const getModalTabIcon = (tabId: string) => {
+  switch (tabId) {
+    case 'overview':
+      return Camera;
+    case 'media':
+      return Images;
+    case 'notes':
+      return FileText;
+    case 'issues':
+      return MessageCircle;
+    case 'tours':
+      return Camera;
+    case 'settings':
+      return Settings;
+    case 'activity':
+      return FileText;
+    default:
+      return FileText;
+  }
+};
 
 interface ShootDetailsModalActionRailProps {
   canOpenAiEdit: boolean;
@@ -736,29 +762,34 @@ export function ShootDetailsModalHeader({
 
       <div className="sm:hidden px-2 pb-0.5 overflow-x-auto scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
         <div className="flex gap-0.5 rounded-lg bg-muted/50 p-0.5 min-w-max">
-          {[...visibleTabs.filter((tab) => tab.id !== 'media').slice(0, 1), { id: 'media', label: 'Media' }, ...visibleTabs.filter((tab) => tab.id !== 'media').slice(1)].map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => {
-                if (tab.disabled) {
-                  return;
-                }
+          {[...visibleTabs.filter((tab) => tab.id !== 'media').slice(0, 1), { id: 'media', label: 'Media' }, ...visibleTabs.filter((tab) => tab.id !== 'media').slice(1)].map((tab) => {
+            const TabIcon = getModalTabIcon(tab.id);
 
-                handleTabChange(tab.id);
-              }}
-              disabled={tab.disabled}
-              className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition whitespace-nowrap ${
-                activeTab === tab.id
-                  ? 'bg-blue-600/10 text-blue-500 ring-1 ring-blue-500/50'
-                  : tab.disabled
-                    ? 'cursor-not-allowed text-muted-foreground/50'
-                    : 'text-muted-foreground'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => {
+                  if (tab.disabled) {
+                    return;
+                  }
+
+                  handleTabChange(tab.id);
+                }}
+                disabled={tab.disabled}
+                className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-semibold transition whitespace-nowrap ${
+                  activeTab === tab.id
+                    ? 'bg-blue-600/10 text-blue-500 ring-1 ring-blue-500/50'
+                    : tab.disabled
+                      ? 'cursor-not-allowed text-muted-foreground/50'
+                      : 'text-muted-foreground'
+                }`}
+              >
+                <TabIcon className="h-3 w-3 shrink-0" />
+                {tab.label}
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>

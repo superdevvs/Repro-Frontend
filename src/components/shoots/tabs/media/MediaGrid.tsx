@@ -983,10 +983,10 @@ export function MediaGrid({
 
         {hasStack && (
           <>
-            <div className="absolute bottom-1.5 right-1.5 z-[4] rounded-md border border-black/10 bg-white/95 px-1.5 py-0.5 text-[10px] font-semibold text-slate-900 shadow-sm">
+            <div className="absolute bottom-1.5 right-1.5 z-[4] rounded-md border border-white/10 bg-slate-950/85 px-1.5 py-0.5 text-[10px] font-semibold text-white shadow-sm backdrop-blur">
               {stackPosition}/{stackTotal}
             </div>
-            <div className="pointer-events-none absolute inset-y-0 left-1.5 right-1.5 z-[4] flex items-center justify-between opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
+            <div className="pointer-events-none absolute inset-y-0 left-1.5 right-1.5 z-[4] flex items-center justify-between opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
               <button
                 type="button"
                 className="pointer-events-auto flex h-6 w-6 items-center justify-center rounded-full bg-white/95 text-slate-900 shadow-md transition-transform hover:scale-105"

@@ -2,7 +2,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { PenLine, Save, X } from "lucide-react";
+import { Building2, Camera, ClipboardCheck, FileText, PenLine, Save, X } from "lucide-react";
 import { ShootData } from '@/types/shoots';
 import { useToast } from '@/hooks/use-toast';
 import { API_BASE_URL } from '@/config/env';
@@ -438,174 +438,115 @@ export function ShootNotesTab({
     }
   };
 
-  return (
-    <div className="space-y-3 w-full mt-0">
-      {shouldRenderNoteSection('shootNotes') && (
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-sm font-medium text-green-700 dark:text-green-400">Shoot Notes</h3>
-          {canEdit('shootNotes') && !activeEdits.shootNotes && (
-            <Button variant="ghost" size="sm" onClick={() => handleEditToggle('shootNotes')}>
-              <PenLine className="h-3.5 w-3.5 mr-1" />
-              Edit
-            </Button>
-          )}
-          {canEdit('shootNotes') && activeEdits.shootNotes && (
-            <div className="flex gap-2">
-              <Button variant="ghost" size="sm" onClick={() => handleEditToggle('shootNotes')}>
-                <X className="h-3.5 w-3.5 mr-1" />
-                Cancel
-              </Button>
-              <Button variant="default" size="sm" onClick={() => handleSaveNotes('shootNotes')}>
-                <Save className="h-3.5 w-3.5 mr-1" />
-                Save
-              </Button>
-            </div>
-          )}
-        </div>
-        <Textarea 
-          placeholder="No shoot notes available" 
-          value={displayNoteValue('shootNotes')}
-          onChange={(e) => handleNoteChange(e, 'shootNotes')}
-          readOnly={!activeEdits.shootNotes}
-          className={`resize-none min-h-[60px] ${getNoteBackgroundClass('shootNotes')} ${getNoteTextClass('shootNotes')} border-2 ${getNoteBorderClass('shootNotes')} focus:ring-green-500/40`}
-          style={{
-            boxShadow: "inset 0 1px 3px rgba(0,0,0,0.04)",
-            transition: "all 0.2s ease"
-          }}
-        />
-      </div>
-      )}
-      
-      {shouldRenderNoteSection('approvalNotes') && (
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300">Approval Notes</h3>
-        </div>
-        <Textarea 
-          placeholder="No approval notes available" 
-          value={displayNoteValue('approvalNotes')}
-          onChange={(e) => handleNoteChange(e, 'approvalNotes')}
-          readOnly
-          className={`resize-none min-h-[60px] ${getNoteBackgroundClass('approvalNotes')} ${getNoteTextClass('approvalNotes')} border-2 ${getNoteBorderClass('approvalNotes')}`}
-          style={{
-            boxShadow: "inset 0 1px 3px rgba(0,0,0,0.04)",
-            transition: "all 0.2s ease"
-          }}
-        />
-      </div>
-      )}
+  const getNoteAccentClasses = (noteType: NoteType) => {
+    switch (noteType) {
+      case 'photographerNotes':
+        return {
+          iconWrap: 'bg-blue-100 text-blue-600 border-blue-200 dark:bg-blue-500/15 dark:text-blue-400 dark:border-blue-500/20',
+          title: 'text-blue-700 dark:text-blue-100',
+          button: 'text-blue-600 border-blue-200 hover:bg-blue-50 hover:text-blue-700 dark:text-blue-400 dark:border-blue-500/20 dark:hover:bg-blue-500/10 dark:hover:text-blue-300',
+          icon: Camera,
+        };
+      case 'approvalNotes':
+        return {
+          iconWrap: 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-500/15 dark:text-slate-300 dark:border-slate-500/20',
+          title: 'text-slate-700 dark:text-slate-100',
+          button: 'text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-700 dark:text-slate-300 dark:border-slate-500/20 dark:hover:bg-slate-500/10 dark:hover:text-slate-200',
+          icon: ClipboardCheck,
+        };
+      case 'editingNotes':
+        return {
+          iconWrap: 'bg-purple-100 text-purple-600 border-purple-200 dark:bg-purple-500/15 dark:text-purple-400 dark:border-purple-500/20',
+          title: 'text-purple-700 dark:text-purple-100',
+          button: 'text-purple-600 border-purple-200 hover:bg-purple-50 hover:text-purple-700 dark:text-purple-400 dark:border-purple-500/20 dark:hover:bg-purple-500/10 dark:hover:text-purple-300',
+          icon: FileText,
+        };
+      case 'companyNotes':
+        return {
+          iconWrap: 'bg-amber-100 text-amber-600 border-amber-200 dark:bg-amber-500/15 dark:text-amber-400 dark:border-amber-500/20',
+          title: 'text-amber-700 dark:text-amber-100',
+          button: 'text-amber-600 border-amber-200 hover:bg-amber-50 hover:text-amber-700 dark:text-amber-400 dark:border-amber-500/20 dark:hover:bg-amber-500/10 dark:hover:text-amber-300',
+          icon: Building2,
+        };
+      case 'shootNotes':
+      default:
+        return {
+          iconWrap: 'bg-green-100 text-green-600 border-green-200 dark:bg-green-500/15 dark:text-green-400 dark:border-green-500/20',
+          title: 'text-green-700 dark:text-green-100',
+          button: 'text-green-600 border-green-200 hover:bg-green-50 hover:text-green-700 dark:text-green-400 dark:border-green-500/20 dark:hover:bg-green-500/10 dark:hover:text-green-300',
+          icon: Camera,
+        };
+    }
+  };
 
-      {shouldRenderNoteSection('photographerNotes') && (
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-sm font-medium text-blue-700 dark:text-blue-400">Photographer Notes</h3>
-          {canEdit('photographerNotes') && !activeEdits.photographerNotes && (
-            <Button variant="ghost" size="sm" onClick={() => handleEditToggle('photographerNotes')}>
+  const getNoteTitle = (noteType: NoteType) => {
+    switch (noteType) {
+      case 'approvalNotes':
+        return 'Approval Notes';
+      case 'photographerNotes':
+        return 'Photographer Notes';
+      case 'companyNotes':
+        return 'Company Notes';
+      case 'editingNotes':
+        return 'Editing Notes';
+      case 'shootNotes':
+      default:
+        return 'Shoot Notes';
+    }
+  };
+
+  const renderNoteSection = (noteType: NoteType) => {
+    const accent = getNoteAccentClasses(noteType);
+    const Icon = accent.icon;
+    const isEditing = activeEdits[noteType];
+    const isEditable = canEdit(noteType);
+
+    return (
+      <div className="rounded-xl border border-border/70 bg-card/70 p-3 shadow-sm">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${accent.iconWrap}`}>
+              <Icon className="h-4 w-4" />
+            </span>
+            <h3 className={`truncate text-sm font-semibold ${accent.title}`}>{getNoteTitle(noteType)}</h3>
+          </div>
+          {isEditable && !isEditing && (
+            <Button variant="outline" size="sm" className={`h-8 rounded-lg px-2.5 text-xs ${accent.button}`} onClick={() => handleEditToggle(noteType)}>
               <PenLine className="h-3.5 w-3.5 mr-1" />
               Edit
             </Button>
           )}
-          {canEdit('photographerNotes') && activeEdits.photographerNotes && (
-            <div className="flex gap-2">
-              <Button variant="ghost" size="sm" onClick={() => handleEditToggle('photographerNotes')}>
+          {isEditable && isEditing && (
+            <div className="flex gap-1.5">
+              <Button variant="outline" size="sm" className="h-8 rounded-lg px-2.5 text-xs" onClick={() => handleEditToggle(noteType)}>
                 <X className="h-3.5 w-3.5 mr-1" />
                 Cancel
               </Button>
-              <Button variant="default" size="sm" onClick={() => handleSaveNotes('photographerNotes')}>
+              <Button variant="default" size="sm" className="h-8 rounded-lg px-2.5 text-xs" onClick={() => handleSaveNotes(noteType)}>
                 <Save className="h-3.5 w-3.5 mr-1" />
                 Save
               </Button>
             </div>
           )}
         </div>
-        <Textarea 
-          placeholder="No photographer notes available" 
-          value={displayNoteValue('photographerNotes')}
-          onChange={(e) => handleNoteChange(e, 'photographerNotes')}
-          readOnly={!activeEdits.photographerNotes}
-          className={`resize-none min-h-[60px] ${getNoteBackgroundClass('photographerNotes')} ${getNoteTextClass('photographerNotes')} border-2 ${getNoteBorderClass('photographerNotes')} focus:ring-blue-500/40`}
-          style={{
-            boxShadow: "inset 0 1px 3px rgba(0,0,0,0.04)",
-            transition: "all 0.2s ease"
-          }}
+        <Textarea
+          placeholder={`No ${getNoteTitle(noteType).toLowerCase()} available`}
+          value={displayNoteValue(noteType)}
+          onChange={(e) => handleNoteChange(e, noteType)}
+          readOnly={!isEditing}
+          className={`resize-none min-h-[56px] rounded-lg bg-background/30 ${getNoteTextClass(noteType)} border ${getNoteBorderClass(noteType)} focus:ring-1`}
         />
       </div>
-      )}
-      
-      {shouldRenderNoteSection('companyNotes') && (
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-sm font-medium text-amber-700 dark:text-amber-400">Company Notes</h3>
-          {canEdit('companyNotes') && !activeEdits.companyNotes && (
-            <Button variant="ghost" size="sm" onClick={() => handleEditToggle('companyNotes')}>
-              <PenLine className="h-3.5 w-3.5 mr-1" />
-              Edit
-            </Button>
-          )}
-          {canEdit('companyNotes') && activeEdits.companyNotes && (
-            <div className="flex gap-2">
-              <Button variant="ghost" size="sm" onClick={() => handleEditToggle('companyNotes')}>
-                <X className="h-3.5 w-3.5 mr-1" />
-                Cancel
-              </Button>
-              <Button variant="default" size="sm" onClick={() => handleSaveNotes('companyNotes')}>
-                <Save className="h-3.5 w-3.5 mr-1" />
-                Save
-              </Button>
-            </div>
-          )}
-        </div>
-        <Textarea 
-          placeholder="No company notes available" 
-          value={displayNoteValue('companyNotes')}
-          onChange={(e) => handleNoteChange(e, 'companyNotes')}
-          readOnly={!activeEdits.companyNotes}
-          className={`resize-none min-h-[60px] ${getNoteBackgroundClass('companyNotes')} ${getNoteTextClass('companyNotes')} border-2 ${getNoteBorderClass('companyNotes')} focus:ring-amber-500/40`}
-          style={{
-            boxShadow: "inset 0 1px 3px rgba(0,0,0,0.04)",
-            transition: "all 0.2s ease"
-          }}
-        />
-      </div>
-      )}
-      
-      {shouldRenderNoteSection('editingNotes') && (
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-sm font-medium text-purple-700 dark:text-purple-400">Editing Notes</h3>
-          {canEdit('editingNotes') && !activeEdits.editingNotes && (
-            <Button variant="ghost" size="sm" onClick={() => handleEditToggle('editingNotes')}>
-              <PenLine className="h-3.5 w-3.5 mr-1" />
-              Edit
-            </Button>
-          )}
-          {canEdit('editingNotes') && activeEdits.editingNotes && (
-            <div className="flex gap-2">
-              <Button variant="ghost" size="sm" onClick={() => handleEditToggle('editingNotes')}>
-                <X className="h-3.5 w-3.5 mr-1" />
-                Cancel
-              </Button>
-              <Button variant="default" size="sm" onClick={() => handleSaveNotes('editingNotes')}>
-                <Save className="h-3.5 w-3.5 mr-1" />
-                Save
-              </Button>
-            </div>
-          )}
-        </div>
-        <Textarea 
-          placeholder="No editing notes available" 
-          value={displayNoteValue('editingNotes')}
-          onChange={(e) => handleNoteChange(e, 'editingNotes')}
-          readOnly={!activeEdits.editingNotes}
-          className={`resize-none min-h-[60px] ${getNoteBackgroundClass('editingNotes')} ${getNoteTextClass('editingNotes')} border-2 ${getNoteBorderClass('editingNotes')} focus:ring-purple-500/40`}
-          style={{
-            boxShadow: "inset 0 1px 3px rgba(0,0,0,0.04)",
-            transition: "all 0.2s ease"
-          }}
-        />
-      </div>
-      )}
+    );
+  };
+
+  return (
+    <div className="space-y-2.5 w-full mt-0">
+      {shouldRenderNoteSection('shootNotes') && renderNoteSection('shootNotes')}
+      {shouldRenderNoteSection('approvalNotes') && renderNoteSection('approvalNotes')}
+      {shouldRenderNoteSection('photographerNotes') && renderNoteSection('photographerNotes')}
+      {shouldRenderNoteSection('companyNotes') && renderNoteSection('companyNotes')}
+      {shouldRenderNoteSection('editingNotes') && renderNoteSection('editingNotes')}
     </div>
   );
 }

@@ -16,6 +16,11 @@ import {
   Send,
   Share2,
   ChevronRight,
+  FileText,
+  Images,
+  MessageCircle,
+  Settings,
+  SlidersHorizontal,
 } from 'lucide-react';
 
 interface ShootDetailsPageHeaderProps {
@@ -367,18 +372,20 @@ export function ShootDetailsPageHeader({
 
       <div className="border-t bg-background shadow-sm flex-shrink-0">
         <Tabs value={activeTab} onValueChange={onActiveTabChange} className="w-full">
-          <TabsList className="w-full justify-start h-12 sm:h-14 px-3 sm:px-6 bg-transparent gap-1 overflow-x-auto">
+          <TabsList className="w-full justify-start h-11 sm:h-14 px-2 sm:px-6 bg-transparent gap-1 overflow-x-auto">
             <TabsTrigger
               value="media"
-              className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-semibold data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-10 sm:h-12 px-3 sm:px-4 text-xs sm:text-sm whitespace-nowrap"
+              className="gap-1.5 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-semibold data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-9 sm:h-12 px-2.5 sm:px-4 text-[11px] sm:text-sm whitespace-nowrap"
             >
+              <Images className="h-3.5 w-3.5" />
               Media
             </TabsTrigger>
             {canShowIssuesTab && (
               <TabsTrigger
                 value="issues"
-                className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-semibold data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-10 sm:h-12 px-3 sm:px-4 text-xs sm:text-sm whitespace-nowrap"
+                className="gap-1.5 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-semibold data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-9 sm:h-12 px-2.5 sm:px-4 text-[11px] sm:text-sm whitespace-nowrap"
               >
+                <MessageCircle className="h-3.5 w-3.5" />
                 Requests
               </TabsTrigger>
             )}
@@ -388,22 +395,25 @@ export function ShootDetailsPageHeader({
                   <TabsTrigger
                     value="tour"
                     disabled={isToursTabDisabled}
-                    className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-semibold data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-10 sm:h-12 px-3 sm:px-4 text-xs sm:text-sm whitespace-nowrap"
+                    className="gap-1.5 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-semibold data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-9 sm:h-12 px-2.5 sm:px-4 text-[11px] sm:text-sm whitespace-nowrap"
                   >
+                    <Camera className="h-3.5 w-3.5" />
                     Tour
                   </TabsTrigger>
                 )}
                 <TabsTrigger
                   value="slideshow"
-                  className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-semibold data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-10 sm:h-12 px-3 sm:px-4 text-xs sm:text-sm whitespace-nowrap"
+                  className="gap-1.5 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-semibold data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-9 sm:h-12 px-2.5 sm:px-4 text-[11px] sm:text-sm whitespace-nowrap"
                 >
+                  <SlidersHorizontal className="h-3.5 w-3.5" />
                   Slideshow
                 </TabsTrigger>
                 {canShowSettingsTab && (
                   <TabsTrigger
                     value="settings"
-                    className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-semibold data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-10 sm:h-12 px-3 sm:px-4 text-xs sm:text-sm whitespace-nowrap"
+                    className="gap-1.5 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-semibold data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-9 sm:h-12 px-2.5 sm:px-4 text-[11px] sm:text-sm whitespace-nowrap"
                   >
+                    <Settings className="h-3.5 w-3.5" />
                     Settings
                   </TabsTrigger>
                 )}
@@ -412,8 +422,9 @@ export function ShootDetailsPageHeader({
             {canShowActivity && (
               <TabsTrigger
                 value="activity"
-                className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-semibold data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-10 sm:h-12 px-3 sm:px-4 text-xs sm:text-sm whitespace-nowrap"
+                className="gap-1.5 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-semibold data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-9 sm:h-12 px-2.5 sm:px-4 text-[11px] sm:text-sm whitespace-nowrap"
               >
+                <FileText className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Activity Log</span>
                 <span className="sm:hidden">Activity</span>
               </TabsTrigger>
@@ -421,8 +432,9 @@ export function ShootDetailsPageHeader({
             {canShowNotesTab && (
               <TabsTrigger
                 value="notes"
-                className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-semibold data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-10 sm:h-12 px-3 sm:px-4 text-xs sm:text-sm whitespace-nowrap"
+                className="gap-1.5 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-semibold data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-9 sm:h-12 px-2.5 sm:px-4 text-[11px] sm:text-sm whitespace-nowrap"
               >
+                <FileText className="h-3.5 w-3.5" />
                 Notes
               </TabsTrigger>
             )}
