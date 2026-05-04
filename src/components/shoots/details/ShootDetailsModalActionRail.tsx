@@ -653,13 +653,13 @@ export function ShootDetailsModalHeader({
         <div className="flex items-start justify-between gap-2 sm:gap-4">
           <div className="flex-1 min-w-0 w-full sm:w-auto">
             <div className="flex items-center gap-2 sm:gap-3 mb-1.5 sm:mb-2 flex-wrap">
-              <div className="group/address flex min-w-0 items-center gap-1.5">
-                <h2 className="text-base sm:text-lg font-bold truncate text-left">{addressTitle}</h2>
+              <div className="group/address flex min-w-0 max-w-full items-center gap-1.5">
+                <h2 className="min-w-0 text-base sm:text-lg font-bold truncate text-left">{addressTitle}</h2>
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="h-6 w-6 flex-shrink-0 rounded-full opacity-0 transition-opacity group-hover/address:opacity-100 focus-visible:opacity-100"
+                  className="h-6 w-6 flex-shrink-0 rounded-full opacity-70 transition-opacity hover:opacity-100 focus-visible:opacity-100"
                   onClick={handleCopyAddress}
                   title="Copy address"
                   aria-label="Copy address"
